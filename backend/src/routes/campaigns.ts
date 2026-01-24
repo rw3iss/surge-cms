@@ -17,7 +17,7 @@ const campaignSchema = z.object({
   slug: z.string().min(1).max(255).regex(/^[a-z0-9-]+$/),
   description: z.string(),
   shortDescription: z.string().optional(),
-  featuredImage: z.string().url().optional(),
+  featuredImage: z.string().url().nullish(),
   goalAmountCents: z.number().int().positive(),
   status: z.enum(['draft', 'active', 'completed', 'cancelled']).optional(),
   startDate: z.string().datetime().optional(),
