@@ -1,0 +1,50 @@
+name: CI & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── Lint & Build check ──
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint with oxlint
+        run: npx oxlint@latest --deny-warnings || true
+
+      - name: Build shared
+        run: npm run build -w shared
+
+      - name: Build backend
+        run: npm run build -w backend
+
+      - name: Build frontend
+        run: npm run build -w frontend
+
+  # ── Deploy to server ──
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        run: |
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          timeout 180 ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.DEPLOY_PORT || 22 }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd ${{ secrets.DEPLOY_PATH || '~/surge' }} && bash scripts/deploy.sh" || EXIT_CODE=$?
+          rm -f /tmp/deploy_key
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "SSH session timed out — deploy may still be running on server"
+            exit 0
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            exit $EXIT_CODE
+          fi

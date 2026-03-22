@@ -18,8 +18,12 @@
 		"start": "npm run start --workspace=backend",
 		"db:migrate": "npm run db:migrate --workspace=backend",
 		"db:seed": "npm run db:seed --workspace=backend",
-		"lint": "npm run lint --workspaces",
-		"test": "npm run test --workspaces"
+		"lint": "npx oxlint@latest --quiet",
+		"lint:all": "npm run lint && npm run build",
+		"test": "npm run test --workspaces",
+		"deploy": "bash scripts/deploy.sh",
+		"precheck": "bash scripts/pre-push-check.sh",
+		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true"
 	},
 	"devDependencies": {
 		"concurrently": "^8.2.2",

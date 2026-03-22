@@ -1,0 +1,115 @@
+.tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  vertical-align: middle;
+  position: relative;
+
+  &__icon {
+    width: 16px;
+    height: 16px;
+    color: $text-light;
+    transition: color 0.15s;
+  }
+
+  &:hover &__icon,
+  &:focus-visible &__icon {
+    color: $primary-color;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+    border-radius: 50%;
+  }
+}
+
+.tooltip-popup {
+  z-index: $z-index-tooltip;
+  background: $secondary-color;
+  color: #fff;
+  border-radius: $border-radius-md;
+  box-shadow: $shadow-xl;
+  padding: 0;
+  font-size: $font-size-sm;
+  line-height: 1.5;
+  animation: tooltip-fade-in 0.15s ease-out;
+  pointer-events: auto;
+
+  // Arrow
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+  }
+
+  &--top::after {
+    top: 100%;
+    border-top-color: $secondary-color;
+  }
+
+  &--bottom::after {
+    bottom: 100%;
+    border-bottom-color: $secondary-color;
+  }
+
+  &__header {
+    padding: $spacing-sm $spacing-md;
+    font-weight: 600;
+    font-size: $font-size-sm;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  &__content {
+    padding: $spacing-sm $spacing-md;
+    color: rgba(255, 255, 255, 0.9);
+
+    p {
+      margin: 0 0 $spacing-xs;
+      &:last-child { margin-bottom: 0; }
+    }
+
+    code {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md $spacing-sm;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  &__action {
+    padding: 3px $spacing-sm;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s;
+
+    &--primary {
+      background: $primary-color;
+      color: #fff;
+      &:hover { background: darken($primary-color, 8%); }
+    }
+
+    &--secondary {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      &:hover { background: rgba(255, 255, 255, 0.25); }
+    }
+  }
+}
+
+@keyframes tooltip-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

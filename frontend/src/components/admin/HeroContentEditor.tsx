@@ -5,6 +5,7 @@ import HeroCarousel from '../HeroCarousel';
 import ColorPicker from './ColorPicker';
 import MediaSelectModal from './MediaSelectModal';
 import MediaUploadModal from './MediaUploadModal';
+import Tooltip from './Tooltip';
 import './HeroContentEditor.scss';
 
 const genId = () => 'hero-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
@@ -600,6 +601,17 @@ const HeroContentEditor: Component = () => {
                   onInput={(e) => updateOptions({ height: e.currentTarget.value })}
                 />
               </Show>
+              <Tooltip
+                header="Height Values"
+                content={
+                  <div>
+                    <p><code>px</code> — Fixed pixel height (e.g. <code>600px</code>). Stays the same size on all screens.</p>
+                    <p><code>vh</code> — Percentage of viewport height (e.g. <code>50vh</code> = half the screen). Scales with the browser window height.</p>
+                    <p><code>vw</code> — Percentage of viewport width (e.g. <code>30vw</code>). Scales with the browser window width — useful for maintaining aspect ratio.</p>
+                    <p><code>%</code> — Percentage of the parent container (e.g. <code>50%</code>). Relative to the element the hero sits inside.</p>
+                  </div>
+                }
+              />
             </div>
           </div>
         </div>
