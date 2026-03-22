@@ -4,3 +4,7 @@ node_modules/
 uploads/
 
 _*.md
+
+dist/
+
+pnpm-lock.yml
