@@ -49,7 +49,7 @@ const AdminLayout: ParentComponent = (props) => {
             <A href="/" onClick={handleNavClick}>Surge Media</A>
           </div>
           <nav class="admin-layout__nav">
-            <A href="/admin" class={`admin-layout__nav-link ${location.pathname === '/admin' ? 'active' : ''}`} onClick={handleNavClick}>Dashboard</A>
+            <A href="/admin" end class={`admin-layout__nav-link ${location.pathname === '/admin' ? 'active' : ''}`} onClick={handleNavClick}>Dashboard</A>
             <A href="/admin/pages" class={`admin-layout__nav-link ${isActive('/admin/pages') ? 'active' : ''}`} onClick={handleNavClick}>Pages</A>
             <A href="/admin/posts" class={`admin-layout__nav-link ${isActive('/admin/posts') ? 'active' : ''}`} onClick={handleNavClick}>Posts</A>
             <A href="/admin/campaigns" class={`admin-layout__nav-link ${isActive('/admin/campaigns') ? 'active' : ''}`} onClick={handleNavClick}>Campaigns</A>

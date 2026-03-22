@@ -22,6 +22,21 @@ const Login: Component = () => {
 
     try {
       await auth.login(email(), password(), rememberMe());
+
+      // Signal Chrome to save the credential
+      if (window.PasswordCredential) {
+        try {
+          const cred = new window.PasswordCredential({
+            id: email(),
+            password: password(),
+            name: email(),
+          });
+          await navigator.credentials.store(cred);
+        } catch {
+          // Credential storage is best-effort
+        }
+      }
+
       const returnUrl = searchParams.return || '/';
       navigate(returnUrl);
     } catch (err) {

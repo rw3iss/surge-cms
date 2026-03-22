@@ -35,6 +35,7 @@ export const Header: Component<HeaderProps> = (props) => {
     <header class="header">
       <div class="header__container">
         <A href="/" class="header__logo" onClick={closeMobileMenu}>
+          <img src="/images/surge_logo.svg" alt="" class="header__logo-icon" />
           <Show when={props.logo} fallback={<span class="header__logo-text">{props.siteName}</span>}>
             <img src={props.logo} alt={props.siteName} class="header__logo-image" />
           </Show>

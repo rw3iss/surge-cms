@@ -1,4 +1,4 @@
-import { Component, createResource, createSignal, For, Show } from 'solid-js';
+import { Component, createResource, createSignal, lazy, For, Show } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { Title, Meta, Link } from '@solidjs/meta';
 import { fetchPage } from '../services/api';
@@ -6,6 +6,8 @@ import { BlockRenderer } from '../components/BlockRenderer';
 import ContentGate from '../components/ContentGate';
 import { useAuth } from '../stores/auth';
 import type { Page, ContentAccessLevel } from '@surge/shared';
+
+const NotFoundPage = lazy(() => import('./NotFound'));
 
 interface LockedContent {
   accessLevel: ContentAccessLevel;
@@ -66,7 +68,7 @@ const DynamicPage: Component = () => {
       </Show>
       <Show when={!lockedContent()}>
         <Show when={page()} fallback={
-          <Show when={page.loading} fallback={<div>Page not found</div>}>
+          <Show when={page.loading} fallback={<NotFoundPage />}>
             <div>Loading...</div>
           </Show>
         }>

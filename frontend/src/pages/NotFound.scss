@@ -1,0 +1,74 @@
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: $spacing-2xl $spacing-md;
+  text-align: center;
+
+  &__logo-link {
+    display: block;
+    margin-bottom: $spacing-xl;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &__logo {
+    width: 160px;
+    height: auto;
+
+    @include md {
+      width: 200px;
+    }
+  }
+
+  &__code {
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1;
+    color: $primary-color;
+    margin: 0 0 $spacing-sm;
+    letter-spacing: -0.03em;
+
+    @include md {
+      font-size: 8rem;
+    }
+  }
+
+  &__message {
+    font-size: $font-size-2xl;
+    font-weight: 600;
+    color: $text-color;
+    margin: 0 0 $spacing-sm;
+  }
+
+  &__detail {
+    font-size: $font-size-base;
+    color: $text-light;
+    margin: 0 0 $spacing-xl;
+    max-width: 400px;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    padding: $spacing-sm $spacing-xl;
+    background: $primary-color;
+    color: white;
+    border-radius: $border-radius-md;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: $font-size-base;
+    transition: background 0.2s, transform 0.15s;
+
+    &:hover {
+      background: darken($primary-color, 8%);
+      color: white;
+      transform: translateY(-1px);
+    }
+  }
+}
