@@ -7,8 +7,13 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# ── 0. Source nvm if available (needed for correct Node version) ──
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
 echo "=== Surge Deploy ==="
 echo "Directory: $PROJECT_ROOT"
+echo "Node: $(node --version) | npm: $(npm --version)"
 echo "Date: $(date)"
 
 # ── 1. Pull latest code ──
@@ -16,10 +21,10 @@ echo ""
 echo "--- git pull ---"
 git pull --ff-only || git pull
 
-# ── 2. Install dependencies ──
+# ── 2. Install dependencies (including dev for build tools like tsc) ──
 echo ""
 echo "--- npm install ---"
-npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+npm install
 
 # ── 3. Build all workspaces ──
 echo ""
@@ -42,6 +47,12 @@ npm run db:migrate -w backend 2>&1 || {
 # ── 5. Restart backend via pm2 ──
 echo ""
 echo "--- restarting backend ---"
+
+# Ensure pm2 is available
+if ! command -v pm2 &> /dev/null; then
+  echo "Installing pm2..."
+  npm install -g pm2
+fi
 
 # Check if pm2 process exists
 if pm2 describe surge-backend > /dev/null 2>&1; then
