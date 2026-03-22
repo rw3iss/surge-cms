@@ -44,13 +44,6 @@ const upload = multer({
   limits: {
     fileSize: config.upload.maxSizeMb * 1024 * 1024,
   },
-  fileFilter: (_req, file, cb) => {
-    if (config.upload.allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new ValidationError(`File type ${file.mimetype} is not allowed`));
-    }
-  },
 });
 
 async function createThumbnail(
