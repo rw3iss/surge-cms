@@ -242,6 +242,11 @@ export const search = (query: string, type?: string,) => {
     return api.get(`/search?${params.toString()}`,);
 };
 
+export const fetchSiteHeader = () => api.get('/settings/site-header',);
+export const saveSiteHeader = (data: any,) => api.put('/settings/site-header', data,);
+export const fetchSiteBranding = () => api.get('/settings/site-branding',);
+export const saveSiteBranding = (data: any,) => api.put('/settings/site-branding', data,);
+
 export const fetchBlockStyles = () => api.get('/block-styles',);
 export const createBlockStyle = (data: any,) => api.post('/block-styles', data,);
 export const updateBlockStyle = (id: string, data: any,) => api.put(`/block-styles/${id}`, data,);

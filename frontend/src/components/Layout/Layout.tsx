@@ -1,8 +1,9 @@
 import type { NavigationItem, SiteSettings, } from '@surge/shared';
 import { createResource, ParentComponent, } from 'solid-js';
-import { fetchNavigation, fetchSettings, } from '../../services/api';
+import { fetchNavigation, fetchSettings, fetchSiteHeader, } from '../../services/api';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
+import type { SiteHeaderSettings, } from './Header';
 import './Layout.scss';
 
 export const Layout: ParentComponent = (props,) => {
@@ -16,12 +17,22 @@ export const Layout: ParentComponent = (props,) => {
         return response.success ? response.data as SiteSettings : null;
     },);
 
+    const [headerSettings,] = createResource(async () => {
+        const response = await fetchSiteHeader();
+        if (response.success && response.data) {
+            const data = response.data as SiteHeaderSettings;
+            if (data.items?.length) return data;
+        }
+        return null;
+    },);
+
     return (
         <div class="layout">
             <Header
                 navigation={navigation() || []}
                 siteName={settings()?.siteName || 'Surge Media'}
                 logo={settings()?.logo}
+                headerSettings={headerSettings()}
             />
 
             <main class="layout__main">

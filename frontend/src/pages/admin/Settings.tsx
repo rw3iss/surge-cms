@@ -1,8 +1,11 @@
 import { Title, } from '@solidjs/meta';
-import { Component, createEffect, createResource, createSignal, For, lazy, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { Component, createEffect, createResource, createSignal, For, lazy, onMount, Show, } from 'solid-js';
+import MediaSelectModal from '../../components/admin/MediaSelectModal';
+import MediaUploadModal from '../../components/admin/MediaUploadModal';
+import { api, fetchSiteBranding, saveSiteBranding, } from '../../services/api';
 
 const HeroContentEditor = lazy(() => import('../../components/admin/HeroContentEditor'));
+const SiteHeaderEditor = lazy(() => import('../../components/admin/SiteHeaderEditor'));
 
 // ─── Collapsible Section ───
 
@@ -257,6 +260,89 @@ function ConnectionsPanel() {
     );
 }
 
+// ─── Branding Media Selector ───
+
+interface BrandingMediaRef {
+    mediaId?: string;
+    url?: string;
+}
+
+function BrandingMediaField(props: {
+    label: string;
+    value: BrandingMediaRef;
+    onChange: (val: BrandingMediaRef,) => void;
+},) {
+    const [showSelect, setShowSelect,] = createSignal(false,);
+    const [showUpload, setShowUpload,] = createSignal(false,);
+
+    return (
+        <div class="form-group">
+            <label>{props.label}</label>
+            <div style={{ display: 'flex', 'align-items': 'center', gap: '0.75rem', 'flex-wrap': 'wrap', }}>
+                <Show when={props.value.url}>
+                    <img
+                        src={props.value.url}
+                        alt={props.label}
+                        style={{
+                            'max-height': '40px',
+                            'max-width': '120px',
+                            'object-fit': 'contain',
+                            border: '1px solid #ddd',
+                            'border-radius': '4px',
+                            padding: '2px',
+                        }}
+                    />
+                </Show>
+                <button
+                    type="button"
+                    class="btn btn--small btn--secondary"
+                    onClick={() => setShowSelect(true,)}
+                >
+                    Select Media
+                </button>
+                <button
+                    type="button"
+                    class="btn btn--small btn--outline"
+                    onClick={() => setShowUpload(true,)}
+                >
+                    Upload New
+                </button>
+                <Show when={props.value.url}>
+                    <button
+                        type="button"
+                        class="btn btn--small btn--danger"
+                        onClick={() => props.onChange({ mediaId: undefined, url: undefined, },)}
+                        title={`Remove ${props.label}`}
+                    >
+                        &times;
+                    </button>
+                </Show>
+            </div>
+
+            <Show when={showSelect()}>
+                <MediaSelectModal
+                    types={['image',]}
+                    onSelect={(media,) => {
+                        props.onChange({ mediaId: media.id, url: media.url, },);
+                        setShowSelect(false,);
+                    }}
+                    onClose={() => setShowSelect(false,)}
+                />
+            </Show>
+            <Show when={showUpload()}>
+                <MediaUploadModal
+                    acceptTypes="image/*"
+                    onUploaded={(media,) => {
+                        props.onChange({ mediaId: media.id, url: media.url, },);
+                        setShowUpload(false,);
+                    }}
+                    onClose={() => setShowUpload(false,)}
+                />
+            </Show>
+        </div>
+    );
+}
+
 // ─── Main Settings Page ───
 
 const AdminSettings: Component = () => {
@@ -272,6 +358,10 @@ const AdminSettings: Component = () => {
     const [saving, setSaving,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
 
+    // Branding state
+    const [logo, setLogo,] = createSignal<BrandingMediaRef>({},);
+    const [favicon, setFavicon,] = createSignal<BrandingMediaRef>({},);
+
     createEffect(() => {
         const s = settings();
         if (!s) return;
@@ -281,6 +371,20 @@ const AdminSettings: Component = () => {
         const analytics = getValue(s, 'analytics', null,);
         if (analytics && typeof analytics === 'object') {
             setAnalyticsId((analytics as any).googleAnalyticsId || '',);
+        }
+    },);
+
+    // Load branding on mount
+    onMount(async () => {
+        try {
+            const res = await fetchSiteBranding();
+            if (res.success && res.data) {
+                const data = res.data as any;
+                if (data.logo) setLogo(data.logo,);
+                if (data.favicon) setFavicon(data.favicon,);
+            }
+        } catch (e) {
+            console.error('Failed to load branding:', e,);
         }
     },);
 
@@ -304,6 +408,13 @@ const AdminSettings: Component = () => {
         }
 
         await api.put('/settings', data,);
+
+        // Save branding separately
+        await saveSiteBranding({
+            logo: logo(),
+            favicon: favicon(),
+        },);
+
         setSaving(false,);
         setSuccess(true,);
         refetch();
@@ -348,6 +459,31 @@ const AdminSettings: Component = () => {
                             />
                         </div>
 
+                        {/* Logo & Favicon */}
+                        <h3
+                            style={{
+                                'margin-top': '1.5rem',
+                                'margin-bottom': '0.75rem',
+                                'font-size': '0.9rem',
+                                'font-weight': '600',
+                                'color': '#666',
+                            }}
+                        >
+                            Branding
+                        </h3>
+
+                        <BrandingMediaField
+                            label="Logo"
+                            value={logo()}
+                            onChange={(val,) => setLogo(val,)}
+                        />
+
+                        <BrandingMediaField
+                            label="Favicon"
+                            value={favicon()}
+                            onChange={(val,) => setFavicon(val,)}
+                        />
+
                         <h3
                             style={{
                                 'margin-top': '1.5rem',
@@ -375,6 +511,13 @@ const AdminSettings: Component = () => {
                             </button>
                         </div>
                     </form>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Site Header" defaultOpen={false}>
+                    <p class="form-help" style={{ 'margin-bottom': '1rem', }}>
+                        Customize the site header with images, links, buttons, and spacers.
+                    </p>
+                    <SiteHeaderEditor />
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Home Page" defaultOpen={true}>

@@ -5,11 +5,187 @@ import { useAuth, } from '../../stores/auth';
 import SiteLogo from '../SiteLogo';
 import './Header.scss';
 
+// ─── Site Header Item Types ───
+
+type HeaderItemType = 'image' | 'image_link' | 'text' | 'text_link' | 'button' | 'menu' | 'gap' | 'flex_spacer';
+
+interface SiteHeaderItem {
+    id: string;
+    type: HeaderItemType;
+    text?: string;
+    url?: string;
+    imageUrl?: string;
+    mediaId?: string;
+    openInNewTab?: boolean;
+    buttonColor?: string;
+    fontSize?: string;
+    textColor?: string;
+    width?: string;
+    alignment?: string;
+    margin?: string;
+    padding?: string;
+    order: number;
+}
+
+export interface SiteHeaderSettings {
+    items: SiteHeaderItem[];
+    backgroundColor?: string;
+    padding?: string;
+    margin?: string;
+}
+
 interface HeaderProps {
     navigation: NavigationItem[];
     siteName: string;
     logo?: string;
+    headerSettings?: SiteHeaderSettings | null;
 }
+
+// ─── Render a single header item ───
+
+function HeaderItem(props: { item: SiteHeaderItem; },) {
+    const item = () => props.item;
+
+    const baseStyle = () => {
+        const s: Record<string, string> = {};
+        if (item().fontSize) s['font-size'] = item().fontSize!;
+        if (item().textColor) s['color'] = item().textColor!;
+        if (item().width) s['width'] = item().width!;
+        if (item().margin) s['margin'] = item().margin!;
+        if (item().padding) s['padding'] = item().padding!;
+        if (item().alignment) s['text-align'] = item().alignment!;
+        return s;
+    };
+
+    const linkTarget = () => item().openInNewTab ? '_blank' : undefined;
+    const linkRel = () => item().openInNewTab ? 'noopener noreferrer' : undefined;
+
+    switch (item().type) {
+        case 'image':
+            return (
+                <img
+                    src={item().imageUrl}
+                    alt=""
+                    class="header__custom-img"
+                    style={baseStyle()}
+                />
+            );
+
+        case 'image_link':
+            return (
+                <a
+                    href={item().url || '#'}
+                    target={linkTarget()}
+                    rel={linkRel()}
+                    class="header__custom-image-link"
+                    style={baseStyle()}
+                >
+                    <img src={item().imageUrl} alt="" />
+                </a>
+            );
+
+        case 'text':
+            return (
+                <span class="header__custom-text" style={baseStyle()}>
+                    {item().text}
+                </span>
+            );
+
+        case 'text_link':
+            return (
+                <Show
+                    when={!item().openInNewTab && item().url && !item().url!.startsWith('http',)}
+                    fallback={
+                        <a
+                            href={item().url || '#'}
+                            target={linkTarget()}
+                            rel={linkRel()}
+                            class="header__custom-text-link"
+                            style={baseStyle()}
+                        >
+                            {item().text}
+                        </a>
+                    }
+                >
+                    <A
+                        href={item().url || '/'}
+                        class="header__custom-text-link"
+                        style={baseStyle()}
+                    >
+                        {item().text}
+                    </A>
+                </Show>
+            );
+
+        case 'button':
+            return (
+                <a
+                    href={item().url || '#'}
+                    target={linkTarget()}
+                    rel={linkRel()}
+                    class="header__custom-btn"
+                    style={{
+                        ...baseStyle(),
+                        background: item().buttonColor || '#333',
+                        color: '#fff',
+                    }}
+                >
+                    {item().text}
+                </a>
+            );
+
+        case 'menu':
+            // Basic rendering as a text link for now
+            return (
+                <Show
+                    when={!item().openInNewTab && item().url && !item().url!.startsWith('http',)}
+                    fallback={
+                        <a
+                            href={item().url || '#'}
+                            target={linkTarget()}
+                            rel={linkRel()}
+                            class="header__custom-text-link"
+                            style={baseStyle()}
+                        >
+                            {item().text}
+                        </a>
+                    }
+                >
+                    <A
+                        href={item().url || '/'}
+                        class="header__custom-text-link"
+                        style={baseStyle()}
+                    >
+                        {item().text}
+                    </A>
+                </Show>
+            );
+
+        case 'gap':
+            return (
+                <div
+                    class="header__custom-gap"
+                    style={{ width: item().width || '20px', 'flex-shrink': '0', }}
+                />
+            );
+
+        case 'flex_spacer':
+            return (
+                <div
+                    class="header__custom-spacer"
+                    style={{
+                        flex: '1',
+                        ...(item().width ? { 'max-width': item().width, } : {}),
+                    }}
+                />
+            );
+
+        default:
+            return null;
+    }
+}
+
+// ─── Header Component ───
 
 export const Header: Component<HeaderProps> = (props,) => {
     const [mobileMenuOpen, setMobileMenuOpen,] = createSignal(false,);
@@ -32,47 +208,73 @@ export const Header: Component<HeaderProps> = (props,) => {
         setMobileMenuOpen(false,);
     };
 
+    const hasCustomHeader = () => props.headerSettings?.items && props.headerSettings.items.length > 0;
+
+    const headerStyle = () => {
+        if (!hasCustomHeader()) return {};
+        const s: Record<string, string> = {};
+        if (props.headerSettings?.backgroundColor) s['background'] = props.headerSettings.backgroundColor;
+        if (props.headerSettings?.padding) s['padding'] = props.headerSettings.padding;
+        if (props.headerSettings?.margin) s['margin'] = props.headerSettings.margin;
+        return s;
+    };
+
     return (
-        <header class="header">
+        <header class="header" style={headerStyle()}>
             <div class="header__container">
-                <A href="/" class="header__logo" onClick={closeMobileMenu}>
-                    <SiteLogo name={props.siteName} logoSrc={props.logo} />
-                </A>
+                <Show when={!hasCustomHeader()}>
+                    <A href="/" class="header__logo" onClick={closeMobileMenu}>
+                        <SiteLogo name={props.siteName} logoSrc={props.logo} />
+                    </A>
+                </Show>
+
+                <Show when={hasCustomHeader()}>
+                    <div
+                        class="header__custom-items"
+                        style={{ gap: (props.headerSettings as any)?.itemSpacing || undefined, }}
+                    >
+                        <For each={props.headerSettings!.items}>
+                            {(item,) => <HeaderItem item={item} />}
+                        </For>
+                    </div>
+                </Show>
 
                 <nav class={`header__nav ${mobileMenuOpen() ? 'header__nav--open' : ''}`}>
-                    <ul class="header__nav-list">
-                        <For each={props.navigation}>
-                            {(item,) => (
-                                <Show when={item.isVisible}>
-                                    <li class="header__nav-item">
-                                        <Show
-                                            when={item.isExternal}
-                                            fallback={
-                                                <A
-                                                    href={item.slug === 'home' ? '/' : `/${item.slug}`}
-                                                    class={`header__nav-link ${
-                                                        isActive(item.slug,) ? 'header__nav-link--active' : ''
-                                                    }`}
-                                                    onClick={closeMobileMenu}
+                    <Show when={!hasCustomHeader()}>
+                        <ul class="header__nav-list">
+                            <For each={props.navigation}>
+                                {(item,) => (
+                                    <Show when={item.isVisible}>
+                                        <li class="header__nav-item">
+                                            <Show
+                                                when={item.isExternal}
+                                                fallback={
+                                                    <A
+                                                        href={item.slug === 'home' ? '/' : `/${item.slug}`}
+                                                        class={`header__nav-link ${
+                                                            isActive(item.slug,) ? 'header__nav-link--active' : ''
+                                                        }`}
+                                                        onClick={closeMobileMenu}
+                                                    >
+                                                        {item.label}
+                                                    </A>
+                                                }
+                                            >
+                                                <a
+                                                    href={item.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="header__nav-link"
                                                 >
                                                     {item.label}
-                                                </A>
-                                            }
-                                        >
-                                            <a
-                                                href={item.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                class="header__nav-link"
-                                            >
-                                                {item.label}
-                                            </a>
-                                        </Show>
-                                    </li>
-                                </Show>
-                            )}
-                        </For>
-                    </ul>
+                                                </a>
+                                            </Show>
+                                        </li>
+                                    </Show>
+                                )}
+                            </For>
+                        </ul>
+                    </Show>
 
                     {/* Admin link - inline with other nav links, no special styling */}
                     <Show when={auth.isAuthenticated && auth.user?.role === 'admin'}>

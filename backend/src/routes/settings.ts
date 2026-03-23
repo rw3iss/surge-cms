@@ -203,6 +203,112 @@ router.put('/homepage-hero', authenticate(), requireAdmin, async (req: Authentic
     }
 },);
 
+// Get site header settings (public, cached)
+router.get('/site-header', async (_req, res,) => {
+    try {
+        const cacheKey = 'settings:site_header';
+        const cached = await cache.get(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'site_header'`,
+        );
+
+        const data = result.rows.length > 0 ?
+            result.rows[0].value :
+            { items: [], backgroundColor: undefined, padding: undefined, margin: undefined, };
+
+        await cache.set(cacheKey, data, 600,);
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch site header settings',);
+    }
+},);
+
+// Update site header settings (admin)
+router.put('/site-header', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+       VALUES ('site_header', $1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(data,), req.userId,],
+        );
+
+        await cache.del('settings:site_header',);
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'site_header',
+            newValues: data,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'save site header settings',);
+    }
+},);
+
+// Get site branding settings (public, cached)
+router.get('/site-branding', async (_req, res,) => {
+    try {
+        const cacheKey = 'settings:site_branding';
+        const cached = await cache.get(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'site_branding'`,
+        );
+
+        const data = result.rows.length > 0 ?
+            result.rows[0].value :
+            { logo: { mediaId: undefined, url: undefined, }, favicon: { mediaId: undefined, url: undefined, }, };
+
+        await cache.set(cacheKey, data, 600,);
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch site branding settings',);
+    }
+},);
+
+// Update site branding settings (admin)
+router.put('/site-branding', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+       VALUES ('site_branding', $1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(data,), req.userId,],
+        );
+
+        await cache.del('settings:site_branding',);
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'site_branding',
+            newValues: data,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'save site branding settings',);
+    }
+},);
+
 // Update single setting (admin)
 router.put('/:key', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {

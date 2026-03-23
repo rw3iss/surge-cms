@@ -1,0 +1,38 @@
+
+We need to make some chanes to the Admin > Settings page, to be able to customize more site-wide settings.
+- In the 'General' section, add the ability to select the site logo: use a component already used in ie. the block media select, or the Settings > Home Page section's hero carousel item media selection components, which are better. The user should be able to select an existing media item for the logo setting (show the existing media popup with 'select' option. This media popup should only show 'image' type media items in its results view). Similarly, the 'upload new media' button should open the 'add new media' modal, like the carousel items do. Upon selecting a media item for the logo, the media item should show as a preview for the logo there, in the setting, with a 'remove' icon button to the right of it, which clears the logo. Also add a similar selection and setting for the 'favicon'. This might be a special case, where the icon needs to be uploaded to the site's public or main directory, for the favicon to work, but see if you can get a simple file upload to work here, and upload or mark it to replace the existing favicon when the settings are saved.
+- We need an ability to edit the Site header links: their text, link destination, and order. Make a new colapsable section in the Settings page called 'Site Header', and show a panel to Control and add items to the site header. We should get a litte creative here, and let the user add different kinds of items, including images, link buttons, actual buttons, small gap/spacers at a specified size, and also flex/full spacers, that will push content. Each header item should also be able to override custom properties like it's width value, and text alignment. Let's make a control panel with a kind of full-width "preview" of the menu links, as they are added, in a horizontal list, but they should each be "smart", and wrapped in a custom preview header item element, which will let the user drag that header element in the preview header bar (ie. re-order them), and also highlight it when hovering over it (ie. with a red border), and then allow them to select each highighted item, to open its edit panel below, and edit that header item's properties.
+The horizontal list will just be a preview of the items, as they are laid out and configured, with the ability to sort them, and select them to open their edit options below the preview section.
+Show an 'Add new header item' button above the preview, which should add a new basic header item to the end of the current list of header items (the user can drag to reorder it after).
+Whenever a header item is selected, or 'add new header item' is clicked (in which case that new header item should be added to the end, and selected), then open that header item's custom edit panel below. Make a custom component to wrap the header item edit options, for any given header item. The options should include:
+- item type: image, image link, text, text link, button, menu, gap, flex spacer
+- font size: use the font size selection or 'custom' override components we are using in the block style editor's properties (they can be re-usable and shared, if possible), so changes will affect all implementations, as these will be the same. Don't show this option for 'gap' and 'flex spacer' types.
+- text color: show the custom color picker component we made, with the hex input. Don't show this option for 'gap' and 'flex spacer' types.
+- width: use the width property edit components from the block style editor 'width', the same functionailty. It should accept any css value (show the help icon tooltip too).
+- alignment: left, center, right. Don't show this option for 'gap' and 'flex spacer' types.
+- margin: use the margin property edit components from the block style editor 'margin', the same functionailty. It should accept any css value (show the help icon tooltip too).
+- padding: use the padding property edit components from the block style editor 'padding', the same functionailty. It should accept any css value (show the help icon tooltip too).
+
+For the 'image' type, the width should be applied to the image itself, or at least a container on it, and have the underlying image stretch to the size of its parent.
+For the 'image' and 'image link' types, when they are selected, show the media selection component we made, to select an existing media, or upload a new one, then update this site header entry record with the reference.
+For the 'image link', 'text', 'text link', 'button', and 'menu' header item types, when they are selected, show an input text field for 'Text', where the user will enter the text to be used for that type of item (ie. the button text, or link text, parent menu item text, etc).
+For the 'button' type, when selected, show the color picker to set the button color.
+For the 'text link' and 'button' items, show an input to define the destination url for the action.
+Also show a boolean toggle option to open the link or button in a new tab, when clicked.
+
+The 'gap' type will allow the user to specify a width as a css value, and it should place a gap item in the rendered header at that width, empty. The gap spacer should have a minimum-width of 5px, anyway.
+The 'flex spacer' item will similarly just enter a 'flex: *' kind of "fill" item in that position in the header, pushing all remaining items to the right. If there are multiple spacers, they should each have an equal flex: '1'. The flex-spacer can still specify an optional 'width', which can be used to give it a static or maximum width, if given.
+
+When editing or changing a header item, and its properties, try to update its look in the preview, with the draft changes. At the top of the header item edit area, below the preview, show a button bar to 'save' the item, or 'cancel' the settings back to what they previous were. The save button should become enabled when the user makes any changes to that header item. Also show a 'reset item' on the right side of the button bar, which will reset the header item's settings to the default header item style settings (which should be defined somewhere as a static baseline configuration, which we may allow the user to cusomize later).
+
+Ensure there are backend api admin endpoints to query and modify the site header data. The query endpoint should be cached, so the site can load it efficiently.
+
+The site header data can be stored as a json blob, as a site settings, I think.
+
+Once the Site Header editor is implemented in the admin settings, integrate it into the actual site's header, utilizing the cached endpoint which should fetch all of the data and store it efficiently.
+Render out the Site Header component from the site data, for each type of header item type, as they should be rendered (ie. images... link buttons vs regular buttons, gaps, or spacers, etc), and the header should be laid out nicely, accordingly.
+
+The site header config section, in the settings, should also expose a global 'background color' for the site header, using the custom color picker component.
+The site header should use this background color when rendered.
+It should likewise also expose a global header "padding" and "margin" settings, using the same custom padding and margin property editors using the above areas (ie. default list with custom override, and help icon tooltip).
+Ensure all of the site settings will be cached, and picked up on the frontend when the site is requested, or rendered at first, and then laid out accordingly on the frontend with their appropriately assigned styles, and that the global header will use the site header properties as defined, and the individual header items will use theirs.
