@@ -69,34 +69,53 @@
   &__header {
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     line-height: $line-height-tight;
-    // Responsive scaling with clamp
-    font-size: clamp(1.25rem, 4vw, inherit) !important;
   }
 
   &__subheader {
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
-    margin-top: $spacing-sm;
+    margin-top: clamp(10px, 3vh, 60px);
     line-height: $line-height-tight;
-    font-size: clamp(0.9rem, 2.5vw, inherit) !important;
   }
 
+  // ─── Action button sizes (editable) ───
+  // Small (default/current)
   &__action-btn {
     display: inline-block;
     margin-top: $spacing-lg;
-    padding: $spacing-sm $spacing-xl;
+    padding: 8px 32px;
     background: $primary-color;
     color: #fff;
     border-radius: $border-radius-md;
     text-decoration: none;
     font-weight: 600;
     font-size: clamp(0.8rem, 1.5vw, 1rem);
-    transition: background 0.2s, transform 0.15s;
+    transition: background 0.2s;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 
     &:hover {
       background: darken($primary-color, 8%);
       color: #fff;
-      transform: translateY(-1px);
+    }
+
+    // Size: small
+    &--small {
+      padding: 8px 32px;
+      font-size: clamp(0.8rem, 1.5vw, 1rem);
+      border-radius: $border-radius-md;
+    }
+
+    // Size: normal/medium
+    &--normal {
+      padding: 12px 44px;
+      font-size: clamp(0.95rem, 1.8vw, 1.2rem);
+      border-radius: $border-radius-md;
+    }
+
+    // Size: large
+    &--large {
+      padding: 16px 56px;
+      font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+      border-radius: $border-radius-lg;
     }
   }
 
@@ -106,17 +125,10 @@
     border-radius: $border-radius-lg;
     overflow: hidden;
 
-    .hero-carousel__header {
-      font-size: clamp(0.75rem, 3cqw, 2rem) !important;
-    }
-
-    .hero-carousel__subheader {
-      font-size: clamp(0.6rem, 2cqw, 1.25rem) !important;
-    }
-
-    .hero-carousel__action-btn {
-      font-size: clamp(0.65rem, 1.2cqw, 0.85rem);
-      padding: $spacing-xs $spacing-md;
+    // Scale all text down proportionally in the smaller preview
+    .hero-carousel__content {
+      transform: scale(0.7);
+      transform-origin: center center;
     }
 
     .hero-carousel__arrow {

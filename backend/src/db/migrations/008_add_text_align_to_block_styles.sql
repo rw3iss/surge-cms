@@ -1,0 +1,1 @@
+ALTER TABLE block_styles ADD COLUMN IF NOT EXISTS text_align VARCHAR(20);

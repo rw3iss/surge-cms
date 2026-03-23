@@ -1,0 +1,2 @@
+ALTER TABLE block_styles ADD COLUMN IF NOT EXISTS vertical_align VARCHAR(20);
+ALTER TABLE block_styles ADD COLUMN IF NOT EXISTS width VARCHAR(100);

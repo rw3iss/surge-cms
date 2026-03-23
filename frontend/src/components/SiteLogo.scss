@@ -1,0 +1,60 @@
+.site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-sm;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+
+  &__icon {
+    height: 32px;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-weight: 700;
+    font-size: $font-size-xl;
+    color: $primary-color;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  &__custom-img {
+    height: 40px;
+    width: auto;
+  }
+
+  // ─── Size modifiers ───
+
+  &--small {
+    gap: $spacing-xs;
+
+    .site-logo__icon { height: 22px; }
+    .site-logo__text { font-size: $font-size-base; }
+    .site-logo__custom-img { height: 28px; }
+  }
+
+  &--large {
+    gap: $spacing-md;
+
+    .site-logo__icon { height: 48px; }
+    .site-logo__text { font-size: $font-size-2xl; }
+    .site-logo__custom-img { height: 56px; }
+  }
+
+  // ─── Layout modifiers ───
+
+  &--column {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  // ─── Responsive: scale down if container is tight ───
+  @include mobile-only {
+    &--default {
+      .site-logo__icon { height: 28px; }
+      .site-logo__text { font-size: $font-size-lg; }
+    }
+  }
+}

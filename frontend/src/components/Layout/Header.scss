@@ -18,29 +18,8 @@
   &__logo {
     display: flex;
     align-items: center;
-    gap: $spacing-sm;
     text-decoration: none;
     color: $text-color;
-  }
-
-  &__logo-icon {
-    height: 32px;
-    width: auto;
-
-    @include md {
-      height: 36px;
-    }
-  }
-
-  &__logo-text {
-    font-size: $font-size-xl;
-    font-weight: 700;
-    color: $primary-color;
-  }
-
-  &__logo-image {
-    height: 40px;
-    width: auto;
   }
 
   &__nav {

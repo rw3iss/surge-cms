@@ -1,5 +1,6 @@
 .block {
-  padding: $spacing-xl 0;
+  // Default padding removed — use block style padding instead.
+  // The inline style from block.style.padding will apply directly.
 
   &__inner {
     &--contained {
@@ -52,7 +53,7 @@
 
   &__img {
     display: block;
-    width: 100%;
+    max-width: 100%;
     height: auto;
     border-radius: $border-radius-lg;
   }

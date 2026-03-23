@@ -1,0 +1,49 @@
+.preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: $background;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    &__bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: $spacing-xs $spacing-md;
+        background: $secondary-color;
+        color: white;
+        flex-shrink: 0;
+        z-index: 1;
+    }
+
+    &__badge {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        padding: 2px $spacing-sm;
+        background: rgba(255,255,255,0.15);
+        border-radius: $border-radius-sm;
+    }
+
+    &__close {
+        background: none;
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: $spacing-xs $spacing-md;
+        border-radius: $border-radius-sm;
+        cursor: pointer;
+        font-size: $font-size-sm;
+        font-weight: 500;
+        transition: background 0.15s;
+
+        &:hover {
+            background: rgba(255,255,255,0.15);
+        }
+    }
+
+    &__content {
+        flex: 1;
+        overflow-y: auto;
+    }
+}

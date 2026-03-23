@@ -18,6 +18,8 @@
 		"start": "npm run start --workspace=backend",
 		"db:migrate": "npm run db:migrate --workspace=backend",
 		"db:seed": "npm run db:seed --workspace=backend",
+		"format": "npx dprint fmt",
+		"format:check": "npx dprint check",
 		"lint": "npx oxlint@latest --quiet",
 		"lint:all": "npm run lint && npm run build",
 		"test": "npm run test --workspaces",

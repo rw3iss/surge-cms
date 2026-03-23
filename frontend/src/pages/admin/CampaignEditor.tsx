@@ -1,255 +1,276 @@
-import { Component, createResource, createSignal, Show } from 'solid-js';
-import { useParams, useNavigate } from '@solidjs/router';
-import { Title } from '@solidjs/meta';
-import { api } from '../../services/api';
-import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { Title, } from '@solidjs/meta';
+import { useNavigate, useParams, } from '@solidjs/router';
+import { Component, createResource, createSignal, Show, } from 'solid-js';
+import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
+import { api, } from '../../services/api';
 
 const CampaignEditor: Component = () => {
-  const params = useParams();
-  const navigate = useNavigate();
-  const isNew = () => !params.id || params.id === 'new';
-  const { markDirty, markClean } = useUnsavedChanges();
+    const params = useParams();
+    const navigate = useNavigate();
+    const isNew = () => !params.id || params.id === 'new';
+    const { markDirty, markClean, } = useUnsavedChanges();
 
-  const [saving, setSaving] = createSignal(false);
-  const [error, setError] = createSignal('');
+    const [saving, setSaving,] = createSignal(false,);
+    const [error, setError,] = createSignal('',);
 
-  // Form state
-  const [title, setTitle] = createSignal('');
-  const [slug, setSlug] = createSignal('');
-  const [description, setDescription] = createSignal('');
-  const [shortDescription, setShortDescription] = createSignal('');
-  const [goalAmount, setGoalAmount] = createSignal<string>('');
-  const [hasGoal, setHasGoal] = createSignal(true);
-  const [status, setStatus] = createSignal('draft');
-  const [featuredImage, setFeaturedImage] = createSignal('');
+    // Form state
+    const [title, setTitle,] = createSignal('',);
+    const [slug, setSlug,] = createSignal('',);
+    const [description, setDescription,] = createSignal('',);
+    const [shortDescription, setShortDescription,] = createSignal('',);
+    const [goalAmount, setGoalAmount,] = createSignal<string>('',);
+    const [hasGoal, setHasGoal,] = createSignal(true,);
+    const [status, setStatus,] = createSignal('draft',);
+    const [featuredImage, setFeaturedImage,] = createSignal('',);
 
-  // Load existing campaign
-  const [campaign] = createResource(
-    () => !isNew() ? params.id : null,
-    async (id) => {
-      const response = await api.get(`/campaigns/${id}`);
-      if (response.success && response.data) {
-        const data = response.data as any;
-        setTitle(data.title || '');
-        setSlug(data.slug || '');
-        setDescription(data.description || '');
-        setShortDescription(data.shortDescription || '');
-        if (data.goalAmountCents !== null && data.goalAmountCents !== undefined) {
-          setGoalAmount((data.goalAmountCents / 100).toString());
-          setHasGoal(true);
-        } else {
-          setGoalAmount('');
-          setHasGoal(false);
+    // Load existing campaign
+    const [campaign,] = createResource(
+        () => !isNew() ? params.id : null,
+        async (id,) => {
+            const response = await api.get(`/campaigns/${id}`,);
+            if (response.success && response.data) {
+                const data = response.data as any;
+                setTitle(data.title || '',);
+                setSlug(data.slug || '',);
+                setDescription(data.description || '',);
+                setShortDescription(data.shortDescription || '',);
+                if (data.goalAmountCents !== null && data.goalAmountCents !== undefined) {
+                    setGoalAmount((data.goalAmountCents / 100).toString(),);
+                    setHasGoal(true,);
+                } else {
+                    setGoalAmount('',);
+                    setHasGoal(false,);
+                }
+                setStatus(data.status || 'draft',);
+                setFeaturedImage(data.featuredImage || '',);
+                return data;
+            }
+            return null;
+        },
+    );
+
+    const generateSlug = (text: string,) => {
+        return text
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-',)
+            .replace(/(^-|-$)/g, '',);
+    };
+
+    const handleTitleChange = (e: Event,) => {
+        const value = (e.target as HTMLInputElement).value;
+        setTitle(value,);
+        if (isNew()) {
+            setSlug(generateSlug(value,),);
         }
-        setStatus(data.status || 'draft');
-        setFeaturedImage(data.featuredImage || '');
-        return data;
-      }
-      return null;
-    }
-  );
+        markDirty();
+    };
 
-  const generateSlug = (text: string) => {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
+    const handleSubmit = async (e: Event,) => {
+        e.preventDefault();
+        setError('',);
+        setSaving(true,);
 
-  const handleTitleChange = (e: Event) => {
-    const value = (e.target as HTMLInputElement).value;
-    setTitle(value);
-    if (isNew()) {
-      setSlug(generateSlug(value));
-    }
-    markDirty();
-  };
+        try {
+            const payload = {
+                title: title(),
+                slug: slug(),
+                description: description(),
+                shortDescription: shortDescription(),
+                goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : null,
+                status: status(),
+                featuredImage: featuredImage() || null,
+            };
 
-  const handleSubmit = async (e: Event) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
+            let response;
+            if (isNew()) {
+                response = await api.post('/campaigns', payload,);
+            } else {
+                response = await api.put(`/campaigns/${params.id}`, payload,);
+            }
 
-    try {
-      const payload = {
-        title: title(),
-        slug: slug(),
-        description: description(),
-        shortDescription: shortDescription(),
-        goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount()) * 100) : null,
-        status: status(),
-        featuredImage: featuredImage() || null,
-      };
+            if (response.success) {
+                markClean();
+                navigate('/admin/campaigns',);
+            } else {
+                setError(response.error?.message || 'Failed to save campaign',);
+            }
+        } catch (err) {
+            setError('An error occurred while saving',);
+        } finally {
+            setSaving(false,);
+        }
+    };
 
-      let response;
-      if (isNew()) {
-        response = await api.post('/campaigns', payload);
-      } else {
-        response = await api.put(`/campaigns/${params.id}`, payload);
-      }
+    const handleDelete = async () => {
+        if (!confirm('Are you sure you want to delete this campaign? This cannot be undone.',)) {
+            return;
+        }
 
-      if (response.success) {
-        markClean();
-        navigate('/admin/campaigns');
-      } else {
-        setError(response.error?.message || 'Failed to save campaign');
-      }
-    } catch (err) {
-      setError('An error occurred while saving');
-    } finally {
-      setSaving(false);
-    }
-  };
+        try {
+            const response = await api.delete(`/campaigns/${params.id}`,);
+            if (response.success) {
+                navigate('/admin/campaigns',);
+            } else {
+                setError(response.error?.message || 'Failed to delete campaign',);
+            }
+        } catch (err) {
+            setError('An error occurred while deleting',);
+        }
+    };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this campaign? This cannot be undone.')) {
-      return;
-    }
+    return (
+        <div class="admin-editor">
+            <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - Surge Media</Title>
 
-    try {
-      const response = await api.delete(`/campaigns/${params.id}`);
-      if (response.success) {
-        navigate('/admin/campaigns');
-      } else {
-        setError(response.error?.message || 'Failed to delete campaign');
-      }
-    } catch (err) {
-      setError('An error occurred while deleting');
-    }
-  };
-
-  return (
-    <div class="admin-editor">
-      <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - Surge Media</Title>
-
-      <div class="admin-header">
-        <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>
-      </div>
-
-      <Show when={error()}>
-        <div class="alert alert--error">{error()}</div>
-      </Show>
-
-      <Show when={isNew() || campaign()} fallback={<div>Loading...</div>}>
-        <form onSubmit={handleSubmit} class="admin-form">
-          <div class="form-group">
-            <label for="title">Title *</label>
-            <input
-              type="text"
-              id="title"
-              value={title()}
-              onInput={handleTitleChange}
-              required
-              placeholder="Campaign title"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="slug">URL Slug *</label>
-            <input
-              type="text"
-              id="slug"
-              value={slug()}
-              onInput={(e) => { setSlug((e.target as HTMLInputElement).value); markDirty(); }}
-              required
-              placeholder="campaign-url-slug"
-            />
-            <small class="form-help">Used in the URL: /campaigns/{slug() || 'slug'}</small>
-          </div>
-
-          <div class="form-group">
-            <label for="shortDescription">Short Description</label>
-            <input
-              type="text"
-              id="shortDescription"
-              value={shortDescription()}
-              onInput={(e) => { setShortDescription((e.target as HTMLInputElement).value); markDirty(); }}
-              placeholder="Brief description for listings"
-              maxLength={200}
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="description">Full Description *</label>
-            <textarea
-              id="description"
-              value={description()}
-              onInput={(e) => { setDescription((e.target as HTMLTextAreaElement).value); markDirty(); }}
-              required
-              placeholder="Detailed description of the campaign..."
-              rows={6}
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                checked={hasGoal()}
-                onChange={(e) => { setHasGoal((e.target as HTMLInputElement).checked); markDirty(); }}
-              />
-              <span>Set a fundraising goal</span>
-            </label>
-          </div>
-
-          <Show when={hasGoal()}>
-            <div class="form-group">
-              <label for="goalAmount">Goal Amount ($)</label>
-              <input
-                type="number"
-                id="goalAmount"
-                value={goalAmount()}
-                onInput={(e) => { setGoalAmount((e.target as HTMLInputElement).value); markDirty(); }}
-                placeholder="10000"
-                min="0"
-                step="0.01"
-              />
-              <small class="form-help">Leave empty for an open/unlimited fund</small>
+            <div class="admin-header">
+                <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>
             </div>
-          </Show>
 
-          <div class="form-group">
-            <label for="featuredImage">Featured Image URL</label>
-            <input
-              type="url"
-              id="featuredImage"
-              value={featuredImage()}
-              onInput={(e) => { setFeaturedImage((e.target as HTMLInputElement).value); markDirty(); }}
-              placeholder="https://..."
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="status">Status</label>
-            <select
-              id="status"
-              value={status()}
-              onChange={(e) => { setStatus((e.target as HTMLSelectElement).value); markDirty(); }}
-            >
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn--primary" disabled={saving()}>
-              {saving() ? 'Saving...' : 'Save Campaign'}
-            </button>
-            <button type="button" class="btn btn--secondary" onClick={() => navigate('/admin/campaigns')}>
-              Cancel
-            </button>
-            <Show when={!isNew()}>
-              <button type="button" class="btn btn--danger" onClick={handleDelete}>
-                Delete
-              </button>
+            <Show when={error()}>
+                <div class="alert alert--error">{error()}</div>
             </Show>
-          </div>
-        </form>
-      </Show>
-    </div>
-  );
+
+            <Show when={isNew() || campaign()} fallback={<div>Loading...</div>}>
+                <form onSubmit={handleSubmit} class="admin-form">
+                    <div class="form-group">
+                        <label for="title">Title *</label>
+                        <input
+                            type="text"
+                            id="title"
+                            value={title()}
+                            onInput={handleTitleChange}
+                            required
+                            placeholder="Campaign title"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="slug">URL Slug *</label>
+                        <input
+                            type="text"
+                            id="slug"
+                            value={slug()}
+                            onInput={(e,) => {
+                                setSlug((e.target as HTMLInputElement).value,);
+                                markDirty();
+                            }}
+                            required
+                            placeholder="campaign-url-slug"
+                        />
+                        <small class="form-help">Used in the URL: /campaigns/{slug() || 'slug'}</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="shortDescription">Short Description</label>
+                        <input
+                            type="text"
+                            id="shortDescription"
+                            value={shortDescription()}
+                            onInput={(e,) => {
+                                setShortDescription((e.target as HTMLInputElement).value,);
+                                markDirty();
+                            }}
+                            placeholder="Brief description for listings"
+                            maxLength={200}
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Full Description *</label>
+                        <textarea
+                            id="description"
+                            value={description()}
+                            onInput={(e,) => {
+                                setDescription((e.target as HTMLTextAreaElement).value,);
+                                markDirty();
+                            }}
+                            required
+                            placeholder="Detailed description of the campaign..."
+                            rows={6}
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={hasGoal()}
+                                onChange={(e,) => {
+                                    setHasGoal((e.target as HTMLInputElement).checked,);
+                                    markDirty();
+                                }}
+                            />
+                            <span>Set a fundraising goal</span>
+                        </label>
+                    </div>
+
+                    <Show when={hasGoal()}>
+                        <div class="form-group">
+                            <label for="goalAmount">Goal Amount ($)</label>
+                            <input
+                                type="number"
+                                id="goalAmount"
+                                value={goalAmount()}
+                                onInput={(e,) => {
+                                    setGoalAmount((e.target as HTMLInputElement).value,);
+                                    markDirty();
+                                }}
+                                placeholder="10000"
+                                min="0"
+                                step="0.01"
+                            />
+                            <small class="form-help">Leave empty for an open/unlimited fund</small>
+                        </div>
+                    </Show>
+
+                    <div class="form-group">
+                        <label for="featuredImage">Featured Image URL</label>
+                        <input
+                            type="url"
+                            id="featuredImage"
+                            value={featuredImage()}
+                            onInput={(e,) => {
+                                setFeaturedImage((e.target as HTMLInputElement).value,);
+                                markDirty();
+                            }}
+                            placeholder="https://..."
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select
+                            id="status"
+                            value={status()}
+                            onChange={(e,) => {
+                                setStatus((e.target as HTMLSelectElement).value,);
+                                markDirty();
+                            }}
+                        >
+                            <option value="draft">Draft</option>
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn--primary" disabled={saving()}>
+                            {saving() ? 'Saving...' : 'Save Campaign'}
+                        </button>
+                        <button type="button" class="btn btn--secondary" onClick={() => navigate('/admin/campaigns',)}>
+                            Cancel
+                        </button>
+                        <Show when={!isNew()}>
+                            <button type="button" class="btn btn--danger" onClick={handleDelete}>
+                                Delete
+                            </button>
+                        </Show>
+                    </div>
+                </form>
+            </Show>
+        </div>
+    );
 };
 
 export default CampaignEditor;
