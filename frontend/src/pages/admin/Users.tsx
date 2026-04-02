@@ -1,8 +1,10 @@
 import { Title, } from '@solidjs/meta';
+import { useNavigate, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
 
 const AdminUsers: Component = () => {
+    const navigate = useNavigate();
     const [users, { refetch, },] = createResource(async () => {
         const response = await api.get('/users',);
         return response.success ? (response as any).data : [];
@@ -58,6 +60,8 @@ const AdminUsers: Component = () => {
 
     const roleBadge = (role: string,) => {
         switch (role) {
+            case 'sysadmin':
+                return 'badge--error';
             case 'admin':
                 return 'badge--error';
             case 'member':
@@ -136,6 +140,7 @@ const AdminUsers: Component = () => {
                                     <select value={formRole()} onChange={(e,) => setFormRole(e.currentTarget.value,)}>
                                         <option value="member">Member</option>
                                         <option value="admin">Admin</option>
+                                        <option value="sysadmin">System Admin</option>
                                     </select>
                                 </div>
                             </div>
@@ -178,7 +183,10 @@ const AdminUsers: Component = () => {
                                 {(user: any,) => {
                                     const status = statusBadge(user,);
                                     return (
-                                        <tr>
+                                        <tr
+                                            style={{ cursor: 'pointer', }}
+                                            onClick={() => navigate(`/admin/users/${user.id}`,)}
+                                        >
                                             <td>{user.email}</td>
                                             <td>{user.displayName || '—'}</td>
                                             <td>

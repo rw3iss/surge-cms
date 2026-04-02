@@ -46,7 +46,7 @@ const ContactPage: Component = () => {
     };
 
     return (
-        <div class="contact">
+        <div class="contact page-wrapper">
             <Title>Contact | Surge Media</Title>
             <Meta name="description" content="Get in touch with Surge Media" />
             <Link rel="canonical" href={`${window.location.origin}/contact`} />
@@ -59,9 +59,9 @@ const ContactPage: Component = () => {
             <Meta name="twitter:description" content="Get in touch with Surge Media" />
 
             <div class="contact__container">
-                <div class="contact__header">
-                    <h1 class="contact__title">Get in Touch</h1>
-                    <p class="contact__subtitle">We'd love to hear from you</p>
+                <div class="page-header">
+                    <h1>Get in Touch</h1>
+                    <p>We'd love to hear from you</p>
                 </div>
 
                 <div class="contact__card">

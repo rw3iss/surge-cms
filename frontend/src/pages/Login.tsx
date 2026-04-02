@@ -68,9 +68,9 @@ const Login: Component = () => {
                 <h1 class="login__title">Sign In</h1>
                 <p class="login__subtitle">Sign in to access exclusive content</p>
 
-                <Show when={authError() || error()}>
+                <Show when={authError()}>
                     <div class="login__error">
-                        {authError() || error()}
+                        {authError()}
                     </div>
                 </Show>
 
@@ -104,6 +104,12 @@ const Login: Component = () => {
                     <div class="login__divider">
                         <span>Admin</span>
                     </div>
+
+                    <Show when={error()}>
+                        <div class="login__error">
+                            {error()}
+                        </div>
+                    </Show>
 
                     <form class="login__form" onSubmit={handleEmailLogin} action="/login" method="post">
                         <div class="login__field">

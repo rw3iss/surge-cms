@@ -53,6 +53,7 @@ router.get('/public', async (_req, res,) => {
             contactEmail: (settings.contact_email as string) || '',
             analytics: settings.analytics as SiteSettings['analytics'],
             theme: settings.theme as SiteSettings['theme'],
+            appearance: settings.site_appearance as SiteSettings['appearance'],
         };
 
         // Include Shopify config if configured (storefront tokens are public)
@@ -306,6 +307,59 @@ router.put('/site-branding', authenticate(), requireAdmin, async (req: Authentic
         sendSuccess(res, data,);
     } catch (error) {
         handleRouteError(res, error, 'save site branding settings',);
+    }
+},);
+
+// Get appearance settings (public, cached)
+router.get('/appearance', async (_req, res,) => {
+    try {
+        const cacheKey = 'settings:site_appearance';
+        const cached = await cache.get(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'site_appearance'`,
+        );
+
+        const data = result.rows.length > 0 ?
+            result.rows[0].value :
+            { backgroundColor: '#ffffff', fontSize: 16, gutterWidth: '', };
+
+        await cache.set(cacheKey, data, 600,);
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch appearance settings',);
+    }
+},);
+
+// Update appearance settings (admin)
+router.put('/appearance', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+       VALUES ('site_appearance', $1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(data,), req.userId,],
+        );
+
+        await cache.del('settings:site_appearance',);
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'site_appearance',
+            newValues: data,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'save appearance settings',);
     }
 },);
 

@@ -14,6 +14,7 @@ const router = Router();
 const pageSchema = z.object({
     slug: z.string().min(1,).max(255,).regex(/^[a-z0-9-]+$/,),
     title: z.string().min(1,).max(255,),
+    titleAlignment: z.enum(['left', 'center', 'right',],).optional(),
     description: z.string().optional(),
     metaTitle: z.string().max(255,).optional(),
     metaDescription: z.string().optional(),

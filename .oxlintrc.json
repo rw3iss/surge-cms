@@ -1,0 +1,64 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": [
+        "typescript",
+        "unicorn",
+        "oxc",
+        "import"
+    ],
+    "categories": {
+        "correctness": "error",
+        "suspicious": "warn"
+    },
+    "rules": {
+        "no-unused-vars": "warn",
+        "no-unassigned-vars": "off",
+        "no-unused-expressions": "off",
+        "no-console": "off",
+        "no-debugger": "error",
+        "eqeqeq": "warn",
+        "no-var": "error",
+        "prefer-const": "warn",
+        "no-empty": "warn",
+        "no-extra-boolean-cast": "warn",
+        "oxc/no-async-endpoint-handlers": "off",
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off",
+        "unicorn/no-null": "off",
+        "unicorn/prefer-node-protocol": "off",
+        "unicorn/no-array-for-each": "off",
+        "unicorn/prefer-number-properties": "off",
+        "unicorn/prefer-event-target": "off",
+        "unicorn/prefer-top-level-await": "off",
+        "unicorn/prefer-string-replace-all": "off",
+        "unicorn/no-anonymous-default-export": "off",
+        "unicorn/prefer-query-selector": "off",
+        "unicorn/no-process-exit": "off",
+        "unicorn/no-useless-fallback-in-spread": "off",
+        "unicorn/prefer-dom-node-text-content": "off",
+        "unicorn/prefer-optional-catch-binding": "off",
+        "unicorn/prefer-regexp-test": "off",
+        "unicorn/no-lonely-if": "off",
+        "unicorn/switch-case-braces": "off",
+        "unicorn/prefer-type-error": "off",
+        "unicorn/prefer-spread": "off",
+        "unicorn/catch-error-name": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "import/no-unassigned-import": "off",
+        "import/no-named-as-default": "off",
+        "no-shadow": "off"
+    },
+    "ignorePatterns": [
+        "node_modules",
+        "dist",
+        "build",
+        "*.min.js",
+        "frontend/dist",
+        "backend/dist"
+    ],
+    "env": {
+        "builtin": true,
+        "browser": true,
+        "node": true
+    }
+}

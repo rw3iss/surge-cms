@@ -230,6 +230,9 @@ export const fetchSocialPosts = (platform?: string, limit = 10,) => {
 };
 
 export const fetchHomepageSocialPosts = () => api.get('/social/homepage',);
+export const fetchLiveSocialFeed = (limit = 10,) => api.get(`/social/feed?limit=${limit}`,);
+export const fetchLivePlatformFeed = (platform: string, limit = 20,) =>
+    api.get(`/social/feed/${platform}?limit=${limit}`,);
 
 export const fetchHeroSettings = () => api.get('/settings/homepage-hero',);
 
@@ -246,6 +249,11 @@ export const fetchSiteHeader = () => api.get('/settings/site-header',);
 export const saveSiteHeader = (data: any,) => api.put('/settings/site-header', data,);
 export const fetchSiteBranding = () => api.get('/settings/site-branding',);
 export const saveSiteBranding = (data: any,) => api.put('/settings/site-branding', data,);
+
+export const fetchCrons = () => api.get('/dev/crons',);
+
+export const fetchAppearance = () => api.get('/settings/appearance',);
+export const saveAppearance = (data: any,) => api.put('/settings/appearance', data,);
 
 export const fetchBlockStyles = () => api.get('/block-styles',);
 export const createBlockStyle = (data: any,) => api.post('/block-styles', data,);

@@ -134,7 +134,7 @@
     transition: box-shadow $transition-fast, border-color $transition-fast;
 
     &:hover {
-      border-color: darken($border-color, 10%);
+      border-color: color.adjust($border-color, $lightness: -10%);
       box-shadow: $shadow-md;
     }
   }
@@ -241,7 +241,7 @@
     text-align: center;
 
     &:hover {
-      background: darken($primary-color, 8%);
+      background: color.adjust($primary-color, $lightness: -8%);
     }
   }
 
@@ -267,7 +267,7 @@
 
     &:hover:not(:disabled) {
       background: $background-dark;
-      border-color: darken($border-color, 10%);
+      border-color: color.adjust($border-color, $lightness: -10%);
     }
 
     &:disabled {

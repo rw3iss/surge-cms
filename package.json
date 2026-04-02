@@ -20,7 +20,8 @@
 		"db:seed": "npm run db:seed --workspace=backend",
 		"format": "npx dprint fmt",
 		"format:check": "npx dprint check",
-		"lint": "npx oxlint@latest --quiet",
+		"lint": "oxlint frontend/src backend/src shared/src",
+		"lint:fix": "oxlint --fix frontend/src backend/src shared/src",
 		"lint:all": "npm run lint && npm run build",
 		"test": "npm run test --workspaces",
 		"deploy": "bash scripts/deploy.sh",
@@ -29,6 +30,7 @@
 	},
 	"devDependencies": {
 		"concurrently": "^8.2.2",
+		"oxlint": "^1.58.0",
 		"typescript": "^5.3.3"
 	},
 	"engines": {

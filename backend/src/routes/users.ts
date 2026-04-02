@@ -1,24 +1,57 @@
+import bcrypt from 'bcryptjs';
 import { Router, } from 'express';
+import fs from 'fs/promises';
+import multer from 'multer';
+import { nanoid, } from 'nanoid';
+import path from 'path';
+import sharp from 'sharp';
 import { z, } from 'zod';
+import { query, } from '../db';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
 import * as usersRepo from '../repositories/users.repo';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
+import { logger, } from '../utils/logger';
 import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
+
+// Avatar upload config
+const AVATAR_DIR = path.join(process.cwd(), 'cache/avatars',);
+const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+const avatarStorage = multer.diskStorage({
+    destination: async (_req, _file, cb,) => {
+        await fs.mkdir(AVATAR_DIR, { recursive: true, },);
+        cb(null, AVATAR_DIR,);
+    },
+    filename: (_req, file, cb,) => {
+        const ext = path.extname(file.originalname,).toLowerCase() || '.jpg';
+        cb(null, `${nanoid(16,)}${ext}`,);
+    },
+},);
+
+const avatarUpload = multer({
+    storage: avatarStorage,
+    limits: { fileSize: AVATAR_MAX_SIZE, },
+    fileFilter: (_req, file, cb,) => {
+        if (file.mimetype.startsWith('image/',)) cb(null, true,);
+        else cb(new Error('Only image files are allowed',),);
+    },
+},);
 
 const router = Router();
 
 const updateUserSchema = z.object({
     displayName: z.string().min(1,).max(255,).optional(),
-    role: z.enum(['anonymous', 'member', 'admin',],).optional(),
+    role: z.enum(['anonymous', 'member', 'admin', 'sysadmin',],).optional(),
     isActive: z.boolean().optional(),
+    avatarUrl: z.string().optional().nullable(),
 },);
 
 const createUserSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8,),
     displayName: z.string().min(1,).max(255,),
-    role: z.enum(['member', 'admin',],).optional(),
+    role: z.enum(['member', 'admin', 'sysadmin',],).optional(),
 },);
 
 const banUserSchema = z.object({
@@ -100,6 +133,89 @@ router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
         sendSuccess(res, user,);
     } catch (error) {
         handleRouteError(res, error, 'update user',);
+    }
+},);
+
+// Upload avatar
+router.post('/:id/avatar', authenticate(), requireAdmin, avatarUpload.single('avatar',), async (req: AuthenticatedRequest, res,) => {
+    try {
+        const file = req.file;
+        if (!file) {
+            return res.status(400,).json({
+                success: false,
+                error: { code: 'BAD_REQUEST', message: 'No file uploaded', },
+            },);
+        }
+
+        // Resize to max 256x256 for consistency
+        const resizedName = `avatar-${nanoid(12,)}.webp`;
+        const resizedPath = path.join(AVATAR_DIR, resizedName,);
+
+        await sharp(file.path,)
+            .resize(256, 256, { fit: 'cover', })
+            .webp({ quality: 85, })
+            .toFile(resizedPath,);
+
+        // Remove the original upload if it's different
+        if (file.path !== resizedPath) {
+            await fs.unlink(file.path,).catch(() => {},);
+        }
+
+        // Remove old avatar file if it was a local path
+        const oldUser = await usersRepo.findUserById(req.params.id,);
+        if (oldUser.avatarUrl?.startsWith('/avatars/',)) {
+            const oldPath = path.join(process.cwd(), 'cache/avatars', path.basename(oldUser.avatarUrl,),);
+            await fs.unlink(oldPath,).catch(() => {},);
+        }
+
+        const avatarUrl = `/avatars/${resizedName}`;
+        const user = await usersRepo.updateUser(req.params.id, { avatarUrl, },);
+        await cache.invalidateUserCache(req.params.id,);
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'user',
+            entityId: req.params.id,
+            newValues: { avatarUrl, },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, user,);
+    } catch (error) {
+        handleRouteError(res, error, 'upload avatar',);
+    }
+},);
+
+// Change password (admin)
+router.post('/:id/password', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const { password, } = z.object({
+            password: z.string().min(8,),
+        },).parse(req.body,);
+
+        const passwordHash = await bcrypt.hash(password, 12,);
+        await query(
+            `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+            [passwordHash, req.params.id,],
+        );
+
+        await cache.invalidateUserCache(req.params.id,);
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'user',
+            entityId: req.params.id,
+            newValues: { passwordChanged: true, },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, { message: 'Password updated', },);
+    } catch (error) {
+        handleRouteError(res, error, 'change password',);
     }
 },);
 

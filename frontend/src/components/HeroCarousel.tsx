@@ -7,6 +7,7 @@ export interface HeroCarouselProps {
     options: HeroCarouselOptions;
     height?: string;
     previewMode?: boolean;
+    gutterWidth?: string;
 }
 
 const DEFAULT_HEIGHT = '50vh';
@@ -160,7 +161,13 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
         <div
             ref={containerRef}
             class={`hero-carousel ${props.previewMode ? 'hero-carousel--preview' : ''}`}
-            style={{ height: resolvedHeight(), }}
+            style={{
+                height: resolvedHeight(),
+                ...(props.options.applyGutter && props.gutterWidth ? {
+                    'padding-left': props.gutterWidth,
+                    'padding-right': props.gutterWidth,
+                } : {}),
+            }}
             onMouseEnter={() => setIsPaused(true,)}
             onMouseLeave={() => setIsPaused(false,)}
             onTouchStart={handleTouchStart}

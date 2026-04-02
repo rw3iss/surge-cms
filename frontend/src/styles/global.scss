@@ -1,5 +1,3 @@
-@import './variables';
-
 // Reset
 *,
 *::before,
@@ -50,7 +48,7 @@ a {
   transition: color $transition-fast;
 
   &:hover {
-    color: darken($primary-color, 10%);
+    color: color.adjust($primary-color, $lightness: -10%);
   }
 }
 
@@ -115,7 +113,9 @@ button {
 
 // Utility classes
 .container {
-  @include container;
+  width: 100%;
+  padding-left: var(--site-gutter, #{$container-padding});
+  padding-right: var(--site-gutter, #{$container-padding});
 }
 
 .flex-center {
@@ -147,7 +147,7 @@ button {
   background: linear-gradient(
     90deg,
     $background-dark 25%,
-    lighten($background-dark, 3%) 50%,
+    color.adjust($background-dark, $lightness: 3%) 50%,
     $background-dark 75%
   );
   background-size: 200% 100%;
@@ -347,7 +347,7 @@ button {
     transition: background-color $transition-fast;
 
     &:hover {
-      background-color: darken($primary-color, 10%);
+      background-color: color.adjust($primary-color, $lightness: -10%);
     }
   }
 }
@@ -413,5 +413,31 @@ button {
 
   a {
     text-decoration: underline;
+  }
+}
+
+// ─── Shared page layout ───
+
+.page-wrapper {
+  width: 100%;
+  padding-top: $spacing-xl;
+  padding-bottom: $spacing-3xl;
+  padding-left: var(--site-gutter, #{$container-padding});
+  padding-right: var(--site-gutter, #{$container-padding});
+}
+
+.page-header {
+  margin-bottom: $spacing-xl;
+
+  h1 {
+    font-size: $font-size-4xl;
+    margin: 0 0 $spacing-sm;
+  }
+
+  p {
+    font-size: $font-size-lg;
+    color: $text-light;
+    margin: 0;
+    max-width: 600px;
   }
 }

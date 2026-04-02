@@ -5,6 +5,12 @@
   background: $background;
   border-bottom: 1px solid $border-color;
 
+  // When custom header settings provide their own styles
+  &--custom {
+    background: none;
+    border-bottom: none;
+  }
+
   &__container {
     @include container;
     @include flex-between;
@@ -12,6 +18,12 @@
 
     @include md {
       height: 72px;
+    }
+
+    .header--custom & {
+      height: auto;
+      max-width: none;
+      padding: 0;
     }
   }
 
@@ -118,7 +130,7 @@
       color: white;
 
       &:hover {
-        background: darken($primary-color, 10%);
+        background: color.adjust($primary-color, $lightness: -10%);
         color: white;
       }
     }

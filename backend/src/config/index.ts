@@ -79,6 +79,7 @@ const envSchema = z.object({
     LOG_FORMAT: z.string().default('combined',),
 
     ADMIN_EMAILS: z.string().transform((s,) => s.split(',',)).default('',),
+    AUTOLOGIN_ADMIN_LOCALHOST: z.string().transform((s,) => s === 'true').default('false',),
 },);
 
 const parsed = envSchema.safeParse(process.env,);
@@ -193,6 +194,7 @@ export const config = {
     },
 
     adminEmails: parsed.data.ADMIN_EMAILS,
+    autologinAdminLocalhost: parsed.data.AUTOLOGIN_ADMIN_LOCALHOST,
 
     isProduction: parsed.data.NODE_ENV === 'production',
     isDevelopment: parsed.data.NODE_ENV === 'development',

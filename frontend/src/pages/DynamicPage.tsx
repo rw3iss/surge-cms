@@ -6,6 +6,7 @@ import { BlockRenderer, } from '../components/BlockRenderer';
 import ContentGate from '../components/ContentGate';
 import { fetchPage, } from '../services/api';
 import { useAuth, } from '../stores/auth';
+import './DynamicPage.scss';
 
 const NotFoundPage = lazy(() => import('./NotFound'));
 
@@ -34,7 +35,7 @@ const DynamicPage: Component = () => {
         () => params.slug,
         async (slug,) => {
             setLockedContent(null,);
-            const preview = (isPreviewMode() && auth.user?.role === 'admin') ? 'admin' : undefined;
+            const preview = (isPreviewMode() && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')) ? 'admin' : undefined;
             const response = await fetchPage(slug, preview,);
             if (!response.success) {
                 // Check if this is a locked content response
@@ -57,7 +58,7 @@ const DynamicPage: Component = () => {
     );
 
     return (
-        <div class="dynamic-page">
+        <div class="dynamic-page page-wrapper">
             <Show when={lockedContent()}>
                 {(locked,) => (
                     <ContentGate
@@ -92,6 +93,15 @@ const DynamicPage: Component = () => {
                                 <Meta name="twitter:title" content={ogTitle()} />
                                 <Meta name="twitter:description" content={ogDesc()} />
                                 {pageData().ogImage && <Meta name="twitter:image" content={pageData().ogImage!} />}
+
+                                <Show when={pageData().title}>
+                                    <h1
+                                        class="dynamic-page__title"
+                                        style={{ 'text-align': (pageData() as any).titleAlignment || 'left', }}
+                                    >
+                                        {pageData().title}
+                                    </h1>
+                                </Show>
 
                                 <For each={pageData().blocks}>
                                     {(block,) => (

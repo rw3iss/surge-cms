@@ -4,7 +4,7 @@ import { z, } from 'zod';
 import { query, } from '../db';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
 import { cache, } from '../services/cache';
-import { getSocialPosts, syncAllPlatforms, syncSocialPosts, } from '../services/social';
+import { getLiveFeed, getLiveFeeds, getSocialPosts, syncAllPlatforms, syncSocialPosts, } from '../services/social';
 import { mapRows, } from '../utils/mapRow';
 import { handleRouteError, sendSuccess, } from '../utils/response';
 
@@ -121,10 +121,11 @@ router.post('/sync', authenticate(), requireAdmin, async (req: AuthenticatedRequ
         let results;
 
         if (platform) {
-            const count = await syncSocialPosts(platform as SocialPlatform,);
+            // Manual admin sync always forces regardless of auto_publish setting
+            const count = await syncSocialPosts(platform as SocialPlatform, true,);
             results = { [platform]: count, };
         } else {
-            results = await syncAllPlatforms();
+            results = await syncAllPlatforms(true,);
         }
 
         // Invalidate cache
@@ -136,6 +137,40 @@ router.post('/sync', authenticate(), requireAdmin, async (req: AuthenticatedRequ
         },);
     } catch (error) {
         handleRouteError(res, error, 'sync social posts',);
+    }
+},);
+
+// ─── Live Feed (cached API fetch, no DB) ───
+
+// Get live feed from all connected providers (public - for homepage)
+router.get('/feed', async (req, res,) => {
+    try {
+        const limit = Math.min(Number(req.query.limit,) || 10, 50,);
+        const posts = await getLiveFeeds(limit,);
+        sendSuccess(res, posts,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch live social feeds',);
+    }
+},);
+
+// Get live feed from a specific platform (public + admin picker)
+router.get('/feed/:platform', async (req, res,) => {
+    try {
+        const { platform, } = req.params;
+        const validPlatforms: SocialPlatform[] = ['patreon', 'youtube', 'instagram', 'facebook', 'twitter', 'tiktok',];
+
+        if (!validPlatforms.includes(platform as SocialPlatform,)) {
+            return res.status(400,).json({
+                success: false,
+                error: { code: 'BAD_REQUEST', message: 'Invalid platform', },
+            },);
+        }
+
+        const limit = Math.min(Number(req.query.limit,) || 10, 50,);
+        const posts = await getLiveFeed(platform as SocialPlatform, limit,);
+        sendSuccess(res, posts,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch live social feed',);
     }
 },);
 

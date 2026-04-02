@@ -1,0 +1,1 @@
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS title_alignment VARCHAR(10) DEFAULT 'left';

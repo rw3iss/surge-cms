@@ -380,6 +380,66 @@ Global configuration for your website.
 
 ---
 
+### Social Media Connections
+
+Connect your social media accounts to display recent posts on the homepage and embed individual posts in blog articles.
+
+#### Supported Providers
+
+| Provider | Auth Method | Cost | Token Refresh |
+|----------|------------ |------|---------------|
+| **Instagram** | OAuth (Meta App) | Free | Automatic (every 7 days) |
+| **YouTube** | API Key | Free | None needed (key never expires) |
+| **Facebook** | Page Access Token | Free | None needed (page token never expires) |
+| **Twitter/X** | Bearer Token | $200/mo for read access | None needed (bearer never expires) |
+| **TikTok** | OAuth | Free | Automatic (daily) |
+| **Patreon** | Creator Token | Free | None needed (token never expires) |
+
+#### Connecting Instagram (OAuth)
+
+Instagram requires an OAuth flow through a Meta Developer App:
+
+1. Go to [developers.facebook.com](https://developers.facebook.com) and create a Meta App (free)
+2. Your Instagram account must be a **Business** or **Creator** account linked to a Facebook Page
+3. In the admin portal, go to **Settings > Connections**
+4. Click **Setup** on Instagram
+5. Enter your Meta **App ID** and **App Secret**, then click **Save**
+6. Click **Authorize Instagram** -- you'll be redirected to Facebook to approve the connection
+7. Once approved, the system stores a long-lived token and automatically refreshes it every 7 days
+
+#### Connecting API-Key Providers (YouTube, Twitter, etc.)
+
+For providers that use static API keys or tokens:
+
+1. Go to **Settings > Connections**
+2. Click **Setup** on the provider
+3. Enter the **Access Token** or **API Key** from the provider's developer portal
+4. Click **Save**
+
+#### How Social Posts Display
+
+Social posts appear in two ways:
+
+- **Homepage feed**: The "Follow Our Journey" section automatically shows the latest posts from all connected providers. Posts are fetched live from each provider's API and cached for 15 minutes -- no database storage required.
+- **Embedded in blog posts**: When editing a blog post, add a "Social Media" content block, select a provider, and pick a specific post to embed. The post renders using the provider's native embed format (iframe).
+
+#### Auto-Publish Setting
+
+Each connection has an optional **Auto-publish** toggle with a post count limit. This controls how many recent posts are fetched from the provider when syncing. The admin can manually trigger a sync from the admin panel regardless of this setting.
+
+#### Disconnecting a Provider
+
+1. Go to **Settings > Connections**
+2. Click **Disconnect** on the provider
+3. Confirm -- this removes the access token and stops any automatic token refresh
+4. App credentials (App ID/Secret) are preserved so you can reconnect easily
+
+#### Developer Tools
+
+The **Developer** section in the admin sidebar shows all registered background jobs (cron), including token refresh schedules, last run status, and next run time.
+
+---
+
 ## Technical Setup
 
 ### Prerequisites
@@ -420,11 +480,16 @@ SMTP_USER=your-user
 SMTP_PASS=your-password
 SMTP_FROM=noreply@yoursite.com
 
-# Social Media APIs (optional)
+# Social Media APIs (optional - can also be configured in Admin > Settings > Connections)
 YOUTUBE_API_KEY=xxx
+YOUTUBE_CHANNEL_ID=xxx
 TWITTER_BEARER_TOKEN=xxx
-INSTAGRAM_ACCESS_TOKEN=xxx
-FACEBOOK_PAGE_TOKEN=xxx
+TWITTER_USERNAME=xxx
+FACEBOOK_APP_ID=xxx
+FACEBOOK_APP_SECRET=xxx
+FACEBOOK_PAGE_ID=xxx
+FACEBOOK_ACCESS_TOKEN=xxx
+# Instagram is configured via OAuth in the admin portal (no env vars needed)
 ```
 
 ### Installation

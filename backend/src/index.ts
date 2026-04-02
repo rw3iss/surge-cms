@@ -2,8 +2,10 @@ import { createApp, } from './app';
 import { config, } from './config';
 import { closePool, pool, } from './db';
 import { cache, } from './services/cache';
+import { cronRegistry, } from './services/cron';
 import { verifyEmailConfig, } from './services/email';
 import { logger, } from './utils/logger';
+import { initSocialCrons, } from './services/socialCrons';
 
 async function main() {
     try {
@@ -30,6 +32,11 @@ async function main() {
         // Create and start Express app
         const app = createApp();
 
+        // Register cron jobs for connected social providers, then start all
+        await initSocialCrons();
+        cronRegistry.startAll();
+        logger.info('Cron jobs started',);
+
         const server = app.listen(config.port, () => {
             logger.info(`Server running on port ${config.port}`,);
             logger.info(`Environment: ${config.env}`,);
@@ -44,6 +51,9 @@ async function main() {
                 logger.info('HTTP server closed',);
 
                 try {
+                    cronRegistry.stopAll();
+                    logger.info('Cron jobs stopped',);
+
                     await closePool();
                     logger.info('Database pool closed',);
 

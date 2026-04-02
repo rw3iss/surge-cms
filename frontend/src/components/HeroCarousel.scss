@@ -2,7 +2,7 @@
   position: relative;
   width: 100%;
   overflow: hidden;
-  background: #000;
+  background: var(--site-bg, #000);
 
   &__empty {
     display: flex;
@@ -93,7 +93,7 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 
     &:hover {
-      background: darken($primary-color, 8%);
+      background: color.adjust($primary-color, $lightness: -8%);
       color: #fff;
     }
 

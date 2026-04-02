@@ -1,4 +1,4 @@
-export type UserRole = 'anonymous' | 'member' | 'admin';
+export type UserRole = 'anonymous' | 'member' | 'admin' | 'sysadmin';
 
 export type AuthProvider = 'patreon' | 'email';
 

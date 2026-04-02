@@ -38,4 +38,5 @@ export interface HeroCarouselOptions {
     repeat: boolean;
     customHeight: boolean;
     height: string;
+    applyGutter?: boolean;
 }

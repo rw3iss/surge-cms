@@ -39,6 +39,7 @@ interface HeaderProps {
     siteName: string;
     logo?: string;
     headerSettings?: SiteHeaderSettings | null;
+    gutterWidth?: string;
 }
 
 // ─── Render a single header item ───
@@ -216,11 +217,15 @@ export const Header: Component<HeaderProps> = (props,) => {
         if (props.headerSettings?.backgroundColor) s['background'] = props.headerSettings.backgroundColor;
         if (props.headerSettings?.padding) s['padding'] = props.headerSettings.padding;
         if (props.headerSettings?.margin) s['margin'] = props.headerSettings.margin;
+        if (props.headerSettings?.applyGutter && props.gutterWidth) {
+            s['padding-left'] = props.gutterWidth;
+            s['padding-right'] = props.gutterWidth;
+        }
         return s;
     };
 
     return (
-        <header class="header" style={headerStyle()}>
+        <header class={`header ${hasCustomHeader() ? 'header--custom' : ''}`} style={headerStyle()}>
             <div class="header__container">
                 <Show when={!hasCustomHeader()}>
                     <A href="/" class="header__logo" onClick={closeMobileMenu}>
@@ -277,7 +282,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                     </Show>
 
                     {/* Admin link - inline with other nav links, no special styling */}
-                    <Show when={auth.isAuthenticated && auth.user?.role === 'admin'}>
+                    <Show when={auth.isAuthenticated && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')}>
                         <ul class="header__nav-list">
                             <li class="header__nav-item">
                                 <A

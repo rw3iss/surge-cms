@@ -116,5 +116,5 @@ export function requireRole(...roles: UserRole[]) {
 }
 
 export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction,) {
-    return requireRole('admin',)(req, res, next,);
+    return requireRole('admin', 'sysadmin',)(req, res, next,);
 }

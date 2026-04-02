@@ -1,7 +1,10 @@
 import type { SocialPlatform, SocialPost, } from '@surge/shared';
 import { config, } from '../config';
 import { query, } from '../db';
+import { cache, } from './cache';
 import { logger, } from '../utils/logger';
+
+const FEED_CACHE_TTL = 900; // 15 minutes
 
 interface FetchedPost {
     id: string;
@@ -121,14 +124,32 @@ export async function fetchTwitterPosts(maxResults = 10,): Promise<FetchedPost[]
 }
 
 export async function fetchInstagramPosts(maxResults = 10,): Promise<FetchedPost[]> {
-    if (!config.social.facebook.accessToken || !config.social.instagram.businessAccountId) {
+    // Try DB-stored OAuth credentials first, then fall back to env config
+    let accessToken = config.social.facebook.accessToken;
+    let accountId = config.social.instagram.businessAccountId;
+
+    try {
+        const connResult = await query(
+            `SELECT credentials, account_id FROM social_connections
+             WHERE provider = 'instagram' AND is_connected = true`,
+        );
+        if (connResult.rows[0]) {
+            const creds = connResult.rows[0].credentials;
+            if (creds?.accessToken) accessToken = creds.accessToken;
+            if (connResult.rows[0].account_id) accountId = connResult.rows[0].account_id;
+        }
+    } catch {
+        // Fall through to env config
+    }
+
+    if (!accessToken || !accountId) {
         logger.warn('Instagram configuration not set',);
         return [];
     }
 
     try {
         const response = await fetch(
-            `https://graph.facebook.com/v18.0/${config.social.instagram.businessAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=${maxResults}&access_token=${config.social.facebook.accessToken}`,
+            `https://graph.facebook.com/v21.0/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=${maxResults}&access_token=${accessToken}`,
         );
 
         if (!response.ok) {
@@ -187,21 +208,67 @@ export async function fetchFacebookPosts(maxResults = 10,): Promise<FetchedPost[
     }
 }
 
-export async function syncSocialPosts(platform: SocialPlatform,): Promise<number> {
+interface ConnectionSettings {
+    autoPublish: boolean;
+    autoPublishCount: number | null;
+    isConnected: boolean;
+    isEnabled: boolean;
+}
+
+async function getConnectionSettings(platform: SocialPlatform,): Promise<ConnectionSettings | null> {
+    const result = await query(
+        `SELECT is_connected, is_enabled, auto_publish, auto_publish_count
+         FROM social_connections WHERE provider = $1`,
+        [platform,],
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+        isConnected: row.is_connected,
+        isEnabled: row.is_enabled,
+        autoPublish: row.auto_publish,
+        autoPublishCount: row.auto_publish_count,
+    };
+}
+
+/**
+ * Sync posts from a platform.
+ * If `force` is true (manual admin trigger), syncs regardless of auto_publish setting.
+ * Otherwise, respects the auto_publish flag and auto_publish_count limit.
+ */
+export async function syncSocialPosts(platform: SocialPlatform, force = false,): Promise<number> {
+    const settings = await getConnectionSettings(platform,);
+
+    // If connection exists but is disabled, skip unless forced
+    if (settings && !settings.isEnabled && !force) {
+        logger.info(`Skipping sync for ${platform}: connection is disabled`,);
+        return 0;
+    }
+
+    // If auto_publish is off and not forced, skip
+    if (settings && !settings.autoPublish && !force) {
+        logger.info(`Skipping sync for ${platform}: auto-publish is off`,);
+        return 0;
+    }
+
+    const maxResults = settings?.autoPublishCount || 10;
+
     let posts: FetchedPost[] = [];
 
     switch (platform) {
         case 'youtube':
-            posts = await fetchYouTubeVideos();
+            posts = await fetchYouTubeVideos(maxResults,);
             break;
         case 'twitter':
-            posts = await fetchTwitterPosts();
+            posts = await fetchTwitterPosts(maxResults,);
             break;
         case 'instagram':
-            posts = await fetchInstagramPosts();
+            posts = await fetchInstagramPosts(maxResults,);
             break;
         case 'facebook':
-            posts = await fetchFacebookPosts();
+            posts = await fetchFacebookPosts(maxResults,);
             break;
         default:
             logger.warn(`Unsupported platform: ${platform}`,);
@@ -247,17 +314,29 @@ export async function syncSocialPosts(platform: SocialPlatform,): Promise<number
         }
     }
 
+    // Update last_synced_at
+    if (synced > 0) {
+        await query(
+            `UPDATE social_connections SET last_synced_at = NOW() WHERE provider = $1`,
+            [platform,],
+        ).catch(() => {});
+    }
+
     logger.info(`Synced ${synced} posts from ${platform}`,);
     return synced;
 }
 
-export async function syncAllPlatforms(): Promise<Record<SocialPlatform, number>> {
+/**
+ * Sync all platforms. If `force` is true (manual admin trigger), syncs all regardless.
+ * Otherwise only syncs platforms with auto_publish enabled.
+ */
+export async function syncAllPlatforms(force = false,): Promise<Record<SocialPlatform, number>> {
     const results: Partial<Record<SocialPlatform, number>> = {};
 
     const platforms: SocialPlatform[] = ['youtube', 'twitter', 'instagram', 'facebook',];
 
     for (const platform of platforms) {
-        results[platform] = await syncSocialPosts(platform,);
+        results[platform] = await syncSocialPosts(platform, force,);
     }
 
     return results as Record<SocialPlatform, number>;
@@ -300,4 +379,97 @@ export async function getSocialPosts(
         fetchedAt: row.fetched_at,
         rawData: row.raw_data,
     }));
+}
+
+// ─── Live Feed (API → Redis cache, no DB storage) ───
+
+function fetchedPostToSocialPost(post: FetchedPost, platform: SocialPlatform,): SocialPost {
+    return {
+        id: post.id,
+        platform,
+        externalId: post.id,
+        content: post.content || null,
+        mediaUrl: post.mediaUrl || null,
+        thumbnailUrl: post.thumbnailUrl || null,
+        authorName: post.authorName || null,
+        authorAvatar: post.authorAvatar || null,
+        likes: post.likes ?? null,
+        comments: post.comments ?? null,
+        shares: post.shares ?? null,
+        publishedAt: post.publishedAt.toISOString(),
+        fetchedAt: new Date().toISOString(),
+        rawData: post.rawData,
+    } as unknown as SocialPost;
+}
+
+/**
+ * Fetch recent posts for a platform directly from the provider API.
+ * Results are cached in Redis for 15 minutes.
+ */
+export async function getLiveFeed(
+    platform: SocialPlatform,
+    limit = 10,
+): Promise<SocialPost[]> {
+    const cacheKey = `social:feed:${platform}:${limit}`;
+
+    // Check cache first
+    const cached = await cache.get<SocialPost[]>(cacheKey,);
+    if (cached) return cached;
+
+    // Fetch from provider API
+    let posts: FetchedPost[] = [];
+
+    switch (platform) {
+        case 'youtube':
+            posts = await fetchYouTubeVideos(limit,);
+            break;
+        case 'twitter':
+            posts = await fetchTwitterPosts(limit,);
+            break;
+        case 'instagram':
+            posts = await fetchInstagramPosts(limit,);
+            break;
+        case 'facebook':
+            posts = await fetchFacebookPosts(limit,);
+            break;
+        default:
+            return [];
+    }
+
+    const socialPosts = posts.map((p,) => fetchedPostToSocialPost(p, platform,),);
+
+    // Cache for 15 minutes
+    if (socialPosts.length > 0) {
+        await cache.set(cacheKey, socialPosts, FEED_CACHE_TTL,);
+    }
+
+    return socialPosts;
+}
+
+/**
+ * Fetch live feeds from all connected and enabled providers.
+ * Each platform is cached independently.
+ */
+export async function getLiveFeeds(limit = 10,): Promise<SocialPost[]> {
+    // Get connected, enabled providers
+    const connResult = await query(
+        `SELECT provider, auto_publish_count FROM social_connections
+         WHERE is_connected = true AND is_enabled = true
+         ORDER BY sort_order`,
+    );
+
+    const allPosts: SocialPost[] = [];
+
+    for (const row of connResult.rows) {
+        const platformLimit = row.auto_publish_count || limit;
+        const posts = await getLiveFeed(row.provider as SocialPlatform, platformLimit,);
+        allPosts.push(...posts,);
+    }
+
+    // Sort all posts by date, newest first
+    allPosts.sort((a, b,) =>
+        new Date(b.publishedAt,).getTime() - new Date(a.publishedAt,).getTime(),
+    );
+
+    return allPosts;
 }

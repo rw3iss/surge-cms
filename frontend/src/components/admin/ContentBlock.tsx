@@ -1,5 +1,6 @@
 import { Component, createEffect, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../services/blockStyles';
+import CampaignBlock from './blocks/CampaignBlock';
 import DocumentBlock from './blocks/DocumentBlock';
 import ImageBlock from './blocks/ImageBlock';
 import SocialMediaBlock from './blocks/SocialMediaBlock';
@@ -638,12 +639,10 @@ const BlockContent: Component<
                 <HtmlBlock data={props.block.data} mode={props.mode} onUpdate={props.onUpdate} />
             </Match>
             <Match when={props.block.type === 'campaign'}>
-                <ReferenceBlock
+                <CampaignBlock
                     data={props.block.data}
                     mode={props.mode}
                     onUpdate={props.onUpdate}
-                    label="Campaign"
-                    idField="campaignId"
                 />
             </Match>
             <Match when={props.block.type === 'form'}>

@@ -1,0 +1,291 @@
+.form-renderer {
+    max-width: 720px;
+
+    &--inline {
+        max-width: none;
+    }
+
+    // ─── Form fields ───
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-lg;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__label {
+        font-weight: 600;
+        font-size: $font-size-base;
+        color: $text-color;
+    }
+
+    &__required {
+        color: $error-color;
+        margin-left: 2px;
+    }
+
+    &__description {
+        font-size: $font-size-sm;
+        color: $text-light;
+        margin: 0;
+    }
+
+    &__input,
+    &__textarea,
+    &__select {
+        padding: $spacing-sm $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        font-size: $font-size-base;
+        font-family: inherit;
+        background: $background;
+        color: $text-color;
+        transition: border-color $transition-fast, box-shadow $transition-fast;
+
+        &:focus {
+            outline: none;
+            border-color: $primary-color;
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+        }
+
+        &::placeholder {
+            color: $text-light;
+        }
+    }
+
+    &__input--number {
+        max-width: 200px;
+    }
+
+    &__input--date {
+        max-width: 250px;
+    }
+
+    &__textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    &__select {
+        cursor: pointer;
+        max-width: 400px;
+    }
+
+    // ─── Radio / Checkbox options ───
+
+    &__options {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__option {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        cursor: pointer;
+        padding: $spacing-sm $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        transition: background $transition-fast, border-color $transition-fast;
+
+        &:hover {
+            background: $background-dark;
+            border-color: color.adjust($border-color, $lightness: -5%);
+        }
+
+        &:has(input:checked) {
+            border-color: $primary-color;
+            background: rgba($primary-color, 0.04);
+        }
+    }
+
+    &__radio,
+    &__checkbox {
+        accent-color: $primary-color;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    &__option-label {
+        font-size: $font-size-base;
+        color: $text-color;
+        user-select: none;
+    }
+
+    // ─── Submit ───
+
+    &__submit {
+        align-self: flex-start;
+        padding: $spacing-sm $spacing-xl;
+        background: $primary-color;
+        color: #fff;
+        border: none;
+        border-radius: $border-radius-md;
+        font-size: $font-size-base;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background $transition-fast;
+
+        &:hover:not(:disabled) {
+            background: color.adjust($primary-color, $lightness: -8%);
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+
+    &__error {
+        padding: $spacing-sm $spacing-md;
+        background: rgba($error-color, 0.08);
+        border: 1px solid rgba($error-color, 0.3);
+        border-radius: $border-radius-md;
+        color: $error-color;
+        font-size: $font-size-sm;
+    }
+
+    // ─── Success ───
+
+    &__success {
+        text-align: center;
+        padding: $spacing-2xl $spacing-lg;
+    }
+
+    &__success-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: $success-color;
+        color: #fff;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto $spacing-md;
+    }
+
+    &__success-message {
+        font-size: $font-size-lg;
+        color: $text-color;
+        margin: 0;
+    }
+
+    // ─── Results ───
+
+    &__loading {
+        text-align: center;
+        padding: $spacing-lg;
+        color: $text-light;
+    }
+
+    &__results {
+        margin-top: $spacing-xl;
+        border-top: 1px solid $border-color;
+        padding-top: $spacing-lg;
+    }
+
+    &__results-title {
+        font-size: $font-size-xl;
+        margin: 0 0 $spacing-xs;
+    }
+
+    &__results-count {
+        font-size: $font-size-sm;
+        color: $text-light;
+        margin: 0 0 $spacing-lg;
+    }
+
+    &__result-item {
+        margin-bottom: $spacing-lg;
+
+        h4 {
+            font-size: $font-size-base;
+            margin: 0 0 $spacing-xs;
+        }
+    }
+
+    &__result-responses {
+        font-size: $font-size-xs;
+        color: $text-light;
+        display: block;
+        margin-bottom: $spacing-sm;
+    }
+
+    // Bar chart for choice results
+    &__bar {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-xs;
+    }
+
+    &__bar-label {
+        min-width: 100px;
+        font-size: $font-size-sm;
+        flex-shrink: 0;
+    }
+
+    &__bar-track {
+        flex: 1;
+        height: 20px;
+        background: $background-dark;
+        border-radius: $border-radius-sm;
+        overflow: hidden;
+    }
+
+    &__bar-fill {
+        height: 100%;
+        background: $primary-color;
+        border-radius: $border-radius-sm;
+        transition: width 0.3s ease;
+    }
+
+    &__bar-value {
+        min-width: 40px;
+        text-align: right;
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-light;
+    }
+
+    // Number stats
+    &__stats {
+        display: flex;
+        gap: $spacing-md;
+        flex-wrap: wrap;
+    }
+
+    &__stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: $spacing-sm $spacing-md;
+        background: $background-dark;
+        border-radius: $border-radius-md;
+        min-width: 70px;
+
+        span {
+            font-size: $font-size-xs;
+            color: $text-light;
+        }
+
+        strong {
+            font-size: $font-size-lg;
+        }
+    }
+
+    &__text-count {
+        font-size: $font-size-sm;
+        color: $text-light;
+        margin: 0;
+    }
+}

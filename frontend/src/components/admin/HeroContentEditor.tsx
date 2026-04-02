@@ -82,6 +82,18 @@ const HeroContentEditor: Component = () => {
 
     // Drag state
     const [draggingId, setDraggingId,] = createSignal<string | null>(null,);
+
+    // Track which item cards have settings open (persists across re-renders)
+    const [openSettings, setOpenSettings,] = createSignal<Set<string>>(new Set(),);
+    const isSettingsOpen = (id: string,) => openSettings().has(id,);
+    const toggleSettings = (id: string,) => {
+        setOpenSettings((prev,) => {
+            const next = new Set(prev,);
+            if (next.has(id,)) next.delete(id,);
+            else next.add(id,);
+            return next;
+        },);
+    };
     const [ghostStyle, setGhostStyle,] = createSignal<
         { top: number; left: number; width: number; height: number; } | null
     >(null,);
@@ -438,208 +450,44 @@ const HeroContentEditor: Component = () => {
 
     return (
         <div class="hero-editor">
-            <div class="hero-editor__header">
-                <h2>Hero Content</h2>
-                <button
-                    class="btn btn--primary"
-                    disabled={!isDirty() || saving()}
-                    onClick={handleSave}
-                >
-                    {saving() ? 'Saving...' : 'Save'}
-                </button>
-            </div>
-
             <Show when={loading()}>
                 <div class="hero-editor__loading">Loading hero settings...</div>
             </Show>
 
             <Show when={!loading()}>
-                {/* ─── Item Cards ─── */}
-                <div class={`hero-editor__items ${draggingId() ? 'hero-editor__items--dragging' : ''}`}>
-                    <For each={items()}>
-                        {(item,) => (
-                            <div
-                                class={`hero-item-card ${draggingId() === item.id ? 'hero-item-card--dragging' : ''}`}
-                            >
-                                {/* Media preview */}
-                                <div class="hero-item-card__preview">
-                                    <Show
-                                        when={item.mediaType === 'video'}
-                                        fallback={
-                                            <img
-                                                src={item.mediaThumbnailUrl || item.mediaUrl}
-                                                alt=""
-                                                style={{ 'object-fit': item.objectFit || 'cover', }}
-                                            />
-                                        }
-                                    >
-                                        <video
-                                            src={item.mediaUrl}
-                                            poster={item.mediaThumbnailUrl}
-                                            controls
-                                            muted
-                                            playsinline
-                                            style={{ 'object-fit': item.objectFit || 'cover', }}
-                                        />
-                                    </Show>
-                                </div>
-
-                                <div class="hero-item-card__body">
-                                    {/* Object fit */}
-                                    <div class="hero-item-card__field">
-                                        <label class="hero-item-card__field-label">Object Fit</label>
-                                        <select
-                                            class="input input--sm input--select"
-                                            value={item.objectFit || 'cover'}
-                                            onChange={(e,) => {
-                                                updateItem(item.id, it => ({
-                                                    ...it,
-                                                    objectFit: e.currentTarget.value as HeroItem['objectFit'],
-                                                }),);
-                                            }}
-                                        >
-                                            <For each={OBJECT_FIT_OPTIONS}>
-                                                {(opt,) => <option value={opt}>{opt}</option>}
-                                            </For>
-                                        </select>
-                                    </div>
-
-                                    {/* Autoplay (video only) */}
-                                    <Show when={item.mediaType === 'video'}>
-                                        <label class="hero-item-card__toggle">
-                                            <input
-                                                type="checkbox"
-                                                checked={item.autoplay ?? true}
-                                                onChange={(e,) => {
-                                                    updateItem(item.id, it => ({
-                                                        ...it,
-                                                        autoplay: e.currentTarget.checked,
-                                                    }),);
-                                                }}
-                                            />
-                                            <span>Autoplay</span>
-                                        </label>
-                                    </Show>
-
-                                    {/* Header */}
-                                    {renderTextSection(item, 'header', 'Header',)}
-
-                                    {/* Subheader */}
-                                    {renderTextSection(item, 'subheader', 'Subheader',)}
-
-                                    {/* Action */}
-                                    {renderActionSection(item,)}
-                                </div>
-
-                                {/* Footer: drag + delete */}
-                                <div class="hero-item-card__footer">
-                                    <button
-                                        class="hero-item-card__drag-handle"
-                                        onPointerDown={(e,) => handleDragStart(e, item.id,)}
-                                        title="Drag to reorder"
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            width="18"
-                                            height="18"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <circle cx="9" cy="6" r="1" fill="currentColor" />
-                                            <circle cx="15" cy="6" r="1" fill="currentColor" />
-                                            <circle cx="9" cy="12" r="1" fill="currentColor" />
-                                            <circle cx="15" cy="12" r="1" fill="currentColor" />
-                                            <circle cx="9" cy="18" r="1" fill="currentColor" />
-                                            <circle cx="15" cy="18" r="1" fill="currentColor" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        class="btn btn--xs btn--danger-ghost"
-                                        onClick={() => {
-                                            if (confirm('Remove this hero item?',)) {
-                                                removeItem(item.id,);
-                                            }
-                                        }}
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            width="16"
-                                            height="16"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <polyline points="3 6 5 6 21 6" />
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                        </svg>
-                                        Delete
-                                    </button>
-                                </div>
+                {/* ─── Preview ─── */}
+                <div class="hero-preview">
+                    <h3 class="hero-preview__title">Preview</h3>
+                    <Show
+                        when={items().length > 0}
+                        fallback={
+                            <div class="hero-preview__empty">
+                                Add hero items below to see a preview
                             </div>
-                        )}
-                    </For>
-
-                    {/* Add new item card */}
-                    <div class="hero-add-card">
-                        <div class="hero-add-card__content">
-                            <span class="hero-add-card__icon">+</span>
-                            <span class="hero-add-card__label">Add Hero Item</span>
-                            <button
-                                class="btn btn--sm btn--secondary"
-                                onClick={() => setShowMediaSelect(true,)}
-                            >
-                                Select Existing Media
-                            </button>
-                            <button
-                                class="btn btn--sm btn--outline"
-                                onClick={() => setShowMediaUpload(true,)}
-                            >
-                                Upload New Media
-                            </button>
+                        }
+                    >
+                        <div class="hero-preview__container">
+                            <HeroCarousel
+                                items={items()}
+                                options={options()}
+                                previewMode={true}
+                                height={scaledHeight()}
+                            />
                         </div>
-                    </div>
+                    </Show>
                 </div>
-
-                {/* Drag ghost */}
-                <Show when={ghostStyle()}>
-                    {(style,) => (
-                        <div
-                            class="hero-item-card-ghost"
-                            style={{
-                                position: 'fixed',
-                                top: `${style().top}px`,
-                                left: `${style().left}px`,
-                                width: `${style().width}px`,
-                                height: `${style().height}px`,
-                            }}
-                        >
-                            <div class="hero-item-card-ghost__inner">
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    width="20"
-                                    height="20"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                >
-                                    <circle cx="9" cy="6" r="1" fill="currentColor" />
-                                    <circle cx="15" cy="6" r="1" fill="currentColor" />
-                                    <circle cx="9" cy="12" r="1" fill="currentColor" />
-                                    <circle cx="15" cy="12" r="1" fill="currentColor" />
-                                    <circle cx="9" cy="18" r="1" fill="currentColor" />
-                                    <circle cx="15" cy="18" r="1" fill="currentColor" />
-                                </svg>
-                                <span>Moving hero item...</span>
-                            </div>
-                        </div>
-                    )}
-                </Show>
 
                 {/* ─── Carousel Options ─── */}
                 <div class="hero-options">
                     <h3 class="hero-options__title">Carousel Options</h3>
                     <div class="hero-options__row">
+                        <button
+                            class="btn btn--primary btn--small"
+                            disabled={!isDirty() || saving()}
+                            onClick={handleSave}
+                        >
+                            {saving() ? 'Saving...' : 'Save Carousel'}
+                        </button>
                         {/* Auto-scroll */}
                         <div class="hero-options__group">
                             <label class="toggle-switch">
@@ -731,30 +579,217 @@ const HeroContentEditor: Component = () => {
                                 }
                             />
                         </div>
+
+                        {/* Apply gutter */}
+                        <div class="hero-options__group">
+                            <label class="toggle-switch">
+                                <input
+                                    type="checkbox"
+                                    checked={options().applyGutter || false}
+                                    onChange={(e,) => updateOptions({ applyGutter: e.currentTarget.checked, },)}
+                                />
+                                <span class="toggle-switch__slider" />
+                            </label>
+                            <span class="hero-options__label">Apply Site Gutter</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* ─── Preview ─── */}
-                <div class="hero-preview">
-                    <h3 class="hero-preview__title">Preview</h3>
-                    <Show
-                        when={items().length > 0}
-                        fallback={
-                            <div class="hero-preview__empty">
-                                Add hero items above to see a preview
-                            </div>
-                        }
-                    >
-                        <div class="hero-preview__container">
-                            <HeroCarousel
-                                items={items()}
-                                options={options()}
-                                previewMode={true}
-                                height={scaledHeight()}
-                            />
+                {/* ─── Item Cards ─── */}
+                <h3 class="hero-options__title">Carousel Items</h3>
+                <div class={`hero-editor__items ${draggingId() ? 'hero-editor__items--dragging' : ''}`}>
+                    <For each={items()}>
+                        {(item,) => (
+                                <div
+                                    class={`hero-item-card ${draggingId() === item.id ? 'hero-item-card--dragging' : ''}`}
+                                >
+                                    {/* Media preview */}
+                                    <div class="hero-item-card__preview">
+                                        <Show
+                                            when={item.mediaType === 'video'}
+                                            fallback={
+                                                <img
+                                                    src={item.mediaThumbnailUrl || item.mediaUrl}
+                                                    alt=""
+                                                    style={{ 'object-fit': item.objectFit || 'cover', }}
+                                                />
+                                            }
+                                        >
+                                            <video
+                                                src={item.mediaUrl}
+                                                poster={item.mediaThumbnailUrl}
+                                                controls
+                                                muted
+                                                playsinline
+                                                style={{ 'object-fit': item.objectFit || 'cover', }}
+                                            />
+                                        </Show>
+                                    </div>
+
+                                    {/* Collapsible Settings */}
+                                    <button
+                                        class={`hero-item-card__settings-toggle ${isSettingsOpen(item.id,) ? 'hero-item-card__settings-toggle--open' : ''}`}
+                                        onClick={() => toggleSettings(item.id,)}
+                                    >
+                                        <span>Settings</span>
+                                        <span class="hero-item-card__settings-chevron">
+                                            {isSettingsOpen(item.id,) ? '\u25B2' : '\u25BC'}
+                                        </span>
+                                    </button>
+
+                                    <Show when={isSettingsOpen(item.id,)}>
+                                        <div class="hero-item-card__body">
+                                            {/* Object fit */}
+                                            <div class="hero-item-card__field">
+                                                <label class="hero-item-card__field-label">Object Fit</label>
+                                                <select
+                                                    class="input input--sm input--select"
+                                                    value={item.objectFit || 'cover'}
+                                                    onChange={(e,) => {
+                                                        updateItem(item.id, it => ({
+                                                            ...it,
+                                                            objectFit: e.currentTarget.value as HeroItem['objectFit'],
+                                                        }),);
+                                                    }}
+                                                >
+                                                    <For each={OBJECT_FIT_OPTIONS}>
+                                                        {(opt,) => <option value={opt}>{opt}</option>}
+                                                    </For>
+                                                </select>
+                                            </div>
+
+                                            {/* Autoplay (video only) */}
+                                            <Show when={item.mediaType === 'video'}>
+                                                <label class="hero-item-card__toggle">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={item.autoplay ?? true}
+                                                        onChange={(e,) => {
+                                                            updateItem(item.id, it => ({
+                                                                ...it,
+                                                                autoplay: e.currentTarget.checked,
+                                                            }),);
+                                                        }}
+                                                    />
+                                                    <span>Autoplay</span>
+                                                </label>
+                                            </Show>
+
+                                            {/* Header */}
+                                            {renderTextSection(item, 'header', 'Header',)}
+
+                                            {/* Subheader */}
+                                            {renderTextSection(item, 'subheader', 'Subheader',)}
+
+                                            {/* Action */}
+                                            {renderActionSection(item,)}
+                                        </div>
+                                    </Show>
+
+                                    {/* Footer: drag + delete */}
+                                    <div class="hero-item-card__footer">
+                                        <button
+                                            class="hero-item-card__drag-handle"
+                                            onPointerDown={(e,) => handleDragStart(e, item.id,)}
+                                            title="Drag to reorder"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                width="18"
+                                                height="18"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <circle cx="9" cy="6" r="1" fill="currentColor" />
+                                                <circle cx="15" cy="6" r="1" fill="currentColor" />
+                                                <circle cx="9" cy="12" r="1" fill="currentColor" />
+                                                <circle cx="15" cy="12" r="1" fill="currentColor" />
+                                                <circle cx="9" cy="18" r="1" fill="currentColor" />
+                                                <circle cx="15" cy="18" r="1" fill="currentColor" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            class="btn btn--xs btn--danger-ghost"
+                                            onClick={() => {
+                                                if (confirm('Remove this hero item?',)) {
+                                                    removeItem(item.id,);
+                                                }
+                                            }}
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                width="16"
+                                                height="16"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                        )}
+                    </For>
+
+                    {/* Add new item card */}
+                    <div class="hero-add-card">
+                        <div class="hero-add-card__content">
+                            <span class="hero-add-card__icon">+</span>
+                            <span class="hero-add-card__label">Add Hero Item</span>
+                            <button
+                                class="btn btn--sm btn--secondary"
+                                onClick={() => setShowMediaSelect(true,)}
+                            >
+                                Select Existing Media
+                            </button>
+                            <button
+                                class="btn btn--sm btn--outline"
+                                onClick={() => setShowMediaUpload(true,)}
+                            >
+                                Upload New Media
+                            </button>
                         </div>
-                    </Show>
+                    </div>
                 </div>
+
+                {/* Drag ghost */}
+                <Show when={ghostStyle()}>
+                    {(style,) => (
+                        <div
+                            class="hero-item-card-ghost"
+                            style={{
+                                position: 'fixed',
+                                top: `${style().top}px`,
+                                left: `${style().left}px`,
+                                width: `${style().width}px`,
+                                height: `${style().height}px`,
+                            }}
+                        >
+                            <div class="hero-item-card-ghost__inner">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="20"
+                                    height="20"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <circle cx="9" cy="6" r="1" fill="currentColor" />
+                                    <circle cx="15" cy="6" r="1" fill="currentColor" />
+                                    <circle cx="9" cy="12" r="1" fill="currentColor" />
+                                    <circle cx="15" cy="12" r="1" fill="currentColor" />
+                                    <circle cx="9" cy="18" r="1" fill="currentColor" />
+                                    <circle cx="15" cy="18" r="1" fill="currentColor" />
+                                </svg>
+                                <span>Moving hero item...</span>
+                            </div>
+                        </div>
+                    )}
+                </Show>
             </Show>
 
             {/* ─── Modals ─── */}

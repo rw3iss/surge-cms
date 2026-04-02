@@ -1,6 +1,6 @@
-import type { NavigationItem, SiteSettings, } from '@surge/shared';
-import { createResource, ParentComponent, } from 'solid-js';
-import { fetchNavigation, fetchSettings, fetchSiteHeader, } from '../../services/api';
+import type { AppearanceSettings, NavigationItem, SiteSettings, } from '@surge/shared';
+import { createMemo, createResource, ParentComponent, } from 'solid-js';
+import { fetchAppearance, fetchNavigation, fetchSettings, fetchSiteHeader, } from '../../services/api';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -26,13 +26,31 @@ export const Layout: ParentComponent = (props,) => {
         return null;
     },);
 
+    const [appearance,] = createResource(async () => {
+        const response = await fetchAppearance();
+        return response.success ? response.data as AppearanceSettings : null;
+    },);
+
+    const layoutStyle = createMemo(() => {
+        const a = appearance();
+        const s: Record<string, string> = {};
+        if (a?.backgroundColor) {
+            s['background-color'] = a.backgroundColor;
+            s['--site-bg'] = a.backgroundColor;
+        }
+        if (a?.fontSize) s['font-size'] = `${a.fontSize}px`;
+        if (a?.gutterWidth) s['--site-gutter'] = a.gutterWidth;
+        return s;
+    },);
+
     return (
-        <div class="layout">
+        <div class="layout" style={layoutStyle()}>
             <Header
                 navigation={navigation() || []}
                 siteName={settings()?.siteName || 'Surge Media'}
                 logo={settings()?.logo}
                 headerSettings={headerSettings()}
+                gutterWidth={appearance()?.gutterWidth}
             />
 
             <main class="layout__main">

@@ -23,16 +23,41 @@ export const AuthProvider: ParentComponent = (props,) => {
 
     const isAuthenticated = () => !!user();
 
+    const isLocalhost = () => {
+        const host = window.location.hostname;
+        return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    };
+
+    const tryAutologin = async (): Promise<boolean> => {
+        if (!isLocalhost()) return false;
+        try {
+            const response = await api.get<{ user: User; }>('/auth/autologin',);
+            if (response.success && response.data?.user) {
+                setUser(response.data.user,);
+                return true;
+            }
+        } catch {
+            // Autologin not available
+        }
+        return false;
+    };
+
     const refreshUser = async () => {
         try {
             const response = await api.get<{ user: User; }>('/auth/me',);
             if (response.success && response.data?.user) {
                 setUser(response.data.user,);
             } else {
-                setUser(null,);
+                // Try autologin from localhost
+                if (!await tryAutologin()) {
+                    setUser(null,);
+                }
             }
         } catch {
-            setUser(null,);
+            // Try autologin from localhost
+            if (!await tryAutologin()) {
+                setUser(null,);
+            }
         }
     };
 
@@ -60,6 +85,8 @@ export const AuthProvider: ParentComponent = (props,) => {
             await api.post('/auth/logout',);
         } finally {
             setUser(null,);
+            // Re-autologin if on localhost with autologin enabled
+            await tryAutologin();
         }
     };
 
@@ -121,5 +148,5 @@ export function useUser() {
 
 export function useIsAdmin() {
     const { user, } = useAuth();
-    return () => user?.role === 'admin';
+    return () => user?.role === 'admin' || user?.role === 'sysadmin';
 }

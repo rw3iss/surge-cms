@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { useNavigate, useParams, } from '@solidjs/router';
+import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import BlockEditor, { BlockData, BlockType, BlockTypeOption, } from '../../components/admin/BlockEditor';
 import ConfirmModal from '../../components/admin/ConfirmModal';
@@ -26,10 +26,7 @@ const PAGE_BLOCK_TYPES: BlockTypeOption[] = [
 let blockIdCounter = 0;
 const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
 
-/** Convert backend page block to BlockData format used by BlockEditor */
 function pageBlockToBlockData(block: any,): BlockData {
-    // style comes as a resolved object from the backend
-    // If it has an id, it's a template reference. Otherwise it's custom inline.
     const styleRef = block.style?.id ?
         { templateId: block.style.id, } :
         block.style ?
@@ -49,10 +46,8 @@ function pageBlockToBlockData(block: any,): BlockData {
     };
 }
 
-/** Convert BlockData back to page block API format */
 function blockDataToPageBlock(block: BlockData, order: number,) {
     const { title, content, __styleRef, ...settings } = block.data;
-    // Build the style JSONB: { id: "uuid" } for template, or { backgroundColor: ... } for custom
     let style: any = undefined;
     const ref = (__styleRef as any) || block.styleRef;
     if (ref?.templateId) {
@@ -73,6 +68,12 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
     };
 }
 
+const ALIGNMENTS = [
+    { value: 'left', icon: '\u2261', title: 'Left', },
+    { value: 'center', icon: '\u2261', title: 'Center', },
+    { value: 'right', icon: '\u2261', title: 'Right', },
+];
+
 const AdminPageEditor: Component = () => {
     const params = useParams();
     const navigate = useNavigate();
@@ -86,6 +87,7 @@ const AdminPageEditor: Component = () => {
     },);
 
     const [title, setTitle,] = createSignal('',);
+    const [titleAlignment, setTitleAlignment,] = createSignal('left',);
     const [slug, setSlug,] = createSignal('',);
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
@@ -104,6 +106,7 @@ const AdminPageEditor: Component = () => {
         const p = page();
         if (p) {
             setTitle(p.title || '',);
+            setTitleAlignment(p.titleAlignment || 'left',);
             setSlug(p.slug || '',);
             setStatus(p.status || 'draft',);
             setAccessLevel(p.accessLevel || 'public',);
@@ -118,35 +121,24 @@ const AdminPageEditor: Component = () => {
     const syncBlocks = async (pageId: string,) => {
         const currentBlocks = blocks();
         const origIds = originalBlockIds();
-
-        // Determine which blocks are new, updated, or deleted
         const currentIds = new Set(currentBlocks.map(b => b.id),);
         const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
         const newBlocks = currentBlocks.filter(b => !origIds.has(b.id,));
         const existingBlocks = currentBlocks.filter(b => origIds.has(b.id,));
 
-        // Delete removed blocks
         for (const id of deletedIds) {
             await api.delete(`/pages/${pageId}/blocks/${id}`,);
         }
-
-        // Create new blocks
         for (let i = 0; i < newBlocks.length; i++) {
             const b = newBlocks[i];
             const order = currentBlocks.indexOf(b,);
             await api.post(`/pages/${pageId}/blocks`, blockDataToPageBlock(b, order,),);
         }
-
-        // Update existing blocks
         for (const b of existingBlocks) {
             const order = currentBlocks.indexOf(b,);
             await api.put(`/pages/${pageId}/blocks/${b.id}`, blockDataToPageBlock(b, order,),);
         }
-
-        // Reorder all blocks
-        const blockIds = currentBlocks
-            .filter(b => origIds.has(b.id,))
-            .map(b => b.id);
+        const blockIds = currentBlocks.filter(b => origIds.has(b.id,)).map(b => b.id);
         if (blockIds.length > 1) {
             await api.put(`/pages/${pageId}/blocks/reorder`, { blockIds, },);
         }
@@ -154,27 +146,20 @@ const AdminPageEditor: Component = () => {
 
     const handleSave = async () => {
         setError('',);
-        if (!title()) {
-            setError('Title is required',);
-            return;
-        }
-        if (!slug()) {
-            setError('Slug is required',);
-            return;
-        }
+        if (!title()) { setError('Title is required',); return; }
+        if (!slug()) { setError('Slug is required',); return; }
 
         setSaving(true,);
-
         try {
             const data = {
                 title: title(),
+                titleAlignment: titleAlignment(),
                 slug: slug(),
                 status: status(),
                 accessLevel: accessLevel(),
             };
 
             let pageId = params.id;
-
             if (isNew()) {
                 const response = await api.post('/pages', data,);
                 if (!response.success) {
@@ -192,11 +177,7 @@ const AdminPageEditor: Component = () => {
                 }
             }
 
-            // Sync blocks to backend
-            if (pageId) {
-                await syncBlocks(pageId,);
-            }
-
+            if (pageId) await syncBlocks(pageId,);
             markClean();
             navigate('/admin/pages',);
         } catch (err: any) {
@@ -207,131 +188,178 @@ const AdminPageEditor: Component = () => {
     };
 
     return (
-        <div>
+        <div class="page-editor">
             <Title>{isNew() ? 'New Page' : 'Edit Page'} - Admin - Surge Media</Title>
+
+            <A href="/admin/pages" class="page-editor__back">&larr; All Pages</A>
+
             <div class="admin-header">
                 <h1>{isNew() ? 'New Page' : 'Edit Page'}</h1>
                 <div class="admin-header__actions">
                     <Show when={!isNew() && page()}>
                         <Show when={isDeleted()}>
                             <button
-                                class="btn btn--secondary"
+                                class="btn btn--secondary btn--small"
                                 onClick={() => setShowRestoreConfirm(true,)}
                                 disabled={restoring()}
                             >
-                                {restoring() ? 'Restoring...' : 'Un-delete Page'}
+                                {restoring() ? 'Restoring...' : 'Restore'}
                             </button>
                         </Show>
                         <Show when={!isDeleted() && (isDirty() || status() === 'draft')}>
-                            <button class="btn btn--ghost" onClick={() => setShowPreview(true,)}>
-                                Preview Changes
+                            <button class="btn btn--ghost btn--small" onClick={() => setShowPreview(true,)}>
+                                Preview
                             </button>
                         </Show>
                         <Show when={status() === 'published'}>
-                            <a href={`/${page()?.slug}`} target="_blank" class="btn btn--secondary">
-                                View Page &nearr;
+                            <a href={`/${page()?.slug}`} target="_blank" class="btn btn--secondary btn--small">
+                                View &nearr;
                             </a>
                         </Show>
                     </Show>
-                    <button class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                    <button class="btn btn--primary btn--small" onClick={handleSave} disabled={saving()}>
                         {saving() ? 'Saving...' : 'Save Page'}
                     </button>
                 </div>
             </div>
+
             <Show when={error()}>
                 <div class="alert alert--error">{error()}</div>
             </Show>
-            <div class="admin-form">
-                <div class="form-section">
-                    <h2>Page Details</h2>
-                    <div class="form-group">
-                        <label>Title</label>
-                        <input
-                            type="text"
-                            value={title()}
-                            onInput={(e,) => {
-                                setTitle(e.currentTarget.value,);
-                                markDirty();
-                            }}
-                            placeholder="Page title"
-                        />
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group form-group--grow">
-                            <label>Slug</label>
+
+            {/* ─── Top panels: Properties + Status ─── */}
+            <div class="page-editor__panels">
+                <div class="page-editor__panel page-editor__panel--main">
+                    <h2 class="page-editor__panel-title">Page Properties</h2>
+
+                    <div class="settings-fields">
+                        <div class="settings-field">
+                            <label class="settings-field__label">Title</label>
                             <input
+                                class="settings-field__input"
+                                style={{ width: '280px', }}
+                                type="text"
+                                value={title()}
+                                onInput={(e,) => { setTitle(e.currentTarget.value,); markDirty(); }}
+                                placeholder="Page title"
+                            />
+
+                            <div class="page-editor__align-group">
+                                <span class="page-editor__align-label">Align</span>
+                                <div class="page-editor__align-buttons">
+                                    <For each={ALIGNMENTS}>
+                                        {(a,) => (
+                                            <button
+                                                class={`page-editor__align-btn ${titleAlignment() === a.value ? 'page-editor__align-btn--active' : ''}`}
+                                                onClick={() => { setTitleAlignment(a.value,); markDirty(); }}
+                                                title={a.title}
+                                            >
+                                                <svg viewBox="0 0 16 16" width="14" height="14">
+                                                    <Show when={a.value === 'left'}>
+                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                        <rect x="1" y="7" width="10" height="2" fill="currentColor" />
+                                                        <rect x="1" y="12" width="12" height="2" fill="currentColor" />
+                                                    </Show>
+                                                    <Show when={a.value === 'center'}>
+                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                        <rect x="3" y="7" width="10" height="2" fill="currentColor" />
+                                                        <rect x="2" y="12" width="12" height="2" fill="currentColor" />
+                                                    </Show>
+                                                    <Show when={a.value === 'right'}>
+                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                        <rect x="5" y="7" width="10" height="2" fill="currentColor" />
+                                                        <rect x="3" y="12" width="12" height="2" fill="currentColor" />
+                                                    </Show>
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </For>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-field">
+                            <label class="settings-field__label">Slug</label>
+                            <input
+                                class="settings-field__input"
+                                style={{ width: '280px', }}
                                 type="text"
                                 value={slug()}
-                                onInput={(e,) => {
-                                    setSlug(e.currentTarget.value,);
-                                    markDirty();
-                                }}
+                                onInput={(e,) => { setSlug(e.currentTarget.value,); markDirty(); }}
                                 placeholder="page-slug"
                             />
-                            <span class="form-help">URL path for this page (e.g. "about" → /about)</span>
+                            <span class="settings-field__help">URL: /{slug()}</span>
                         </div>
-                        <div class="form-group">
-                            <label>Status</label>
+                    </div>
+                </div>
+
+                <div class="page-editor__panel page-editor__panel--sidebar">
+                    <h2 class="page-editor__panel-title">Status & Access</h2>
+
+                    <div class="settings-fields">
+                        <div class="settings-field">
+                            <label class="settings-field__label" style={{ 'min-width': '70px', }}>Status</label>
                             <select
+                                class="settings-field__input"
+                                style={{ width: '130px', }}
                                 value={status()}
-                                onChange={(e,) => {
-                                    setStatus(e.currentTarget.value,);
-                                    markDirty();
-                                }}
+                                onChange={(e,) => { setStatus(e.currentTarget.value,); markDirty(); }}
                             >
                                 <option value="draft">Draft</option>
                                 <option value="published">Published</option>
                                 <option value="archived">Archived</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Access Level</label>
+
+                        <div class="settings-field">
+                            <label class="settings-field__label" style={{ 'min-width': '70px', }}>Access</label>
                             <select
+                                class="settings-field__input"
+                                style={{ width: '130px', }}
                                 value={accessLevel()}
-                                onChange={(e,) => {
-                                    setAccessLevel(e.currentTarget.value,);
-                                    markDirty();
-                                }}
+                                onChange={(e,) => { setAccessLevel(e.currentTarget.value,); markDirty(); }}
                             >
                                 <option value="public">Public</option>
                                 <option value="member">Members Only</option>
                                 <option value="patron">Patrons Only</option>
                             </select>
-                            <span class="form-help">Who can view this page</span>
                         </div>
-                    </div>
-                </div>
 
-                <div class="form-section">
-                    <BlockEditor
-                        title="Page Content"
-                        blocks={blocks()}
-                        onBlocksChange={(newBlocks,) => {
-                            setBlocks(newBlocks,);
-                            markDirty();
-                        }}
-                        blockTypes={PAGE_BLOCK_TYPES}
-                    />
-                </div>
-
-                <div class="form-actions" style={{ 'justify-content': 'space-between', }}>
-                    <div style={{ display: 'flex', gap: '12px', }}>
-                        <button class="btn btn--primary" onClick={handleSave} disabled={saving()}>
-                            {saving() ? 'Saving...' : 'Save Page'}
-                        </button>
-                        <button class="btn btn--secondary" onClick={() => navigate('/admin/pages',)}>Cancel</button>
+                        <Show when={!isNew() && !isDeleted()}>
+                            <div class="settings-field" style={{ 'margin-top': '0.5rem', }}>
+                                <label class="settings-field__label" style={{ 'min-width': '70px', }} />
+                                <button
+                                    class="btn btn--ghost btn--xs"
+                                    style={{ color: '#dc3545', }}
+                                    onClick={() => setShowDeleteConfirm(true,)}
+                                    disabled={deleting()}
+                                >
+                                    Delete Page
+                                </button>
+                            </div>
+                        </Show>
                     </div>
-                    <Show when={!isNew() && !isDeleted()}>
-                        <button
-                            class="btn btn--danger"
-                            onClick={() => setShowDeleteConfirm(true,)}
-                            disabled={deleting()}
-                        >
-                            {deleting() ? 'Deleting...' : 'Delete Page'}
-                        </button>
-                    </Show>
                 </div>
             </div>
+
+            {/* ─── Block Editor ─── */}
+            <div class="page-editor__panel" style={{ 'margin-top': '1rem', }}>
+                <BlockEditor
+                    title="Page Content"
+                    blocks={blocks()}
+                    onBlocksChange={(newBlocks,) => { setBlocks(newBlocks,); markDirty(); }}
+                    blockTypes={PAGE_BLOCK_TYPES}
+                />
+            </div>
+
+            {/* ─── Bottom save bar ─── */}
+            <div class="page-editor__footer">
+                <button class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                    {saving() ? 'Saving...' : 'Save Page'}
+                </button>
+                <button class="btn btn--secondary" onClick={() => navigate('/admin/pages',)}>Cancel</button>
+            </div>
+
             <ConfirmModal
                 open={showDeleteConfirm()}
                 title="Delete Page"
@@ -342,12 +370,8 @@ const AdminPageEditor: Component = () => {
                     setDeleting(true,);
                     try {
                         const response = await api.put(`/pages/${params.id}`, { status: 'deleted', },);
-                        if (response.success) {
-                            markClean();
-                            navigate('/admin/pages',);
-                        } else {
-                            setError((response as any).error?.message || 'Failed to delete page',);
-                        }
+                        if (response.success) { markClean(); navigate('/admin/pages',); }
+                        else setError((response as any).error?.message || 'Failed to delete page',);
                     } catch (err: any) {
                         setError(err.message || 'Failed to delete page',);
                     } finally {
@@ -367,12 +391,8 @@ const AdminPageEditor: Component = () => {
                     setRestoring(true,);
                     try {
                         const response = await api.put(`/pages/${params.id}`, { status: 'draft', },);
-                        if (response.success) {
-                            setStatus('draft',);
-                            markClean();
-                        } else {
-                            setError((response as any).error?.message || 'Failed to restore page',);
-                        }
+                        if (response.success) { setStatus('draft',); markClean(); }
+                        else setError((response as any).error?.message || 'Failed to restore page',);
                     } catch (err: any) {
                         setError(err.message || 'Failed to restore page',);
                     } finally {
@@ -382,7 +402,6 @@ const AdminPageEditor: Component = () => {
                 onCancel={() => setShowRestoreConfirm(false,)}
             />
 
-            {/* Inline preview overlay — no navigation, preserves editor state */}
             <Show when={showPreview()}>
                 <PreviewOverlay backUrl="" onClose={() => setShowPreview(false,)}>
                     <Header navigation={[]} siteName="Surge Media" />
@@ -390,14 +409,10 @@ const AdminPageEditor: Component = () => {
                         <For each={blocks()}>
                             {(block,) => {
                                 const { title: t, content: c, __styleRef, ...rest } = block.data || {};
-                                // Resolve style: use styleRef or __styleRef, resolve template IDs from cache
-                                // Prefer __styleRef (latest edits) over styleRef (initial load)
                                 const ref = (__styleRef as any) || block.styleRef;
                                 let resolvedStyle: any = undefined;
-                                if (ref?.custom) {
-                                    resolvedStyle = ref.custom;
-                                } else if (ref?.templateId) {
-                                    // Look up full style from the client-side cache
+                                if (ref?.custom) resolvedStyle = ref.custom;
+                                else if (ref?.templateId) {
                                     const allStyles = BlockStyleService.getCached();
                                     const tmpl = allStyles.find((s: any,) => s.id === ref.templateId);
                                     resolvedStyle = tmpl || { id: ref.templateId, };

@@ -270,18 +270,19 @@
   border-radius: $border-radius-md;
   font-weight: 500;
   font-size: $font-size-sm;
+  font-family: $font-family;
   text-decoration: none;
   cursor: pointer;
   border: none;
-  transition: all $transition-fast;
+  transition: background $transition-fast, color $transition-fast, opacity $transition-fast;
   gap: $spacing-xs;
 
   &--primary {
     background: $primary-color;
     color: white;
 
-    &:hover {
-      background: darken($primary-color, 10%);
+    &:hover:not(:disabled) {
+      background: color.adjust($primary-color, $lightness: -10%);
       color: white;
     }
   }
@@ -291,7 +292,17 @@
     color: $text-color;
     border: 1px solid $border-color;
 
-    &:hover {
+    &:hover:not(:disabled) {
+      background: $background-dark;
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    color: $text-color;
+    border: 1px solid $border-color;
+
+    &:hover:not(:disabled) {
       background: $background-dark;
     }
   }
@@ -300,8 +311,19 @@
     background: #dc3545;
     color: white;
 
-    &:hover {
-      background: darken(#dc3545, 10%);
+    &:hover:not(:disabled) {
+      background: color.adjust(#dc3545, $lightness: -10%);
+    }
+  }
+
+  &--danger-ghost {
+    background: transparent;
+    color: $error-color;
+    padding: 2px $spacing-xs;
+    font-size: $font-size-xs;
+
+    &:hover:not(:disabled) {
+      background: rgba($error-color, 0.06);
     }
   }
 
@@ -311,7 +333,7 @@
     border: none;
     padding: $spacing-xs $spacing-sm;
 
-    &:hover {
+    &:hover:not(:disabled) {
       color: $text-color;
       background: rgba(0, 0, 0, 0.05);
     }
@@ -319,6 +341,16 @@
 
   &--small {
     padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+  }
+
+  &--sm {
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+  }
+
+  &--xs {
+    padding: 2px $spacing-xs;
     font-size: $font-size-xs;
   }
 
@@ -582,7 +614,7 @@
     justify-content: space-between;
     align-items: center;
     padding: $spacing-sm $spacing-md;
-    background: darken($background-dark, 2%);
+    background: color.adjust($background-dark, $lightness: -2%);
     border-bottom: 1px solid $border-color;
   }
 
@@ -1123,7 +1155,7 @@
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-sm $spacing-md;
-  background: darken($background-dark, 2%);
+  background: color.adjust($background-dark, $lightness: -2%);
   border-bottom: 1px solid $border-color;
 
   &__drag {
@@ -1461,50 +1493,83 @@
   max-width: 500px;
 }
 
-// ─── Collapsible Settings Sections ───
+// ─── Settings Tabs ───
 
-.settings-sections {
+.settings-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid $border-color;
+  margin-bottom: $spacing-lg;
+
+  &__tab {
+    padding: $spacing-sm $spacing-lg;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-light;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    transition: color $transition-fast, border-color $transition-fast;
+
+    &:hover {
+      color: $text-color;
+    }
+
+    &--active {
+      color: $primary-color;
+      border-bottom-color: $primary-color;
+    }
+  }
+}
+
+.settings-tab-content {
+  min-height: 200px;
+}
+
+.settings-subheading {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: $text-color;
+}
+
+// ─── Settings Field Rows (shared across settings tabs) ───
+
+.settings-fields {
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
 }
 
-.settings-section {
-  border: 1px solid $border-color;
-  border-radius: $border-radius-lg;
-  margin-bottom: $spacing-md;
-  background: $background;
-  overflow: hidden;
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
 
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: $spacing-md $spacing-lg;
-    background: none;
-    border: none;
-    cursor: pointer;
-    text-align: left;
-
-    h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin: 0;
-    }
-
-    &:hover {
-      background: $background-dark;
-    }
-  }
-
-  &__chevron {
-    font-size: 0.75rem;
+  &__label {
+    min-width: 140px;
+    font-size: $font-size-sm;
+    font-weight: 500;
     color: $text-light;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
-  &__body {
-    padding: 0 $spacing-lg $spacing-lg;
+  &__input {
+    width: 100px;
+    padding: 4px 8px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+  }
+
+  &__help {
+    font-size: $font-size-xs;
+    color: $text-light;
+    margin-left: $spacing-xs;
   }
 }
 
@@ -1667,7 +1732,7 @@
     transition: border-color $transition-fast, box-shadow $transition-fast;
 
     &:hover {
-      border-color: lighten($primary-color, 20%);
+      border-color: color.adjust($primary-color, $lightness: 20%);
     }
 
     &--selected {
@@ -2008,7 +2073,7 @@
   &:hover {
     border-color: $primary-color;
     color: $primary-color;
-    background: lighten($primary-color, 48%);
+    background: color.adjust($primary-color, $lightness: 48%);
   }
 
   &__icon {
@@ -2024,4 +2089,164 @@
 
 .text-muted {
   color: $text-light;
+}
+
+// ─── Campaign Block Dropdown ───
+
+.block-campaign {
+  &__dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: $z-index-dropdown;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 2px;
+  }
+
+  &__option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: $background-dark;
+    }
+
+    &--selected {
+      background: color.adjust($primary-color, $lightness: 45%);
+    }
+  }
+
+  &__option-title {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-color;
+  }
+
+  &__option-meta {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__empty {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-align: center;
+  }
+}
+
+// ─── Page Editor ───
+
+.page-editor {
+  &__back {
+    display: inline-block;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-decoration: none;
+    margin-bottom: $spacing-md;
+
+    &:hover { color: $primary-color; }
+  }
+
+  &__panels {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: $spacing-lg;
+
+    @include mobile-only {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__panel {
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    padding: $spacing-lg;
+  }
+
+  &__panel--sidebar {
+    height: fit-content;
+  }
+
+  &__panel-title {
+    font-size: $font-size-base;
+    font-weight: 600;
+    margin: 0 0 $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__align-group {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin-left: $spacing-md;
+  }
+
+  &__align-label {
+    font-size: $font-size-xs;
+    color: $text-light;
+    font-weight: 500;
+  }
+
+  &__align-buttons {
+    display: flex;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    overflow: hidden;
+  }
+
+  &__align-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 26px;
+    background: $background;
+    border: none;
+    border-right: 1px solid $border-color;
+    color: $text-light;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:last-child { border-right: none; }
+
+    &:hover {
+      background: $background-dark;
+      color: $text-color;
+    }
+
+    &--active {
+      background: $primary-color;
+      color: white;
+
+      &:hover {
+        background: $primary-color;
+        color: white;
+      }
+    }
+  }
+
+  &__footer {
+    display: flex;
+    gap: $spacing-md;
+    margin-top: $spacing-lg;
+    padding-top: $spacing-lg;
+    border-top: 1px solid $border-color;
+  }
 }

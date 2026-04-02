@@ -25,4 +25,5 @@ export interface SiteHeaderSettings {
     padding?: string;
     margin?: string;
     itemSpacing?: string;
+    applyGutter?: boolean;
 }

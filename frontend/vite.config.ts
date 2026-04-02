@@ -96,7 +96,8 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "${resolve(__dirname, 'src/styles/variables.scss').replace(/\\/g, '/')}";\n`,
+        api: 'modern-compiler',
+        additionalData: `@use 'sass:color';\n@use "${resolve(__dirname, 'src/styles/variables.scss').replace(/\\/g, '/')}" as *;\n`,
       },
     },
   },

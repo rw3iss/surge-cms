@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { useNavigate, useParams, } from '@solidjs/router';
+import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { api, } from '../../services/api';
@@ -236,6 +236,13 @@ const FormEditor: Component = () => {
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
+                <div class="admin-header__actions">
+                    <Show when={!isNew() && form() && (form() as any).submissionCount > 0}>
+                        <A href={`/admin/forms/${params.id}/submissions`} class="btn btn--secondary btn--small">
+                            View Responses ({(form() as any).submissionCount})
+                        </A>
+                    </Show>
+                </div>
             </div>
 
             <Show when={error()}>

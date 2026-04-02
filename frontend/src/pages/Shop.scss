@@ -1,5 +1,5 @@
 .shop-page {
-  padding: $spacing-xl 0;
+  padding: $spacing-xl var(--site-gutter, #{$container-padding});
 
   &__header {
     text-align: center;

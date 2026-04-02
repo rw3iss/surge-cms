@@ -7,7 +7,7 @@
     width: 100%;
     max-width: 400px;
     background: $background;
-    padding: $spacing-xl;
+    padding: $spacing-lg $spacing-xl;
     border-radius: $border-radius-lg;
     box-shadow: $shadow-lg;
     border: 1px solid $border-color;
@@ -15,21 +15,21 @@
 
   &__title {
     text-align: center;
-    margin-bottom: $spacing-sm;
+    margin-bottom: $spacing-xs;
   }
 
   &__subtitle {
     text-align: center;
     color: $text-light;
-    margin-bottom: $spacing-xl;
+    margin-bottom: $spacing-lg;
   }
 
   &__error {
-    background: lighten($error-color, 40%);
+    background: color.adjust($error-color, $lightness: 40%);
     color: $error-color;
-    padding: $spacing-md;
+    padding: $spacing-sm $spacing-md;
     border-radius: $border-radius-md;
-    margin-bottom: $spacing-lg;
+    margin-bottom: $spacing-md;
     font-size: $font-size-sm;
     text-align: center;
   }
@@ -53,7 +53,7 @@
       color: white;
 
       &:hover {
-        background: darken(#f96854, 10%);
+        background: color.adjust(#f96854, $lightness: -10%);
       }
     }
 
@@ -62,7 +62,7 @@
       color: white;
 
       &:hover:not(:disabled) {
-        background: darken($primary-color, 10%);
+        background: color.adjust($primary-color, $lightness: -10%);
       }
 
       &:disabled {
@@ -82,7 +82,7 @@
     align-items: center;
     justify-content: center;
     gap: $spacing-sm;
-    margin-top: $spacing-lg;
+    margin-top: $spacing-md;
     font-size: $font-size-sm;
     color: $text-light;
   }
@@ -98,7 +98,7 @@
   }
 
   &__admin-toggle {
-    margin-top: $spacing-xl;
+    margin-top: $spacing-md;
     text-align: center;
   }
 
@@ -125,9 +125,10 @@
     margin-top: 0;
 
     &--visible {
-      max-height: 400px;
+      max-height: 600px;
       opacity: 1;
-      margin-top: $spacing-md;
+      margin-top: $spacing-sm;
+      overflow: visible;
     }
   }
 
@@ -135,7 +136,7 @@
     display: flex;
     align-items: center;
     gap: $spacing-md;
-    margin: $spacing-lg 0;
+    margin: $spacing-md 0;
     color: $text-light;
     font-size: $font-size-xs;
     text-transform: uppercase;

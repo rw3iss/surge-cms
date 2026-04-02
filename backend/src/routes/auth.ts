@@ -3,10 +3,14 @@ import rateLimit from 'express-rate-limit';
 import { z, } from 'zod';
 import { config, } from '../config';
 import { authenticate, AuthenticatedRequest, } from '../middleware/auth';
+import { query, } from '../db';
+import { mapRow, } from '../utils/mapRow';
 import {
     authenticateWithEmail,
     authenticateWithPatreon,
+    createSession,
     generateState,
+    generateTokens,
     getPatreonAuthUrl,
     invalidateAllUserSessions,
     invalidateSession,
@@ -19,7 +23,7 @@ const router = Router();
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per window
+    max: 10, // 10 attempts per window
     message: {
         success: false,
         error: {
@@ -234,6 +238,58 @@ router.post('/logout-all', authenticate(), async (req: AuthenticatedRequest, res
             success: false,
             error: { code: 'INTERNAL_ERROR', message: 'Failed to logout all sessions', },
         },);
+    }
+},);
+
+// Auto-login as admin from localhost (dev only)
+router.get('/autologin', async (req, res,) => {
+    if (!config.autologinAdminLocalhost) {
+        return res.status(404,).json({ success: false, error: { code: 'NOT_FOUND', message: 'Not found', }, },);
+    }
+
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',',)[0]?.trim() || req.ip || '';
+    const isLocalhost = ['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost',].includes(ip,);
+
+    if (!isLocalhost) {
+        return res.status(403,).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not localhost', }, },);
+    }
+
+    try {
+        const result = await query(
+            `SELECT id, email, display_name, avatar_url, role, auth_provider,
+                    patreon_id, patreon_tier, is_active, is_banned,
+                    last_login_at, created_at, updated_at
+             FROM users WHERE role IN ('sysadmin', 'admin') ORDER BY CASE role WHEN 'sysadmin' THEN 0 ELSE 1 END LIMIT 1`,
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404,).json({ success: false, error: { code: 'NOT_FOUND', message: 'No admin user found', }, },);
+        }
+
+        const user = mapRow(result.rows[0],) as any;
+        const { accessToken, refreshToken, expiresAt, } = generateTokens(user.id, user.role,);
+        await createSession(user.id, accessToken, refreshToken, expiresAt, ip, req.headers['user-agent'],);
+
+        res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 15 * 60 * 1000,
+        },);
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        },);
+
+        res.json({
+            success: true,
+            data: { user, accessToken, refreshToken, },
+        },);
+    } catch (error) {
+        res.status(500,).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Autologin failed', }, },);
     }
 },);
 

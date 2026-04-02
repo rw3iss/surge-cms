@@ -112,6 +112,7 @@ export function createApp(): Express {
 
     // Static files (uploads)
     app.use('/uploads', express.static(path.join(process.cwd(), config.upload.dir,),),);
+    app.use('/avatars', express.static(path.join(process.cwd(), 'cache/avatars',),),);
 
     // Sitemap route (mounted before API prefix so it's accessible at /sitemap.xml and /api/v1/sitemap.xml)
     app.use(sitemapRoutes,);

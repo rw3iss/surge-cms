@@ -136,6 +136,12 @@ export interface NavigationItem {
     requiresAuth: boolean;
 }
 
+export interface AppearanceSettings {
+    backgroundColor?: string;
+    fontSize?: number;
+    gutterWidth?: string;
+}
+
 export interface SiteSettings {
     siteName: string;
     siteDescription: string;
@@ -152,4 +158,5 @@ export interface SiteSettings {
         secondaryColor: string;
         accentColor: string;
     };
+    appearance?: AppearanceSettings;
 }

@@ -13,7 +13,7 @@ const AdminLayout: ParentComponent = (props,) => {
     createEffect(() => {
         if (!auth.isLoading && !auth.isAuthenticated) {
             navigate(`/login?return=${location.pathname}`,);
-        } else if (!auth.isLoading && auth.user?.role !== 'admin') {
+        } else if (!auth.isLoading && auth.user?.role !== 'admin' && auth.user?.role !== 'sysadmin') {
             navigate('/',);
         }
     },);
@@ -31,7 +31,7 @@ const AdminLayout: ParentComponent = (props,) => {
     };
 
     return (
-        <Show when={!auth.isLoading && auth.user?.role === 'admin'} fallback={<div>Loading...</div>}>
+        <Show when={!auth.isLoading && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')} fallback={<div>Loading...</div>}>
             <div class="admin-layout">
                 <button
                     class={`admin-layout__hamburger ${sidebarOpen() ? 'admin-layout__hamburger--open' : ''}`}
@@ -116,6 +116,15 @@ const AdminLayout: ParentComponent = (props,) => {
                         >
                             Settings
                         </A>
+                        <Show when={auth.user?.role === 'sysadmin'}>
+                            <A
+                                href="/admin/developer"
+                                class={`admin-layout__nav-link ${isActive('/admin/developer',) ? 'active' : ''}`}
+                                onClick={handleNavClick}
+                            >
+                                Developer
+                            </A>
+                        </Show>
                     </nav>
                     <div class="admin-layout__user">
                         <span>{auth.user?.displayName}</span>

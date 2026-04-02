@@ -63,7 +63,8 @@ const Tooltip: Component<TooltipProps> = (props,) => {
         const tipRect = tooltipRef.getBoundingClientRect();
         const gap = 8;
 
-        let { left, placement, } = position();
+        const { left, } = position();
+        let { placement, } = position();
         let top: number;
 
         if (placement === 'top') {

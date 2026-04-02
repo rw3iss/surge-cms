@@ -93,6 +93,7 @@ const SiteHeaderEditor: Component = () => {
     const [headerPadding, setHeaderPadding,] = createSignal('0px',);
     const [headerMargin, setHeaderMargin,] = createSignal('0px',);
     const [itemSpacing, setItemSpacing,] = createSignal('',);
+    const [applyGutter, setApplyGutter,] = createSignal(false,);
     const [selectedItemId, setSelectedItemId,] = createSignal<string | null>(null,);
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
@@ -102,6 +103,7 @@ const SiteHeaderEditor: Component = () => {
     const [editItem, setEditItem,] = createSignal<SiteHeaderItem | null>(null,);
 
     // Media modals
+    const [showSettings, setShowSettings,] = createSignal(false,);
     const [showMediaSelect, setShowMediaSelect,] = createSignal(false,);
     const [showMediaUpload, setShowMediaUpload,] = createSignal(false,);
 
@@ -130,6 +132,7 @@ const SiteHeaderEditor: Component = () => {
                 if (data.padding) setHeaderPadding(data.padding,);
                 if (data.margin) setHeaderMargin(data.margin,);
                 if (data.itemSpacing) setItemSpacing(data.itemSpacing,);
+                if (data.applyGutter) setApplyGutter(data.applyGutter,);
             }
         } catch (e) {
             console.error('Failed to load site header settings:', e,);
@@ -214,6 +217,7 @@ const SiteHeaderEditor: Component = () => {
                 padding: headerPadding(),
                 margin: headerMargin(),
                 itemSpacing: itemSpacing() || undefined,
+                applyGutter: applyGutter(),
             };
             const res = await saveSiteHeader(payload,);
             if (res.success) {
@@ -365,16 +369,114 @@ const SiteHeaderEditor: Component = () => {
             </Show>
 
             <Show when={!loading()}>
-                {/* ─── Save bar ─── */}
-                <div class="site-header-editor__save-bar">
+                {/* ─── Preview bar ─── */}
+                <p class="form-help" style={{ 'margin-bottom': '8px', }}>
+                    Click an item to edit it. Drag items to reorder.
+                </p>
+                <div
+                    class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
+                    style={{
+                        background: bgColor(),
+                        gap: itemSpacing() || undefined,
+                        padding: headerPadding() || undefined,
+                        margin: headerMargin() || undefined,
+                    }}
+                >
+                    <Show
+                        when={items().length > 0}
+                        fallback={
+                            <div class="site-header-preview__empty">
+                                No header items yet. Click "Add Header Item" above.
+                            </div>
+                        }
+                    >
+                        <For each={items()}>
+                            {(item,) => {
+                                const typeClass = item.type === 'gap' ?
+                                    'site-header-preview__item--gap' :
+                                    item.type === 'flex_spacer' ?
+                                    'site-header-preview__item--spacer' :
+                                    '';
+                                const inlineStyle: Record<string, string | undefined> = {};
+                                if (item.type === 'gap' && item.width) {
+                                    inlineStyle.width = item.width;
+                                    inlineStyle['min-width'] = item.width;
+                                }
+                                if (item.type === 'flex_spacer' && item.width) {
+                                    inlineStyle['max-width'] = item.width;
+                                }
+                                if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
+                                if (item.textColor) inlineStyle.color = item.textColor;
+                                if (item.padding) inlineStyle.padding = item.padding;
+                                if (item.margin) inlineStyle.margin = item.margin;
+
+                                return (
+                                    <div
+                                        class={`site-header-preview__item ${typeClass} ${
+                                            selectedItemId() === item.id ? 'site-header-preview__item--selected' : ''
+                                        } ${draggingId() === item.id ? 'site-header-preview__item--dragging' : ''}`}
+                                        style={inlineStyle}
+                                        onClick={() => selectItem(item.id,)}
+                                        onPointerDown={(e,) => handleDragStart(e, item.id,)}
+                                    >
+                                        {renderItemPreview(item,)}
+                                        <button
+                                            class="site-header-preview__delete"
+                                            onClick={(e,) => {
+                                                e.stopPropagation();
+                                                removeItem(item.id,);
+                                            }}
+                                            title="Remove item"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                );
+                            }}
+                        </For>
+                    </Show>
+                </div>
+
+                {/* Drag ghost */}
+                <Show when={ghostStyle()}>
+                    {(style,) => (
+                        <div
+                            class="site-header-preview__ghost"
+                            style={{
+                                position: 'fixed',
+                                top: `${style().top}px`,
+                                left: `${style().left}px`,
+                                width: `${style().width}px`,
+                                height: `${style().height}px`,
+                            }}
+                        >
+                            Moving...
+                        </div>
+                    )}
+                </Show>
+
+                <div class="site-header-editor__toolbar">
                     <button
-                        class="btn btn--primary"
+                        class="btn btn--primary btn--small"
                         disabled={!isDirty() || saving()}
                         onClick={handleSave}
                     >
                         {saving() ? 'Saving...' : 'Save Header'}
                     </button>
-                    <div class="site-header-editor__global-settings">
+                    <button class="btn btn--secondary btn--small" onClick={addItem}>
+                        + Add Header Item
+                    </button>
+                    <button
+                        class="btn btn--ghost btn--small"
+                        onClick={() => setShowSettings(!showSettings(),)}
+                    >
+                        {showSettings() ? 'Hide Settings' : 'Settings'}
+                    </button>
+                </div>
+
+                {/* ─── Collapsible Settings ─── */}
+                <Show when={showSettings()}>
+                    <div class="site-header-editor__settings">
                         <div class="site-header-editor__field">
                             <label class="site-header-editor__label">Background</label>
                             <ColorPicker
@@ -451,94 +553,35 @@ const SiteHeaderEditor: Component = () => {
                                 header="Item Spacing"
                             />
                         </div>
-                        <div class="site-header-editor__field" style={{ 'margin-left': 'auto', }}>
-                            <button class="btn btn--secondary btn--small" onClick={addItem}>
-                                + Add Header Item
+                        <div class="site-header-editor__field">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={applyGutter()}
+                                    onChange={(e,) => {
+                                        setApplyGutter(e.currentTarget.checked,);
+                                        markDirty();
+                                    }}
+                                />
+                                <span>Apply Site Gutter</span>
+                            </label>
+                        </div>
+                        <div class="site-header-editor__settings-actions">
+                            <button
+                                class="btn btn--primary btn--small"
+                                disabled={!isDirty() || saving()}
+                                onClick={handleSave}
+                            >
+                                {saving() ? 'Saving...' : 'Save Header'}
+                            </button>
+                            <button
+                                class="btn btn--secondary btn--small"
+                                onClick={() => setShowSettings(false,)}
+                            >
+                                Cancel
                             </button>
                         </div>
                     </div>
-                </div>
-
-                <p class="form-help" style={{ 'margin-bottom': '8px', }}>
-                    Click an item below to edit it. Drag items to reorder.
-                </p>
-
-                {/* ─── Preview bar ─── */}
-                <div
-                    class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
-                    style={{ background: bgColor(), gap: itemSpacing() || undefined, }}
-                >
-                    <Show
-                        when={items().length > 0}
-                        fallback={
-                            <div class="site-header-preview__empty">
-                                No header items yet. Click "Add Header Item" above.
-                            </div>
-                        }
-                    >
-                        <For each={items()}>
-                            {(item,) => {
-                                const typeClass = item.type === 'gap' ?
-                                    'site-header-preview__item--gap' :
-                                    item.type === 'flex_spacer' ?
-                                    'site-header-preview__item--spacer' :
-                                    '';
-                                const inlineStyle: Record<string, string | undefined> = {};
-                                if (item.type === 'gap' && item.width) {
-                                    inlineStyle.width = item.width;
-                                    inlineStyle['min-width'] = item.width;
-                                }
-                                if (item.type === 'flex_spacer' && item.width) {
-                                    inlineStyle['max-width'] = item.width;
-                                }
-                                if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
-                                if (item.textColor) inlineStyle.color = item.textColor;
-                                if (item.padding) inlineStyle.padding = item.padding;
-                                if (item.margin) inlineStyle.margin = item.margin;
-
-                                return (
-                                    <div
-                                        class={`site-header-preview__item ${typeClass} ${
-                                            selectedItemId() === item.id ? 'site-header-preview__item--selected' : ''
-                                        } ${draggingId() === item.id ? 'site-header-preview__item--dragging' : ''}`}
-                                        style={inlineStyle}
-                                        onClick={() => selectItem(item.id,)}
-                                        onPointerDown={(e,) => handleDragStart(e, item.id,)}
-                                    >
-                                        {renderItemPreview(item,)}
-                                        <button
-                                            class="site-header-preview__delete"
-                                            onClick={(e,) => {
-                                                e.stopPropagation();
-                                                removeItem(item.id,);
-                                            }}
-                                            title="Remove item"
-                                        >
-                                            &times;
-                                        </button>
-                                    </div>
-                                );
-                            }}
-                        </For>
-                    </Show>
-                </div>
-
-                {/* Drag ghost */}
-                <Show when={ghostStyle()}>
-                    {(style,) => (
-                        <div
-                            class="site-header-preview__ghost"
-                            style={{
-                                position: 'fixed',
-                                top: `${style().top}px`,
-                                left: `${style().left}px`,
-                                width: `${style().width}px`,
-                                height: `${style().height}px`,
-                            }}
-                        >
-                            Moving...
-                        </div>
-                    )}
                 </Show>
 
                 {/* ─── Edit panel ─── */}

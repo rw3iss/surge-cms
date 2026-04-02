@@ -8,12 +8,6 @@ interface BlockRendererProps {
     block: Block;
 }
 
-/** Only return a style value if it's non-default (avoids overriding CSS class styles with defaults) */
-const nonDefault = (val: string | undefined, defaults: string[],): string | undefined => {
-    if (!val) return undefined;
-    return defaults.includes(val,) ? undefined : val;
-};
-
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     const blockStyle = () => (props.block as any).style as Record<string, any> | undefined;
     const s = () => blockStyle() || {};
@@ -22,10 +16,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         <div
             class={`block block--${props.block.type}`}
             style={{
-                'background-color': nonDefault(s().backgroundColor, ['#ffffff',],) ||
-                    props.block.settings.backgroundColor as string,
-                color: nonDefault(s().textColor, ['#000000',],) || props.block.settings.textColor as string,
-                'text-align': nonDefault(s().textAlign, ['left',],),
+                'background-color': s().backgroundColor || props.block.settings.backgroundColor as string || undefined,
+                color: s().textColor || props.block.settings.textColor as string || undefined,
+                'text-align': s().textAlign || undefined,
                 display: s().verticalAlign && s().verticalAlign !== 'top' ? 'flex' : undefined,
                 'flex-direction': s().verticalAlign && s().verticalAlign !== 'top' ? 'column' : undefined,
                 'justify-content': s().verticalAlign === 'center' ?
@@ -33,10 +26,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     s().verticalAlign === 'bottom' ?
                     'flex-end' :
                     undefined,
-                'font-size': nonDefault(s().fontSize, ['16px',],),
-                width: nonDefault(s().width, ['100%',],),
-                padding: nonDefault(s().padding, ['0px',],) || props.block.settings.padding as string,
-                margin: nonDefault(s().margin, ['0px',],),
+                'font-size': s().fontSize || undefined,
+                width: s().width || undefined,
+                padding: s().padding || props.block.settings.padding as string || undefined,
+                margin: s().margin || undefined,
             }}
         >
             <div class={`block__inner block__inner--${props.block.settings.layout || 'contained'}`}>
@@ -76,9 +69,6 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
 
 const HeroBlock: Component<{ block: Block; }> = (props,) => (
     <section class="hero-block">
-        <Show when={props.block.title}>
-            <h1 class="hero-block__title">{props.block.title}</h1>
-        </Show>
         <Show when={props.block.content}>
             <p class="hero-block__content">{props.block.content}</p>
         </Show>
@@ -87,9 +77,6 @@ const HeroBlock: Component<{ block: Block; }> = (props,) => (
 
 const RichTextBlock: Component<{ block: Block; }> = (props,) => (
     <div class="rich-text-block">
-        <Show when={props.block.title}>
-            <h2 class="rich-text-block__title">{props.block.title}</h2>
-        </Show>
         <div class="rich-text" innerHTML={props.block.content || ''} />
     </div>
 );
@@ -120,9 +107,6 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
 
     return (
         <div class="image-block">
-            <Show when={props.block.title}>
-                <h2 class="image-block__title">{props.block.title}</h2>
-            </Show>
             <Show when={imageUrl()}>
                 <img
                     src={imageUrl()}
@@ -146,9 +130,6 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
 
 const VideoBlock: Component<{ block: Block; }> = (props,) => (
     <div class="video-block">
-        <Show when={props.block.title}>
-            <h2 class="video-block__title">{props.block.title}</h2>
-        </Show>
         <Show when={props.block.content}>
             <div class="video-block__wrapper">
                 <iframe
@@ -240,9 +221,6 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
 
     return (
         <div class="social-feed-block">
-            <Show when={props.block.title}>
-                <h2 class="social-feed-block__title">{props.block.title}</h2>
-            </Show>
             <Show
                 when={posts()?.length}
                 fallback={

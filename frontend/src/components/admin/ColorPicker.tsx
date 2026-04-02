@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, Show, } from 'solid-js';
+import { createEffect, createSignal, onCleanup, Show, } from 'solid-js';
 import './ColorPicker.scss';
 
 interface ColorPickerProps {
@@ -42,6 +42,14 @@ export default function ColorPicker(props: ColorPickerProps,) {
     const [popupPos, setPopupPos,] = createSignal({ top: 0, left: 0, },);
     let containerRef: HTMLDivElement | undefined;
     let swatchRef: HTMLButtonElement | undefined;
+
+    // Sync hex input when the parent value changes (e.g. async load)
+    createEffect(() => {
+        const v = props.value;
+        if (v && isValidHex(v,)) {
+            setHexInput(v,);
+        }
+    },);
 
     const currentColor = () => isValidHex(props.value,) ? props.value : defaultColor;
 

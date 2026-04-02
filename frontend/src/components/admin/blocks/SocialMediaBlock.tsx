@@ -14,19 +14,19 @@ const SocialMediaBlock: Component<SocialMediaBlockProps> = (props,) => {
 
     const [posts,] = createResource(() => selectedProvider(), async (provider,) => {
         if (!provider) return [];
-        const response = await api.get(`/social/posts?platform=${provider}&limit=20`,);
+        const response = await api.get(`/social/feed/${provider}?limit=20`,);
         return response.success ? (response as any).data : [];
     },);
 
     const selectPost = (post: any,) => {
         props.onUpdate({
             provider: selectedProvider(),
-            postId: post.id,
-            postUrl: post.url,
-            thumbnailUrl: post.thumbnailUrl || post.imageUrl,
-            content: post.content || post.caption || '',
+            postId: post.externalId || post.id,
+            postUrl: post.mediaUrl,
+            thumbnailUrl: post.thumbnailUrl,
+            content: post.content || '',
             showComments: false,
-            metadata: post.metadata || {},
+            authorName: post.authorName,
         },);
     };
 

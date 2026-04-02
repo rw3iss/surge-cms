@@ -1,0 +1,26 @@
+.form-page {
+    width: 100%;
+    padding: $spacing-xl var(--site-gutter, #{$container-padding}) $spacing-3xl;
+
+    &__loading {
+        text-align: center;
+        padding: $spacing-3xl;
+        color: $text-light;
+    }
+
+    &__header {
+        margin-bottom: $spacing-xl;
+    }
+
+    &__title {
+        font-size: $font-size-4xl;
+        margin: 0 0 $spacing-sm;
+    }
+
+    &__description {
+        font-size: $font-size-lg;
+        color: $text-light;
+        margin: 0;
+        max-width: 600px;
+    }
+}

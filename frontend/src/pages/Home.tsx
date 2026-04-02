@@ -1,12 +1,12 @@
 import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import type { Campaign, HeroCarouselSettings, Page, SocialPost, } from '@surge/shared';
+import type { AppearanceSettings, Campaign, HeroCarouselSettings, Page, SocialPost, } from '@surge/shared';
 import { Component, createResource, For, Show, Suspense, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
 import HeroCarousel from '../components/HeroCarousel';
 import { JsonLd, } from '../components/JsonLd';
 import SocialEmbed from '../components/SocialEmbed';
-import { fetchCampaigns, fetchHeroSettings, fetchHomepageSocialPosts, fetchPage, } from '../services/api';
+import { fetchAppearance, fetchCampaigns, fetchHeroSettings, fetchLiveSocialFeed, fetchPage, } from '../services/api';
 import './Home.scss';
 
 const Home: Component = () => {
@@ -17,7 +17,7 @@ const Home: Component = () => {
     },);
 
     const [socialPosts,] = createResource(async () => {
-        const response = await fetchHomepageSocialPosts();
+        const response = await fetchLiveSocialFeed(6,);
         return response.success ? response.data as SocialPost[] : [];
     },);
 
@@ -29,6 +29,11 @@ const Home: Component = () => {
     const [heroSettings,] = createResource(async () => {
         const response = await fetchHeroSettings();
         return response.success ? response.data as HeroCarouselSettings : null;
+    },);
+
+    const [appearance,] = createResource(async () => {
+        const response = await fetchAppearance();
+        return response.success ? response.data as AppearanceSettings : null;
     },);
 
     return (
@@ -58,6 +63,7 @@ const Home: Component = () => {
                 <HeroCarousel
                     items={heroSettings()!.items}
                     options={heroSettings()!.options}
+                    gutterWidth={appearance()?.gutterWidth}
                 />
             </Show>
 

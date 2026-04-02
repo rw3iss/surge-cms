@@ -98,7 +98,7 @@
     &--primary {
       background: $primary-color;
       color: #fff;
-      &:hover { background: darken($primary-color, 8%); }
+      &:hover { background: color.adjust($primary-color, $lightness: -8%); }
     }
 
     &--secondary {

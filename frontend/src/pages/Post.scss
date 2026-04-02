@@ -1,5 +1,5 @@
 .post-page {
-  padding: $spacing-xl 0;
+  padding: $spacing-xl var(--site-gutter, #{$container-padding});
 
   &__article {
     max-width: 800px;
@@ -77,7 +77,7 @@
     transition: background 0.15s;
 
     &:hover {
-      background: darken($background-dark, 5%);
+      background: color.adjust($background-dark, $lightness: -5%);
     }
 
     &-icon {

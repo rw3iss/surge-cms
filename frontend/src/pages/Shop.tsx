@@ -138,7 +138,7 @@ const ShopPage: Component = () => {
     }
 
     return (
-        <div class="shop-page container">
+        <div class="shop-page page-wrapper">
             <Title>Shop | Surge Media</Title>
             <Meta name="description" content="Support Surge Media with our merchandise" />
             <Link rel="canonical" href={`${window.location.origin}/shop`} />
@@ -150,7 +150,7 @@ const ShopPage: Component = () => {
             <Meta name="twitter:title" content="Shop | Surge Media" />
             <Meta name="twitter:description" content="Support Surge Media with our merchandise" />
 
-            <header class="shop-page__header">
+            <header class="page-header">
                 <h1>Shop</h1>
                 <p>Support Surge Media with our merchandise</p>
             </header>

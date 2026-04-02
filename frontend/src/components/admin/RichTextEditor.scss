@@ -44,12 +44,12 @@
     white-space: nowrap;
 
     &:hover {
-      background: darken($background-dark, 5%);
+      background: color.adjust($background-dark, $lightness: -5%);
       border-color: $border-color;
     }
 
     &:active {
-      background: darken($background-dark, 10%);
+      background: color.adjust($background-dark, $lightness: -10%);
     }
   }
 

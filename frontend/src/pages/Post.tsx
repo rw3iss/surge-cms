@@ -33,7 +33,7 @@ const PostPage: Component = () => {
         () => params.slug,
         async (slug,) => {
             setLockedContent(null,);
-            const preview = (isPreviewMode() && auth.user?.role === 'admin') ? 'admin' : undefined;
+            const preview = (isPreviewMode() && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')) ? 'admin' : undefined;
             const response = await fetchPost(slug, preview,);
             if (!response.success) {
                 const raw = response as any;
@@ -51,7 +51,7 @@ const PostPage: Component = () => {
     );
 
     return (
-        <div class="post-page container">
+        <div class="post-page page-wrapper">
             <Show when={lockedContent()}>
                 {(locked,) => (
                     <ContentGate
@@ -114,8 +114,8 @@ const PostPage: Component = () => {
                             />
 
                             <article class="post-page__article">
-                                <header class="post-page__header">
-                                    <h1 class="post-page__title">{postData().title}</h1>
+                                <header class="page-header">
+                                    <h1>{postData().title}</h1>
                                     <div class="post-page__meta">
                                         <span>By {postData().author}</span>
                                         <Show when={postData().publishedAt}>

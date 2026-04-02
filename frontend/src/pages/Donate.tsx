@@ -15,7 +15,7 @@ const DonatePage: Component = () => {
     const pastCampaigns = () => campaigns()?.filter(c => c.status === 'completed') || [];
 
     return (
-        <div class="donate-page container">
+        <div class="donate-page page-wrapper">
             <Title>Donate | Surge Media</Title>
             <Meta name="description" content="Support our independent journalism with a donation" />
             <Link rel="canonical" href={`${window.location.origin}/donate`} />
@@ -27,7 +27,7 @@ const DonatePage: Component = () => {
             <Meta name="twitter:title" content="Donate | Surge Media" />
             <Meta name="twitter:description" content="Support our independent journalism with a donation" />
 
-            <header class="donate-page__header">
+            <header class="page-header">
                 <h1>Support Our Mission</h1>
                 <p>Your donations help us continue our independent journalism.</p>
             </header>

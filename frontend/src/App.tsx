@@ -14,7 +14,7 @@ const JoinPage = lazy(() => import('./pages/Join'));
 const DynamicPage = lazy(() => import('./pages/DynamicPage'));
 const PostPage = lazy(() => import('./pages/Post'));
 const PostsPage = lazy(() => import('./pages/Posts'));
-const DonatePage = lazy(() => import('./pages/Donate'));
+// DonatePage removed — /donate now uses DynamicPage via the /:slug route
 const SubscribePage = lazy(() => import('./pages/Subscribe'));
 const CampaignPage = lazy(() => import('./pages/Campaign'));
 const ContactPage = lazy(() => import('./pages/Contact'));
@@ -31,14 +31,17 @@ const AdminPageEditor = lazy(() => import('./pages/admin/PageEditor'));
 const AdminPosts = lazy(() => import('./pages/admin/Posts'));
 const AdminPostEditor = lazy(() => import('./pages/admin/PostEditor'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminUserDetail = lazy(() => import('./pages/admin/UserDetail'));
 const AdminCampaigns = lazy(() => import('./pages/admin/Campaigns'));
 const AdminCampaignEditor = lazy(() => import('./pages/admin/CampaignEditor'));
 const AdminForms = lazy(() => import('./pages/admin/Forms'));
 const AdminFormEditor = lazy(() => import('./pages/admin/FormEditor'));
+const AdminFormSubmissions = lazy(() => import('./pages/admin/FormSubmissions'));
 const AdminMessages = lazy(() => import('./pages/admin/Messages'));
 const AdminMessageView = lazy(() => import('./pages/admin/MessageView'));
 const AdminMedia = lazy(() => import('./pages/admin/Media'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminDeveloper = lazy(() => import('./pages/admin/Developer'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
 const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
 
@@ -63,7 +66,7 @@ const App: Component = () => {
                                     <Route path="/join" component={JoinPage} />
                                     <Route path="/posts" component={PostsPage} />
                                     <Route path="/posts/:slug" component={PostPage} />
-                                    <Route path="/donate" component={DonatePage} />
+                                    <Route path="/donate" component={DynamicPage} />
                                     <Route path="/subscribe" component={SubscribePage} />
                                     <Route path="/campaigns/:slug" component={CampaignPage} />
                                     <Route path="/shop" component={ShopPage} />
@@ -85,16 +88,19 @@ const App: Component = () => {
                                     <Route path="/posts/new" component={AdminPostEditor} />
                                     <Route path="/posts/:id" component={AdminPostEditor} />
                                     <Route path="/users" component={AdminUsers} />
+                                    <Route path="/users/:id" component={AdminUserDetail} />
                                     <Route path="/campaigns" component={AdminCampaigns} />
                                     <Route path="/campaigns/new" component={AdminCampaignEditor} />
                                     <Route path="/campaigns/:id" component={AdminCampaignEditor} />
                                     <Route path="/forms" component={AdminForms} />
                                     <Route path="/forms/new" component={AdminFormEditor} />
+                                    <Route path="/forms/:id/submissions" component={AdminFormSubmissions} />
                                     <Route path="/forms/:id" component={AdminFormEditor} />
                                     <Route path="/messages" component={AdminMessages} />
                                     <Route path="/messages/:id" component={AdminMessageView} />
                                     <Route path="/media" component={AdminMedia} />
                                     <Route path="/settings" component={AdminSettings} />
+                                    <Route path="/developer" component={AdminDeveloper} />
                                 </Route>
 
                                 {/* 404 page */}
