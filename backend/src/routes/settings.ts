@@ -363,6 +363,88 @@ router.put('/appearance', authenticate(), requireAdmin, async (req: Authenticate
     }
 },);
 
+// ─── Site Colors ───
+
+const DEFAULT_SITE_COLORS = [
+    '#ffffff',
+    '#000000',
+    '#e63946',
+    '#1d3557',
+    '#f1faee',
+    '#457b9d',
+    '#2a9d8f',
+    '#e9c46a',
+    '#f4a261',
+    '#e76f51',
+    '#264653',
+    '#6b705c',
+    '#a8dadc',
+    '#ff006e',
+    '#8338ec',
+];
+
+// Get site colors (public, cached)
+router.get('/site-colors', async (_req, res,) => {
+    try {
+        const cacheKey = 'settings:site_colors';
+        const cached = await cache.get(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'site_colors'`,
+        );
+
+        const data = result.rows.length > 0 && Array.isArray(result.rows[0].value) ?
+            result.rows[0].value :
+            DEFAULT_SITE_COLORS;
+
+        await cache.set(cacheKey, data, 600,);
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch site colors',);
+    }
+},);
+
+// Update site colors (admin)
+router.put('/site-colors', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+
+        if (!Array.isArray(data,)) {
+            throw new ValidationError('Site colors must be an array',);
+        }
+
+        // Validate each color is a hex string
+        const validColors = data.filter((c,) =>
+            typeof c === 'string' && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(c,),
+        );
+
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+       VALUES ('site_colors', $1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(validColors,), req.userId,],
+        );
+
+        await cache.del('settings:site_colors',);
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'site_colors',
+            newValues: { count: validColors.length, },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, validColors,);
+    } catch (error) {
+        handleRouteError(res, error, 'save site colors',);
+    }
+},);
+
 // Update single setting (admin)
 router.put('/:key', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {

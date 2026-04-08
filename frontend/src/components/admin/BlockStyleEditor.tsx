@@ -339,6 +339,27 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         <span class="block-style-editor__help-text">Applied outside the content block</span>
                     </div>
                 </div>
+
+                {/* Gap */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">Gap</label>
+                    <div class="block-style-editor__field-right">
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="text"
+                                class="block-style-editor__custom-input"
+                                value={props.style.gap || ''}
+                                onInput={(e,) => update('gap', e.currentTarget.value,)}
+                                placeholder="e.g. 1rem, 16px"
+                            />
+                            <Tooltip
+                                content="Spacing between child items. Valid values: px, rem, em, vw. Applied when the block contains multiple items (e.g. campaign list)."
+                                header="CSS Gap"
+                            />
+                        </div>
+                        <span class="block-style-editor__help-text">Spacing between inner content items</span>
+                    </div>
+                </div>
             </div>
 
             {/* Template save section — at the bottom */}

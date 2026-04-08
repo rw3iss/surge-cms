@@ -153,7 +153,7 @@
 
   &__campaign-progress-bar {
     height: 100%;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     border-radius: $border-radius-full;
     transition: width $transition-slow;
   }
@@ -172,7 +172,7 @@
   &__btn {
     display: inline-block;
     padding: $spacing-md $spacing-xl;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: white;
     text-decoration: none;
     border-radius: $border-radius-md;

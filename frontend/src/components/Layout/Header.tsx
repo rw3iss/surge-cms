@@ -215,6 +215,7 @@ export const Header: Component<HeaderProps> = (props,) => {
         if (!hasCustomHeader()) return {};
         const s: Record<string, string> = {};
         if (props.headerSettings?.backgroundColor) s['background'] = props.headerSettings.backgroundColor;
+        if (props.headerSettings?.textColor) s['color'] = props.headerSettings.textColor;
         if (props.headerSettings?.padding) s['padding'] = props.headerSettings.padding;
         if (props.headerSettings?.margin) s['margin'] = props.headerSettings.margin;
         if (props.headerSettings?.applyGutter && props.gutterWidth) {

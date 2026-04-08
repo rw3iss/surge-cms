@@ -1,12 +1,12 @@
 import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import type { AppearanceSettings, Campaign, HeroCarouselSettings, Page, SocialPost, } from '@surge/shared';
+import type { AppearanceSettings, HeroCarouselSettings, Page, SocialPost, } from '@surge/shared';
 import { Component, createResource, For, Show, Suspense, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
 import HeroCarousel from '../components/HeroCarousel';
 import { JsonLd, } from '../components/JsonLd';
 import SocialEmbed from '../components/SocialEmbed';
-import { fetchAppearance, fetchCampaigns, fetchHeroSettings, fetchLiveSocialFeed, fetchPage, } from '../services/api';
+import { fetchAppearance, fetchHeroSettings, fetchLiveSocialFeed, fetchPage, } from '../services/api';
 import './Home.scss';
 
 const Home: Component = () => {
@@ -19,11 +19,6 @@ const Home: Component = () => {
     const [socialPosts,] = createResource(async () => {
         const response = await fetchLiveSocialFeed(6,);
         return response.success ? response.data as SocialPost[] : [];
-    },);
-
-    const [campaigns,] = createResource(async () => {
-        const response = await fetchCampaigns(false,);
-        return response.success ? response.data as Campaign[] : [];
     },);
 
     const [heroSettings,] = createResource(async () => {
@@ -104,57 +99,6 @@ const Home: Component = () => {
                 </section>
             </Show>
 
-            {/* Active Campaigns Section */}
-            <Show when={campaigns()?.length}>
-                <section class="home__campaigns">
-                    <div class="container">
-                        <h2 class="home__section-title">Support Our Work</h2>
-                        <div class="home__campaigns-grid">
-                            <For each={campaigns()?.slice(0, 3,)}>
-                                {(campaign,) => (
-                                    <A href={`/campaigns/${campaign.slug}`} class="home__campaign-card">
-                                        <Show when={campaign.featuredImage}>
-                                            <img
-                                                src={campaign.featuredImage}
-                                                alt={campaign.title}
-                                                class="home__campaign-image"
-                                                loading="lazy"
-                                            />
-                                        </Show>
-                                        <div class="home__campaign-content">
-                                            <h3 class="home__campaign-title">{campaign.title}</h3>
-                                            <p class="home__campaign-desc">{campaign.shortDescription}</p>
-                                            <div class="home__campaign-progress">
-                                                <div
-                                                    class="home__campaign-progress-bar"
-                                                    style={{
-                                                        width: `${
-                                                            Math.min(
-                                                                (campaign.currentAmountCents /
-                                                                    campaign.goalAmountCents) * 100,
-                                                                100,
-                                                            )
-                                                        }%`,
-                                                    }}
-                                                />
-                                            </div>
-                                            <div class="home__campaign-stats">
-                                                <span>
-                                                    ${(campaign.currentAmountCents / 100).toLocaleString()} raised
-                                                </span>
-                                                <span>of ${(campaign.goalAmountCents / 100).toLocaleString()}</span>
-                                            </div>
-                                        </div>
-                                    </A>
-                                )}
-                            </For>
-                        </div>
-                        <div class="home__campaigns-cta">
-                            <A href="/donate" class="home__btn">View All Campaigns</A>
-                        </div>
-                    </div>
-                </section>
-            </Show>
         </div>
     );
 };

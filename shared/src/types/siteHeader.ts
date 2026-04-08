@@ -22,6 +22,7 @@ export interface SiteHeaderItem {
 export interface SiteHeaderSettings {
     items: SiteHeaderItem[];
     backgroundColor?: string;
+    textColor?: string;
     padding?: string;
     margin?: string;
     itemSpacing?: string;

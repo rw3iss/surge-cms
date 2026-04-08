@@ -21,6 +21,7 @@ const blockStyleSchema = z.object({
     width: z.string().nullable().optional(),
     padding: z.string().nullable().optional(),
     margin: z.string().nullable().optional(),
+    gap: z.string().nullable().optional(),
 },);
 
 /** Convert null values to undefined so they match Partial<BlockStyle>. */

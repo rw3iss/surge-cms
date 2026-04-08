@@ -278,11 +278,11 @@
   gap: $spacing-xs;
 
   &--primary {
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: white;
 
     &:hover:not(:disabled) {
-      background: color.adjust($primary-color, $lightness: -10%);
+      filter: brightness(0.9);
       color: white;
     }
   }
@@ -290,7 +290,7 @@
   &--secondary {
     background: $background;
     color: $text-color;
-    border: 1px solid $border-color;
+    border: 1px solid var(--site-primary, #{$border-color});
 
     &:hover:not(:disabled) {
       background: $background-dark;
@@ -299,11 +299,11 @@
 
   &--outline {
     background: transparent;
-    color: $text-color;
-    border: 1px solid $border-color;
+    color: var(--site-primary, #{$text-color});
+    border: 1px solid var(--site-primary, #{$border-color});
 
     &:hover:not(:disabled) {
-      background: $background-dark;
+      background: rgba(0, 0, 0, 0.04);
     }
   }
 
@@ -329,13 +329,13 @@
 
   &--ghost {
     background: transparent;
-    color: $text-light;
+    color: var(--site-primary, #{$text-light});
     border: none;
     padding: $spacing-xs $spacing-sm;
 
     &:hover:not(:disabled) {
-      color: $text-color;
       background: rgba(0, 0, 0, 0.05);
+      filter: brightness(0.9);
     }
   }
 
@@ -1074,12 +1074,13 @@
   background: $background-dark;
   border: 1px solid $border-color;
   border-radius: $border-radius-md;
-  overflow: hidden;
+  overflow: visible;
   transition: box-shadow $transition-fast, border-color $transition-fast;
 
   &--editing {
     border-color: $primary-color;
     box-shadow: 0 0 0 1px $primary-color;
+    z-index: 2;
   }
 
   &--dragging {
@@ -1087,6 +1088,7 @@
     border: 2px dashed $primary-color;
     background: rgba($primary-color, 0.03);
     box-shadow: none;
+    overflow: hidden;
 
     .content-block__body {
       visibility: hidden;
@@ -1095,7 +1097,7 @@
 
   &__body {
     padding: $spacing-md;
-    overflow: hidden;
+    overflow: visible;
     transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
 
     &--collapsed {
@@ -2128,6 +2130,15 @@
     &--selected {
       background: color.adjust($primary-color, $lightness: 45%);
     }
+
+    &--all {
+      border-bottom: 1px solid $border-color;
+      background: $background-dark;
+
+      .block-campaign__option-title {
+        font-weight: 600;
+      }
+    }
   }
 
   &__option-title {
@@ -2146,6 +2157,272 @@
     font-size: $font-size-sm;
     color: $text-light;
     text-align: center;
+  }
+}
+
+// ─── Entity Search Select (reusable) ───
+
+.entity-search {
+  &__dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: $z-index-dropdown;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 2px;
+  }
+
+  &__option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: $background-dark;
+    }
+
+    &--selected {
+      background: color.adjust($primary-color, $lightness: 45%);
+    }
+  }
+
+  &__option-title {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-color;
+  }
+
+  &__option-meta {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__empty {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-align: center;
+  }
+}
+
+// ─── Appearance Theme Editor ───
+
+.appearance-panel {
+  &__action-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding-bottom: $spacing-md;
+    margin-bottom: $spacing-lg;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__saved {
+    color: #28a745;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+}
+
+.theme-section {
+  background: $background;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+
+  &__title {
+    margin: 0 0 $spacing-sm;
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $text-color;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__description {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+}
+
+.theme-field {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+
+  &__label-group {
+    flex: 0 0 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-color;
+  }
+
+  &__sublabel {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__control {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  &__input {
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-family: inherit;
+  }
+
+  @include mobile-only {
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    &__label-group {
+      flex: none;
+    }
+  }
+}
+
+// ─── Site Colors Panel ───
+
+.site-colors-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.site-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: $spacing-sm;
+  max-width: 480px;
+
+  &__swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: $border-radius-sm;
+    border: 1px solid $border-color;
+    cursor: pointer;
+    transition: transform 0.1s, border-color $transition-fast;
+
+    &:hover {
+      transform: scale(1.1);
+      border-color: $text-color;
+    }
+
+    &--add {
+      background: $background;
+      color: $text-light;
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed $border-color;
+
+      &:hover {
+        border-color: $primary-color;
+        color: $primary-color;
+      }
+    }
+  }
+}
+
+.site-colors-grid__swatch--active {
+  outline: 2px solid $primary-color;
+  outline-offset: 2px;
+}
+
+.site-colors-editor {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: $background-dark;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  max-width: 480px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__preview {
+    width: 72px;
+    height: 72px;
+    border-radius: $border-radius-md;
+    border: 2px solid $border-color;
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color $transition-fast, transform 0.1s;
+
+    &:hover {
+      border-color: $primary-color;
+      transform: scale(1.03);
+    }
+
+    &--active {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.25);
+    }
+  }
+
+  &__hex {
+    width: 110px;
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-family: monospace;
+    font-size: $font-size-sm;
+  }
+
+  &__wheel-wrap {
+    display: flex;
+    justify-content: center;
+    padding: $spacing-sm 0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
   }
 }
 

@@ -6,8 +6,9 @@ import type {
     HeroItem,
     HeroTextConfig,
 } from '@surge/shared';
-import { Component, createEffect, createMemo, createSignal, For, Index, onMount, Show, } from 'solid-js';
-import { fetchHeroSettings, saveHeroSettings, } from '../../services/api';
+import type { AppearanceSettings, } from '@surge/shared';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
+import { fetchAppearance, fetchHeroSettings, saveHeroSettings, } from '../../services/api';
 import HeroCarousel from '../HeroCarousel';
 import { useToast, } from '../Toast';
 import ColorPicker from './ColorPicker';
@@ -77,6 +78,13 @@ const HeroContentEditor: Component = () => {
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
     const [loading, setLoading,] = createSignal(true,);
+
+    const [appearance,] = createResource(async () => {
+        const res = await fetchAppearance();
+        return res.success ? res.data as AppearanceSettings : null;
+    },);
+
+    const gutterWidth = () => appearance()?.gutterWidth || undefined;
     const [showMediaSelect, setShowMediaSelect,] = createSignal(false,);
     const [showMediaUpload, setShowMediaUpload,] = createSignal(false,);
 
@@ -472,6 +480,7 @@ const HeroContentEditor: Component = () => {
                                 options={options()}
                                 previewMode={true}
                                 height={scaledHeight()}
+                                gutterWidth={gutterWidth()}
                             />
                         </div>
                     </Show>

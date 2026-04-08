@@ -9,6 +9,11 @@ const AdminCampaigns: Component = () => {
         return response.success ? (response as any).data : [];
     },);
 
+    const formatDate = (d: string | null | undefined,) => {
+        if (!d) return null;
+        return new Date(d,).toLocaleDateString();
+    };
+
     const formatCurrency = (cents: number | null,) => {
         if (cents === null || cents === undefined) return 'Open Fund';
         return `$${(cents / 100).toLocaleString()}`;
@@ -46,6 +51,7 @@ const AdminCampaigns: Component = () => {
                             <th>Goal</th>
                             <th>Raised</th>
                             <th>Donors</th>
+                            <th>Dates</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -55,7 +61,7 @@ const AdminCampaigns: Component = () => {
                             when={!campaigns.loading}
                             fallback={
                                 <tr>
-                                    <td colspan="6">Loading...</td>
+                                    <td colspan="7">Loading...</td>
                                 </tr>
                             }
                         >
@@ -63,7 +69,7 @@ const AdminCampaigns: Component = () => {
                                 each={campaigns()}
                                 fallback={
                                     <tr>
-                                        <td colspan="6">No campaigns found</td>
+                                        <td colspan="7">No campaigns found</td>
                                     </tr>
                                 }
                             >
@@ -77,6 +83,21 @@ const AdminCampaigns: Component = () => {
                                         <td>{formatCurrency(campaign.goalAmountCents,)}</td>
                                         <td>{formatCurrency(campaign.currentAmountCents,)}</td>
                                         <td>{campaign.donorCount || 0}</td>
+                                        <td>
+                                            <Show when={formatDate(campaign.startDate,) || formatDate(campaign.endDate,)}>
+                                                <div style={{ 'font-size': '0.8rem', 'line-height': '1.4', }}>
+                                                    <Show when={formatDate(campaign.startDate,)}>
+                                                        <div>Start: {formatDate(campaign.startDate,)}</div>
+                                                    </Show>
+                                                    <Show when={formatDate(campaign.endDate,)}>
+                                                        <div>End: {formatDate(campaign.endDate,)}</div>
+                                                    </Show>
+                                                </div>
+                                            </Show>
+                                            <Show when={!formatDate(campaign.startDate,) && !formatDate(campaign.endDate,)}>
+                                                <span style={{ color: '#999', 'font-size': '0.8rem', }}>Open</span>
+                                            </Show>
+                                        </td>
                                         <td>
                                             <span class={`badge ${getStatusBadgeClass(campaign.status,)}`}>
                                                 {campaign.status}

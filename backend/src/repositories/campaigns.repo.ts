@@ -15,15 +15,52 @@ export interface CampaignFilters {
     includePast?: boolean;
 }
 
+const VALID_SORT_COLUMNS: Record<string, string> = {
+    created_at: 'created_at',
+    start_date: 'start_date',
+    end_date: 'end_date',
+    title: 'title',
+    goal_amount_cents: 'goal_amount_cents',
+    current_amount_cents: 'current_amount_cents',
+    donor_count: 'donor_count',
+    donation_percent: 'CASE WHEN goal_amount_cents > 0 THEN (current_amount_cents::float / goal_amount_cents) ELSE 0 END',
+};
+
+function buildSortClause(sortBy?: string, sortOrder?: string,): string {
+    const column = VALID_SORT_COLUMNS[sortBy || 'created_at'] || 'created_at';
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    return `ORDER BY ${column} ${direction}`;
+}
+
 // ─── Campaigns ───
 
-export async function findPublicCampaigns(includePast = false,): Promise<Campaign[]> {
-    const whereClause = includePast ?
-        `WHERE is_published = true AND status IN ('active', 'completed')` :
-        `WHERE is_published = true AND status = 'active'`;
+export interface PublicCampaignOptions {
+    includePast?: boolean;
+    activeOnly?: boolean;
+    sortBy?: string;
+    sortOrder?: string;
+}
+
+export async function findPublicCampaigns(options: PublicCampaignOptions = {},): Promise<Campaign[]> {
+    const { includePast = false, activeOnly = true, sortBy, sortOrder, } = options;
+
+    let whereClause = 'WHERE is_published = true';
+
+    if (includePast) {
+        whereClause += ` AND status IN ('active', 'completed')`;
+    } else {
+        whereClause += ` AND status = 'active'`;
+    }
+
+    if (activeOnly) {
+        whereClause += ` AND (start_date IS NULL OR start_date <= NOW())`;
+        whereClause += ` AND (end_date IS NULL OR end_date > NOW())`;
+    }
+
+    const orderClause = buildSortClause(sortBy, sortOrder,);
 
     const result = await query(
-        `SELECT * FROM campaigns ${whereClause} ORDER BY created_at DESC`,
+        `SELECT * FROM campaigns ${whereClause} ${orderClause}`,
     );
     return mapRows<Campaign>(result.rows,);
 }

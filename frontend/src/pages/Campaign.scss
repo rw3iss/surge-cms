@@ -1,0 +1,161 @@
+.campaign-page {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: $spacing-xl $spacing-lg $spacing-3xl;
+    box-sizing: border-box;
+
+    &__loading {
+        text-align: center;
+        padding: $spacing-3xl;
+        color: $text-light;
+    }
+
+    &__back {
+        display: inline-block;
+        font-size: $font-size-sm;
+        color: $text-light;
+        text-decoration: none;
+        margin-bottom: $spacing-lg;
+
+        &:hover {
+            color: $primary-color;
+        }
+    }
+
+    // ─── Hero Image ───
+
+    &__hero {
+        border-radius: $border-radius-lg;
+        overflow: hidden;
+        margin-bottom: $spacing-xl;
+
+        img {
+            width: 100%;
+            max-height: 360px;
+            object-fit: cover;
+            display: block;
+        }
+    }
+
+    // ─── Content ───
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__title {
+        font-size: $font-size-3xl;
+        font-weight: 700;
+        margin: 0 0 $spacing-xs;
+        line-height: 1.2;
+    }
+
+    &__subtitle {
+        font-size: $font-size-lg;
+        color: $text-light;
+        margin: 0 0 $spacing-xl;
+        line-height: 1.5;
+    }
+
+    // ─── Progress Tracker ───
+
+    &__tracker {
+        background: $background-dark;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-lg;
+        padding: $spacing-lg;
+        margin-bottom: $spacing-xl;
+    }
+
+    &__tracker-header {
+        display: flex;
+        align-items: baseline;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-md;
+        flex-wrap: wrap;
+    }
+
+    &__tracker-raised {
+        font-size: $font-size-3xl;
+        font-weight: 700;
+        color: $primary-color;
+        line-height: 1;
+    }
+
+    &__tracker-goal {
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__progress {
+        height: 12px;
+        background: $border-color;
+        border-radius: $border-radius-full;
+        overflow: hidden;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__progress-fill {
+        height: 100%;
+        background: var(--site-primary, #{$primary-color});
+        border-radius: $border-radius-full;
+        transition: width 0.6s ease;
+        min-width: 2px;
+    }
+
+    &__tracker-percent {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-color;
+        margin-bottom: $spacing-md;
+    }
+
+    &__tracker-stats {
+        display: flex;
+        gap: $spacing-xl;
+        padding-top: $spacing-md;
+        border-top: 1px solid $border-color;
+        flex-wrap: wrap;
+    }
+
+    &__stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__stat-value {
+        font-size: $font-size-base;
+        font-weight: 600;
+        color: $text-color;
+    }
+
+    &__stat-label {
+        font-size: $font-size-xs;
+        color: $text-light;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    // ─── Description ───
+
+    &__description {
+        margin-bottom: $spacing-xl;
+        line-height: 1.7;
+    }
+
+    // ─── Donation Form ───
+
+    &__donate {
+        border-top: 1px solid $border-color;
+        padding-top: $spacing-xl;
+
+        h2 {
+            font-size: $font-size-xl;
+            font-weight: 600;
+            margin: 0 0 $spacing-lg;
+        }
+    }
+}

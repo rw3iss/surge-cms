@@ -90,6 +90,7 @@ const SiteHeaderEditor: Component = () => {
     // ─── State ───
     const [items, setItems,] = createSignal<SiteHeaderItem[]>([],);
     const [bgColor, setBgColor,] = createSignal('#ffffff',);
+    const [textColor, setTextColor,] = createSignal('#000000',);
     const [headerPadding, setHeaderPadding,] = createSignal('0px',);
     const [headerMargin, setHeaderMargin,] = createSignal('0px',);
     const [itemSpacing, setItemSpacing,] = createSignal('',);
@@ -129,6 +130,7 @@ const SiteHeaderEditor: Component = () => {
                     setItems(data.items.sort((a: SiteHeaderItem, b: SiteHeaderItem,) => a.order - b.order),);
                 }
                 if (data.backgroundColor) setBgColor(data.backgroundColor,);
+                if (data.textColor) setTextColor(data.textColor,);
                 if (data.padding) setHeaderPadding(data.padding,);
                 if (data.margin) setHeaderMargin(data.margin,);
                 if (data.itemSpacing) setItemSpacing(data.itemSpacing,);
@@ -214,6 +216,7 @@ const SiteHeaderEditor: Component = () => {
             const payload = {
                 items: items().map((item, i,) => ({ ...item, order: i, })),
                 backgroundColor: bgColor(),
+                textColor: textColor(),
                 padding: headerPadding(),
                 margin: headerMargin(),
                 itemSpacing: itemSpacing() || undefined,
@@ -377,6 +380,7 @@ const SiteHeaderEditor: Component = () => {
                     class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
                     style={{
                         background: bgColor(),
+                        color: textColor(),
                         gap: itemSpacing() || undefined,
                         padding: headerPadding() || undefined,
                         margin: headerMargin() || undefined,
@@ -483,6 +487,16 @@ const SiteHeaderEditor: Component = () => {
                                 value={bgColor()}
                                 onChange={(hex,) => {
                                     setBgColor(hex,);
+                                    markDirty();
+                                }}
+                            />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Text Color</label>
+                            <ColorPicker
+                                value={textColor()}
+                                onChange={(hex,) => {
+                                    setTextColor(hex,);
                                     markDirty();
                                 }}
                             />

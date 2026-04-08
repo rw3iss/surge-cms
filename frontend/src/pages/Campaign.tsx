@@ -1,10 +1,11 @@
 import { Link, Meta, Title, } from '@solidjs/meta';
-import { useParams, } from '@solidjs/router';
+import { A, useParams, } from '@solidjs/router';
 import type { Campaign, } from '@surge/shared';
 import { Component, createResource, Show, } from 'solid-js';
 import DonationForm from '../components/DonationForm';
 import { JsonLd, } from '../components/JsonLd';
 import { fetchCampaign, } from '../services/api';
+import './Campaign.scss';
 
 const CampaignPage: Component = () => {
     const params = useParams();
@@ -15,9 +16,23 @@ const CampaignPage: Component = () => {
         return response.success ? response.data as Campaign : null;
     },);
 
+    const progress = () => {
+        const c = campaign();
+        if (!c || !c.goalAmountCents) return 0;
+        return Math.min((c.currentAmountCents / c.goalAmountCents) * 100, 100,);
+    };
+
+    const formatCurrency = (cents: number,) =>
+        `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, },)}`;
+
+    const formatDate = (d: string | Date | undefined,) => {
+        if (!d) return null;
+        return new Date(d,).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', },);
+    };
+
     return (
-        <div class="campaign-page container">
-            <Show when={campaign()} fallback={<div>Loading...</div>}>
+        <div class="campaign-page">
+            <Show when={campaign()} fallback={<div class="campaign-page__loading">Loading campaign...</div>}>
                 {(c,) => (
                     <>
                         <Title>{c().title} - Surge Media</Title>
@@ -43,28 +58,96 @@ const CampaignPage: Component = () => {
                                     'name': 'Surge Media',
                                     'url': 'https://surgemedia.us',
                                 },
-                                'price': {
-                                    '@type': 'MonetaryAmount',
-                                    'currency': 'USD',
-                                    'value': (c().goalAmountCents / 100).toFixed(2,),
-                                },
+                                ...(c().goalAmountCents ? {
+                                    'price': {
+                                        '@type': 'MonetaryAmount',
+                                        'currency': 'USD',
+                                        'value': (c().goalAmountCents / 100).toFixed(2,),
+                                    },
+                                } : {}),
                                 ...(c().featuredImage ? { 'image': c().featuredImage, } : {}),
                             }}
                         />
-                        <h1>{c().title}</h1>
-                        <div innerHTML={c().description} />
-                        <div class="campaign-progress">
-                            <div
-                                style={{
-                                    width: `${Math.min((c().currentAmountCents / c().goalAmountCents) * 100, 100,)}%`,
-                                }}
-                            />
+
+                        <A href="/donate" class="campaign-page__back">&larr; All Campaigns</A>
+
+                        {/* Hero / Featured Image */}
+                        <Show when={c().featuredImage}>
+                            <div class="campaign-page__hero">
+                                <img src={c().featuredImage!} alt={c().title} />
+                            </div>
+                        </Show>
+
+                        <div class="campaign-page__content">
+                            <h1 class="campaign-page__title">{c().title}</h1>
+
+                            <Show when={c().shortDescription}>
+                                <p class="campaign-page__subtitle">{c().shortDescription}</p>
+                            </Show>
+
+                            {/* Progress Tracker */}
+                            <div class="campaign-page__tracker">
+                                <div class="campaign-page__tracker-header">
+                                    <span class="campaign-page__tracker-raised">
+                                        {formatCurrency(c().currentAmountCents,)}
+                                    </span>
+                                    <Show when={c().goalAmountCents}>
+                                        <span class="campaign-page__tracker-goal">
+                                            raised of {formatCurrency(c().goalAmountCents,)} goal
+                                        </span>
+                                    </Show>
+                                    <Show when={!c().goalAmountCents}>
+                                        <span class="campaign-page__tracker-goal">raised</span>
+                                    </Show>
+                                </div>
+
+                                <Show when={c().goalAmountCents}>
+                                    <div class="campaign-page__progress">
+                                        <div
+                                            class="campaign-page__progress-fill"
+                                            style={{ width: `${progress()}%`, }}
+                                        />
+                                    </div>
+                                    <div class="campaign-page__tracker-percent">
+                                        {Math.round(progress(),)}% funded
+                                    </div>
+                                </Show>
+
+                                <div class="campaign-page__tracker-stats">
+                                    <div class="campaign-page__stat">
+                                        <span class="campaign-page__stat-value">{c().donorCount || 0}</span>
+                                        <span class="campaign-page__stat-label">
+                                            {c().donorCount === 1 ? 'donor' : 'donors'}
+                                        </span>
+                                    </div>
+                                    <Show when={(c() as any).startDate}>
+                                        <div class="campaign-page__stat">
+                                            <span class="campaign-page__stat-value">
+                                                {formatDate((c() as any).startDate,)}
+                                            </span>
+                                            <span class="campaign-page__stat-label">started</span>
+                                        </div>
+                                    </Show>
+                                    <Show when={(c() as any).endDate}>
+                                        <div class="campaign-page__stat">
+                                            <span class="campaign-page__stat-value">
+                                                {formatDate((c() as any).endDate,)}
+                                            </span>
+                                            <span class="campaign-page__stat-label">ends</span>
+                                        </div>
+                                    </Show>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div class="campaign-page__description rich-text" innerHTML={c().description} />
+
+                            {/* Donation Form */}
+                            <div class="campaign-page__donate">
+                                <h2>Make a Donation</h2>
+                                <DonationForm campaignId={c().id} />
+                            </div>
                         </div>
-                        <p>
-                            ${(c().currentAmountCents / 100).toLocaleString()}{' '}
-                            raised of ${(c().goalAmountCents / 100).toLocaleString()}
-                        </p>
-                        <DonationForm campaignId={c().id} />
                     </>
                 )}
             </Show>

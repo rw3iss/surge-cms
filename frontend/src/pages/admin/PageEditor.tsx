@@ -49,7 +49,11 @@ function pageBlockToBlockData(block: any,): BlockData {
 function blockDataToPageBlock(block: BlockData, order: number,) {
     const { title, content, __styleRef, ...settings } = block.data;
     let style: any = undefined;
-    const ref = (__styleRef as any) || block.styleRef;
+    // Detect explicit "clear" via __styleRef being present but null/empty
+    const hasExplicitStyleRef = '__styleRef' in block.data;
+    const explicitlyCleared = hasExplicitStyleRef && (__styleRef === null || __styleRef === undefined);
+    const ref = hasExplicitStyleRef ? __styleRef : block.styleRef;
+
     if (ref?.templateId) {
         style = { id: ref.templateId, };
     } else if (ref?.custom) {
@@ -64,7 +68,8 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
         settings: Object.keys(settings,).length > 0 ? settings : {},
         order,
         isVisible: true,
-        style: style || undefined,
+        // Send null explicitly when cleared so the backend wipes the style column
+        style: style ?? (explicitlyCleared ? null : undefined),
     };
 }
 

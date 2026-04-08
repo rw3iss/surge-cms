@@ -1,4 +1,5 @@
-import { createEffect, createSignal, onCleanup, Show, } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
+import { getSiteColors, SITE_COLOR_DEFAULTS, subscribeSiteColors, } from '../../services/siteColors';
 import './ColorPicker.scss';
 
 interface ColorPickerProps {
@@ -7,29 +8,6 @@ interface ColorPickerProps {
     showHexInput?: boolean;
     defaultColor?: string;
 }
-
-const PRESET_COLORS = [
-    '#ffffff',
-    '#000000',
-    '#e63946',
-    '#1d3557',
-    '#f1faee',
-    '#457b9d',
-    '#2a9d8f',
-    '#e9c46a',
-    '#f4a261',
-    '#e76f51',
-    '#264653',
-    '#6b705c',
-    '#fefae0',
-    '#dda15e',
-    '#bc6c25',
-    '#606c38',
-    '#283618',
-    '#a8dadc',
-    '#ff006e',
-    '#8338ec',
-];
 
 function isValidHex(hex: string,): boolean {
     return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex,);
@@ -40,8 +18,17 @@ export default function ColorPicker(props: ColorPickerProps,) {
     const [open, setOpen,] = createSignal(false,);
     const [hexInput, setHexInput,] = createSignal(props.value || defaultColor,);
     const [popupPos, setPopupPos,] = createSignal({ top: 0, left: 0, },);
+    const [presets, setPresets,] = createSignal<string[]>(SITE_COLOR_DEFAULTS,);
     let containerRef: HTMLDivElement | undefined;
     let swatchRef: HTMLButtonElement | undefined;
+
+    onMount(async () => {
+        const colors = await getSiteColors();
+        setPresets(colors,);
+    },);
+
+    const unsub = subscribeSiteColors((colors,) => setPresets(colors,));
+    onCleanup(() => unsub(),);
 
     // Sync hex input when the parent value changes (e.g. async load)
     createEffect(() => {
@@ -118,17 +105,19 @@ export default function ColorPicker(props: ColorPickerProps,) {
                     }}
                 >
                     <div class="color-picker__presets">
-                        {PRESET_COLORS.map((color,) => (
-                            <button
-                                type="button"
-                                class={`color-picker__preset ${
-                                    color === currentColor() ? 'color-picker__preset--active' : ''
-                                }`}
-                                style={{ background: color, }}
-                                onClick={() => selectPreset(color,)}
-                                title={color}
-                            />
-                        ))}
+                        <For each={presets()}>
+                            {(color,) => (
+                                <button
+                                    type="button"
+                                    class={`color-picker__preset ${
+                                        color === currentColor() ? 'color-picker__preset--active' : ''
+                                    }`}
+                                    style={{ background: color, }}
+                                    onClick={() => selectPreset(color,)}
+                                    title={color}
+                                />
+                            )}
+                        </For>
                     </div>
                     <div class="color-picker__custom">
                         <label>Custom:</label>

@@ -14,21 +14,21 @@ html {
 }
 
 body {
-  font-family: $font-family;
-  font-size: $font-size-base;
-  line-height: $line-height-base;
-  color: $text-color;
-  background-color: $background;
+  font-family: var(--site-font, #{$font-family});
+  font-size: 1rem;
+  line-height: var(--site-line-height, #{$line-height-base});
+  color: var(--site-text, #{$text-color});
+  background-color: var(--site-bg, #{$background});
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 // Typography
 h1, h2, h3, h4, h5, h6 {
-  font-family: $font-family-heading;
-  font-weight: 700;
+  font-family: var(--site-heading-font, var(--site-font, #{$font-family-heading}));
+  font-weight: var(--site-heading-weight, 700);
   line-height: $line-height-tight;
-  color: $text-color;
+  color: var(--site-heading, var(--site-text, #{$text-color}));
 }
 
 h1 { font-size: $font-size-4xl; }
@@ -43,7 +43,7 @@ p {
 }
 
 a {
-  color: $primary-color;
+  color: var(--site-link, var(--site-primary, #{$primary-color}));
   text-decoration: none;
   transition: color $transition-fast;
 

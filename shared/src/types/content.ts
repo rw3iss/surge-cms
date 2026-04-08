@@ -137,9 +137,24 @@ export interface NavigationItem {
 }
 
 export interface AppearanceSettings {
+    // Colors
     backgroundColor?: string;
+    textColor?: string;
+    primaryColor?: string;
+    linkColor?: string;
+    headingColor?: string;
+    borderColor?: string;
+    // Typography
+    fontFamily?: string;
+    headingFontFamily?: string;
     fontSize?: number;
+    headingWeight?: string;
+    lineHeight?: string;
+    // Layout
     gutterWidth?: string;
+    borderRadius?: string;
+    maxContentWidth?: string;
+    blockPadding?: string;
 }
 
 export interface SiteSettings {

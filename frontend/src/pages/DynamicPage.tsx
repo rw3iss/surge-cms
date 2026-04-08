@@ -1,5 +1,5 @@
 import { Link, Meta, Title, } from '@solidjs/meta';
-import { useNavigate, useParams, } from '@solidjs/router';
+import { useLocation, useNavigate, useParams, } from '@solidjs/router';
 import type { ContentAccessLevel, Page, } from '@surge/shared';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
@@ -21,9 +21,11 @@ interface LockedContent {
 
 const DynamicPage: Component = () => {
     const params = useParams();
+    const location = useLocation();
     const navigate = useNavigate();
     const auth = useAuth();
-    const canonicalUrl = () => `${window.location.origin}/${params.slug}`;
+    const slug = () => params.slug || location.pathname.replace(/^\//, '',);
+    const canonicalUrl = () => `${window.location.origin}/${slug()}`;
     const [lockedContent, setLockedContent,] = createSignal<LockedContent | null>(null,);
 
     const isPreviewMode = () => {
@@ -32,7 +34,7 @@ const DynamicPage: Component = () => {
     };
 
     const [page,] = createResource(
-        () => params.slug,
+        slug,
         async (slug,) => {
             setLockedContent(null,);
             const preview = (isPreviewMode() && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')) ? 'admin' : undefined;

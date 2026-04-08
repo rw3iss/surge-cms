@@ -1,0 +1,92 @@
+.color-wheel {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    user-select: none;
+
+    &__sv {
+        position: relative;
+        cursor: crosshair;
+        border-radius: $border-radius-md;
+        overflow: hidden;
+        border: 1px solid $border-color;
+        touch-action: none;
+    }
+
+    &__sv-white {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to right, #ffffff, transparent);
+        pointer-events: none;
+    }
+
+    &__sv-black {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, #000000, transparent);
+        pointer-events: none;
+    }
+
+    &__sv-thumb {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    &__hue {
+        position: relative;
+        height: 18px;
+        border-radius: $border-radius-full;
+        background: linear-gradient(
+            to right,
+            hsl(0, 100%, 50%),
+            hsl(60, 100%, 50%),
+            hsl(120, 100%, 50%),
+            hsl(180, 100%, 50%),
+            hsl(240, 100%, 50%),
+            hsl(300, 100%, 50%),
+            hsl(360, 100%, 50%)
+        );
+        cursor: pointer;
+        border: 1px solid $border-color;
+        touch-action: none;
+    }
+
+    &__hue-thumb {
+        position: absolute;
+        top: 50%;
+        width: 16px;
+        height: 22px;
+        border-radius: 4px;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        background: transparent;
+    }
+
+    &__preview-row {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+
+    &__preview {
+        width: 32px;
+        height: 32px;
+        border-radius: $border-radius-sm;
+        border: 1px solid $border-color;
+    }
+
+    &__hex {
+        font-family: monospace;
+        font-size: $font-size-sm;
+        color: $text-color;
+        text-transform: uppercase;
+    }
+}

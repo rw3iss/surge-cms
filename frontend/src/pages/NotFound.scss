@@ -57,7 +57,7 @@
     display: inline-flex;
     align-items: center;
     padding: $spacing-sm $spacing-xl;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: white;
     border-radius: $border-radius-md;
     text-decoration: none;

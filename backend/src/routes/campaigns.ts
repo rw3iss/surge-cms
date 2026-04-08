@@ -14,10 +14,10 @@ const campaignSchema = z.object({
     description: z.string(),
     shortDescription: z.string().optional(),
     featuredImage: z.string().url().nullish(),
-    goalAmountCents: z.number().int().positive(),
+    goalAmountCents: z.number().int().positive().nullish(),
     status: z.enum(['draft', 'active', 'completed', 'cancelled',],).optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
+    startDate: z.string().datetime().nullish(),
+    endDate: z.string().datetime().nullish(),
     isPublished: z.boolean().optional(),
 },);
 
@@ -25,13 +25,24 @@ const campaignSchema = z.object({
 
 router.get('/public', async (req, res,) => {
     try {
-        const { includePast = 'false', } = req.query;
-        const cacheKey = `campaigns:public:${includePast}`;
+        const {
+            includePast = 'false',
+            activeOnly = 'true',
+            sortBy = 'created_at',
+            sortOrder = 'desc',
+        } = req.query;
+
+        const cacheKey = `campaigns:public:${includePast}:${activeOnly}:${sortBy}:${sortOrder}`;
 
         const cached = await cache.get(cacheKey,);
         if (cached) return sendSuccess(res, cached,);
 
-        const campaigns = await campaignsRepo.findPublicCampaigns(includePast === 'true',);
+        const campaigns = await campaignsRepo.findPublicCampaigns({
+            includePast: includePast === 'true',
+            activeOnly: activeOnly !== 'false',
+            sortBy: String(sortBy,),
+            sortOrder: String(sortOrder,),
+        },);
         await cache.set(cacheKey, campaigns, 300,);
         sendSuccess(res, campaigns,);
     } catch (error) {

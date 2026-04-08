@@ -70,6 +70,13 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
 
     return (
         <div class={`form-renderer ${props.inline ? 'form-renderer--inline' : ''}`}>
+            <Show when={props.form.title}>
+                <h2 class="form-renderer__title">{props.form.title}</h2>
+            </Show>
+            <Show when={props.form.description}>
+                <p class="form-renderer__subtitle">{props.form.description}</p>
+            </Show>
+
             <Show
                 when={submitted()}
                 fallback={

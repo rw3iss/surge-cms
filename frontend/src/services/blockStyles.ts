@@ -12,6 +12,7 @@ export interface BlockStyleData {
     width?: string;
     padding?: string;
     margin?: string;
+    gap?: string;
 }
 
 /**
@@ -21,17 +22,18 @@ export interface BlockStyleData {
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontSize' | 'width' | 'padding' | 'margin'
+        'backgroundColor' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontSize' | 'width' | 'padding' | 'margin' | 'gap'
     >
 > = {
-    backgroundColor: '#ffffff',
-    textColor: '#000000',
+    backgroundColor: '',
+    textColor: '',
     textAlign: 'left',
     verticalAlign: 'top',
-    fontSize: '16px',
+    fontSize: '',
     width: '100%',
-    padding: '0px',
-    margin: '0px',
+    padding: '',
+    margin: '',
+    gap: '',
 };
 
 let cachedStyles: BlockStyleData[] | null = null;
@@ -102,6 +104,7 @@ export const BlockStyleService = {
             width: style.width || BLOCK_STYLE_DEFAULTS.width,
             padding: style.padding || BLOCK_STYLE_DEFAULTS.padding,
             margin: style.margin || BLOCK_STYLE_DEFAULTS.margin,
+            gap: style.gap || BLOCK_STYLE_DEFAULTS.gap,
         };
     },
 };

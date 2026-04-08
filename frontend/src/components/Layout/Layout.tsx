@@ -1,5 +1,5 @@
 import type { AppearanceSettings, NavigationItem, SiteSettings, } from '@surge/shared';
-import { createMemo, createResource, ParentComponent, } from 'solid-js';
+import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
 import { fetchAppearance, fetchNavigation, fetchSettings, fetchSiteHeader, } from '../../services/api';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
@@ -31,6 +31,14 @@ export const Layout: ParentComponent = (props,) => {
         return response.success ? response.data as AppearanceSettings : null;
     },);
 
+    // Apply font size to <html> so rem units throughout the site respect it
+    createEffect(() => {
+        const a = appearance();
+        if (a?.fontSize) {
+            document.documentElement.style.fontSize = `${a.fontSize}px`;
+        }
+    },);
+
     const layoutStyle = createMemo(() => {
         const a = appearance();
         const s: Record<string, string> = {};
@@ -38,8 +46,28 @@ export const Layout: ParentComponent = (props,) => {
             s['background-color'] = a.backgroundColor;
             s['--site-bg'] = a.backgroundColor;
         }
-        if (a?.fontSize) s['font-size'] = `${a.fontSize}px`;
+        if (a?.textColor) {
+            s['color'] = a.textColor;
+            s['--site-text'] = a.textColor;
+        }
+        if (a?.primaryColor) s['--site-primary'] = a.primaryColor;
+        if (a?.linkColor) s['--site-link'] = a.linkColor;
+        if (a?.headingColor) s['--site-heading'] = a.headingColor;
+        if (a?.borderColor) s['--site-border'] = a.borderColor;
+        if (a?.fontFamily) {
+            s['font-family'] = a.fontFamily;
+            s['--site-font'] = a.fontFamily;
+        }
+        if (a?.headingFontFamily) s['--site-heading-font'] = a.headingFontFamily;
+        if (a?.headingWeight) s['--site-heading-weight'] = a.headingWeight;
+        if (a?.lineHeight) {
+            s['line-height'] = a.lineHeight;
+            s['--site-line-height'] = a.lineHeight;
+        }
         if (a?.gutterWidth) s['--site-gutter'] = a.gutterWidth;
+        if (a?.borderRadius) s['--site-radius'] = a.borderRadius;
+        if (a?.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
+        if (a?.blockPadding) s['--site-block-padding'] = a.blockPadding;
         return s;
     },);
 

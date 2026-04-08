@@ -98,7 +98,7 @@
     font-size: $font-size-base;
     font-weight: 600;
     cursor: pointer;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: white;
     display: flex;
     align-items: center;

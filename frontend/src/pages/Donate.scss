@@ -60,7 +60,7 @@
 
   &__progress-bar {
     height: 100%;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     border-radius: $border-radius-full;
   }
 }

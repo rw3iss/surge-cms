@@ -21,7 +21,16 @@
 
 .hero-block {
   text-align: center;
-  padding: $spacing-3xl 0;
+  padding: $spacing-3xl $spacing-lg;
+
+  &--full {
+    width: 100%;
+  }
+
+  &--page {
+    padding-left: var(--site-gutter, #{$spacing-lg});
+    padding-right: var(--site-gutter, #{$spacing-lg});
+  }
 
   &__title {
     font-size: $font-size-4xl;
@@ -32,12 +41,22 @@
     }
   }
 
-  &__content {
+  &__subtitle {
     font-size: $font-size-xl;
     color: $text-light;
-    max-width: 600px;
-    margin: 0 auto;
+    margin-bottom: $spacing-md;
   }
+
+  &__content {
+    font-size: $font-size-lg;
+  }
+}
+
+// Hero blocks should not be constrained by inner container
+.block--hero .block__inner {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .rich-text-block {
@@ -145,5 +164,23 @@
     font-weight: 600;
     color: $text-color;
     margin: 0;
+  }
+}
+
+// When rendering "all campaigns" list, the parent block should be transparent
+.block--campaign:has(.campaign-block-list) {
+  background: transparent !important;
+  padding: 0;
+}
+
+.campaign-block-list {
+  .campaign-block {
+    border: 1px solid $border-color;
+  }
+
+  &--horizontal .campaign-block {
+    flex: 1 1 280px;
+    max-width: 400px;
+    min-width: 240px;
   }
 }

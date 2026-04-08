@@ -10,6 +10,7 @@ export interface BlockStyle {
     width?: string; // CSS width value
     padding?: string; // CSS padding value
     margin?: string; // CSS margin value
+    gap?: string; // CSS gap value
     createdAt?: Date;
     updatedAt?: Date;
 }

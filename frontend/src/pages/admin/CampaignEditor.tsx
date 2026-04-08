@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
+import { invalidateCampaignsCache, } from '../../services/adminData';
 import { api, } from '../../services/api';
 
 const CampaignEditor: Component = () => {
@@ -21,6 +22,9 @@ const CampaignEditor: Component = () => {
     const [goalAmount, setGoalAmount,] = createSignal<string>('',);
     const [hasGoal, setHasGoal,] = createSignal(true,);
     const [status, setStatus,] = createSignal('draft',);
+    const [isPublished, setIsPublished,] = createSignal(false,);
+    const [startDate, setStartDate,] = createSignal('',);
+    const [endDate, setEndDate,] = createSignal('',);
     const [featuredImage, setFeaturedImage,] = createSignal('',);
 
     // Load existing campaign
@@ -42,6 +46,13 @@ const CampaignEditor: Component = () => {
                     setHasGoal(false,);
                 }
                 setStatus(data.status || 'draft',);
+                setIsPublished(data.isPublished ?? false,);
+                if (data.startDate) {
+                    setStartDate(new Date(data.startDate,).toISOString().slice(0, 16,),);
+                }
+                if (data.endDate) {
+                    setEndDate(new Date(data.endDate,).toISOString().slice(0, 16,),);
+                }
                 setFeaturedImage(data.featuredImage || '',);
                 return data;
             }
@@ -78,6 +89,9 @@ const CampaignEditor: Component = () => {
                 shortDescription: shortDescription(),
                 goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : null,
                 status: status(),
+                isPublished: isPublished(),
+                startDate: startDate() ? new Date(startDate(),).toISOString() : null,
+                endDate: endDate() ? new Date(endDate(),).toISOString() : null,
                 featuredImage: featuredImage() || null,
             };
 
@@ -89,6 +103,7 @@ const CampaignEditor: Component = () => {
             }
 
             if (response.success) {
+                invalidateCampaignsCache();
                 markClean();
                 navigate('/admin/campaigns',);
             } else {
@@ -109,6 +124,7 @@ const CampaignEditor: Component = () => {
         try {
             const response = await api.delete(`/campaigns/${params.id}`,);
             if (response.success) {
+                invalidateCampaignsCache();
                 navigate('/admin/campaigns',);
             } else {
                 setError(response.error?.message || 'Failed to delete campaign',);
@@ -235,6 +251,49 @@ const CampaignEditor: Component = () => {
                             }}
                             placeholder="https://..."
                         />
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group form-group--grow">
+                            <label for="startDate">Start Date</label>
+                            <input
+                                type="datetime-local"
+                                id="startDate"
+                                value={startDate()}
+                                onInput={(e,) => {
+                                    setStartDate((e.target as HTMLInputElement).value,);
+                                    markDirty();
+                                }}
+                            />
+                            <small class="form-help">When the campaign starts accepting donations (optional)</small>
+                        </div>
+                        <div class="form-group form-group--grow">
+                            <label for="endDate">End Date</label>
+                            <input
+                                type="datetime-local"
+                                id="endDate"
+                                value={endDate()}
+                                onInput={(e,) => {
+                                    setEndDate((e.target as HTMLInputElement).value,);
+                                    markDirty();
+                                }}
+                            />
+                            <small class="form-help">When the campaign stops accepting donations (optional)</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={isPublished()}
+                                onChange={(e,) => {
+                                    setIsPublished((e.target as HTMLInputElement).checked,);
+                                    markDirty();
+                                }}
+                            />
+                            <span>Published (visible to the public)</span>
+                        </label>
                     </div>
 
                     <div class="form-group">

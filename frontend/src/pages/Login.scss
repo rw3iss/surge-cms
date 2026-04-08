@@ -58,7 +58,7 @@
     }
 
     &--primary {
-      background: $primary-color;
+      background: var(--site-primary, #{$primary-color});
       color: white;
 
       &:hover:not(:disabled) {

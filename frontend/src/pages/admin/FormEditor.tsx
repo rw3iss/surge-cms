@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
+import { invalidateFormsCache, } from '../../services/adminData';
 import { api, } from '../../services/api';
 
 interface FormQuestion {
@@ -191,6 +192,7 @@ const FormEditor: Component = () => {
             }
 
             if (response.success) {
+                invalidateFormsCache();
                 markClean();
                 navigate('/admin/forms',);
             } else {
@@ -211,6 +213,7 @@ const FormEditor: Component = () => {
         try {
             const response = await api.delete(`/forms/${params.id}`,);
             if (response.success) {
+                invalidateFormsCache();
                 navigate('/admin/forms',);
             } else {
                 setError(response.error?.message || 'Failed to delete form',);

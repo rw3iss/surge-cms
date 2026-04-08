@@ -96,7 +96,7 @@
   &__nav-link {
     display: block;
     padding: $spacing-sm $spacing-md;
-    color: $text-color;
+    color: inherit;
     font-weight: 500;
     text-decoration: none;
     border-radius: $border-radius-md;
@@ -126,10 +126,11 @@
     transition: all $transition-fast;
 
     &--primary {
-      background: $primary-color;
+      background: var(--site-primary, #{$primary-color});
       color: white;
 
       &:hover {
+        filter: brightness(0.9);
         background: color.adjust($primary-color, $lightness: -10%);
         color: white;
       }

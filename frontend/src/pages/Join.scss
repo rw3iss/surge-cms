@@ -203,7 +203,7 @@
     }
 
     &--primary {
-      background: $primary-color;
+      background: var(--site-primary, #{$primary-color});
       color: white;
       margin-top: $spacing-sm;
 

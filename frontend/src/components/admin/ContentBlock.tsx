@@ -1,7 +1,10 @@
 import { Component, createEffect, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
+import MediaSelectModal from './MediaSelectModal';
+import MediaUploadModal from './MediaUploadModal';
 import { BlockStyleData, BlockStyleService, } from '../../services/blockStyles';
 import CampaignBlock from './blocks/CampaignBlock';
 import DocumentBlock from './blocks/DocumentBlock';
+import FormBlock from './blocks/FormBlock';
 import ImageBlock from './blocks/ImageBlock';
 import SocialMediaBlock from './blocks/SocialMediaBlock';
 import TextBlock from './blocks/TextBlock';
@@ -134,31 +137,54 @@ const ReferenceBlock: Component<
 const HeroBlock: Component<
     { data: Record<string, any>; mode: string; onUpdate: (data: Record<string, any>,) => void; }
 > = (props,) => {
+    const [showMediaSelect, setShowMediaSelect,] = createSignal(false,);
+    const [showMediaUpload, setShowMediaUpload,] = createSignal(false,);
+
+    const bgStyle = () => {
+        if (!props.data.backgroundImage) return {};
+        return {
+            'background-image': `url(${props.data.backgroundImage})`,
+            'background-size': props.data.backgroundSize || 'cover',
+            'background-position': 'center',
+            'background-repeat': 'no-repeat',
+        };
+    };
+
     return (
         <div class="block-hero">
             <Show
                 when={props.mode === 'edit'}
                 fallback={
-                    <div class="block-hero__preview">
+                    <div
+                        class="block-hero__preview"
+                        style={{
+                            ...bgStyle(),
+                            'text-align': 'center',
+                            'padding': '2rem 1rem',
+                            'border-radius': '4px',
+                            'min-height': props.data.minHeight || (props.data.backgroundImage ? '150px' : undefined),
+                            ...(props.data.backgroundImage ? {
+                                'display': 'flex',
+                                'flex-direction': 'column',
+                                'align-items': 'center',
+                                'justify-content': 'center',
+                            } : {}),
+                        }}
+                    >
                         <Show
-                            when={props.data.title || props.data.content}
+                            when={props.data.title || props.data.content || props.data.backgroundImage}
                             fallback={
                                 <span class="block-text__empty">No hero content yet. Click Edit to configure.</span>
                             }
                         >
                             <Show when={props.data.title}>
-                                <h3>{props.data.title}</h3>
+                                <h2 style={{ 'margin-bottom': '0.25rem', }}>{props.data.title}</h2>
                             </Show>
                             <Show when={props.data.subtitle}>
-                                <p>{props.data.subtitle}</p>
+                                <p style={{ color: '#6b7280', 'font-size': '1.25rem', 'margin-bottom': '0.5rem', }}>{props.data.subtitle}</p>
                             </Show>
                             <Show when={props.data.content}>
                                 <div innerHTML={props.data.content} />
-                            </Show>
-                            <Show when={props.data.backgroundImage}>
-                                <div class="block-hero__bg-preview" style={{ 'font-size': '0.85em', color: '#666', }}>
-                                    Background: {props.data.backgroundImage}
-                                </div>
                             </Show>
                         </Show>
                     </div>
@@ -183,15 +209,106 @@ const HeroBlock: Component<
                     />
                 </div>
                 <div class="form-group">
-                    <label>Background Image URL</label>
+                    <label>Background Image</label>
+                    <Show when={props.data.backgroundImage}>
+                        <div style={{ 'margin-bottom': '0.5rem', }}>
+                            <img
+                                src={props.data.backgroundImage}
+                                alt=""
+                                style={{
+                                    'max-height': '120px',
+                                    'max-width': '100%',
+                                    'object-fit': 'cover',
+                                    'border-radius': '4px',
+                                    border: '1px solid #ddd',
+                                }}
+                            />
+                        </div>
+                    </Show>
+                    <div style={{ display: 'flex', gap: '0.5rem', 'flex-wrap': 'wrap', }}>
+                        <button
+                            type="button"
+                            class="btn btn--secondary btn--small"
+                            onClick={() => setShowMediaSelect(true,)}
+                        >
+                            Select Media
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn--outline btn--small"
+                            onClick={() => setShowMediaUpload(true,)}
+                        >
+                            Upload New
+                        </button>
+                        <Show when={props.data.backgroundImage}>
+                            <button
+                                type="button"
+                                class="btn btn--ghost btn--small"
+                                onClick={() => props.onUpdate({ ...props.data, backgroundImage: '', },)}
+                                style={{ color: '#dc3545', }}
+                            >
+                                Remove
+                            </button>
+                        </Show>
+                    </div>
+                </div>
+                <Show when={props.data.backgroundImage}>
+                    <div class="form-group">
+                        <label>Background Size</label>
+                        <select
+                            value={props.data.backgroundSize || 'cover'}
+                            onChange={(e,) => props.onUpdate({ ...props.data, backgroundSize: e.currentTarget.value, },)}
+                        >
+                            <option value="cover">Cover (fill, may crop)</option>
+                            <option value="contain">Contain (fit inside)</option>
+                            <option value="100% 100%">Stretch (fill exactly)</option>
+                            <option value="auto">Auto (original size)</option>
+                        </select>
+                    </div>
+                </Show>
+                <div class="form-group">
+                    <label>Min Height</label>
                     <input
                         type="text"
-                        value={props.data.backgroundImage || ''}
-                        onInput={(e,) => props.onUpdate({ ...props.data, backgroundImage: e.currentTarget.value, },)}
-                        placeholder="https://..."
+                        value={props.data.minHeight || ''}
+                        onInput={(e,) => props.onUpdate({ ...props.data, minHeight: e.currentTarget.value, },)}
+                        placeholder="e.g. 300px, 50vh, 20rem"
+                        style={{ 'max-width': '200px', }}
                     />
+                    <small class="form-help">Any valid CSS value (px, rem, %, vw, vh)</small>
+                </div>
+                <div class="form-group">
+                    <label>Width Mode</label>
+                    <select
+                        value={props.data.heroWidth || 'full'}
+                        onChange={(e,) => props.onUpdate({ ...props.data, heroWidth: e.currentTarget.value, },)}
+                    >
+                        <option value="full">Full width (edge to edge)</option>
+                        <option value="page">Page width (with site gutter)</option>
+                    </select>
                 </div>
                 <TextBlock data={props.data} mode={props.mode as 'view' | 'edit'} onUpdate={props.onUpdate} />
+            </Show>
+
+            <Show when={showMediaSelect()}>
+                <MediaSelectModal
+                    types={['image',]}
+                    onSelect={(media,) => {
+                        props.onUpdate({ ...props.data, backgroundImage: media.url, },);
+                        setShowMediaSelect(false,);
+                    }}
+                    onClose={() => setShowMediaSelect(false,)}
+                />
+            </Show>
+            <Show when={showMediaUpload()}>
+                <MediaUploadModal
+                    acceptTypes="image/*"
+                    onUploaded={(media,) => {
+                        props.onUpdate({ ...props.data, backgroundImage: media.url, },);
+                        setShowMediaUpload(false,);
+                    }}
+                    onClose={() => setShowMediaUpload(false,)}
+                />
             </Show>
         </div>
     );
@@ -267,6 +384,10 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
 
     /** Resolve the initial style from any available source on the block */
     function getInitialStyleRef(): BlockData['styleRef'] | undefined {
+        // Explicit null __styleRef in data means the user chose "none"
+        if (props.block.data && '__styleRef' in props.block.data && props.block.data.__styleRef === null) {
+            return undefined;
+        }
         // Check styleRef first, then data.__styleRef, then data.style (from API)
         if (props.block.styleRef) return props.block.styleRef;
         const dataRef = props.block.data?.__styleRef;
@@ -289,7 +410,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         const styles = await BlockStyleService.getAll();
         setBlockStyles(styles,);
 
-        // Now resolve and apply initial style, filling in defaults for any null values
+        // Now resolve and apply initial style
         const ref = getInitialStyleRef();
         if (ref?.templateId) {
             const template = styles.find(s => s.id === ref.templateId);
@@ -299,18 +420,11 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             }
         } else if (ref?.custom) {
             setCurrentStyle(BlockStyleService.withDefaults(ref.custom as BlockStyleData,),);
+            setSelectedStyleId('custom',);
         } else {
-            // No style set — auto-select the default template for new blocks
-            const defaultTemplate = styles.find(s => s.isDefault);
-            if (defaultTemplate?.id) {
-                setCurrentStyle(BlockStyleService.withDefaults(defaultTemplate,),);
-                setSelectedStyleId(defaultTemplate.id,);
-                // Persist the default selection on the block
-                props.onUpdate(props.block.id, {
-                    ...props.block.data,
-                    __styleRef: { templateId: defaultTemplate.id, },
-                },);
-            }
+            // No style set — block inherits site global styles
+            setCurrentStyle({},);
+            setSelectedStyleId('none',);
         }
         setStylesLoaded(true,);
     },);
@@ -321,7 +435,12 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
 
     const handleStyleDropdownChange = (value: string,) => {
         setSelectedStyleId(value,);
-        if (value === 'custom') {
+        if (value === 'none') {
+            // Clear any style — block will inherit site global styles.
+            // Set __styleRef explicitly to null so the save handler knows to clear the backend style column.
+            setCurrentStyle({},);
+            props.onUpdate(props.block.id, { ...props.block.data, __styleRef: null, },);
+        } else if (value === 'custom') {
             const customStyle = BlockStyleService.withDefaults(
                 (props.block.styleRef?.custom || props.block.data?.__styleRef?.custom || {}) as BlockStyleData,
             );
@@ -338,10 +457,14 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
 
     const handleEditStyle = () => {
         setStyleBackup({ ...currentStyle(), },);
+        setTemplateDirty(false,);
         setEditingStyle(true,);
     };
 
-    /** Called by BlockStyleEditor onChange — immediately switches to custom if settings differ from backup */
+    // Tracks whether the user has made changes in the editor that haven't been saved to the template
+    const [templateDirty, setTemplateDirty,] = createSignal(false,);
+
+    /** Called by BlockStyleEditor onChange — updates state and flags dirty, but does NOT switch selection */
     const updateCurrentStyle = (style: BlockStyleData,) => {
         setCurrentStyle(style,);
         const backup = styleBackup();
@@ -355,15 +478,10 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 'width',
                 'padding',
                 'margin',
+                'gap',
             ] as const;
             const modified = fields.some(f => (style as any)[f] !== (backup as any)[f]);
-            if (modified) {
-                // Immediately switch to custom and persist on the block
-                const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...customProps } = style;
-                const filled = BlockStyleService.withDefaults(customProps as BlockStyleData,);
-                setSelectedStyleId('custom',);
-                props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: filled, }, },);
-            }
+            setTemplateDirty(modified,);
         }
     };
 
@@ -371,12 +489,19 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const handleSaveStyle = async () => {
         const style = currentStyle();
 
-        // Persist whatever the current state is
-        if (style.id && selectedStyleId() !== 'custom') {
-            // Still pointing to a template (user saved it as template, or didn't modify)
+        // If editing an existing template and changes weren't saved to the template,
+        // switch to a custom config for this block only.
+        if (style.id && templateDirty()) {
+            const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...customProps } = style;
+            const filled = BlockStyleService.withDefaults(customProps as BlockStyleData,);
+            setCurrentStyle(filled,);
+            setSelectedStyleId('custom',);
+            props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: filled, }, },);
+        } else if (style.id) {
+            // Still pointing to a template, no unsaved changes — keep template reference
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { templateId: style.id, }, },);
         } else {
-            // Custom config
+            // No template id — save as custom
             const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...customProps } = style;
             const filled = BlockStyleService.withDefaults(customProps as BlockStyleData,);
             setCurrentStyle(filled,);
@@ -386,6 +511,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
 
         setEditingStyle(false,);
         setStyleBackup(null,);
+        setTemplateDirty(false,);
         await refreshStyles();
     };
 
@@ -401,6 +527,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         }
         setEditingStyle(false,);
         setStyleBackup(null,);
+        setTemplateDirty(false,);
     };
 
     /** Save Template button in editor: creates or updates a global template */
@@ -416,6 +543,8 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             setSelectedStyleId(saved.id || 'custom',);
             // Update backup so "Save Style" sees this as the new baseline (not modified)
             setStyleBackup({ ...saved, },);
+            // Template is now saved — clear dirty flag
+            setTemplateDirty(false,);
             // Point this block to the saved/created template
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { templateId: saved.id, }, },);
         }
@@ -445,6 +574,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             'width': s.width || undefined,
             'padding': s.padding || undefined,
             'margin': s.margin || undefined,
+            'gap': s.gap || undefined,
         };
     };
 
@@ -487,6 +617,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                         onChange={(e,) => handleStyleDropdownChange(e.currentTarget.value,)}
                         disabled={!props.isEditing}
                     >
+                        <option value="none">None (inherit global)</option>
                         <option value="custom">Custom...</option>
                         <For each={blockStyles().sort((a, b,) => (a.name || '').localeCompare(b.name || '',))}>
                             {(style,) => (
@@ -646,12 +777,10 @@ const BlockContent: Component<
                 />
             </Match>
             <Match when={props.block.type === 'form'}>
-                <ReferenceBlock
+                <FormBlock
                     data={props.block.data}
                     mode={props.mode}
                     onUpdate={props.onUpdate}
-                    label="Form"
-                    idField="formId"
                 />
             </Match>
             <Match when={props.block.type === 'post'}>

@@ -1,6 +1,18 @@
 import { Component, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { getCampaigns, } from '../../../services/adminData';
 
+const ALL_CAMPAIGNS_ID = '__all-campaigns__';
+
+const SORT_OPTIONS = [
+    { value: 'created_at', label: 'Date Created', },
+    { value: 'start_date', label: 'Date Started', },
+    { value: 'end_date', label: 'Date Ended', },
+    { value: 'current_amount_cents', label: 'Total Donated ($)', },
+    { value: 'donation_percent', label: 'Total Donated (%)', },
+    { value: 'goal_amount_cents', label: 'Campaign Goal', },
+    { value: 'donor_count', label: 'Donor Count', },
+];
+
 interface CampaignBlockProps {
     data: Record<string, any>;
     mode: string;
@@ -8,11 +20,15 @@ interface CampaignBlockProps {
 }
 
 const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
-    const [search, setSearch,] = createSignal(props.data.title || props.data.campaignId || '',);
+    const [search, setSearch,] = createSignal(
+        props.data.campaignId === ALL_CAMPAIGNS_ID ? '' : (props.data.title || props.data.campaignId || ''),
+    );
     const [showDropdown, setShowDropdown,] = createSignal(false,);
     let containerRef: HTMLDivElement | undefined;
 
     const [campaigns,] = createResource(async () => getCampaigns(),);
+
+    const isAllSelected = () => props.data.campaignId === ALL_CAMPAIGNS_ID;
 
     const filtered = () => {
         const items = campaigns() || [];
@@ -31,6 +47,19 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
             slug: campaign.slug,
         },);
         setSearch(campaign.title,);
+        setShowDropdown(false,);
+    };
+
+    const selectAll = () => {
+        props.onUpdate({
+            ...props.data,
+            campaignId: ALL_CAMPAIGNS_ID,
+            title: 'All Active Campaigns',
+            slug: undefined,
+            sortBy: props.data.sortBy || 'created_at',
+            sortOrder: props.data.sortOrder || 'desc',
+        },);
+        setSearch('',);
         setShowDropdown(false,);
     };
 
@@ -60,7 +89,9 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                             }
                         >
                             <span>
-                                Campaign: <strong>{props.data.title || props.data.campaignId}</strong>
+                                Campaign: <strong>
+                                    {isAllSelected() ? 'All Active Campaigns' : (props.data.title || props.data.campaignId)}
+                                </strong>
                             </span>
                         </Show>
                     </div>
@@ -70,7 +101,7 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                     <label>Campaign</label>
                     <input
                         type="text"
-                        value={search()}
+                        value={isAllSelected() ? 'All Active Campaigns' : search()}
                         onInput={(e,) => {
                             setSearch(e.currentTarget.value,);
                             setShowDropdown(true,);
@@ -79,36 +110,85 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                         placeholder="Search campaigns by name..."
                         autocomplete="off"
                     />
-                    <Show when={showDropdown() && filtered().length > 0}>
+                    <Show when={showDropdown()}>
                         <div class="block-campaign__dropdown">
-                            <For each={filtered()}>
-                                {(campaign,) => (
-                                    <button
-                                        type="button"
-                                        class={`block-campaign__option ${
-                                            props.data.campaignId === campaign.id ?
-                                                'block-campaign__option--selected' : ''
-                                        }`}
-                                        onClick={() => selectCampaign(campaign,)}
-                                    >
-                                        <span class="block-campaign__option-title">{campaign.title}</span>
-                                        <span class="block-campaign__option-meta">
-                                            /{campaign.slug}
-                                            <Show when={campaign.status}>
-                                                {' '}&middot; {campaign.status as string}
-                                            </Show>
-                                        </span>
-                                    </button>
-                                )}
-                            </For>
-                        </div>
-                    </Show>
-                    <Show when={showDropdown() && filtered().length === 0 && search()}>
-                        <div class="block-campaign__dropdown">
-                            <div class="block-campaign__empty">No campaigns found</div>
+                            <button
+                                type="button"
+                                class={`block-campaign__option block-campaign__option--all ${
+                                    isAllSelected() ? 'block-campaign__option--selected' : ''
+                                }`}
+                                onClick={selectAll}
+                            >
+                                <span class="block-campaign__option-title">All Active Campaigns</span>
+                                <span class="block-campaign__option-meta">
+                                    Displays all active campaigns in a list
+                                </span>
+                            </button>
+
+                            <Show when={filtered().length > 0}>
+                                <For each={filtered()}>
+                                    {(campaign,) => (
+                                        <button
+                                            type="button"
+                                            class={`block-campaign__option ${
+                                                props.data.campaignId === campaign.id ?
+                                                    'block-campaign__option--selected' : ''
+                                            }`}
+                                            onClick={() => selectCampaign(campaign,)}
+                                        >
+                                            <span class="block-campaign__option-title">{campaign.title}</span>
+                                            <span class="block-campaign__option-meta">
+                                                /{campaign.slug}
+                                                <Show when={campaign.status}>
+                                                    {' '}&middot; {campaign.status as string}
+                                                </Show>
+                                            </span>
+                                        </button>
+                                    )}
+                                </For>
+                            </Show>
+
+                            <Show when={filtered().length === 0 && search()}>
+                                <div class="block-campaign__empty">No campaigns found</div>
+                            </Show>
                         </div>
                     </Show>
                 </div>
+
+                {/* Sort options — only shown for "All Campaigns" */}
+                <Show when={isAllSelected()}>
+                    <div class="form-group" style={{ 'margin-top': '0.75rem', }}>
+                        <label>Sort By</label>
+                        <select
+                            value={props.data.sortBy || 'created_at'}
+                            onChange={(e,) => props.onUpdate({ ...props.data, sortBy: e.currentTarget.value, },)}
+                        >
+                            <For each={SORT_OPTIONS}>
+                                {(opt,) => <option value={opt.value}>{opt.label}</option>}
+                            </For>
+                        </select>
+                    </div>
+                    <div class="form-group" style={{ 'margin-top': '0.5rem', }}>
+                        <label>Sort Direction</label>
+                        <select
+                            value={props.data.sortOrder || 'desc'}
+                            onChange={(e,) => props.onUpdate({ ...props.data, sortOrder: e.currentTarget.value, },)}
+                        >
+                            <option value="desc">Descending (newest/highest first)</option>
+                            <option value="asc">Ascending (oldest/lowest first)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style={{ 'margin-top': '0.5rem', }}>
+                        <label>Layout Direction</label>
+                        <select
+                            value={props.data.direction || 'vertical'}
+                            onChange={(e,) => props.onUpdate({ ...props.data, direction: e.currentTarget.value, },)}
+                        >
+                            <option value="vertical">Vertical (stacked)</option>
+                            <option value="horizontal">Horizontal (side by side)</option>
+                        </select>
+                    </div>
+                </Show>
             </Show>
         </div>
     );
