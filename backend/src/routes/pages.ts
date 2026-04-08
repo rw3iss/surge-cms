@@ -5,8 +5,10 @@ import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import { ValidationError, } from '../middleware/error';
 import * as pagesRepo from '../repositories/pages.repo';
+import * as revisionsRepo from '../repositories/revisions.repo';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
+import { handleBulkAction, } from '../utils/bulkActions';
 import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -20,7 +22,8 @@ const pageSchema = z.object({
     metaDescription: z.string().optional(),
     metaKeywords: z.array(z.string(),).optional(),
     ogImage: z.string().url().optional(),
-    status: z.enum(['draft', 'published', 'archived', 'deleted',],).optional(),
+    status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
+    publishAt: z.string().datetime().nullable().optional(),
     isHomepage: z.boolean().optional(),
     showInNav: z.boolean().optional(),
     navOrder: z.number().int().optional(),
@@ -177,6 +180,20 @@ router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest,
 router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
         const data = pageSchema.partial().parse(req.body,);
+        try {
+            const existing = await pagesRepo.findPageById(req.params.id,);
+            if (existing) {
+                await revisionsRepo.createRevision(
+                    'page',
+                    req.params.id,
+                    existing as any,
+                    req.userId || null,
+                );
+                await revisionsRepo.pruneRevisions('page', req.params.id, 50,);
+            }
+        } catch {
+            /* non-fatal */
+        }
         const page = await pagesRepo.updatePage(req.params.id, data,);
         await cache.invalidatePageCache(req.params.id,);
         await logAudit({
@@ -210,6 +227,73 @@ router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReq
     } catch (error) {
         handleRouteError(res, error, 'delete page',);
     }
+},);
+
+// ─── Revisions ───
+
+router.get('/:id/revisions', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const revisions = await revisionsRepo.listRevisions('page', req.params.id,);
+        sendSuccess(res, revisions,);
+    } catch (error) {
+        handleRouteError(res, error, 'list page revisions',);
+    }
+},);
+
+router.get('/:id/revisions/:version', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const version = parseInt(req.params.version, 10,);
+        const revision = await revisionsRepo.getRevision('page', req.params.id, version,);
+        sendSuccess(res, revision,);
+    } catch (error) {
+        handleRouteError(res, error, 'get page revision',);
+    }
+},);
+
+router.post(
+    '/:id/revisions/:version/restore',
+    authenticate(),
+    requireAdmin,
+    async (req: AuthenticatedRequest, res,) => {
+        try {
+            const version = parseInt(req.params.version, 10,);
+            const revision = await revisionsRepo.getRevision('page', req.params.id, version,);
+            const snap = revision.snapshot as any;
+            const current = await pagesRepo.findPageById(req.params.id,);
+            if (current) {
+                await revisionsRepo.createRevision(
+                    'page',
+                    req.params.id,
+                    current as any,
+                    req.userId || null,
+                    `Pre-restore snapshot (restoring v${version})`,
+                );
+            }
+            const restored = await pagesRepo.updatePage(req.params.id, {
+                title: snap.title,
+                slug: snap.slug,
+                description: snap.description,
+                status: snap.status,
+                accessLevel: snap.accessLevel,
+                publishAt: snap.publishAt,
+            },);
+            await cache.invalidatePageCache(req.params.id,);
+            sendSuccess(res, restored,);
+        } catch (error) {
+            handleRouteError(res, error, 'restore page revision',);
+        }
+    },
+);
+
+// ─── Bulk Actions ───
+
+router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    await handleBulkAction(res, req.body, {
+        table: 'pages',
+        allowedStatuses: ['draft', 'published', 'scheduled', 'archived', 'deleted',],
+        softDelete: true,
+        onInvalidate: () => cache.invalidatePageCache(),
+    },);
 },);
 
 // ─── Block Routes ───

@@ -5,6 +5,7 @@ import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware
 import { ValidationError, } from '../middleware/error';
 import * as formsRepo from '../repositories/forms.repo';
 import { cache, } from '../services/cache';
+import { handleBulkAction, } from '../utils/bulkActions';
 import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -466,6 +467,17 @@ router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReq
     } catch (error) {
         handleRouteError(res, error, 'delete form',);
     }
+},);
+
+// ─── Bulk Actions ───
+
+router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    await handleBulkAction(res, req.body, {
+        table: 'forms',
+        allowedStatuses: ['draft', 'published', 'closed', 'archived',],
+        softDelete: false,
+        onInvalidate: () => cache.invalidateFormCache(),
+    },);
 },);
 
 export default router;

@@ -4,8 +4,9 @@ import { closePool, pool, } from './db';
 import { cache, } from './services/cache';
 import { cronRegistry, } from './services/cron';
 import { verifyEmailConfig, } from './services/email';
-import { logger, } from './utils/logger';
+import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initSocialCrons, } from './services/socialCrons';
+import { logger, } from './utils/logger';
 
 async function main() {
     try {
@@ -34,6 +35,7 @@ async function main() {
 
         // Register cron jobs for connected social providers, then start all
         await initSocialCrons();
+        initScheduledPublisher();
         cronRegistry.startAll();
         logger.info('Cron jobs started',);
 

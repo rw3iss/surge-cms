@@ -1,6 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
+import { useEditorState, } from '../../hooks/useEditorState';
+import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateCampaignsCache, } from '../../services/adminData';
 import { api, } from '../../services/api';
@@ -11,8 +13,7 @@ const CampaignEditor: Component = () => {
     const isNew = () => !params.id || params.id === 'new';
     const { markDirty, markClean, } = useUnsavedChanges();
 
-    const [saving, setSaving,] = createSignal(false,);
-    const [error, setError,] = createSignal('',);
+    const { error, saving, beginSave, endSave, showError, } = useEditorState();
 
     // Form state
     const [title, setTitle,] = createSignal('',);
@@ -76,10 +77,9 @@ const CampaignEditor: Component = () => {
         markDirty();
     };
 
-    const handleSubmit = async (e: Event,) => {
-        e.preventDefault();
-        setError('',);
-        setSaving(true,);
+    const handleSubmit = async (e?: Event,) => {
+        e?.preventDefault();
+        beginSave();
 
         try {
             const payload = {
@@ -107,14 +107,18 @@ const CampaignEditor: Component = () => {
                 markClean();
                 navigate('/admin/campaigns',);
             } else {
-                setError(response.error?.message || 'Failed to save campaign',);
+                showError(response, 'Failed to save campaign',);
             }
         } catch (err) {
-            setError('An error occurred while saving',);
+            showError(err, 'An error occurred while saving',);
         } finally {
-            setSaving(false,);
+            endSave();
         }
     };
+
+    useKeyboardShortcuts([
+        { key: 's', ctrl: true, handler: () => handleSubmit(), },
+    ],);
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this campaign? This cannot be undone.',)) {
@@ -127,10 +131,10 @@ const CampaignEditor: Component = () => {
                 invalidateCampaignsCache();
                 navigate('/admin/campaigns',);
             } else {
-                setError(response.error?.message || 'Failed to delete campaign',);
+                showError(response, 'Failed to delete campaign',);
             }
         } catch (err) {
-            setError('An error occurred while deleting',);
+            showError(err, 'An error occurred while deleting',);
         }
     };
 

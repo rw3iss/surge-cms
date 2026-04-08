@@ -4,6 +4,7 @@ import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware
 import * as campaignsRepo from '../repositories/campaigns.repo';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
+import { handleBulkAction, } from '../utils/bulkActions';
 import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -193,6 +194,17 @@ router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReq
     } catch (error) {
         handleRouteError(res, error, 'delete campaign',);
     }
+},);
+
+// ─── Bulk Actions ───
+
+router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    await handleBulkAction(res, req.body, {
+        table: 'campaigns',
+        allowedStatuses: ['draft', 'active', 'completed', 'cancelled',],
+        softDelete: false,
+        onInvalidate: () => cache.invalidateCampaignCache(),
+    },);
 },);
 
 export default router;

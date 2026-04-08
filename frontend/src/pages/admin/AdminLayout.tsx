@@ -1,5 +1,6 @@
 import { A, useLocation, useNavigate, } from '@solidjs/router';
 import { createEffect, createSignal, ParentComponent, Show, } from 'solid-js';
+import GlobalSearch from '../../components/admin/GlobalSearch';
 import SiteLogo from '../../components/SiteLogo';
 import { useAuth, } from '../../stores/auth';
 import './AdminLayout.scss';
@@ -134,6 +135,7 @@ const AdminLayout: ParentComponent = (props,) => {
                 <main class="admin-layout__main">
                     {props.children}
                 </main>
+                <GlobalSearch />
             </div>
         </Show>
     );

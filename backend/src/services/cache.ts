@@ -81,6 +81,8 @@ export async function invalidatePageCache(pageId?: string,): Promise<void> {
     }
     await delPattern('pages:*',);
     await delPattern('navigation:*',);
+    // Invalidate SSR cache for all public pages when any page changes
+    await delPattern('ssr:html:*',);
 }
 
 export async function invalidatePostCache(postId?: string,): Promise<void> {
@@ -89,6 +91,7 @@ export async function invalidatePostCache(postId?: string,): Promise<void> {
         await del(`post:slug:*`,);
     }
     await delPattern('posts:*',);
+    await delPattern('ssr:html:*',);
 }
 
 export async function invalidateCampaignCache(campaignId?: string,): Promise<void> {
@@ -97,6 +100,7 @@ export async function invalidateCampaignCache(campaignId?: string,): Promise<voi
     }
     await delPattern('campaigns:*',);
     await delPattern('donations:*',);
+    await delPattern('ssr:html:*',);
 }
 
 export async function invalidateFormCache(formId?: string,): Promise<void> {

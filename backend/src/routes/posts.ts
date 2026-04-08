@@ -4,8 +4,10 @@ import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import { ValidationError, } from '../middleware/error';
 import * as postsRepo from '../repositories/posts.repo';
+import * as revisionsRepo from '../repositories/revisions.repo';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
+import { handleBulkAction, } from '../utils/bulkActions';
 import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -23,7 +25,8 @@ const postSchema = z.object({
     excerpt: z.string().optional(),
     content: z.string().optional().default('',),
     featuredImage: z.string().url().optional(),
-    status: z.enum(['draft', 'published', 'archived', 'deleted',],).optional(),
+    status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
+    publishAt: z.string().datetime().nullable().optional(),
     isPrivate: z.boolean().optional(),
     accessLevel: z.enum(['public', 'member', 'patron',],).optional(),
     tags: z.array(z.string(),).optional(),
@@ -194,6 +197,14 @@ router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest,
 router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
         const data = postSchema.partial().parse(req.body,);
+        // Snapshot existing state BEFORE update for revision history
+        try {
+            const existing = await postsRepo.findPostById(req.params.id,);
+            await revisionsRepo.createRevision('post', req.params.id, existing as any, req.userId || null,);
+            await revisionsRepo.pruneRevisions('post', req.params.id, 50,);
+        } catch {
+            // Don't fail the save if revision snapshot fails
+        }
         const post = await postsRepo.updatePost(req.params.id, data,);
         await cache.invalidatePostCache(req.params.id,);
         await logAudit({
@@ -227,6 +238,75 @@ router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReq
     } catch (error) {
         handleRouteError(res, error, 'delete post',);
     }
+},);
+
+// ─── Revisions ───
+
+router.get('/:id/revisions', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const revisions = await revisionsRepo.listRevisions('post', req.params.id,);
+        sendSuccess(res, revisions,);
+    } catch (error) {
+        handleRouteError(res, error, 'list post revisions',);
+    }
+},);
+
+router.get('/:id/revisions/:version', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const version = parseInt(req.params.version, 10,);
+        const revision = await revisionsRepo.getRevision('post', req.params.id, version,);
+        sendSuccess(res, revision,);
+    } catch (error) {
+        handleRouteError(res, error, 'get post revision',);
+    }
+},);
+
+router.post(
+    '/:id/revisions/:version/restore',
+    authenticate(),
+    requireAdmin,
+    async (req: AuthenticatedRequest, res,) => {
+        try {
+            const version = parseInt(req.params.version, 10,);
+            const revision = await revisionsRepo.getRevision('post', req.params.id, version,);
+            const snap = revision.snapshot as any;
+            // Snapshot current state before restore
+            const current = await postsRepo.findPostById(req.params.id,);
+            await revisionsRepo.createRevision(
+                'post',
+                req.params.id,
+                current as any,
+                req.userId || null,
+                `Pre-restore snapshot (restoring v${version})`,
+            );
+            const restored = await postsRepo.updatePost(req.params.id, {
+                title: snap.title,
+                slug: snap.slug,
+                excerpt: snap.excerpt,
+                content: snap.content,
+                status: snap.status,
+                accessLevel: snap.accessLevel,
+                tags: snap.tags,
+                contentBlocks: snap.contentBlocks,
+                publishAt: snap.publishAt,
+            },);
+            await cache.invalidatePostCache(req.params.id,);
+            sendSuccess(res, restored,);
+        } catch (error) {
+            handleRouteError(res, error, 'restore post revision',);
+        }
+    },
+);
+
+// ─── Bulk Actions ───
+
+router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    await handleBulkAction(res, req.body, {
+        table: 'posts',
+        allowedStatuses: ['draft', 'published', 'scheduled', 'archived', 'deleted',],
+        softDelete: true,
+        onInvalidate: () => cache.invalidatePostCache(),
+    },);
 },);
 
 // ─── Content Block Reorder (9.4 from TODO) ───

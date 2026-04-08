@@ -254,8 +254,8 @@ export async function createPost(data: Record<string, unknown>, authorId: string
     const result = await query(
         `INSERT INTO posts (slug, title, excerpt, content, featured_image, author_id,
                         status, is_private, access_level, tags, categories, meta_title,
-                        meta_description, published_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                        meta_description, published_at, publish_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING *`,
         [
             data.slug,
@@ -272,6 +272,7 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             data.metaTitle,
             data.metaDescription,
             publishedAt,
+            data.publishAt || null,
         ],
     );
 
@@ -305,6 +306,7 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
         categories: 'categories',
         metaTitle: 'meta_title',
         metaDescription: 'meta_description',
+        publishAt: 'publish_at',
     };
 
     for (const [camelKey, dbKey,] of Object.entries(fields,)) {

@@ -2093,6 +2093,213 @@
   color: $text-light;
 }
 
+// ─── Global Search ───
+
+.global-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  backdrop-filter: blur(4px);
+}
+
+.global-search {
+  width: 100%;
+  max-width: 640px;
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+
+  &__input-wrap {
+    display: flex;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: $font-size-lg;
+    font-family: inherit;
+    background: transparent;
+
+    &::placeholder {
+      color: $text-light;
+    }
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+    padding: 2px 6px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    white-space: nowrap;
+  }
+
+  &__loading,
+  &__empty {
+    padding: $spacing-lg;
+    text-align: center;
+    color: $text-light;
+    font-size: $font-size-sm;
+  }
+
+  &__results {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-lg;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-bottom: 1px solid color.adjust($border-color, $lightness: 5%);
+
+    &:last-child { border-bottom: none; }
+
+    &--active {
+      background: color.adjust($primary-color, $lightness: 45%);
+    }
+  }
+
+  &__item-type {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-light;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    background: $background-dark;
+    border-radius: $border-radius-sm;
+    white-space: nowrap;
+  }
+
+  &__item-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__item-title {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-color;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item-snippet {
+    font-size: $font-size-xs;
+    color: $text-light;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  &__footer {
+    display: flex;
+    gap: $spacing-md;
+    padding: $spacing-xs $spacing-lg;
+    background: $background-dark;
+    border-top: 1px solid $border-color;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+}
+
+// ─── Admin List Page ───
+
+.admin-list-page {
+  &__bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+    background: color.adjust($primary-color, $lightness: 45%);
+    border: 1px solid $primary-color;
+    border-radius: $border-radius-md;
+  }
+
+  &__bulk-count {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $primary-color;
+  }
+
+  &__empty {
+    padding: $spacing-3xl;
+    text-align: center;
+    color: $text-light;
+    background: $background;
+    border: 1px dashed $border-color;
+    border-radius: $border-radius-lg;
+  }
+
+  &__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+}
+
+.admin-table__row--clickable {
+  cursor: pointer;
+
+  &:hover {
+    background: $background-dark;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    $background-dark 25%,
+    color.adjust($background-dark, $lightness: 3%) 50%,
+    $background-dark 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s infinite;
+  border-radius: $border-radius-sm;
+
+  &--row {
+    height: 52px;
+  }
+
+  &--text {
+    height: 1em;
+    width: 80%;
+  }
+
+  &--circle {
+    border-radius: 50%;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 // ─── Shared Editor Save Bar ───
 
 .editor-save-bar {
@@ -2542,5 +2749,138 @@
     margin-top: $spacing-lg;
     padding-top: $spacing-lg;
     border-top: 1px solid $border-color;
+  }
+}
+
+// ─── Pagination controls ───
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: $spacing-md 0;
+  flex-wrap: wrap;
+
+  &__btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    background: #fff;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    color: #333;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled):not(&--active) {
+      background: #f5f5f5;
+      border-color: #bbb;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--active {
+      background: $primary-color;
+      border-color: $primary-color;
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  &__ellipsis {
+    padding: 0 4px;
+    color: #999;
+  }
+
+  &__info {
+    margin-left: auto;
+    color: #666;
+    font-size: 0.85rem;
+  }
+}
+
+// ─── Editor scheduled publishing field ───
+.schedule-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: $border-radius-sm;
+  margin-top: $spacing-xs;
+  font-size: 0.85rem;
+  color: #795548;
+}
+
+// ─── Auto-save indicator ───
+.autosave-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  color: #666;
+
+  &--saving { color: #888; }
+  &--saved { color: #4caf50; }
+  &--error { color: $primary-color; }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+
+// ─── Revisions panel ───
+.revisions-panel {
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  background: #fff;
+  margin-top: $spacing-md;
+
+  &__header {
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid $border-color;
+    font-weight: 600;
+    background: #f9f9f9;
+  }
+
+  &__empty {
+    padding: $spacing-md;
+    color: #999;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  &__list {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid $border-color;
+    gap: $spacing-md;
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+
+    strong { font-weight: 600; }
+    span { color: #888; font-size: 0.75rem; }
   }
 }

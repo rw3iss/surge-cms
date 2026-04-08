@@ -3,9 +3,12 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import BlockEditor, { BlockData, BlockType, BlockTypeOption, } from '../../components/admin/BlockEditor';
 import ConfirmModal from '../../components/admin/ConfirmModal';
+import EditorSaveBar from '../../components/admin/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/PreviewOverlay';
 import { BlockRenderer, } from '../../components/BlockRenderer';
 import { Header, } from '../../components/Layout/Header';
+import { useEditorState, } from '../../hooks/useEditorState';
+import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { api, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';
@@ -98,8 +101,7 @@ const AdminPageEditor: Component = () => {
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     const [originalBlockIds, setOriginalBlockIds,] = createSignal<Set<string>>(new Set(),);
-    const [error, setError,] = createSignal('',);
-    const [saving, setSaving,] = createSignal(false,);
+    const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
     const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
     const [showRestoreConfirm, setShowRestoreConfirm,] = createSignal(false,);
     const [showPreview, setShowPreview,] = createSignal(false,);
@@ -150,11 +152,10 @@ const AdminPageEditor: Component = () => {
     };
 
     const handleSave = async () => {
-        setError('',);
         if (!title()) { setError('Title is required',); return; }
         if (!slug()) { setError('Slug is required',); return; }
 
-        setSaving(true,);
+        beginSave();
         try {
             const data = {
                 title: title(),
@@ -168,16 +169,16 @@ const AdminPageEditor: Component = () => {
             if (isNew()) {
                 const response = await api.post('/pages', data,);
                 if (!response.success) {
-                    setError((response as any).error?.message || 'Failed to create page',);
-                    setSaving(false,);
+                    showError(response, 'Failed to create page',);
+                    endSave();
                     return;
                 }
                 pageId = (response as any).data.id;
             } else {
                 const response = await api.put(`/pages/${params.id}`, data,);
                 if (!response.success) {
-                    setError((response as any).error?.message || 'Failed to save page',);
-                    setSaving(false,);
+                    showError(response, 'Failed to save page',);
+                    endSave();
                     return;
                 }
             }
@@ -186,11 +187,15 @@ const AdminPageEditor: Component = () => {
             markClean();
             navigate('/admin/pages',);
         } catch (err: any) {
-            setError(err.message || 'Failed to save page',);
+            showError(err, 'Failed to save page',);
         } finally {
-            setSaving(false,);
+            endSave();
         }
     };
+
+    useKeyboardShortcuts([
+        { key: 's', ctrl: true, handler: () => handleSave(), },
+    ],);
 
     return (
         <div class="page-editor">
@@ -358,12 +363,16 @@ const AdminPageEditor: Component = () => {
             </div>
 
             {/* ─── Bottom save bar ─── */}
-            <div class="page-editor__footer">
-                <button class="btn btn--primary" onClick={handleSave} disabled={saving()}>
-                    {saving() ? 'Saving...' : 'Save Page'}
-                </button>
-                <button class="btn btn--secondary" onClick={() => navigate('/admin/pages',)}>Cancel</button>
-            </div>
+            <EditorSaveBar
+                onSave={handleSave}
+                onCancel={() => navigate('/admin/pages',)}
+                onDelete={() => setShowDeleteConfirm(true,)}
+                saving={saving()}
+                deleting={deleting()}
+                showDelete={!isNew() && !isDeleted()}
+                saveLabel="Save Page"
+                deleteLabel="Delete Page"
+            />
 
             <ConfirmModal
                 open={showDeleteConfirm()}

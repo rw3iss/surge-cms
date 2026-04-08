@@ -8,6 +8,7 @@ import path from 'path';
 import { config, } from './config';
 import { csrfProtection, csrfToken, } from './middleware/csrf';
 import { errorHandler, notFoundHandler, } from './middleware/error';
+import { createSsrMiddleware, } from './middleware/ssr';
 import routes from './routes';
 import sitemapRoutes from './routes/sitemap';
 import { logger, } from './utils/logger';
@@ -120,6 +121,27 @@ export function createApp(): Express {
 
     // API routes
     app.use(`/api/${config.apiVersion}`, routes,);
+
+    // ─── SSR + static frontend serving (production) ───
+    // Serves the built frontend with server-rendered meta tags for SEO/social sharing.
+    // SSR middleware runs first (for HTML requests), then static files (for JS/CSS/images).
+    const distDir = path.resolve(process.cwd(), '../frontend/dist',);
+    app.use(createSsrMiddleware(distDir,),);
+    app.use(express.static(distDir, { index: false, },),);
+    // SPA fallback: any remaining non-API routes serve index.html
+    app.get('*', async (req, res, next,) => {
+        if (req.path.startsWith('/api/',)) return next();
+        try {
+            const fs = await import('fs');
+            const indexPath = path.join(distDir, 'index.html',);
+            if (fs.existsSync(indexPath,)) {
+                return res.sendFile(indexPath,);
+            }
+        } catch {
+            // Fall through
+        }
+        next();
+    },);
 
     // 404 handler
     app.use(notFoundHandler,);

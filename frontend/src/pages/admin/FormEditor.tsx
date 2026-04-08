@@ -1,6 +1,9 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import EditorSaveBar from '../../components/admin/EditorSaveBar';
+import { useEditorState, } from '../../hooks/useEditorState';
+import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateFormsCache, } from '../../services/adminData';
 import { api, } from '../../services/api';
@@ -20,9 +23,7 @@ const FormEditor: Component = () => {
     const navigate = useNavigate();
     const isNew = () => !params.id || params.id === 'new';
     const { markDirty, markClean, } = useUnsavedChanges();
-
-    const [saving, setSaving,] = createSignal(false,);
-    const [error, setError,] = createSignal('',);
+    const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
 
     // Form metadata
     const [title, setTitle,] = createSignal('',);
@@ -141,8 +142,8 @@ const FormEditor: Component = () => {
         },);
     };
 
-    const handleSubmit = async (e: Event,) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: Event,) => {
+        e?.preventDefault();
         setError('',);
 
         // Validate
@@ -162,7 +163,7 @@ const FormEditor: Component = () => {
             return;
         }
 
-        setSaving(true,);
+        beginSave();
 
         try {
             const payload = {
@@ -196,14 +197,18 @@ const FormEditor: Component = () => {
                 markClean();
                 navigate('/admin/forms',);
             } else {
-                setError(response.error?.message || 'Failed to save form',);
+                showError(response, 'Failed to save form',);
             }
         } catch (err) {
-            setError('An error occurred while saving',);
+            showError(err, 'An error occurred while saving',);
         } finally {
-            setSaving(false,);
+            endSave();
         }
     };
+
+    useKeyboardShortcuts([
+        { key: 's', ctrl: true, handler: () => handleSubmit(), },
+    ],);
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this form and all its submissions? This cannot be undone.',)) {
@@ -216,10 +221,10 @@ const FormEditor: Component = () => {
                 invalidateFormsCache();
                 navigate('/admin/forms',);
             } else {
-                setError(response.error?.message || 'Failed to delete form',);
+                showError(response, 'Failed to delete form',);
             }
         } catch (err) {
-            setError('An error occurred while deleting',);
+            showError(err, 'An error occurred while deleting',);
         }
     };
 
@@ -537,19 +542,15 @@ const FormEditor: Component = () => {
                         </Show>
                     </section>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn--primary" disabled={saving()}>
-                            {saving() ? 'Saving...' : 'Save Form'}
-                        </button>
-                        <button type="button" class="btn btn--secondary" onClick={() => navigate('/admin/forms',)}>
-                            Cancel
-                        </button>
-                        <Show when={!isNew()}>
-                            <button type="button" class="btn btn--danger" onClick={handleDelete}>
-                                Delete
-                            </button>
-                        </Show>
-                    </div>
+                    <EditorSaveBar
+                        onSave={() => handleSubmit()}
+                        onCancel={() => navigate('/admin/forms',)}
+                        onDelete={handleDelete}
+                        saving={saving()}
+                        showDelete={!isNew()}
+                        saveLabel="Save Form"
+                        deleteLabel="Delete Form"
+                    />
                 </form>
             </Show>
         </div>

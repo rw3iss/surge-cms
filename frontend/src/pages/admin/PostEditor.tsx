@@ -1,12 +1,18 @@
 import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
+import AutoSaveIndicator from '../../components/admin/AutoSaveIndicator';
 import BlockEditor from '../../components/admin/BlockEditor';
 import ConfirmModal from '../../components/admin/ConfirmModal';
 import { BlockData, } from '../../components/admin/ContentBlock';
+import EditorSaveBar from '../../components/admin/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/PreviewOverlay';
+import RevisionsPanel from '../../components/admin/RevisionsPanel';
 import { Header, } from '../../components/Layout/Header';
 import PostContentBlock from '../../components/PostContentBlock';
+import { useAutoSave, } from '../../hooks/useAutoSave';
+import { useEditorState, } from '../../hooks/useEditorState';
+import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { api, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';
@@ -32,15 +38,52 @@ const AdminPostEditor: Component = () => {
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [tags, setTags,] = createSignal('',);
+    const [publishAt, setPublishAt,] = createSignal('',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
-    const [error, setError,] = createSignal('',);
-    const [saving, setSaving,] = createSignal(false,);
+    const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
     const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
     const [showRestoreConfirm, setShowRestoreConfirm,] = createSignal(false,);
     const [showPreview, setShowPreview,] = createSignal(false,);
     const [deleting, setDeleting,] = createSignal(false,);
     const [restoring, setRestoring,] = createSignal(false,);
     const isDeleted = () => status() === 'deleted';
+
+    useKeyboardShortcuts([
+        { key: 's', ctrl: true, handler: () => handleSave(), },
+    ],);
+
+    // Auto-save draft to localStorage
+    const autoSave = useAutoSave({
+        key: `post-draft-${params.id || 'new'}`,
+        state: () => ({
+            title: title(),
+            slug: slug(),
+            excerpt: excerpt(),
+            status: status(),
+            accessLevel: accessLevel(),
+            tags: tags(),
+            publishAt: publishAt(),
+            blocks: blocks(),
+        }),
+    },);
+
+    // Offer to restore on load for new posts (only if draft exists and state is empty)
+    createEffect(() => {
+        if (!isNew()) return;
+        if (title() || blocks().length) return;
+        const draft = autoSave.getDraft();
+        if (draft && confirm('A draft was found from a previous session. Restore it?',)) {
+            const d = draft.data as any;
+            setTitle(d.title || '',);
+            setSlug(d.slug || '',);
+            setExcerpt(d.excerpt || '',);
+            setStatus(d.status || 'draft',);
+            setAccessLevel(d.accessLevel || 'public',);
+            setTags(d.tags || '',);
+            setPublishAt(d.publishAt || '',);
+            setBlocks(d.blocks || [],);
+        }
+    },);
 
     createEffect(() => {
         const p = post();
@@ -51,6 +94,11 @@ const AdminPostEditor: Component = () => {
             setStatus(p.status || 'draft',);
             setAccessLevel(p.accessLevel || 'public',);
             setTags((p.tags || []).join(', ',),);
+            if (p.publishAt) {
+                setPublishAt(new Date(p.publishAt,).toISOString().slice(0, 16,),);
+            } else {
+                setPublishAt('',);
+            }
             if (p.contentBlocks?.length) {
                 setBlocks(p.contentBlocks.map((b: any,) => {
                     // b.style comes from backend: { id: "uuid", ...props } for template, or { backgroundColor: ... } for custom
@@ -72,7 +120,6 @@ const AdminPostEditor: Component = () => {
     },);
 
     const handleSave = async () => {
-        setError('',);
         if (!title()) {
             setError('Title is required',);
             return;
@@ -82,16 +129,17 @@ const AdminPostEditor: Component = () => {
             return;
         }
 
-        setSaving(true,);
+        beginSave();
 
         const tagList = tags().split(',',).map(t => t.trim()).filter(Boolean,);
-        const data = {
+        const data: any = {
             title: title(),
             slug: slug(),
             excerpt: excerpt(),
             status: status(),
             accessLevel: accessLevel(),
             tags: tagList,
+            publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
             contentBlocks: blocks().map((b, i,) => ({
                 id: b.id.startsWith('block-',) ? undefined : b.id,
                 type: b.type,
@@ -104,13 +152,14 @@ const AdminPostEditor: Component = () => {
             await api.post('/posts', data,) :
             await api.put(`/posts/${params.id}`, data,);
 
-        setSaving(false,);
+        endSave();
 
         if (response.success) {
+            autoSave.clear();
             markClean();
             navigate('/admin/posts',);
         } else {
-            setError((response as any).error?.message || 'Failed to save post',);
+            showError(response, 'Failed to save post',);
         }
     };
 
@@ -120,6 +169,7 @@ const AdminPostEditor: Component = () => {
             <div class="admin-header">
                 <h1>{isNew() ? 'New Post' : 'Edit Post'}</h1>
                 <div class="admin-header__actions">
+                    <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
                     <Show when={!isNew() && post()}>
                         <Show when={isDeleted()}>
                             <button
@@ -188,6 +238,7 @@ const AdminPostEditor: Component = () => {
                                 }}
                             >
                                 <option value="draft">Draft</option>
+                                <option value="scheduled">Scheduled</option>
                                 <option value="published">Published</option>
                                 <option value="archived">Archived</option>
                             </select>
@@ -208,6 +259,22 @@ const AdminPostEditor: Component = () => {
                             <span class="form-help">Who can view this post</span>
                         </div>
                     </div>
+                    <Show when={status() === 'scheduled'}>
+                        <div class="form-group">
+                            <label>Publish At</label>
+                            <input
+                                type="datetime-local"
+                                value={publishAt()}
+                                onInput={(e,) => {
+                                    setPublishAt(e.currentTarget.value,);
+                                    markDirty();
+                                }}
+                            />
+                            <span class="form-help">
+                                Post will automatically publish at this time
+                            </span>
+                        </div>
+                    </Show>
                     <div class="form-group">
                         <label>Excerpt</label>
                         <textarea
@@ -246,23 +313,24 @@ const AdminPostEditor: Component = () => {
                     />
                 </div>
 
-                <div class="form-actions" style={{ 'justify-content': 'space-between', }}>
-                    <div style={{ display: 'flex', gap: '12px', }}>
-                        <button class="btn btn--primary" onClick={handleSave} disabled={saving()}>
-                            {saving() ? 'Saving...' : 'Save Post'}
-                        </button>
-                        <button class="btn btn--secondary" onClick={() => navigate('/admin/posts',)}>Cancel</button>
-                    </div>
-                    <Show when={!isNew() && !isDeleted()}>
-                        <button
-                            class="btn btn--danger"
-                            onClick={() => setShowDeleteConfirm(true,)}
-                            disabled={deleting()}
-                        >
-                            {deleting() ? 'Deleting...' : 'Delete Post'}
-                        </button>
-                    </Show>
-                </div>
+                <EditorSaveBar
+                    onSave={handleSave}
+                    onCancel={() => navigate('/admin/posts',)}
+                    onDelete={() => setShowDeleteConfirm(true,)}
+                    saving={saving()}
+                    deleting={deleting()}
+                    showDelete={!isNew() && !isDeleted()}
+                    saveLabel="Save Post"
+                    deleteLabel="Delete Post"
+                />
+
+                <Show when={!isNew()}>
+                    <RevisionsPanel
+                        entityType="post"
+                        entityId={params.id}
+                        onRestored={() => window.location.reload()}
+                    />
+                </Show>
             </div>
             <ConfirmModal
                 open={showDeleteConfirm()}

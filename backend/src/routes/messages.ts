@@ -4,6 +4,7 @@ import { config, } from '../config';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
 import * as messagesRepo from '../repositories/messages.repo';
 import { sendEmail, } from '../services/email';
+import { handleBulkAction, } from '../utils/bulkActions';
 import { logger, } from '../utils/logger';
 import { handleRouteError, sendCreated, sendSuccess, } from '../utils/response';
 import { sanitize, } from '../utils/sanitize';
@@ -112,6 +113,15 @@ router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReq
     } catch (error) {
         handleRouteError(res, error, 'delete message',);
     }
+},);
+
+// Unified bulk endpoint (matches /:entity/bulk pattern used by other admin lists)
+router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    await handleBulkAction(res, req.body, {
+        table: 'contact_messages',
+        allowedStatuses: ['unread', 'read', 'replied', 'archived', 'spam',],
+        softDelete: false,
+    },);
 },);
 
 // Bulk update status (admin)
