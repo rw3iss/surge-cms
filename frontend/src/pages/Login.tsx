@@ -1,6 +1,6 @@
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { useAuth, } from '../stores/auth';
 import './Login.scss';
 
@@ -62,7 +62,12 @@ const Login: Component = () => {
 
     return (
         <div class="login">
-            <Title>Sign In - Surge Media</Title>
+            <SeoHead
+                title="Sign In"
+                description="Sign in to your Surge Media account."
+                noindex={true}
+                nofollow={true}
+            />
 
             <div class="login__container">
                 <h1 class="login__title">Sign In</h1>

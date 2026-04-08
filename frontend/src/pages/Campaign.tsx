@@ -1,10 +1,10 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import type { Campaign, } from '@surge/shared';
 import { Component, createResource, Show, } from 'solid-js';
 import DonationForm from '../components/DonationForm';
-import { JsonLd, } from '../components/JsonLd';
+import SeoHead from '../components/SeoHead';
 import { fetchCampaign, } from '../services/api';
+import { buildBreadcrumb, buildDonation, } from '../utils/schema';
 import './Campaign.scss';
 
 const CampaignPage: Component = () => {
@@ -35,38 +35,33 @@ const CampaignPage: Component = () => {
             <Show when={campaign()} fallback={<div class="campaign-page__loading">Loading campaign...</div>}>
                 {(c,) => (
                     <>
-                        <Title>{c().title} - Surge Media</Title>
-                        <Link rel="canonical" href={canonicalUrl()} />
-                        <Meta property="og:title" content={c().title} />
-                        <Meta property="og:description" content={c().shortDescription || ''} />
-                        <Meta property="og:type" content="website" />
-                        <Meta property="og:url" content={canonicalUrl()} />
-                        {c().featuredImage && <Meta property="og:image" content={c().featuredImage!} />}
-                        <Meta name="twitter:card" content="summary_large_image" />
-                        <Meta name="twitter:title" content={c().title} />
-                        <Meta name="twitter:description" content={c().shortDescription || ''} />
-                        {c().featuredImage && <Meta name="twitter:image" content={c().featuredImage!} />}
-                        <JsonLd
-                            data={{
-                                '@context': 'https://schema.org',
-                                '@type': 'DonateAction',
-                                'name': c().title,
-                                'description': c().shortDescription || '',
-                                'url': canonicalUrl(),
-                                'recipient': {
-                                    '@type': 'NewsMediaOrganization',
-                                    'name': 'Surge Media',
-                                    'url': 'https://surgemedia.us',
-                                },
-                                ...(c().goalAmountCents ? {
-                                    'price': {
-                                        '@type': 'MonetaryAmount',
-                                        'currency': 'USD',
-                                        'value': (c().goalAmountCents / 100).toFixed(2,),
-                                    },
-                                } : {}),
-                                ...(c().featuredImage ? { 'image': c().featuredImage, } : {}),
-                            }}
+                        <SeoHead
+                            title={c().title}
+                            description={c().shortDescription || 'Support Surge Media with your donation.'}
+                            canonical={canonicalUrl()}
+                            type="website"
+                            image={c().featuredImage}
+                            imageAlt={c().title}
+                            aeoSummary={c().shortDescription || `${c().title} is a fundraising campaign from Surge Media.`}
+                            aeoEntityType="DonateAction"
+                            jsonLd={[
+                                buildDonation({
+                                    name: c().title,
+                                    description: c().shortDescription,
+                                    url: canonicalUrl(),
+                                    image: c().featuredImage,
+                                    goalAmount: c().goalAmountCents,
+                                    raisedAmount: c().currentAmountCents,
+                                    publisherName: 'Surge Media',
+                                },),
+                                buildBreadcrumb({
+                                    items: [
+                                        { name: 'Home', url: window.location.origin, },
+                                        { name: 'Donate', url: `${window.location.origin}/donate`, },
+                                        { name: c().title, url: canonicalUrl(), },
+                                    ],
+                                },),
+                            ]}
                         />
 
                         <A href="/donate" class="campaign-page__back">&larr; All Campaigns</A>

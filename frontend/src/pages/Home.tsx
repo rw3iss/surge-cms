@@ -1,12 +1,12 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import type { AppearanceSettings, HeroCarouselSettings, Page, SocialPost, } from '@surge/shared';
 import { Component, createResource, For, Show, Suspense, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
 import HeroCarousel from '../components/HeroCarousel';
-import { JsonLd, } from '../components/JsonLd';
+import SeoHead from '../components/SeoHead';
 import SocialEmbed from '../components/SocialEmbed';
 import { fetchAppearance, fetchHeroSettings, fetchLiveSocialFeed, fetchPage, } from '../services/api';
+import { buildOrganization, } from '../utils/schema';
 import './Home.scss';
 
 const Home: Component = () => {
@@ -33,24 +33,19 @@ const Home: Component = () => {
 
     return (
         <div class="home">
-            <Title>Surge Media - Independent Journalism</Title>
-            <Meta name="description" content="Surge Media - Independent journalism for the people" />
-            <Link rel="canonical" href={canonicalUrl} />
-            <Meta property="og:title" content="Surge Media" />
-            <Meta property="og:description" content="Independent journalism for the people" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={canonicalUrl} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Surge Media" />
-            <Meta name="twitter:description" content="Independent journalism for the people" />
-            <JsonLd
-                data={{
-                    '@context': 'https://schema.org',
-                    '@type': 'NewsMediaOrganization',
-                    'name': 'Surge Media',
-                    'url': 'https://surgemedia.us',
-                    'description': 'Philadelphia-based news organization',
-                }}
+            <SeoHead
+                title="Surge Media — Independent Journalism"
+                description="Independent, community-focused journalism covering the stories that matter to Philadelphia and beyond."
+                canonical={canonicalUrl}
+                type="website"
+                image={`${canonicalUrl}/icons/icon-512x512.png`}
+                aeoSummary="Surge Media is an independent Philadelphia-based news organization delivering community-focused journalism, investigative reporting, and local stories."
+                aeoEntityType="NewsMediaOrganization"
+                jsonLd={buildOrganization({
+                    name: 'Surge Media',
+                    url: canonicalUrl,
+                    logo: `${canonicalUrl}/icons/icon-512x512.png`,
+                },)}
             />
 
             {/* Hero Carousel */}

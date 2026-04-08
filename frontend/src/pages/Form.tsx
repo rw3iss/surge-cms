@@ -1,8 +1,8 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { useParams, } from '@solidjs/router';
 import type { Form, } from '@surge/shared';
 import { Component, createResource, Show, } from 'solid-js';
 import FormRenderer from '../components/FormRenderer';
+import SeoHead from '../components/SeoHead';
 import { fetchForm, } from '../services/api';
 import './Form.scss';
 
@@ -20,15 +20,12 @@ const FormPage: Component = () => {
             <Show when={form()} fallback={<div class="form-page__loading">Loading...</div>}>
                 {(f,) => (
                     <>
-                        <Title>{f().title} - Surge Media</Title>
-                        <Link rel="canonical" href={canonicalUrl()} />
-                        <Meta property="og:title" content={f().title} />
-                        <Meta property="og:description" content={f().description || ''} />
-                        <Meta property="og:type" content="website" />
-                        <Meta property="og:url" content={canonicalUrl()} />
-                        <Meta name="twitter:card" content="summary_large_image" />
-                        <Meta name="twitter:title" content={f().title} />
-                        <Meta name="twitter:description" content={f().description || ''} />
+                        <SeoHead
+                            title={f().title}
+                            description={f().description || ''}
+                            canonical={canonicalUrl()}
+                            noindex={true}
+                        />
 
                         <div class="page-header">
                             <h1>{f().title}</h1>

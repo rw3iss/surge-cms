@@ -2,27 +2,13 @@ import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
+import { getStatusBadgeClass, } from '../../utils/badges';
 
 const AdminForms: Component = () => {
     const [forms,] = createResource(async () => {
         const response = await api.get('/forms?all=true',);
         return response.success ? (response as any).data : [];
     },);
-
-    const getStatusBadgeClass = (status: string,) => {
-        switch (status) {
-            case 'published':
-                return 'badge--success';
-            case 'draft':
-                return 'badge--warning';
-            case 'closed':
-                return 'badge--info';
-            case 'archived':
-                return 'badge--muted';
-            default:
-                return '';
-        }
-    };
 
     return (
         <div class="admin-forms">

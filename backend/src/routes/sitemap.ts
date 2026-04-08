@@ -1,11 +1,12 @@
 import { Request, Response, Router, } from 'express';
+import { config, } from '../config';
 import { query, } from '../db';
 import { cache, } from '../services/cache';
 import { logger, } from '../utils/logger';
 
 const router = Router();
 
-const SITE_URL = 'https://surgemedia.us';
+const SITE_URL = config.frontendUrl.replace(/\/$/, '',);
 const CACHE_KEY = 'sitemap:xml';
 const CACHE_TTL = 3600; // 1 hour
 

@@ -1,5 +1,5 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { Component, createSignal, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { submitContactMessage, } from '../services/api';
 import './Contact.scss';
 
@@ -47,16 +47,14 @@ const ContactPage: Component = () => {
 
     return (
         <div class="contact page-wrapper">
-            <Title>Contact | Surge Media</Title>
-            <Meta name="description" content="Get in touch with Surge Media" />
-            <Link rel="canonical" href={`${window.location.origin}/contact`} />
-            <Meta property="og:title" content="Contact | Surge Media" />
-            <Meta property="og:description" content="Get in touch with Surge Media" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={`${window.location.origin}/contact`} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Contact | Surge Media" />
-            <Meta name="twitter:description" content="Get in touch with Surge Media" />
+            <SeoHead
+                title="Contact"
+                description="Get in touch with Surge Media. Send us a message, question, or story tip."
+                canonical={`${window.location.origin}/contact`}
+                type="website"
+                aeoSummary="Contact page for Surge Media — send a message or story tip to our team."
+                aeoEntityType="ContactPage"
+            />
 
             <div class="contact__container">
                 <div class="page-header">

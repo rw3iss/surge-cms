@@ -1,21 +1,12 @@
 import { Title, } from '@solidjs/meta';
-import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import { A, } from '@solidjs/router';
+import { Component, createResource, For, Show, } from 'solid-js';
+import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { api, } from '../../services/api';
+import { getStatusBadgeClass, } from '../../utils/badges';
 
 const AdminPosts: Component = () => {
-    const [searchParams, setSearchParams,] = useSearchParams();
-
-    const [searchInput, setSearchInput,] = createSignal(searchParams.search || '',);
-    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const handleSearchInput = (value: string,) => {
-        setSearchInput(value,);
-        clearTimeout(debounceTimer,);
-        debounceTimer = setTimeout(() => {
-            setSearchParams({ search: value || undefined, },);
-        }, 300,);
-    };
+    const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
 
     const fetchKey = () => {
         const s = searchParams.status || '';
@@ -33,20 +24,7 @@ const AdminPosts: Component = () => {
         return response.success ? (response as any).data : [];
     },);
 
-    const statusBadge = (status: string,) => {
-        switch (status) {
-            case 'published':
-                return 'badge--success';
-            case 'draft':
-                return 'badge--warning';
-            case 'archived':
-                return 'badge--muted';
-            case 'deleted':
-                return 'badge--error';
-            default:
-                return 'badge--muted';
-        }
-    };
+    const statusBadge = getStatusBadgeClass;
 
     return (
         <div>

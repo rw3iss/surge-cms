@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import { api, } from '../../services/api';
+import { getRoleBadgeClass, } from '../../utils/badges';
 import './UserDetail.scss';
 
 const AdminUserDetail: Component = () => {
@@ -150,14 +151,7 @@ const AdminUserDetail: Component = () => {
         return { cls: 'badge--muted', label: 'Inactive', };
     };
 
-    const roleBadge = (r: string,) => {
-        switch (r) {
-            case 'sysadmin': return 'badge--error';
-            case 'admin': return 'badge--error';
-            case 'member': return 'badge--success';
-            default: return 'badge--muted';
-        }
-    };
+    const roleBadge = getRoleBadgeClass;
 
     return (
         <div class="user-detail">

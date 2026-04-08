@@ -1,6 +1,6 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { search, } from '../services/api';
 
 const SearchPage: Component = () => {
@@ -20,16 +20,7 @@ const SearchPage: Component = () => {
 
     return (
         <div class="search-page container">
-            <Title>Search - Surge Media</Title>
-            <Meta name="description" content="Search Surge Media" />
-            <Link rel="canonical" href={`${window.location.origin}/search`} />
-            <Meta property="og:title" content="Search | Surge Media" />
-            <Meta property="og:description" content="Search Surge Media" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={`${window.location.origin}/search`} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Search | Surge Media" />
-            <Meta name="twitter:description" content="Search Surge Media" />
+            <SeoHead title="Search" description="Search Surge Media articles, pages, and campaigns." noindex={true} />
             <h1>Search</h1>
             <form onSubmit={handleSearch}>
                 <input

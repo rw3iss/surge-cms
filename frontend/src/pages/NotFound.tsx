@@ -1,11 +1,11 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import './NotFound.scss';
 
 const NotFoundPage: Component = () => (
     <div class="not-found">
-        <Title>Page Not Found - Surge Media</Title>
+        <SeoHead title="Page Not Found" description="The page you're looking for doesn't exist." noindex={true} nofollow={true} />
         <A href="/" class="not-found__logo-link">
             <img src="/images/surge_logo.svg" alt="Surge Media" class="not-found__logo" />
         </A>

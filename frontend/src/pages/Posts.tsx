@@ -1,8 +1,9 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@surge/shared';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { fetchPosts, } from '../services/api';
+import { buildCollectionPage, } from '../utils/schema';
 import './Posts.scss';
 
 const PAGE_SIZE = 12;
@@ -63,16 +64,20 @@ const PostsPage: Component = () => {
 
     return (
         <div class="posts-page">
-            <Title>Blog | Surge Media</Title>
-            <Meta name="description" content="Latest posts and articles from Surge Media" />
-            <Link rel="canonical" href={`${window.location.origin}/posts`} />
-            <Meta property="og:title" content="Blog | Surge Media" />
-            <Meta property="og:description" content="Latest posts and articles from Surge Media" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={`${window.location.origin}/posts`} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Blog | Surge Media" />
-            <Meta name="twitter:description" content="Latest posts and articles from Surge Media" />
+            <SeoHead
+                title="Blog"
+                description="Latest news, stories, and investigative reporting from Surge Media."
+                canonical={`${window.location.origin}/posts`}
+                type="website"
+                aeoSummary="Browse the latest blog posts, news articles, and reporting from Surge Media covering Philadelphia and independent journalism."
+                aeoEntityType="Blog"
+                jsonLd={buildCollectionPage({
+                    name: 'Blog',
+                    description: 'Latest news and articles from Surge Media',
+                    url: `${window.location.origin}/posts`,
+                    itemCount: total(),
+                },)}
+            />
 
             <div class="page-header" style={{ display: 'flex', 'align-items': 'baseline', gap: '12px', }}>
                 <h1>Latest Posts</h1>

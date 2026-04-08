@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { useNavigate, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
+import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -58,24 +59,8 @@ const AdminUsers: Component = () => {
         }
     };
 
-    const roleBadge = (role: string,) => {
-        switch (role) {
-            case 'sysadmin':
-                return 'badge--error';
-            case 'admin':
-                return 'badge--error';
-            case 'member':
-                return 'badge--success';
-            default:
-                return 'badge--muted';
-        }
-    };
-
-    const statusBadge = (user: any,) => {
-        if (user.isBanned) return { class: 'badge--error', label: 'Banned', };
-        if (user.isActive) return { class: 'badge--success', label: 'Active', };
-        return { class: 'badge--muted', label: 'Inactive', };
-    };
+    const roleBadge = getRoleBadgeClass;
+    const statusBadge = getUserStatusBadge;
 
     return (
         <div>

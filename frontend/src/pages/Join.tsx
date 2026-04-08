@@ -1,6 +1,6 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { api, } from '../services/api';
 import './Join.scss';
 
@@ -52,7 +52,7 @@ const Join: Component = () => {
 
     return (
         <div class="join">
-            <Title>Join - Surge Media</Title>
+            <SeoHead title="Join" description="Become a member of Surge Media." noindex={true} nofollow={true} />
 
             <div class="join__container">
                 <Show

@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
+import { getStatusBadgeClass, } from '../../utils/badges';
 
 const AdminCampaigns: Component = () => {
     const [campaigns,] = createResource(async () => {
@@ -17,21 +18,6 @@ const AdminCampaigns: Component = () => {
     const formatCurrency = (cents: number | null,) => {
         if (cents === null || cents === undefined) return 'Open Fund';
         return `$${(cents / 100).toLocaleString()}`;
-    };
-
-    const getStatusBadgeClass = (status: string,) => {
-        switch (status) {
-            case 'active':
-                return 'badge--success';
-            case 'draft':
-                return 'badge--warning';
-            case 'completed':
-                return 'badge--info';
-            case 'cancelled':
-                return 'badge--error';
-            default:
-                return '';
-        }
     };
 
     return (

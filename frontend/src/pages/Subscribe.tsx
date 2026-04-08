@@ -1,6 +1,6 @@
-import { Title, } from '@solidjs/meta';
 import { loadStripe, Stripe, } from '@stripe/stripe-js';
 import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { api, } from '../services/api';
 import { useAuth, } from '../stores/auth';
 
@@ -125,7 +125,7 @@ const SubscribePage: Component = () => {
 
     return (
         <div class="subscribe-page container">
-            <Title>Subscribe - Surge Media</Title>
+            <SeoHead title="Subscribe" description="Subscribe to Surge Media to support independent journalism." noindex={true} nofollow={true} />
             <h1>Subscription Plans</h1>
 
             <Show when={error()}>

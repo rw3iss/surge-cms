@@ -1,12 +1,12 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { useParams, } from '@solidjs/router';
 import type { ContentAccessLevel, Post, } from '@surge/shared';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/ContentGate';
-import { JsonLd, } from '../components/JsonLd';
 import PostContentBlock from '../components/PostContentBlock';
+import SeoHead from '../components/SeoHead';
 import { fetchPost, } from '../services/api';
 import { useAuth, } from '../stores/auth';
+import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
 import './Post.scss';
 
 interface LockedContent {
@@ -62,55 +62,56 @@ const PostPage: Component = () => {
             </Show>
             <Show when={!lockedContent()}>
                 <Show when={post()} fallback={<div>Loading...</div>}>
-                    {(postData,) => (
+                    {(postData,) => {
+                        const description = () =>
+                            postData().excerpt ||
+                            truncateText(stripHtml(postData().content || '',), 200,);
+                        const aeoSummary = () =>
+                            truncateText(
+                                stripHtml(postData().excerpt || postData().content || '',),
+                                280,
+                            );
+                        const jsonLd = () => [
+                            buildArticle({
+                                headline: postData().title,
+                                description: description(),
+                                url: canonicalUrl(),
+                                image: postData().featuredImage,
+                                datePublished: postData().publishedAt || undefined,
+                                dateModified: postData().updatedAt || undefined,
+                                authorName: postData().author,
+                                publisherName: 'Surge Media',
+                                publisherLogo: `${window.location.origin}/icons/icon-512x512.png`,
+                                articleSection: (postData() as any).category,
+                                keywords: (postData() as any).tags,
+                            },),
+                            buildBreadcrumb({
+                                items: [
+                                    { name: 'Home', url: window.location.origin, },
+                                    { name: 'Posts', url: `${window.location.origin}/posts`, },
+                                    { name: postData().title, url: canonicalUrl(), },
+                                ],
+                            },),
+                        ];
+
+                        return (
                         <>
-                            <Title>{postData().title} - Surge Media</Title>
-                            <Meta name="description" content={postData().excerpt || ''} />
-                            <Link rel="canonical" href={canonicalUrl()} />
-                            <Meta property="og:title" content={postData().title} />
-                            <Meta property="og:description" content={postData().excerpt || ''} />
-                            <Meta property="og:type" content="article" />
-                            <Meta property="og:url" content={canonicalUrl()} />
-                            {postData().featuredImage && (
-                                <Meta property="og:image" content={postData().featuredImage!} />
-                            )}
-                            {postData().publishedAt && (
-                                <Meta
-                                    property="article:published_time"
-                                    content={new Date(postData().publishedAt!,).toISOString()}
-                                />
-                            )}
-                            <Meta property="article:author" content={postData().author} />
-                            <Meta name="twitter:card" content="summary_large_image" />
-                            <Meta name="twitter:title" content={postData().title} />
-                            <Meta name="twitter:description" content={postData().excerpt || ''} />
-                            {postData().featuredImage && (
-                                <Meta name="twitter:image" content={postData().featuredImage!} />
-                            )}
-                            <JsonLd
-                                data={{
-                                    '@context': 'https://schema.org',
-                                    '@type': 'NewsArticle',
-                                    'headline': postData().title,
-                                    'description': postData().excerpt || '',
-                                    'url': canonicalUrl(),
-                                    'datePublished': postData().publishedAt ?
-                                        new Date(postData().publishedAt!,).toISOString() :
-                                        undefined,
-                                    'dateModified': postData().updatedAt ?
-                                        new Date(postData().updatedAt,).toISOString() :
-                                        undefined,
-                                    'author': {
-                                        '@type': 'Person',
-                                        'name': postData().author,
-                                    },
-                                    'publisher': {
-                                        '@type': 'NewsMediaOrganization',
-                                        'name': 'Surge Media',
-                                        'url': 'https://surgemedia.us',
-                                    },
-                                    ...(postData().featuredImage ? { 'image': postData().featuredImage, } : {}),
-                                }}
+                            <SeoHead
+                                title={postData().title}
+                                description={description()}
+                                canonical={canonicalUrl()}
+                                type="article"
+                                image={postData().featuredImage}
+                                imageAlt={postData().title}
+                                publishedAt={postData().publishedAt || undefined}
+                                modifiedAt={postData().updatedAt || undefined}
+                                author={postData().author}
+                                section={(postData() as any).category}
+                                tags={(postData() as any).tags}
+                                keywords={(postData() as any).tags}
+                                aeoSummary={aeoSummary()}
+                                aeoEntityType="NewsArticle"
+                                jsonLd={jsonLd()}
                             />
 
                             <article class="post-page__article">
@@ -147,7 +148,8 @@ const PostPage: Component = () => {
                                 </Show>
                             </article>
                         </>
-                    )}
+                        );
+                    }}
                 </Show>
             </Show>
         </div>

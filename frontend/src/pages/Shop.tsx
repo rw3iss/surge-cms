@@ -1,5 +1,5 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { Component, createSignal, onCleanup, onMount, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { fetchSettings, } from '../services/api';
 import './Shop.scss';
 
@@ -139,16 +139,13 @@ const ShopPage: Component = () => {
 
     return (
         <div class="shop-page page-wrapper">
-            <Title>Shop | Surge Media</Title>
-            <Meta name="description" content="Support Surge Media with our merchandise" />
-            <Link rel="canonical" href={`${window.location.origin}/shop`} />
-            <Meta property="og:title" content="Shop | Surge Media" />
-            <Meta property="og:description" content="Support Surge Media with our merchandise" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={`${window.location.origin}/shop`} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Shop | Surge Media" />
-            <Meta name="twitter:description" content="Support Surge Media with our merchandise" />
+            <SeoHead
+                title="Shop"
+                description="Support independent journalism with official Surge Media merchandise."
+                canonical={`${window.location.origin}/shop`}
+                type="website"
+                aeoSummary="Shop official Surge Media merchandise to support independent journalism."
+            />
 
             <header class="page-header">
                 <h1>Shop</h1>

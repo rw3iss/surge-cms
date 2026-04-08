@@ -1,11 +1,12 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
 import type { ContentAccessLevel, Page, } from '@surge/shared';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
 import ContentGate from '../components/ContentGate';
+import SeoHead from '../components/SeoHead';
 import { fetchPage, } from '../services/api';
 import { useAuth, } from '../stores/auth';
+import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
 import './DynamicPage.scss';
 
 const NotFoundPage = lazy(() => import('./NotFound'));
@@ -81,20 +82,36 @@ const DynamicPage: Component = () => {
                     {(pageData,) => {
                         const ogTitle = () => pageData().metaTitle || pageData().title;
                         const ogDesc = () => pageData().metaDescription || pageData().description || '';
+                        const aeoSummary = () => truncateText(stripHtml(ogDesc(),), 280,);
+                        const jsonLd = () => [
+                            buildWebPage({
+                                name: ogTitle(),
+                                description: ogDesc(),
+                                url: canonicalUrl(),
+                                publisherName: 'Surge Media',
+                            },),
+                            buildBreadcrumb({
+                                items: [
+                                    { name: 'Home', url: window.location.origin, },
+                                    { name: pageData().title, url: canonicalUrl(), },
+                                ],
+                            },),
+                        ];
                         return (
                             <>
-                                <Title>{ogTitle()} - Surge Media</Title>
-                                <Meta name="description" content={ogDesc()} />
-                                <Link rel="canonical" href={canonicalUrl()} />
-                                <Meta property="og:title" content={ogTitle()} />
-                                <Meta property="og:description" content={ogDesc()} />
-                                <Meta property="og:type" content="website" />
-                                <Meta property="og:url" content={canonicalUrl()} />
-                                {pageData().ogImage && <Meta property="og:image" content={pageData().ogImage!} />}
-                                <Meta name="twitter:card" content="summary_large_image" />
-                                <Meta name="twitter:title" content={ogTitle()} />
-                                <Meta name="twitter:description" content={ogDesc()} />
-                                {pageData().ogImage && <Meta name="twitter:image" content={pageData().ogImage!} />}
+                                <SeoHead
+                                    title={ogTitle()}
+                                    description={ogDesc()}
+                                    canonical={canonicalUrl()}
+                                    type="website"
+                                    image={pageData().ogImage}
+                                    imageAlt={pageData().title}
+                                    modifiedAt={(pageData() as any).updatedAt}
+                                    keywords={(pageData() as any).metaKeywords}
+                                    aeoSummary={aeoSummary() || undefined}
+                                    aeoEntityType="WebPage"
+                                    jsonLd={jsonLd()}
+                                />
 
                                 <Show when={pageData().title}>
                                     <h1
