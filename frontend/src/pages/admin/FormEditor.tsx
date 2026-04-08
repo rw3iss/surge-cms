@@ -1,7 +1,9 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import AutoSaveIndicator from '../../components/admin/AutoSaveIndicator';
 import EditorSaveBar from '../../components/admin/EditorSaveBar';
+import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
@@ -142,6 +144,21 @@ const FormEditor: Component = () => {
         },);
     };
 
+    // Auto-save draft to localStorage
+    const autoSave = useAutoSave({
+        key: `form-draft-${params.id || 'new'}`,
+        state: () => ({
+            title: title(),
+            slug: slug(),
+            description: description(),
+            status: status(),
+            showResults: showResults(),
+            allowMultiple: allowMultiple(),
+            successMessage: successMessage(),
+            questions: questions(),
+        }),
+    },);
+
     const handleSubmit = async (e?: Event,) => {
         e?.preventDefault();
         setError('',);
@@ -194,6 +211,7 @@ const FormEditor: Component = () => {
 
             if (response.success) {
                 invalidateFormsCache();
+                autoSave.clear();
                 markClean();
                 navigate('/admin/forms',);
             } else {
@@ -245,6 +263,7 @@ const FormEditor: Component = () => {
             <div class="admin-header">
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
                 <div class="admin-header__actions">
+                    <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
                     <Show when={!isNew() && form() && (form() as any).submissionCount > 0}>
                         <A href={`/admin/forms/${params.id}/submissions`} class="btn btn--secondary btn--small">
                             View Responses ({(form() as any).submissionCount})

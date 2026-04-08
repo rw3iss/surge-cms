@@ -2,6 +2,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { search, } from '../services/api';
+import { siteName, } from '../stores/siteSettings';
 
 const SearchPage: Component = () => {
     const [searchParams, setSearchParams,] = useSearchParams();
@@ -20,7 +21,11 @@ const SearchPage: Component = () => {
 
     return (
         <div class="search-page container">
-            <SeoHead title="Search" description="Search Surge Media articles, pages, and campaigns." noindex={true} />
+            <SeoHead
+                title={searchParams.q ? `Search: ${searchParams.q}` : 'Search'}
+                description={`Search ${siteName()} articles, pages, and campaigns.`}
+                noindex={true}
+            />
             <h1>Search</h1>
             <form onSubmit={handleSearch}>
                 <input

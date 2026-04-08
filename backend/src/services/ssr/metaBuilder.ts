@@ -26,8 +26,18 @@ export interface MetaTags {
     jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-function escapeHtml(str: string,): string {
-    return str
+function escapeHtml(str: unknown,): string {
+    if (str === null || str === undefined) return '';
+    // Coerce to ISO string for Date objects; toString() for everything else.
+    let s: string;
+    if (str instanceof Date) {
+        s = str.toISOString();
+    } else if (typeof str === 'string') {
+        s = str;
+    } else {
+        s = String(str,);
+    }
+    return s
         .replace(/&/g, '&amp;',)
         .replace(/</g, '&lt;',)
         .replace(/>/g, '&gt;',)
@@ -47,7 +57,20 @@ function buildRobots(meta: MetaTags,): string {
 export function buildMetaHtml(meta: MetaTags,): string {
     const siteName = meta.siteName || 'Surge Media';
     const locale = meta.locale || 'en_US';
-    const title = meta.title.includes(siteName,) ? meta.title : `${meta.title} | ${siteName}`;
+    // Title format: "{Site Name} - {Page Title}"
+    const pageTitle = (meta.title || '').trim();
+    let title: string;
+    if (!pageTitle) {
+        title = siteName;
+    } else if (
+        pageTitle === siteName ||
+        pageTitle.startsWith(`${siteName} -`,) ||
+        pageTitle.startsWith(`${siteName} |`,)
+    ) {
+        title = pageTitle;
+    } else {
+        title = `${siteName} - ${pageTitle}`;
+    }
     const lines: string[] = [];
 
     lines.push(`<title>${escapeHtml(title,)}</title>`,);

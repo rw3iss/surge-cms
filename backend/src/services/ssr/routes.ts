@@ -5,7 +5,6 @@
 import { config, } from '../../config';
 import { query, } from '../../db';
 import { mapRow, } from '../../utils/mapRow';
-import { logger, } from '../../utils/logger';
 import type { MetaTags, } from './metaBuilder';
 import {
     buildArticleSchema,
@@ -18,14 +17,57 @@ import {
     truncateText,
 } from './schema';
 
-const SITE_NAME = 'Surge Media';
+const FALLBACK_SITE_NAME = 'Surge Media';
+const FALLBACK_SITE_DESCRIPTION = 'Independent journalism for the people';
+
+interface SiteMeta {
+    name: string;
+    description: string;
+    logo?: string;
+}
+
+let siteMetaCache: SiteMeta | null = null;
+let siteMetaCacheAt = 0;
+const SITE_META_TTL_MS = 60 * 1000;
+
+async function getSiteMeta(): Promise<SiteMeta> {
+    const now = Date.now();
+    if (siteMetaCache && now - siteMetaCacheAt < SITE_META_TTL_MS) {
+        return siteMetaCache;
+    }
+    try {
+        const res = await query(
+            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo')`,
+        );
+        const map: Record<string, unknown> = {};
+        for (const row of res.rows) map[row.key] = row.value;
+        siteMetaCache = {
+            name: (map.site_name as string) || FALLBACK_SITE_NAME,
+            description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
+            logo: (map.logo as string) || undefined,
+        };
+    } catch {
+        siteMetaCache = {
+            name: FALLBACK_SITE_NAME,
+            description: FALLBACK_SITE_DESCRIPTION,
+        };
+    }
+    siteMetaCacheAt = now;
+    return siteMetaCache;
+}
+
+/** Manually clear the site meta cache — call from settings update handlers. */
+export function invalidateSiteMetaCache(): void {
+    siteMetaCache = null;
+    siteMetaCacheAt = 0;
+}
 
 function siteUrl(): string {
     return config.frontendUrl.replace(/\/$/, '',);
 }
 
-function publisherLogo(): string {
-    return `${siteUrl()}/icons/icon-512x512.png`;
+function publisherLogo(site: SiteMeta,): string {
+    return site.logo || `${siteUrl()}/icons/icon-512x512.png`;
 }
 
 /**
@@ -35,23 +77,29 @@ function publisherLogo(): string {
 export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | null> {
     const path = pathname.split('?',)[0].replace(/\/+$/, '',) || '/';
     const url = `${siteUrl()}${path === '/' ? '' : path}`;
+    const site = await getSiteMeta();
+    const SITE_NAME = site.name;
+    const SITE_DESCRIPTION = site.description;
+    const logo = publisherLogo(site,);
 
     // ─── Home ───
     if (path === '/' || path === '') {
         return {
-            title: `${SITE_NAME} — Independent Journalism`,
-            description: 'Independent, community-focused journalism covering the stories that matter to Philadelphia and beyond.',
+            title: 'Home',
+            description: SITE_DESCRIPTION ||
+                'Independent, community-focused journalism covering the stories that matter.',
             canonical: url,
             type: 'website',
-            image: publisherLogo(),
+            image: logo,
             siteName: SITE_NAME,
-            aeoSummary: `${SITE_NAME} is an independent Philadelphia-based news organization delivering community-focused journalism, investigative reporting, and local stories.`,
+            aeoSummary:
+                `${SITE_NAME} — ${SITE_DESCRIPTION}. Independent journalism, investigative reporting, and community stories.`,
             aeoEntityType: 'NewsMediaOrganization',
             jsonLd: buildOrganizationSchema({
                 name: SITE_NAME,
                 url: siteUrl(),
-                logo: publisherLogo(),
-                description: 'Philadelphia-based independent news organization',
+                logo,
+                description: SITE_DESCRIPTION,
             },),
         };
     }
@@ -64,15 +112,16 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         const count = countRes?.rows[0]?.count || 0;
         return {
             title: 'Blog',
-            description: 'Latest news, stories, and investigative reporting from Surge Media.',
+            description: `Latest news, stories, and investigative reporting from ${SITE_NAME}.`,
             canonical: url,
             type: 'website',
+            image: logo,
             siteName: SITE_NAME,
             aeoSummary: `Browse the latest blog posts, news articles, and reporting from ${SITE_NAME}.`,
             aeoEntityType: 'Blog',
             jsonLd: buildCollectionPageSchema({
                 name: 'Blog',
-                description: 'Latest news and articles from Surge Media',
+                description: `Latest news and articles from ${SITE_NAME}`,
                 url,
                 itemCount: count,
             },),
@@ -85,7 +134,7 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         const slug = postMatch[1];
         const res = await query(
             `SELECT id, title, slug, excerpt, content, featured_image, author, published_at,
-                    updated_at, category, tags, meta_title, meta_description
+                    updated_at, categories, tags, meta_title, meta_description
              FROM posts WHERE slug = $1 AND status = 'published'`,
             [slug,],
         ).catch(() => null,);
@@ -93,19 +142,22 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         if (!row) return null;
         const post = mapRow(row,) as any;
         const description = post.metaDescription || post.excerpt ||
-            truncateText(stripHtml(post.content || '',), 200,);
+            truncateText(stripHtml(post.content || '',), 200,) ||
+            `${post.title} — published by ${SITE_NAME}`;
+        const section = Array.isArray(post.categories,) ? post.categories[0] : undefined;
+        const image = post.featuredImage || logo;
 
         return {
             title: post.metaTitle || post.title,
             description,
             canonical: url,
             type: 'article',
-            image: post.featuredImage,
+            image,
             imageAlt: post.title,
             publishedAt: post.publishedAt,
             modifiedAt: post.updatedAt,
             author: post.author,
-            section: post.category,
+            section,
             tags: post.tags,
             keywords: post.tags,
             siteName: SITE_NAME,
@@ -116,13 +168,13 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                     headline: post.title,
                     description,
                     url,
-                    image: post.featuredImage,
+                    image,
                     datePublished: post.publishedAt,
                     dateModified: post.updatedAt,
                     authorName: post.author,
                     publisherName: SITE_NAME,
-                    publisherLogo: publisherLogo(),
-                    articleSection: post.category,
+                    publisherLogo: logo,
+                    articleSection: section,
                     keywords: post.tags,
                 },),
                 buildBreadcrumbSchema([
@@ -148,25 +200,26 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         if (!row) return null;
         const campaign = mapRow(row,) as any;
         const description = campaign.shortDescription ||
-            truncateText(stripHtml(campaign.description || '',), 200,);
+            truncateText(stripHtml(campaign.description || '',), 200,) ||
+            `${campaign.title} is a fundraising campaign from ${SITE_NAME}.`;
+        const image = campaign.featuredImage || logo;
 
         return {
             title: campaign.title,
             description,
             canonical: url,
             type: 'website',
-            image: campaign.featuredImage,
+            image,
             imageAlt: campaign.title,
             siteName: SITE_NAME,
-            aeoSummary: description ||
-                `${campaign.title} is a fundraising campaign from ${SITE_NAME}.`,
+            aeoSummary: description,
             aeoEntityType: 'DonateAction',
             jsonLd: [
                 buildDonationSchema({
                     name: campaign.title,
                     description,
                     url,
-                    image: campaign.featuredImage,
+                    image,
                     goalAmount: campaign.goalAmountCents,
                     publisherName: SITE_NAME,
                 },),
@@ -180,42 +233,40 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
     }
 
     // ─── Static routes (no auth needed) ───
-    if (path === '/donate' || path === '/contact' || path === '/shop') {
-        // Donate is a CMS page (/donate is a dynamic page slug)
-        if (path === '/contact') {
-            return {
-                title: 'Contact',
-                description: 'Get in touch with Surge Media. Send us a message, question, or story tip.',
-                canonical: url,
-                type: 'website',
-                siteName: SITE_NAME,
-                aeoSummary: `Contact page for ${SITE_NAME} — send a message or story tip to our team.`,
-                aeoEntityType: 'ContactPage',
-                jsonLd: buildWebPageSchema({
-                    name: 'Contact',
-                    description: 'Contact Surge Media',
-                    url,
-                    publisherName: SITE_NAME,
-                },),
-            };
-        }
-        if (path === '/shop') {
-            return {
-                title: 'Shop',
-                description: 'Support independent journalism with official Surge Media merchandise.',
-                canonical: url,
-                type: 'website',
-                siteName: SITE_NAME,
-                aeoSummary: `Shop official ${SITE_NAME} merchandise to support independent journalism.`,
-                jsonLd: buildWebPageSchema({
-                    name: 'Shop',
-                    description: 'Official merchandise',
-                    url,
-                    publisherName: SITE_NAME,
-                },),
-            };
-        }
-        // Fall through — /donate is a CMS page
+    if (path === '/contact') {
+        return {
+            title: 'Contact',
+            description: `Get in touch with ${SITE_NAME}. Send us a message, question, or story tip.`,
+            canonical: url,
+            type: 'website',
+            image: logo,
+            siteName: SITE_NAME,
+            aeoSummary: `Contact page for ${SITE_NAME} — send a message or story tip to our team.`,
+            aeoEntityType: 'ContactPage',
+            jsonLd: buildWebPageSchema({
+                name: 'Contact',
+                description: `Contact ${SITE_NAME}`,
+                url,
+                publisherName: SITE_NAME,
+            },),
+        };
+    }
+    if (path === '/shop') {
+        return {
+            title: 'Shop',
+            description: `Support independent journalism with official ${SITE_NAME} merchandise.`,
+            canonical: url,
+            type: 'website',
+            image: logo,
+            siteName: SITE_NAME,
+            aeoSummary: `Shop official ${SITE_NAME} merchandise to support independent journalism.`,
+            jsonLd: buildWebPageSchema({
+                name: 'Shop',
+                description: 'Official merchandise',
+                url,
+                publisherName: SITE_NAME,
+            },),
+        };
     }
 
     // ─── Noindex routes ───
@@ -230,8 +281,10 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         };
         const base = Object.keys(names,).find((k,) => path === k || path.startsWith(`${k}/`,),);
         return {
-            title: base ? names[base] : 'Surge Media',
+            title: base ? names[base] : SITE_NAME,
+            description: SITE_DESCRIPTION,
             canonical: url,
+            image: logo,
             noindex: true,
             nofollow: true,
             siteName: SITE_NAME,
@@ -239,7 +292,7 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
     }
 
     // ─── Dynamic CMS pages (catch-all) ───
-    // Try to match as a CMS page slug
+    // Try to match as a CMS page slug (also handles /donate, etc. when stored as a page)
     const slug = path.slice(1,);
     if (slug && !slug.includes('/',)) {
         const res = await query(
@@ -252,13 +305,16 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         if (row) {
             const page = mapRow(row,) as any;
             const title = page.metaTitle || page.title;
-            const description = page.metaDescription || page.description || '';
+            const description = page.metaDescription || page.description ||
+                `${page.title} — ${SITE_NAME}`;
+            const image = page.ogImage || logo;
             return {
                 title,
                 description,
                 canonical: url,
                 type: 'website',
-                image: page.ogImage,
+                image,
+                imageAlt: page.title,
                 modifiedAt: page.updatedAt,
                 keywords: page.metaKeywords,
                 siteName: SITE_NAME,
@@ -283,9 +339,10 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
     // Unknown route — return generic meta (let the SPA handle rendering)
     return {
         title: SITE_NAME,
-        description: 'Independent journalism for the people',
+        description: SITE_DESCRIPTION,
         canonical: url,
         type: 'website',
+        image: logo,
         siteName: SITE_NAME,
     };
 }

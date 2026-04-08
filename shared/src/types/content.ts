@@ -175,3 +175,19 @@ export interface SiteSettings {
     };
     appearance?: AppearanceSettings;
 }
+
+// ─── Revision history ───
+
+export type RevisionEntityType = 'post' | 'page';
+
+export interface Revision {
+    id: string;
+    entityType: RevisionEntityType;
+    entityId: string;
+    version: number;
+    snapshot: Record<string, unknown>;
+    authorId: string | null;
+    authorName?: string | null;
+    summary: string | null;
+    createdAt: string;
+}

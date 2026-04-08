@@ -6,6 +6,7 @@ import ContentGate from '../components/ContentGate';
 import SeoHead from '../components/SeoHead';
 import { fetchPage, } from '../services/api';
 import { useAuth, } from '../stores/auth';
+import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
 import './DynamicPage.scss';
 
@@ -81,14 +82,17 @@ const DynamicPage: Component = () => {
                 >
                     {(pageData,) => {
                         const ogTitle = () => pageData().metaTitle || pageData().title;
-                        const ogDesc = () => pageData().metaDescription || pageData().description || '';
+                        const ogDesc = () =>
+                            pageData().metaDescription ||
+                            pageData().description ||
+                            `${pageData().title} — ${siteName()}`;
                         const aeoSummary = () => truncateText(stripHtml(ogDesc(),), 280,);
                         const jsonLd = () => [
                             buildWebPage({
                                 name: ogTitle(),
                                 description: ogDesc(),
                                 url: canonicalUrl(),
-                                publisherName: 'Surge Media',
+                                publisherName: siteName(),
                             },),
                             buildBreadcrumb({
                                 items: [

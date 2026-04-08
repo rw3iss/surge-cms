@@ -1,23 +1,15 @@
 /**
  * Revisions repository — snapshot history for content entities.
  */
+import type { Revision as SharedRevision, RevisionEntityType, } from '@surge/shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 
-export type RevisionEntityType = 'post' | 'page';
+export type { RevisionEntityType, };
 
-export interface Revision {
-    id: string;
-    entityType: RevisionEntityType;
-    entityId: string;
-    version: number;
-    snapshot: Record<string, unknown>;
-    authorId: string | null;
-    authorName?: string | null;
-    summary: string | null;
-    createdAt: Date;
-}
+// Backend rows use a Date for createdAt; the shared type uses string (wire format).
+export type Revision = Omit<SharedRevision, 'createdAt'> & { createdAt: Date; };
 
 /** Creates a new revision for the given entity. Auto-increments version. */
 export async function createRevision(

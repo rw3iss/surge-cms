@@ -1,5 +1,6 @@
 import { Component, createSignal, onCleanup, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
+import { siteName, } from '../stores/siteSettings';
 import { fetchSettings, } from '../services/api';
 import './Shop.scss';
 
@@ -141,10 +142,10 @@ const ShopPage: Component = () => {
         <div class="shop-page page-wrapper">
             <SeoHead
                 title="Shop"
-                description="Support independent journalism with official Surge Media merchandise."
+                description={`Support independent journalism with official ${siteName()} merchandise.`}
                 canonical={`${window.location.origin}/shop`}
                 type="website"
-                aeoSummary="Shop official Surge Media merchandise to support independent journalism."
+                aeoSummary={`Shop official ${siteName()} merchandise to support independent journalism.`}
             />
 
             <header class="page-header">

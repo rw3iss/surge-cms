@@ -1,6 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
+import AutoSaveIndicator from '../../components/admin/AutoSaveIndicator';
+import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
@@ -77,6 +79,24 @@ const CampaignEditor: Component = () => {
         markDirty();
     };
 
+    // Auto-save draft to localStorage
+    const autoSave = useAutoSave({
+        key: `campaign-draft-${params.id || 'new'}`,
+        state: () => ({
+            title: title(),
+            slug: slug(),
+            description: description(),
+            shortDescription: shortDescription(),
+            goalAmount: goalAmount(),
+            hasGoal: hasGoal(),
+            status: status(),
+            isPublished: isPublished(),
+            startDate: startDate(),
+            endDate: endDate(),
+            featuredImage: featuredImage(),
+        }),
+    },);
+
     const handleSubmit = async (e?: Event,) => {
         e?.preventDefault();
         beginSave();
@@ -104,6 +124,7 @@ const CampaignEditor: Component = () => {
 
             if (response.success) {
                 invalidateCampaignsCache();
+                autoSave.clear();
                 markClean();
                 navigate('/admin/campaigns',);
             } else {
@@ -144,6 +165,9 @@ const CampaignEditor: Component = () => {
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>
+                <div class="admin-header__actions">
+                    <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
+                </div>
             </div>
 
             <Show when={error()}>

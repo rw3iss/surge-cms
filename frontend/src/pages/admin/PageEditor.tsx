@@ -1,12 +1,15 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
+import AutoSaveIndicator from '../../components/admin/AutoSaveIndicator';
 import BlockEditor, { BlockData, BlockType, BlockTypeOption, } from '../../components/admin/BlockEditor';
 import ConfirmModal from '../../components/admin/ConfirmModal';
 import EditorSaveBar from '../../components/admin/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/PreviewOverlay';
+import RevisionsPanel from '../../components/admin/RevisionsPanel';
 import { BlockRenderer, } from '../../components/BlockRenderer';
 import { Header, } from '../../components/Layout/Header';
+import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
@@ -151,6 +154,19 @@ const AdminPageEditor: Component = () => {
         }
     };
 
+    // Auto-save draft to localStorage
+    const autoSave = useAutoSave({
+        key: `page-draft-${params.id || 'new'}`,
+        state: () => ({
+            title: title(),
+            titleAlignment: titleAlignment(),
+            slug: slug(),
+            status: status(),
+            accessLevel: accessLevel(),
+            blocks: blocks(),
+        }),
+    },);
+
     const handleSave = async () => {
         if (!title()) { setError('Title is required',); return; }
         if (!slug()) { setError('Slug is required',); return; }
@@ -184,6 +200,7 @@ const AdminPageEditor: Component = () => {
             }
 
             if (pageId) await syncBlocks(pageId,);
+            autoSave.clear();
             markClean();
             navigate('/admin/pages',);
         } catch (err: any) {
@@ -206,6 +223,7 @@ const AdminPageEditor: Component = () => {
             <div class="admin-header">
                 <h1>{isNew() ? 'New Page' : 'Edit Page'}</h1>
                 <div class="admin-header__actions">
+                    <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
                     <Show when={!isNew() && page()}>
                         <Show when={isDeleted()}>
                             <button
@@ -373,6 +391,14 @@ const AdminPageEditor: Component = () => {
                 saveLabel="Save Page"
                 deleteLabel="Delete Page"
             />
+
+            <Show when={!isNew()}>
+                <RevisionsPanel
+                    entityType="page"
+                    entityId={params.id}
+                    onRestored={() => window.location.reload()}
+                />
+            </Show>
 
             <ConfirmModal
                 open={showDeleteConfirm()}

@@ -6,6 +6,7 @@ import HeroCarousel from '../components/HeroCarousel';
 import SeoHead from '../components/SeoHead';
 import SocialEmbed from '../components/SocialEmbed';
 import { fetchAppearance, fetchHeroSettings, fetchLiveSocialFeed, fetchPage, } from '../services/api';
+import { siteDescription, siteLogo, siteName, } from '../stores/siteSettings';
 import { buildOrganization, } from '../utils/schema';
 import './Home.scss';
 
@@ -34,17 +35,17 @@ const Home: Component = () => {
     return (
         <div class="home">
             <SeoHead
-                title="Surge Media — Independent Journalism"
-                description="Independent, community-focused journalism covering the stories that matter to Philadelphia and beyond."
+                title="Home"
+                description={siteDescription()}
                 canonical={canonicalUrl}
                 type="website"
-                image={`${canonicalUrl}/icons/icon-512x512.png`}
-                aeoSummary="Surge Media is an independent Philadelphia-based news organization delivering community-focused journalism, investigative reporting, and local stories."
+                image={siteLogo() || `${canonicalUrl}/icons/icon-512x512.png`}
+                aeoSummary={`${siteName()} — ${siteDescription()}. Independent journalism, investigative reporting, and community stories.`}
                 aeoEntityType="NewsMediaOrganization"
                 jsonLd={buildOrganization({
-                    name: 'Surge Media',
+                    name: siteName(),
                     url: canonicalUrl,
-                    logo: `${canonicalUrl}/icons/icon-512x512.png`,
+                    logo: siteLogo() || `${canonicalUrl}/icons/icon-512x512.png`,
                 },)}
             />
 

@@ -2,6 +2,7 @@ import { A, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { api, } from '../services/api';
+import { siteName, } from '../stores/siteSettings';
 import './Join.scss';
 
 const Join: Component = () => {
@@ -52,7 +53,12 @@ const Join: Component = () => {
 
     return (
         <div class="join">
-            <SeoHead title="Join" description="Become a member of Surge Media." noindex={true} nofollow={true} />
+            <SeoHead
+                title="Join"
+                description={`Become a member of ${siteName()}.`}
+                noindex={true}
+                nofollow={true}
+            />
 
             <div class="join__container">
                 <Show

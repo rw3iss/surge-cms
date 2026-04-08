@@ -1,6 +1,7 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { submitContactMessage, } from '../services/api';
+import { siteName, } from '../stores/siteSettings';
 import './Contact.scss';
 
 const ContactPage: Component = () => {
@@ -49,10 +50,10 @@ const ContactPage: Component = () => {
         <div class="contact page-wrapper">
             <SeoHead
                 title="Contact"
-                description="Get in touch with Surge Media. Send us a message, question, or story tip."
+                description={`Get in touch with ${siteName()}. Send us a message, question, or story tip.`}
                 canonical={`${window.location.origin}/contact`}
                 type="website"
-                aeoSummary="Contact page for Surge Media — send a message or story tip to our team."
+                aeoSummary={`Contact page for ${siteName()} — send a message or story tip to our team.`}
                 aeoEntityType="ContactPage"
             />
 

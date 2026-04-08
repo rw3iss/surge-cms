@@ -1,20 +1,12 @@
+import type { Revision, RevisionEntityType, } from '@surge/shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
 
 export interface RevisionsPanelProps {
-    entityType: 'post' | 'page';
+    entityType: RevisionEntityType;
     entityId: string;
     /** Called after a successful restore so the editor can reload state */
     onRestored?: () => void;
-}
-
-interface Revision {
-    id: string;
-    version: number;
-    authorId: string | null;
-    authorName: string | null;
-    summary: string | null;
-    createdAt: string;
 }
 
 const endpointFor = (type: 'post' | 'page',) => type === 'post' ? '/posts' : '/pages';

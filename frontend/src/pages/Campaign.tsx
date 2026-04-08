@@ -4,6 +4,7 @@ import { Component, createResource, Show, } from 'solid-js';
 import DonationForm from '../components/DonationForm';
 import SeoHead from '../components/SeoHead';
 import { fetchCampaign, } from '../services/api';
+import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildDonation, } from '../utils/schema';
 import './Campaign.scss';
 
@@ -37,12 +38,14 @@ const CampaignPage: Component = () => {
                     <>
                         <SeoHead
                             title={c().title}
-                            description={c().shortDescription || 'Support Surge Media with your donation.'}
+                            description={c().shortDescription ||
+                                `Support ${siteName()} — donate to ${c().title}.`}
                             canonical={canonicalUrl()}
                             type="website"
                             image={c().featuredImage}
                             imageAlt={c().title}
-                            aeoSummary={c().shortDescription || `${c().title} is a fundraising campaign from Surge Media.`}
+                            aeoSummary={c().shortDescription ||
+                                `${c().title} is a fundraising campaign from ${siteName()}.`}
                             aeoEntityType="DonateAction"
                             jsonLd={[
                                 buildDonation({
@@ -52,7 +55,7 @@ const CampaignPage: Component = () => {
                                     image: c().featuredImage,
                                     goalAmount: c().goalAmountCents,
                                     raisedAmount: c().currentAmountCents,
-                                    publisherName: 'Surge Media',
+                                    publisherName: siteName(),
                                 },),
                                 buildBreadcrumb({
                                     items: [

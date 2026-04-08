@@ -2,6 +2,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@surge/shared';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
+import { siteName, } from '../stores/siteSettings';
 import { fetchPosts, } from '../services/api';
 import { buildCollectionPage, } from '../utils/schema';
 import './Posts.scss';
@@ -66,14 +67,14 @@ const PostsPage: Component = () => {
         <div class="posts-page">
             <SeoHead
                 title="Blog"
-                description="Latest news, stories, and investigative reporting from Surge Media."
+                description={`Latest news, stories, and investigative reporting from ${siteName()}.`}
                 canonical={`${window.location.origin}/posts`}
                 type="website"
-                aeoSummary="Browse the latest blog posts, news articles, and reporting from Surge Media covering Philadelphia and independent journalism."
+                aeoSummary={`Browse the latest blog posts, news articles, and reporting from ${siteName()}.`}
                 aeoEntityType="Blog"
                 jsonLd={buildCollectionPage({
                     name: 'Blog',
-                    description: 'Latest news and articles from Surge Media',
+                    description: `Latest news and articles from ${siteName()}`,
                     url: `${window.location.origin}/posts`,
                     itemCount: total(),
                 },)}

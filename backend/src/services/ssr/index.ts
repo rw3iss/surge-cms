@@ -104,8 +104,18 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
 
     if (!meta) return template;
 
-    // 5. Build and inject meta tags
-    const metaHtml = buildMetaHtml(meta,);
+    // 5. Build and inject meta tags — protect against a malformed meta object
+    //    (e.g. unexpected non-string value) so a single bad page can't break SSR
+    //    for every other route.
+    let metaHtml: string;
+    try {
+        metaHtml = buildMetaHtml(meta,);
+    } catch (error) {
+        logger.error(`SSR: buildMetaHtml failed for ${pathname}`, {
+            error: (error as Error).message,
+        },);
+        return template;
+    }
     const html = injectMeta(template, metaHtml,);
 
     // 6. Cache the rendered HTML

@@ -1,6 +1,8 @@
-import type { AppearanceSettings, NavigationItem, SiteSettings, } from '@surge/shared';
+import { Meta, Title, } from '@solidjs/meta';
+import type { AppearanceSettings, NavigationItem, } from '@surge/shared';
 import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
-import { fetchAppearance, fetchNavigation, fetchSettings, fetchSiteHeader, } from '../../services/api';
+import { fetchAppearance, fetchNavigation, fetchSiteHeader, } from '../../services/api';
+import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -13,8 +15,7 @@ export const Layout: ParentComponent = (props,) => {
     },);
 
     const [settings,] = createResource(async () => {
-        const response = await fetchSettings();
-        return response.success ? response.data as SiteSettings : null;
+        return await loadSiteSettings();
     },);
 
     const [headerSettings,] = createResource(async () => {
@@ -71,11 +72,33 @@ export const Layout: ParentComponent = (props,) => {
         return s;
     },);
 
+    const dynamicSiteName = () => settings()?.siteName || DEFAULT_SITE_NAME;
+
     return (
         <div class="layout" style={layoutStyle()}>
+            {/*
+              Baseline tags that every page inherits. Only TRULY site-wide tags
+              belong here — anything a page-level <SeoHead> might want to
+              override must NOT be set here, because solid-meta's <Meta>
+              inserts a separate element per component and the FIRST matching
+              one wins when querying document.head (HTML spec / browser
+              behavior).
+
+              Title is safe to set here: solid-meta's <Title> uses a stack
+              where the most recently mounted one wins, and page-level
+              SeoHead's <Title> correctly overrides this fallback.
+
+              Description, og:title, og:type, og:image, twitter:title,
+              twitter:description, twitter:image → all page-specific, set by
+              SeoHead only.
+            */}
+            <Title>{dynamicSiteName()}</Title>
+            <Meta property="og:site_name" content={dynamicSiteName()} />
+            <Meta property="og:locale" content="en_US" />
+
             <Header
                 navigation={navigation() || []}
-                siteName={settings()?.siteName || 'Surge Media'}
+                siteName={dynamicSiteName()}
                 logo={settings()?.logo}
                 headerSettings={headerSettings()}
                 gutterWidth={appearance()?.gutterWidth}
@@ -86,7 +109,7 @@ export const Layout: ParentComponent = (props,) => {
             </main>
 
             <Footer
-                siteName={settings()?.siteName || 'Surge Media'}
+                siteName={dynamicSiteName()}
                 socialLinks={settings()?.socialLinks || {}}
                 contactEmail={settings()?.contactEmail}
             />

@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e63946" />
-    <meta name="description" content="Surge Media - Independent journalism for the people" />
 
     <!-- Preconnect to important origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,19 +17,18 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
-    <!-- SEO Meta Tags -->
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Surge Media" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:image" content="/icons/icon-512x512.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/icons/icon-512x512.png" />
-
     <!-- Progressive enhancement / crawler hints -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
 
+    <!--
+      The page <title> and meta tags are injected dynamically:
+        * In production served via the backend: SSR middleware replaces the
+          SSR_META marker below with fully-populated per-route tags.
+        * At runtime (client-side navigation): solid-meta / SeoHead updates
+          the title and meta tags based on the rendered page.
+      Keep the fallback title minimal so solid-meta's later injection wins.
+    -->
     <title>Surge Media</title>
     <!-- SSR_META -->
 

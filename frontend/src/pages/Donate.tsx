@@ -1,8 +1,9 @@
-import { Link, Meta, Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import type { Campaign, } from '@surge/shared';
 import { Component, createResource, For, Show, } from 'solid-js';
+import SeoHead from '../components/SeoHead';
 import { fetchCampaigns, } from '../services/api';
+import { siteName, } from '../stores/siteSettings';
 import './Donate.scss';
 
 const DonatePage: Component = () => {
@@ -16,16 +17,14 @@ const DonatePage: Component = () => {
 
     return (
         <div class="donate-page page-wrapper">
-            <Title>Donate | Surge Media</Title>
-            <Meta name="description" content="Support our independent journalism with a donation" />
-            <Link rel="canonical" href={`${window.location.origin}/donate`} />
-            <Meta property="og:title" content="Donate | Surge Media" />
-            <Meta property="og:description" content="Support our independent journalism with a donation" />
-            <Meta property="og:type" content="website" />
-            <Meta property="og:url" content={`${window.location.origin}/donate`} />
-            <Meta name="twitter:card" content="summary_large_image" />
-            <Meta name="twitter:title" content="Donate | Surge Media" />
-            <Meta name="twitter:description" content="Support our independent journalism with a donation" />
+            <SeoHead
+                title="Donate"
+                description={`Support ${siteName()} with a donation. Your contributions fund independent journalism and community reporting.`}
+                canonical={`${window.location.origin}/donate`}
+                type="website"
+                aeoSummary={`Donate to ${siteName()} — support independent, community-focused journalism.`}
+                aeoEntityType="DonateAction"
+            />
 
             <header class="page-header">
                 <h1>Support Our Mission</h1>

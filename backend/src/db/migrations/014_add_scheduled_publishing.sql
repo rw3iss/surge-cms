@@ -1,4 +1,10 @@
 -- Add 'scheduled' to post/page status enums and publish_at column for scheduled publishing.
+--
+-- NOTE: Postgres does not allow a newly-added enum value to be used in the same
+-- transaction (error 55P04). Since the migration runner wraps each file in a
+-- single BEGIN/COMMIT, we can only add the enum values and the column here;
+-- any indexes or code that reference 'scheduled' must live in a separate
+-- migration (see 016).
 
 DO $$ BEGIN
     IF NOT EXISTS (
@@ -20,6 +26,3 @@ END $$;
 
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_at TIMESTAMPTZ;
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS publish_at TIMESTAMPTZ;
-
-CREATE INDEX IF NOT EXISTS idx_posts_publish_at ON posts(publish_at) WHERE status = 'scheduled';
-CREATE INDEX IF NOT EXISTS idx_pages_publish_at ON pages(publish_at) WHERE status = 'scheduled';

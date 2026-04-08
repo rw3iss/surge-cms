@@ -119,6 +119,15 @@ export async function invalidateUserCache(userId?: string,): Promise<void> {
 export async function invalidateSettingsCache(): Promise<void> {
     await delPattern('settings:*',);
     await delPattern('navigation:*',);
+    // SSR HTML cache contains site name / logo / description from settings
+    await delPattern('ssr:html:*',);
+    // In-process site meta cache used by SSR route resolver
+    try {
+        const { invalidateSiteMetaCache, } = await import('./ssr/routes');
+        invalidateSiteMetaCache();
+    } catch {
+        /* module may not be loaded yet */
+    }
 }
 
 export async function flushAll(): Promise<void> {

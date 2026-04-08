@@ -6,6 +6,7 @@ import PostContentBlock from '../components/PostContentBlock';
 import SeoHead from '../components/SeoHead';
 import { fetchPost, } from '../services/api';
 import { useAuth, } from '../stores/auth';
+import { siteLogo, siteName, } from '../stores/siteSettings';
 import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
 import './Post.scss';
 
@@ -64,8 +65,10 @@ const PostPage: Component = () => {
                 <Show when={post()} fallback={<div>Loading...</div>}>
                     {(postData,) => {
                         const description = () =>
+                            (postData() as any).metaDescription ||
                             postData().excerpt ||
-                            truncateText(stripHtml(postData().content || '',), 200,);
+                            truncateText(stripHtml(postData().content || '',), 200,) ||
+                            `${postData().title} — published by ${siteName()}`;
                         const aeoSummary = () =>
                             truncateText(
                                 stripHtml(postData().excerpt || postData().content || '',),
@@ -80,8 +83,9 @@ const PostPage: Component = () => {
                                 datePublished: postData().publishedAt || undefined,
                                 dateModified: postData().updatedAt || undefined,
                                 authorName: postData().author,
-                                publisherName: 'Surge Media',
-                                publisherLogo: `${window.location.origin}/icons/icon-512x512.png`,
+                                publisherName: siteName(),
+                                publisherLogo: siteLogo() ||
+                                    `${window.location.origin}/icons/icon-512x512.png`,
                                 articleSection: (postData() as any).category,
                                 keywords: (postData() as any).tags,
                             },),
@@ -97,7 +101,7 @@ const PostPage: Component = () => {
                         return (
                         <>
                             <SeoHead
-                                title={postData().title}
+                                title={(postData() as any).metaTitle || postData().title}
                                 description={description()}
                                 canonical={canonicalUrl()}
                                 type="article"

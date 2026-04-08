@@ -1,5 +1,10 @@
 import { Link, Meta, Title, } from '@solidjs/meta';
 import { Component, createMemo, For, Show, } from 'solid-js';
+import {
+    DEFAULT_SITE_NAME,
+    loadSiteSettings,
+    siteSettings as siteSettingsSignal,
+} from '../stores/siteSettings';
 import { JsonLd, } from './JsonLd';
 
 export interface SeoHeadProps {
@@ -42,20 +47,36 @@ export interface SeoHeadProps {
     aeoEntityType?: string; // e.g. "Article", "Organization", "Product"
 }
 
-const DEFAULT_SITE_NAME = 'Surge Media';
 const DEFAULT_LOCALE = 'en_US';
 
 /**
  * Unified SEO/Social/AEO head component.
  * Generates Open Graph, Twitter Card, JSON-LD structured data,
  * and AI engine optimization tags from a single props set.
+ *
+ * Tab title format is always "{Site Name} - {Page Title}" using the
+ * dynamic site name from the global settings store (falls back to
+ * the DEFAULT_SITE_NAME constant until settings are loaded). Passing
+ * an explicit `siteName` prop overrides the store.
  */
 const SeoHead: Component<SeoHeadProps> = (props,) => {
-    const siteName = () => props.siteName || DEFAULT_SITE_NAME;
+    // Trigger settings load on first render of any page that mounts SeoHead.
+    loadSiteSettings();
+
+    const siteName = () =>
+        props.siteName || siteSettingsSignal()?.siteName || DEFAULT_SITE_NAME;
     const locale = () => props.locale || DEFAULT_LOCALE;
-    const fullTitle = createMemo(() =>
-        props.title.includes(siteName(),) ? props.title : `${props.title} | ${siteName()}`
-    );
+    const fullTitle = createMemo(() => {
+        const pageTitle = props.title?.trim();
+        const site = siteName();
+        if (!pageTitle) return site;
+        // Avoid double-prefix if caller already included the site name.
+        if (pageTitle === site) return site;
+        if (pageTitle.startsWith(`${site} -`,) || pageTitle.startsWith(`${site} |`,)) {
+            return pageTitle;
+        }
+        return `${site} - ${pageTitle}`;
+    },);
 
     const robotsContent = createMemo(() => {
         const parts: string[] = [];
