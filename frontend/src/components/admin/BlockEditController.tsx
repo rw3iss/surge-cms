@@ -244,6 +244,23 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 </div>
             </div>
 
+            {/* ─── Default padding toggle ─── */}
+            <div class="bec-field">
+                <label class="bec-toggle">
+                    <input
+                        type="checkbox"
+                        checked={props.block.data.useDefaultPadding !== false}
+                        onChange={(e,) => {
+                            handleUpdate({
+                                ...props.block.data,
+                                useDefaultPadding: e.currentTarget.checked,
+                            },);
+                        }}
+                    />
+                    <span>Use default block padding</span>
+                </label>
+            </div>
+
             <div class="bec-divider" />
 
             {/* ─── Style editor or block form ─── */}

@@ -1503,6 +1503,20 @@
   }
 }
 
+.bec-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $font-size-xs;
+  color: $text-light;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+}
+
 .bec-divider {
   height: 1px;
   background: $border-color;

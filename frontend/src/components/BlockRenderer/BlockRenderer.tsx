@@ -31,7 +31,8 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     undefined,
                 'font-size': s().fontSize || undefined,
                 width: s().width || undefined,
-                padding: s().padding || (props.block.settings.padding as string) || 'var(--site-block-padding, 0)',
+                padding: s().padding || (props.block.settings.padding as string) ||
+                    (props.block.settings.useDefaultPadding === false ? undefined : 'var(--site-block-padding, 0)'),
                 margin: (() => {
                     const m = s().margin;
                     if (!m) return undefined;
@@ -402,7 +403,7 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
             >
                 <div
                     class={FEED_LAYOUT_CLASS[layout()] || FEED_LAYOUT_CLASS.grid}
-                    style={layout() === 'row' && blockStyle()?.padding ? { padding: blockStyle()!.padding, 'padding-top': '0', } : undefined}
+                    style={layout() === 'row' && blockStyle()?.padding ? { padding: blockStyle()!.padding, } : undefined}
                 >
                     <For each={posts()}>
                         {(post,) => (

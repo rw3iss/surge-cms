@@ -121,11 +121,13 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     const addBlock = (type: BlockType, position: 'top' | 'bottom' = 'bottom',) => {
         const currentBlocks = props.blocks;
+        // Carousel and hero blocks default to no global padding
+        const useDefaultPadding = !['carousel', 'hero',].includes(type,);
         const newBlock: BlockData = {
             id: generateBlockId(),
             type,
             sort_order: 0,
-            data: {},
+            data: { useDefaultPadding, },
         };
         const updated = position === 'top' ?
             [newBlock, ...currentBlocks,] :
