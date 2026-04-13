@@ -1518,6 +1518,35 @@
   }
 }
 
+.bec-dirty-bar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 6px $spacing-sm;
+  margin: 0 (-$spacing-sm) $spacing-xs;
+  background: rgba(245, 166, 35, 0.15);
+  border-radius: $border-radius-sm;
+  font-size: $font-size-xs;
+
+  &__label {
+    flex: 1;
+    color: #b47a1a;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  &__revert {
+    color: #b47a1a;
+    font-weight: 600;
+
+    &:hover {
+      color: #8a5c0e;
+      background: rgba(245, 166, 35, 0.15);
+    }
+  }
+}
+
 .bec-divider {
   height: 1px;
   background: $border-color;
@@ -1729,6 +1758,14 @@
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     font-size: $font-size-xs;
+
+    &--dirty {
+      background: rgba(245, 166, 35, 0.18);
+      border-bottom-color: rgba(245, 166, 35, 0.25);
+      // Always visible when dirty — even without hover
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
   }
 
   &__hover-drag {

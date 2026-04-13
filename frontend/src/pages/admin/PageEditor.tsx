@@ -133,6 +133,7 @@ const AdminPageEditor: Component = () => {
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
+    const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
     const [originalBlockIds, setOriginalBlockIds,] = createSignal<Set<string>>(new Set(),);
     const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
     const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
@@ -153,6 +154,7 @@ const AdminPageEditor: Component = () => {
             if (p.blocks?.length) {
                 const converted = p.blocks.map((b: any,) => pageBlockToBlockData(b,));
                 setBlocks(converted,);
+                setSavedBlocks(structuredClone(converted,),);
                 setOriginalBlockIds(new Set<string>(p.blocks.map((b: any,) => String(b.id,)),),);
             }
         }
@@ -230,6 +232,7 @@ const AdminPageEditor: Component = () => {
             }
 
             if (pageId) await syncBlocks(pageId,);
+            setSavedBlocks(structuredClone(blocks(),),);
             autoSave.clear();
             markClean();
             navigate('/admin/pages',);
@@ -373,6 +376,7 @@ const AdminPageEditor: Component = () => {
             <BlockEditor
                 title="Page Content"
                 blocks={blocks()}
+                savedBlocks={savedBlocks()}
                 onBlocksChange={(newBlocks,) => { setBlocks(newBlocks,); markDirty(); }}
                 containerStyle={siteContainerStyle()}
                 containerClass="site-preview-container"

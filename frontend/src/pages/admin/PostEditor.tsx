@@ -68,6 +68,7 @@ const AdminPostEditor: Component = () => {
     const [tags, setTags,] = createSignal('',);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
+    const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
     const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
     const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
     const [showRestoreConfirm, setShowRestoreConfirm,] = createSignal(false,);
@@ -128,7 +129,7 @@ const AdminPostEditor: Component = () => {
                 setPublishAt('',);
             }
             if (p.contentBlocks?.length) {
-                setBlocks(p.contentBlocks.map((b: any,) => {
+                const converted = p.contentBlocks.map((b: any,) => {
                     // b.style comes from backend: { id: "uuid", ...props } for template, or { backgroundColor: ... } for custom
                     const styleRef = b.style?.id ?
                         { templateId: b.style.id, } :
@@ -142,7 +143,9 @@ const AdminPostEditor: Component = () => {
                         data: b.data || {},
                         styleRef,
                     };
-                },),);
+                },);
+                setBlocks(converted,);
+                setSavedBlocks(structuredClone(converted,),);
             }
         }
     },);
@@ -183,6 +186,7 @@ const AdminPostEditor: Component = () => {
         endSave();
 
         if (response.success) {
+            setSavedBlocks(structuredClone(blocks(),),);
             autoSave.clear();
             markClean();
             navigate('/admin/posts',);
@@ -315,6 +319,7 @@ const AdminPostEditor: Component = () => {
                 <BlockEditor
                     title="Content Blocks"
                     blocks={blocks()}
+                    savedBlocks={savedBlocks()}
                     onBlocksChange={(newBlocks,) => { setBlocks(newBlocks,); markDirty(); }}
                     containerStyle={siteContainerStyle()}
                     containerClass="site-preview-container"

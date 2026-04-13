@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, on, Show, } from 'solid-js';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../config/mobileDevices';
 import BlockEditController from './BlockEditController';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
@@ -20,6 +20,8 @@ interface BlockEditorProps {
     containerStyle?: Record<string, string>;
     /** Extra CSS class on the blocks container */
     containerClass?: string;
+    /** Snapshot of blocks as last saved — used for dirty detection & revert */
+    savedBlocks?: BlockData[];
 }
 
 /**
@@ -48,11 +50,61 @@ const DEFAULT_BLOCK_TYPES: BlockTypeOption[] = [
 let blockIdCounter = 0;
 const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
 
+/** Deep-compare two block snapshots (data + styleRef). */
+const blockEquals = (a: BlockData | undefined, b: BlockData | undefined,): boolean => {
+    if (!a || !b) return a === b;
+    if (a.type !== b.type) return false;
+    return JSON.stringify({ d: a.data, s: a.styleRef, },) ===
+        JSON.stringify({ d: b.data, s: b.styleRef, },);
+};
+
 const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const [selectedBlockId, setSelectedBlockId,] = createSignal<string | null>(null,);
     const [flyoutSide, setFlyoutSide,] = createSignal<'left' | 'right'>('right',);
     const [flyoutMode, setFlyoutMode,] = createSignal<FlyoutMode>('inline',);
     const [showAddDropdown, setShowAddDropdown,] = createSignal(false,);
+
+    // ─── Saved-state snapshots for dirty detection ───
+    // savedSnapshots stores the last-saved version of each block keyed by id.
+    const [savedSnapshots, setSavedSnapshots,] = createSignal<Map<string, BlockData>>(new Map(),);
+
+    // Rebuild snapshots when savedBlocks prop changes (i.e. after a save).
+    createEffect(on(
+        () => props.savedBlocks,
+        (saved,) => {
+            if (!saved) return;
+            const map = new Map<string, BlockData>();
+            for (const b of saved) map.set(b.id, structuredClone(b),);
+            setSavedSnapshots(map,);
+        },
+        { defer: false, },
+    ),);
+
+    /** Reactive map of blockId → dirty boolean, recalculated whenever
+     *  blocks or savedSnapshots change. Using a memo ensures a single
+     *  computation rather than per-block function calls inside <For>. */
+    const dirtyMap = createMemo(() => {
+        const saved = savedSnapshots();
+        const map = new Map<string, boolean>();
+        for (const b of props.blocks) {
+            const s = saved.get(b.id,);
+            // New blocks (no saved version) are always dirty
+            map.set(b.id, s ? !blockEquals(s, b,) : true,);
+        }
+        return map;
+    },);
+
+    /** Check if a block has unsaved changes compared to saved version. */
+    const isBlockDirty = (blockId: string,): boolean => dirtyMap().get(blockId,) ?? false;
+
+    /** Revert a single block to its saved state. */
+    const revertBlock = (blockId: string,) => {
+        const saved = savedSnapshots().get(blockId);
+        if (!saved) return;
+        props.onBlocksChange(
+            props.blocks.map(b => b.id === blockId ? structuredClone(saved) : b,),
+        );
+    };
 
     const selectedBlock = () => {
         const id = selectedBlockId();
@@ -147,7 +199,11 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     };
 
     const updateBlock = (id: string, data: Record<string, any>,) => {
+        const scrollY = window.scrollY;
         props.onBlocksChange(props.blocks.map(b => b.id === id ? { ...b, data, } : b),);
+        // Preserve scroll — block updates create new references which cause
+        // <For> to remount ContentBlock, potentially triggering Suspense.
+        requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
     };
 
     const removeBlock = (id: string,) => {
@@ -375,6 +431,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                 onChangeType={changeBlockType}
                                 onRemove={(id,) => { removeBlock(id,); deselectBlock(); }}
                                 onClose={deselectBlock}
+                                isDirty={isBlockDirty(selectedBlock()!.id,)}
+                                onRevert={() => revertBlock(selectedBlock()!.id,)}
                             />
                         </FlyoutPanel>
                     )}
@@ -405,6 +463,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                         index={index()}
                                         total={props.blocks.length}
                                         isSelected={selectedBlockId() === block.id}
+                                        isDirty={isBlockDirty(block.id,)}
                                         isEditing={false}
                                         isDragging={draggingId() === block.id}
                                         collapsed={false}
@@ -479,6 +538,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                 onChangeType={changeBlockType}
                                 onRemove={(id,) => { removeBlock(id,); deselectBlock(); }}
                                 onClose={deselectBlock}
+                                isDirty={isBlockDirty(selectedBlock()!.id,)}
+                                onRevert={() => revertBlock(selectedBlock()!.id,)}
                             />
                         </FlyoutPanel>
                     )}

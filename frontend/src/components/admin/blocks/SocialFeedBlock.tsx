@@ -136,7 +136,8 @@ const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
                         <input
                             type="text"
                             value={props.data.rowHeight || ''}
-                            onInput={(e,) => props.onUpdate({ ...props.data, rowHeight: e.currentTarget.value, },)}
+                            onChange={(e,) => props.onUpdate({ ...props.data, rowHeight: e.currentTarget.value, },)}
+                            onKeyDown={(e,) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             placeholder="e.g. 300px, 40vh (blank for auto)"
                         />
                     </div>

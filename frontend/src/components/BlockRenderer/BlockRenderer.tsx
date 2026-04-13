@@ -394,8 +394,13 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
         },
     );
 
+    const hasRowHeight = () => layout() === 'row' && !!rowHeight();
+
     return (
-        <div class="social-feed-block">
+        <div
+            class={`social-feed-block${hasRowHeight() ? ' social-feed-block--has-height' : ''}`}
+            style={hasRowHeight() ? { height: rowHeight(), } : undefined}
+        >
             <Show
                 when={posts()?.length}
                 fallback={
@@ -411,7 +416,6 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
                     style={{
                         ...(blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {}),
                         ...(blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {}),
-                        ...(layout() === 'row' && rowHeight() ? { height: rowHeight(), } : {}),
                     }}
                 >
                     <For each={posts()}>

@@ -36,6 +36,7 @@ interface ContentBlockProps {
     index: number;
     total: number;
     isSelected?: boolean;
+    isDirty?: boolean;
     isEditing: boolean;
     isDragging: boolean;
     collapsed?: boolean;
@@ -101,7 +102,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             }}
         >
             {/* Floating hover bar */}
-            <div class="content-block__hover-bar">
+            <div class={`content-block__hover-bar${props.isDirty ? ' content-block__hover-bar--dirty' : ''}`}>
                 <span class="content-block__hover-drag" title="Drag to reorder">
                     &#9776;
                 </span>

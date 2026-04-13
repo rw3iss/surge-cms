@@ -149,6 +149,91 @@
   max-width: 100%;
   overflow: hidden;
 
+  // When a row height is set, the outer container is that height
+  // and all inner content fills it, shrinking to fit.
+  &--has-height {
+    overflow: hidden;
+
+    // Direct child (the grid wrapper or Show fallback) fills container
+    > * {
+      height: 100%;
+    }
+
+    .social-feed-block__grid--row {
+      // Each card slot fills the row height
+      > * {
+        height: 100%;
+      }
+
+      // The embed card itself fills its slot
+      .social-embed {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .social-embed__content {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      // The <a> card link fills the content area
+      .social-embed__card {
+        flex: 1;
+        min-height: 0;
+      }
+
+      // Image shrinks to fill available space, keeps aspect ratio
+      .social-embed__card-image {
+        flex: 1 1 0;
+        min-height: 0;
+        max-height: none; // override the default 320px cap
+        object-fit: cover;
+      }
+
+      // Placeholder also shrinks
+      .social-embed__card-placeholder {
+        flex: 1 1 0;
+        min-height: 0;
+        height: auto;
+      }
+
+      // Card body stays compact at the bottom
+      .social-embed__card-body {
+        flex: 0 0 auto;
+        padding: $spacing-xs $spacing-sm;
+        gap: 2px;
+      }
+
+      .social-embed__card-author {
+        font-size: 11px;
+      }
+
+      .social-embed__card-text {
+        font-size: 11px;
+        -webkit-line-clamp: 2;
+      }
+
+      .social-embed__card-link {
+        font-size: 10px;
+        margin-top: 1px;
+      }
+
+      // YouTube iframes: shrink into the constrained height
+      .social-embed__iframe-wrapper {
+        flex: 1;
+        min-height: 0;
+
+        iframe {
+          height: 100%;
+          aspect-ratio: auto; // let height win over aspect-ratio
+        }
+      }
+    }
+  }
+
   &__title {
     margin-bottom: $spacing-lg;
   }
@@ -216,23 +301,7 @@
         }
       }
 
-      // When a height is set via inline style, items conform to it
-      &[style*="height"] {
-        > * {
-          height: 100%;
-
-          .social-embed {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-          }
-
-          .social-embed__card-image {
-            flex: 1;
-            min-height: 0;
-          }
-        }
-      }
+      // Height is now handled by .social-feed-block--has-height above
     }
   }
 

@@ -81,6 +81,8 @@ export interface BlockEditControllerProps {
     onChangeType?: (id: string, newType: BlockType,) => void;
     onRemove: (id: string,) => void;
     onClose: () => void;
+    isDirty?: boolean;
+    onRevert?: () => void;
 }
 
 // Block type labels used for reference — kept for future use
@@ -149,7 +151,9 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
         if (style.id) {
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { templateId: style.id, }, },);
         } else {
-            const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...customProps } = style;
+            const { id: _id, name: _name, isDefault: _d, ...customProps } = style;
+            delete (customProps as any).createdAt;
+            delete (customProps as any).updatedAt;
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: customProps, }, },);
         }
         setEditingStyle(false,);
@@ -185,8 +189,34 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
         }
     };
 
+    const [showRevertConfirm, setShowRevertConfirm,] = createSignal(false,);
+
     return (
         <div class="block-edit-controller">
+            {/* ─── Unsaved changes bar ─── */}
+            <Show when={props.isDirty}>
+                <div class="bec-dirty-bar">
+                    <span class="bec-dirty-bar__label">Unsaved changes</span>
+                    <Show when={props.onRevert}>
+                        <button class="btn btn--xs btn--ghost bec-dirty-bar__revert" onClick={() => setShowRevertConfirm(true,)}>
+                            Revert
+                        </button>
+                    </Show>
+                </div>
+                <ConfirmModal
+                    open={showRevertConfirm()}
+                    title="Revert Block"
+                    message="Revert this block to its last saved state? All unsaved changes will be lost."
+                    confirmLabel="Revert"
+                    onConfirm={() => {
+                        setShowRevertConfirm(false,);
+                        props.onRevert?.();
+                    }}
+                    onCancel={() => setShowRevertConfirm(false,)}
+                    danger={true}
+                />
+            </Show>
+
             {/* ─── Block type ─── */}
             <div class="bec-field">
                 <Show when={props.blockTypes && props.onChangeType}>
@@ -241,7 +271,13 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                     <Show when={!editingStyle()}>
                         <button
                             class="bec-icon-btn"
-                            onClick={() => setEditingStyle(true,)}
+                            onClick={() => {
+                                if (selectedStyleId() === 'none') {
+                                    handleStyleChange('custom',);
+                                } else {
+                                    setEditingStyle(true,);
+                                }
+                            }}
                             title="Edit style"
                         >
                             <svg viewBox="0 0 16 16" width="16" height="16">
@@ -249,7 +285,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                             </svg>
                         </button>
                     </Show>
-                    <Show when={editingStyle()}>
+                    <Show when={editingStyle() && selectedStyleId() !== 'none'}>
                         <button class="btn btn--xs btn--primary" onClick={handleSaveStyle}>Save</button>
                         <button class="btn btn--xs btn--ghost" onClick={() => setEditingStyle(false,)}>Cancel</button>
                     </Show>
@@ -277,7 +313,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
 
             {/* ─── Style editor or block form ─── */}
             <Show
-                when={!editingStyle()}
+                when={!editingStyle() || selectedStyleId() === 'none'}
                 fallback={
                     <BlockStyleEditor
                         style={currentStyle()}
