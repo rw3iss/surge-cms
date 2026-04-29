@@ -1,4 +1,4 @@
-import { Component, createEffect, createMemo, createSignal, For, on, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, Index, on, Show, } from 'solid-js';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDevices';
 import AddBlockMenu from './AddBlockMenu';
@@ -617,43 +617,55 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                             class={`content-blocks-list ${draggingId() ? 'content-blocks-list--dragging' : ''} ${previewContainerClass()}`}
                             style={previewContainerStyle()}
                         >
-                            <For
-                                each={topLevelBlocks()}
+                            {/* `Index` rather than `For` so the row's
+                                component instance survives data updates
+                                — typing in HTML / Rich Text inline
+                                editors no longer remounts CodeMirror or
+                                contenteditable, which would otherwise
+                                drop focus on every keystroke. The trade
+                                is that ContentBlock-internal signals
+                                (e.g. open options menu) survive a
+                                reorder; ContentBlock resets those when
+                                the block.id changes. */}
+                            <Show
+                                when={topLevelBlocks().length > 0}
                                 fallback={
                                     <div class="block-editor__empty">
                                         Click <strong>+ Add Block</strong> below to add content blocks.
                                     </div>
                                 }
                             >
-                                {(block, index,) => (
-                                    <ContentBlock
-                                        block={block}
-                                        index={index()}
-                                        total={topLevelBlocks().length}
-                                        allBlocks={props.blocks}
-                                        isSelected={selectedBlockId() === block.id}
-                                        isDirty={isBlockDirty(block.id,)}
-                                        isEditing={false}
-                                        isDragging={draggingId() === block.id}
-                                        collapsed={false}
-                                        selectedBlockId={selectedBlockId()}
-                                        dirtyBlockIds={dirtyBlockIds()}
-                                        draggingId={draggingId()}
-                                        onToggleEdit={() => selectBlock(block.id,)}
-                                        onCancel={deselectBlock}
-                                        onUpdate={updateBlock}
-                                        onRemove={removeBlock}
-                                        onMoveUp={moveBlockUp}
-                                        onMoveDown={moveBlockDown}
-                                        onMoveToTop={moveBlockToTop}
-                                        onMoveToBottom={moveBlockToBottom}
-                                        onDragStart={handleDragStart}
-                                        onAddChildBlock={addChildBlock}
-                                        blockTypes={blockTypes()}
-                                        onChangeType={changeBlockType}
-                                    />
-                                )}
-                            </For>
+                                <Index each={topLevelBlocks()}>
+                                    {(block, index,) => (
+                                        <ContentBlock
+                                            block={block()}
+                                            index={index}
+                                            total={topLevelBlocks().length}
+                                            allBlocks={props.blocks}
+                                            isSelected={selectedBlockId() === block().id}
+                                            isDirty={isBlockDirty(block().id,)}
+                                            isEditing={false}
+                                            isDragging={draggingId() === block().id}
+                                            collapsed={false}
+                                            selectedBlockId={selectedBlockId()}
+                                            dirtyBlockIds={dirtyBlockIds()}
+                                            draggingId={draggingId()}
+                                            onToggleEdit={() => selectBlock(block().id,)}
+                                            onCancel={deselectBlock}
+                                            onUpdate={updateBlock}
+                                            onRemove={removeBlock}
+                                            onMoveUp={moveBlockUp}
+                                            onMoveDown={moveBlockDown}
+                                            onMoveToTop={moveBlockToTop}
+                                            onMoveToBottom={moveBlockToBottom}
+                                            onDragStart={handleDragStart}
+                                            onAddChildBlock={addChildBlock}
+                                            blockTypes={blockTypes()}
+                                            onChangeType={changeBlockType}
+                                        />
+                                    )}
+                                </Index>
+                            </Show>
                         </div>
                         <Show when={isMobile() && showDeviceHeight() && !isFullWidth()}>
                             <div class="block-editor__fold-mask" style={{ top: `${deviceHeight()}px`, }} />

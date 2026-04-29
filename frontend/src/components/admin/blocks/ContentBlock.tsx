@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createSignal, Index, Match, on, Show, Switch, } from 'solid-js';
 import { type BlockType, getBlockLabel, } from '../../../config/blockTypes';
 import AddBlockMenu from './AddBlockMenu';
 import BlockPreview from './BlockPreview';
@@ -72,6 +72,14 @@ interface ContentBlockProps {
 const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const [showRemoveConfirm, setShowRemoveConfirm,] = createSignal(false,);
     const [showOptionsMenu, setShowOptionsMenu,] = createSignal(false,);
+
+    // Index keeps the same component instance when an item changes
+    // identity at a position (e.g. a reorder). Reset transient menus
+    // so they don't appear to belong to the wrong block.
+    createEffect(on(() => props.block.id, () => {
+        setShowRemoveConfirm(false,);
+        setShowOptionsMenu(false,);
+    }, { defer: true, },),);
 
     const childBlocks = () =>
         props.allBlocks.filter(b => b.parentBlockId === props.block.id)
@@ -256,17 +264,17 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
 
     return (
         <div class="content-block__group" style={containerStyle()}>
-            <For each={props.childBlocks}>
+            <Index each={props.childBlocks}>
                 {(child, idx,) => (
                     <ContentBlock
-                        block={child}
-                        index={idx()}
+                        block={child()}
+                        index={idx}
                         total={props.childBlocks.length}
                         allBlocks={props.allBlocks}
-                        isSelected={props.ownProps.selectedBlockId === child.id}
-                        isDirty={props.ownProps.dirtyBlockIds?.has(child.id,) ?? false}
+                        isSelected={props.ownProps.selectedBlockId === child().id}
+                        isDirty={props.ownProps.dirtyBlockIds?.has(child().id,) ?? false}
                         isEditing={false}
-                        isDragging={props.ownProps.draggingId === child.id}
+                        isDragging={props.ownProps.draggingId === child().id}
                         collapsed={false}
                         selectedBlockId={props.ownProps.selectedBlockId}
                         dirtyBlockIds={props.ownProps.dirtyBlockIds}
@@ -285,7 +293,7 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                         onChangeType={props.ownProps.onChangeType}
                     />
                 )}
-            </For>
+            </Index>
         </div>
     );
 };
@@ -322,17 +330,17 @@ const GroupItemPreview: Component<NestedPreviewProps> = (props,) => {
                     </div>
                 }
             >
-                <For each={props.childBlocks}>
+                <Index each={props.childBlocks}>
                     {(child, idx,) => (
                         <ContentBlock
-                            block={child}
-                            index={idx()}
+                            block={child()}
+                            index={idx}
                             total={props.childBlocks.length}
                             allBlocks={props.allBlocks}
-                            isSelected={props.ownProps.selectedBlockId === child.id}
-                            isDirty={props.ownProps.dirtyBlockIds?.has(child.id,) ?? false}
+                            isSelected={props.ownProps.selectedBlockId === child().id}
+                            isDirty={props.ownProps.dirtyBlockIds?.has(child().id,) ?? false}
                             isEditing={false}
-                            isDragging={props.ownProps.draggingId === child.id}
+                            isDragging={props.ownProps.draggingId === child().id}
                             collapsed={false}
                             selectedBlockId={props.ownProps.selectedBlockId}
                             dirtyBlockIds={props.ownProps.dirtyBlockIds}
@@ -351,7 +359,7 @@ const GroupItemPreview: Component<NestedPreviewProps> = (props,) => {
                             onChangeType={props.ownProps.onChangeType}
                         />
                     )}
-                </For>
+                </Index>
             </Show>
         </div>
     );
