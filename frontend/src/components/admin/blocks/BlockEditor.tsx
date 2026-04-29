@@ -33,8 +33,69 @@ interface BlockEditorProps {
  * registered+enabled type.
  */
 
-let blockIdCounter = 0;
-const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
+/** Real UUIDs from the start so newly-added group children can reference
+ *  their parent before either has been saved to the server. */
+const generateBlockId = () =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ?
+        crypto.randomUUID() :
+        `${Date.now().toString(16,)}-${Math.random().toString(16,).slice(2,)}`;
+
+// ─── Block-tree helpers ───
+//
+// Operations (add, remove, move) are easier to express on a tree than on
+// a flat array — so we build a tree, mutate, and flatten back. The flat
+// representation is what the editor stores and what `onBlocksChange`
+// emits; we keep an invariant that parents come before their descendants
+// in the flat array (DFS order).
+
+type BlockNode = BlockData & { children: BlockNode[]; };
+
+function treeify(flat: BlockData[],): BlockNode[] {
+    const nodes = new Map<string, BlockNode>();
+    for (const b of flat) nodes.set(b.id, { ...b, children: [], },);
+    const roots: BlockNode[] = [];
+    for (const b of flat) {
+        const node = nodes.get(b.id,)!;
+        const parent = b.parentBlockId ? nodes.get(b.parentBlockId,) : null;
+        if (parent) parent.children.push(node,);
+        else roots.push(node,);
+    }
+    return roots;
+}
+
+function flattenTree(tree: BlockNode[],): BlockData[] {
+    const out: BlockData[] = [];
+    const walk = (list: BlockNode[],) => {
+        for (let i = 0; i < list.length; i++) {
+            const { children, ...rest } = list[i];
+            out.push({ ...rest, sort_order: i, },);
+            walk(children,);
+        }
+    };
+    walk(tree,);
+    return out;
+}
+
+/** Locate a node + its containing list. Returns null if not found. */
+function findInTree(
+    tree: BlockNode[],
+    id: string,
+): { parent: BlockNode[]; idx: number; node: BlockNode; } | null {
+    for (let i = 0; i < tree.length; i++) {
+        if (tree[i].id === id) return { parent: tree, idx: i, node: tree[i], };
+        const sub = findInTree(tree[i].children, id,);
+        if (sub) return sub;
+    }
+    return null;
+}
+
+const newGroupItem = (parentId: string,): BlockData => ({
+    id: generateBlockId(),
+    type: 'group_item',
+    parentBlockId: parentId,
+    sort_order: 0,
+    data: {},
+});
 
 /** Deep-compare two block snapshots (data + styleRef). */
 const blockEquals = (a: BlockData | undefined, b: BlockData | undefined,): boolean => {
@@ -81,6 +142,25 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     /** Check if a block has unsaved changes compared to saved version. */
     const isBlockDirty = (blockId: string,): boolean => dirtyMap().get(blockId,) ?? false;
+
+    /** Set of dirty block ids — passed down to nested ContentBlocks so
+     *  they don't have to know about the dirty map shape. */
+    const dirtyBlockIds = createMemo(() => {
+        const set = new Set<string>();
+        for (const [id, d,] of dirtyMap().entries()) {
+            if (d) set.add(id,);
+        }
+        return set;
+    },);
+
+    /** Top-level blocks, sorted by `sort_order` for stable iteration.
+     *  Children of group / group_item are filtered out — they render
+     *  recursively inside their parent's ContentBlock. */
+    const topLevelBlocks = createMemo(() =>
+        props.blocks
+            .filter(b => b.parentBlockId == null)
+            .sort((a, b,) => a.sort_order - b.sort_order,),
+    );
 
     /** Revert a single block to its saved state. */
     const revertBlock = (blockId: string,) => {
@@ -154,75 +234,147 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         },),);
     };
 
-    const addBlock = (type: BlockType, position: 'top' | 'bottom' = 'bottom',) => {
-        const currentBlocks = props.blocks;
-        // Initial data (including the per-type "default padding" rule)
-        // comes from the central registry — see config/blockTypes.ts.
-        const newBlock: BlockData = {
+    /**
+     * Insert a new block.
+     *  - `parentBlockId` (optional) places the block inside that group_item
+     *    or group. When null/undefined, the block is added at the top level.
+     *  - For type='group', N initial group_item children are created so
+     *    the group is immediately usable.
+     *  - For group_item containers, only one child is allowed; this call
+     *    replaces an existing child if the slot already had one.
+     */
+    const addBlock = (
+        type: BlockType,
+        position: 'top' | 'bottom' = 'bottom',
+        parentBlockId?: string | null,
+    ) => {
+        const tree = treeify(props.blocks,);
+
+        const newBlock: BlockNode = {
             id: generateBlockId(),
             type,
+            parentBlockId: parentBlockId ?? null,
             sort_order: 0,
             data: createBlockDefaultData(type,),
+            children: [],
         };
-        const updated = position === 'top' ?
-            [newBlock, ...currentBlocks,] :
-            [...currentBlocks, newBlock,];
-        props.onBlocksChange(updated.map((b, i,) => ({ ...b, sort_order: i, })),);
-        // Auto-select the new block to open it in the flyout. The
-        // AddBlockMenu component closes itself on selection.
-        setSelectedBlockId(newBlock.id,);
 
+        // For new groups, create the initial group_item children right
+        // now so the slot pickers render.
+        if (type === 'group') {
+            const cols = (newBlock.data.columns as number) || 2;
+            for (let i = 0; i < cols; i++) {
+                const item = newGroupItem(newBlock.id,);
+                newBlock.children.push({ ...item, children: [], },);
+            }
+        }
+
+        // Find the destination list — the parent's children, or the root
+        // tree for top-level inserts.
+        let destList: BlockNode[] = tree;
+        if (parentBlockId) {
+            const found = findInTree(tree, parentBlockId,);
+            if (!found) return;
+            // group_item slots only hold one child; replace if filled.
+            if (found.node.type === 'group_item') {
+                found.node.children = [newBlock,];
+            } else {
+                destList = found.node.children;
+                position === 'top' ? destList.unshift(newBlock,) : destList.push(newBlock,);
+            }
+        } else {
+            position === 'top' ? destList.unshift(newBlock,) : destList.push(newBlock,);
+        }
+
+        props.onBlocksChange(flattenTree(tree,),);
+        setSelectedBlockId(newBlock.id,);
         requestAnimationFrame(() => {
             const el = document.getElementById(newBlock.id,);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
-            }
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
         },);
+    };
+
+    /** Convenience for empty group_item slots: add a child to a parent. */
+    const addChildBlock = (type: BlockType, parentId: string,) => {
+        addBlock(type, 'bottom', parentId,);
     };
 
     const updateBlock = (id: string, data: Record<string, any>,) => {
         const scrollY = window.scrollY;
-        props.onBlocksChange(props.blocks.map(b => b.id === id ? { ...b, data, } : b),);
-        // Preserve scroll — block updates create new references which cause
-        // <For> to remount ContentBlock, potentially triggering Suspense.
+        const prevBlock = props.blocks.find(b => b.id === id);
+        const updated = props.blocks.map(b => b.id === id ? { ...b, data, } : b);
+
+        // If a group's columns count changed, sync the number of
+        // group_item children to match.
+        if (prevBlock?.type === 'group') {
+            const prevCols = (prevBlock.data.columns as number) || 0;
+            const nextCols = (data.columns as number) || 0;
+            if (prevCols !== nextCols) {
+                const tree = treeify(updated,);
+                const found = findInTree(tree, id,);
+                if (found) {
+                    const items = found.node.children;
+                    if (nextCols > items.length) {
+                        for (let i = items.length; i < nextCols; i++) {
+                            items.push({ ...newGroupItem(id,), children: [], },);
+                        }
+                    } else if (nextCols < items.length) {
+                        items.length = nextCols;
+                    }
+                    props.onBlocksChange(flattenTree(tree,),);
+                    requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
+                    return;
+                }
+            }
+        }
+
+        props.onBlocksChange(updated,);
         requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
     };
 
     const removeBlock = (id: string,) => {
         if (selectedBlockId() === id) setSelectedBlockId(null,);
-        props.onBlocksChange(props.blocks.filter(b => b.id !== id).map((b, i,) => ({ ...b, sort_order: i, })),);
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found) return;
+        found.parent.splice(found.idx, 1,);
+        props.onBlocksChange(flattenTree(tree,),);
     };
 
     const moveBlockUp = (id: string,) => {
-        const idx = props.blocks.findIndex(b => b.id === id);
-        if (idx <= 0) return;
-        const arr = [...props.blocks,];
-        [arr[idx - 1], arr[idx],] = [arr[idx], arr[idx - 1],];
-        props.onBlocksChange(arr.map((b, i,) => ({ ...b, sort_order: i, })),);
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found || found.idx === 0) return;
+        const list = found.parent;
+        [list[found.idx - 1], list[found.idx],] = [list[found.idx], list[found.idx - 1],];
+        props.onBlocksChange(flattenTree(tree,),);
     };
 
     const moveBlockDown = (id: string,) => {
-        const idx = props.blocks.findIndex(b => b.id === id);
-        if (idx < 0 || idx >= props.blocks.length - 1) return;
-        const arr = [...props.blocks,];
-        [arr[idx], arr[idx + 1],] = [arr[idx + 1], arr[idx],];
-        props.onBlocksChange(arr.map((b, i,) => ({ ...b, sort_order: i, })),);
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found || found.idx >= found.parent.length - 1) return;
+        const list = found.parent;
+        [list[found.idx], list[found.idx + 1],] = [list[found.idx + 1], list[found.idx],];
+        props.onBlocksChange(flattenTree(tree,),);
     };
 
     const moveBlockToTop = (id: string,) => {
-        const idx = props.blocks.findIndex(b => b.id === id);
-        if (idx <= 0) return;
-        const block = props.blocks[idx];
-        const rest = props.blocks.filter(b => b.id !== id);
-        props.onBlocksChange([block, ...rest,].map((b, i,) => ({ ...b, sort_order: i, })),);
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found || found.idx === 0) return;
+        const [node,] = found.parent.splice(found.idx, 1,);
+        found.parent.unshift(node,);
+        props.onBlocksChange(flattenTree(tree,),);
     };
 
     const moveBlockToBottom = (id: string,) => {
-        const idx = props.blocks.findIndex(b => b.id === id);
-        if (idx < 0 || idx >= props.blocks.length - 1) return;
-        const block = props.blocks[idx];
-        const rest = props.blocks.filter(b => b.id !== id);
-        props.onBlocksChange([...rest, block,].map((b, i,) => ({ ...b, sort_order: i, })),);
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found || found.idx >= found.parent.length - 1) return;
+        const [node,] = found.parent.splice(found.idx, 1,);
+        found.parent.push(node,);
+        props.onBlocksChange(flattenTree(tree,),);
     };
 
     const handleDragStart = (e: PointerEvent, id: string,) => {
@@ -423,7 +575,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                             style={previewContainerStyle()}
                         >
                             <For
-                                each={props.blocks}
+                                each={topLevelBlocks()}
                                 fallback={
                                     <div class="block-editor__empty">
                                         Click <strong>+ Add Block</strong> below to add content blocks.
@@ -434,12 +586,16 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                     <ContentBlock
                                         block={block}
                                         index={index()}
-                                        total={props.blocks.length}
+                                        total={topLevelBlocks().length}
+                                        allBlocks={props.blocks}
                                         isSelected={selectedBlockId() === block.id}
                                         isDirty={isBlockDirty(block.id,)}
                                         isEditing={false}
                                         isDragging={draggingId() === block.id}
                                         collapsed={false}
+                                        selectedBlockId={selectedBlockId()}
+                                        dirtyBlockIds={dirtyBlockIds()}
+                                        draggingId={draggingId()}
                                         onToggleEdit={() => selectBlock(block.id,)}
                                         onCancel={deselectBlock}
                                         onUpdate={updateBlock}
@@ -449,6 +605,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                         onMoveToTop={moveBlockToTop}
                                         onMoveToBottom={moveBlockToBottom}
                                         onDragStart={handleDragStart}
+                                        onAddChildBlock={addChildBlock}
                                         blockTypes={blockTypes()}
                                         onChangeType={changeBlockType}
                                     />

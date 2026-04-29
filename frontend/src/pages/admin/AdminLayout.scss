@@ -2173,6 +2173,47 @@
   font-size: $font-size-xs;
 }
 
+// ─── Group + group_item preview (admin) ─────────────────────────────
+//
+// Groups render as flex containers (direction/wrap/etc. inline-styled).
+// We add a soft outline so children read as "inside this group" without
+// stealing focus from the actual block previews.
+
+.content-block--group > .content-block__preview-body {
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: $border-radius-sm;
+}
+
+.content-block--group_item > .content-block__preview-body {
+  padding: 0;
+  background: transparent;
+}
+
+.content-block__group-item {
+  display: flex;
+  flex-direction: column;
+  // Empty slot fallback below paints the dashed border; filled slots
+  // inherit the child's own preview styles.
+}
+
+.content-block__group-item-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  padding: $spacing-md;
+  border: 1.5px dashed #d0d0d0;
+  border-radius: $border-radius-sm;
+  background: rgba(0, 0, 0, 0.015);
+
+  // The AddBlockMenu trigger inside should be visually muted by default
+  // — the slot is the affordance, not the button.
+  > * {
+    opacity: 0.85;
+  }
+}
+
 .content-block-ghost {
   z-index: $z-index-modal;
   pointer-events: none;

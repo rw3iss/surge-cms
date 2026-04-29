@@ -6,6 +6,8 @@ import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import DocumentBlock from './types/DocumentBlock';
 import FormBlock from './types/FormBlock';
+import GroupBlock from './types/GroupBlock';
+import GroupItemBlock from './types/GroupItemBlock';
 import ImageBlock from './types/ImageBlock';
 import PostListBlock from './types/PostListBlock';
 import SocialFeedBlock from './types/SocialFeedBlock';
@@ -404,6 +406,12 @@ const BlockContentForm: Component<{
         </Match>
         <Match when={props.block.type === 'spacer'}>
             <SpacerBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
+        </Match>
+        <Match when={props.block.type === 'group'}>
+            <GroupBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
+        </Match>
+        <Match when={props.block.type === 'group_item'}>
+            <GroupItemBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
     </Switch>
 );

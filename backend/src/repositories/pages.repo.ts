@@ -273,11 +273,29 @@ export async function createBlock(pageId: string, data: Record<string, unknown>,
     const cleanSettings = { ...(data.settings as Record<string, any> || {}), };
     delete cleanSettings.__styleRef;
 
+    // Accept a client-supplied UUID so the editor can pre-generate ids
+    // for parent/child blocks and POST them in any order — child blocks
+    // reference their parent by id before the parent's "save" returns.
+    const clientId = (typeof data.id === 'string' && /^[0-9a-fA-F-]{36}$/.test(data.id,)) ?
+        data.id :
+        null;
+
     const result = await query(
-        `INSERT INTO blocks (page_id, parent_block_id, type, title, content, settings, "order", is_visible, style)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO blocks (${clientId ? 'id, ' : ''}page_id, parent_block_id, type, title, content, settings, "order", is_visible, style)
+     VALUES (${clientId ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10' : '$1, $2, $3, $4, $5, $6, $7, $8, $9'})
      RETURNING *`,
-        [
+        clientId ? [
+            clientId,
+            pageId,
+            parentBlockId,
+            data.type,
+            data.title,
+            content,
+            JSON.stringify(cleanSettings,),
+            data.order ?? maxOrder.rows[0].next_order,
+            data.isVisible ?? true,
+            styleValue,
+        ] : [
             pageId,
             parentBlockId,
             data.type,

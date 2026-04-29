@@ -34,10 +34,17 @@ const pageSchema = z.object({
 },);
 
 const blockSchema = z.object({
+    /** Optional client-supplied UUID. When present, used as the row's
+     *  primary key — lets the editor reference a parent before the
+     *  parent's create response returns. Must be a v4-shaped UUID. */
+    id: z.string().uuid().optional(),
+    /** Parent block id; null/undefined for top-level blocks. */
+    parentBlockId: z.string().uuid().nullable().optional(),
     type: z.enum([
         'rich_text', 'text', 'post', 'post_list', 'form', 'image', 'video', 'gallery',
         'social_feed', 'social_media', 'campaign', 'hero', 'html',
         'document', 'url_link', 'carousel', 'spacer',
+        'group', 'group_item',
     ],),
     title: z.string().max(255,).optional(),
     content: z.string().optional(),

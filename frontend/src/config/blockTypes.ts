@@ -33,7 +33,9 @@ export type BlockType =
     | 'social_feed'
     | 'gallery'
     | 'carousel'
-    | 'spacer';
+    | 'spacer'
+    | 'group'
+    | 'group_item';
 
 /** Loose grouping for future menu organization. Flat for now. */
 export type BlockCategory = 'content' | 'media' | 'embed' | 'layout' | 'reference';
@@ -124,10 +126,28 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
     { type: 'url_link', label: 'URL Link', icon: '🔗', category: 'embed', },
     { type: 'carousel', label: 'Carousel', icon: '⇄', category: 'layout', },
     { type: 'spacer', label: 'Empty Space', icon: '⎵', category: 'layout', },
+    {
+        type: 'group',
+        label: 'Group',
+        icon: '⊞',
+        category: 'layout',
+        composite: true,
+        // A new group starts with two columns. The PageEditor / save
+        // flow picks up this default and creates two empty group_item
+        // children alongside the group itself.
+        defaultData: () => ({
+            direction: 'horizontal',
+            columns: 2,
+            wrap: 'wrap',
+        }),
+    },
     // 'text' is the legacy plain-text type; new content uses rich_text.
     // We keep the label so existing rows render correctly but don't
     // expose it in the picker (enabled: false).
     { type: 'text', label: 'Text', enabled: false, },
+    // group_item is created automatically when a group is added or its
+    // columns count changes — never picked from the menu directly.
+    { type: 'group_item', label: 'Group Slot', enabled: false, composite: true, },
 ];
 
 /** O(1) lookup by type, derived from BLOCK_TYPES. */

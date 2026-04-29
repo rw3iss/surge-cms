@@ -23,8 +23,18 @@ import { appearanceCssVars, } from '../../utils/appearanceStyle';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 
-let blockIdCounter = 0;
-const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
+/**
+ * Block IDs are real UUIDs from the moment they're created in the editor.
+ * Children of groups reference their parent via this id — pre-generating
+ * UUIDs lets us POST parent + children in any order; the backend's
+ * createBlock accepts a client-supplied id (falling back to default uuid
+ * generation when absent).
+ */
+const generateBlockId = () =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ?
+        crypto.randomUUID() :
+        // Fallback for older browsers — still valid v4 shape via random hex.
+        `${Date.now().toString(16,)}-${Math.random().toString(16,).slice(2,)}`;
 
 function pageBlockToBlockData(block: any,): BlockData {
     const styleRef = block.style?.id ?
@@ -36,6 +46,7 @@ function pageBlockToBlockData(block: any,): BlockData {
     return {
         id: block.id,
         type: block.type,
+        parentBlockId: block.parentBlockId ?? null,
         sort_order: block.order ?? 0,
         data: {
             title: block.title || '',
@@ -63,6 +74,7 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
 
     return {
         type: block.type,
+        parentBlockId: block.parentBlockId ?? null,
         // Send title/content directly. Empty string = user cleared the
         // field and the backend should write '' (the previous version
         // coerced '' to undefined, which JSON dropped, so the old value
@@ -164,24 +176,54 @@ const AdminPageEditor: Component = () => {
         const origIds = originalBlockIds();
         const currentIds = new Set(currentBlocks.map(b => b.id),);
         const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
-        const newBlocks = currentBlocks.filter(b => !origIds.has(b.id,));
-        const existingBlocks = currentBlocks.filter(b => origIds.has(b.id,));
 
         for (const id of deletedIds) {
             await api.delete(`/pages/${pageId}/blocks/${id}`,);
         }
-        for (let i = 0; i < newBlocks.length; i++) {
-            const b = newBlocks[i];
-            const order = currentBlocks.indexOf(b,);
-            await api.post(`/pages/${pageId}/blocks`, blockDataToPageBlock(b, order,),);
+
+        // Per-parent "order" is the block's index within its siblings.
+        // Compute once up front.
+        const orderByParent = new Map<string | null, number>();
+        const orderById = new Map<string, number>();
+        for (const b of currentBlocks) {
+            const key = b.parentBlockId ?? null;
+            const next = (orderByParent.get(key,) ?? -1) + 1;
+            orderByParent.set(key, next,);
+            orderById.set(b.id, next,);
         }
-        for (const b of existingBlocks) {
-            const order = currentBlocks.indexOf(b,);
-            await api.put(`/pages/${pageId}/blocks/${b.id}`, blockDataToPageBlock(b, order,),);
+
+        // Walk currentBlocks linearly. The editor keeps parents before
+        // their children in the flat array (groups insert their initial
+        // group_item children immediately after the group itself), so a
+        // single forward pass POSTs parents before children — FK
+        // references against client-supplied UUIDs resolve fine.
+        for (const b of currentBlocks) {
+            const order = orderById.get(b.id,) ?? 0;
+            const payload = blockDataToPageBlock(b, order,);
+            if (origIds.has(b.id,)) {
+                await api.put(`/pages/${pageId}/blocks/${b.id}`, payload,);
+            } else {
+                await api.post(`/pages/${pageId}/blocks`, { ...payload, id: b.id, },);
+            }
         }
-        const blockIds = currentBlocks.filter(b => origIds.has(b.id,)).map(b => b.id);
-        if (blockIds.length > 1) {
-            await api.put(`/pages/${pageId}/blocks/reorder`, { blockIds, },);
+
+        // Per-parent reorder — keeps server-side "order" in sync with the
+        // editor's current arrangement for parents that already had rows.
+        const byParent = new Map<string | null, string[]>();
+        for (const b of currentBlocks) {
+            const key = b.parentBlockId ?? null;
+            const list = byParent.get(key,) ?? [];
+            list.push(b.id,);
+            byParent.set(key, list,);
+        }
+        for (const [parentKey, ids,] of byParent.entries()) {
+            const existingCount = ids.filter(id => origIds.has(id,)).length;
+            if (ids.length > 1 && existingCount > 1) {
+                await api.put(`/pages/${pageId}/blocks/reorder`, {
+                    parentBlockId: parentKey,
+                    blockIds: ids,
+                },);
+            }
         }
     };
 

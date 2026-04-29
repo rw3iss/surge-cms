@@ -629,20 +629,40 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
 
 // ─── Group + group_item ─────────────────────────────────────────────
 //
-// Phase-1 scaffolding: recurse over children. Layout CSS (direction,
-// columns, item min/max, wrap, align/justify) is applied in Phase 2;
-// for now group renders as a simple flex container so any data placed
-// here doesn't visually collapse, and group_item renders its single
-// child unwrapped.
+// Group blocks are flex containers. Children are group_item slots that
+// each hold one content block. Item min/max width/height defaults set
+// on the group flow down to slots that don't override.
+//
+// `align` / `justify` accept short keywords (start/center/end/stretch);
+// we map "start" / "end" → "flex-start" / "flex-end" for the appropriate
+// CSS property.
+
+const flexAlign = (v?: string,): string | undefined => {
+    if (!v) return undefined;
+    if (v === 'start') return 'flex-start';
+    if (v === 'end') return 'flex-end';
+    return v;
+};
 
 const GroupBlock: Component<{ block: Block; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
+    const data = () => (props.block.settings || {}) as Record<string, any>;
+    const direction = () => (data().direction as string) || 'horizontal';
+    const containerStyle = (): Record<string, string | undefined> => ({
+        display: 'flex',
+        'flex-direction': direction() === 'vertical' ? 'column' : 'row',
+        'flex-wrap': (data().wrap as string) || 'wrap',
+        gap: (data().gap as string) || undefined,
+        'align-items': flexAlign(data().align as string,),
+        'justify-content': flexAlign(data().justify as string,),
+    });
+
     return (
-        <div class="block--group">
+        <div class="block--group" style={containerStyle()}>
             <For each={children()}>
                 {(child,) => (
                     <Show when={child.isVisible !== false}>
-                        <BlockRenderer block={child} />
+                        <BlockRenderer block={withSlotDefaults(child, data(),)} />
                     </Show>
                 )}
             </For>
@@ -650,13 +670,40 @@ const GroupBlock: Component<{ block: Block; }> = (props,) => {
     );
 };
 
+/** Apply parent group's `itemMin/Max...` defaults to a group_item child
+ *  unless the slot has its own override. Returns a shallow clone so the
+ *  source block isn't mutated. */
+function withSlotDefaults(child: Block, parentData: Record<string, any>,): Block {
+    if (child.type !== 'group_item') return child;
+    const slot = (child.settings || {}) as Record<string, any>;
+    const merged = {
+        ...slot,
+        minWidth: slot.minWidth ?? parentData.itemMinWidth,
+        maxWidth: slot.maxWidth ?? parentData.itemMaxWidth,
+        minHeight: slot.minHeight ?? parentData.itemMinHeight,
+        maxHeight: slot.maxHeight ?? parentData.itemMaxHeight,
+    };
+    return { ...child, settings: merged as any, };
+}
+
 const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
+    const data = () => (props.block.settings || {}) as Record<string, any>;
+    const slotStyle = (): Record<string, string | undefined> => ({
+        flex: data().width ? '0 0 auto' : '1 1 0',
+        width: (data().width as string) || undefined,
+        'min-width': (data().minWidth as string) || undefined,
+        'max-width': (data().maxWidth as string) || undefined,
+        height: (data().height as string) || undefined,
+        'min-height': (data().minHeight as string) || undefined,
+        'max-height': (data().maxHeight as string) || undefined,
+        'align-self': flexAlign(data().alignSelf as string,),
+    });
     // Empty group_items render nothing on the public site (placeholder
     // picker is admin-only, in the editor BlockPreview).
     return (
         <Show when={children().length > 0}>
-            <div class="block--group_item">
+            <div class="block--group_item" style={slotStyle()}>
                 <For each={children()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
