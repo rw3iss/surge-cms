@@ -2214,6 +2214,94 @@
   }
 }
 
+// ─── Image block (multi-image thumbnail strip) ──────────────────────
+
+.image-block-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  margin-bottom: $spacing-md;
+  border-bottom: 1px solid $border-color;
+}
+
+.image-block-strip__thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 2px solid #d8d8d8;
+  border-radius: $border-radius-sm;
+  overflow: hidden;
+  background: #f6f6f6;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 120ms ease;
+
+  &:hover { border-color: #b0b0b0; }
+  &.is-active { border-color: var(--site-primary, #{$primary-color}); }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.image-block-strip__placeholder {
+  color: #999;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.image-block-strip__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+
+  .image-block-strip__thumb:hover & { opacity: 1; }
+}
+
+.image-block-strip__add {
+  width: 64px;
+  height: 64px;
+  border: 2px dashed #c8c8c8;
+  border-radius: $border-radius-sm;
+  background: transparent;
+  color: #888;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--site-primary, #{$primary-color});
+    color: var(--site-primary, #{$primary-color});
+  }
+}
+
+.image-block-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
 // ─── HTML inline editor ─────────────────────────────────────────────
 
 .html-inline-editor {

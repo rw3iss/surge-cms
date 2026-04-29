@@ -178,23 +178,62 @@ const RichTextBlock: Component<{ block: Block; }> = (props,) => (
     </div>
 );
 
+interface PublicImageItem {
+    id: string;
+    url: string;
+    alt?: string;
+    caption?: string;
+    link?: string;
+    allowMaximize?: boolean;
+}
+
+/** Build the rendered image list, coalescing legacy single-image blocks
+ *  (top-level `url` field) into a one-item array for a uniform render path. */
+function resolvePublicImages(block: Block,): PublicImageItem[] {
+    const s = (block.settings || {}) as Record<string, any>;
+    if (Array.isArray(s.images,) && s.images.length > 0) {
+        return s.images.map((img: any,) => ({
+            id: img.id,
+            url: img.url || '',
+            alt: img.alt,
+            caption: img.caption,
+            link: img.link,
+            allowMaximize: img.allowMaximize === true,
+        }),).filter(i => i.url);
+    }
+    const legacyUrl = block.content || (s.url as string) || '';
+    if (!legacyUrl) return [];
+    return [{
+        id: 'legacy',
+        url: legacyUrl,
+        alt: (s.alt as string) || block.title || '',
+        caption: s.caption as string | undefined,
+        allowMaximize: s.allowMaximize === true,
+    },];
+}
+
 const ImageBlock: Component<{ block: Block; }> = (props,) => {
-    const imageUrl = () =>
-        props.block.content ||
-        (props.block.settings.url as string) ||
-        '';
-    const altText = () => (props.block.settings.alt as string) || props.block.title || '';
-    const maxW = () => {
-        const v = props.block.settings.maxWidth;
+    const items = () => resolvePublicImages(props.block,);
+    const s = () => (props.block.settings || {}) as Record<string, any>;
+    const direction = () => (s().direction as string) || 'horizontal';
+    const itemMinWidth = () => (s().itemMinWidth as string) || undefined;
+    const itemMaxWidth = () => (s().itemMaxWidth as string) || undefined;
+    const itemMinHeight = () => (s().itemMinHeight as string) || undefined;
+    const itemMaxHeight = () => (s().itemMaxHeight as string) || undefined;
+
+    // Legacy single-image alignment / maxWidth fields stay supported for
+    // pages that haven't been re-edited since the multi-image upgrade.
+    const alignment = () => s().alignment as string || 'left';
+    const legacyMaxW = () => {
+        const v = s().maxWidth;
         if (!v) return undefined;
         return typeof v === 'number' ? `${v}px` : String(v,);
     };
-    const maxH = () => {
-        const v = props.block.settings.maxHeight;
+    const legacyMaxH = () => {
+        const v = s().maxHeight;
         if (!v) return undefined;
         return typeof v === 'number' ? `${v}px` : String(v,);
     };
-    const alignment = () => props.block.settings.alignment as string || 'left';
     const imgMargin = () =>
         alignment() === 'center' ?
             '0 auto' :
@@ -202,25 +241,18 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
             '0 0 0 auto' :
             undefined;
 
-    /** Whether the operator opted into the click-to-maximize affordance.
-     *  Defaults to false so existing image blocks render with no
-     *  behavior change. */
-    const allowMaximize = () => props.block.settings.allowMaximize === true;
+    const isMulti = () => items().length > 1 || Array.isArray(s().images,);
+    const allowMaximizeAny = () => items().some(i => i.allowMaximize === true,);
 
-    /** Modal open/closed state. Each ImageBlock instance owns its own
-     *  state; multiple maximizable images on a page are independent. */
-    const [maximized, setMaximized,] = createSignal(false,);
+    /** Currently-maximized image url; null when modal closed. */
+    const [maximizedUrl, setMaximizedUrl,] = createSignal<string | null>(null,);
 
-    // Esc-to-close + body-scroll lock while the modal is open. The
-    // listener is attached only while the modal is mounted so we don't
-    // pollute global key handling for closed modals.
     createEffect(() => {
-        if (!maximized()) return;
+        if (!maximizedUrl()) return;
         const onKey = (e: KeyboardEvent,) => {
-            if (e.key === 'Escape') setMaximized(false,);
+            if (e.key === 'Escape') setMaximizedUrl(null,);
         };
         document.addEventListener('keydown', onKey,);
-        // Lock body scroll so the modal feels like a true overlay.
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         onCleanup(() => {
@@ -229,36 +261,88 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
         },);
     },);
 
-    return (
-        <div class="image-block">
-            <Show when={imageUrl()}>
-                <img
-                    src={imageUrl()}
-                    alt={altText()}
-                    class={`image-block__img ${allowMaximize() ? 'image-block__img--maximizable' : ''}`}
-                    loading="lazy"
-                    style={{
-                        'max-width': maxW() || '100%',
-                        'max-height': maxH(),
-                        display: 'block',
-                        margin: imgMargin(),
-                        cursor: allowMaximize() ? 'zoom-in' : undefined,
-                    }}
-                    onClick={allowMaximize() ? () => setMaximized(true,) : undefined}
-                />
-            </Show>
-            <Show when={props.block.settings.caption}>
-                <p class="image-block__caption">{props.block.settings.caption as string}</p>
-            </Show>
+    /** Container layout depends on multi vs single. Multi uses flex and
+     *  flows naturally with the block style's gap; single keeps the
+     *  legacy margin-based alignment behavior so old pages render
+     *  identically until they're re-edited. */
+    const containerStyle = (): Record<string, string | undefined> => {
+        if (!isMulti()) return {};
+        return {
+            display: 'flex',
+            'flex-direction': direction() === 'vertical' ? 'column' : 'row',
+            'flex-wrap': 'wrap',
+            'align-items': 'flex-start',
+        };
+    };
 
-            {/* ─── Maximize modal ─────────────────────────────────
-                Rendered to document.body via Portal so the overlay
-                escapes any ancestor `overflow: hidden` / z-index
-                stacking. Backdrop click and the X button both close;
-                clicking the image itself opens the raw asset in a
-                new tab so visitors can right-click → save / view at
-                full resolution. */}
-            <Show when={allowMaximize() && maximized()}>
+    return (
+        <div class="image-block image-block--multi" style={containerStyle()}>
+            <For each={items()}>
+                {(item,) => {
+                    const itemStyle = (): Record<string, string | undefined> => {
+                        if (isMulti()) {
+                            return {
+                                'min-width': itemMinWidth(),
+                                'max-width': itemMaxWidth(),
+                                'min-height': itemMinHeight(),
+                                'max-height': itemMaxHeight(),
+                                flex: '0 1 auto',
+                            };
+                        }
+                        // Single-image legacy path.
+                        return {
+                            'max-width': legacyMaxW() || '100%',
+                            'max-height': legacyMaxH(),
+                            display: 'block',
+                            margin: imgMargin(),
+                        };
+                    };
+
+                    const onImgClick = item.allowMaximize ?
+                        () => setMaximizedUrl(item.url,) :
+                        undefined;
+
+                    const imgEl = () => (
+                        <img
+                            src={item.url}
+                            alt={item.alt || ''}
+                            class={`image-block__img ${item.allowMaximize ? 'image-block__img--maximizable' : ''}`}
+                            loading="lazy"
+                            style={{
+                                ...itemStyle(),
+                                cursor: item.allowMaximize ? 'zoom-in' : undefined,
+                                'object-fit': isMulti() ? 'cover' : undefined,
+                                width: isMulti() ? '100%' : undefined,
+                                height: isMulti() && itemMinHeight() ? '100%' : undefined,
+                            }}
+                            onClick={onImgClick}
+                        />
+                    );
+
+                    return (
+                        <div
+                            class="image-block__item"
+                            data-image-id={item.id}
+                            style={isMulti() ? itemStyle() : undefined}
+                        >
+                            <Show
+                                when={item.link}
+                                fallback={imgEl()}
+                            >
+                                <a href={item.link} target="_blank" rel="noopener noreferrer">
+                                    {imgEl()}
+                                </a>
+                            </Show>
+                            <Show when={item.caption}>
+                                <p class="image-block__caption">{item.caption}</p>
+                            </Show>
+                        </div>
+                    );
+                }}
+            </For>
+
+            {/* Maximize modal — shared across all images in the block. */}
+            <Show when={allowMaximizeAny() && maximizedUrl()}>
                 <Portal>
                     <div
                         class="image-block-modal"
@@ -266,22 +350,19 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
                         aria-modal="true"
                         aria-label="Image preview"
                         onClick={(e,) => {
-                            // Backdrop click closes — but don't close
-                            // when the click bubbled from the image
-                            // (its own onClick opens a new tab).
-                            if (e.target === e.currentTarget) setMaximized(false,);
+                            if (e.target === e.currentTarget) setMaximizedUrl(null,);
                         }}
                     >
                         <button
                             type="button"
                             class="image-block-modal__close"
-                            onClick={() => setMaximized(false,)}
+                            onClick={() => setMaximizedUrl(null,)}
                             aria-label="Close"
                         >
                             ×
                         </button>
                         <a
-                            href={imageUrl()}
+                            href={maximizedUrl()!}
                             target="_blank"
                             rel="noopener noreferrer"
                             class="image-block-modal__link"
@@ -289,8 +370,8 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
                             title="Open original in a new tab"
                         >
                             <img
-                                src={imageUrl()}
-                                alt={altText()}
+                                src={maximizedUrl()!}
+                                alt=""
                                 class="image-block-modal__img"
                             />
                         </a>
