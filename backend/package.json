@@ -10,6 +10,7 @@
     "db:migrate:status": "tsx src/db/migrate.ts --status",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
+    "seed:fonts": "tsx scripts/seed-fonts.ts",
     "lint": "eslint src --ext .ts",
     "test": "vitest"
   },

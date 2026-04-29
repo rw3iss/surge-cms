@@ -6,6 +6,7 @@ import campaignsRoutes from './campaigns';
 import connectionsRoutes from './connections';
 import dashboardRoutes from './dashboard';
 import devRoutes from './dev';
+import fontsRoutes from './fonts';
 import formsRoutes from './forms';
 import healthRoutes from './health';
 import mediaRoutes from './media';
@@ -40,5 +41,6 @@ router.use('/sitemap', sitemapRoutes,);
 router.use('/audit', auditRoutes,);
 router.use('/dashboard', dashboardRoutes,);
 router.use('/dev', devRoutes,);
+router.use('/fonts', fontsRoutes,);
 
 export default router;

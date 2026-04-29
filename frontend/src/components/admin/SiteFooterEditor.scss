@@ -316,9 +316,26 @@
         margin-bottom: $spacing-sm;
         padding: $spacing-sm;
         background-color: $background-dark;
+        // Position relative so the drop-indicator pseudo-elements
+        // anchor to the row card.
+        position: relative;
+        transition: box-shadow 0.12s ease, opacity 0.12s ease;
 
         &.is-selected {
             outline: 2px solid var(--site-primary, #{$primary-color});
+        }
+
+        // ─── Drop indicators (drag-and-drop reorder) ───────────
+        // A 2px primary-colored bar paints just outside the row's
+        // top or bottom edge to show where the drop will land.
+        // box-shadow keeps the indicator from affecting layout
+        // (which a top/bottom border would).
+        &.is-drop-before {
+            box-shadow: 0 -3px 0 0 var(--site-primary, #{$primary-color});
+        }
+
+        &.is-drop-after {
+            box-shadow: 0 3px 0 0 var(--site-primary, #{$primary-color});
         }
     }
 
@@ -334,8 +351,30 @@
         flex-direction: column;
         gap: $spacing-xs;
         margin-top: $spacing-sm;
-        padding-left: $spacing-md;
+        padding: $spacing-xs 0 $spacing-xs $spacing-md;
         border-left: 2px solid $border-color;
+        // Animate the drop-zone treatment so the highlight fades in
+        // smoothly as the user drags over the row.
+        transition: outline-color 0.12s ease, background 0.12s ease, min-height 0.12s ease;
+
+        // Empty rows get a small minimum height so there's an
+        // actual surface to drop onto. Without this, an empty cols
+        // container collapses to the height of its lone "+ Add
+        // column" button — too thin to feel like a target.
+        &.is-empty {
+            min-height: 36px;
+        }
+
+        // Active column-drop on an empty row. Dashed primary-color
+        // outline makes the drop intent unambiguous; subtle tint
+        // confirms the cursor is over the right zone.
+        &.is-drop-into {
+            min-height: 56px;
+            outline: 2px dashed var(--site-primary, #{$primary-color});
+            outline-offset: -2px;
+            border-radius: $border-radius-sm;
+            background: rgba($primary-color, 0.05);
+        }
     }
 
     &__tree-col {
@@ -343,9 +382,47 @@
         border: 1px solid $border-color;
         border-radius: $border-radius-sm;
         padding: $spacing-sm;
+        position: relative;
+        transition: box-shadow 0.12s ease, opacity 0.12s ease;
 
         &.is-selected {
             outline: 2px solid $success-color;
+        }
+
+        &.is-drop-before {
+            box-shadow: 0 -3px 0 0 $success-color;
+        }
+
+        &.is-drop-after {
+            box-shadow: 0 3px 0 0 $success-color;
+        }
+    }
+
+    // ─── Drag handle (rows + columns) ─────────────────────────
+    // Tight 6-dot grid icon that lives at the start of the
+    // row/column head. Only this element is `draggable=true`,
+    // so clicks on the label/action buttons can't accidentally
+    // initiate a drag.
+    &__tree-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        color: $text-light;
+        cursor: grab;
+        opacity: 0.6;
+        transition: opacity 0.12s ease, color 0.12s ease;
+        margin-right: 2px;
+
+        &:hover {
+            opacity: 1;
+            color: var(--admin-page-text, #{$text-color});
+        }
+
+        &:active {
+            cursor: grabbing;
         }
     }
 

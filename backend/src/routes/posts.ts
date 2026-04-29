@@ -5,6 +5,7 @@ import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-a
 import { ValidationError, } from '../middleware/error';
 import * as postsRepo from '../repositories/posts.repo';
 import * as revisionsRepo from '../repositories/revisions.repo';
+import { auditFromRequest, cms, } from '../sdk';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
 import { handleBulkAction, } from '../utils/bulkActions';
@@ -208,18 +209,11 @@ router.get('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
 
 router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
+        // Migrated to the SDK — domain logic, cache invalidation,
+        // and audit logging now live in `cms.posts.create`. The
+        // route is left with HTTP shaping only.
         const data = postSchema.parse(req.body,);
-        const post = await postsRepo.createPost(data, req.userId!,);
-        await cache.invalidatePostCache();
-        await logAudit({
-            userId: req.userId!,
-            action: 'create',
-            entityType: 'post',
-            entityId: post.id,
-            newValues: data,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
+        const post = await cms.posts.create(data, auditFromRequest(req,),);
         sendCreated(res, post,);
     } catch (error) {
         handleRouteError(res, error, 'create post',);

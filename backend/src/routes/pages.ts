@@ -6,6 +6,7 @@ import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-a
 import { ValidationError, } from '../middleware/error';
 import * as pagesRepo from '../repositories/pages.repo';
 import * as revisionsRepo from '../repositories/revisions.repo';
+import { auditFromRequest, cms, } from '../sdk';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
 import { handleBulkAction, } from '../utils/bulkActions';
@@ -179,18 +180,11 @@ router.get('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
 
 router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
+        // Demo of the route → SDK layering. The SDK module owns the
+        // repo call, cache invalidation, and audit logging in a
+        // single place — the route just shapes HTTP I/O.
         const data = pageSchema.parse(req.body,);
-        const page = await pagesRepo.createPage(data, req.userId!,);
-        await cache.invalidatePageCache();
-        await logAudit({
-            userId: req.userId!,
-            action: 'create',
-            entityType: 'page',
-            entityId: page.id,
-            newValues: data,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
+        const page = await cms.pages.create(data, auditFromRequest(req,),);
         sendCreated(res, page,);
     } catch (error) {
         handleRouteError(res, error, 'create page',);

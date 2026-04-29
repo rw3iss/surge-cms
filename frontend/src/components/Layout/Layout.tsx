@@ -3,6 +3,7 @@ import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@r
 import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
 import { fetchAppearance, fetchNavigation, fetchSiteFooter, fetchSiteHeader, } from '../../services/api';
 import { swatchCssVars, } from '../../services/colorResolver';
+import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
 import { appearanceCssVars, } from '../../utils/appearanceStyle';
@@ -55,6 +56,37 @@ export const Layout: ParentComponent = (props,) => {
     // swatch updates the var in place and every consumer repaints
     // without component-level subscription.
     void loadSwatches();
+
+    // Operator-uploaded fonts. Each font's binary is fetched once
+    // and exposed under its `customId` as a `font-family` token via
+    // a single <style> tag in <head>. Anywhere in the public site
+    // can then use `font-family: 'fontN'` (block styles, header
+    // items, footer items, etc.) and the browser resolves it.
+    void loadFonts();
+    createEffect(() => {
+        const list = fontsSignal();
+        if (typeof document === 'undefined') return;
+        const tagId = 'site-fonts';
+        let tag = document.getElementById(tagId,) as HTMLStyleElement | null;
+        if (!tag) {
+            tag = document.createElement('style',);
+            tag.id = tagId;
+            document.head.appendChild(tag,);
+        }
+        const formatHint = (fmt: string,) => {
+            switch (fmt) {
+                case 'woff2': return 'woff2';
+                case 'woff': return 'woff';
+                case 'ttf': return 'truetype';
+                case 'otf': return 'opentype';
+                case 'eot': return 'embedded-opentype';
+                default: return fmt;
+            }
+        };
+        tag.textContent = list.map(f =>
+            `@font-face { font-family: '${f.customId}'; src: url('${f.url}') format('${formatHint(f.format,)}'); font-display: swap; }`
+        ,).join('\n',);
+    },);
 
     // Mapping from AppearanceSettings → inline `--site-*` vars lives in
     // utils/appearanceStyle.ts so the public site and the admin shell

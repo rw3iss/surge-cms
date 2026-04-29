@@ -1,0 +1,185 @@
+// Font manager panel — admin Settings → Appearance.
+
+.font-manager {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__upload {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+
+    input[type='file'] {
+      flex: 1 1 220px;
+      min-width: 0;
+      font-size: $font-size-sm;
+    }
+
+    input[type='text'] {
+      flex: 1 1 160px;
+      padding: 6px 10px;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-sm;
+      font-size: $font-size-sm;
+      min-width: 0;
+    }
+  }
+
+  &__id-input {
+    font-family: var(--admin-font-mono, monospace);
+  }
+
+  &__alert {
+    margin: 0;
+  }
+
+  // ─── Sample controls ───────────────────────────────────────
+  &__sample-controls {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+    padding: $spacing-sm $spacing-md;
+    background: $background-dark;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: $spacing-sm;
+      font-size: $font-size-xs;
+      color: $text-light;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    label > span {
+      flex-shrink: 0;
+    }
+
+    input[type='text'] {
+      flex: 1;
+      min-width: 200px;
+      padding: 4px 8px;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-sm;
+      font-size: $font-size-sm;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      color: var(--admin-page-text, #{$text-color});
+    }
+
+    input[type='range'] {
+      flex: 1;
+      min-width: 140px;
+    }
+  }
+
+  &__sample-size-readout {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: $font-size-xs;
+    color: $text-light;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  // ─── List ──────────────────────────────────────────────────
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__empty {
+    color: $text-light;
+    font-size: $font-size-sm;
+    font-style: italic;
+    margin: 0;
+    padding: $spacing-md;
+    text-align: center;
+    border: 1px dashed $border-color;
+    border-radius: $border-radius-sm;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) auto;
+    gap: $spacing-md;
+    align-items: center;
+    padding: $spacing-md;
+    background: var(--admin-panel-bg, #fff);
+    border: 1px solid var(--admin-panel-border, #{$border-color});
+    border-radius: $border-radius-sm;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr auto;
+      .font-manager__row-sample {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+
+  &__row-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__row-id {
+    font-family: var(--admin-font-mono, monospace);
+    font-weight: 600;
+    font-size: $font-size-sm;
+    color: var(--site-primary, #{$primary-color});
+  }
+
+  &__row-family {
+    font-size: $font-size-sm;
+    color: var(--admin-page-text, #{$text-color});
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-detail {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__row-sample {
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__row-delete {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    background: none;
+    cursor: pointer;
+    color: $text-light;
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba($error-color, 0.12);
+      color: $error-color;
+    }
+  }
+}

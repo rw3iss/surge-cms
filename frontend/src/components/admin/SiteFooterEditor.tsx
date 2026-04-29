@@ -27,6 +27,14 @@ import './SiteFooterEditor.scss';
 
 const genId = (prefix: string,) => `${prefix}-${Date.now()}-${Math.random().toString(36,).slice(2, 7,)}`;
 
+/** Module-level alias of the editor's drop-hint state so the
+ *  RowTreeItem / ColumnTreeItem subcomponents (defined outside the
+ *  editor's lexical scope) can type their `dropHint` prop. */
+type DropHintLike =
+    | null
+    | { kind: 'row'; targetIndex: number; }
+    | { kind: 'column'; rowId: string; targetIndex: number; };
+
 const ITEM_TYPES: { value: SiteLayoutItemType; label: string; }[] = [
     { value: 'text', label: 'Text', },
     { value: 'text_link', label: 'Text Link', },
@@ -248,6 +256,209 @@ const SiteFooterEditor: Component = () => {
         },);
     };
 
+    // ── Drag-and-drop reorder ─────────────────────────────────────
+    //
+    // Rows can be reordered amongst themselves; columns can be
+    // reordered within a row OR moved between rows entirely. The
+    // existing arrow-button move helpers stay (single-step nudge);
+    // these are absolute-position variants the drag handlers call.
+
+    /** Move a row to an absolute target index (0..rows.length).
+     *  `targetIndex` represents the slot to insert the row INTO after
+     *  it's been removed from its current position — semantics match
+     *  Array.splice. */
+    const moveRowTo = (rowId: string, targetIndex: number,) => {
+        update((s,) => {
+            const idx = s.rows.findIndex((r,) => r.id === rowId,);
+            if (idx < 0) return s;
+            const [row,] = s.rows.splice(idx, 1,);
+            const clamped = Math.max(0, Math.min(targetIndex, s.rows.length,),);
+            s.rows.splice(clamped, 0, row,);
+            return s;
+        },);
+    };
+
+    /** Move a column out of its source row and into `destRowId` at
+     *  `targetIndex`. When `destRowId` equals the source row, this
+     *  reorders within the row. Empties columns disappear from their
+     *  source row but the row itself stays (might still hold others). */
+    const moveColumnTo = (
+        sourceRowId: string,
+        columnId: string,
+        destRowId: string,
+        targetIndex: number,
+    ) => {
+        update((s,) => {
+            const srcRow = s.rows.find((r,) => r.id === sourceRowId,);
+            if (!srcRow) return s;
+            const idx = srcRow.columns.findIndex((c,) => c.id === columnId,);
+            if (idx < 0) return s;
+            const [col,] = srcRow.columns.splice(idx, 1,);
+            const destRow = s.rows.find((r,) => r.id === destRowId,);
+            if (!destRow) {
+                // Source-row delete already happened; bail by putting it back.
+                srcRow.columns.splice(idx, 0, col,);
+                return s;
+            }
+            const clamped = Math.max(0, Math.min(targetIndex, destRow.columns.length,),);
+            destRow.columns.splice(clamped, 0, col,);
+            return s;
+        },);
+    };
+
+    // ── Drag state ─────────────────────────────────────────────────
+    //
+    // `dragState` describes what's currently being dragged; `dropHint`
+    // is the active visual indicator showing where the drop will land.
+    // Indicator-only — the actual move runs in onDrop.
+
+    type DragState =
+        | { kind: 'none'; }
+        | { kind: 'row'; sourceRowId: string; }
+        | { kind: 'column'; sourceRowId: string; sourceColumnId: string; };
+
+    type DropHint =
+        | null
+        | { kind: 'row'; targetIndex: number; }
+        | { kind: 'column'; rowId: string; targetIndex: number; };
+
+    const [dragState, setDragState,] = createSignal<DragState>({ kind: 'none', },);
+    const [dropHint, setDropHint,] = createSignal<DropHint>(null,);
+
+    /** Compute the row drop slot from a pointer position. Walks each
+     *  row's bounding rect; the row whose vertical midpoint we're
+     *  past determines the insertion index. Returns 0..rows.length. */
+    const computeRowDropIndex = (clientY: number, treeEl: HTMLElement,): number => {
+        const rowEls = treeEl.querySelectorAll('[data-row-id]',);
+        let target = rowEls.length;
+        for (let i = 0; i < rowEls.length; i++) {
+            const rect = (rowEls[i] as HTMLElement).getBoundingClientRect();
+            const mid = rect.top + rect.height / 2;
+            if (clientY < mid) {
+                target = i;
+                break;
+            }
+        }
+        return target;
+    };
+
+    /** Compute the column drop slot within `colsEl` for a pointer Y.
+     *  Same midpoint rule as rows. */
+    const computeColumnDropIndex = (clientY: number, colsEl: HTMLElement,): number => {
+        const colEls = colsEl.querySelectorAll(':scope > [data-col-id]',);
+        let target = colEls.length;
+        for (let i = 0; i < colEls.length; i++) {
+            const rect = (colEls[i] as HTMLElement).getBoundingClientRect();
+            const mid = rect.top + rect.height / 2;
+            if (clientY < mid) {
+                target = i;
+                break;
+            }
+        }
+        return target;
+    };
+
+    const onRowDragStart = (e: DragEvent, rowId: string, rowEl: HTMLElement,) => {
+        setDragState({ kind: 'row', sourceRowId: rowId, },);
+        // Use the row card itself as the ghost so the drag visual
+        // matches what's being moved. The (x,y) offsets pin the
+        // cursor to the same spot relative to the card it grabbed.
+        try {
+            e.dataTransfer?.setDragImage(rowEl, 12, 12,);
+        } catch { /* setDragImage is a best-effort cosmetic */ }
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            // Set some payload so non-Solid drag listeners don't
+            // misinterpret the drag (browsers require a non-empty
+            // dataTransfer for drop events to fire on some targets).
+            e.dataTransfer.setData('text/plain', `row:${rowId}`,);
+        }
+    };
+
+    const onColumnDragStart = (
+        e: DragEvent,
+        rowId: string,
+        columnId: string,
+        colEl: HTMLElement,
+    ) => {
+        setDragState({ kind: 'column', sourceRowId: rowId, sourceColumnId: columnId, },);
+        try {
+            e.dataTransfer?.setDragImage(colEl, 12, 12,);
+        } catch { /* ignore */ }
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', `col:${columnId}`,);
+        }
+    };
+
+    const onTreeDragOver = (e: DragEvent, treeEl: HTMLElement,) => {
+        const ds = dragState();
+        if (ds.kind !== 'row') return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        setDropHint({ kind: 'row', targetIndex: computeRowDropIndex(e.clientY, treeEl,), },);
+    };
+
+    const onColsDragOver = (e: DragEvent, rowId: string, colsEl: HTMLElement,) => {
+        const ds = dragState();
+        if (ds.kind !== 'column') return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        setDropHint({
+            kind: 'column',
+            rowId,
+            targetIndex: computeColumnDropIndex(e.clientY, colsEl,),
+        },);
+    };
+
+    const onTreeDrop = (e: DragEvent, treeEl: HTMLElement,) => {
+        const ds = dragState();
+        if (ds.kind !== 'row') return;
+        e.preventDefault();
+        const targetIndex = computeRowDropIndex(e.clientY, treeEl,);
+        // Splice math: removing from idx then inserting at targetIndex
+        // is what `moveRowTo` already does. Skip the no-op move where
+        // dragging a row over its own slot.
+        const currentIdx = settings().rows.findIndex((r,) => r.id === ds.sourceRowId,);
+        if (currentIdx >= 0 && currentIdx !== targetIndex && currentIdx + 1 !== targetIndex) {
+            // Adjust target when dragging downward — the index shifts
+            // by one after the source is removed.
+            const adjusted = targetIndex > currentIdx ? targetIndex - 1 : targetIndex;
+            moveRowTo(ds.sourceRowId, adjusted,);
+        }
+        setDragState({ kind: 'none', },);
+        setDropHint(null,);
+    };
+
+    const onColsDrop = (e: DragEvent, rowId: string, colsEl: HTMLElement,) => {
+        const ds = dragState();
+        if (ds.kind !== 'column') return;
+        e.preventDefault();
+        const targetIndex = computeColumnDropIndex(e.clientY, colsEl,);
+        const sameRow = ds.sourceRowId === rowId;
+        const srcRow = settings().rows.find((r,) => r.id === ds.sourceRowId,);
+        const currentIdx = srcRow?.columns.findIndex((c,) => c.id === ds.sourceColumnId,) ?? -1;
+        if (
+            sameRow
+            && currentIdx >= 0
+            && (currentIdx === targetIndex || currentIdx + 1 === targetIndex)
+        ) {
+            // No-op drop on its own slot.
+            setDragState({ kind: 'none', },);
+            setDropHint(null,);
+            return;
+        }
+        const adjusted = sameRow && targetIndex > currentIdx ? targetIndex - 1 : targetIndex;
+        moveColumnTo(ds.sourceRowId, ds.sourceColumnId, rowId, adjusted,);
+        setDragState({ kind: 'none', },);
+        setDropHint(null,);
+    };
+
+    const onDragEnd = () => {
+        setDragState({ kind: 'none', },);
+        setDropHint(null,);
+    };
+
     const updateItem = (rowId: string, columnId: string, itemId: string, patch: Partial<SiteLayoutItem>,) => {
         update((s,) => {
             const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
@@ -372,34 +583,56 @@ const SiteFooterEditor: Component = () => {
 
                     <div class="footer-editor__body">
                         {/* Left rail: structure tree */}
-                        <aside class="footer-editor__tree">
-                            <div class="footer-editor__tree-head">
-                                <span>Rows</span>
-                                <button type="button" onClick={addRow}>+ Add row</button>
-                            </div>
-                            <Show when={settings().rows.length === 0}>
-                                <p class="footer-editor__empty">No rows yet. Click "Add row" to begin.</p>
-                            </Show>
-                            <For each={settings().rows}>
-                                {(row, rowIdx,) => (
-                                    <RowTreeItem
-                                        row={row}
-                                        rowIndex={rowIdx()}
-                                        rowCount={settings().rows.length}
-                                        selection={selection()}
-                                        onSelect={setSelection}
-                                        onAddColumn={() => addColumn(row.id,)}
-                                        onAddItem={(columnId,) => addItem(row.id, columnId,)}
-                                        onMoveRow={(dir,) => moveRow(row.id, dir,)}
-                                        onMoveColumn={(columnId, dir,) => moveColumn(row.id, columnId, dir,)}
-                                        onMoveItem={(columnId, itemId, dir,) => moveItem(row.id, columnId, itemId, dir,)}
-                                        onRemoveRow={() => removeRow(row.id,)}
-                                        onRemoveColumn={(columnId,) => removeColumn(row.id, columnId,)}
-                                        onRemoveItem={(columnId, itemId,) => removeItem(row.id, columnId, itemId,)}
-                                    />
-                                )}
-                            </For>
-                        </aside>
+                        {(() => {
+                            let treeRef: HTMLElement | undefined;
+                            return (
+                                <aside
+                                    class="footer-editor__tree"
+                                    ref={(el,) => { treeRef = el; }}
+                                    onDragOver={(e,) => treeRef && onTreeDragOver(e, treeRef,)}
+                                    onDrop={(e,) => treeRef && onTreeDrop(e, treeRef,)}
+                                    onDragLeave={(e,) => {
+                                        // Only clear when leaving the tree entirely; bubbled
+                                        // drag-leaves from inner elements would otherwise
+                                        // clear the indicator mid-drag.
+                                        if (e.currentTarget === e.target) setDropHint(null,);
+                                    }}
+                                >
+                                    <div class="footer-editor__tree-head">
+                                        <span>Rows</span>
+                                        <button type="button" onClick={addRow}>+ Add row</button>
+                                    </div>
+                                    <Show when={settings().rows.length === 0}>
+                                        <p class="footer-editor__empty">No rows yet. Click "Add row" to begin.</p>
+                                    </Show>
+                                    <For each={settings().rows}>
+                                        {(row, rowIdx,) => (
+                                            <RowTreeItem
+                                                row={row}
+                                                rowIndex={rowIdx()}
+                                                rowCount={settings().rows.length}
+                                                selection={selection()}
+                                                dropHint={dropHint()}
+                                                onSelect={setSelection}
+                                                onAddColumn={() => addColumn(row.id,)}
+                                                onAddItem={(columnId,) => addItem(row.id, columnId,)}
+                                                onMoveRow={(dir,) => moveRow(row.id, dir,)}
+                                                onMoveColumn={(columnId, dir,) => moveColumn(row.id, columnId, dir,)}
+                                                onMoveItem={(columnId, itemId, dir,) => moveItem(row.id, columnId, itemId, dir,)}
+                                                onRemoveRow={() => removeRow(row.id,)}
+                                                onRemoveColumn={(columnId,) => removeColumn(row.id, columnId,)}
+                                                onRemoveItem={(columnId, itemId,) => removeItem(row.id, columnId, itemId,)}
+                                                onRowDragStart={(e, el,) => onRowDragStart(e, row.id, el,)}
+                                                onColDragStart={(e, columnId, el,) => onColumnDragStart(e, row.id, columnId, el,)}
+                                                onColsDragOver={(e, el,) => onColsDragOver(e, row.id, el,)}
+                                                onColsDrop={(e, el,) => onColsDrop(e, row.id, el,)}
+                                                onDragEnd={onDragEnd}
+                                            />
+                                        )}
+                                    </For>
+                                </aside>
+                            );
+                        })()}
 
                         {/* Right pane: contextual settings panel */}
                         <section class="footer-editor__panel">
@@ -719,6 +952,7 @@ function RowTreeItem(props: {
     rowIndex: number;
     rowCount: number;
     selection: Selection;
+    dropHint: DropHintLike;
     onSelect: (s: Selection,) => void;
     onAddColumn: () => void;
     onAddItem: (columnId: string,) => void;
@@ -728,13 +962,73 @@ function RowTreeItem(props: {
     onRemoveRow: () => void;
     onRemoveColumn: (columnId: string,) => void;
     onRemoveItem: (columnId: string, itemId: string,) => void;
+    onRowDragStart: (e: DragEvent, rowEl: HTMLElement,) => void;
+    onColDragStart: (e: DragEvent, columnId: string, colEl: HTMLElement,) => void;
+    onColsDragOver: (e: DragEvent, colsEl: HTMLElement,) => void;
+    onColsDrop: (e: DragEvent, colsEl: HTMLElement,) => void;
+    onDragEnd: () => void;
 },) {
     const rowSelected = () =>
         props.selection.kind !== 'none' && props.selection.rowId === props.row.id;
 
+    /** Drop indicators rendered relative to this row's index. The
+     *  outer tree maintains the indicator state; we just render the
+     *  matching `is-drop-before` / `is-drop-after` modifier on this
+     *  row when the indicator's targetIndex points here. */
+    const isDropBefore = () => {
+        const h = props.dropHint;
+        return h?.kind === 'row' && h.targetIndex === props.rowIndex;
+    };
+    const isDropAfter = () => {
+        const h = props.dropHint;
+        return h?.kind === 'row'
+            && h.targetIndex === props.rowCount
+            && props.rowIndex === props.rowCount - 1;
+    };
+
+    /** True when an active column-drop is targeting this row AND
+     *  this row has no columns yet — the per-column `is-drop-*`
+     *  indicators have nothing to attach to, so we light up the cols
+     *  container itself as a "drop here" zone. */
+    const isDropIntoEmpty = () => {
+        const h = props.dropHint;
+        return h?.kind === 'column'
+            && h.rowId === props.row.id
+            && props.row.columns.length === 0;
+    };
+
+    let rowEl: HTMLDivElement | undefined;
+    let colsEl: HTMLDivElement | undefined;
+
     return (
-        <div class={`footer-editor__tree-row ${rowSelected() ? 'is-selected' : ''}`}>
+        <div
+            class={`footer-editor__tree-row ${rowSelected() ? 'is-selected' : ''} ${
+                isDropBefore() ? 'is-drop-before' : ''
+            } ${isDropAfter() ? 'is-drop-after' : ''}`}
+            ref={(el,) => { rowEl = el; }}
+            data-row-id={props.row.id}
+        >
             <div class="footer-editor__tree-row-head">
+                {/* Drag handle — only this element initiates a row
+                    drag, so clicking the label or action buttons
+                    doesn't accidentally start one. */}
+                <span
+                    class="footer-editor__tree-handle"
+                    draggable={true}
+                    onDragStart={(e,) => rowEl && props.onRowDragStart(e, rowEl,)}
+                    onDragEnd={props.onDragEnd}
+                    title="Drag to reorder"
+                    aria-label="Drag row"
+                >
+                    <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">
+                        <circle cx="2.5" cy="3" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="3" r="1.2" fill="currentColor" />
+                        <circle cx="2.5" cy="7" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="7" r="1.2" fill="currentColor" />
+                        <circle cx="2.5" cy="11" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="11" r="1.2" fill="currentColor" />
+                    </svg>
+                </span>
                 <button
                     type="button"
                     class="footer-editor__tree-label"
@@ -748,7 +1042,14 @@ function RowTreeItem(props: {
                     <button type="button" onClick={props.onRemoveRow} title="Delete row" class="is-danger">×</button>
                 </span>
             </div>
-            <div class="footer-editor__tree-cols">
+            <div
+                class={`footer-editor__tree-cols ${
+                    props.row.columns.length === 0 ? 'is-empty' : ''
+                } ${isDropIntoEmpty() ? 'is-drop-into' : ''}`}
+                ref={(el,) => { colsEl = el; }}
+                onDragOver={(e,) => colsEl && props.onColsDragOver(e, colsEl,)}
+                onDrop={(e,) => colsEl && props.onColsDrop(e, colsEl,)}
+            >
                 <For each={props.row.columns}>
                     {(col, colIdx,) => (
                         <ColumnTreeItem
@@ -757,12 +1058,15 @@ function RowTreeItem(props: {
                             colIndex={colIdx()}
                             colCount={props.row.columns.length}
                             selection={props.selection}
+                            dropHint={props.dropHint}
                             onSelect={props.onSelect}
                             onAddItem={() => props.onAddItem(col.id,)}
                             onMoveColumn={(dir,) => props.onMoveColumn(col.id, dir,)}
                             onMoveItem={(itemId, dir,) => props.onMoveItem(col.id, itemId, dir,)}
                             onRemoveColumn={() => props.onRemoveColumn(col.id,)}
                             onRemoveItem={(itemId,) => props.onRemoveItem(col.id, itemId,)}
+                            onColDragStart={(e, el,) => props.onColDragStart(e, col.id, el,)}
+                            onDragEnd={props.onDragEnd}
                         />
                     )}
                 </For>
@@ -780,21 +1084,63 @@ function ColumnTreeItem(props: {
     colIndex: number;
     colCount: number;
     selection: Selection;
+    dropHint: DropHintLike;
     onSelect: (s: Selection,) => void;
     onAddItem: () => void;
     onMoveColumn: (dir: -1 | 1,) => void;
     onMoveItem: (itemId: string, dir: -1 | 1,) => void;
     onRemoveColumn: () => void;
     onRemoveItem: (itemId: string,) => void;
+    onColDragStart: (e: DragEvent, colEl: HTMLElement,) => void;
+    onDragEnd: () => void;
 },) {
     const colSelected = () =>
         (props.selection.kind === 'column' || props.selection.kind === 'item')
         && props.selection.rowId === props.row.id
         && props.selection.columnId === props.column.id;
 
+    const isDropBefore = () => {
+        const h = props.dropHint;
+        return h?.kind === 'column'
+            && h.rowId === props.row.id
+            && h.targetIndex === props.colIndex;
+    };
+    const isDropAfter = () => {
+        const h = props.dropHint;
+        return h?.kind === 'column'
+            && h.rowId === props.row.id
+            && h.targetIndex === props.colCount
+            && props.colIndex === props.colCount - 1;
+    };
+
+    let colEl: HTMLDivElement | undefined;
+
     return (
-        <div class={`footer-editor__tree-col ${colSelected() ? 'is-selected' : ''}`}>
+        <div
+            class={`footer-editor__tree-col ${colSelected() ? 'is-selected' : ''} ${
+                isDropBefore() ? 'is-drop-before' : ''
+            } ${isDropAfter() ? 'is-drop-after' : ''}`}
+            ref={(el,) => { colEl = el; }}
+            data-col-id={props.column.id}
+        >
             <div class="footer-editor__tree-col-head">
+                <span
+                    class="footer-editor__tree-handle"
+                    draggable={true}
+                    onDragStart={(e,) => colEl && props.onColDragStart(e, colEl,)}
+                    onDragEnd={props.onDragEnd}
+                    title="Drag to reorder"
+                    aria-label="Drag column"
+                >
+                    <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">
+                        <circle cx="2.5" cy="3" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="3" r="1.2" fill="currentColor" />
+                        <circle cx="2.5" cy="7" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="7" r="1.2" fill="currentColor" />
+                        <circle cx="2.5" cy="11" r="1.2" fill="currentColor" />
+                        <circle cx="7.5" cy="11" r="1.2" fill="currentColor" />
+                    </svg>
+                </span>
                 <button
                     type="button"
                     class="footer-editor__tree-label"

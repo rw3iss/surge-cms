@@ -429,6 +429,25 @@ CREATE TABLE site_settings (
 );
 
 -- =====================================================
+-- FONTS (operator-uploaded font assets)
+-- =====================================================
+
+CREATE TABLE fonts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    custom_id VARCHAR(64) NOT NULL UNIQUE,
+    original_name VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    format VARCHAR(20) NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    family_name VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_fonts_custom_id ON fonts(custom_id);
+CREATE INDEX idx_fonts_created_at ON fonts(created_at DESC);
+
+-- =====================================================
 -- CACHE INVALIDATION TRACKING
 -- =====================================================
 

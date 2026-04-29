@@ -5,6 +5,7 @@ import MediaSelectModal from '../../components/admin/MediaSelectModal';
 import MediaUploadModal from '../../components/admin/MediaUploadModal';
 import ColorPicker from '../../components/admin/ColorPicker';
 import ColorWheel from '../../components/admin/ColorWheel';
+import FontManagerPanel from '../../components/admin/FontManagerPanel';
 import Tooltip from '../../components/admin/Tooltip';
 import { api, fetchAdminAppearance, fetchAppearance, fetchSiteBranding, saveAdminAppearance, saveAppearance, saveSiteBranding, } from '../../services/api';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
@@ -1107,6 +1108,9 @@ function AppearancePanel() {
                 </p>
                 <SiteColorsPanel />
             </div>
+
+            {/* ─── Font manager ─── */}
+            <FontManagerPanel />
         </div>
     );
 }
