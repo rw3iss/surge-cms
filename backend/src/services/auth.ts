@@ -1,4 +1,4 @@
-import type { AuthResponse, User, UserRole, } from '@surge/shared';
+import type { AuthResponse, User, UserRole, } from '@rw/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid, } from 'nanoid';
@@ -36,15 +36,18 @@ export function generateTokens(
     userId: string,
     role: UserRole,
 ): { accessToken: string; refreshToken: string; expiresAt: Date; } {
+    // Auth code is only invoked in running mode where these are guaranteed
+    // by hasMinimalRunningConfig(). The non-null assertions reflect that
+    // runtime guarantee; throwing would be redundant given the setup gate.
     const accessToken = jwt.sign(
         { userId, role, },
-        config.jwt.secret,
+        config.jwt.secret!,
         { expiresIn: config.jwt.accessTokenExpires as any, },
     );
 
     const refreshToken = jwt.sign(
         { userId, role, type: 'refresh', },
-        config.jwt.secret,
+        config.jwt.secret!,
         { expiresIn: config.jwt.refreshTokenExpires as any, },
     );
 
@@ -80,8 +83,8 @@ export async function invalidateAllUserSessions(userId: string,): Promise<void> 
 export function getPatreonAuthUrl(state: string,): string {
     const params = new URLSearchParams({
         response_type: 'code',
-        client_id: config.patreon.clientId,
-        redirect_uri: config.patreon.redirectUri,
+        client_id: config.patreon.clientId!,
+        redirect_uri: config.patreon.redirectUri!,
         scope: 'identity identity[email] identity.memberships campaigns.members',
         state,
     },);
@@ -96,9 +99,9 @@ export async function exchangePatreonCode(code: string,): Promise<PatreonTokenRe
         body: new URLSearchParams({
             code,
             grant_type: 'authorization_code',
-            client_id: config.patreon.clientId,
-            client_secret: config.patreon.clientSecret,
-            redirect_uri: config.patreon.redirectUri,
+            client_id: config.patreon.clientId!,
+            client_secret: config.patreon.clientSecret!,
+            redirect_uri: config.patreon.redirectUri!,
         },),
     },);
 
@@ -259,7 +262,7 @@ export async function refreshTokens(
     userAgent?: string,
 ): Promise<AuthResponse> {
     try {
-        const decoded = jwt.verify(currentRefreshToken, config.jwt.secret,) as {
+        const decoded = jwt.verify(currentRefreshToken, config.jwt.secret!,) as unknown as {
             userId: string;
             role: UserRole;
             type: string;

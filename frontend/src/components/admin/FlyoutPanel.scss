@@ -96,7 +96,7 @@
     gap: $spacing-xs;
     font-weight: 600;
     font-size: $font-size-sm;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     cursor: pointer;
     flex: 1;
     min-width: 0;
@@ -133,16 +133,16 @@
     transition: all 0.1s;
 
     &:hover {
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
       background: rgba(0, 0, 0, 0.06);
     }
 
     &--close:hover {
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
     }
 
     &--active {
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
     }
   }
 

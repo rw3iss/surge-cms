@@ -1,0 +1,66 @@
+@use '../../styles/variables' as *;
+
+.ui-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-md;
+
+    &--inline {
+        flex-direction: row;
+        align-items: center;
+        gap: $spacing-md;
+
+        .ui-form-field__label {
+            margin-bottom: 0;
+            min-width: 160px;
+        }
+
+        .ui-form-field__control {
+            flex: 1;
+        }
+    }
+
+    &__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-color;
+        line-height: 1.3;
+    }
+
+    &__required {
+        color: $error-color;
+        font-weight: 700;
+    }
+
+    &__control {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__hint {
+        font-size: $font-size-xs;
+        color: $text-light;
+        line-height: 1.4;
+        margin: 0;
+    }
+
+    &__error {
+        font-size: $font-size-xs;
+        color: $error-color;
+        line-height: 1.4;
+        margin: 0;
+    }
+
+    &.has-error {
+        .ui-input,
+        .ui-select,
+        .ui-textarea {
+            border-color: $error-color;
+        }
+    }
+}

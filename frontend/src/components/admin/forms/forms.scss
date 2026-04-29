@@ -1,0 +1,164 @@
+// Shared admin form primitives — used by FormField / FormCheck /
+// FormSection across all admin editors.
+//
+// Typography & spacing here are the canonical "small bold label" used
+// throughout the admin. If you need to override a single field's
+// look, do it via a wrapping class — don't edit these directly, as
+// that would ripple through every editor that consumes the primitives.
+
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  // Inline variant: label on the left, control on the right. Used for
+  // short single-input rows (e.g. "Number of posts: [5]").
+  &--inline {
+    flex-direction: row;
+    align-items: center;
+    gap: $spacing-md;
+
+    .admin-form-field__label {
+      flex: 0 0 auto;
+      min-width: 140px;
+    }
+
+    .admin-form-field__control {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    // Canonical small-bold form label. Matches `.form-group label`
+    // (which legacy block editors still use) so old + new render
+    // identically.
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--admin-page-text, #{$text-color});
+    margin: 0;
+  }
+
+  &__label-text {
+    line-height: 1.2;
+  }
+
+  &__control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    // Default input styling that matches the existing `.form-group`
+    // inputs. Kept in sync intentionally so a mixed page using both
+    // primitives looks uniform.
+    > input[type='text'],
+    > input[type='email'],
+    > input[type='url'],
+    > input[type='number'],
+    > input[type='password'],
+    > textarea,
+    > select {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-sm;
+      font-size: $font-size-sm;
+      background-color: var(--admin-input-bg, #fff);
+      color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+      transition: border-color $transition-fast;
+
+      &::placeholder {
+        color: var(--admin-input-text, $text-light);
+        opacity: 0.5;
+      }
+
+      &:focus {
+        outline: none;
+        border-color: var(--site-primary, #{$primary-color});
+      }
+    }
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+}
+
+// ─── FormCheck ───
+.admin-form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: var(--admin-page-text, #{$text-color});
+  cursor: pointer;
+  user-select: none;
+
+  // `plain` variant: lighter weight for use inside grouped checkbox
+  // lists where the section heading carries the visual emphasis.
+  &--plain {
+    font-weight: 500;
+  }
+
+  input[type='checkbox'] {
+    cursor: pointer;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// ─── FormSection ───
+.admin-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  // Extra breathing room below — useful when the next field would
+  // otherwise sit too close to a checkbox group.
+  &--padded {
+    padding-bottom: $spacing-sm;
+  }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--admin-page-text, #{$text-color});
+    margin: 0;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    // Tight: 5px row gap. Used for dense lists like Show-fields where
+    // many short checkboxes shouldn't sprawl vertically.
+    &--tight {
+      gap: 5px;
+    }
+
+    // Inline: wrap items horizontally instead of stacking. Pairs well
+    // with `tight` for compact checkbox grids.
+    &--inline {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: $spacing-sm $spacing-md;
+
+      &.admin-form-section__items--tight {
+        gap: 5px $spacing-md;
+      }
+    }
+  }
+}

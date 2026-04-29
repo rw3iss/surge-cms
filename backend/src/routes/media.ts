@@ -1,4 +1,4 @@
-import type { Media, } from '@surge/shared';
+import type { Media, } from '@rw/shared';
 import { Router, } from 'express';
 import fs from 'fs/promises';
 import multer from 'multer';
@@ -21,7 +21,7 @@ const router = Router();
 // For remote providers (S3, etc.), use a temp directory.
 const multerDestDir = config.upload.storageProvider === 'local' ?
     config.upload.dir :
-    path.join(os.tmpdir(), 'surge-uploads',);
+    path.join(os.tmpdir(), 'rw-uploads',);
 
 const storage = multer.diskStorage({
     destination: async (_req, _file, cb,) => {

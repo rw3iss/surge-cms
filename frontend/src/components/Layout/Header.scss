@@ -5,6 +5,28 @@
   background: $background;
   border-bottom: 1px solid $border-color;
 
+  // ─── Sticky toggle ─────────────────────────────────────────
+  // `--no-sticky` opts out of the sticky positioning so the header
+  // scrolls away with the page like any other in-flow element.
+  &--no-sticky {
+    position: relative;
+    top: auto;
+  }
+
+  // ─── Auto-hide on scroll ───────────────────────────────────
+  // Smooth slide-up/down animation. When the scroll listener flips
+  // `--auto-hidden` on, the header transforms out of view; flipping
+  // it back off restores the natural translate(0). Using transform
+  // (not display/visibility) keeps the slide cheap and animatable.
+  &--auto-hide {
+    transition: transform 0.25s ease;
+    will-change: transform;
+  }
+
+  &--auto-hidden {
+    transform: translateY(-100%);
+  }
+
   // When custom header settings provide their own styles
   &--custom {
     background: none;
@@ -115,12 +137,12 @@
     transition: all $transition-fast;
 
     &:hover {
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
       background: $background-dark;
     }
 
     &--active {
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
     }
   }
 
@@ -143,7 +165,7 @@
 
       &:hover {
         filter: brightness(0.9);
-        background: color.adjust($primary-color, $lightness: -10%);
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
         color: white;
       }
     }

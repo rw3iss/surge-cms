@@ -28,7 +28,7 @@ const PagePreview: Component = () => {
                 <PreviewOverlay backUrl={`/admin/pages/${params.id}`}>
                     <Header
                         navigation={[]}
-                        siteName="Surge Media"
+                        siteName="RW"
                     />
                     <main style={{ 'min-height': '70vh', }}>
                         <For each={data().blocks || []}>

@@ -1,4 +1,4 @@
-import type { Block, NavigationItem, Page, } from '@surge/shared';
+import type { Block, NavigationItem, Page, } from '@rw/shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -117,6 +117,30 @@ export async function findPageBySlugAnyStatus(slug: string,): Promise<Page | nul
     return result.rows.length > 0 ? mapRow<Page>(result.rows[0],) : null;
 }
 
+/**
+ * The page flagged as the site's homepage. Returns null when no row
+ * has `is_homepage = true`. The schema enforces at most one homepage
+ * row (createPage / updatePage clear the flag on every other row
+ * when they set it), so the LIMIT 1 is defensive.
+ *
+ * `includeDrafts: true` returns the row even if it isn't yet
+ * published — the public route uses this in `'preview' === 'admin'`
+ * mode (admin sessions) so an operator can see their draft homepage
+ * while it's being built. Public visitors get only `'published'`
+ * (and not `'deleted'` / `'archived'`).
+ */
+export async function findHomepage(includeDrafts = false,): Promise<Page | null> {
+    const sql = includeDrafts
+        ? `SELECT * FROM pages
+           WHERE is_homepage = true AND status != 'deleted' AND status != 'archived'
+           LIMIT 1`
+        : `SELECT * FROM pages
+           WHERE is_homepage = true AND status = 'published'
+           LIMIT 1`;
+    const result = await query(sql,);
+    return result.rows.length > 0 ? mapRow<Page>(result.rows[0],) : null;
+}
+
 export async function findPageById(id: string,): Promise<Page> {
     return findByIdOrThrow<Page>('pages', id, 'Page',);
 }
@@ -128,9 +152,9 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
 
     const result = await query(
         `INSERT INTO pages (slug, title, description, meta_title, meta_description,
-                        meta_keywords, og_image, status, is_homepage, show_in_nav,
-                        nav_order, is_private, access_level, created_by, publish_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                        meta_keywords, og_image, status, is_homepage, show_title,
+                        show_in_nav, nav_order, is_private, access_level, created_by, publish_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING *`,
         [
             data.slug,
@@ -142,6 +166,10 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
             data.ogImage,
             data.status || 'draft',
             data.isHomepage || false,
+            // showTitle defaults to true for new pages — the operator
+            // can opt out per page via the editor toggle. The
+            // `?? true` (not `|| true`) preserves an explicit `false`.
+            data.showTitle ?? true,
             data.showInNav || false,
             data.navOrder || 0,
             data.isPrivate || false,

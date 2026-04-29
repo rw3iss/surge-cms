@@ -1,5 +1,5 @@
 {
-  "name": "@surge/frontend",
+  "name": "@rw/frontend",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@rw/shared": "file:../shared",
     "@solidjs/meta": "^0.29.2",
     "@solidjs/router": "^0.10.10",
     "@stripe/stripe-js": "^2.4.0",

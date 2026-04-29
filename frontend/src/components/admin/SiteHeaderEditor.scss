@@ -99,7 +99,7 @@
         }
 
         &--selected {
-            border-color: $primary-color;
+            border-color: var(--site-primary, #{$primary-color});
             background: rgba($primary-color, 0.04);
         }
 
@@ -216,13 +216,13 @@
         z-index: 9999;
         pointer-events: none;
         background: rgba($primary-color, 0.12);
-        border: 2px solid $primary-color;
+        border: 2px solid var(--site-primary, #{$primary-color});
         border-radius: $border-radius-sm;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: $font-size-sm;
-        color: $primary-color;
+        color: var(--site-primary, #{$primary-color});
         font-weight: 500;
     }
 }

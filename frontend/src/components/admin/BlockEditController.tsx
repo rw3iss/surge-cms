@@ -7,6 +7,7 @@ import CarouselBlock from './blocks/CarouselBlock';
 import DocumentBlock from './blocks/DocumentBlock';
 import FormBlock from './blocks/FormBlock';
 import ImageBlock from './blocks/ImageBlock';
+import PostListBlock from './blocks/PostListBlock';
 import SocialFeedBlock from './blocks/SocialFeedBlock';
 import SocialMediaBlock from './blocks/SocialMediaBlock';
 import TextBlock from './blocks/TextBlock';
@@ -85,14 +86,8 @@ export interface BlockEditControllerProps {
     onRevert?: () => void;
 }
 
-// Block type labels used for reference — kept for future use
-const _BLOCK_TYPE_LABELS: Record<string, string> = {
-    text: 'Text', rich_text: 'Rich Text', image: 'Image', video: 'Video',
-    document: 'Document', url_link: 'URL Link', hero: 'Hero Banner',
-    html: 'Custom HTML', campaign: 'Campaign', form: 'Form', post: 'Post Embed',
-    social_feed: 'Social Feed', social_media: 'Social Media', gallery: 'Gallery',
-    carousel: 'Carousel', spacer: 'Empty Space',
-};
+// Block-type labels live in config/blockTypes.ts. Use getBlockLabel(type)
+// from there if you need them here.
 
 const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     const [editingStyle, setEditingStyle,] = createSignal(false,);
@@ -400,6 +395,9 @@ const BlockContentForm: Component<{
         </Match>
         <Match when={props.block.type === 'post'}>
             <ReferenceBlockEdit data={props.block.data} onUpdate={props.onUpdate} label="Post" idField="postId" />
+        </Match>
+        <Match when={props.block.type === 'post_list'}>
+            <PostListBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'gallery'}>
             <ReferenceBlockEdit data={props.block.data} onUpdate={props.onUpdate} label="Gallery" idField="galleryId" />

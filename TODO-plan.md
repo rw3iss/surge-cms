@@ -1,4 +1,4 @@
-# Surge CMS - TODO & Improvement Plan
+# RW CMS - TODO & Improvement Plan
 
 Based on codebase review and original INIT_Prompt requirements.
 
@@ -105,8 +105,8 @@ Based on codebase review and original INIT_Prompt requirements.
 ## 6. Content & About Page [INIT]
 
 ### 6.1 🟡 [INIT] Populate About page from existing site content (S)
-**Problem:** INIT_Prompt says "Pull content from the existing surge website: https://surgemedia.us/" for the About page. The About page exists as a CMS page but likely has placeholder content.
-**Implementation:** Scrape or manually copy the about content, team info, and mission statement from the existing surgemedia.us site. Create the About page with appropriate blocks (hero, rich_text with team bios, mission statement).
+**Problem:** INIT_Prompt says "Pull content from the existing rw website: https://ryanweiss.net/" for the About page. The About page exists as a CMS page but likely has placeholder content.
+**Implementation:** Scrape or manually copy the about content, team info, and mission statement from the existing ryanweiss.net site. Create the About page with appropriate blocks (hero, rich_text with team bios, mission statement).
 ** For now you can try to scrape the content, if you can, and add it as blobs to the page, or actual blocks in the backend 'About' page entry (add a page for it). If you can't find or obtain the content, just add stub content for now. **
 
 ---

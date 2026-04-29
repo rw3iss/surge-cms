@@ -18,6 +18,12 @@ export interface Page {
     isPrivate: boolean;
     accessLevel?: ContentAccessLevel;
     blocks: Block[];
+    /** When true (default), the public renderer prints the page title
+     *  as an `<h1>` above the content blocks. When false, the title
+     *  is suppressed and only the blocks render — useful when an
+     *  operator wants their first content block (e.g. a hero) to be
+     *  the visual headline instead. */
+    showTitle: boolean;
     createdBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -27,6 +33,7 @@ export type BlockType =
     | 'rich_text'
     | 'text'
     | 'post'
+    | 'post_list'
     | 'form'
     | 'image'
     | 'video'
@@ -165,6 +172,12 @@ export interface AppearanceSettings {
 
 export interface SiteSettings {
     siteName: string;
+    /**
+     * Optional short tagline shown in the footer and other surfaces
+     * below the site name. When empty/undefined, callers must hide the
+     * rendering — never substitute a default.
+     */
+    siteTagline?: string;
     siteDescription: string;
     logo?: string;
     favicon?: string;
@@ -180,6 +193,148 @@ export interface SiteSettings {
         accentColor: string;
     };
     appearance?: AppearanceSettings;
+    /**
+     * Server-computed feature flags. Each flag is the AND of an admin
+     * toggle (in `site_settings`) and the runtime conditions required
+     * for the feature to actually work (e.g. a connected provider).
+     * The frontend only reads these — it does NOT recompute the
+     * underlying conditions, so future provider additions only need to
+     * touch the backend.
+     */
+    features?: SiteFeatures;
+}
+
+/**
+ * Each feature carries an `enabled` boolean computed server-side. UI
+ * (sidebar nav, public page links, dashboard panel) reads these flags
+ * verbatim — never recomputes.
+ *
+ * Module flags (posts / campaigns / forms / messages) default to
+ * `true` on a fresh install — they're core CMS features the operator
+ * can turn off if they don't want them in the sidebar. Provider flags
+ * (patreon, etc.) default to `false` and require both an admin opt-in
+ * AND a connected account before they flip on. The shape is the same
+ * for both kinds so consumer code stays uniform.
+ */
+export interface SiteFeatures {
+    patreon: { enabled: boolean; };
+    posts: { enabled: boolean; };
+    campaigns: { enabled: boolean; };
+    forms: { enabled: boolean; };
+    messages: { enabled: boolean; };
+    /**
+     * Custom user registration & login. When enabled, the public
+     * login page shows its sign-in form expanded by default and a
+     * register/join link, the public /join page accepts new
+     * registrations, and the admin sidebar exposes the Users
+     * management area. Admins can always sign in regardless — this
+     * only gates user-facing registration UI.
+     */
+    users: { enabled: boolean; };
+}
+
+/** The keys that correspond to a `<x>_enabled` row in `site_settings`. */
+export type SiteFeatureKey = keyof SiteFeatures;
+
+// ─── Site Header / Footer item ───
+
+/**
+ * A single piece of content inside the header bar or a footer column.
+ * The same shape powers both surfaces so the field-level editing UI
+ * can be reused (the field set — image / text / link / button / spacer
+ * — is the same regardless of where the item lives).
+ */
+export type SiteLayoutItemType = 'image' | 'image_link' | 'text' | 'text_link' | 'button' | 'menu' | 'gap' | 'flex_spacer';
+
+export interface SiteLayoutItem {
+    id: string;
+    type: SiteLayoutItemType;
+    text?: string;
+    url?: string;
+    imageUrl?: string;
+    mediaId?: string;
+    openInNewTab?: boolean;
+    buttonColor?: string;
+    fontSize?: string;
+    /** CSS font-weight value: numeric strings ('100'..'900') or named
+     *  keywords ('normal', 'bold'). Optional — falls through to the
+     *  inherited site font weight when unset. */
+    fontWeight?: string;
+    textColor?: string;
+    width?: string;
+    alignment?: string;
+    verticalAlignment?: string;
+    margin?: string;
+    padding?: string;
+    order: number;
+}
+
+// ─── Site Footer ───
+
+/** A single column inside a footer row. Columns flex-grow proportionally
+ * to their `flex` value (default 1 — even split). */
+export interface SiteFooterColumn {
+    id: string;
+    /** flex-grow factor. Defaults to 1 on the renderer if absent. */
+    flex?: number;
+    /** Inner item layout direction. */
+    direction?: 'row' | 'column';
+    /** Spacing between items in the column. e.g. "8px". */
+    gap?: string;
+    padding?: string;
+    margin?: string;
+    /** main-axis alignment of items inside the column (justify-content). */
+    alignment?: 'start' | 'center' | 'end' | 'space-between' | 'space-around';
+    /** cross-axis alignment of items (align-items). */
+    verticalAlignment?: 'start' | 'center' | 'end' | 'stretch';
+    items: SiteLayoutItem[];
+}
+
+/** A horizontal row in the footer. Rows stack vertically. */
+export interface SiteFooterRow {
+    id: string;
+    /** When true, the row is constrained to the site's container width
+     * via the configured gutter (matches main content alignment). */
+    useGutter?: boolean;
+    /** Spacing between columns in this row. e.g. "16px". */
+    gap?: string;
+    padding?: string;
+    margin?: string;
+    backgroundColor?: string;
+    columns: SiteFooterColumn[];
+}
+
+export interface SiteFooterSettings {
+    /** Master switch — when false, the footer is not rendered at all. */
+    enabled: boolean;
+    rows: SiteFooterRow[];
+    /** Optional global background applied to the outer footer element. */
+    backgroundColor?: string;
+    padding?: string;
+    margin?: string;
+}
+
+// ─── Site colors / swatches ───
+
+/**
+ * A named entry in the site's reusable color palette. Anywhere a color
+ * value appears in the admin UI (block styles, page backgrounds, header
+ * / footer settings, admin-appearance tokens), the user can either
+ * enter a raw hex string or pick a swatch — picking a swatch stores the
+ * reference `swatch:{id}` instead of the resolved hex, so updating the
+ * swatch later cascades to every consumer.
+ *
+ *   id   — stable identifier. Defaults to a short random string;
+ *          users can override with a custom slug (lowercase, digits,
+ *          dash, underscore). Must be unique within the swatch list.
+ *   hex  — concrete color value. Always a 3 or 6-char hex string.
+ *   name — optional human-friendly label shown in pickers next to
+ *          the swatch and ID (e.g. "Brand Red", "Background").
+ */
+export interface SiteSwatch {
+    id: string;
+    hex: string;
+    name?: string;
 }
 
 // ─── Revision history ───

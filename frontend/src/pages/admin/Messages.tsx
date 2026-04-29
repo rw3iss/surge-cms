@@ -14,7 +14,7 @@ const AdminMessages: Component = () => {
 
     return (
         <div>
-            <Title>Messages - Admin - Surge Media</Title>
+            <Title>Messages - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Contact Messages</h1>
             </div>

@@ -2,7 +2,7 @@ import { A, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { api, } from '../services/api';
-import { siteName, } from '../stores/siteSettings';
+import { isFeatureEnabled, isPatreonEnabled, siteName, } from '../stores/siteSettings';
 import './Join.scss';
 
 const Join: Component = () => {
@@ -81,65 +81,95 @@ const Join: Component = () => {
                         </div>
                     }
                 >
-                    <h1 class="join__title">Join Surge Media</h1>
-                    <p class="join__subtitle">Get access to exclusive content and community</p>
+                    <h1 class="join__title">Join {siteName()}</h1>
+                    <Show when={isPatreonEnabled()}>
+                        <p class="join__subtitle">Get access to exclusive content and community</p>
+                    </Show>
 
-                    {/* Patreon Section */}
-                    <div class="join__section">
-                        <div class="join__section-header">
-                            <span class="join__badge join__badge--recommended">Recommended</span>
-                            <h2 class="join__section-title">Join with Patreon</h2>
+                    {/* When neither Users nor Patreon is enabled, there's
+                        no public registration path. Tell the visitor and
+                        link them back to /login (admins only) instead of
+                        rendering an empty page. */}
+                    <Show when={!isFeatureEnabled('users',) && !isPatreonEnabled()}>
+                        <div class="join__notice" style={{ 'margin-top': '1rem', }}>
+                            <span>
+                                Public registration isn't enabled on this site.{' '}
+                                <A href="/login" class="join__login-link">Sign in</A>{' '}
+                                if you already have an account.
+                            </span>
                         </div>
-                        <p class="join__section-desc">
-                            Link your Patreon account to get full access to all media, exclusive posts, and
-                            subscriber-only benefits. Supporting through Patreon helps us create more content.
-                        </p>
-                        <button
-                            type="button"
-                            class="join__btn join__btn--patreon"
-                            onClick={handlePatreonJoin}
-                        >
-                            <svg class="join__btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M15.385.5c-4.764 0-8.615 3.851-8.615 8.615 0 4.764 3.851 8.616 8.615 8.616 4.764 0 8.615-3.852 8.615-8.616S20.149.5 15.385.5zM.5 23.5h4.615V.5H.5v23z" />
-                            </svg>
-                            Create Account with Patreon
-                        </button>
-                        <ul class="join__perks">
-                            <li>Access to all posts and media</li>
-                            <li>Exclusive subscriber content</li>
-                            <li>Community benefits and updates</li>
-                        </ul>
-                    </div>
+                    </Show>
 
-                    <div class="join__divider">
-                        <span>or</span>
-                    </div>
+                    {/* Patreon section is gated on the server-side feature
+                        flag — visible only when the admin has enabled
+                        Patreon AND a Patreon account is connected. */}
+                    <Show when={isPatreonEnabled()}>
+                        <div class="join__section">
+                            <div class="join__section-header">
+                                <span class="join__badge join__badge--recommended">Recommended</span>
+                                <h2 class="join__section-title">Join with Patreon</h2>
+                            </div>
+                            <p class="join__section-desc">
+                                Link your Patreon account to get full access to all media, exclusive posts, and
+                                subscriber-only benefits. Supporting through Patreon helps us create more content.
+                            </p>
+                            <button
+                                type="button"
+                                class="join__btn join__btn--patreon"
+                                onClick={handlePatreonJoin}
+                            >
+                                <svg class="join__btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M15.385.5c-4.764 0-8.615 3.851-8.615 8.615 0 4.764 3.851 8.616 8.615 8.616 4.764 0 8.615-3.852 8.615-8.616S20.149.5 15.385.5zM.5 23.5h4.615V.5H.5v23z" />
+                                </svg>
+                                Create Account with Patreon
+                            </button>
+                            <ul class="join__perks">
+                                <li>Access to all posts and media</li>
+                                <li>Exclusive subscriber content</li>
+                                <li>Community benefits and updates</li>
+                            </ul>
+                        </div>
 
-                    {/* Normal Account Section */}
+                        <div class="join__divider">
+                            <span>or</span>
+                        </div>
+                    </Show>
+
+                    {/* Free account section — gated on the Users
+                        feature. Public registration is opt-in; with
+                        Users disabled the only sign-up path is via
+                        Patreon (if that's enabled). */}
+                    <Show when={isFeatureEnabled('users',)}>
                     <div class="join__section">
                         <h2 class="join__section-title">Create a Free Account</h2>
                         <p class="join__section-desc">
-                            Create a standard account to browse public content. Note that free accounts have limited
-                            access — only public posts and media will be visible.
+                            Create a standard account to browse public content.
+                            <Show when={isPatreonEnabled()}>
+                                {' '}Note that free accounts have limited access — only public posts and media will be visible.
+                            </Show>
                         </p>
 
-                        <div class="join__notice">
-                            <svg
-                                class="join__notice-icon"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="16" x2="12" y2="12" />
-                                <line x1="12" y1="8" x2="12.01" y2="8" />
-                            </svg>
-                            <span>
-                                Free accounts only see limited posts and data. Subscribe through Patreon for full access
-                                to all media and extra benefits.
-                            </span>
-                        </div>
+                        {/* The "subscribe through Patreon" cross-sell notice
+                            only appears when Patreon is actually available. */}
+                        <Show when={isPatreonEnabled()}>
+                            <div class="join__notice">
+                                <svg
+                                    class="join__notice-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                                </svg>
+                                <span>
+                                    Free accounts only see limited posts and data. Subscribe through Patreon for full access
+                                    to all media and extra benefits.
+                                </span>
+                            </div>
+                        </Show>
 
                         <Show when={error()}>
                             <div class="join__error">{error()}</div>
@@ -225,6 +255,7 @@ const Join: Component = () => {
                             </button>
                         </form>
                     </div>
+                    </Show>
 
                     <div class="join__login-prompt">
                         <span>Already have an account?</span>

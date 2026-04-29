@@ -6,7 +6,7 @@ import type {
     NumberSummary,
     QuestionResult,
     TextSummary,
-} from '@surge/shared';
+} from '@rw/shared';
 import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { fetchFormResults, submitForm, } from '../services/api';
 import './FormRenderer.scss';

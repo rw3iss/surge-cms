@@ -45,7 +45,16 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
     const isEmpty = () => {
         // Spacer blocks are never "empty" — they render at their height
         if (props.block.type === 'spacer') return false;
+        // Post-list is also never "empty" — it always queries posts,
+        // even with default settings. Showing the picker placeholder
+        // here would be misleading.
+        if (props.block.type === 'post_list') return false;
         const d = props.block.data || {};
+        // Hero is "empty" only when none of its visual fields are set —
+        // title or subtitle alone is enough to render meaningfully.
+        if (props.block.type === 'hero') {
+            return !d.title && !d.subtitle && !d.content && !d.backgroundImage;
+        }
         return !d.content && !d.url && !d.postId && !d.postUrl &&
             !d.socialPlatform && !d.platform && !d.campaignId &&
             !d.formId && !d.slug && !d.galleryId &&

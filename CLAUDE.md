@@ -1,13 +1,13 @@
-# Surge Media CMS
+# ryanweiss.net CMS
 
 ## Project Overview
 
-A custom CMS for Surge Media (surgemedia.us), a small Philadelphia-based news organization. Refactor of their existing website. Monorepo with three workspaces: `frontend` (SolidJS), `backend` (Express/Node), `shared` (TypeScript types & utils).
+A custom CMS for RW portfolio site, a professional web developer. Monorepo with three workspaces: `frontend` (SolidJS), `backend` (Express/Node), `shared` (TypeScript types & utils).
 
 **Stack:** SolidJS + Vite | Express + PostgreSQL + Redis | Stripe | Patreon OAuth | S3/Local storage
 
-**Site URL:** https://surgemedia.us/
-**Admin login:** admin@surgemedia.us
+**Site URL:** https://ryanweiss.net/
+**Admin login:** admin@ryanweiss.net
 
 ## Key Product Requirements (from INIT_Prompt.md)
 - Blog posts and media from third-party outlets (Patreon, YouTube, Instagram, Facebook, X, TikTok)
@@ -26,17 +26,17 @@ A custom CMS for Surge Media (surgemedia.us), a small Philadelphia-based news or
 ## Architecture
 
 ```
-surge/
+rw-cms/
 ├── frontend/     # SolidJS SPA (port 3000, proxies API to 3001)
 ├── backend/      # Express REST API (port 3001)
-└── shared/       # @surge/shared - types and utility functions
+└── shared/       # @rw/shared - types and utility functions
 ```
 
 ### Monorepo Setup
 - npm workspaces (`frontend`, `backend`, `shared`)
 - `npm run dev` runs both frontend and backend via concurrently
 - Node >= 20.0.0 required
-- Shared package is `@surge/shared` (types + format/validation utils)
+- Shared package is `@rw/shared` (types + format/validation utils)
 
 ## Backend
 
@@ -167,7 +167,7 @@ Dashboard, Pages, PageEditor, Posts, PostEditor, Campaigns, CampaignEditor, Form
 - Component-scoped `.scss` files
 - Primary color: #e63946, Secondary: #1d3557
 
-## Shared Package (@surge/shared)
+## Shared Package (@rw/shared)
 
 ### Types (shared/src/types/)
 - `api.ts` - ApiResponse, ApiError, ApiMeta, PaginationParams, SearchParams

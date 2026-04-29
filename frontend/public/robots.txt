@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://surgemedia.us/api/v1/sitemap.xml
+Sitemap: https://ryanweiss.net/sitemap.xml

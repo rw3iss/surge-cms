@@ -1,5 +1,5 @@
 import { A, } from '@solidjs/router';
-import type { Campaign, } from '@surge/shared';
+import type { Campaign, } from '@rw/shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { fetchCampaigns, } from '../services/api';

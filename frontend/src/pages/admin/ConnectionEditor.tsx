@@ -72,7 +72,7 @@ const AdminConnectionEditor: Component = () => {
 
     return (
         <div>
-            <Title>{providerName()} Connection - Admin - Surge Media</Title>
+            <Title>{providerName()} Connection - Admin - RW</Title>
             <div class="admin-header">
                 <h1>{connection() ? 'Edit' : 'Connect'} {providerName()}</h1>
             </div>

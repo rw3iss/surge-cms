@@ -1,4 +1,4 @@
--- Surge Media Database Schema
+-- RW Database Schema
 -- PostgreSQL 14+
 
 -- Enable UUID extension
@@ -95,6 +95,7 @@ CREATE TABLE pages (
     og_image TEXT,
     status page_status NOT NULL DEFAULT 'draft',
     is_homepage BOOLEAN NOT NULL DEFAULT false,
+    show_title BOOLEAN NOT NULL DEFAULT true,
     show_in_nav BOOLEAN NOT NULL DEFAULT false,
     nav_order INTEGER NOT NULL DEFAULT 0,
     is_private BOOLEAN NOT NULL DEFAULT false,
@@ -113,7 +114,7 @@ CREATE INDEX idx_pages_nav ON pages(show_in_nav, nav_order);
 -- =====================================================
 
 CREATE TYPE block_type AS ENUM (
-    'rich_text', 'post', 'form', 'image', 'video',
+    'rich_text', 'post', 'post_list', 'form', 'image', 'video',
     'gallery', 'social_feed', 'campaign', 'hero', 'html'
 );
 
@@ -169,7 +170,9 @@ CREATE INDEX idx_posts_author_id ON posts(author_id);
 -- =====================================================
 
 CREATE TYPE content_block_type AS ENUM (
-    'text', 'social_media', 'image', 'video', 'document', 'url_link'
+    'text', 'social_media', 'image', 'video', 'document', 'url_link',
+    'rich_text', 'hero', 'html', 'campaign', 'form', 'post', 'post_list',
+    'social_feed', 'gallery', 'carousel', 'spacer'
 );
 
 CREATE TABLE post_content_blocks (
@@ -424,6 +427,25 @@ CREATE TABLE site_settings (
     updated_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- =====================================================
+-- FONTS (operator-uploaded font assets)
+-- =====================================================
+
+CREATE TABLE fonts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    custom_id VARCHAR(64) NOT NULL UNIQUE,
+    original_name VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    format VARCHAR(20) NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    family_name VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_fonts_custom_id ON fonts(custom_id);
+CREATE INDEX idx_fonts_created_at ON fonts(created_at DESC);
 
 -- =====================================================
 -- CACHE INVALIDATION TRACKING

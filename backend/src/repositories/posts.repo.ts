@@ -1,4 +1,4 @@
-import type { Post, } from '@surge/shared';
+import type { Post, } from '@rw/shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
@@ -26,6 +26,27 @@ export interface PostFilters {
     category?: string;
     publishedOnly?: boolean;
     publicOnly?: boolean;
+    /** ISO date strings. `before` = posts published strictly before this
+     *  instant (i.e. older); `after` = posts published strictly after.
+     *  Used by the post-list block to support recent / archived feeds. */
+    publishedBefore?: string;
+    publishedAfter?: string;
+    /** Restrict to a specific set of post IDs. When provided, all other
+     *  filters except the public/published gates still apply. Order of
+     *  the returned rows mirrors the order in this array. */
+    ids?: string[];
+    /** When true, the returned rows include their `contentBlocks`. Bulk-
+     *  loaded with a single query to avoid an N+1 storm. Used by the
+     *  post-list block in 'short' / 'full' brevity modes. */
+    withContentBlocks?: boolean;
+    /** When true AND `ids` is set, the published / not-private gate is
+     *  dropped *only for the ID branch* so explicitly-pinned drafts
+     *  surface in admin previews. Date / search branches are
+     *  unaffected — they still respect the public gate even for admin
+     *  requests, so admin's feed previews still match what visitors
+     *  see for non-pinned content. The route sets this flag based on
+     *  the authenticated user's role. */
+    includeNonPublishedForIds?: boolean;
 }
 
 // ─── Content Blocks ───
@@ -120,7 +141,13 @@ export async function findPublicPosts(
     filters: PostFilters,
     pagination: PaginationOptions,
 ): Promise<PaginatedResult<Post>> {
-    let whereClause = `WHERE p.status = 'published' AND p.is_private = false`;
+    // For ID-restricted admin queries we drop the publish/privacy gate
+    // entirely so pinned drafts render in admin previews. Anything
+    // else still gets the standard public gate.
+    const adminBypass = filters.includeNonPublishedForIds && filters.ids && filters.ids.length > 0;
+    let whereClause = adminBypass
+        ? `WHERE p.status != 'deleted'`
+        : `WHERE p.status = 'published' AND p.is_private = false`;
     const params: unknown[] = [];
 
     if (filters.tag) {
@@ -135,13 +162,65 @@ export async function findPublicPosts(
         params.push(filters.search,);
         whereClause += ` AND p.search_vector @@ plainto_tsquery('english', $${params.length})`;
     }
+    if (filters.publishedBefore) {
+        params.push(filters.publishedBefore,);
+        whereClause += ` AND COALESCE(p.published_at, p.created_at) < $${params.length}::timestamptz`;
+    }
+    if (filters.publishedAfter) {
+        params.push(filters.publishedAfter,);
+        whereClause += ` AND COALESCE(p.published_at, p.created_at) > $${params.length}::timestamptz`;
+    }
 
-    return paginatedQuery<Post>(
-        `${POST_SELECT} ${whereClause} ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC`,
-        `SELECT COUNT(*) FROM posts p ${whereClause}`,
-        params,
-        pagination,
-    );
+    // ID-restricted query: caller wants a specific set, possibly hand-picked
+    // in admin. Preserve the requested order so a sortable picker UI on
+    // the frontend round-trips reliably. Empty array → empty result
+    // (rather than "no filter") so callers can disable the lookup
+    // explicitly.
+    let result: PaginatedResult<Post>;
+    if (filters.ids) {
+        if (filters.ids.length === 0) {
+            return { data: [], total: 0, };
+        }
+        params.push(filters.ids,);
+        whereClause += ` AND p.id = ANY($${params.length}::uuid[])`;
+        // Build an ORDER BY clause that respects the input order. We use
+        // array_position on the same uuid array.
+        const orderClause = `ORDER BY array_position($${params.length}::uuid[], p.id)`;
+        result = await paginatedQuery<Post>(
+            `${POST_SELECT} ${whereClause} ${orderClause}`,
+            `SELECT COUNT(*) FROM posts p ${whereClause}`,
+            params,
+            pagination,
+        );
+    } else {
+        result = await paginatedQuery<Post>(
+            `${POST_SELECT} ${whereClause} ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC`,
+            `SELECT COUNT(*) FROM posts p ${whereClause}`,
+            params,
+            pagination,
+        );
+    }
+
+    // Bulk-load content blocks for the returned post IDs in a single
+    // query, then attach. Cheaper than N requests for a feed.
+    if (filters.withContentBlocks && result.data.length > 0) {
+        const ids = result.data.map(p => (p as any).id as string);
+        const blocksRes = await query(
+            `SELECT * FROM post_content_blocks WHERE post_id = ANY($1::uuid[]) ORDER BY post_id, sort_order ASC`,
+            [ids,],
+        );
+        const byPost: Record<string, ContentBlock[]> = {};
+        for (const row of blocksRes.rows) {
+            const block = mapRow<ContentBlock>(row,);
+            const pid = (row as any).post_id as string;
+            (byPost[pid] ||= []).push(block,);
+        }
+        for (const post of result.data) {
+            (post as PostWithBlocks).contentBlocks = byPost[(post as any).id] || [];
+        }
+    }
+
+    return result;
 }
 
 export async function findAllPosts(

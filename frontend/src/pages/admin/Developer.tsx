@@ -41,7 +41,7 @@ const AdminDeveloper: Component = () => {
 
     return (
         <div class="admin-developer">
-            <Title>Developer - Admin - Surge Media</Title>
+            <Title>Developer - Admin - RW</Title>
 
             <div class="admin-header">
                 <h1>Developer Tools</h1>

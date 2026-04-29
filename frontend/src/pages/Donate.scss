@@ -30,7 +30,7 @@
     transition: all $transition-fast;
 
     &:hover {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       box-shadow: $shadow-md;
     }
 

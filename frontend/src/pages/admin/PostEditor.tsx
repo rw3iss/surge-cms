@@ -11,13 +11,15 @@ import PreviewOverlay from '../../components/admin/PreviewOverlay';
 import RevisionsPanel from '../../components/admin/RevisionsPanel';
 import { Header, } from '../../components/Layout/Header';
 import PostContentBlock from '../../components/PostContentBlock';
+import { useToast, } from '../../components/Toast';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import type { AppearanceSettings, } from '@surge/shared';
+import type { AppearanceSettings, } from '@rw/shared';
 import { api, fetchAppearance, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';
+import { appearanceCssVars, } from '../../utils/appearanceStyle';
 
 let blockIdCounter = 0;
 const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
@@ -25,6 +27,7 @@ const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
 const AdminPostEditor: Component = () => {
     const params = useParams();
     const navigate = useNavigate();
+    const toast = useToast();
     const isNew = () => !params.id || params.id === 'new';
     const { isDirty, markDirty, markClean, } = useUnsavedChanges();
 
@@ -40,25 +43,13 @@ const AdminPostEditor: Component = () => {
         return response.success ? response.data as AppearanceSettings : null;
     },);
 
-    const siteContainerStyle = () => {
-        const a = appearance();
-        const s: Record<string, string> = {};
-        if (a?.backgroundColor) { s['background-color'] = a.backgroundColor; s['--site-bg'] = a.backgroundColor; }
-        if (a?.textColor) { s['color'] = a.textColor; s['--site-text'] = a.textColor; }
-        if (a?.primaryColor) s['--site-primary'] = a.primaryColor;
-        if (a?.linkColor) s['--site-link'] = a.linkColor;
-        if (a?.headingColor) s['--site-heading'] = a.headingColor;
-        if (a?.borderColor) s['--site-border'] = a.borderColor;
-        if (a?.fontFamily) { s['font-family'] = a.fontFamily; s['--site-font'] = a.fontFamily; }
-        if (a?.headingFontFamily) s['--site-heading-font'] = a.headingFontFamily;
-        if (a?.headingWeight) s['--site-heading-weight'] = a.headingWeight;
-        if (a?.lineHeight) { s['line-height'] = a.lineHeight; s['--site-line-height'] = a.lineHeight; }
-        if (a?.gutterWidth) s['--site-gutter'] = a.gutterWidth;
-        if (a?.borderRadius) s['--site-radius'] = a.borderRadius;
-        if (a?.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
-        if (a?.blockPadding) s['--site-block-padding'] = a.blockPadding;
-        return s;
-    };
+    /**
+     * Inline styles applied to the block-preview container so the
+     * WYSIWYG matches the live site. The mapping itself lives in
+     * utils/appearanceStyle.ts and is shared with the public Layout
+     * and AdminLayout.
+     */
+    const siteContainerStyle = () => appearanceCssVars(appearance(), 'public',);
 
     const [title, setTitle,] = createSignal('',);
     const [slug, setSlug,] = createSignal('',);
@@ -189,7 +180,14 @@ const AdminPostEditor: Component = () => {
             setSavedBlocks(structuredClone(blocks(),),);
             autoSave.clear();
             markClean();
-            navigate('/admin/posts',);
+            toast.success(`Post '${title()}' saved`,);
+            // For brand-new posts, switch to the persisted id URL so
+            // subsequent saves PUT instead of POST. Existing posts stay
+            // on the same editor URL.
+            if (isNew()) {
+                const newId = (response as any).data?.id;
+                if (newId) navigate(`/admin/posts/${newId}`, { replace: true, },);
+            }
         } else {
             showError(response, 'Failed to save post',);
         }
@@ -197,7 +195,7 @@ const AdminPostEditor: Component = () => {
 
     return (
         <div>
-            <Title>{isNew() ? 'New Post' : `Edit Post: ${title() || 'Untitled'}`} - Admin - Surge Media</Title>
+            <Title>{isNew() ? 'New Post' : `Edit Post: ${title() || 'Untitled'}`} - Admin - RW</Title>
             <div class="admin-header">
                 <h1>{isNew() ? 'New Post' : `Edit Post: ${title() || 'Untitled'}`}</h1>
                 <div class="admin-header__actions">
@@ -232,10 +230,26 @@ const AdminPostEditor: Component = () => {
                 <div class="alert alert--error">{error()}</div>
             </Show>
 
-            {/* ─── Properties (collapsed by default) ─── */}
+            {/* ─── Properties (open by default; brief view in header when collapsed) ─── */}
             <CollapsiblePanel
                 title="Post Properties"
-                subtitle={title() || 'Untitled'}
+                defaultOpen
+                headerContent={
+                    <span class="editor-brief">
+                        <span class={`editor-brief__title ${!title() ? 'editor-brief__title--placeholder' : ''}`}>
+                            {title() || 'Untitled post'}
+                        </span>
+                        <Show when={slug()}>
+                            <span class="editor-brief__slug">/{slug()}</span>
+                        </Show>
+                    </span>
+                }
+                headerExtra={
+                    <>
+                        <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
+                        <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
+                    </>
+                }
             >
                 <div class="editor-properties">
                     <div class="editor-properties__main">
@@ -397,7 +411,7 @@ const AdminPostEditor: Component = () => {
             {/* Inline preview overlay — no navigation, preserves editor state */}
             <Show when={showPreview()}>
                 <PreviewOverlay onClose={() => setShowPreview(false,)}>
-                    <Header navigation={[]} siteName="Surge Media" />
+                    <Header navigation={[]} siteName="RW" />
                     <main class="container" style={{ 'min-height': '70vh', 'padding-top': '2rem', }}>
                         <article style={{ 'max-width': '800px', margin: '0 auto', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{title() || 'Untitled Post'}</h1>

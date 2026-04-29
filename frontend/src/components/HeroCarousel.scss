@@ -83,7 +83,7 @@
     display: inline-block;
     margin-top: $spacing-lg;
     padding: 8px 32px;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: #fff;
     border-radius: $border-radius-md;
     text-decoration: none;
@@ -93,7 +93,7 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 
     &:hover {
-      background: color.adjust($primary-color, $lightness: -8%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black);
       color: #fff;
     }
 

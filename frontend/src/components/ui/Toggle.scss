@@ -1,0 +1,68 @@
+@use '../../styles/variables' as *;
+
+.ui-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: $text-color;
+    font-size: $font-size-sm;
+    font-weight: 500;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &__track {
+        position: relative;
+        display: inline-block;
+        background-color: $border-color;
+        border-radius: $border-radius-full;
+        transition: background-color $transition-fast;
+        flex-shrink: 0;
+    }
+
+    &__thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        background-color: #fff;
+        border-radius: 50%;
+        box-shadow: $shadow-sm;
+        transition: transform $transition-fast;
+    }
+
+    &--sm {
+        .ui-toggle__track { width: 32px; height: 18px; }
+        .ui-toggle__thumb { width: 14px; height: 14px; }
+        &.is-checked .ui-toggle__thumb { transform: translateX(14px); }
+    }
+
+    &--md {
+        .ui-toggle__track { width: 42px; height: 24px; }
+        .ui-toggle__thumb { width: 20px; height: 20px; }
+        &.is-checked .ui-toggle__thumb { transform: translateX(18px); }
+    }
+
+    &.is-checked .ui-toggle__track {
+        background-color: var(--site-primary, #{$primary-color});
+    }
+
+    &--emphasis {
+        font-size: $font-size-base;
+        font-weight: 600;
+    }
+
+    &__label {
+        display: inline-block;
+    }
+
+    &:focus-visible .ui-toggle__track {
+        outline: 2px solid var(--site-primary, #{$primary-color});
+        outline-offset: 2px;
+    }
+}

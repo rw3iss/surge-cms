@@ -1,24 +1,12 @@
 import { Component, createSignal, Show, } from 'solid-js';
+import { type BlockType, getBlockLabel, } from '../../config/blockTypes';
 import BlockPreview from './BlockPreview';
 import ConfirmModal from './ConfirmModal';
 
-export type BlockType =
-    | 'text'
-    | 'social_media'
-    | 'image'
-    | 'video'
-    | 'document'
-    | 'url_link'
-    | 'rich_text'
-    | 'hero'
-    | 'html'
-    | 'campaign'
-    | 'form'
-    | 'post'
-    | 'social_feed'
-    | 'gallery'
-    | 'carousel'
-    | 'spacer';
+// Re-export so existing imports `{ BlockType } from './ContentBlock'`
+// keep working without churn — but this file no longer owns the union.
+// New code should import directly from '../../config/blockTypes'.
+export type { BlockType, };
 
 export interface BlockData {
     id: string;
@@ -54,24 +42,7 @@ interface ContentBlockProps {
     onChangeType?: (id: string, newType: BlockType,) => void;
 }
 
-const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
-    text: 'Text',
-    social_media: 'Social Media',
-    image: 'Image',
-    video: 'Video',
-    document: 'Document',
-    url_link: 'URL Link',
-    rich_text: 'Rich Text',
-    hero: 'Hero Banner',
-    html: 'Custom HTML',
-    campaign: 'Campaign',
-    form: 'Form',
-    post: 'Post Embed',
-    social_feed: 'Social Feed',
-    gallery: 'Gallery',
-    carousel: 'Carousel',
-    spacer: 'Empty Space',
-};
+// Labels come from the central registry — see config/blockTypes.ts.
 
 /**
  * Content block in preview-only mode. Clicking selects it and opens
@@ -107,7 +78,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     &#9776;
                 </span>
                 <span class="content-block__hover-label">
-                    {BLOCK_TYPE_LABELS[props.block.type] || props.block.type}
+                    {getBlockLabel(props.block.type,)}
                 </span>
                 <button
                     class="content-block__hover-btn"

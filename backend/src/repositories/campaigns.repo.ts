@@ -1,4 +1,4 @@
-import type { Campaign, Donation, DonationSummary, } from '@surge/shared';
+import type { Campaign, Donation, DonationSummary, } from '@rw/shared';
 import { query, } from '../db';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import {

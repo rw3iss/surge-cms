@@ -3,54 +3,23 @@ import { ZodError, } from 'zod';
 import { config, } from '../config';
 import { logger, } from '../utils/logger';
 
-export class AppError extends Error {
-    constructor(
-        public statusCode: number,
-        public code: string,
-        message: string,
-        public details?: Record<string, unknown>,
-    ) {
-        super(message,);
-        this.name = 'AppError';
-        Error.captureStackTrace(this, this.constructor,);
-    }
-}
+// Error classes live in core/errors/ for framework-agnosticism. This
+// module re-exports them so existing imports
+// (`from '../middleware/error'`) keep working while new code targets
+// '@/core/errors'.
+export {
+    AppError,
+    NotFoundError,
+    ValidationError,
+    UnauthorizedError,
+    ForbiddenError,
+    ConflictError,
+    RateLimitError,
+    ServiceNotConfiguredError,
+    AlreadyInstalledError,
+} from '../core/errors';
 
-export class NotFoundError extends AppError {
-    constructor(resource: string,) {
-        super(404, 'NOT_FOUND', `${resource} not found`,);
-    }
-}
-
-export class ValidationError extends AppError {
-    constructor(message: string, details?: Record<string, unknown>,) {
-        super(400, 'VALIDATION_ERROR', message, details,);
-    }
-}
-
-export class UnauthorizedError extends AppError {
-    constructor(message = 'Unauthorized',) {
-        super(401, 'UNAUTHORIZED', message,);
-    }
-}
-
-export class ForbiddenError extends AppError {
-    constructor(message = 'Forbidden',) {
-        super(403, 'FORBIDDEN', message,);
-    }
-}
-
-export class ConflictError extends AppError {
-    constructor(message: string,) {
-        super(409, 'CONFLICT', message,);
-    }
-}
-
-export class RateLimitError extends AppError {
-    constructor() {
-        super(429, 'RATE_LIMITED', 'Too many requests, please try again later',);
-    }
-}
+import { AppError, } from '../core/errors';
 
 export function errorHandler(
     err: Error,

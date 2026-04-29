@@ -89,7 +89,7 @@ const AdminUsers: Component = () => {
 
     return (
         <div>
-            <Title>Users - Admin - Surge Media</Title>
+            <Title>Users - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Users</h1>
                 <button

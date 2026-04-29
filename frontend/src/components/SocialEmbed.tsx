@@ -1,4 +1,4 @@
-import type { SocialPlatform, } from '@surge/shared';
+import type { SocialPlatform, } from '@rw/shared';
 import { Component, Match, Show, Switch, } from 'solid-js';
 import './SocialEmbed.scss';
 

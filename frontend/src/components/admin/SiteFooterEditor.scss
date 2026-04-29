@@ -1,0 +1,581 @@
+@use '../../styles/variables' as *;
+
+.footer-editor {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    &__topbar {
+        display: flex;
+        align-items: center;
+        gap: $spacing-md;
+        padding: $spacing-md;
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+    }
+
+    &__topbar-spacer {
+        flex: 1;
+    }
+
+    &__enable {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-sm;
+        cursor: pointer;
+        user-select: none;
+
+        input[type='checkbox'] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+    }
+
+    &__enable-label {
+        font-weight: 600;
+    }
+
+    &__dirty {
+        font-size: $font-size-xs;
+        color: $warning-color;
+        font-weight: 500;
+    }
+
+    &__save {
+        background-color: var(--site-primary, #{$primary-color});
+        color: #fff;
+        border: none;
+        border-radius: $border-radius-md;
+        padding: 8px 16px;
+        font-weight: 600;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
+    &__disabled-note {
+        padding: $spacing-lg;
+        background-color: $background-dark;
+        border: 1px dashed $border-color;
+        border-radius: $border-radius-md;
+        color: $text-light;
+        text-align: center;
+    }
+
+    // ── General footer settings (disclosure + panel) ─────
+    // Same pattern as the SiteHeaderEditor: a small left-aligned
+    // disclosure link below the topbar that expands a row of fields
+    // for the footer's outer container styles.
+    &__general-settings-row {
+        display: flex;
+        margin-top: $spacing-sm;
+    }
+
+    &__general-settings-toggle {
+        background: none;
+        border: none;
+        padding: 4px 0;
+        cursor: pointer;
+        color: $text-light;
+        font-size: $font-size-sm;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        &:hover {
+            color: var(--admin-page-text, #{$text-color});
+        }
+    }
+
+    &__general-settings-chevron {
+        font-size: 9px;
+        line-height: 1;
+        color: $text-light;
+    }
+
+    &__general-settings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-md;
+        padding: $spacing-md $spacing-lg;
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        margin-top: $spacing-xs;
+        margin-bottom: $spacing-md;
+    }
+
+    &__general-field {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+
+    &__general-label {
+        font-size: $font-size-sm;
+        font-weight: 500;
+        color: var(--admin-page-text, #{$text-color});
+        margin: 0;
+    }
+
+    &__general-input {
+        width: 110px;
+        padding: 6px 10px;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        background-color: #fff;
+        font-size: $font-size-sm;
+        font-family: var(--admin-font-mono, monospace);
+
+        &:focus {
+            outline: none;
+            border-color: var(--site-primary, #{$primary-color});
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+        }
+    }
+
+    // ── Preview ──────────────────────────────────────────
+    &__preview-wrap {
+        position: relative;
+    }
+
+    &__preview-label {
+        font-size: $font-size-xs;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: $text-light;
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+
+    &__preview {
+        position: relative;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        overflow: hidden;
+        min-height: 80px;
+        // Apply the public footer's background so the preview visually
+        // matches what visitors see, without re-rendering the public
+        // Footer component (which would double-handle clicks).
+        background-color: $secondary-color;
+        color: #fff;
+    }
+
+    &__preview-empty {
+        padding: $spacing-lg;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.65);
+        font-size: $font-size-sm;
+    }
+
+    // ── Integrated editable preview ─────────────────────
+    // Rows / columns / items render the same way as the public Footer
+    // but with click handlers and selection rings. Outlines use
+    // `outline` (not `border`) so they don't reflow layout.
+
+    // Selected state uses inset box-shadow (not outline) because outlines
+    // with negative offsets can paint OUTSIDE a parent's outline when
+    // nested elements share an edge — e.g. an item sitting at the top
+    // of a column with no padding renders the item's ring 1px above
+    // the column's ring. inset box-shadow strictly paints inside the
+    // box, and DOM order means an inner element's ring naturally sits
+    // on top of an outer element's ring where they overlap.
+
+    &__pv-row {
+        cursor: pointer;
+        outline: 1px dashed transparent;
+        outline-offset: -2px;
+        transition: outline-color $transition-fast, box-shadow $transition-fast;
+
+        &:hover {
+            outline-color: rgba($primary-color, 0.55);
+        }
+
+        &.is-selected {
+            outline: none;
+            box-shadow: inset 0 0 0 2px var(--site-primary, #{$primary-color});
+        }
+    }
+
+    &__pv-row-inner {
+        // Layout (display/flex/gap/gutter) supplied inline by the
+        // EditableRow component so it mirrors the public renderer.
+    }
+
+    &__pv-col {
+        cursor: pointer;
+        outline: 1px dashed transparent;
+        outline-offset: -2px;
+        transition: outline-color $transition-fast, box-shadow $transition-fast;
+        position: relative;
+
+        &:hover {
+            outline-color: rgba($success-color, 0.65);
+        }
+
+        &.is-selected {
+            outline: none;
+            box-shadow: inset 0 0 0 2px $success-color;
+        }
+    }
+
+    &__pv-col-empty {
+        font-size: $font-size-xs;
+        color: rgba(255, 255, 255, 0.4);
+        font-style: italic;
+        padding: 8px;
+    }
+
+    &__pv-item {
+        display: inline-flex;
+        cursor: pointer;
+        outline: 1px dashed transparent;
+        outline-offset: -1px;
+        transition: outline-color $transition-fast, box-shadow $transition-fast;
+        // Inner content (anchors / images / spans) shouldn't intercept
+        // the click — the wrapper does. We can't `pointer-events: none`
+        // the wrapper itself, so disable pointer-events on inner
+        // visuals only.
+        > img,
+        > .footer__item-img,
+        > .footer__item-img-link img {
+            pointer-events: none;
+        }
+
+        &:hover {
+            outline-color: rgba($warning-color, 0.75);
+        }
+
+        &.is-selected {
+            outline: none;
+            box-shadow: inset 0 0 0 2px $warning-color;
+        }
+    }
+
+    // ── Body (tree + panel) ─────────────────────────────
+    &__body {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: $spacing-md;
+
+        @media (max-width: 900px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__tree {
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        padding: $spacing-md;
+        overflow: hidden;
+    }
+
+    &__tree-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: $spacing-sm;
+        margin-bottom: $spacing-sm;
+        border-bottom: 1px solid $border-color;
+        font-weight: 600;
+        font-size: $font-size-sm;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: $text-light;
+
+        button {
+            background: none;
+            border: 1px solid $border-color;
+            border-radius: $border-radius-sm;
+            padding: 4px 10px;
+            font-size: $font-size-xs;
+            cursor: pointer;
+            color: var(--admin-page-text, #{$text-color});
+
+            &:hover {
+                background-color: $background-dark;
+            }
+        }
+    }
+
+    &__empty {
+        font-size: $font-size-sm;
+        color: $text-light;
+        margin: $spacing-sm 0;
+    }
+
+    &__tree-row {
+        border-radius: $border-radius-sm;
+        margin-bottom: $spacing-sm;
+        padding: $spacing-sm;
+        background-color: $background-dark;
+        // Position relative so the drop-indicator pseudo-elements
+        // anchor to the row card.
+        position: relative;
+        transition: box-shadow 0.12s ease, opacity 0.12s ease;
+
+        &.is-selected {
+            outline: 2px solid var(--site-primary, #{$primary-color});
+        }
+
+        // ─── Drop indicators (drag-and-drop reorder) ───────────
+        // A 2px primary-colored bar paints just outside the row's
+        // top or bottom edge to show where the drop will land.
+        // box-shadow keeps the indicator from affecting layout
+        // (which a top/bottom border would).
+        &.is-drop-before {
+            box-shadow: 0 -3px 0 0 var(--site-primary, #{$primary-color});
+        }
+
+        &.is-drop-after {
+            box-shadow: 0 3px 0 0 var(--site-primary, #{$primary-color});
+        }
+    }
+
+    &__tree-row-head, &__tree-col-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-xs;
+    }
+
+    &__tree-cols {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+        margin-top: $spacing-sm;
+        padding: $spacing-xs 0 $spacing-xs $spacing-md;
+        border-left: 2px solid $border-color;
+        // Animate the drop-zone treatment so the highlight fades in
+        // smoothly as the user drags over the row.
+        transition: outline-color 0.12s ease, background 0.12s ease, min-height 0.12s ease;
+
+        // Empty rows get a small minimum height so there's an
+        // actual surface to drop onto. Without this, an empty cols
+        // container collapses to the height of its lone "+ Add
+        // column" button — too thin to feel like a target.
+        &.is-empty {
+            min-height: 36px;
+        }
+
+        // Active column-drop on an empty row. Dashed primary-color
+        // outline makes the drop intent unambiguous; subtle tint
+        // confirms the cursor is over the right zone.
+        &.is-drop-into {
+            min-height: 56px;
+            outline: 2px dashed var(--site-primary, #{$primary-color});
+            outline-offset: -2px;
+            border-radius: $border-radius-sm;
+            background: rgba($primary-color, 0.05);
+        }
+    }
+
+    &__tree-col {
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        padding: $spacing-sm;
+        position: relative;
+        transition: box-shadow 0.12s ease, opacity 0.12s ease;
+
+        &.is-selected {
+            outline: 2px solid $success-color;
+        }
+
+        &.is-drop-before {
+            box-shadow: 0 -3px 0 0 $success-color;
+        }
+
+        &.is-drop-after {
+            box-shadow: 0 3px 0 0 $success-color;
+        }
+    }
+
+    // ─── Drag handle (rows + columns) ─────────────────────────
+    // Tight 6-dot grid icon that lives at the start of the
+    // row/column head. Only this element is `draggable=true`,
+    // so clicks on the label/action buttons can't accidentally
+    // initiate a drag.
+    &__tree-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        color: $text-light;
+        cursor: grab;
+        opacity: 0.6;
+        transition: opacity 0.12s ease, color 0.12s ease;
+        margin-right: 2px;
+
+        &:hover {
+            opacity: 1;
+            color: var(--admin-page-text, #{$text-color});
+        }
+
+        &:active {
+            cursor: grabbing;
+        }
+    }
+
+    &__tree-items {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-top: $spacing-xs;
+        padding-left: $spacing-sm;
+        border-left: 2px solid $border-color;
+    }
+
+    &__tree-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-xs;
+        padding: 4px $spacing-sm;
+        border-radius: $border-radius-sm;
+
+        &.is-selected {
+            background-color: rgba($warning-color, 0.15);
+        }
+
+        &:hover {
+            background-color: $background-dark;
+        }
+    }
+
+    &__tree-label {
+        flex: 1;
+        background: none;
+        border: none;
+        padding: 0;
+        text-align: left;
+        cursor: pointer;
+        font-size: $font-size-sm;
+        color: var(--admin-page-text, #{$text-color});
+
+        &:hover {
+            color: var(--site-primary, #{$primary-color});
+        }
+    }
+
+    &__tree-meta {
+        font-size: $font-size-xs;
+        color: $text-light;
+        font-weight: 400;
+    }
+
+    &__tree-actions {
+        display: inline-flex;
+        gap: 2px;
+
+        button {
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            font-size: $font-size-xs;
+            color: $text-light;
+
+            &:hover:not(:disabled) {
+                background-color: $background-dark;
+                color: var(--admin-page-text, #{$text-color});
+            }
+
+            &:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
+
+            &.is-danger:hover {
+                background-color: rgba($error-color, 0.15);
+                color: $error-color;
+            }
+        }
+    }
+
+    &__add-col, &__add-item {
+        background: none;
+        border: 1px dashed $border-color;
+        border-radius: $border-radius-sm;
+        padding: 4px 10px;
+        font-size: $font-size-xs;
+        color: $text-light;
+        cursor: pointer;
+        margin-top: 2px;
+        align-self: flex-start;
+
+        &:hover {
+            color: var(--site-primary, #{$primary-color});
+            border-color: var(--site-primary, #{$primary-color});
+        }
+    }
+
+    // ── Panel (right side) ──────────────────────────────
+    &__panel {
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        padding: $spacing-lg;
+        min-height: 200px;
+    }
+
+    &__hint {
+        color: $text-light;
+        font-size: $font-size-sm;
+        margin: 0;
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+
+        h3 {
+            margin: 0;
+            font-size: $font-size-lg;
+            font-weight: 600;
+        }
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        > span {
+            font-size: $font-size-sm;
+            color: var(--admin-page-text, #{$text-color});
+            font-weight: 500;
+        }
+
+        input[type='text'], input[type='number'], select {
+            padding: 8px 10px;
+            border: 1px solid $border-color;
+            border-radius: $border-radius-sm;
+            background-color: #fff;
+            font-size: $font-size-sm;
+
+            &:focus {
+                outline: none;
+                border-color: var(--site-primary, #{$primary-color});
+                box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+            }
+        }
+
+        &--inline {
+            flex-direction: row;
+            align-items: center;
+        }
+    }
+}

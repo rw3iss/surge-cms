@@ -70,7 +70,7 @@
 
         &:focus {
             outline: none;
-            border-color: $primary-color;
+            border-color: var(--site-primary, #{$primary-color});
             box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
         }
 
@@ -128,7 +128,7 @@
 
     &__radio,
     &__checkbox {
-        accent-color: $primary-color;
+        accent-color: var(--site-primary, #{$primary-color});
         width: 18px;
         height: 18px;
         flex-shrink: 0;
@@ -155,7 +155,7 @@
         transition: background $transition-fast;
 
         &:hover:not(:disabled) {
-            background: color.adjust($primary-color, $lightness: -8%);
+            background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black);
         }
 
         &:disabled {

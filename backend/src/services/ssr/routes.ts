@@ -5,6 +5,12 @@
 import { config, } from '../../config';
 import { query, } from '../../db';
 import { mapRow, } from '../../utils/mapRow';
+import {
+    buildGenericBody,
+    buildPageBody,
+    buildPostBody,
+    buildPostListBody,
+} from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
 import {
     buildArticleSchema,
@@ -17,7 +23,7 @@ import {
     truncateText,
 } from './schema';
 
-const FALLBACK_SITE_NAME = 'Surge Media';
+const FALLBACK_SITE_NAME = 'RW';
 const FALLBACK_SITE_DESCRIPTION = 'Independent journalism for the people';
 
 interface SiteMeta {
@@ -101,11 +107,27 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                 logo,
                 description: SITE_DESCRIPTION,
             },),
+            body: buildGenericBody(SITE_NAME, SITE_DESCRIPTION,),
         };
     }
 
     // ─── Posts listing ───
     if (path === '/posts') {
+        // One query for count + summaries — bots indexing /posts get
+        // titles + excerpts + dates so each linked post is
+        // discoverable from this page even without JS.
+        const listRes = await query<{
+            title: string;
+            slug: string;
+            excerpt: string | null;
+            published_at: string | null;
+        }>(
+            `SELECT title, slug, excerpt, published_at FROM posts
+             WHERE status = 'published' AND is_private = false
+             ORDER BY COALESCE(published_at, created_at) DESC
+             LIMIT 30`,
+        ).catch(() => null,);
+        const listItems = listRes?.rows || [];
         const countRes = await query(
             `SELECT COUNT(*)::int AS count FROM posts WHERE status = 'published'`,
         ).catch(() => null,);
@@ -125,6 +147,12 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                 url,
                 itemCount: count,
             },),
+            body: buildPostListBody(SITE_NAME, listItems.map(r => ({
+                title: r.title,
+                slug: r.slug,
+                excerpt: r.excerpt,
+                publishedAt: r.published_at,
+            }),),),
         };
     }
 
@@ -183,6 +211,15 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                     { name: post.title, url, },
                 ],),
             ],
+            body: buildPostBody({
+                title: post.title,
+                excerpt: post.excerpt,
+                content: post.content,
+                author: post.author,
+                publishedAt: post.publishedAt,
+                tags: post.tags,
+                featuredImage: post.featuredImage,
+            },),
         };
     }
 
@@ -229,14 +266,16 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                     { name: campaign.title, url, },
                 ],),
             ],
+            body: buildGenericBody(campaign.title, description,),
         };
     }
 
     // ─── Static routes (no auth needed) ───
     if (path === '/contact') {
+        const description = `Get in touch with ${SITE_NAME}. Send us a message, question, or story tip.`;
         return {
             title: 'Contact',
-            description: `Get in touch with ${SITE_NAME}. Send us a message, question, or story tip.`,
+            description,
             canonical: url,
             type: 'website',
             image: logo,
@@ -249,12 +288,14 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                 url,
                 publisherName: SITE_NAME,
             },),
+            body: buildGenericBody('Contact', description,),
         };
     }
     if (path === '/shop') {
+        const description = `Support independent journalism with official ${SITE_NAME} merchandise.`;
         return {
             title: 'Shop',
-            description: `Support independent journalism with official ${SITE_NAME} merchandise.`,
+            description,
             canonical: url,
             type: 'website',
             image: logo,
@@ -266,6 +307,7 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                 url,
                 publisherName: SITE_NAME,
             },),
+            body: buildGenericBody('Shop', description,),
         };
     }
 
@@ -297,7 +339,7 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
     if (slug && !slug.includes('/',)) {
         const res = await query(
             `SELECT id, title, slug, description, meta_title, meta_description,
-                    meta_keywords, og_image, updated_at, title_alignment
+                    meta_keywords, og_image, updated_at, title_alignment, show_title
              FROM pages WHERE slug = $1 AND status = 'published'`,
             [slug,],
         ).catch(() => null,);
@@ -308,6 +350,28 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
             const description = page.metaDescription || page.description ||
                 `${page.title} — ${SITE_NAME}`;
             const image = page.ogImage || logo;
+
+            // Fetch the page's blocks for SSR body rendering. We
+            // only need text-relevant fields; the body builder
+            // skips dynamic block types it can't index anyway.
+            // Errors fall back to a title-only body so SSR never
+            // breaks for a page that's missing its blocks row.
+            let blocks: Array<{ type: string; title: string | null; content: string | null; settings: Record<string, unknown> | null; }> = [];
+            try {
+                const blocksRes = await query<{
+                    type: string;
+                    title: string | null;
+                    content: string | null;
+                    settings: Record<string, unknown> | null;
+                }>(
+                    `SELECT type, title, content, settings FROM blocks
+                     WHERE page_id = $1 AND is_visible = true
+                     ORDER BY "order" ASC`,
+                    [page.id,],
+                );
+                blocks = blocksRes.rows;
+            } catch { /* ignore — fall through to title-only body */ }
+
             return {
                 title,
                 description,
@@ -332,6 +396,12 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                         { name: page.title, url, },
                     ],),
                 ],
+                body: buildPageBody({
+                    title: page.title,
+                    showTitle: page.showTitle !== false,
+                    description: page.description,
+                    blocks,
+                },),
             };
         }
     }
@@ -355,7 +425,7 @@ export function isPublicRoute(path: string,): boolean {
     if (path.startsWith('/avatars/',)) return false;
     if (path.startsWith('/assets/',)) return false;
     if (path.startsWith('/icons/',)) return false;
-    if (path === '/favicon.ico' || path === '/robots.txt' || path === '/sitemap.xml') return false;
+    if (path === '/favicon.ico' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/feed.xml') return false;
     if (path === '/manifest.webmanifest' || path === '/sw.js') return false;
     // Static asset extensions
     if (/\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|json)$/i.test(path,)) return false;

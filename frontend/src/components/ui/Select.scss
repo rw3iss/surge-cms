@@ -1,0 +1,36 @@
+@use '../../styles/variables' as *;
+
+.ui-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: #fff;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    color: $text-color;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right $spacing-sm center;
+    padding-right: 32px;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+
+    &:focus {
+        outline: none;
+        border-color: var(--site-primary, #{$primary-color});
+        box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+    }
+
+    &.is-invalid {
+        border-color: $error-color;
+    }
+
+    &:disabled {
+        background-color: $background-dark;
+        cursor: not-allowed;
+    }
+
+    &--sm { padding: 6px 10px; padding-right: 32px; font-size: $font-size-sm; min-height: 32px; }
+    &--md { padding: 9px 12px; padding-right: 32px; font-size: $font-size-base; min-height: 40px; }
+    &--lg { padding: 13px 14px; padding-right: 36px; font-size: $font-size-lg; min-height: 48px; }
+}

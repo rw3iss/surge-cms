@@ -77,7 +77,7 @@
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
     }
 
@@ -115,7 +115,7 @@
     transition: all $transition-fast;
 
     &:hover:not(:disabled) {
-      background: color.adjust($primary-color, $lightness: -10%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
       transform: translateY(-1px);
       box-shadow: $shadow-md;
     }

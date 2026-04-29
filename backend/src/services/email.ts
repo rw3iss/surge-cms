@@ -53,12 +53,12 @@ export async function sendEmail(options: EmailOptions,): Promise<void> {
 export async function sendWelcomeEmail(email: string, name: string,): Promise<void> {
     await sendEmail({
         to: email,
-        subject: 'Welcome to Surge Media!',
+        subject: 'Welcome to RW!',
         html: `
-      <h1>Welcome to Surge Media, ${name}!</h1>
+      <h1>Welcome to RW, ${name}!</h1>
       <p>Thank you for joining our community.</p>
       <p>As a member, you now have access to exclusive content and features.</p>
-      <p>Best regards,<br>The Surge Media Team</p>
+      <p>Best regards,<br>The RW Team</p>
     `,
     },);
 }
@@ -83,7 +83,7 @@ export async function sendDonationThankYou(
             campaignTitle ? ` to our "${campaignTitle}" campaign` : ''
         }.</p>
       <p>Your support helps us continue our mission of independent journalism.</p>
-      <p>Best regards,<br>The Surge Media Team</p>
+      <p>Best regards,<br>The RW Team</p>
     `,
     },);
 }

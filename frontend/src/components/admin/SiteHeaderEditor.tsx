@@ -1,5 +1,6 @@
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import { fetchSiteHeader, saveSiteHeader, } from '../../services/api';
+import { colorCssValue, } from '../../services/colorResolver';
 import { useToast, } from '../Toast';
 import ColorPicker from './ColorPicker';
 import MediaSelectModal from './MediaSelectModal';
@@ -21,6 +22,8 @@ interface SiteHeaderItem {
     openInNewTab?: boolean;
     buttonColor?: string;
     fontSize?: string;
+    /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
+    fontWeight?: string;
     textColor?: string;
     width?: string;
     alignment?: string;
@@ -61,6 +64,23 @@ const WIDTH_OPTIONS = ['auto', '100%', '50%', '33.333%', '25%', '20%',];
 const PADDING_OPTIONS = ['0px', '5px', '10px', '15px', '20px', '30px',];
 const MARGIN_OPTIONS = ['0px', '5px', '10px', '15px', '20px', '30px',];
 
+// Font weight options. Empty value = "default" (inherit). Numeric
+// weights map 1:1 to the CSS font-weight values most variable + system
+// fonts support; the keyword aliases (Light, Regular, Bold, etc.) help
+// non-CSS-savvy users pick the right one.
+const FONT_WEIGHT_OPTIONS: { value: string; label: string; }[] = [
+    { value: '', label: 'Default', },
+    { value: '100', label: '100 — Thin', },
+    { value: '200', label: '200 — Extra Light', },
+    { value: '300', label: '300 — Light', },
+    { value: '400', label: '400 — Regular', },
+    { value: '500', label: '500 — Medium', },
+    { value: '600', label: '600 — Semibold', },
+    { value: '700', label: '700 — Bold', },
+    { value: '800', label: '800 — Extrabold', },
+    { value: '900', label: '900 — Black', },
+];
+
 const HEADER_ITEM_TYPES: { value: HeaderItemType; label: string; }[] = [
     { value: 'image', label: 'Image', },
     { value: 'image_link', label: 'Image Link', },
@@ -96,6 +116,10 @@ const SiteHeaderEditor: Component = () => {
     const [headerMargin, setHeaderMargin,] = createSignal('0px',);
     const [itemSpacing, setItemSpacing,] = createSignal('',);
     const [applyGutter, setApplyGutter,] = createSignal(false,);
+    /** Sticky default = true preserves the historic behavior for
+     *  existing sites; new toggles save the explicit value. */
+    const [sticky, setSticky,] = createSignal(true,);
+    const [autoHide, setAutoHide,] = createSignal(false,);
     const [selectedItemId, setSelectedItemId,] = createSignal<string | null>(null,);
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
@@ -136,6 +160,10 @@ const SiteHeaderEditor: Component = () => {
                 if (data.margin) setHeaderMargin(data.margin,);
                 if (data.itemSpacing) setItemSpacing(data.itemSpacing,);
                 if (data.applyGutter) setApplyGutter(data.applyGutter,);
+                // Coerce explicitly: default to true (preserve historic
+                // behavior) when the field is missing on legacy rows.
+                setSticky(data.sticky !== false,);
+                setAutoHide(data.autoHide === true,);
             }
         } catch (e) {
             console.error('Failed to load site header settings:', e,);
@@ -229,6 +257,8 @@ const SiteHeaderEditor: Component = () => {
                 margin: headerMargin(),
                 itemSpacing: itemSpacing() || undefined,
                 applyGutter: applyGutter(),
+                sticky: sticky(),
+                autoHide: autoHide(),
             };
             const res = await saveSiteHeader(payload,);
             if (res.success) {
@@ -327,26 +357,38 @@ const SiteHeaderEditor: Component = () => {
                     </Show>
                 );
             case 'image_link': {
-                const marginMap: Record<string, string> = {
-                    left: '0 auto 0 0',
-                    center: '0 auto',
-                    right: '0 0 0 auto',
+                // Mirror the public Header's alignment logic: a column-
+                // flex wrapper aligns the image horizontally via
+                // align-items. The previous margin-auto approach had
+                // no effect because the image was forced to width:
+                // 100% of the wrapper — there was no free space.
+                const alignMap: Record<string, string> = {
+                    left: 'flex-start',
+                    center: 'center',
+                    right: 'flex-end',
                 };
                 const hAlign = item.alignment || 'center';
                 return (
                     <Show when={item.imageUrl} fallback={<span class="site-header-preview__placeholder">IMG</span>}>
-                        <img
-                            src={item.imageUrl}
-                            alt=""
-                            class="site-header-preview__img"
+                        <div
                             style={{
-                                display: 'block',
+                                display: 'flex',
+                                'flex-direction': 'column',
+                                'align-items': alignMap[hAlign] || 'center',
                                 width: '100%',
-                                height: 'auto',
-                                'min-width': item.width || undefined,
-                                margin: marginMap[hAlign] || '0 auto',
                             }}
-                        />
+                        >
+                            <img
+                                src={item.imageUrl}
+                                alt=""
+                                class="site-header-preview__img"
+                                style={{
+                                    display: 'block',
+                                    'max-width': '100%',
+                                    height: 'auto',
+                                }}
+                            />
+                        </div>
                     </Show>
                 );
             }
@@ -358,7 +400,7 @@ const SiteHeaderEditor: Component = () => {
                 return (
                     <span
                         class="site-header-preview__button"
-                        style={{ background: item.buttonColor || '#333', }}
+                        style={{ background: colorCssValue(item.buttonColor, '#333',), }}
                     >
                         {item.text || 'Button'}
                     </span>
@@ -410,8 +452,8 @@ const SiteHeaderEditor: Component = () => {
                 <div
                     class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
                     style={{
-                        background: bgColor(),
-                        color: textColor(),
+                        background: colorCssValue(bgColor(), '',) || undefined,
+                        color: colorCssValue(textColor(), '',) || undefined,
                         gap: itemSpacing() || undefined,
                         padding: headerPadding() || undefined,
                         margin: headerMargin() || undefined,
@@ -447,7 +489,11 @@ const SiteHeaderEditor: Component = () => {
                                     inlineStyle.display = 'block';
                                 }
                                 if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
-                                if (item.textColor) inlineStyle.color = item.textColor;
+                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
+                                {
+                                    const tc = colorCssValue(item.textColor, '',);
+                                    if (tc) inlineStyle.color = tc;
+                                }
                                 if (item.padding) inlineStyle.padding = item.padding;
                                 if (item.margin) inlineStyle.margin = item.margin;
                                 if (item.alignment) inlineStyle['text-align'] = item.alignment;
@@ -627,6 +673,40 @@ const SiteHeaderEditor: Component = () => {
                                 />
                                 <span>Apply Site Gutter</span>
                             </label>
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={sticky()}
+                                    onChange={(e,) => {
+                                        setSticky(e.currentTarget.checked,);
+                                        markDirty();
+                                    }}
+                                />
+                                <span>Make header sticky</span>
+                            </label>
+                            <Tooltip
+                                header="Sticky header"
+                                content="Pins the site header to the top of the viewport so it stays visible as visitors scroll. Turn off to let the header scroll away with the page like any other section."
+                            />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={autoHide()}
+                                    onChange={(e,) => {
+                                        setAutoHide(e.currentTarget.checked,);
+                                        markDirty();
+                                    }}
+                                />
+                                <span>Auto-hide on scroll</span>
+                            </label>
+                            <Tooltip
+                                header="Auto-hide"
+                                content="Slides the header up out of view when the visitor scrolls down, and slides it back into place when they scroll up. Combine with 'Make header sticky' for the typical content-priority pattern; without sticky the header is already in flow so this is a no-op."
+                            />
                         </div>
                         <div class="site-header-editor__settings-actions">
                             <button
@@ -809,6 +889,20 @@ const SiteHeaderEditor: Component = () => {
                                         >
                                             <For each={FONT_SIZE_OPTIONS}>
                                                 {(size,) => <option value={size}>{size}</option>}
+                                            </For>
+                                        </select>
+                                    </div>
+
+                                    {/* Font Weight */}
+                                    <div class="site-header-edit-panel__field">
+                                        <label class="site-header-edit-panel__label">Font Weight</label>
+                                        <select
+                                            class="site-header-edit-panel__select"
+                                            value={item().fontWeight || ''}
+                                            onChange={(e,) => updateEditField('fontWeight', e.currentTarget.value,)}
+                                        >
+                                            <For each={FONT_WEIGHT_OPTIONS}>
+                                                {(opt,) => <option value={opt.value}>{opt.label}</option>}
                                             </For>
                                         </select>
                                     </div>

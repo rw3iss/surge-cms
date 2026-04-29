@@ -26,7 +26,7 @@ const PostPreview: Component = () => {
         <Show when={previewData()}>
             {(data,) => (
                 <PreviewOverlay backUrl={`/admin/posts/${params.id}`}>
-                    <Header navigation={[]} siteName="Surge Media" />
+                    <Header navigation={[]} siteName="RW" />
                     <main class="container" style={{ 'min-height': '70vh', 'padding-top': '2rem', }}>
                         <article style={{ 'max-width': '800px', margin: '0 auto', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{data().title || 'Untitled Post'}</h1>

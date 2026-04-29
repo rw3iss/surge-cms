@@ -1,4 +1,4 @@
-import type { BlockStyle, } from '@surge/shared';
+import type { BlockStyle, } from '@rw/shared';
 import { Router, } from 'express';
 import { z, } from 'zod';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';

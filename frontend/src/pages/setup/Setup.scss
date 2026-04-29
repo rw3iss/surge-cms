@@ -1,0 +1,177 @@
+@use '../../styles/variables' as *;
+
+.setup-page {
+    min-height: 100vh;
+    background-color: $background-dark;
+    padding: $spacing-2xl 0;
+
+    &__container {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 0 $spacing-lg;
+    }
+
+    &__header {
+        text-align: center;
+        margin-bottom: $spacing-2xl;
+
+        h1 {
+            font-size: $font-size-3xl;
+            margin-bottom: $spacing-sm;
+        }
+
+        p {
+            color: $text-light;
+            font-size: $font-size-base;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+    }
+
+    &__welcome-card {
+        background-color: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-lg;
+        padding: $spacing-lg;
+        margin-bottom: $spacing-lg;
+        display: flex;
+        align-items: flex-start;
+        gap: $spacing-md;
+
+        &__icon {
+            width: 40px;
+            height: 40px;
+            background-color: rgba($primary-color, 0.1);
+            border-radius: $border-radius-md;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--site-primary, #{$primary-color});
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        &__body h3 {
+            margin-bottom: $spacing-xs;
+            font-size: $font-size-base;
+        }
+
+        &__body p {
+            font-size: $font-size-sm;
+            color: $text-light;
+            margin-bottom: $spacing-sm;
+        }
+
+        &__detected {
+            display: flex;
+            flex-wrap: wrap;
+            gap: $spacing-sm;
+            margin-top: $spacing-sm;
+        }
+
+        &__pill {
+            font-size: $font-size-xs;
+            padding: 4px 10px;
+            border-radius: $border-radius-full;
+            background-color: $background-dark;
+            color: $text-color;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            &--ok {
+                background-color: rgba($success-color, 0.12);
+                color: color-mix(in srgb, $success-color 80%, black);
+            }
+
+            &--missing {
+                background-color: rgba($warning-color, 0.15);
+                color: color-mix(in srgb, $warning-color 70%, black);
+            }
+        }
+    }
+
+    &__footer {
+        position: sticky;
+        bottom: $spacing-md;
+        background: #fff;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-lg;
+        padding: $spacing-md $spacing-lg;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: $spacing-md;
+        box-shadow: $shadow-md;
+        margin-top: $spacing-lg;
+
+        &__hint {
+            font-size: $font-size-sm;
+            color: $text-light;
+        }
+    }
+
+    &__overlay {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(255, 255, 255, 0.92);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: $spacing-md;
+        z-index: 100;
+
+        h2 {
+            font-size: $font-size-xl;
+        }
+
+        p {
+            color: $text-light;
+            text-align: center;
+            max-width: 420px;
+        }
+    }
+}
+
+// Database section toggle stack — used for the "create role / database
+// if missing" checkboxes in the existing-DB tab.
+.setup-db-toggles {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    padding: $spacing-md;
+    background-color: #fff;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-md;
+
+    .ui-checkbox {
+        align-items: flex-start;
+
+        .ui-checkbox__indicator {
+            margin-top: 2px;
+        }
+    }
+
+    code {
+        background-color: $background-dark;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+}
+
+// Inline regenerate suffix used by the security JWT field
+.ui-input__regen {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 4px;
+    color: $text-light;
+    font-size: 16px;
+
+    &:hover {
+        color: var(--site-primary, #{$primary-color});
+    }
+}

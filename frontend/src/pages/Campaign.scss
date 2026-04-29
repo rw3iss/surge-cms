@@ -19,7 +19,7 @@
         margin-bottom: $spacing-lg;
 
         &:hover {
-            color: $primary-color;
+            color: var(--site-primary, #{$primary-color});
         }
     }
 
@@ -80,7 +80,7 @@
     &__tracker-raised {
         font-size: $font-size-3xl;
         font-weight: 700;
-        color: $primary-color;
+        color: var(--site-primary, #{$primary-color});
         line-height: 1;
     }
 

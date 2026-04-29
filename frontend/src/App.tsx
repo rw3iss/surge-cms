@@ -22,6 +22,7 @@ const FormPage = lazy(() => import('./pages/Form'));
 const ShopPage = lazy(() => import('./pages/Shop'));
 const SearchPage = lazy(() => import('./pages/Search'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
+const SetupPage = lazy(() => import('./pages/setup/Setup'));
 
 // Admin pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -73,8 +74,15 @@ const App: Component = () => {
                                     <Route path="/contact" component={ContactPage} />
                                     <Route path="/forms/:slug" component={FormPage} />
                                     <Route path="/search" component={SearchPage} />
-                                    {/* Dynamic page route - must be last */}
+                                    {/* Dynamic page route - must be last among
+                                        single-segment paths. */}
                                     <Route path="/:slug" component={DynamicPage} />
+                                    {/* Catch-all 404 lives INSIDE Layout so the
+                                        public Header/Footer + theme tokens
+                                        (--site-primary, etc.) apply. Multi-
+                                        segment paths like /pages/foo land here
+                                        instead of the un-themed root catch-all. */}
+                                    <Route path="*" component={NotFoundPage} />
                                 </Route>
 
                                 {/* Admin routes with admin layout */}
@@ -103,8 +111,8 @@ const App: Component = () => {
                                     <Route path="/developer" component={AdminDeveloper} />
                                 </Route>
 
-                                {/* 404 page */}
-                                <Route path="*" component={NotFoundPage} />
+                                {/* Setup wizard — outside the main Layout so it can render its own chrome. */}
+                                <Route path="/setup" component={SetupPage} />
                             </AppErrorBoundary>
                         </Router>
                     </Suspense>

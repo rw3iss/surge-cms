@@ -15,7 +15,7 @@ export interface AdminListColumn<T = any,> {
 
 export interface AdminListPageProps<T = any,> {
     title: string;
-    /** Browser tab title (defaults to title + " - Admin - Surge Media") */
+    /** Browser tab title (defaults to title + " - Admin - RW") */
     documentTitle?: string;
     /** Header action button */
     newItemHref?: string;
@@ -73,7 +73,7 @@ function AdminListPage<T = any,>(props: AdminListPageProps<T>,) {
 
     return (
         <div class="admin-list-page">
-            <Title>{props.documentTitle || `${props.title} - Admin - Surge Media`}</Title>
+            <Title>{props.documentTitle || `${props.title} - Admin - RW`}</Title>
 
             <div class="admin-header">
                 <h1>{props.title}</h1>

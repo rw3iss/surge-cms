@@ -32,7 +32,7 @@
       margin: 0;
       font-size: $font-size-xl;
       font-weight: 600;
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
     }
   }
 
@@ -48,7 +48,7 @@
     transition: color $transition-fast, background $transition-fast;
 
     &:hover {
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
       background: $background-dark;
     }
   }
@@ -67,7 +67,7 @@
     border-radius: $border-radius-md;
     font-size: $font-size-sm;
     font-family: $font-family;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     outline: none;
     transition: border-color $transition-fast;
 
@@ -76,7 +76,7 @@
     }
 
     &:focus {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
   }
 
@@ -86,14 +86,14 @@
     border-radius: $border-radius-md;
     font-size: $font-size-sm;
     font-family: $font-family;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     background: $background;
     cursor: pointer;
     outline: none;
     min-width: 150px;
 
     &:focus {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
   }
 
@@ -216,7 +216,7 @@
   &__name {
     font-size: $font-size-sm;
     font-weight: 500;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -230,7 +230,7 @@
   &__select-btn {
     margin-top: $spacing-xs;
     padding: $spacing-xs $spacing-sm;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     color: #fff;
     border: none;
     border-radius: $border-radius-sm;
@@ -241,7 +241,7 @@
     text-align: center;
 
     &:hover {
-      background: color.adjust($primary-color, $lightness: -8%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black);
     }
   }
 
@@ -261,7 +261,7 @@
     border-radius: $border-radius-sm;
     font-size: $font-size-sm;
     font-family: $font-family;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     cursor: pointer;
     transition: background $transition-fast, border-color $transition-fast;
 

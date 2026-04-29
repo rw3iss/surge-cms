@@ -24,6 +24,13 @@ export interface MetaTags {
     aeoSummary?: string;
     aeoEntityType?: string;
     jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+    /** Optional pre-rendered HTML to inject into the page body
+     *  (replaces the SPA's loading shell on first paint). Used by the
+     *  progressive-enhancement SSR layer so bots see real content
+     *  even without executing JS. The Solid SPA's `render()` will
+     *  overwrite `#root` once it mounts, so this string only needs to
+     *  be SEMANTICALLY correct — visual fidelity is not required. */
+    body?: string;
 }
 
 function escapeHtml(str: unknown,): string {
@@ -55,7 +62,7 @@ function buildRobots(meta: MetaTags,): string {
 
 /** Build the full <head> fragment to inject into the HTML template. */
 export function buildMetaHtml(meta: MetaTags,): string {
-    const siteName = meta.siteName || 'Surge Media';
+    const siteName = meta.siteName || 'RW';
     const locale = meta.locale || 'en_US';
     // Title format: "{Site Name} - {Page Title}"
     const pageTitle = (meta.title || '').trim();
@@ -81,6 +88,14 @@ export function buildMetaHtml(meta: MetaTags,): string {
     if (meta.canonical) {
         lines.push(`<link rel="canonical" href="${escapeHtml(meta.canonical,)}" />`,);
     }
+
+    // RSS feed discovery — feed readers and bots scan for an
+    // `<link rel="alternate" type="application/rss+xml">` tag in the
+    // <head> to find the site's syndication URL. Hardcoded path
+    // matches the route mounted at /feed.xml.
+    lines.push(
+        `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(siteName,)} — Posts" href="/feed.xml" />`,
+    );
 
     const robots = buildRobots(meta,);
     lines.push(`<meta name="robots" content="${robots}" />`,);

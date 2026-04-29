@@ -40,7 +40,7 @@ router.post('/', authenticate(false,), async (req: AuthenticatedRequest, res,) =
         // Send email notification to admin
         try {
             await sendEmail({
-                to: config.adminEmails[0] || config.email.from || 'admin@surgemedia.us',
+                to: config.adminEmails[0] || config.email.from || 'admin@ryanweiss.net',
                 subject: `New Contact Message: ${data.subject || 'No Subject'}`,
                 html: `
           <h2>New Contact Message</h2>

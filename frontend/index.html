@@ -9,8 +9,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Fonts: Manrope for display/UI (logo, buttons, tabs, sidebar
+         items, labels, headings) — narrow geometric, premium SaaS feel.
+         IBM Plex Sans for body text — classic IBM-designed business
+         tone, more humanistic than Inter. JetBrains Mono for slugs /
+         IDs / code-style UI. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -29,7 +36,7 @@
           the title and meta tags based on the rendered page.
       Keep the fallback title minimal so solid-meta's later injection wins.
     -->
-    <title>Surge Media</title>
+    <title>RW</title>
     <!-- SSR_META -->
 
     <!-- Critical CSS for app shell -->
@@ -96,10 +103,18 @@
   </head>
   <body>
     <div id="root">
-      <!-- App shell loading state - shown before JS loads -->
+      <!-- SSR_BODY_START -->
+      <!-- App shell loading state - shown before JS loads.
+           In SSR mode the backend replaces everything between
+           SSR_BODY_START and SSR_BODY_END with the pre-rendered
+           HTML for the current route, so bots and JS-disabled
+           visitors see real content. The Solid SPA's render() call
+           overwrites #root on mount, so users with JS see this
+           content for at most one frame before the SPA takes over. -->
       <div class="app-shell-loading">
         <div class="app-shell-loading__spinner"></div>
       </div>
+      <!-- SSR_BODY_END -->
     </div>
     <script type="module" src="/src/index.tsx"></script>
   </body>

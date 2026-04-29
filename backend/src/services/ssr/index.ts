@@ -19,6 +19,14 @@ const CACHE_TTL = 300; // 5 minutes
 
 // Marker in index.html where meta tags should be injected
 const META_INJECTION_MARKER = '<!-- SSR_META -->';
+// Markers wrapping the in-flow body content. The SSR layer replaces
+// everything between START and END with the route-specific body
+// string when one is available. When the resolver doesn't produce a
+// body (or the route doesn't match anything indexable), the markers
+// stay and the default contents (the SPA loading shell) render —
+// keeping the UX identical to dev / no-SSR mode.
+const BODY_START_MARKER = '<!-- SSR_BODY_START -->';
+const BODY_END_MARKER = '<!-- SSR_BODY_END -->';
 
 let htmlTemplate: string | null = null;
 let htmlTemplatePath: string | null = null;
@@ -48,6 +56,26 @@ function injectMeta(template: string, metaHtml: string,): string {
     }
     // Otherwise inject right before </head>
     return template.replace('</head>', `        ${metaHtml}\n    </head>`,);
+}
+
+/**
+ * Inject the route-specific body into the template, replacing the
+ * default loading-shell content between the SSR_BODY_* markers. The
+ * Solid SPA's `render()` overwrites `#root` on mount, so this body
+ * is what bots and JS-disabled visitors see — users with JS see it
+ * for at most one frame.
+ *
+ * If the markers aren't present (older template) or no body was
+ * provided (route resolver opted out), this is a no-op.
+ */
+function injectBody(template: string, bodyHtml: string | undefined,): string {
+    if (!bodyHtml) return template;
+    const startIdx = template.indexOf(BODY_START_MARKER,);
+    const endIdx = template.indexOf(BODY_END_MARKER,);
+    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return template;
+    const before = template.slice(0, startIdx + BODY_START_MARKER.length,);
+    const after = template.slice(endIdx,);
+    return `${before}\n${bodyHtml}\n      ${after}`;
 }
 
 /**
@@ -116,7 +144,18 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
         },);
         return template;
     }
-    const html = injectMeta(template, metaHtml,);
+    let html = injectMeta(template, metaHtml,);
+
+    // 5a. Inject the pre-rendered body when the resolver produced one.
+    //     Failures here are non-fatal — fall back to the default
+    //     loading-shell template so the page still serves.
+    try {
+        html = injectBody(html, meta.body,);
+    } catch (error) {
+        logger.error(`SSR: injectBody failed for ${pathname}`, {
+            error: (error as Error).message,
+        },);
+    }
 
     // 6. Cache the rendered HTML
     await cache.set(cacheKey, html, CACHE_TTL,);

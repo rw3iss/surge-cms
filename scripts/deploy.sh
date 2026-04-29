@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# deploy.sh — Pull latest code, build, migrate, and restart the Surge backend.
-# Usage: cd /path/to/surge && bash scripts/deploy.sh
+# deploy.sh — Pull latest code, build, migrate, and restart the RW backend.
+# Usage: cd /path/to/rw && bash scripts/deploy.sh
 
 set -e
 
@@ -11,7 +11,7 @@ cd "$PROJECT_ROOT"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-echo "=== Surge Deploy ==="
+echo "=== RW Deploy ==="
 echo "Directory: $PROJECT_ROOT"
 echo "Node: $(node --version) | npm: $(npm --version)"
 echo "Date: $(date)"
@@ -60,20 +60,20 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Check if pm2 process exists
-if pm2 describe surge-backend > /dev/null 2>&1; then
-  pm2 restart surge-backend
-  echo "PM2 process 'surge-backend' restarted."
+if pm2 describe rw-backend > /dev/null 2>&1; then
+  pm2 restart rw-backend
+  echo "PM2 process 'rw-backend' restarted."
 else
   # Start new pm2 process
   cd "$PROJECT_ROOT/backend"
   NODE_ENV=production pm2 start dist/index.js \
-    --name surge-backend \
+    --name rw-backend \
     --cwd "$PROJECT_ROOT/backend" \
     --env production \
     --max-memory-restart 512M \
     --time
   cd "$PROJECT_ROOT"
-  echo "PM2 process 'surge-backend' started."
+  echo "PM2 process 'rw-backend' started."
 fi
 
 pm2 save 2>/dev/null || true
@@ -81,10 +81,10 @@ pm2 save 2>/dev/null || true
 # ── 6. Verify ──
 echo ""
 sleep 3
-if pm2 describe surge-backend 2>/dev/null | grep -q "online"; then
+if pm2 describe rw-backend 2>/dev/null | grep -q "online"; then
   echo "=== Deploy complete — backend is online ==="
 else
-  echo "WARNING: Backend may not be running. Check: pm2 logs surge-backend"
-  pm2 logs surge-backend --lines 15 --nostream 2>/dev/null || true
+  echo "WARNING: Backend may not be running. Check: pm2 logs rw-backend"
+  pm2 logs rw-backend --lines 15 --nostream 2>/dev/null || true
   exit 1
 fi

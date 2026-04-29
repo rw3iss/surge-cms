@@ -1,4 +1,64 @@
+// ─── Admin typography tokens ─────────────────────────────────────
+// Three paired faces:
+//   • Manrope — display / headings / logo / buttons / tabs / sidebar
+//     nav / labels. Narrow geometric letterforms with a premium SaaS
+//     feel; weights 500–800 carry confidence without going thin.
+//   • IBM Plex Sans — body text, paragraphs, descriptions, helper
+//     text. Classic IBM-designed business tone, slightly more
+//     humanistic than Inter for longer reading.
+//   • JetBrains Mono — slugs, IDs, dotted paths.
+//
+// Exposed as CSS custom properties on the admin root so elements
+// reference tokens (`var(--admin-font-display)`) rather than re-stating
+// the full stack.
+:root, .admin-layout {
+  --admin-font-display: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --admin-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --admin-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .admin-layout {
+  // Body type. IBM Plex Sans reads cleanly at UI sizes; a hair of
+  // negative letter-spacing tightens the rhythm for dense admin chrome.
+  font-family: var(--admin-font-body);
+  letter-spacing: -0.005em;
+
+  // All headings inside admin chrome use the display face. Negative
+  // letter-spacing scales with size so larger headings read tighter
+  // — that's what makes display type feel "designed" rather than
+  // just "bigger".
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--admin-font-display);
+    letter-spacing: -0.015em;
+    // Headings follow page-text by default, so the operator's color
+    // applies uniformly. Specific contexts (admin-header, panels)
+    // can override.
+    color: var(--admin-page-text, #{$text-color});
+  }
+  h1 { font-weight: 700; letter-spacing: -0.022em; }
+  h2 { font-weight: 700; letter-spacing: -0.018em; }
+  h3 { font-weight: 600; }
+
+  // Global input/select/textarea defaults so inputs OUTSIDE
+  // `.form-group` (e.g. inline editor controls) also pick up the
+  // configured admin input theme. Specific component classes can
+  // still override.
+  input[type="text"],
+  input[type="email"],
+  input[type="url"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  textarea,
+  select {
+    background-color: var(--admin-input-bg, #fff);
+    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+  }
+
   display: flex;
   min-height: 100vh;
 
@@ -53,8 +113,10 @@
 
   &__sidebar {
     width: 200px;
-    background: $secondary-color;
-    color: white;
+    // Sidebar tokens come from admin appearance settings; fall back to
+    // the static dark navy + white when unset.
+    background: var(--admin-sidebar-bg, #{$secondary-color});
+    color: var(--admin-sidebar-text, white);
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -68,14 +130,18 @@
 
   &__logo {
     padding: $spacing-lg;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     white-space: nowrap;
     overflow: hidden;
 
     a {
-      color: white;
+      color: var(--admin-sidebar-text, white);
+      // Display face + tighter tracking so the brand mark feels
+      // like a logo rather than a paragraph header.
+      font-family: var(--admin-font-display);
       font-size: $font-size-xl;
       font-weight: 700;
+      letter-spacing: -0.025em;
       text-decoration: none;
     }
   }
@@ -105,18 +171,32 @@
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-sm $spacing-lg;
-    color: rgba(255, 255, 255, 0.7);
+    // Sidebar text inherits from --admin-sidebar-text. Idle links use
+    // an alpha multiplier on top, hover/active use the full color.
+    color: var(--admin-sidebar-text, rgba(255, 255, 255, 0.7));
+    opacity: 0.75;
+    // Body type for sidebar items (as opposed to the logo above) so
+    // they read clearly at smaller sizes and don't compete with the
+    // brand mark visually.
+    font-family: var(--admin-font-body);
+    font-weight: 500;
+    font-size: $font-size-sm;
+    letter-spacing: -0.005em;
     text-decoration: none;
     transition: all $transition-fast;
 
     &:hover,
     &.active {
       background: rgba(255, 255, 255, 0.1);
-      color: white;
+      color: var(--admin-sidebar-text, white);
+      opacity: 1;
     }
 
     &.active {
-      border-left: 3px solid $primary-color;
+      // Active nav row uses the configured brand color, falling back to
+      // the static SCSS color when the var isn't set (e.g. before
+      // appearance settings load).
+      border-left: 3px solid var(--site-primary, #{$primary-color});
     }
   }
 
@@ -221,7 +301,10 @@
     flex: 1;
     margin-left: 200px;
     padding: $spacing-xl;
-    background: $background-dark;
+    // Page area uses --admin-page-bg / --admin-page-text from settings,
+    // falling back to the static neutral background and text colors.
+    background: var(--admin-page-bg, #{$background-dark});
+    color: var(--admin-page-text, #{$text-color});
     min-height: 100vh;
     // Use clip instead of hidden — hidden creates a new scroll container
     // which breaks position:sticky on descendant elements (flyout panel).
@@ -389,11 +472,23 @@
 .admin-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid $border-color;
 
   h1 {
     margin: 0;
+    font-size: $font-size-3xl;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__subtitle {
+    color: $text-light;
+    font-size: $font-size-sm;
+    margin-top: 4px;
   }
 
   &__actions {
@@ -410,9 +505,14 @@
   justify-content: center;
   padding: $spacing-sm $spacing-md;
   border-radius: $border-radius-md;
-  font-weight: 500;
+  // Display face on buttons gives them slightly more weight
+  // / character than body type would. Letter-spacing slightly
+  // tighter than the default to read as a "button label" rather
+  // than a paragraph fragment.
+  font-family: var(--admin-font-display);
+  font-weight: 600;
   font-size: $font-size-sm;
-  font-family: $font-family;
+  letter-spacing: -0.005em;
   text-decoration: none;
   cursor: pointer;
   border: none;
@@ -431,7 +531,7 @@
 
   &--secondary {
     background: $background;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     border: 1px solid var(--site-primary, #{$border-color});
 
     &:hover:not(:disabled) {
@@ -450,11 +550,22 @@
   }
 
   &--danger {
-    background: #dc3545;
+    background: $error-color;
     color: white;
 
     &:hover:not(:disabled) {
-      background: color.adjust(#dc3545, $lightness: -10%);
+      background: color.adjust($error-color, $lightness: -10%);
+    }
+  }
+
+  // Ghost-style button used for destructive secondary actions
+  // (e.g. "Delete Account"). Text-only red, hover background tint.
+  &--danger-text {
+    color: $error-color;
+
+    &:hover:not(:disabled) {
+      background: rgba($error-color, 0.08);
+      color: $error-color;
     }
   }
 
@@ -510,15 +621,29 @@
 
 // Tables
 .admin-table-container {
-  background: $background;
+  // Tables read as panels — they get the same panel bg/text tokens
+  // as cards, so a customized panel color flows uniformly through
+  // the listing pages (/admin/pages, /admin/posts, /admin/users, etc).
+  background: var(--admin-panel-bg, #{$background});
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
   border-radius: $border-radius-lg;
   overflow: hidden;
   box-shadow: $shadow-sm;
+
+  // Same panel-scoped override as .settings-card: descendant headings
+  // and labels follow panel-text rather than the global page-text rule.
+  h1, h2, h3, h4, h5, h6, label {
+    color: inherit;
+  }
 }
 
 .admin-table {
   width: 100%;
   border-collapse: collapse;
+  // Table cells inherit container color — the explicit `color: inherit`
+  // is here so any earlier global rules (or admin theme overrides)
+  // don't leak into table content.
+  color: inherit;
 
   th, td {
     padding: $spacing-md;
@@ -549,7 +674,7 @@
     transition: color 0.15s;
 
     &:hover {
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
     }
   }
 
@@ -560,11 +685,11 @@
 }
 
 .table-link {
-  color: $text-color;
+  color: var(--admin-page-text, #{$text-color});
   font-weight: 500;
 
   &:hover {
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
   }
 }
 
@@ -683,11 +808,24 @@
     border: 1px solid $border-color;
     border-radius: $border-radius-md;
     font-size: $font-size-base;
-    transition: border-color $transition-fast;
+    // Input bg/text are themable globally via Settings → Admin →
+    // Inputs. Falling back to white + page-text → static text-color
+    // keeps the default neutral.
+    background-color: var(--admin-input-bg, #fff);
+    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+    transition: border-color $transition-fast, background-color $transition-fast, color $transition-fast;
+
+    &::placeholder {
+      // Placeholder uses the input text token at lower alpha so it
+      // visibly differentiates from real input but still respects the
+      // operator's chosen color family.
+      color: var(--admin-input-text, $text-light);
+      opacity: 0.5;
+    }
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
   }
 
@@ -719,7 +857,12 @@
   display: block;
   margin-top: $spacing-xs;
   font-size: $font-size-xs;
-  color: $text-light;
+  // Helper text derives from the configured page-text at reduced
+  // opacity so it stays subordinate to body copy without being a
+  // hardcoded grey that disappears on dark themes. Falls back to
+  // the static $text-light when no page-text is configured.
+  color: var(--admin-page-text, #{$text-light});
+  opacity: 0.7;
 }
 
 .checkbox-label {
@@ -833,7 +976,7 @@
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
   }
 }
@@ -895,7 +1038,7 @@
   &__name {
     font-size: $font-size-xs;
     font-weight: 500;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -955,7 +1098,7 @@
 
       &:focus {
         outline: none;
-        border-color: $primary-color;
+        border-color: var(--site-primary, #{$primary-color});
       }
     }
 
@@ -1080,7 +1223,7 @@
 
   &__file-name {
     font-size: $font-size-base;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     max-width: 400px;
     word-break: break-all;
   }
@@ -1110,7 +1253,7 @@
 
       &:first-child {
         font-weight: 500;
-        color: $text-color;
+        color: var(--admin-page-text, #{$text-color});
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1205,15 +1348,24 @@
     gap: $spacing-sm;
     width: 100%;
     padding: $spacing-sm $spacing-md;
+    transition: background 0.1s;
+
+    &:hover { background: $background-dark; }
+  }
+
+  &__header-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
     background: none;
     border: none;
     cursor: pointer;
     text-align: left;
     font-size: $font-size-sm;
-    color: $text-color;
-    transition: background 0.1s;
-
-    &:hover { background: $background-dark; }
+    color: var(--admin-page-text, #{$text-color});
+    padding: 0;
+    min-width: 0;
   }
 
   &__icon {
@@ -1226,6 +1378,7 @@
   &__title {
     font-weight: 600;
     font-size: $font-size-sm;
+    flex-shrink: 0;
   }
 
   &__subtitle {
@@ -1238,9 +1391,152 @@
     max-width: 200px;
   }
 
+  &__header-content {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+  }
+
+  &__header-extra {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin-left: $spacing-sm;
+    flex-shrink: 0;
+  }
+
   &__body {
     padding: $spacing-sm $spacing-md $spacing-md;
     border-top: 1px solid $border-color;
+  }
+}
+
+// ─── Brief-view header pieces for editor properties panel ───
+// Used inside CollapsiblePanel.headerContent / headerExtra to show
+// glanceable info about the current page/post while the body is
+// collapsed: a placeholder-styled title, a small grey slug, and
+// status / access pills on the right.
+
+.editor-brief {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+  min-width: 0;
+
+  &__title {
+    font-weight: 500;
+    color: var(--admin-page-text, #{$text-color});
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 320px;
+
+    &--placeholder { color: $text-light; font-style: italic; }
+  }
+
+  &__slug {
+    font-size: $font-size-xs;
+    color: $text-light;
+    font-family: var(--admin-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 240px;
+  }
+}
+
+.editor-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  border-radius: $border-radius-full;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+
+  &--published { background: rgba($success-color, 0.12); color: color-mix(in srgb, $success-color 80%, black); }
+  &--draft     { background: rgba($warning-color, 0.15); color: color-mix(in srgb, $warning-color 70%, black); }
+  &--deleted   { background: rgba($error-color, 0.12); color: color-mix(in srgb, $error-color 70%, black); }
+  &--scheduled { background: rgba($secondary-color, 0.12); color: $secondary-color; }
+
+  &--public  { background: $background-dark; color: var(--admin-page-text, #{$text-color}); border-color: $border-color; }
+  &--private { background: rgba($error-color, 0.08); color: color-mix(in srgb, $error-color 70%, black); border-color: rgba($error-color, 0.25); }
+  &--member  { background: rgba($primary-color, 0.1); color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 70%, black); border-color: rgba($primary-color, 0.3); }
+  &--patron  { background: rgba($primary-color, 0.1); color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 70%, black); border-color: rgba($primary-color, 0.3); }
+  &--homepage { background: rgba($secondary-color, 0.12); color: $secondary-color; border-color: rgba($secondary-color, 0.3); }
+}
+
+// Page properties sidebar — "Use as homepage" section. Slightly more
+// padding than other rows because the toggle + multi-line help reads
+// as a sub-section, not a single field.
+.page-editor__homepage-section {
+  padding: 5px;
+  padding-top: $spacing-sm;
+}
+
+.page-editor__homepage-help {
+  display: block;
+  padding: 5px;
+  padding-top: 0;
+  font-size: $font-size-xs;
+  color: $text-light;
+  line-height: 1.4;
+
+  code {
+    background: $background-dark;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 11px;
+  }
+}
+
+// "Use as homepage" toggle in the page properties sidebar.
+// Single-line layout: checkbox on the left, label on the right.
+//
+// The sidebar's existing `.editor-properties .form-group label` rule
+// applies `display: block`, `text-transform: uppercase`, `font-size:
+// 11px`, and a muted grey color — appropriate for normal field
+// labels, but it would render the toggle as a stacked grey CAPS
+// block. We out-specify it with a 4-class selector and reset every
+// inherited property so the toggle reads as a normal sentence-case
+// label on the same row as the checkbox.
+.editor-properties .form-group label.page-editor__homepage-toggle,
+.page-editor__homepage-toggle {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0 !important;
+  padding: 5px;
+  font-size: $font-size-sm !important;
+  font-weight: 500 !important;
+  color: $text-color !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .page-editor__homepage-toggle-label {
+    font-weight: 500;
+    font-size: $font-size-sm;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--admin-page-text, #{$text-color});
   }
 }
 
@@ -1333,10 +1629,10 @@
   cursor: pointer;
   transition: all 0.15s;
 
-  &:hover { color: $text-color; border-color: #bbb; }
+  &:hover { color: var(--admin-page-text, #{$text-color}); border-color: #bbb; }
   &--active {
-    color: $primary-color;
-    border-color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
+    border-color: var(--site-primary, #{$primary-color});
     background: rgba($primary-color, 0.06);
   }
 }
@@ -1459,10 +1755,10 @@
     border-radius: $border-radius-sm;
     font-size: 13px;
     background: $background;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
 
     &:focus {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       outline: none;
     }
   }
@@ -1492,14 +1788,14 @@
   transition: all 0.1s;
 
   &:hover {
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     border-color: #bbb;
     background: $background-dark;
   }
 
   &--danger:hover {
-    color: $primary-color;
-    border-color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
+    border-color: var(--site-primary, #{$primary-color});
     background: rgba($primary-color, 0.06);
   }
 }
@@ -1579,11 +1875,11 @@
       border-radius: $border-radius-sm;
       font-size: 13px;
       background: $background;
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
       box-sizing: border-box;
 
       &:focus {
-        border-color: $primary-color;
+        border-color: var(--site-primary, #{$primary-color});
         outline: none;
         box-shadow: 0 0 0 2px rgba($primary-color, 0.08);
       }
@@ -1619,7 +1915,7 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     cursor: pointer;
     padding: 2px 0;
 
@@ -1689,17 +1985,10 @@
     border: none;
     border-radius: 0;
 
-    // The floating hover bar is hidden by default, shown on hover
-    .content-block__hover-bar {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease;
-    }
-
-    &:hover .content-block__hover-bar {
-      opacity: 1;
-      pointer-events: auto;
-    }
+    // Hover bar is now in flow above the content (see &__hover-bar
+    // below), so we don't toggle visibility on hover any more — it's
+    // a persistent header row. Selected / dirty styling on the bar
+    // itself still varies, but visibility is always 1.
   }
 
   // ─── SELECTED (editing in flyout) ───
@@ -1714,24 +2003,20 @@
       content: '';
       position: absolute;
       inset: 0;
-      border: 3px solid $primary-color;
+      border: 3px solid var(--site-primary, #{$primary-color});
       border-radius: 2px;
       pointer-events: none;
       z-index: 15;
     }
 
     .content-block__hover-bar {
-      opacity: 1 !important;
-      pointer-events: auto !important;
       background: rgba($primary-color, 0.12);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
     }
   }
 
   &--dragging {
     opacity: 0.3;
-    border: 2px dashed $primary-color;
+    border: 2px dashed var(--site-primary, #{$primary-color});
     background: rgba($primary-color, 0.03);
     box-shadow: none;
     overflow: hidden;
@@ -1742,29 +2027,25 @@
     }
   }
 
-  // ─── Floating hover bar (preview mode) ───
+  // ─── Header bar (in flow, above the content) ───
+  // Was previously absolute-positioned and hover-revealed, which made
+  // it float over the block's preview and obscure content. It now
+  // sits as a regular row at the top of the block — same visual
+  // height it always had, just inline with the content rather than
+  // overlaid on top.
   &__hover-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
+    position: relative;
     display: flex;
     align-items: center;
     gap: $spacing-xs;
     padding: 6px $spacing-sm;
     background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     font-size: $font-size-xs;
 
     &--dirty {
       background: rgba(245, 166, 35, 0.18);
       border-bottom-color: rgba(245, 166, 35, 0.25);
-      // Always visible when dirty — even without hover
-      opacity: 1 !important;
-      pointer-events: auto !important;
     }
   }
 
@@ -1832,7 +2113,7 @@
       border: none;
       text-align: left;
       font-size: $font-size-sm;
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
       cursor: pointer;
       white-space: nowrap;
 
@@ -1843,7 +2124,7 @@
   }
 
   &__options-danger {
-    color: $primary-color !important;
+    color: var(--site-primary, #{$primary-color}) !important;
 
     &:hover {
       background: rgba($primary-color, 0.08) !important;
@@ -1863,6 +2144,11 @@
 }
 
 // Empty block placeholder (shown in preview when block has no content)
+//
+// Keep only the top margin so the dashed area sits flush against the
+// block's left/right/bottom edges and lines up exactly with the
+// header bar above. The previous all-sides margin caused the empty
+// box to render narrower than the header.
 .block-preview__empty {
   display: flex;
   flex-direction: column;
@@ -1874,7 +2160,7 @@
   font-size: $font-size-sm;
   border: 2px dashed #e0e0e0;
   border-radius: $border-radius-md;
-  margin: $spacing-sm;
+  margin: $spacing-sm 0 0;
 }
 
 .block-preview__empty-label {
@@ -1892,7 +2178,7 @@
   pointer-events: none;
   border-radius: $border-radius-md;
   overflow: hidden;
-  box-shadow: $shadow-xl, 0 0 0 2px $primary-color;
+  box-shadow: $shadow-xl, 0 0 0 2px var(--site-primary, #{$primary-color});
   opacity: 0.92;
   transform: scale(1.02) rotate(0.8deg);
   max-height: 64px;
@@ -1909,14 +2195,14 @@
   }
 
   &__icon {
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     font-size: $font-size-lg;
   }
 
   &__label {
     font-weight: 600;
     font-size: $font-size-sm;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -2007,6 +2293,46 @@
   }
 }
 
+// ─── New portal-based add-block menu ───
+// Renders into document.body via <Portal> so it's never clipped by
+// ancestor `overflow: hidden`. Position is computed from the trigger
+// in JS with `position: fixed` coords.
+.add-block-menu {
+  display: inline-block;
+  position: relative;
+}
+
+.add-block-menu__panel {
+  position: fixed;
+  z-index: 1100; // above admin chrome and most overlays
+  min-width: 200px;
+  background: $background;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  box-shadow: $shadow-lg;
+  overflow-y: auto;
+  // max-height set inline by JS based on available viewport space
+  padding: 4px 0;
+}
+
+.add-block-menu__item {
+  display: block;
+  width: 100%;
+  padding: $spacing-sm $spacing-md;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: $font-size-sm;
+  color: var(--admin-page-text, #{$text-color});
+  transition: background $transition-fast;
+
+  &:hover, &:focus-visible {
+    background: $background-dark;
+    outline: none;
+  }
+}
+
 .add-block-dropdown {
   position: relative;
   display: inline-block;
@@ -2033,8 +2359,13 @@
     border-radius: $border-radius-md;
     box-shadow: $shadow-md;
     z-index: 10;
-    min-width: 160px;
-    overflow: hidden;
+    min-width: 200px;
+    // The dropdown opens upward from the "+ Add Block" button. Without
+    // a max-height, a long list (15+ block types) extends past the
+    // viewport and gets clipped by an ancestor's overflow — leaving
+    // only the last few visible. Cap height and let the menu scroll.
+    max-height: 60vh;
+    overflow-y: auto;
   }
 
   &__item {
@@ -2076,7 +2407,7 @@
     width: 16px;
     height: 16px;
     border: 2px solid $border-color;
-    border-top-color: $primary-color;
+    border-top-color: var(--site-primary, #{$primary-color});
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -2150,7 +2481,7 @@
 
     a {
       font-weight: 500;
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
 
       &:hover {
         text-decoration: underline;
@@ -2311,12 +2642,12 @@
     transition: border-color $transition-fast;
 
     &:hover {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
 
     &--selected {
-      border-color: $primary-color;
-      box-shadow: 0 0 0 1px $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
+      box-shadow: 0 0 0 1px var(--site-primary, #{$primary-color});
     }
 
     img {
@@ -2363,21 +2694,27 @@
     padding: $spacing-sm $spacing-lg;
     font-size: $font-size-sm;
     font-weight: 600;
-    color: $text-light;
+    // Idle tabs use the configured page-text at slightly reduced
+    // opacity so the active tab still reads as primary. Active tab
+    // gets the brand color (already wired). Hover boosts to full
+    // opacity.
+    color: var(--admin-page-text, #{$text-color});
+    opacity: 0.78;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
     margin-bottom: -2px;
     cursor: pointer;
-    transition: color $transition-fast, border-color $transition-fast;
+    transition: color $transition-fast, border-color $transition-fast, opacity $transition-fast;
 
     &:hover {
-      color: $text-color;
+      opacity: 1;
     }
 
     &--active {
-      color: $primary-color;
-      border-bottom-color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
+      opacity: 1;
+      border-bottom-color: var(--site-primary, #{$primary-color});
     }
   }
 }
@@ -2391,7 +2728,246 @@
   margin-bottom: 0.75rem;
   font-size: $font-size-lg;
   font-weight: 600;
-  color: $text-color;
+  color: var(--admin-page-text, #{$text-color});
+}
+
+// ─── Dashboard: Site Features panel ───
+//
+// Compact vertical list. The container is width-constrained so it
+// doesn't stretch the full content area on wide displays. Header is
+// `inline-flex` with the manage link sitting right next to the
+// heading text, not pushed to the far right by `space-between`.
+.dashboard-features {
+  margin-top: $spacing-lg;
+  padding: $spacing-lg;
+  background: var(--admin-panel-bg, #fff);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+  max-width: 480px;
+
+  &__header {
+    display: inline-flex;
+    align-items: baseline;
+    gap: $spacing-md;
+    margin-bottom: $spacing-md;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-lg;
+    }
+  }
+
+  &__manage {
+    color: var(--site-primary, #{$primary-color});
+    font-size: $font-size-sm;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      filter: brightness(0.9);
+      text-decoration: underline;
+    }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+// One feature row: name on the left, status pill aligned on the right.
+// Pills are right-aligned by `margin-left: auto` rather than a flex
+// `space-between`, so the column visually feels like a tight pair
+// rather than a stretched layout.
+.dashboard-feature-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $border-color;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__name {
+    font-weight: 500;
+    font-size: $font-size-sm;
+  }
+
+  &__badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: $border-radius-full;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+
+    &--enabled {
+      background: rgba($success-color, 0.15);
+      color: color-mix(in srgb, $success-color 75%, black);
+    }
+
+    &--disabled {
+      background: rgba($text-light, 0.15);
+      color: $text-light;
+    }
+  }
+}
+
+// ─── General tab two-column layout ───
+.settings-general {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: $spacing-lg;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-card {
+  // Panel background + text + border are themable via Settings → Admin.
+  // Panel text falls back through page-text to the static text-color
+  // so an unset field still inherits something meaningful.
+  background: var(--admin-panel-bg, #fff);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+
+  // Force descendants that have their own color: var(--admin-page-text)
+  // rule (the global h1-h6 cascade, theme-field labels and sublabels,
+  // form-help, etc.) to inherit the panel's color so panel-text wins
+  // inside panels. Without this the page-text token would override
+  // the inherited panel-text.
+  h1, h2, h3, h4, h5, h6,
+  label,
+  .theme-field__label,
+  .theme-field__sublabel,
+  .form-help,
+  .settings-card__lede,
+  .settings-card__subtitle {
+    color: inherit;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    margin: 0 0 $spacing-md;
+  }
+
+  &__subtitle {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-light;
+    margin: $spacing-md 0 $spacing-sm;
+  }
+
+  &__lede {
+    color: $text-light;
+    font-size: $font-size-sm;
+    margin: 0 0 $spacing-md;
+    line-height: 1.5;
+  }
+}
+
+// ─── Feature toggle row (Settings → General → Features) ───
+.settings-features {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-toggle {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md 0;
+  border-bottom: 1px solid $border-color;
+  cursor: pointer;
+  user-select: none;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__label {
+    font-weight: 600;
+    font-size: $font-size-base;
+  }
+
+  &__description {
+    font-size: $font-size-xs;
+    color: $text-light;
+    line-height: 1.4;
+  }
+
+  // Native checkbox styled as a switch. Pure CSS, no extra component.
+  &__switch {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 42px;
+    height: 24px;
+    background: $border-color;
+    border-radius: $border-radius-full;
+    position: relative;
+    cursor: pointer;
+    transition: background-color $transition-fast;
+    margin: 0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: $shadow-sm;
+      transition: transform $transition-fast;
+    }
+
+    &:checked {
+      background: var(--site-primary, #{$primary-color});
+    }
+
+    &:checked::after {
+      transform: translateX(18px);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--site-primary, #{$primary-color});
+      outline-offset: 2px;
+    }
+  }
 }
 
 // ─── Settings Field Rows (shared across settings tabs) ───
@@ -2448,7 +3024,7 @@
   }
 
   &--editing {
-    border-color: $primary-color;
+    border-color: var(--site-primary, #{$primary-color});
   }
 
   &__row {
@@ -2512,7 +3088,7 @@
     color: #888;
 
     &--warn {
-      color: $primary-color;
+      color: var(--site-primary, #{$primary-color});
       font-weight: 600;
     }
   }
@@ -2575,7 +3151,7 @@
     line-height: 1;
 
     &:hover {
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
     }
   }
 
@@ -2614,11 +3190,11 @@
     transition: border-color $transition-fast, box-shadow $transition-fast;
 
     &:hover {
-      border-color: color.adjust($primary-color, $lightness: 20%);
+      border-color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 80%, white);
     }
 
     &--selected {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
     }
   }
@@ -2688,7 +3264,10 @@
 // ─── Dashboard ───
 
 .admin-header__subtitle {
-  color: $text-light;
+  // Subtitle derives from page-text muted to 70%, falling back to
+  // the static $text-light when no page-text is configured.
+  color: var(--admin-page-text, #{$text-light});
+  opacity: 0.7;
   margin-top: $spacing-xs;
   font-size: 0.95rem;
 }
@@ -2764,11 +3343,13 @@
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-lg;
-  background: white;
+  background: var(--admin-panel-bg, white);
+  // Panel-text drives stat values; the muted label below uses a
+  // softer color via its own rule so it still feels secondary.
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
   border-radius: $border-radius-lg;
-  border: 1px solid $border-color;
+  border: 1px solid var(--admin-panel-border, #{$border-color});
   text-decoration: none;
-  color: inherit;
   transition: transform 0.15s, box-shadow 0.15s;
 
   &:hover {
@@ -2811,7 +3392,7 @@
     font-size: 1.5rem;
     font-weight: 700;
     line-height: 1.2;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
   }
 
   &__label {
@@ -2833,10 +3414,18 @@
 }
 
 .dashboard-panel {
-  background: white;
-  border: 1px solid $border-color;
+  background: var(--admin-panel-bg, white);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
   border-radius: $border-radius-lg;
   overflow: hidden;
+
+  // Headings + labels inside this panel inherit panel-text rather
+  // than the global page-text rule (see `.settings-card` for the
+  // same reasoning).
+  h1, h2, h3, h4, h5, h6, label {
+    color: inherit;
+  }
 
   &__header {
     display: flex;
@@ -2854,7 +3443,7 @@
 
   &__link {
     font-size: 0.85rem;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     text-decoration: none;
 
     &:hover {
@@ -2953,9 +3542,9 @@
   transition: all 0.15s;
 
   &:hover {
-    border-color: $primary-color;
-    color: $primary-color;
-    background: color.adjust($primary-color, $lightness: 48%);
+    border-color: var(--site-primary, #{$primary-color});
+    color: var(--site-primary, #{$primary-color});
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 52%, white);
   }
 
   &__icon {
@@ -3056,7 +3645,7 @@
     &:last-child { border-bottom: none; }
 
     &--active {
-      background: color.adjust($primary-color, $lightness: 45%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
     }
   }
 
@@ -3080,7 +3669,7 @@
   &__item-title {
     font-size: $font-size-sm;
     font-weight: 500;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3115,15 +3704,15 @@
     gap: $spacing-md;
     padding: $spacing-sm $spacing-md;
     margin-bottom: $spacing-md;
-    background: color.adjust($primary-color, $lightness: 45%);
-    border: 1px solid $primary-color;
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
+    border: 1px solid var(--site-primary, #{$primary-color});
     border-radius: $border-radius-md;
   }
 
   &__bulk-count {
     font-size: $font-size-sm;
     font-weight: 600;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
   }
 
   &__empty {
@@ -3232,7 +3821,7 @@
     }
 
     &--selected {
-      background: color.adjust($primary-color, $lightness: 45%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
     }
 
     &--all {
@@ -3248,7 +3837,7 @@
   &__option-title {
     font-size: $font-size-sm;
     font-weight: 500;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
   }
 
   &__option-meta {
@@ -3296,14 +3885,14 @@
     }
 
     &--selected {
-      background: color.adjust($primary-color, $lightness: 45%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
     }
   }
 
   &__option-title {
     font-size: $font-size-sm;
     font-weight: 500;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
   }
 
   &__option-meta {
@@ -3322,6 +3911,12 @@
 // ─── Appearance Theme Editor ───
 
 .appearance-panel {
+  // Tail padding so that closing the swatch editor (which lives at
+  // the bottom of the Appearance panel) doesn't leave the page
+  // bouncing back to the top — the page has enough scroll room
+  // already that the layout shift stays in place.
+  padding-bottom: 100px;
+
   &__action-bar {
     display: flex;
     align-items: center;
@@ -3339,25 +3934,40 @@
 }
 
 .theme-section {
-  background: $background;
-  border: 1px solid $border-color;
+  // Same panel theming as .settings-card / .dashboard-panel: bg + text
+  // and border are themable via Settings → Admin. The Appearance tab
+  // uses this class for its sectioned editor (Colors / Typography /
+  // Layout) so it inherits admin panel styling uniformly.
+  background: var(--admin-panel-bg, #{$background});
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
   border-radius: $border-radius-lg;
   padding: $spacing-lg;
   margin-bottom: $spacing-lg;
+
+  // Same panel-scoped overrides as .settings-card so descendants
+  // pick up panel-text instead of the global page-text rule.
+  h1, h2, h3, h4, h5, h6,
+  label,
+  .theme-field__label,
+  .theme-field__sublabel {
+    color: inherit;
+  }
 
   &__title {
     margin: 0 0 $spacing-sm;
     font-size: $font-size-base;
     font-weight: 600;
-    color: $text-color;
+    color: inherit;
     padding-bottom: $spacing-sm;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid var(--admin-panel-border, #{$border-color});
   }
 
   &__description {
     margin: 0 0 $spacing-md;
     font-size: $font-size-sm;
-    color: $text-light;
+    color: inherit;
+    opacity: 0.7;
   }
 
   &__fields {
@@ -3386,12 +3996,18 @@
     gap: $spacing-xs;
     font-size: $font-size-sm;
     font-weight: 600;
-    color: $text-color;
+    color: var(--admin-page-text, #{$text-color});
   }
 
   &__sublabel {
     font-size: $font-size-xs;
-    color: $text-light;
+    // Sublabel derives from page-text muted to 70% opacity. When the
+    // theme-field is inside a panel, the panel-text override on the
+    // panel container kicks in via `color: inherit` on the parent.
+    // The opacity is the same regardless so it always reads as
+    // visually subordinate to the main label.
+    color: var(--admin-page-text, #{$text-light});
+    opacity: 0.7;
   }
 
   &__control {
@@ -3428,9 +4044,9 @@
 
 .site-colors-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
   gap: $spacing-sm;
-  max-width: 480px;
+  max-width: 560px;
 
   &__swatch {
     width: 100%;
@@ -3439,10 +4055,17 @@
     border: 1px solid $border-color;
     cursor: pointer;
     transition: transform 0.1s, border-color $transition-fast;
+    // Slot for the inline ID label at the bottom of the swatch.
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0 0 3px 0;
 
     &:hover {
-      transform: scale(1.1);
-      border-color: $text-color;
+      transform: scale(1.08);
+      border-color: var(--admin-page-text, #{$text-color});
     }
 
     &--add {
@@ -3450,21 +4073,35 @@
       color: $text-light;
       font-size: 1.25rem;
       font-weight: 700;
-      display: flex;
       align-items: center;
-      justify-content: center;
+      padding: 0;
       border: 1px dashed $border-color;
 
       &:hover {
-        border-color: $primary-color;
-        color: $primary-color;
+        border-color: var(--site-primary, #{$primary-color}) !important;
+        color: var(--site-primary, #{$primary-color});
       }
     }
+  }
+
+  &__swatch-id {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 9px;
+    line-height: 1;
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.85);
+    color: #1a1a1a;
+    border-radius: 2px;
+    pointer-events: none;
+    max-width: calc(100% - 4px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
 .site-colors-grid__swatch--active {
-  outline: 2px solid $primary-color;
+  outline: 2px solid var(--site-primary, #{$primary-color});
   outline-offset: 2px;
 }
 
@@ -3495,12 +4132,12 @@
     transition: border-color $transition-fast, transform 0.1s;
 
     &:hover {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       transform: scale(1.03);
     }
 
     &--active {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       box-shadow: 0 0 0 2px rgba($primary-color, 0.25);
     }
   }
@@ -3510,8 +4147,63 @@
     padding: 6px 10px;
     border: 1px solid $border-color;
     border-radius: $border-radius-sm;
-    font-family: monospace;
+    font-family: var(--admin-font-mono, monospace);
     font-size: $font-size-sm;
+  }
+
+  &__field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $spacing-md;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-light;
+  }
+
+  &__input {
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+
+    &--mono {
+      font-family: var(--admin-font-mono, monospace);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--site-primary, #{$primary-color});
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+    }
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+    line-height: 1.4;
+
+    code {
+      font-family: var(--admin-font-mono, monospace);
+      background: rgba(0, 0, 0, 0.05);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
   }
 
   &__wheel-wrap {
@@ -3527,9 +4219,52 @@
   }
 }
 
+.site-colors-usage-list {
+  list-style: none;
+  margin: $spacing-md 0 0;
+  padding: 0;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-sm;
+  overflow: hidden;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: $font-size-sm;
+    background: $background;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid $border-color;
+    }
+  }
+
+  &__source { color: $text-color; }
+  &__count {
+    font-family: var(--admin-font-mono, monospace);
+    font-weight: 600;
+    color: $text-light;
+  }
+}
+
 // ─── Page Editor ───
 
 .page-editor {
+  // Pin the editor header to the top of the viewport while scrolling
+  // through long page content. Background matches the admin page area
+  // so block content scrolling underneath doesn't bleed through, and
+  // a small negative top-margin offsets the parent's padding so the
+  // sticky bar still aligns flush with the viewport edge.
+  > .admin-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--admin-page-bg, #{$background-dark});
+    margin: -#{$spacing-xl} -#{$spacing-xl} $spacing-xl;
+    padding: $spacing-xl $spacing-xl $spacing-md;
+  }
+
   &__back {
     display: inline-block;
     font-size: $font-size-sm;
@@ -3537,7 +4272,7 @@
     text-decoration: none;
     margin-bottom: $spacing-md;
 
-    &:hover { color: $primary-color; }
+    &:hover { color: var(--site-primary, #{$primary-color}); }
   }
 
   &__panels {
@@ -3606,15 +4341,15 @@
 
     &:hover {
       background: $background-dark;
-      color: $text-color;
+      color: var(--admin-page-text, #{$text-color});
     }
 
     &--active {
-      background: $primary-color;
+      background: var(--site-primary, #{$primary-color});
       color: white;
 
       &:hover {
-        background: $primary-color;
+        background: var(--site-primary, #{$primary-color});
         color: white;
       }
     }
@@ -3660,8 +4395,8 @@
     }
 
     &--active {
-      background: $primary-color;
-      border-color: $primary-color;
+      background: var(--site-primary, #{$primary-color});
+      border-color: var(--site-primary, #{$primary-color});
       color: #fff;
       font-weight: 600;
     }
@@ -3704,7 +4439,7 @@
 
   &--saving { color: #888; }
   &--saved { color: #4caf50; }
-  &--error { color: $primary-color; }
+  &--error { color: var(--site-primary, #{$primary-color}); }
 
   &__dot {
     width: 6px;

@@ -1,4 +1,4 @@
-import type { User, UserRole, } from '@surge/shared';
+import type { User, UserRole, } from '@rw/shared';
 import { NextFunction, Request, Response, } from 'express';
 import jwt from 'jsonwebtoken';
 import { config, } from '../config';
@@ -35,7 +35,7 @@ export function authenticate(required = true,) {
                 return next();
             }
 
-            const decoded = jwt.verify(token, config.jwt.secret,) as JwtPayload;
+            const decoded = jwt.verify(token, config.jwt.secret!,) as unknown as JwtPayload;
 
             const result = await query(
                 `SELECT id, email, display_name, avatar_url, role, auth_provider,

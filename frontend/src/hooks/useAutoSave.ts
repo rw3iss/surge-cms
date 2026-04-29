@@ -18,11 +18,11 @@ export interface AutoSaveDraft<T,> {
     data: T;
 }
 
-const PREFIX = 'surge-draft:';
+const PREFIX = 'rw-draft:';
 
 /**
  * Debounced draft auto-save to localStorage.
- * Writes the current state under `surge-draft:{key}` whenever it changes.
+ * Writes the current state under `rw-draft:{key}` whenever it changes.
  *
  * Usage:
  *   const state = () => ({ title: title(), blocks: blocks() });

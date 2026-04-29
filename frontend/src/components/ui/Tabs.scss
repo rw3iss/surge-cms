@@ -1,0 +1,47 @@
+@use '../../styles/variables' as *;
+
+.ui-tabs {
+    display: inline-flex;
+    background-color: $background-dark;
+    border-radius: $border-radius-md;
+    padding: 4px;
+    gap: 2px;
+
+    &__item {
+        background: none;
+        border: none;
+        cursor: pointer;
+        border-radius: $border-radius-sm;
+        font-weight: 500;
+        color: $text-light;
+        transition: background-color $transition-fast, color $transition-fast;
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+
+        &:hover:not(.is-active) {
+            color: $text-color;
+        }
+
+        &.is-active {
+            background-color: #fff;
+            color: $text-color;
+            box-shadow: $shadow-sm;
+        }
+    }
+
+    &--sm .ui-tabs__item {
+        padding: 6px 10px;
+        font-size: $font-size-sm;
+    }
+
+    &--md .ui-tabs__item {
+        padding: 8px 14px;
+        font-size: $font-size-base;
+    }
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+    }
+}

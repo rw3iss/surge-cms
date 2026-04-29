@@ -35,7 +35,7 @@ const AdminMessageView: Component = () => {
 
     return (
         <div>
-            <Title>Message - Admin - Surge Media</Title>
+            <Title>Message - Admin - RW</Title>
             <div class="admin-header">
                 <A href="/admin/messages" class="btn btn--secondary">&larr; Back to Messages</A>
             </div>

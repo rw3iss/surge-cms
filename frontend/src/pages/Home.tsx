@@ -1,16 +1,20 @@
-import type { Page, } from '@surge/shared';
+import type { Page, } from '@rw/shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/BlockRenderer';
 import SeoHead from '../components/SeoHead';
-import { fetchPage, } from '../services/api';
+import { fetchHomepage, } from '../services/api';
 import { siteDescription, siteLogo, siteName, } from '../stores/siteSettings';
 import { buildOrganization, } from '../utils/schema';
 import './Home.scss';
 
 const Home: Component = () => {
     const canonicalUrl = window.location.origin;
+    // The homepage is whichever page has `is_homepage=true`. Slugs are
+    // free to be anything ("home", "welcome", etc.) — we don't query by
+    // a fixed slug, so renaming the slug of the page-flagged-as-homepage
+    // doesn't break the public root.
     const [page,] = createResource(async () => {
-        const response = await fetchPage('home',);
+        const response = await fetchHomepage();
         return response.success ? response.data as Page : null;
     },);
 
@@ -31,7 +35,27 @@ const Home: Component = () => {
                 },)}
             />
 
-            <Show when={page()} fallback={<div class="home__loading">Loading...</div>}>
+            <Show
+                when={page()}
+                fallback={
+                    page.loading ? (
+                        <div class="home__loading">Loading...</div>
+                    ) : (
+                        // The resource has resolved to null — there is no
+                        // homepage in the DB. New installs always seed one,
+                        // but if it was deleted or the seeder was skipped,
+                        // show a friendly empty state instead of a stuck
+                        // loader so the operator knows what to do.
+                        <div class="home__loading">
+                            <h2>{siteName()}</h2>
+                            <p>This site doesn't have a homepage yet.</p>
+                            <p>
+                                <a href="/admin/pages">Create one in the admin →</a>
+                            </p>
+                        </div>
+                    )
+                }
+            >
                 {(pageData,) => (
                     <>
                         <For each={pageData().blocks}>

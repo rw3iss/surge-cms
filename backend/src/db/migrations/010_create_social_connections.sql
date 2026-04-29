@@ -30,7 +30,10 @@ CREATE INDEX IF NOT EXISTS idx_social_connections_provider ON social_connections
 CREATE INDEX IF NOT EXISTS idx_social_connections_enabled ON social_connections(is_enabled);
 CREATE INDEX IF NOT EXISTS idx_social_connections_sort ON social_connections(sort_order);
 
--- Add updated_at trigger
+-- Add updated_at trigger (idempotent — schema.sql also defines this trigger,
+-- so a fresh install applies schema first, then this migration; without the
+-- DROP, re-creating it would fail with "trigger already exists").
+DROP TRIGGER IF EXISTS update_social_connections_updated_at ON social_connections;
 CREATE TRIGGER update_social_connections_updated_at
     BEFORE UPDATE ON social_connections
     FOR EACH ROW

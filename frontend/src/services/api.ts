@@ -1,10 +1,21 @@
-import type { ApiResponse, } from '@surge/shared';
+import type { ApiResponse, } from '@rw/shared';
 
 const API_BASE = '/api/v1';
 
 function getCsrfToken(): string {
     const match = document.cookie.match(/csrf-token=([^;]+)/,);
     return match ? match[1] : '';
+}
+
+/**
+ * Hook the API client uses to notify higher-level code that a 401 came
+ * back. The auth store registers its `markSessionExpired` handler here
+ * at boot. Decoupled this way so the api module stays free of UI/state
+ * imports — and so a future test harness can inject a mock.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+export function setUnauthorizedHandler(handler: (() => void) | null,) {
+    unauthorizedHandler = handler;
 }
 
 interface RequestOptions extends RequestInit {
@@ -48,8 +59,31 @@ class ApiService {
             const data = await response.json();
 
             if (response.status === 401 && !endpoint.startsWith('/auth/',)) {
-                window.location.href = '/login';
+                // Instead of a hard redirect (which loses the page the
+                // user was on), notify the auth layer so it can show the
+                // session-expired modal. The auth store registers its
+                // handler via `setUnauthorizedHandler()` on mount. If
+                // nothing's been registered (e.g. very early calls),
+                // fall back to the redirect so we never silently swallow
+                // auth failures.
+                if (unauthorizedHandler) {
+                    unauthorizedHandler();
+                } else {
+                    window.location.href = '/login';
+                }
                 return { success: false, error: { code: 'UNAUTHORIZED', message: 'Session expired', }, };
+            }
+
+            // Backend in setup mode: redirect to /setup unless we are already there
+            // (the wizard's own endpoints live under /setup/* and never get blocked).
+            if (
+                response.status === 503
+                && data?.error?.code === 'NEEDS_SETUP'
+                && !endpoint.startsWith('/setup',)
+                && !window.location.pathname.startsWith('/setup',)
+            ) {
+                window.location.href = '/setup';
+                return data as ApiResponse<T>;
             }
 
             if (!response.ok) {
@@ -189,6 +223,9 @@ export const fetchPage = (slug: string, preview?: string,) => {
     return api.get(`/pages/slug/${slug}${params}`,);
 };
 
+/** The page currently flagged as the site's homepage. 404 if none. */
+export const fetchHomepage = () => api.get('/pages/homepage',);
+
 export const fetchPost = (slug: string, preview?: string,) =>
     api.get(`/posts/slug/${slug}${preview ? `?preview=${preview}` : ''}`,);
 
@@ -247,6 +284,8 @@ export const search = (query: string, type?: string,) => {
 
 export const fetchSiteHeader = () => api.get('/settings/site-header',);
 export const saveSiteHeader = (data: any,) => api.put('/settings/site-header', data,);
+export const fetchSiteFooter = () => api.get('/settings/site-footer',);
+export const saveSiteFooter = (data: any,) => api.put('/settings/site-footer', data,);
 export const fetchSiteBranding = () => api.get('/settings/site-branding',);
 export const saveSiteBranding = (data: any,) => api.put('/settings/site-branding', data,);
 
@@ -254,6 +293,10 @@ export const fetchCrons = () => api.get('/dev/crons',);
 
 export const fetchAppearance = () => api.get('/settings/appearance',);
 export const saveAppearance = (data: any,) => api.put('/settings/appearance', data,);
+
+/** Admin-chrome color tokens (sidebar, page bg/text, panel bg). */
+export const fetchAdminAppearance = () => api.get('/settings/admin-appearance',);
+export const saveAdminAppearance = (data: any,) => api.put('/settings/admin-appearance', data,);
 
 export const fetchBlockStyles = () => api.get('/block-styles',);
 export const createBlockStyle = (data: any,) => api.post('/block-styles', data,);

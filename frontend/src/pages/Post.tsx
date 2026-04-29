@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { ContentAccessLevel, Post, } from '@surge/shared';
+import type { ContentAccessLevel, Post, } from '@rw/shared';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/ContentGate';
 import PostContentBlock from '../components/PostContentBlock';
@@ -30,11 +30,18 @@ const PostPage: Component = () => {
         return searchParams.get('preview',) === 'admin';
     };
 
+    /** Whether the current viewer should see drafts / non-published
+     *  posts. Admins always do — the explicit `?preview=admin` URL is
+     *  no longer required just to view your own draft. Public
+     *  visitors never see drafts. */
+    const isAdminViewer = () => auth.user?.role === 'admin' || auth.user?.role === 'sysadmin';
+    const usePreview = () => isPreviewMode() || isAdminViewer();
+
     const [post,] = createResource(
         () => params.slug,
         async (slug,) => {
             setLockedContent(null,);
-            const preview = (isPreviewMode() && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')) ? 'admin' : undefined;
+            const preview = (usePreview() && isAdminViewer()) ? 'admin' : undefined;
             const response = await fetchPost(slug, preview,);
             if (!response.success) {
                 const raw = response as any;
@@ -62,8 +69,24 @@ const PostPage: Component = () => {
                 )}
             </Show>
             <Show when={!lockedContent()}>
-                <Show when={post()} fallback={<div>Loading...</div>}>
-                    {(postData,) => {
+                {/* Three states for the post resource:
+                      1. Loading — fetch in flight, show spinner text.
+                      2. Resolved with data — render the post.
+                      3. Resolved with null — fetch returned 404 / error.
+                         Without an explicit not-found state the UI fell
+                         through to the loading fallback, which made
+                         draft / mistyped slugs look like infinite
+                         loaders. */}
+                <Show when={!post.loading} fallback={<div class="post-page__loading">Loading…</div>}>
+                    <Show when={post()} fallback={
+                        <div class="post-page__not-found">
+                            <h1>Post not found</h1>
+                            <p>
+                                The post you're looking for doesn't exist or hasn't been published yet.
+                            </p>
+                        </div>
+                    }>
+                        {(postData,) => {
                         const description = () =>
                             (postData() as any).metaDescription ||
                             postData().excerpt ||
@@ -154,6 +177,7 @@ const PostPage: Component = () => {
                         </>
                         );
                     }}
+                    </Show>
                 </Show>
             </Show>
         </div>

@@ -84,9 +84,9 @@
     }
 
     &__hex {
-        font-family: monospace;
+        font-family: var(--admin-font-mono, monospace);
         font-size: $font-size-sm;
-        color: $text-color;
+        color: var(--admin-page-text, #{$text-color});
         text-transform: uppercase;
     }
 }

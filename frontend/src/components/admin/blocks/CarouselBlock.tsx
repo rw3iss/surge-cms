@@ -1,4 +1,4 @@
-import type { HeroCarouselSettings, } from '@surge/shared';
+import type { HeroCarouselSettings, } from '@rw/shared';
 import { Component, Show, } from 'solid-js';
 import HeroContentEditor from '../HeroContentEditor';
 

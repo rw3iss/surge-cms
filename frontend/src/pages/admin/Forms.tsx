@@ -44,7 +44,7 @@ const AdminForms: Component = () => {
 
     return (
         <div class="admin-forms">
-            <Title>Forms - Admin - Surge Media</Title>
+            <Title>Forms - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Forms</h1>
                 <A href="/admin/forms/new" class="btn btn--primary">New Form</A>

@@ -30,7 +30,7 @@
     font-size: 6rem;
     font-weight: 800;
     line-height: 1;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     margin: 0 0 $spacing-sm;
     letter-spacing: -0.03em;
 
@@ -66,7 +66,7 @@
     transition: background 0.2s, transform 0.15s;
 
     &:hover {
-      background: color.adjust($primary-color, $lightness: -8%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black);
       color: white;
       transform: translateY(-1px);
     }

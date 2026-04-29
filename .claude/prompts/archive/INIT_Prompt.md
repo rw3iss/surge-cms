@@ -1,5 +1,5 @@
-Surge Philly
-https://surgemedia.us/
+RW Philly
+https://ryanweiss.net/
 
 
 
@@ -33,7 +33,7 @@ SEO optimization so that we come up high in the search engines and to have it wh
 
 Admin login:
 
-Email: admin@surgemedia.us
+Email: admin@ryanweiss.net
 Password: ChangeThisPassword123!
 
 
@@ -42,11 +42,11 @@ Password: ChangeThisPassword123!
 # AI TODO:
 
 * ABOUT PAGE:
-- Pull content from the existing surge website: https://surgemedia.us/
+- Pull content from the existing rw website: https://ryanweiss.net/
 
 --------------------------------------------------------------------------------
 
-I need you to help scaffold out and build a new website for a small news organization. It will be a refactor of their current website at: https://surgemedia.us/
+I need you to help scaffold out and build a new website for a small news organization. It will be a refactor of their current website at: https://ryanweiss.net/
 The frontend will display essentially blog posts, and other media from third party outlets that we will hook up, such as Patreon, YouTube, Instagram, Facebook, X, and others.
 Users of the site will sign in with the Patreon SSO module in order to retrieve private content. We will use the Patreon user base as our own user base, for any backend functionality that will require authentication.
 If users are not logged in through Patreon, we will consider them anonymous. There will also be administrators that will administer the content through this site.

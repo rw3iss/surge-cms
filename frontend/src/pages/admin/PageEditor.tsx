@@ -8,15 +8,18 @@ import ConfirmModal from '../../components/admin/ConfirmModal';
 import EditorSaveBar from '../../components/admin/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/PreviewOverlay';
 import RevisionsPanel from '../../components/admin/RevisionsPanel';
+import Tooltip from '../../components/admin/Tooltip';
 import { BlockRenderer, } from '../../components/BlockRenderer';
 import { Header, } from '../../components/Layout/Header';
+import { useToast, } from '../../components/Toast';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import type { AppearanceSettings, } from '@surge/shared';
+import type { AppearanceSettings, } from '@rw/shared';
 import { api, fetchAppearance, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';
+import { appearanceCssVars, } from '../../utils/appearanceStyle';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 
@@ -60,8 +63,13 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
 
     return {
         type: block.type,
-        title: title || undefined,
-        content: content || undefined,
+        // Send title/content directly. Empty string = user cleared the
+        // field and the backend should write '' (the previous version
+        // coerced '' to undefined, which JSON dropped, so the old value
+        // stuck around). undefined still drops via JSON for new blocks
+        // that never had a title.
+        title: title ?? undefined,
+        content: content ?? undefined,
         settings: Object.keys(settings,).length > 0 ? settings : {},
         order,
         isVisible: true,
@@ -79,6 +87,7 @@ const ALIGNMENTS = [
 const AdminPageEditor: Component = () => {
     const params = useParams();
     const navigate = useNavigate();
+    const toast = useToast();
     const isNew = () => !params.id || params.id === 'new';
     const { isDirty, markDirty, markClean, } = useUnsavedChanges();
 
@@ -94,44 +103,29 @@ const AdminPageEditor: Component = () => {
         return response.success ? response.data as AppearanceSettings : null;
     },);
 
-    /** Build inline styles that mirror what Layout.tsx applies to the public site */
-    const siteContainerStyle = () => {
-        const a = appearance();
-        const s: Record<string, string> = {};
-        if (a?.backgroundColor) {
-            s['background-color'] = a.backgroundColor;
-            s['--site-bg'] = a.backgroundColor;
-        }
-        if (a?.textColor) {
-            s['color'] = a.textColor;
-            s['--site-text'] = a.textColor;
-        }
-        if (a?.primaryColor) s['--site-primary'] = a.primaryColor;
-        if (a?.linkColor) s['--site-link'] = a.linkColor;
-        if (a?.headingColor) s['--site-heading'] = a.headingColor;
-        if (a?.borderColor) s['--site-border'] = a.borderColor;
-        if (a?.fontFamily) {
-            s['font-family'] = a.fontFamily;
-            s['--site-font'] = a.fontFamily;
-        }
-        if (a?.headingFontFamily) s['--site-heading-font'] = a.headingFontFamily;
-        if (a?.headingWeight) s['--site-heading-weight'] = a.headingWeight;
-        if (a?.lineHeight) {
-            s['line-height'] = a.lineHeight;
-            s['--site-line-height'] = a.lineHeight;
-        }
-        if (a?.gutterWidth) s['--site-gutter'] = a.gutterWidth;
-        if (a?.borderRadius) s['--site-radius'] = a.borderRadius;
-        if (a?.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
-        if (a?.blockPadding) s['--site-block-padding'] = a.blockPadding;
-        return s;
-    };
+    /**
+     * Build inline styles that mirror what Layout.tsx applies to the
+     * public site. The block preview container uses 'public' mode so
+     * the WYSIWYG matches the live site (admin chrome around it gets
+     * its own vars from AdminLayout).
+     */
+    const siteContainerStyle = () => appearanceCssVars(appearance(), 'public',);
 
     const [title, setTitle,] = createSignal('',);
     const [titleAlignment, setTitleAlignment,] = createSignal('left',);
     const [slug, setSlug,] = createSignal('',);
+    /** Whether the page renderer prints the page title above the
+     *  content blocks. Default true so new pages get the title for
+     *  free; the operator can opt out per page. */
+    const [showTitle, setShowTitle,] = createSignal(true,);
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
+    // Whether this page is the site's homepage. The slug stays a normal
+    // string (still required, still URL-safe) — we use this flag rather
+    // than overloading the slug to mean "/" or empty. Only one page can
+    // be the homepage at a time; the backend clears the flag on others
+    // when this page saves with isHomepage=true.
+    const [isHomepage, setIsHomepage,] = createSignal(false,);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
     const [originalBlockIds, setOriginalBlockIds,] = createSignal<Set<string>>(new Set(),);
@@ -151,6 +145,11 @@ const AdminPageEditor: Component = () => {
             setSlug(p.slug || '',);
             setStatus(p.status || 'draft',);
             setAccessLevel(p.accessLevel || 'public',);
+            // Default true preserves prior behavior for legacy rows
+            // saved before this column existed (mapRow returns
+            // `undefined` for missing columns).
+            setShowTitle((p as any).showTitle !== false,);
+            setIsHomepage(Boolean((p as any).isHomepage,),);
             if (p.blocks?.length) {
                 const converted = p.blocks.map((b: any,) => pageBlockToBlockData(b,));
                 setBlocks(converted,);
@@ -195,6 +194,8 @@ const AdminPageEditor: Component = () => {
             slug: slug(),
             status: status(),
             accessLevel: accessLevel(),
+            isHomepage: isHomepage(),
+            showTitle: showTitle(),
             blocks: blocks(),
         }),
     },);
@@ -211,6 +212,8 @@ const AdminPageEditor: Component = () => {
                 slug: slug(),
                 status: status(),
                 accessLevel: accessLevel(),
+                isHomepage: isHomepage(),
+                showTitle: showTitle(),
             };
 
             let pageId = params.id;
@@ -235,7 +238,13 @@ const AdminPageEditor: Component = () => {
             setSavedBlocks(structuredClone(blocks(),),);
             autoSave.clear();
             markClean();
-            navigate('/admin/pages',);
+            toast.success(`Page '${title()}' saved`,);
+            // For brand-new pages we still need to navigate so the URL
+            // reflects the persisted id (otherwise subsequent saves
+            // re-POST instead of PUT). Existing pages stay put.
+            if (isNew() && pageId) {
+                navigate(`/admin/pages/${pageId}`, { replace: true, },);
+            }
         } catch (err: any) {
             showError(err, 'Failed to save page',);
         } finally {
@@ -249,7 +258,7 @@ const AdminPageEditor: Component = () => {
 
     return (
         <div class="page-editor">
-            <Title>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`} - Admin - Surge Media</Title>
+            <Title>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`} - Admin - RW</Title>
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`}</h1>
@@ -286,10 +295,29 @@ const AdminPageEditor: Component = () => {
                 <div class="alert alert--error">{error()}</div>
             </Show>
 
-            {/* ─── Properties (collapsed by default) ─── */}
+            {/* ─── Properties (open by default; brief view in header when collapsed) ─── */}
             <CollapsiblePanel
                 title="Page Properties"
-                subtitle={title() || 'Untitled'}
+                defaultOpen
+                headerContent={
+                    <span class="editor-brief">
+                        <span class={`editor-brief__title ${!title() ? 'editor-brief__title--placeholder' : ''}`}>
+                            {title() || 'Untitled page'}
+                        </span>
+                        <Show when={slug()}>
+                            <span class="editor-brief__slug">/{slug()}</span>
+                        </Show>
+                    </span>
+                }
+                headerExtra={
+                    <>
+                        <Show when={isHomepage()}>
+                            <span class="editor-pill editor-pill--homepage">Homepage</span>
+                        </Show>
+                        <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
+                        <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
+                    </>
+                }
             >
                 <div class="editor-properties">
                     <div class="editor-properties__main">
@@ -344,6 +372,24 @@ const AdminPageEditor: Component = () => {
                             />
                             <small class="form-help">URL: /{slug()}</small>
                         </div>
+                        {/* "Show title on page" toggle — sits in the
+                            same single-line layout as the homepage
+                            toggle in the sidebar; reuses those classes
+                            so spacing / typography stay consistent. */}
+                        <div class="form-group page-editor__homepage-section">
+                            <label class="page-editor__homepage-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={showTitle()}
+                                    onChange={(e,) => { setShowTitle(e.currentTarget.checked,); markDirty(); }}
+                                />
+                                <span class="page-editor__homepage-toggle-label">Show title on page</span>
+                                <Tooltip
+                                    header="Show title on page"
+                                    content="When on, the page renderer prints this page's title as a heading above the content blocks. Turn it off when your first block (e.g. a hero or carousel) already provides the visual headline and you don't want a duplicate."
+                                />
+                            </label>
+                        </div>
                     </div>
                     <div class="editor-properties__sidebar">
                         <div class="form-group">
@@ -367,6 +413,23 @@ const AdminPageEditor: Component = () => {
                                 <option value="member">Members Only</option>
                                 <option value="patron">Patrons Only</option>
                             </select>
+                        </div>
+                        <div class="form-group page-editor__homepage-section">
+                            {/* Single-line toggle: checkbox left, label right.
+                                Help text wraps below on its own line so the
+                                toggle row stays scannable. */}
+                            <label class="page-editor__homepage-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={isHomepage()}
+                                    onChange={(e,) => { setIsHomepage(e.currentTarget.checked,); markDirty(); }}
+                                />
+                                <span class="page-editor__homepage-toggle-label">Use as homepage</span>
+                            </label>
+                            <small class="form-help page-editor__homepage-help">
+                                Show this page at <code>/</code>. The page is still reachable at <code>/{slug() || 'slug'}</code>.
+                                Must be <strong>published</strong> to appear on the public site. Only one page can be the homepage at a time.
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -446,7 +509,7 @@ const AdminPageEditor: Component = () => {
 
             <Show when={showPreview()}>
                 <PreviewOverlay backUrl="" onClose={() => setShowPreview(false,)}>
-                    <Header navigation={[]} siteName="Surge Media" />
+                    <Header navigation={[]} siteName="RW" />
                     <main style={{ 'min-height': '70vh', }}>
                         <For each={blocks()}>
                             {(block,) => {

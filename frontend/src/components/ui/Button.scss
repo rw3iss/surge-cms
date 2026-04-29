@@ -1,0 +1,121 @@
+@use '../../styles/variables' as *;
+
+.ui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-sm;
+    border-radius: $border-radius-md;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color $transition-fast, color $transition-fast, border-color $transition-fast, transform $transition-fast;
+    white-space: nowrap;
+    user-select: none;
+
+    &:focus-visible {
+        outline: 2px solid var(--site-primary, #{$primary-color});
+        outline-offset: 2px;
+    }
+
+    &:disabled,
+    &.is-loading {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    &:not(:disabled):active {
+        transform: translateY(1px);
+    }
+
+    // Sizes
+    &--sm {
+        padding: 6px 12px;
+        font-size: $font-size-sm;
+        min-height: 32px;
+    }
+
+    &--md {
+        padding: 10px 18px;
+        font-size: $font-size-base;
+        min-height: 40px;
+    }
+
+    &--lg {
+        padding: 14px 24px;
+        font-size: $font-size-lg;
+        min-height: 48px;
+    }
+
+    &--block {
+        width: 100%;
+    }
+
+    // Variants
+    &--primary {
+        background-color: var(--site-primary, #{$primary-color});
+        color: #fff;
+
+        &:not(:disabled):hover {
+            background-color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 85%, black);
+        }
+    }
+
+    &--secondary {
+        background-color: $background-dark;
+        color: $text-color;
+        border-color: $border-color;
+
+        &:not(:disabled):hover {
+            background-color: color-mix(in srgb, $background-dark 80%, $border-color);
+        }
+    }
+
+    &--ghost {
+        background-color: transparent;
+        color: $text-color;
+
+        &:not(:disabled):hover {
+            background-color: $background-dark;
+        }
+    }
+
+    &--danger {
+        background-color: $error-color;
+        color: #fff;
+
+        &:not(:disabled):hover {
+            background-color: color-mix(in srgb, $error-color 85%, black);
+        }
+    }
+
+    &__label {
+        display: inline-block;
+    }
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1em;
+        height: 1em;
+    }
+
+    &__spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: ui-button-spin 0.6s linear infinite;
+        margin-left: $spacing-sm;
+    }
+}
+
+@keyframes ui-button-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -155,7 +155,7 @@ const AdminUserDetail: Component = () => {
 
     return (
         <div class="user-detail">
-            <Title>{user()?.displayName || 'User'} - Admin - Surge Media</Title>
+            <Title>{user()?.displayName || 'User'} - Admin - RW</Title>
 
             <A href="/admin/users" class="user-detail__back">&larr; All Users</A>
 
@@ -423,7 +423,7 @@ const AdminUserDetail: Component = () => {
 
                         {/* Delete */}
                         <div class="user-detail__action-group">
-                            <button class="btn btn--ghost btn--small" onClick={handleDelete} style={{ color: '#dc3545', }}>
+                            <button class="btn btn--ghost btn--small btn--danger-text" onClick={handleDelete}>
                                 Delete Account
                             </button>
                         </div>

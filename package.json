@@ -1,7 +1,7 @@
 {
-	"name": "surge-media",
+	"name": "rw-cms",
 	"version": "1.0.0",
-	"description": "Surge Media news organization website",
+	"description": "RW portfolio site CMS",
 	"private": true,
 	"workspaces": [
 		"frontend",

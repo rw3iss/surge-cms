@@ -1,4 +1,4 @@
-import type { Page, } from '@surge/shared';
+import type { Page, } from '@rw/shared';
 import { Router, } from 'express';
 import { z, } from 'zod';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
@@ -6,6 +6,7 @@ import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-a
 import { ValidationError, } from '../middleware/error';
 import * as pagesRepo from '../repositories/pages.repo';
 import * as revisionsRepo from '../repositories/revisions.repo';
+import { auditFromRequest, cms, } from '../sdk';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
 import { handleBulkAction, } from '../utils/bulkActions';
@@ -25,6 +26,7 @@ const pageSchema = z.object({
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
     publishAt: z.string().datetime().nullable().optional(),
     isHomepage: z.boolean().optional(),
+    showTitle: z.boolean().optional(),
     showInNav: z.boolean().optional(),
     navOrder: z.number().int().optional(),
     isPrivate: z.boolean().optional(),
@@ -33,7 +35,7 @@ const pageSchema = z.object({
 
 const blockSchema = z.object({
     type: z.enum([
-        'rich_text', 'text', 'post', 'form', 'image', 'video', 'gallery',
+        'rich_text', 'text', 'post', 'post_list', 'form', 'image', 'video', 'gallery',
         'social_feed', 'social_media', 'campaign', 'hero', 'html',
         'document', 'url_link', 'carousel', 'spacer',
     ],),
@@ -58,6 +60,32 @@ router.get('/navigation', async (_req, res,) => {
         sendSuccess(res, navigation,);
     } catch (error) {
         handleRouteError(res, error, 'fetch navigation',);
+    }
+},);
+
+/**
+ * The page currently flagged as homepage. Returns 404 when no page is
+ * marked. The frontend Home component uses this to drive `/` —
+ * separately from any specific slug.
+ */
+router.get('/homepage', async (_req, res,) => {
+    try {
+        const cacheKey = 'page:homepage';
+        const cached = await cache.get<Page>(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const page = await pagesRepo.findHomepage();
+        if (!page) {
+            return res.status(404,).json({
+                success: false,
+                error: { code: 'NOT_FOUND', message: 'No homepage configured', },
+            },);
+        }
+        page.blocks = await pagesRepo.findBlocksByPageIdWithStyles(page.id, true,);
+        await cache.set(cacheKey, page, 300,);
+        sendSuccess(res, page,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch homepage',);
     }
 },);
 
@@ -152,18 +180,11 @@ router.get('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
 
 router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
+        // Demo of the route → SDK layering. The SDK module owns the
+        // repo call, cache invalidation, and audit logging in a
+        // single place — the route just shapes HTTP I/O.
         const data = pageSchema.parse(req.body,);
-        const page = await pagesRepo.createPage(data, req.userId!,);
-        await cache.invalidatePageCache();
-        await logAudit({
-            userId: req.userId!,
-            action: 'create',
-            entityType: 'page',
-            entityId: page.id,
-            newValues: data,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
+        const page = await cms.pages.create(data, auditFromRequest(req,),);
         sendCreated(res, page,);
     } catch (error) {
         handleRouteError(res, error, 'create page',);

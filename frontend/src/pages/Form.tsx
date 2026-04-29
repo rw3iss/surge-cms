@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { Form, } from '@surge/shared';
+import type { Form, } from '@rw/shared';
 import { Component, createResource, Show, } from 'solid-js';
 import FormRenderer from '../components/FormRenderer';
 import SeoHead from '../components/SeoHead';

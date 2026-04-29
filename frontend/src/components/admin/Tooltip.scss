@@ -14,11 +14,11 @@
 
   &:hover &__icon,
   &:focus-visible &__icon {
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
   }
 
   &:focus-visible {
-    outline: 2px solid $primary-color;
+    outline: 2px solid var(--site-primary, #{$primary-color});
     outline-offset: 2px;
     border-radius: 50%;
   }
@@ -96,9 +96,9 @@
     transition: background 0.15s;
 
     &--primary {
-      background: $primary-color;
+      background: var(--site-primary, #{$primary-color});
       color: #fff;
-      &:hover { background: color.adjust($primary-color, $lightness: -8%); }
+      &:hover { background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black); }
     }
 
     &--secondary {

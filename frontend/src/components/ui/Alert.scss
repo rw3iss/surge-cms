@@ -1,0 +1,63 @@
+@use '../../styles/variables' as *;
+
+.ui-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-md;
+    padding: $spacing-md $spacing-lg;
+    border-radius: $border-radius-md;
+    border: 1px solid;
+    font-size: $font-size-sm;
+    line-height: 1.5;
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-weight: 700;
+        flex-shrink: 0;
+        font-size: $font-size-sm;
+        background-color: rgba(255, 255, 255, 0.6);
+    }
+
+    &__body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__title {
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    &__content {
+        opacity: 0.95;
+    }
+
+    &--info {
+        background-color: rgba($secondary-color, 0.08);
+        border-color: rgba($secondary-color, 0.3);
+        color: color-mix(in srgb, $secondary-color 80%, black);
+    }
+
+    &--success {
+        background-color: rgba($success-color, 0.1);
+        border-color: rgba($success-color, 0.4);
+        color: color-mix(in srgb, $success-color 70%, black);
+    }
+
+    &--warning {
+        background-color: rgba($warning-color, 0.12);
+        border-color: rgba($warning-color, 0.5);
+        color: color-mix(in srgb, $warning-color 60%, black);
+    }
+
+    &--error {
+        background-color: rgba($error-color, 0.1);
+        border-color: rgba($error-color, 0.4);
+        color: color-mix(in srgb, $error-color 70%, black);
+    }
+}

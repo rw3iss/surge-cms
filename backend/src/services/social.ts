@@ -1,4 +1,4 @@
-import type { SocialPlatform, SocialPost, } from '@surge/shared';
+import type { SocialPlatform, SocialPost, } from '@rw/shared';
 import { config, } from '../config';
 import { query, } from '../db';
 import { cache, } from './cache';

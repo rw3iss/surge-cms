@@ -134,7 +134,7 @@
   &__card-link {
     font-size: $font-size-sm;
     font-weight: 600;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     margin-top: $spacing-xs;
   }
 }

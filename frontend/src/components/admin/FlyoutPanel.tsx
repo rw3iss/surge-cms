@@ -24,9 +24,36 @@ const FlyoutPanel: Component<FlyoutPanelProps> = (props,) => {
     const [collapsed, setCollapsed,] = createSignal(false,);
     const [dragging, setDragging,] = createSignal(false,);
     const [topOffset, setTopOffset,] = createSignal(0,);
+    let panelRef: HTMLDivElement | undefined;
     const side = () => props.side || 'right';
     const mode = () => props.mode || 'inline';
     const isInline = () => mode() === 'inline';
+
+    // Compute the legal range for `topOffset` given the current panel
+    // height. When the panel fits the viewport the range is [0,
+    // viewport - height] (panel stays fully visible). When it's
+    // taller than the viewport the range is [viewport - height, 0]
+    // (negative top allowed so the user can scroll the panel by
+    // dragging — top:0 shows the top edge, more negative shows the
+    // bottom). Both cases collapse correctly when slack === 0.
+    const topBounds = () => {
+        const panelHeight = panelRef?.offsetHeight ?? 100;
+        const slack = window.innerHeight - panelHeight;
+        return { min: Math.min(0, slack,), max: Math.max(0, slack,), };
+    };
+
+    const clampTop = (t: number,) => {
+        const { min, max, } = topBounds();
+        return Math.max(min, Math.min(max, t,),);
+    };
+
+    // The browser synthesizes a click on pointerup, which would
+    // otherwise fall through to the title's onClick and toggle the
+    // panel right after every drag-and-release. We track whether the
+    // pointer actually moved (small jitter under 4px doesn't count as
+    // a drag) and swallow the synthesized click in capture phase when
+    // it did.
+    const DRAG_THRESHOLD_PX = 4;
 
     const handleDragStart = (e: PointerEvent,) => {
         if ((e.target as HTMLElement).closest('button',)) return;
@@ -34,30 +61,80 @@ const FlyoutPanel: Component<FlyoutPanelProps> = (props,) => {
         e.preventDefault();
         setDragging(true,);
 
+        const startX = e.clientX;
         const startY = e.clientY;
         const startTop = topOffset();
         const startSide = side();
         const midpointX = window.innerWidth / 2;
+        let dragMoved = false;
 
         const handleMove = (ev: PointerEvent,) => {
+            if (!dragMoved) {
+                const dx = Math.abs(ev.clientX - startX,);
+                const dy = Math.abs(ev.clientY - startY,);
+                if (dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX) {
+                    dragMoved = true;
+                }
+            }
             const newSide = ev.clientX < midpointX ? 'left' : 'right';
             if (newSide !== startSide && props.onSideChange) {
                 props.onSideChange(newSide,);
             }
-            if (collapsed()) {
-                const deltaY = ev.clientY - startY;
-                setTopOffset(Math.max(0, Math.min(window.innerHeight - 40, startTop + deltaY,),),);
-            }
+            // Allow vertical drag in both collapsed and expanded states.
+            // Bounds are recomputed each frame so resizing the window
+            // mid-drag clamps cleanly.
+            const deltaY = ev.clientY - startY;
+            setTopOffset(clampTop(startTop + deltaY,),);
         };
 
         const handleUp = () => {
             setDragging(false,);
             document.removeEventListener('pointermove', handleMove,);
             document.removeEventListener('pointerup', handleUp,);
+
+            if (dragMoved) {
+                // Swallow exactly the one click event the browser
+                // emits after pointerup. Capture phase + immediate
+                // propagation stop keeps the title onClick from
+                // running. Self-removes after firing or on the next
+                // animation frame, whichever comes first, so a
+                // legitimate later click still works.
+                const swallow = (ce: MouseEvent,) => {
+                    ce.stopImmediatePropagation();
+                    ce.preventDefault();
+                    window.removeEventListener('click', swallow, true,);
+                };
+                window.addEventListener('click', swallow, true,);
+                requestAnimationFrame(() => {
+                    window.removeEventListener('click', swallow, true,);
+                },);
+            }
         };
 
         document.addEventListener('pointermove', handleMove,);
         document.addEventListener('pointerup', handleUp,);
+    };
+
+    // Toggle collapsed while preserving the BOTTOM edge of the panel,
+    // so expanding "grows up" from where the collapsed header sat
+    // (and collapsing "shrinks up" to leave the header where the
+    // expanded body's bottom was). This matches how every other
+    // floating-panel UI behaves.
+    const handleToggleCollapse = () => {
+        if (isInline() || !panelRef) {
+            setCollapsed(!collapsed(),);
+            return;
+        }
+        const bottomBefore = panelRef.getBoundingClientRect().bottom;
+        setCollapsed(!collapsed(),);
+        // Wait for SolidJS to apply the DOM change before measuring
+        // the new height — Solid mutates synchronously on signal write
+        // but layout may not be finalized until the next frame.
+        requestAnimationFrame(() => {
+            if (!panelRef) return;
+            const newHeight = panelRef.offsetHeight;
+            setTopOffset(clampTop(bottomBefore - newHeight,),);
+        },);
     };
 
     const toggleMode = () => {
@@ -72,11 +149,12 @@ const FlyoutPanel: Component<FlyoutPanelProps> = (props,) => {
     return (
         <Show when={props.open}>
             <div
+                ref={panelRef}
                 class={`flyout-panel flyout-panel--${side()} ${
                     isInline() ? 'flyout-panel--inline' : ''
                 } ${collapsed() ? 'flyout-panel--collapsed' : ''
                 } ${dragging() ? 'flyout-panel--dragging' : ''}`}
-                style={!isInline() && collapsed() ? { top: `${topOffset()}px`, } : {}}
+                style={!isInline() ? { top: `${topOffset()}px`, } : {}}
             >
                 <div
                     class="flyout-panel__header"
@@ -84,11 +162,7 @@ const FlyoutPanel: Component<FlyoutPanelProps> = (props,) => {
                 >
                     <span
                         class="flyout-panel__title"
-                        onClick={() => {
-                            const next = !collapsed();
-                            setCollapsed(next,);
-                            if (!next) setTopOffset(0,);
-                        }}
+                        onClick={handleToggleCollapse}
                     >
                         <span class="flyout-panel__collapse-icon">
                             {collapsed() ? '▶' : '▼'}

@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { config, } from '../../config';
+import { ServiceNotConfiguredError, } from '../../core/errors';
 import {
     CreateCustomerParams,
     CreatePaymentIntentParams,
@@ -10,7 +11,23 @@ import {
     SubscriptionResult,
 } from './types';
 
-const stripe = new Stripe(config.stripe.secretKey,);
+// Stripe client is lazy so the backend can boot in setup mode without
+// a Stripe secret. Any first use after install will pick up the value
+// once .env has been populated.
+let _stripe: Stripe | null = null;
+function stripeClient(): Stripe {
+    if (_stripe) return _stripe;
+    if (!config.stripe.secretKey) throw new ServiceNotConfiguredError('Stripe',);
+    _stripe = new Stripe(config.stripe.secretKey,);
+    return _stripe;
+}
+const stripe = new Proxy({} as Stripe, {
+    get(_t, p,) {
+        const client = stripeClient();
+        const value = (client as unknown as Record<string | symbol, unknown>)[p as string];
+        return typeof value === 'function' ? (value as Function).bind(client,) : value;
+    },
+},);
 
 export class StripePaymentProvider implements PaymentProvider {
     async createPaymentIntent(params: CreatePaymentIntentParams,): Promise<PaymentIntentResult> {

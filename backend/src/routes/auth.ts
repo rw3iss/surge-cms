@@ -39,7 +39,16 @@ const loginLimiter = rateLimit({
 const loginSchema = z.object({
     email: z.string().email(),
     password: z.string().min(1,),
+    /** When true, the refresh-token cookie is set with a 30-day lifetime
+     * instead of the default 7. Persistence is purely a cookie-lifetime
+     * concern; the server-side session row keeps its normal expiry. */
+    rememberMe: z.boolean().optional(),
 },);
+
+/** Refresh-token cookie lifetimes. Stored as ms because that's what
+ * Express's `cookie.maxAge` wants. */
+const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_COOKIE_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const refreshSchema = z.object({
     refreshToken: z.string(),
@@ -106,14 +115,15 @@ router.get('/patreon/callback', async (req, res: Response,) => {
 // Email/password login
 router.post('/login', loginLimiter, async (req: AuthenticatedRequest, res,) => {
     try {
-        const { email, password, } = loginSchema.parse(req.body,);
+        const { email, password, rememberMe, } = loginSchema.parse(req.body,);
 
         const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',',)[0] || req.ip;
         const userAgent = req.headers['user-agent'];
 
         const authResponse = await authenticateWithEmail(email, password, ipAddress, userAgent,);
 
-        // Set cookies
+        // Access token cookie always has the same short lifetime;
+        // remember-me only affects the refresh cookie.
         res.cookie('accessToken', authResponse.accessToken, {
             httpOnly: true,
             secure: config.isProduction,
@@ -125,7 +135,7 @@ router.post('/login', loginLimiter, async (req: AuthenticatedRequest, res,) => {
             httpOnly: true,
             secure: config.isProduction,
             sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
+            maxAge: rememberMe ? REFRESH_COOKIE_REMEMBER_MS : REFRESH_COOKIE_MAX_AGE_MS,
         },);
 
         res.json({

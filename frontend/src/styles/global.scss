@@ -48,7 +48,7 @@ a {
   transition: color $transition-fast;
 
   &:hover {
-    color: color.adjust($primary-color, $lightness: -10%);
+    color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
   }
 }
 
@@ -82,13 +82,30 @@ button {
 
 // Focus styles
 :focus-visible {
-  outline: 2px solid $primary-color;
+  outline: 2px solid var(--site-primary, #{$primary-color});
   outline-offset: 2px;
+}
+
+// ─── Active-outline suppression (configurable) ─────────────
+// By default we strip the browser's lingering focus ring that
+// stays on clickable elements after a mouse click — most
+// designers find it visually distracting. Keyboard focus
+// (`:focus-visible`) is preserved above so tab navigation
+// remains accessible (the only WCAG-relevant focus indicator).
+//
+// A future site setting will toggle this off by adding
+// `data-active-outlines="show"` to the <html> element. When
+// that attribute is present, the browser-default click ring
+// returns. Default state = attribute absent = no click rings.
+html:not([data-active-outlines='show']) {
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 // Selection
 ::selection {
-  background-color: $primary-color;
+  background-color: var(--site-primary, #{$primary-color});
   color: white;
 }
 
@@ -187,7 +204,7 @@ button {
     width: 40px;
     height: 40px;
     border: 3px solid $border-color;
-    border-top-color: $primary-color;
+    border-top-color: var(--site-primary, #{$primary-color});
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -302,7 +319,7 @@ button {
 
   &__fill {
     height: 100%;
-    background: $primary-color;
+    background: var(--site-primary, #{$primary-color});
     border-radius: $border-radius-sm;
     transition: width 0.6s ease;
     min-width: 2px;
@@ -339,7 +356,7 @@ button {
 
   button {
     padding: $spacing-sm $spacing-xl;
-    background-color: $primary-color;
+    background-color: var(--site-primary, #{$primary-color});
     color: #fff;
     border-radius: $border-radius-md;
     font-size: $font-size-base;
@@ -347,7 +364,7 @@ button {
     transition: background-color $transition-fast;
 
     &:hover {
-      background-color: color.adjust($primary-color, $lightness: -10%);
+      background-color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
     }
   }
 }
@@ -382,7 +399,7 @@ button {
   }
 
   blockquote {
-    border-left: 4px solid $primary-color;
+    border-left: 4px solid var(--site-primary, #{$primary-color});
     padding-left: $spacing-md;
     margin: $spacing-lg 0;
     font-style: italic;

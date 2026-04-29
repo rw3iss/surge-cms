@@ -160,4 +160,29 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  // Loading + not-found states. Centered, muted, padded so they don't
+  // look like a bare 404 page. Replaces the previous catch-all
+  // "Loading..." that fired even after a 404 had resolved, leaving
+  // the page stuck on a fake spinner.
+  &__loading,
+  &__not-found {
+    text-align: center;
+    padding: $spacing-3xl $spacing-md;
+    color: $text-light;
+  }
+
+  &__not-found {
+    h1 {
+      margin: 0 0 $spacing-sm;
+      font-size: $font-size-3xl;
+      color: var(--site-heading, #{$text-color});
+    }
+
+    p {
+      margin: 0 auto;
+      max-width: 480px;
+      font-size: $font-size-base;
+    }
+  }
 }

@@ -1,8 +1,16 @@
 import { A, useLocation, useNavigate, } from '@solidjs/router';
-import { createEffect, createSignal, For, ParentComponent, Show, } from 'solid-js';
+import type { AppearanceSettings, } from '@rw/shared';
+import { createEffect, createMemo, createResource, createSignal, For, ParentComponent, Show, } from 'solid-js';
 import GlobalSearch from '../../components/admin/GlobalSearch';
+import SessionExpiredModal from '../../components/SessionExpiredModal';
 import SiteLogo from '../../components/SiteLogo';
+import { fetchAppearance, } from '../../services/api';
+import { swatchCssVars, } from '../../services/colorResolver';
+import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
+import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '../../stores/adminAppearance';
 import { useAuth, } from '../../stores/auth';
+import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
+import { appearanceCssVars, } from '../../utils/appearanceStyle';
 import './AdminLayout.scss';
 
 /** Minimal outline SVG icons for sidebar nav items (16x16 viewBox) */
@@ -40,17 +48,24 @@ interface NavItem {
     icon: string;
     end?: boolean;
     sysadminOnly?: boolean;
+    /**
+     * Feature key from `SiteFeatures`. When set, the nav item is
+     * rendered only when `features[feature].enabled` is true. Items
+     * without a feature (Dashboard, Pages, Media, Users, Settings)
+     * always render — they're core CMS surfaces.
+     */
+    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users';
 }
 
 const NAV_ITEMS: NavItem[] = [
     { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true, },
     { path: '/admin/pages', label: 'Pages', icon: 'pages', },
-    { path: '/admin/posts', label: 'Posts', icon: 'posts', },
-    { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', },
-    { path: '/admin/forms', label: 'Forms', icon: 'forms', },
+    { path: '/admin/posts', label: 'Posts', icon: 'posts', feature: 'posts', },
+    { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
+    { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     { path: '/admin/media', label: 'Media', icon: 'media', },
-    { path: '/admin/users', label: 'Users', icon: 'users', },
-    { path: '/admin/messages', label: 'Messages', icon: 'messages', },
+    { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', },
+    { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
     { path: '/admin/settings', label: 'Settings', icon: 'settings', },
     { path: '/admin/developer', label: 'Developer', icon: 'developer', sysadminOnly: true, },
 ];
@@ -79,6 +94,61 @@ const AdminLayout: ParentComponent = (props,) => {
         setSidebarOpen(false,);
     },);
 
+    // Site appearance settings flow into the admin shell as `--site-*`
+    // CSS custom properties so admin chrome (Save buttons, focus rings,
+    // active sidebar row, page editor "+ Add Block" trigger, etc.) uses
+    // the configured brand color rather than the static fallback.
+    const [appearance,] = createResource(async () => {
+        const r = await fetchAppearance();
+        return r.success ? r.data as AppearanceSettings : null;
+    },);
+    // Admin-specific chrome tokens (sidebar bg/text, page bg/text,
+    // panel bg). Merged into the same root-element style so a single
+    // inline-style block carries both site appearance and admin-chrome
+    // overrides — keeping CSS-var resolution simple.
+    void loadAdminAppearance();
+    // Site swatches feed `--swatch-{id}` CSS custom properties so any
+    // `swatch:{id}` color value resolved via `colorCssValue()` updates
+    // live when the operator edits the palette. We co-locate them with
+    // the existing appearance + admin-appearance vars so the layout
+    // root carries one consolidated style block.
+    void loadSwatches();
+    const layoutStyle = createMemo(() => ({
+        ...appearanceCssVars(appearance(), 'admin',),
+        ...adminAppearanceCssVars(adminAppearance(),),
+        ...swatchCssVars(swatchesSignal(),),
+    }),);
+
+    // Belt-and-braces: in addition to the inline `style={...}` on the
+    // admin-layout div (which Solid normally handles correctly), also
+    // set every CSS custom property imperatively on the same element
+    // via setProperty. This guarantees the vars apply even if Solid's
+    // style binding misses a key (it has historically been picky about
+    // CSS custom properties on object-form style props), and it makes
+    // the runtime value debuggable by inspecting the .admin-layout
+    // node in DevTools.
+    let rootRef: HTMLDivElement | undefined;
+    createEffect(() => {
+        if (!rootRef) return;
+        const style = layoutStyle();
+        for (const [key, value,] of Object.entries(style,)) {
+            if (key.startsWith('--',)) {
+                rootRef.style.setProperty(key, value,);
+            } else {
+                // Non-var keys (like background-color in public mode) — set via the
+                // camelCase property on style. Lowercased dashes work too.
+                (rootRef.style as unknown as Record<string, string>)[key] = value;
+            }
+        }
+    },);
+
+    // Eagerly populate the site-settings store on mount so the sidebar
+    // logo + name resolve from the same source as the public Header.
+    // The public Layout already does this; admin needs its own trigger
+    // because users can deep-link straight into /admin without ever
+    // touching the public layout.
+    void loadSiteSettings();
+
     const isActive = (path: string, end?: boolean,) =>
         end ? location.pathname === path : (location.pathname === path || location.pathname.startsWith(`${path}/`,));
 
@@ -92,7 +162,11 @@ const AdminLayout: ParentComponent = (props,) => {
 
     return (
         <Show when={!auth.isLoading && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')} fallback={<div>Loading...</div>}>
-            <div class={`admin-layout ${collapsed() ? 'admin-layout--collapsed' : ''}`}>
+            <div
+                ref={(el,) => { rootRef = el; }}
+                class={`admin-layout ${collapsed() ? 'admin-layout--collapsed' : ''}`}
+                style={layoutStyle()}
+            >
                 <button
                     class={`admin-layout__hamburger ${sidebarOpen() ? 'admin-layout__hamburger--open' : ''}`}
                     onClick={() => setSidebarOpen(!sidebarOpen(),)}
@@ -108,13 +182,18 @@ const AdminLayout: ParentComponent = (props,) => {
                 <aside class={`admin-layout__sidebar ${sidebarOpen() ? 'admin-layout__sidebar--open' : ''}`}>
                     <div class="admin-layout__logo">
                         <A href="/" onClick={handleNavClick}>
-                            <SiteLogo size="small" />
+                            <SiteLogo size="small" name={siteName()} logoSrc={siteLogo()} />
                         </A>
                     </div>
                     <nav class="admin-layout__nav">
                         <For each={NAV_ITEMS}>
                             {(item,) => (
-                                <Show when={!item.sysadminOnly || auth.user?.role === 'sysadmin'}>
+                                <Show
+                                    when={
+                                        (!item.sysadminOnly || auth.user?.role === 'sysadmin')
+                                        && (!item.feature || isFeatureEnabled(item.feature,))
+                                    }
+                                >
                                     <A
                                         href={item.path}
                                         end={item.end}
@@ -177,6 +256,7 @@ const AdminLayout: ParentComponent = (props,) => {
                     {props.children}
                 </main>
                 <GlobalSearch />
+                <SessionExpiredModal />
             </div>
         </Show>
     );

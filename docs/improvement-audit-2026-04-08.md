@@ -2,8 +2,8 @@
 
 ## 1. Summary
 
-- **Project:** Surge Media CMS
-- **Working directory:** /home/rw3iss/Sites/others/surge
+- **Project:** RW CMS
+- **Working directory:** /home/rw3iss/Sites/others/rw
 - **Total findings:** 14 (UI: 4, styling: 2, architecture: 8)
 
 This audit follows the large admin feature push in commit `91fdb8b`
@@ -156,7 +156,7 @@ share the same hook patterns.
   `backend/src/repositories/revisions.repo.ts`. The frontend panel
   re-declares its own interface. Drift risk.
 - **Proposed fix:** Move `Revision` interface into
-  `shared/src/types/content.ts` and import from `@surge/shared`.
+  `shared/src/types/content.ts` and import from `@rw/shared`.
 - **Risk:** Low.
 
 ## 5. Recommended execution plan
@@ -165,7 +165,7 @@ share the same hook patterns.
 - **UI-1:** Wire `useAutoSave` + `AutoSaveIndicator` into
   PageEditor, FormEditor, CampaignEditor.
 - **UI-2:** Mount `<RevisionsPanel entityType="page">` in PageEditor.
-- **ARCH-8:** Move `Revision` interface to `@surge/shared` and
+- **ARCH-8:** Move `Revision` interface to `@rw/shared` and
   import it in `RevisionsPanel.tsx`.
 
 ### Phase B (medium risk, present for approval)

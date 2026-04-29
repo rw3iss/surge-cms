@@ -1,4 +1,4 @@
-import type { SiteSettings, } from '@surge/shared';
+import type { SiteSettings, } from '@rw/shared';
 import { Router, } from 'express';
 import { z, } from 'zod';
 import { config, } from '../config';
@@ -27,7 +27,33 @@ const settingsSchema = z.object({
         secondaryColor: z.string().optional(),
         accentColor: z.string().optional(),
     },).optional(),
+    /**
+     * Feature toggles. The admin Features panel sends this object;
+     * each key writes a `<feature>_enabled` row in `site_settings`.
+     * Adding a new feature: extend this shape and the seeder
+     * defaults — `computePublicFeatures` will pick it up.
+     */
+    features: z.object({
+        patreon: z.boolean().optional(),
+        posts: z.boolean().optional(),
+        campaigns: z.boolean().optional(),
+        forms: z.boolean().optional(),
+        messages: z.boolean().optional(),
+        users: z.boolean().optional(),
+    },).optional(),
 },);
+
+/** Map from `features.<key>` payload field to the underlying
+ * `site_settings.<row>` key. Centralized so the toggle list stays
+ * consistent with `computePublicFeatures`. */
+const FEATURE_TO_SETTING_KEY: Record<string, string> = {
+    patreon: 'patreon_enabled',
+    posts: 'posts_enabled',
+    campaigns: 'campaigns_enabled',
+    forms: 'forms_enabled',
+    messages: 'messages_enabled',
+    users: 'users_enabled',
+};
 
 // Get public settings (public)
 router.get('/public', async (_req, res,) => {
@@ -44,16 +70,37 @@ router.get('/public', async (_req, res,) => {
             settings[row.key] = row.value;
         }
 
+        // Compute feature flags. Each flag is the AND of an admin
+        // setting and the runtime conditions required for the feature
+        // to actually work. The frontend reads `features.<x>.enabled`
+        // verbatim and never recomputes.
+        const features = await computePublicFeatures(settings,);
+
+        const tagline = (settings.site_tagline as string | undefined)?.trim();
+
+        // Logo and favicon live inside the `site_branding` row, not as
+        // top-level keys — that's where Settings → Site Branding writes
+        // them. Pull the URL out so the public consumer sees a plain
+        // string. The legacy top-level `logo` / `favicon` keys are kept
+        // as a fallback for older installs that wrote there directly.
+        const branding = (settings.site_branding as
+            | { logo?: { url?: string; mediaId?: string; }; favicon?: { url?: string; mediaId?: string; }; }
+            | undefined) || {};
+        const logoUrl = branding.logo?.url || (settings.logo as string | undefined);
+        const faviconUrl = branding.favicon?.url || (settings.favicon as string | undefined);
+
         const publicSettings: SiteSettings = {
-            siteName: (settings.site_name as string) || 'Surge Media',
+            siteName: (settings.site_name as string) || 'RW',
+            siteTagline: tagline || undefined,
             siteDescription: (settings.site_description as string) || '',
-            logo: settings.logo as string | undefined,
-            favicon: settings.favicon as string | undefined,
+            logo: logoUrl,
+            favicon: faviconUrl,
             socialLinks: (settings.social_links as Record<string, string>) || {},
             contactEmail: (settings.contact_email as string) || '',
             analytics: settings.analytics as SiteSettings['analytics'],
             theme: settings.theme as SiteSettings['theme'],
             appearance: settings.site_appearance as SiteSettings['appearance'],
+            features,
         };
 
         // Include Shopify config if configured (storefront tokens are public)
@@ -109,6 +156,18 @@ router.put('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, 
             analytics: data.analytics,
             theme: data.theme,
         };
+
+        // Feature toggles flatten into individual `<feature>_enabled`
+        // rows. Treating them as separate keys (rather than a single
+        // JSON blob) means partial updates are easy and the rows are
+        // queryable for ad-hoc checks.
+        if (data.features) {
+            for (const [featureKey, value,] of Object.entries(data.features,)) {
+                if (value === undefined) continue;
+                const settingKey = FEATURE_TO_SETTING_KEY[featureKey];
+                if (settingKey) settingsMap[settingKey] = value;
+            }
+        }
 
         for (const [key, value,] of Object.entries(settingsMap,)) {
             if (value !== undefined) {
@@ -257,6 +316,113 @@ router.put('/site-header', authenticate(), requireAdmin, async (req: Authenticat
     }
 },);
 
+// ─── Admin appearance ───
+// Color tokens applied to the admin chrome (sidebar bg / sidebar text /
+// page bg / page text / panel bg). Stored at site_settings.admin_appearance
+// as one JSON blob so a partial admin save can't accidentally clobber
+// unrelated settings rows.
+//
+// All fields default to undefined on the wire; AdminLayout maps them to
+// `--admin-*` CSS custom properties and the SCSS uses
+// `var(--admin-x, fallback)` so unset values inherit the static admin
+// theme. The endpoint is authenticated admin-only because admin
+// appearance is operator-only — no point exposing it publicly.
+router.get('/admin-appearance', authenticate(), requireAdmin, async (_req: AuthenticatedRequest, res,) => {
+    try {
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'admin_appearance'`,
+        );
+        const data = result.rows.length > 0 ? result.rows[0].value : {};
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch admin appearance settings',);
+    }
+},);
+
+router.put('/admin-appearance', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+             VALUES ('admin_appearance', $1, $2)
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(data,), req.userId,],
+        );
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'admin_appearance',
+            newValues: data,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'save admin appearance settings',);
+    }
+},);
+
+// ─── Site Footer ───
+// Stored at site_settings.site_footer. Public GET so the renderer can
+// read it on every page load; the structure has no privileged data.
+router.get('/site-footer', async (_req, res,) => {
+    try {
+        const cacheKey = 'settings:site_footer';
+        const cached = await cache.get(cacheKey,);
+        if (cached) return sendSuccess(res, cached,);
+
+        const result = await query(
+            `SELECT value FROM site_settings WHERE key = 'site_footer'`,
+        );
+
+        // Defaults: footer disabled, no rows. The renderer treats
+        // `enabled: false` as "render nothing", so a brand-new install
+        // shows no footer until the admin opts in.
+        const data = result.rows.length > 0
+            ? result.rows[0].value
+            : { enabled: false, rows: [], };
+
+        await cache.set(cacheKey, data, 600,);
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'fetch site footer settings',);
+    }
+},);
+
+router.put('/site-footer', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const data = req.body;
+
+        await query(
+            `INSERT INTO site_settings (key, value, updated_by)
+             VALUES ('site_footer', $1, $2)
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+            [JSON.stringify(data,), req.userId,],
+        );
+
+        await cache.del('settings:site_footer',);
+        await cache.invalidateSettingsCache();
+
+        await logAudit({
+            userId: req.userId!,
+            action: 'update',
+            entityType: 'settings',
+            entityId: 'site_footer',
+            newValues: data,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent',),
+        },);
+
+        sendSuccess(res, data,);
+    } catch (error) {
+        handleRouteError(res, error, 'save site footer settings',);
+    }
+},);
+
 // Get site branding settings (public, cached)
 router.get('/site-branding', async (_req, res,) => {
     try {
@@ -363,9 +529,27 @@ router.put('/appearance', authenticate(), requireAdmin, async (req: Authenticate
     }
 },);
 
-// ─── Site Colors ───
+// ─── Site Colors / Swatches ───
+//
+// Storage shape: `SiteSwatch[]` — each entry has a stable id, a hex
+// value, and an optional name. Anywhere in the app, a color field can
+// hold either a raw `#rrggbb` string OR `swatch:{id}`; the frontend
+// resolver dereferences swatch refs to live hex values via CSS custom
+// properties, so editing a swatch updates every consumer reactively.
+//
+// Legacy installs stored `string[]` (just hex values). On first read
+// we transparently migrate to the object shape and persist back, so
+// downstream code only ever sees the new shape.
 
-const DEFAULT_SITE_COLORS = [
+const HEX_RE = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+// Swatch IDs: alphanumeric + dash/underscore, 1–32 chars. Tight enough
+// to prevent injecting characters that would break CSS custom property
+// names or LIKE-pattern scans of JSONB columns.
+const SWATCH_ID_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+
+interface SiteSwatchRow { id: string; hex: string; name?: string; }
+
+const DEFAULT_SITE_COLOR_HEXES = [
     '#ffffff',
     '#000000',
     '#e63946',
@@ -383,6 +567,63 @@ const DEFAULT_SITE_COLORS = [
     '#8338ec',
 ];
 
+function generateSwatchId(): string {
+    // 8-char URL-safe random id; ~5 trillion possibilities so collision
+    // within a single site's swatch list is practically zero.
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let id = '';
+    for (let i = 0; i < 8; i++) id += alphabet[Math.floor(Math.random() * alphabet.length,)];
+    return id;
+}
+
+function buildDefaultSwatches(): SiteSwatchRow[] {
+    return DEFAULT_SITE_COLOR_HEXES.map((hex,) => ({ id: generateSwatchId(), hex, }));
+}
+
+/**
+ * Read swatches from `site_settings.site_colors` and migrate the legacy
+ * `string[]` shape on the way out. The migration is persisted so the
+ * next read returns the object form directly.
+ */
+async function loadSwatches(): Promise<SiteSwatchRow[]> {
+    const result = await query(
+        `SELECT value FROM site_settings WHERE key = 'site_colors'`,
+    );
+    if (result.rows.length === 0) return buildDefaultSwatches();
+    const raw = result.rows[0].value;
+    if (!Array.isArray(raw,)) return buildDefaultSwatches();
+
+    // Already in object form — sanity-fill missing IDs and drop bad rows.
+    if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+        const seen = new Set<string>();
+        const objects = (raw as Array<Partial<SiteSwatchRow>>).flatMap((entry,) => {
+            if (!entry || typeof entry.hex !== 'string' || !HEX_RE.test(entry.hex,)) return [];
+            let id = typeof entry.id === 'string' && SWATCH_ID_RE.test(entry.id,) ? entry.id : generateSwatchId();
+            // Ensure uniqueness within the list — duplicate IDs would
+            // make CSS custom properties collide.
+            while (seen.has(id,)) id = generateSwatchId();
+            seen.add(id,);
+            const out: SiteSwatchRow = { id, hex: entry.hex, };
+            if (typeof entry.name === 'string' && entry.name.trim()) out.name = entry.name.trim();
+            return [out,];
+        },);
+        return objects;
+    }
+
+    // Legacy `string[]` shape: assign IDs and persist back.
+    const migrated: SiteSwatchRow[] = (raw as unknown[]).flatMap((c,) => {
+        if (typeof c !== 'string' || !HEX_RE.test(c,)) return [];
+        return [{ id: generateSwatchId(), hex: c, },];
+    },);
+    if (migrated.length > 0) {
+        await query(
+            `UPDATE site_settings SET value = $1, updated_at = NOW() WHERE key = 'site_colors'`,
+            [JSON.stringify(migrated,),],
+        );
+    }
+    return migrated.length > 0 ? migrated : buildDefaultSwatches();
+}
+
 // Get site colors (public, cached)
 router.get('/site-colors', async (_req, res,) => {
     try {
@@ -390,14 +631,7 @@ router.get('/site-colors', async (_req, res,) => {
         const cached = await cache.get(cacheKey,);
         if (cached) return sendSuccess(res, cached,);
 
-        const result = await query(
-            `SELECT value FROM site_settings WHERE key = 'site_colors'`,
-        );
-
-        const data = result.rows.length > 0 && Array.isArray(result.rows[0].value) ?
-            result.rows[0].value :
-            DEFAULT_SITE_COLORS;
-
+        const data = await loadSwatches();
         await cache.set(cacheKey, data, 600,);
         sendSuccess(res, data,);
     } catch (error) {
@@ -414,16 +648,32 @@ router.put('/site-colors', authenticate(), requireAdmin, async (req: Authenticat
             throw new ValidationError('Site colors must be an array',);
         }
 
-        // Validate each color is a hex string
-        const validColors = data.filter((c,) =>
-            typeof c === 'string' && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(c,),
-        );
+        const seen = new Set<string>();
+        const validSwatches: SiteSwatchRow[] = [];
+        for (const entry of data) {
+            if (!entry || typeof entry !== 'object') continue;
+            const e = entry as Partial<SiteSwatchRow>;
+            if (typeof e.hex !== 'string' || !HEX_RE.test(e.hex,)) continue;
+            let id = typeof e.id === 'string' && SWATCH_ID_RE.test(e.id,) ? e.id : generateSwatchId();
+            // Reject duplicate IDs from the client — a custom ID typed
+            // by the user must be unique. If the client sent dupes we
+            // fall through to a fresh random ID for the conflicting
+            // entry rather than silently merging.
+            if (seen.has(id,)) {
+                id = generateSwatchId();
+                while (seen.has(id,)) id = generateSwatchId();
+            }
+            seen.add(id,);
+            const swatch: SiteSwatchRow = { id, hex: e.hex, };
+            if (typeof e.name === 'string' && e.name.trim()) swatch.name = e.name.trim().slice(0, 64,);
+            validSwatches.push(swatch,);
+        }
 
         await query(
             `INSERT INTO site_settings (key, value, updated_by)
        VALUES ('site_colors', $1, $2)
        ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
-            [JSON.stringify(validColors,), req.userId,],
+            [JSON.stringify(validSwatches,), req.userId,],
         );
 
         await cache.del('settings:site_colors',);
@@ -434,14 +684,56 @@ router.put('/site-colors', authenticate(), requireAdmin, async (req: Authenticat
             action: 'update',
             entityType: 'settings',
             entityId: 'site_colors',
-            newValues: { count: validColors.length, },
+            newValues: { count: validSwatches.length, },
             ipAddress: req.ip,
             userAgent: req.get('user-agent',),
         },);
 
-        sendSuccess(res, validColors,);
+        sendSuccess(res, validSwatches,);
     } catch (error) {
         handleRouteError(res, error, 'save site colors',);
+    }
+},);
+
+// Count swatch references across the database. Used by the swatch
+// editor's delete-confirm UI so the operator knows how many places
+// will fall back to the default if they remove the swatch. The scan
+// is JSONB-text based — we LIKE-search for the substring `swatch:{id}`
+// in every column that can hold a color value. Cheap (one query per
+// table, bounded number of tables) and tolerant: if any sub-query
+// fails we still return the partial total.
+router.get('/site-colors/usages/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
+    try {
+        const { id, } = req.params;
+        if (!SWATCH_ID_RE.test(id,)) throw new ValidationError('Invalid swatch id',);
+        const needle = `%swatch:${id}%`;
+
+        // (label, SQL) pairs — each query returns a single int count.
+        const sources: Array<{ label: string; sql: string; }> = [
+            { label: 'Page blocks', sql: `SELECT COUNT(*)::int AS n FROM blocks WHERE settings::text ILIKE $1 OR style::text ILIKE $1`, },
+            { label: 'Post content blocks', sql: `SELECT COUNT(*)::int AS n FROM post_content_blocks WHERE data::text ILIKE $1`, },
+            { label: 'Block style templates', sql: `SELECT COUNT(*)::int AS n FROM block_styles WHERE style::text ILIKE $1`, },
+            { label: 'Site settings', sql: `SELECT COUNT(*)::int AS n FROM site_settings WHERE key <> 'site_colors' AND value::text ILIKE $1`, },
+        ];
+
+        const breakdown: Array<{ source: string; count: number; }> = [];
+        let total = 0;
+        for (const s of sources) {
+            try {
+                const r = await query(s.sql, [needle,],);
+                const n = Number((r.rows[0] as any)?.n ?? 0,);
+                if (n > 0) {
+                    breakdown.push({ source: s.label, count: n, },);
+                    total += n;
+                }
+            } catch {
+                // Table may not exist on older installs; skip silently.
+            }
+        }
+
+        sendSuccess(res, { total, breakdown, },);
+    } catch (error) {
+        handleRouteError(res, error, 'count swatch usages',);
     }
 },);
 
@@ -497,5 +789,56 @@ router.delete('/:key', authenticate(), requireAdmin, async (req: AuthenticatedRe
         handleRouteError(res, error, 'delete setting',);
     }
 },);
+
+/**
+ * Compute the public `features` object.
+ *
+ * Two kinds of flags:
+ *   - **Provider flags** (e.g. patreon) — gated on BOTH an admin
+ *     opt-in (`<feature>_enabled` in site_settings) AND a runtime
+ *     condition (a connected provider row). Default OFF.
+ *   - **Module flags** (posts / campaigns / forms / messages) — gated
+ *     only on the admin toggle. Default ON. These hide / show the
+ *     corresponding admin sidebar link and public routes.
+ *
+ * Adding a new feature is a one-place change here + a default in the
+ * seeder. The frontend reads `features.<x>.enabled` verbatim.
+ */
+async function computePublicFeatures(
+    settings: Record<string, unknown>,
+): Promise<import('@rw/shared').SiteFeatures> {
+    // Module flags default to ON when the row is absent (existing
+    // installs predating the feature shouldn't suddenly hide things).
+    const moduleEnabled = (key: string,): boolean => settings[key] !== false;
+
+    const patreonAdminEnabled = settings.patreon_enabled === true;
+    let patreonConnected = false;
+    if (patreonAdminEnabled) {
+        try {
+            const r = await query<{ exists: boolean; }>(
+                `SELECT EXISTS(
+                    SELECT 1 FROM social_connections
+                    WHERE provider = 'patreon' AND is_connected = true AND is_enabled = true
+                ) AS exists`,
+            );
+            patreonConnected = Boolean(r.rows[0]?.exists,);
+        } catch {
+            // social_connections may not exist yet on a freshly-installed
+            // instance whose migrations haven't reached 010 — treat as off.
+            patreonConnected = false;
+        }
+    }
+
+    return {
+        patreon: { enabled: patreonAdminEnabled && patreonConnected, },
+        posts: { enabled: moduleEnabled('posts_enabled',), },
+        campaigns: { enabled: moduleEnabled('campaigns_enabled',), },
+        forms: { enabled: moduleEnabled('forms_enabled',), },
+        messages: { enabled: moduleEnabled('messages_enabled',), },
+        // `users` is opt-in (admin-only by default). Public registration
+        // / "join" flows and the admin Users sidebar key off this flag.
+        users: { enabled: settings.users_enabled === true, },
+    };
+}
 
 export default router;

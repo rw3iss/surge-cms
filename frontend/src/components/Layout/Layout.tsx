@@ -1,8 +1,12 @@
 import { Meta, Title, } from '@solidjs/meta';
-import type { AppearanceSettings, NavigationItem, } from '@surge/shared';
+import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@rw/shared';
 import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
-import { fetchAppearance, fetchNavigation, fetchSiteHeader, } from '../../services/api';
+import { fetchAppearance, fetchNavigation, fetchSiteFooter, fetchSiteHeader, } from '../../services/api';
+import { swatchCssVars, } from '../../services/colorResolver';
+import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
+import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
+import { appearanceCssVars, } from '../../utils/appearanceStyle';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -32,6 +36,12 @@ export const Layout: ParentComponent = (props,) => {
         return response.success ? response.data as AppearanceSettings : null;
     },);
 
+    const [footerSettings,] = createResource<SiteFooterSettings | null>(async () => {
+        const response = await fetchSiteFooter();
+        if (response.success && response.data) return response.data as SiteFooterSettings;
+        return null;
+    },);
+
     // Apply font size to <html> so rem units throughout the site respect it
     createEffect(() => {
         const a = appearance();
@@ -40,42 +50,76 @@ export const Layout: ParentComponent = (props,) => {
         }
     },);
 
-    const layoutStyle = createMemo(() => {
-        const a = appearance();
-        const s: Record<string, string> = {};
-        if (a?.backgroundColor) {
-            s['background-color'] = a.backgroundColor;
-            s['--site-bg'] = a.backgroundColor;
+    // Site swatches feed `--swatch-{id}` CSS custom properties so any
+    // `swatch:{id}` color value (used in block styles, header / footer
+    // settings, etc) resolves natively in the browser. Editing a
+    // swatch updates the var in place and every consumer repaints
+    // without component-level subscription.
+    void loadSwatches();
+
+    // Operator-uploaded fonts. Each font's binary is fetched once
+    // and exposed under its `customId` as a `font-family` token via
+    // a single <style> tag in <head>. Anywhere in the public site
+    // can then use `font-family: 'fontN'` (block styles, header
+    // items, footer items, etc.) and the browser resolves it.
+    void loadFonts();
+    createEffect(() => {
+        const list = fontsSignal();
+        if (typeof document === 'undefined') return;
+        const tagId = 'site-fonts';
+        let tag = document.getElementById(tagId,) as HTMLStyleElement | null;
+        if (!tag) {
+            tag = document.createElement('style',);
+            tag.id = tagId;
+            document.head.appendChild(tag,);
         }
-        if (a?.textColor) {
-            s['color'] = a.textColor;
-            s['--site-text'] = a.textColor;
+        const formatHint = (fmt: string,) => {
+            switch (fmt) {
+                case 'woff2': return 'woff2';
+                case 'woff': return 'woff';
+                case 'ttf': return 'truetype';
+                case 'otf': return 'opentype';
+                case 'eot': return 'embedded-opentype';
+                default: return fmt;
+            }
+        };
+        tag.textContent = list.map(f =>
+            `@font-face { font-family: '${f.customId}'; src: url('${f.url}') format('${formatHint(f.format,)}'); font-display: swap; }`
+        ,).join('\n',);
+    },);
+
+    // Mapping from AppearanceSettings → inline `--site-*` vars lives in
+    // utils/appearanceStyle.ts so the public site and the admin shell
+    // share a single definition. AdminLayout passes 'admin' here for a
+    // slightly narrower set (no site-bg/text/font on the root, since
+    // admin chrome has its own controlled styling).
+    const layoutStyle = createMemo(() => ({
+        ...appearanceCssVars(appearance(), 'public',),
+        ...swatchCssVars(swatchesSignal(),),
+    }),);
+
+    // Same belt-and-braces pattern as AdminLayout: in addition to the
+    // inline style binding, write every key imperatively via
+    // setProperty so CSS custom properties land even if Solid's
+    // object-form style binding skips one. Lets the runtime values be
+    // inspected directly on .layout in DevTools too.
+    let rootRef: HTMLDivElement | undefined;
+    createEffect(() => {
+        if (!rootRef) return;
+        const style = layoutStyle();
+        for (const [key, value,] of Object.entries(style,)) {
+            if (key.startsWith('--',)) {
+                rootRef.style.setProperty(key, value,);
+            } else {
+                (rootRef.style as unknown as Record<string, string>)[key] = value;
+            }
         }
-        if (a?.primaryColor) s['--site-primary'] = a.primaryColor;
-        if (a?.linkColor) s['--site-link'] = a.linkColor;
-        if (a?.headingColor) s['--site-heading'] = a.headingColor;
-        if (a?.borderColor) s['--site-border'] = a.borderColor;
-        if (a?.fontFamily) {
-            s['font-family'] = a.fontFamily;
-            s['--site-font'] = a.fontFamily;
-        }
-        if (a?.headingFontFamily) s['--site-heading-font'] = a.headingFontFamily;
-        if (a?.headingWeight) s['--site-heading-weight'] = a.headingWeight;
-        if (a?.lineHeight) {
-            s['line-height'] = a.lineHeight;
-            s['--site-line-height'] = a.lineHeight;
-        }
-        if (a?.gutterWidth) s['--site-gutter'] = a.gutterWidth;
-        if (a?.borderRadius) s['--site-radius'] = a.borderRadius;
-        if (a?.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
-        if (a?.blockPadding) s['--site-block-padding'] = a.blockPadding;
-        return s;
     },);
 
     const dynamicSiteName = () => settings()?.siteName || DEFAULT_SITE_NAME;
 
     return (
-        <div class="layout" style={layoutStyle()}>
+        <div ref={(el,) => { rootRef = el; }} class="layout" style={layoutStyle()}>
             {/*
               Baseline tags that every page inherits. Only TRULY site-wide tags
               belong here — anything a page-level <SeoHead> might want to
@@ -110,8 +154,11 @@ export const Layout: ParentComponent = (props,) => {
 
             <Footer
                 siteName={dynamicSiteName()}
+                tagline={settings()?.siteTagline}
                 socialLinks={settings()?.socialLinks || {}}
                 contactEmail={settings()?.contactEmail}
+                footer={footerSettings()}
+                gutterWidth={appearance()?.gutterWidth}
             />
         </div>
     );

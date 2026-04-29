@@ -1,6 +1,6 @@
-# Surge Media Website
+# Ryan Weiss Website
 
-A modern, fast-loading website for Surge Media news organization with a comprehensive admin portal.
+A modern, fast-loading website for Ryan Weiss' portfolio with a comprehensive admin portal.
 
 ## Table of Contents
 
@@ -454,7 +454,7 @@ Copy `.env.example` to `.env` in the backend folder and configure:
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/surge
+DATABASE_URL=postgresql://user:pass@localhost:5432/rw
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -494,17 +494,33 @@ FACEBOOK_ACCESS_TOKEN=xxx
 
 ### Installation
 
+The recommended path is the **first-run setup wizard**: start the app with no config, open `/setup`, and the wizard handles env, migrations, seed, and admin creation in one go.
+
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Run database migrations
+# 2. Make sure PostgreSQL is reachable (locally, via Docker, or hosted).
+#    The wizard can either use an existing database or create one for you
+#    (the latter requires superuser credentials, used only during install).
+
+# 3. Start the dev servers — no .env required for first boot.
+npm run dev
+```
+
+Then open <http://localhost:3000/setup>. The wizard will:
+
+1. Detect what's already configured (DB, Redis, JWT secret, admin user).
+2. Walk you through General, Database, Admin user, Redis, Storage, Security, and Email sections.
+3. Validate each input live ("Test connection" buttons for DB / Redis / SMTP / S3).
+4. On submit: run migrations, seed default settings, create the admin user (if requested), and atomically write a `.env`.
+5. Restart the backend so the new config takes effect, then redirect you to `/admin/login`.
+
+If you prefer manual install (CI / scripted deploys), copy `.env.example` to `.env`, fill in values, then:
+
+```bash
 npm run db:migrate -w backend
-
-# Seed initial data
-npm run db:seed -w backend
-
-# Start development servers
+npm run db:seed -w backend       # demo content: add --demo
 npm run dev
 ```
 
@@ -521,7 +537,7 @@ npm start -w backend
 ### Project Structure
 
 ```
-surge/
+rw-cms/
 ├── frontend/          # SolidJS frontend application
 │   ├── src/
 │   │   ├── components/  # Reusable UI components

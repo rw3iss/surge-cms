@@ -174,6 +174,25 @@ const ImageBlock: Component<ImageBlockProps> = (props,) => {
                         </select>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            checked={props.data.allowMaximize === true}
+                            onChange={(e,) =>
+                                props.onUpdate({
+                                    ...props.data,
+                                    allowMaximize: e.currentTarget.checked,
+                                },)}
+                        />
+                        <span>Allow maximize</span>
+                    </label>
+                    <span class="form-help">
+                        When on, visitors can click the image to view it full-window
+                        (Esc or × closes; clicking the maximized image opens the
+                        original in a new tab).
+                    </span>
+                </div>
                 <Show when={showPicker()}>
                     <MediaPickerModal type="image" onSelect={handleMediaSelect} onClose={() => setShowPicker(false,)} />
                 </Show>

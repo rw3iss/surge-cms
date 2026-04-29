@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a customizable homepage hero carousel system to the Surge CMS admin, with a reusable carousel component for both admin preview and public homepage rendering. This includes new reusable components (MediaSelectModal, MediaUploadModal, ColorPicker, HeroCarousel), admin settings UI for managing hero items, and integration into the live homepage.
+Add a customizable homepage hero carousel system to the RW CMS admin, with a reusable carousel component for both admin preview and public homepage rendering. This includes new reusable components (MediaSelectModal, MediaUploadModal, ColorPicker, HeroCarousel), admin settings UI for managing hero items, and integration into the live homepage.
 
 ---
 

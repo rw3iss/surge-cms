@@ -137,7 +137,7 @@ const AdminMedia: Component = () => {
 
     return (
         <div>
-            <Title>Media - Admin - Surge Media</Title>
+            <Title>Media - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Media Library</h1>
                 <label class="btn btn--primary">

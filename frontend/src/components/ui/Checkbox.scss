@@ -1,0 +1,41 @@
+@use '../../styles/variables' as *;
+
+.ui-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    cursor: pointer;
+    user-select: none;
+    font-size: $font-size-sm;
+
+    input[type='checkbox'] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    &__indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border: 2px solid $border-color;
+        border-radius: $border-radius-sm;
+        background-color: #fff;
+        color: transparent;
+        transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
+        flex-shrink: 0;
+    }
+
+    &.is-checked .ui-checkbox__indicator {
+        background-color: var(--site-primary, #{$primary-color});
+        border-color: var(--site-primary, #{$primary-color});
+        color: #fff;
+    }
+
+    &.is-disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}

@@ -1,0 +1,282 @@
+// PostListBlock — admin editor + picker modal styles.
+//
+// Layout primitives (FormField / FormCheck / FormSection) come from
+// `components/admin/forms/forms.scss`; this file only adds the
+// post-list-specific extras: the pinned-posts list with drag handles,
+// the date-filter pair, and the picker modal.
+
+.post-list-block-edit {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  // Two FormFields side by side. Stacks on narrow widths.
+  &__row-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $spacing-md;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // ─── Query panel (visible when "Enable posts query" is on) ─────
+  // Subtle inset so the operator sees that everything inside it is
+  // gated by the toggle above. Border + reduced background contrast
+  // — not a hard panel, just a grouping cue.
+  &__query-panel {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    margin-top: $spacing-sm;
+    padding: $spacing-md;
+    background: $background-dark;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+  }
+
+  // Brevity radio buttons. Sit inside FormSection's inline-items grid.
+  &__radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    user-select: none;
+
+    input[type='radio'] {
+      cursor: pointer;
+    }
+  }
+
+  // ─── Pinned posts list ─────────────────────────────────────
+  &__pinned {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    padding: $spacing-sm;
+    background: $background-dark;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+  }
+
+  &__pinned-empty {
+    font-size: $font-size-xs;
+    color: $text-light;
+    font-style: italic;
+    padding: $spacing-xs 0;
+  }
+
+  &__pinned-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: 6px 8px;
+    background: var(--admin-panel-bg, #fff);
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    cursor: grab;
+    font-size: $font-size-sm;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &:hover {
+      border-color: var(--site-primary, #{$primary-color});
+    }
+  }
+
+  &__pinned-handle {
+    color: $text-light;
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  &__pinned-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__pinned-remove {
+    background: none;
+    border: 1px solid transparent;
+    color: $text-light;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+
+    &:hover {
+      background: rgba($error-color, 0.12);
+      color: $error-color;
+    }
+  }
+}
+
+// ─── Picker modal ────────────────────────────────────────────
+.post-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: $z-index-modal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-md;
+}
+
+.post-picker {
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  background: var(--admin-panel-bg, #fff);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border-radius: $border-radius-md;
+  box-shadow: $shadow-xl;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid var(--admin-panel-border, #{$border-color});
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $font-size-lg;
+    font-weight: 600;
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: $text-light;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+
+    &:hover {
+      background: $background-dark;
+      color: var(--admin-page-text, #{$text-color});
+    }
+  }
+
+  &__filters {
+    display: flex;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid var(--admin-panel-border, #{$border-color});
+    flex-wrap: wrap;
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 180px;
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+  }
+
+  &__sort {
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    background: #fff;
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    padding: $spacing-sm $spacing-lg;
+  }
+
+  &__loading,
+  &__empty {
+    padding: $spacing-md;
+    text-align: center;
+    color: $text-light;
+    font-size: $font-size-sm;
+  }
+
+  &__item {
+    padding: 10px 12px;
+    border: 2px solid transparent;
+    border-radius: $border-radius-sm;
+    cursor: pointer;
+    margin-bottom: 4px;
+    background: $background-dark;
+    transition: border-color 0.1s, background 0.1s;
+
+    &:hover {
+      background: rgba($primary-color, 0.05);
+    }
+
+    &--selected {
+      border-color: var(--site-primary, #{$primary-color});
+      background: rgba($primary-color, 0.08);
+    }
+  }
+
+  &__item-title {
+    font-weight: 600;
+    font-size: $font-size-sm;
+    margin-bottom: 2px;
+  }
+
+  &__item-meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__item-status {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    font-size: 10px;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid var(--admin-panel-border, #{$border-color});
+
+    .btn:last-child {
+      margin-left: auto;
+    }
+  }
+
+  &__count {
+    font-size: $font-size-xs;
+    color: $text-light;
+    flex: 1;
+  }
+}

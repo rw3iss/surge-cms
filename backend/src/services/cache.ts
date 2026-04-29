@@ -77,8 +77,17 @@ export async function delPattern(pattern: string,): Promise<void> {
 export async function invalidatePageCache(pageId?: string,): Promise<void> {
     if (pageId) {
         await del(`page:${pageId}`,);
-        await del(`page:slug:*`,);
+        // `page:slug:*` was previously called via `del()`, which deleted
+        // the literal key `page:slug:*` (a no-op — that key never
+        // exists). Use the pattern variant so all cached slug entries
+        // for a saved page are actually busted; otherwise the public
+        // /:slug route serves a 5-minute-stale copy after every save.
+        await delPattern('page:slug:*',);
     }
+    // The homepage flag is a page-level mutation, so any save could
+    // change which page is "the homepage" — clear it on every page
+    // invalidation rather than only when we know it changed.
+    await del('page:homepage',);
     await delPattern('pages:*',);
     await delPattern('navigation:*',);
     // Invalidate SSR cache for all public pages when any page changes

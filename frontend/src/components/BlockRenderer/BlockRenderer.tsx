@@ -1,11 +1,21 @@
-import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@surge/shared';
+import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@rw/shared';
 import { A, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { Portal, } from 'solid-js/web';
 import { api, fetchAppearance, fetchSocialPosts, } from '../../services/api';
+import { colorCssValue, } from '../../services/colorResolver';
 import FormRenderer from '../FormRenderer';
 import HeroCarousel from '../HeroCarousel';
+import PostListRenderer, { type PostListSettings, } from '../PostListRenderer';
 import SocialEmbed from '../SocialEmbed';
 import './BlockRenderer.scss';
+
+/** Render a stored color value through the swatch resolver. Returns
+ *  `undefined` when nothing should be emitted so the consumer can drop
+ *  the property entirely (matches the prior `value || undefined` shape). */
+function color(value: string | undefined,): string | undefined {
+    return colorCssValue(value, '',) || undefined;
+}
 
 interface BlockRendererProps {
     block: Block;
@@ -19,8 +29,8 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         <div
             class={`block block--${props.block.type}`}
             style={{
-                'background-color': (s().backgroundColor || props.block.settings.backgroundColor as string) || undefined,
-                color: s().textColor || props.block.settings.textColor as string || undefined,
+                'background-color': color(s().backgroundColor || (props.block.settings.backgroundColor as string),),
+                color: color(s().textColor || (props.block.settings.textColor as string),),
                 'text-align': s().textAlign || undefined,
                 display: s().verticalAlign && s().verticalAlign !== 'top' ? 'flex' : undefined,
                 'flex-direction': s().verticalAlign && s().verticalAlign !== 'top' ? 'column' : undefined,
@@ -70,6 +80,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     </Match>
                     <Match when={props.block.type === 'post'}>
                         <PostBlock block={props.block} />
+                    </Match>
+                    <Match when={props.block.type === 'post_list'}>
+                        <PostListRenderer settings={(props.block.settings || {}) as PostListSettings} />
                     </Match>
                     <Match when={props.block.type === 'form'}>
                         <FormBlock block={props.block} />
@@ -174,24 +187,100 @@ const ImageBlock: Component<{ block: Block; }> = (props,) => {
             '0 0 0 auto' :
             undefined;
 
+    /** Whether the operator opted into the click-to-maximize affordance.
+     *  Defaults to false so existing image blocks render with no
+     *  behavior change. */
+    const allowMaximize = () => props.block.settings.allowMaximize === true;
+
+    /** Modal open/closed state. Each ImageBlock instance owns its own
+     *  state; multiple maximizable images on a page are independent. */
+    const [maximized, setMaximized,] = createSignal(false,);
+
+    // Esc-to-close + body-scroll lock while the modal is open. The
+    // listener is attached only while the modal is mounted so we don't
+    // pollute global key handling for closed modals.
+    createEffect(() => {
+        if (!maximized()) return;
+        const onKey = (e: KeyboardEvent,) => {
+            if (e.key === 'Escape') setMaximized(false,);
+        };
+        document.addEventListener('keydown', onKey,);
+        // Lock body scroll so the modal feels like a true overlay.
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        onCleanup(() => {
+            document.removeEventListener('keydown', onKey,);
+            document.body.style.overflow = prevOverflow;
+        },);
+    },);
+
     return (
         <div class="image-block">
             <Show when={imageUrl()}>
                 <img
                     src={imageUrl()}
                     alt={altText()}
-                    class="image-block__img"
+                    class={`image-block__img ${allowMaximize() ? 'image-block__img--maximizable' : ''}`}
                     loading="lazy"
                     style={{
                         'max-width': maxW() || '100%',
                         'max-height': maxH(),
                         display: 'block',
                         margin: imgMargin(),
+                        cursor: allowMaximize() ? 'zoom-in' : undefined,
                     }}
+                    onClick={allowMaximize() ? () => setMaximized(true,) : undefined}
                 />
             </Show>
             <Show when={props.block.settings.caption}>
                 <p class="image-block__caption">{props.block.settings.caption as string}</p>
+            </Show>
+
+            {/* ─── Maximize modal ─────────────────────────────────
+                Rendered to document.body via Portal so the overlay
+                escapes any ancestor `overflow: hidden` / z-index
+                stacking. Backdrop click and the X button both close;
+                clicking the image itself opens the raw asset in a
+                new tab so visitors can right-click → save / view at
+                full resolution. */}
+            <Show when={allowMaximize() && maximized()}>
+                <Portal>
+                    <div
+                        class="image-block-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Image preview"
+                        onClick={(e,) => {
+                            // Backdrop click closes — but don't close
+                            // when the click bubbled from the image
+                            // (its own onClick opens a new tab).
+                            if (e.target === e.currentTarget) setMaximized(false,);
+                        }}
+                    >
+                        <button
+                            type="button"
+                            class="image-block-modal__close"
+                            onClick={() => setMaximized(false,)}
+                            aria-label="Close"
+                        >
+                            ×
+                        </button>
+                        <a
+                            href={imageUrl()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="image-block-modal__link"
+                            onClick={(e,) => e.stopPropagation()}
+                            title="Open original in a new tab"
+                        >
+                            <img
+                                src={imageUrl()}
+                                alt={altText()}
+                                class="image-block-modal__img"
+                            />
+                        </a>
+                    </div>
+                </Portal>
             </Show>
         </div>
     );

@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
       manifest: {
-        name: 'Surge Media',
-        short_name: 'Surge',
+        name: 'RW',
+        short_name: 'RW',
         description: 'Independent journalism for the people',
         theme_color: '#e63946',
         background_color: '#ffffff',

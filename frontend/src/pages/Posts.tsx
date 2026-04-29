@@ -1,5 +1,5 @@
 import { A, useSearchParams, } from '@solidjs/router';
-import type { Post, } from '@surge/shared';
+import type { Post, } from '@rw/shared';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/SeoHead';
 import { siteName, } from '../stores/siteSettings';

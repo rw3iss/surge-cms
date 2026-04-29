@@ -5,8 +5,8 @@ import type {
     HeroCarouselSettings,
     HeroItem,
     HeroTextConfig,
-} from '@surge/shared';
-import type { AppearanceSettings, } from '@surge/shared';
+} from '@rw/shared';
+import type { AppearanceSettings, } from '@rw/shared';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
 import { fetchAppearance, fetchHeroSettings, saveHeroSettings, } from '../../services/api';
 import HeroCarousel from '../HeroCarousel';

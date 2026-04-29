@@ -150,7 +150,7 @@ const ShopPage: Component = () => {
 
             <header class="page-header">
                 <h1>Shop</h1>
-                <p>Support Surge Media with our merchandise</p>
+                <p>Support RW with our merchandise</p>
             </header>
 
             <Show when={loading()}>

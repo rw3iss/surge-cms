@@ -161,7 +161,7 @@ const CampaignEditor: Component = () => {
 
     return (
         <div class="admin-editor">
-            <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - Surge Media</Title>
+            <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - RW</Title>
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>

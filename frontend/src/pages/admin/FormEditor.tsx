@@ -258,7 +258,7 @@ const FormEditor: Component = () => {
 
     return (
         <div class="admin-editor form-editor">
-            <Title>{isNew() ? 'New Form' : 'Edit Form'} - Admin - Surge Media</Title>
+            <Title>{isNew() ? 'New Form' : 'Edit Form'} - Admin - RW</Title>
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>

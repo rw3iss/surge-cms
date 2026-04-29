@@ -1,5 +1,5 @@
 {
-  "name": "@surge/backend",
+  "name": "@rw/backend",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -10,12 +10,13 @@
     "db:migrate:status": "tsx src/db/migrate.ts --status",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
+    "seed:fonts": "tsx scripts/seed-fonts.ts",
     "lint": "eslint src --ext .ts",
     "test": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",
-    "@surge/shared": "*",
+    "@rw/shared": "file:../shared",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",

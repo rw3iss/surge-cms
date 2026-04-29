@@ -76,7 +76,7 @@
         border: 1px solid $border-color;
         border-radius: $border-radius-sm;
         font-size: 13px;
-        font-family: monospace;
+        font-family: var(--admin-font-mono, monospace);
         box-sizing: border-box;
     }
 

@@ -1,4 +1,4 @@
-import type { SocialPlatform, SocialPost, } from '@surge/shared';
+import type { SocialPlatform, SocialPost, } from '@rw/shared';
 import { Router, } from 'express';
 import { z, } from 'zod';
 import { query, } from '../db';

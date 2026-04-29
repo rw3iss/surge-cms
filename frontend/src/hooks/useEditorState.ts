@@ -1,4 +1,4 @@
-import type { ApiResponse, } from '@surge/shared';
+import type { ApiResponse, } from '@rw/shared';
 import { createSignal, } from 'solid-js';
 
 /**

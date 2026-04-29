@@ -883,7 +883,7 @@ router.post('/admin/plans', authenticate(), requireAdmin, async (req: Authentica
         const data = planSchema.parse(req.body,);
 
         // Create Stripe Price (with a product)
-        const stripe = new (await import('stripe')).default(config.stripe.secretKey,);
+        const stripe = new (await import('stripe')).default(config.stripe.secretKey!,);
 
         const product = await stripe.products.create({
             name: data.name,

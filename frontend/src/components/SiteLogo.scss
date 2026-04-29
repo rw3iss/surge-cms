@@ -6,23 +6,29 @@
   color: inherit;
   flex-shrink: 0;
 
-  &__icon {
-    height: 32px;
-    width: auto;
-    flex-shrink: 0;
-  }
-
+  // The site name. Inherits the configured brand color via
+  // --site-primary, and uses the display face when one is configured
+  // (admin layout exposes --admin-font-display). On the public site
+  // the variable falls back to inherited (i.e. the public site's
+  // configured font), so the public Header keeps its own typography.
   &__text {
-    font-weight: 700;
+    font-family: var(--admin-font-display, inherit);
+    font-weight: 800;
     font-size: $font-size-xl;
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     white-space: nowrap;
     line-height: 1.2;
+    letter-spacing: -0.03em;
   }
 
+  // Custom logo uploaded via Settings → Site Branding.
+  // padding-right adds breathing room between the image and the
+  // adjacent site name (the parent's gap alone reads a touch tight
+  // when the logo has no internal whitespace on its right edge).
   &__custom-img {
     height: 40px;
     width: auto;
+    padding-right: 10px;
   }
 
   // ─── Size modifiers ───
@@ -30,7 +36,6 @@
   &--small {
     gap: $spacing-xs;
 
-    .site-logo__icon { height: 22px; }
     .site-logo__text { font-size: $font-size-base; }
     .site-logo__custom-img { height: 28px; }
   }
@@ -38,7 +43,6 @@
   &--large {
     gap: $spacing-md;
 
-    .site-logo__icon { height: 48px; }
     .site-logo__text { font-size: $font-size-2xl; }
     .site-logo__custom-img { height: 56px; }
   }
@@ -53,7 +57,6 @@
   // ─── Responsive: scale down if container is tight ───
   @include mobile-only {
     &--default {
-      .site-logo__icon { height: 28px; }
       .site-logo__text { font-size: $font-size-lg; }
     }
   }

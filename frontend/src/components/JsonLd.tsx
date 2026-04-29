@@ -17,7 +17,7 @@ export const JsonLd: Component<{ data: Record<string, any>; }> = (props,) => {
         if (typeof document === 'undefined') return;
         const script = document.createElement('script',);
         script.type = 'application/ld+json';
-        script.setAttribute('data-surge-jsonld', '',);
+        script.setAttribute('data-rw-jsonld', '',);
         script.textContent = JSON.stringify(props.data,);
         document.head.appendChild(script,);
         onCleanup(() => {

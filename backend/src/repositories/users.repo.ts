@@ -1,4 +1,4 @@
-import type { PatreonMembership, User, } from '@surge/shared';
+import type { PatreonMembership, User, } from '@rw/shared';
 import bcrypt from 'bcryptjs';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';

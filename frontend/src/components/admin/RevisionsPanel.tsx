@@ -1,4 +1,4 @@
-import type { Revision, RevisionEntityType, } from '@surge/shared';
+import type { Revision, RevisionEntityType, } from '@rw/shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { api, } from '../../services/api';
 

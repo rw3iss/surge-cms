@@ -1,0 +1,26 @@
+@use '../../styles/variables' as *;
+
+.ui-spinner {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    color: $text-light;
+
+    &__circle {
+        display: inline-block;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: ui-spinner-spin 0.65s linear infinite;
+    }
+
+    &__label {
+        font-size: $font-size-sm;
+    }
+}
+
+@keyframes ui-spinner-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

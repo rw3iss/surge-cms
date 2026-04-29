@@ -40,7 +40,7 @@ const AdminPages: Component = () => {
 
     return (
         <div>
-            <Title>Pages - Admin - Surge Media</Title>
+            <Title>Pages - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Pages</h1>
                 <A href="/admin/pages/new" class="btn btn--primary">New Page</A>
@@ -80,6 +80,11 @@ const AdminPages: Component = () => {
                                     <SortTh label="Title" field="title" current={currentSort()} onSort={handleSort} />
                                     <th>Slug</th>
                                     <SortTh label="Status" field="status" current={currentSort()} onSort={handleSort} />
+                                    {/* `field="date"` maps to the backend's date_asc /
+                                        date_desc sort tokens, which order by
+                                        created_at. The other date column below
+                                        uses field="updated" → updated_at. */}
+                                    <SortTh label="Created" field="date" current={currentSort()} onSort={handleSort} />
                                     <SortTh label="Modified" field="updated" current={currentSort()} onSort={handleSort} />
                                     <th>Actions</th>
                                 </tr>
@@ -99,6 +104,7 @@ const AdminPages: Component = () => {
                                                     {page.status}
                                                 </span>
                                             </td>
+                                            <td>{formatDate(page.createdAt,)}</td>
                                             <td>{formatDate(page.updatedAt,)}</td>
                                             <td>
                                                 <A href={`/admin/pages/${page.id}`} class="btn btn--small btn--secondary">

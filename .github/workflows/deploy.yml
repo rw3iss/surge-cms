@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          timeout 180 ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.DEPLOY_PORT || 22 }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd ${{ secrets.DEPLOY_PATH || '~/surge' }} && bash scripts/deploy.sh" || EXIT_CODE=$?
+          timeout 180 ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key -p ${{ secrets.DEPLOY_PORT || 22 }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd ${{ secrets.DEPLOY_PATH || '~/rw' }} && bash scripts/deploy.sh" || EXIT_CODE=$?
           rm -f /tmp/deploy_key
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "SSH session timed out — deploy may still be running on server"

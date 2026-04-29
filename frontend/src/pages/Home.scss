@@ -1,8 +1,26 @@
 .home {
   &__loading {
     @include flex-center;
+    flex-direction: column;
+    gap: $spacing-sm;
+    text-align: center;
     min-height: 400px;
+    padding: $spacing-lg;
     color: $text-light;
+
+    h2 {
+      color: $text-color;
+      margin: 0 0 $spacing-xs;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    a {
+      color: var(--site-primary, #{$primary-color});
+      font-weight: 500;
+    }
   }
 
   &__section-title {
@@ -113,7 +131,7 @@
     transition: all $transition-base;
 
     &:hover {
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
       box-shadow: $shadow-md;
     }
   }
@@ -180,7 +198,7 @@
     transition: all $transition-fast;
 
     &:hover {
-      background: color.adjust($primary-color, $lightness: -10%);
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
       color: white;
     }
   }

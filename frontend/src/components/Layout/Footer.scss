@@ -1,144 +1,145 @@
+@use '../../styles/variables' as *;
+
 .footer {
-  background: $secondary-color;
-  color: white;
-  padding: $spacing-2xl 0 $spacing-lg;
+    background-color: $secondary-color;
+    color: #fff;
 
-  &__container {
-    @include container;
-  }
-
-  &__top {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: $spacing-xl;
-    margin-bottom: $spacing-xl;
-
-    @include md {
-      grid-template-columns: 2fr 3fr;
-    }
-  }
-
-  &__brand {
-    margin-bottom: $spacing-lg;
-
-    @include md {
-      margin-bottom: 0;
-    }
-  }
-
-  &__title {
-    font-size: $font-size-2xl;
-    font-weight: 700;
-    margin-bottom: $spacing-sm;
-    color: white;
-  }
-
-  &__tagline {
-    color: rgba(255, 255, 255, 0.7);
-    margin: 0;
-  }
-
-  &__links {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: $spacing-lg;
-
-    @include sm {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  &__column {
-    // Column styles
-  }
-
-  &__column-title {
-    font-size: $font-size-sm;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: $spacing-md;
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  &__list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-
-    li {
-      margin-bottom: $spacing-sm;
+    &__row {
+        // backgroundColor / padding / margin from settings are applied
+        // inline so per-row overrides don't fight with the global footer
+        // background.
     }
 
-    a {
-      color: rgba(255, 255, 255, 0.7);
-      text-decoration: none;
-      transition: color $transition-fast;
-
-      &:hover {
-        color: white;
-      }
+    &__row-inner {
+        // flex / direction / gap applied inline; this rule is just here
+        // so future global rules can target the inner container.
     }
-  }
 
-  &__social {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-sm;
-  }
-
-  &__social-link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: $border-radius-md;
-    color: white;
-    text-decoration: none;
-    transition: all $transition-fast;
-
-    &:hover {
-      background: $primary-color;
-      color: white;
-      transform: translateY(-2px);
+    &__column {
+        // flex / direction / alignment applied inline
+        > * {
+            min-width: 0;
+        }
     }
-  }
 
-  &__social-icon {
-    font-weight: 700;
-    font-size: $font-size-sm;
-  }
-
-  &__bottom {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
-    padding-top: $spacing-lg;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    text-align: center;
-
-    @include sm {
-      flex-direction: row;
-      justify-content: space-between;
-      text-align: left;
+    // Items
+    &__item-text {
+        line-height: 1.5;
     }
-  }
 
-  &__copyright {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: $font-size-sm;
-    margin: 0;
-  }
+    &__item-link {
+        color: rgba(255, 255, 255, 0.85);
+        text-decoration: none;
+        transition: color $transition-fast;
 
-  &__email {
-    color: rgba(255, 255, 255, 0.8);
-    text-decoration: none;
-    font-size: $font-size-sm;
-
-    &:hover {
-      color: white;
+        &:hover {
+            color: #fff;
+        }
     }
-  }
+
+    &__item-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 16px;
+        border-radius: $border-radius-md;
+        font-weight: 600;
+        text-decoration: none;
+        transition: filter $transition-fast;
+
+        &:hover {
+            filter: brightness(1.1);
+        }
+    }
+
+    &__item-img {
+        max-width: 100%;
+    }
+
+    &__item-img-link img {
+        max-width: 100%;
+    }
+
+    &__item-gap {
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    &__item-flex-spacer {
+        flex: 1;
+    }
+
+    // Fallback / first-time footer (when enabled but no rows configured)
+    &__fallback {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: $spacing-xl $spacing-lg;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: $spacing-md;
+        text-align: center;
+    }
+
+    &__brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: $spacing-xs;
+    }
+
+    &__title {
+        font-size: $font-size-2xl;
+        font-weight: 700;
+        color: #fff;
+        margin: 0;
+    }
+
+    &__tagline {
+        color: rgba(255, 255, 255, 0.7);
+        margin: 0;
+    }
+
+    &__social {
+        display: flex;
+        gap: $spacing-sm;
+    }
+
+    &__social-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: $border-radius-md;
+        color: #fff;
+        text-decoration: none;
+        transition: background-color $transition-fast;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    }
+
+    &__social-icon {
+        font-weight: 700;
+        font-size: $font-size-sm;
+    }
+
+    &__email {
+        color: rgba(255, 255, 255, 0.85);
+        text-decoration: none;
+        font-size: $font-size-sm;
+
+        &:hover {
+            color: #fff;
+        }
+    }
+
+    &__copyright {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: $font-size-sm;
+        margin: 0;
+    }
 }

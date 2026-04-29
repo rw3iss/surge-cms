@@ -1,6 +1,7 @@
 import { A, useLocation, } from '@solidjs/router';
-import type { NavigationItem, } from '@surge/shared';
-import { Component, createSignal, For, Show, } from 'solid-js';
+import type { NavigationItem, } from '@rw/shared';
+import { Component, createEffect, createSignal, For, onCleanup, Show, } from 'solid-js';
+import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';
 import SiteLogo from '../SiteLogo';
 import './Header.scss';
@@ -19,6 +20,8 @@ interface SiteHeaderItem {
     openInNewTab?: boolean;
     buttonColor?: string;
     fontSize?: string;
+    /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
+    fontWeight?: string;
     textColor?: string;
     width?: string;
     alignment?: string;
@@ -31,8 +34,18 @@ interface SiteHeaderItem {
 export interface SiteHeaderSettings {
     items: SiteHeaderItem[];
     backgroundColor?: string;
+    textColor?: string;
     padding?: string;
     margin?: string;
+    /** When true (the default), the header pins to the viewport top
+     *  via `position: sticky`. When false, it scrolls away with the
+     *  page like any other in-flow element. */
+    sticky?: boolean;
+    /** When true, the header slides up out of view on downward scroll
+     *  and slides back in on upward scroll. Combined with `sticky`,
+     *  gives a content-priority pattern; standalone (without sticky)
+     *  it's effectively a no-op since the header is in flow already. */
+    autoHide?: boolean;
 }
 
 interface HeaderProps {
@@ -51,7 +64,9 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
     const baseStyle = () => {
         const s: Record<string, string> = {};
         if (item().fontSize) s['font-size'] = item().fontSize!;
-        if (item().textColor) s['color'] = item().textColor!;
+        if (item().fontWeight) s['font-weight'] = item().fontWeight!;
+        const tc = colorCssValue(item().textColor, '',);
+        if (tc) s['color'] = tc;
         if (item().width) s['width'] = item().width!;
         if (item().margin) s['margin'] = item().margin!;
         if (item().padding) s['padding'] = item().padding!;
@@ -79,27 +94,40 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
         }
 
         case 'image_link': {
-            const marginMap: Record<string, string> = {
-                left: '0 auto 0 0',
-                center: '0 auto',
-                right: '0 0 0 auto',
+            // Make the anchor itself a column-flex so its single child
+            // (the image) can be horizontally aligned via align-items.
+            // The previous implementation set `margin: auto` on the
+            // image and forced `width: 100%`, which left no free
+            // horizontal space — so center/right alignment had no
+            // visible effect and the image just sat wherever the
+            // anchor's natural sizing placed it.
+            const alignMap: Record<string, string> = {
+                left: 'flex-start',
+                center: 'center',
+                right: 'flex-end',
             };
             const linkStyle = () => {
-                const s: Record<string, string> = {};
+                const hAlign = item().alignment || 'center';
+                const s: Record<string, string> = {
+                    display: 'flex',
+                    'flex-direction': 'column',
+                    'align-items': alignMap[hAlign] || 'center',
+                };
                 if (item().width) s['width'] = item().width!;
                 if (item().margin) s['margin'] = item().margin!;
                 if (item().padding) s['padding'] = item().padding!;
                 return s;
             };
             const imgStyle = () => {
+                // Let the image keep its natural aspect; cap at the
+                // anchor's width so it never overflows. Width can
+                // still be forced by the operator via item.width on
+                // the anchor (the image fills it via min-width).
                 const s: Record<string, string> = {
                     display: 'block',
-                    width: '100%',
+                    'max-width': '100%',
                     height: 'auto',
                 };
-                if (item().width) s['min-width'] = item().width!;
-                const hAlign = item().alignment || 'center';
-                if (marginMap[hAlign]) s['margin'] = marginMap[hAlign];
                 return s;
             };
             return (
@@ -157,7 +185,7 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
                     class="header__custom-btn"
                     style={{
                         ...baseStyle(),
-                        background: item().buttonColor || '#333',
+                        background: colorCssValue(item().buttonColor, '#333',),
                         color: '#fff',
                     }}
                 >
@@ -241,11 +269,72 @@ export const Header: Component<HeaderProps> = (props,) => {
 
     const hasCustomHeader = () => props.headerSettings?.items && props.headerSettings.items.length > 0;
 
+    // ─── Sticky / auto-hide behavior ────────────────────────────
+    // Defaults preserve the historic behavior: sticky=on, autoHide=off.
+    // When `sticky` is off the header is in flow and scrolls away.
+    // When `autoHide` is on we slide the header out of view on
+    // downward scroll past a small threshold and restore it on
+    // upward scroll. The slide is a CSS transform so the header
+    // doesn't reflow surrounding content.
+    const isStickyEnabled = () => props.headerSettings?.sticky !== false;
+    const isAutoHideEnabled = () => props.headerSettings?.autoHide === true;
+
+    const [hidden, setHidden,] = createSignal(false,);
+
+    createEffect(() => {
+        // Only attach the scroll listener when auto-hide is on.
+        // Re-evaluating the listener lifecycle whenever the toggle
+        // flips lets the operator turn it on/off live without a
+        // full page reload.
+        if (!isAutoHideEnabled()) {
+            setHidden(false,);
+            return;
+        }
+        if (typeof window === 'undefined') return;
+
+        let lastY = window.scrollY;
+        const THRESHOLD = 8; // ignore tiny jitter
+        const TOP_GUARD = 4; // never hide near the very top
+
+        const onScroll = () => {
+            const y = window.scrollY;
+            const delta = y - lastY;
+            if (Math.abs(delta,) < THRESHOLD) return;
+            if (y < TOP_GUARD) {
+                // Snap back into view at the top of the page.
+                setHidden(false,);
+            } else if (delta > 0) {
+                // Scrolling down — hide.
+                setHidden(true,);
+            } else {
+                // Scrolling up — show.
+                setHidden(false,);
+            }
+            lastY = y;
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true, },);
+        onCleanup(() => window.removeEventListener('scroll', onScroll,),);
+    },);
+
+    const headerClass = () => {
+        const base = `header${hasCustomHeader() ? ' header--custom' : ''}`;
+        const cls = [base,];
+        if (!isStickyEnabled()) cls.push('header--no-sticky',);
+        if (isAutoHideEnabled()) {
+            cls.push('header--auto-hide',);
+            if (hidden()) cls.push('header--auto-hidden',);
+        }
+        return cls.join(' ',);
+    };
+
     const headerStyle = () => {
         if (!hasCustomHeader()) return {};
         const s: Record<string, string> = {};
-        if (props.headerSettings?.backgroundColor) s['background'] = props.headerSettings.backgroundColor;
-        if (props.headerSettings?.textColor) s['color'] = props.headerSettings.textColor;
+        const bg = colorCssValue(props.headerSettings?.backgroundColor, '',);
+        if (bg) s['background'] = bg;
+        const tc = colorCssValue(props.headerSettings?.textColor, '',);
+        if (tc) s['color'] = tc;
         if (props.headerSettings?.margin) s['margin'] = props.headerSettings.margin;
         // Padding is applied to the container (not the header) so it
         // actually affects the content inside, including auth buttons.
@@ -280,7 +369,7 @@ export const Header: Component<HeaderProps> = (props,) => {
     };
 
     return (
-        <header class={`header ${hasCustomHeader() ? 'header--custom' : ''}`} style={headerStyle()}>
+        <header class={headerClass()} style={headerStyle()}>
             <div class="header__container" style={containerStyle()}>
                 <Show when={!hasCustomHeader()}>
                     <A href="/" class="header__logo" onClick={closeMobileMenu}>

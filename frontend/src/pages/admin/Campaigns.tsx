@@ -52,7 +52,7 @@ const AdminCampaigns: Component = () => {
 
     return (
         <div class="admin-campaigns">
-            <Title>Campaigns - Admin - Surge Media</Title>
+            <Title>Campaigns - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Campaigns</h1>
                 <A href="/admin/campaigns/new" class="btn btn--primary">New Campaign</A>

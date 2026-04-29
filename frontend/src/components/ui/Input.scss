@@ -1,0 +1,65 @@
+@use '../../styles/variables' as *;
+
+.ui-input-wrapper {
+    display: flex;
+    align-items: stretch;
+    background-color: #fff;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+
+    &:focus-within {
+        border-color: var(--site-primary, #{$primary-color});
+        box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+    }
+
+    &.is-invalid {
+        border-color: $error-color;
+
+        &:focus-within {
+            box-shadow: 0 0 0 3px rgba($error-color, 0.12);
+        }
+    }
+
+    &--sm .ui-input { padding: 6px 10px; font-size: $font-size-sm; min-height: 32px; }
+    &--md .ui-input { padding: 9px 12px; font-size: $font-size-base; min-height: 40px; }
+    &--lg .ui-input { padding: 13px 14px; font-size: $font-size-lg; min-height: 48px; }
+}
+
+.ui-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text-color;
+
+    &::placeholder {
+        color: $text-light;
+    }
+
+    &:disabled {
+        background-color: $background-dark;
+        cursor: not-allowed;
+    }
+}
+
+.ui-input__affix {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 $spacing-sm;
+    color: $text-light;
+    background-color: $background-dark;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    font-size: $font-size-sm;
+
+    &--prefix {
+        border-right-color: $border-color;
+    }
+
+    &--suffix {
+        border-left-color: $border-color;
+    }
+}

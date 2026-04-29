@@ -62,7 +62,7 @@
       color: white;
 
       &:hover:not(:disabled) {
-        background: color.adjust($primary-color, $lightness: -10%);
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 90%, black);
       }
 
       &:disabled {
@@ -88,7 +88,7 @@
   }
 
   &__join-link {
-    color: $primary-color;
+    color: var(--site-primary, #{$primary-color});
     font-weight: 600;
     text-decoration: none;
 
@@ -178,7 +178,7 @@
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--site-primary, #{$primary-color});
     }
 
     &:disabled {

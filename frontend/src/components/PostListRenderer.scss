@@ -1,0 +1,211 @@
+// PostListRenderer — output for the `post_list` block.
+//
+// Layout: stacked cards. The "short" brevity variant clips the post
+// content with a gradient + "See all" overlay; expanded posts show
+// floating "Hide all" bars at the top and bottom (visible on hover).
+// Brief posts skip the content entirely and render only the meta /
+// excerpt rows.
+
+.post-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+  width: 100%;
+
+  &__loading,
+  &__empty {
+    color: $text-light;
+    font-size: $font-size-sm;
+    padding: $spacing-md;
+    text-align: center;
+  }
+}
+
+.post-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-md;
+  border: 1px solid var(--site-border, #{$border-color});
+  border-radius: var(--site-radius, #{$border-radius-md});
+  background: transparent;
+  position: relative; // anchor for top/bottom floating bars
+
+  &__title {
+    margin: 0;
+    font-size: $font-size-2xl;
+    font-weight: 700;
+    line-height: 1.2;
+    font-family: var(--site-heading-font, inherit);
+    color: var(--site-heading, inherit);
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      &:hover { color: var(--site-link, var(--site-primary, #{$primary-color})); }
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__date--updated {
+    opacity: 0.8;
+  }
+
+  &__tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  &__tag {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: $border-radius-sm;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: $text-light;
+  }
+
+  &__excerpt {
+    margin: 0;
+    color: $text-color;
+    font-size: $font-size-base;
+    line-height: 1.55;
+  }
+
+  // ─── Body wrapper ────────────────────────────────────────────
+  // Wraps meta + excerpt + content so the configured "Short max
+  // height" clamps the whole preview together. Previously only the
+  // inner `__content` div was clipped, which meant a long excerpt
+  // above the cut would still render at full height — defeating
+  // the point of the max-height setting.
+  //
+  // The See-all / Hide-all bars live OUTSIDE the body now, hanging
+  // off the bottom of the card as a sibling element (see
+  // `.post-list-item__edge-bar` further down).
+  //
+  // The clipped variant consumes `--post-short-max-height` from the
+  // renderer's inline style (default 400px). Defining the max-height
+  // in SCSS rather than inline keeps a sensible cap even if the
+  // inline value is missing / stale, and keeps the live value easy
+  // to inspect or override in DevTools.
+  &__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    &--clipped {
+      overflow: hidden;
+      max-height: var(--post-short-max-height, 400px);
+    }
+  }
+
+  // ─── Content area (short / full) ─────────────────────────────
+  &__content {
+    position: relative;
+  }
+
+  &__legacy-content {
+    line-height: 1.6;
+  }
+
+  // ─── "Has edge bar" modifier ──────────────────────────────
+  // When a See-all / Hide-all bar hangs off the bottom of the
+  // card, flatten the card's bottom corners so the bar can lay
+  // its rounded bottom corners over them. The result reads as a
+  // single curved silhouette: the card's top corners curve out,
+  // the sides run straight, and the bar's bottom corners curve
+  // back in.
+  &--has-bar {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+// ─── Per-item wrapper ──────────────────────────────────────
+// Holds the article + edge bar together so they read as one
+// unit. The .post-list parent's gap separates wrappers from
+// each other; inside the wrapper the article and bar sit
+// flush against each other with no gap.
+.post-list-item-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+// ─── Edge bar (See all / Hide all) ─────────────────────────
+// Hangs off the bottom of the card as a clickable strip.
+// Curves at the bottom corners pick up the card's
+// `--site-radius`, the top edge is flat so it meets the card
+// seamlessly. The bar inherits the card's left/right/bottom
+// border so the line work is continuous; the card's
+// `border-bottom` is hidden (it'd otherwise double up).
+.post-list-item__edge-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--site-border, #{$border-color});
+  // Top edge is shared with the card's bottom — drop the
+  // border-top so we don't draw a double line.
+  border-top: none;
+  // Bottom corners curve outward to match the card's radius;
+  // top corners stay flat where they meet the card.
+  border-bottom-left-radius: var(--site-radius, #{$border-radius-md});
+  border-bottom-right-radius: var(--site-radius, #{$border-radius-md});
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  // Subtle muted label at rest — competes with nothing on the
+  // page. Hover brings the text contrast up and adds a soft
+  // gradient overlay to telegraph the click affordance.
+  color: $text-light;
+  font-size: $font-size-xs;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.18s ease, background 0.2s ease;
+
+  &:hover {
+    color: var(--site-text, #{$text-color});
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.025) 0%,
+      rgba(0, 0, 0, 0.06) 100%
+    );
+
+    .post-list-item__edge-bar-arrow {
+      opacity: 0.9;
+    }
+  }
+
+  // Keyboard focus parity with hover so tab-users get the same
+  // visual cue.
+  &:focus-visible {
+    color: var(--site-text, #{$text-color});
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.post-list-item__edge-bar-arrow {
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 300;
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+
+.post-list-item__edge-bar-label {
+  // letter-spacing is set on the bar itself so the arrows
+  // inherit consistent spacing too — leave the label rule
+  // empty in case future tweaks want to override it.
+}

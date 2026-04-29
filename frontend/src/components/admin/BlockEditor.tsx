@@ -1,5 +1,7 @@
 import { Component, createEffect, createMemo, createSignal, For, on, Show, } from 'solid-js';
+import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../config/mobileDevices';
+import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
 import FlyoutPanel, { type FlyoutMode, } from './FlyoutPanel';
@@ -25,27 +27,11 @@ interface BlockEditorProps {
 }
 
 /**
- * Unified block types available in both Post and Page editors.
- * Editors can pass a custom `blockTypes` prop to restrict this list,
- * but the default includes everything.
+ * Block types come from the central registry in `config/blockTypes.ts`.
+ * Editors can still pass a custom `blockTypes` prop to restrict the
+ * list (e.g. an embed-only context), but by default we surface every
+ * registered+enabled type.
  */
-const DEFAULT_BLOCK_TYPES: BlockTypeOption[] = [
-    { type: 'rich_text', label: 'Rich Text', },
-    { type: 'image', label: 'Image', },
-    { type: 'video', label: 'Video', },
-    { type: 'hero', label: 'Hero Banner', },
-    { type: 'html', label: 'Custom HTML', },
-    { type: 'social_media', label: 'Social Media Post', },
-    { type: 'social_feed', label: 'Social Feed', },
-    { type: 'campaign', label: 'Campaign', },
-    { type: 'form', label: 'Form', },
-    { type: 'post', label: 'Post Embed', },
-    { type: 'gallery', label: 'Gallery', },
-    { type: 'document', label: 'Document', },
-    { type: 'url_link', label: 'URL Link', },
-    { type: 'carousel', label: 'Carousel', },
-    { type: 'spacer', label: 'Empty Space', },
-];
 
 let blockIdCounter = 0;
 const generateBlockId = () => `block-${Date.now()}-${++blockIdCounter}`;
@@ -62,7 +48,6 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const [selectedBlockId, setSelectedBlockId,] = createSignal<string | null>(null,);
     const [flyoutSide, setFlyoutSide,] = createSignal<'left' | 'right'>('right',);
     const [flyoutMode, setFlyoutMode,] = createSignal<FlyoutMode>('inline',);
-    const [showAddDropdown, setShowAddDropdown,] = createSignal(false,);
 
     // ─── Saved-state snapshots for dirty detection ───
     // savedSnapshots stores the last-saved version of each block keyed by id.
@@ -155,7 +140,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const [ghostStyle, setGhostStyle,] = createSignal<{ top: number; left: number; width: number; } | null>(null,);
     const [ghostContent, setGhostContent,] = createSignal<string>('',);
 
-    const blockTypes = () => props.blockTypes || DEFAULT_BLOCK_TYPES;
+    const blockTypes = () => props.blockTypes || getEnabledBlockTypeOptions();
 
     const changeBlockType = (id: string, newType: BlockType,) => {
         props.onBlocksChange(props.blocks.map(b => {
@@ -169,26 +154,23 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         },),);
     };
 
-    const [showAddTopDropdown, setShowAddTopDropdown,] = createSignal(false,);
-
     const addBlock = (type: BlockType, position: 'top' | 'bottom' = 'bottom',) => {
         const currentBlocks = props.blocks;
-        // Carousel and hero blocks default to no global padding
-        const useDefaultPadding = !['carousel', 'hero',].includes(type,);
+        // Initial data (including the per-type "default padding" rule)
+        // comes from the central registry — see config/blockTypes.ts.
         const newBlock: BlockData = {
             id: generateBlockId(),
             type,
             sort_order: 0,
-            data: { useDefaultPadding, },
+            data: createBlockDefaultData(type,),
         };
         const updated = position === 'top' ?
             [newBlock, ...currentBlocks,] :
             [...currentBlocks, newBlock,];
         props.onBlocksChange(updated.map((b, i,) => ({ ...b, sort_order: i, })),);
-        // Auto-select the new block to open it in the flyout
+        // Auto-select the new block to open it in the flyout. The
+        // AddBlockMenu component closes itself on selection.
         setSelectedBlockId(newBlock.id,);
-        setShowAddDropdown(false,);
-        setShowAddTopDropdown(false,);
 
         requestAnimationFrame(() => {
             const el = document.getElementById(newBlock.id,);
@@ -390,20 +372,11 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             {/* Add Block (top) — only shown when there's at least one block */}
             <Show when={props.blocks.length > 0}>
                 <div class="add-block-dropdown add-block-dropdown--top">
-                    <button class="btn btn--secondary btn--small" onClick={() => setShowAddTopDropdown(!showAddTopDropdown(),)}>
-                        + Add Block
-                    </button>
-                    <Show when={showAddTopDropdown()}>
-                        <div class="add-block-dropdown__menu">
-                            <For each={blockTypes()}>
-                                {(bt,) => (
-                                    <button class="add-block-dropdown__item" onClick={() => addBlock(bt.type, 'top',)}>
-                                        {bt.label}
-                                    </button>
-                                )}
-                            </For>
-                        </div>
-                    </Show>
+                    <AddBlockMenu
+                        triggerSize="small"
+                        types={blockTypes()}
+                        onSelect={(type,) => addBlock(type, 'top',)}
+                    />
                 </div>
             </Show>
             {/* ─── Content area: blocks + optional inline flyout ─── */}
@@ -502,20 +475,10 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                         )}
                     </Show>
                     <div class="add-block-dropdown">
-                        <button class="btn btn--secondary" onClick={() => setShowAddDropdown(!showAddDropdown(),)}>
-                            + Add Block
-                        </button>
-                        <Show when={showAddDropdown()}>
-                            <div class="add-block-dropdown__menu">
-                                <For each={blockTypes()}>
-                                    {(bt,) => (
-                                        <button class="add-block-dropdown__item" onClick={() => addBlock(bt.type,)}>
-                                            {bt.label}
-                                        </button>
-                                    )}
-                                </For>
-                            </div>
-                        </Show>
+                        <AddBlockMenu
+                            types={blockTypes()}
+                            onSelect={(type,) => addBlock(type,)}
+                        />
                     </div>
                 </div>
 

@@ -52,7 +52,7 @@ const AdminConnections: Component = () => {
 
     return (
         <div>
-            <Title>Connections - Admin - Surge Media</Title>
+            <Title>Connections - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Connections</h1>
             </div>
