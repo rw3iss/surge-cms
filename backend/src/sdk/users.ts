@@ -7,7 +7,7 @@
  * scripting flows that act on existing users (bans, role changes,
  * lookups). Sign-up itself is a security-sensitive HTTP-only flow.
  */
-import type { User, } from '@rw/shared';
+import type { PatreonMembership, User, } from '@rw/shared';
 import { logAudit, } from '../services/audit';
 import { cache, } from '../services/cache';
 import * as repo from '../repositories/users.repo';
@@ -38,8 +38,14 @@ export async function getById(id: string,): Promise<User | null> {
     }
 }
 
-export async function getWithMembership(id: string,): Promise<repo.UserWithSubscription | null> {
-    return repo.findUserWithMembership(id,);
+export async function getWithMembership(
+    id: string,
+): Promise<{ user: User; membership: PatreonMembership | null; } | null> {
+    try {
+        return await repo.findUserWithMembership(id,);
+    } catch {
+        return null;
+    }
 }
 
 // ─── Writes ───────────────────────────────────────────────────────

@@ -110,7 +110,7 @@ export async function remove(id: string, ctx: AuditContext,): Promise<Campaign |
 export async function listDonationsForCampaign(
     campaignId: string,
     pagination: PaginationOpts = {},
-): Promise<ListResult<Donation>> {
+): Promise<ListResult<Record<string, unknown>>> {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 50;
     const result = await repo.findCampaignDonations(campaignId, { page, limit, },);
@@ -125,7 +125,7 @@ export async function listDonationsForCampaign(
 export async function listAllDonations(pagination: PaginationOpts = {},): Promise<ListResult<Donation>> {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 50;
-    const result = await repo.findAllDonations({ page, limit, },);
+    const result = await repo.findAllDonations({}, { page, limit, },);
     return {
         data: result.data,
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },

@@ -41,7 +41,7 @@ function generateSwatchId(): string {
 }
 
 function buildDefaults(): SiteSwatch[] {
-    return DEFAULT_HEXES.map((hex,) => ({ id: generateSwatchId(), hex, },),);
+    return DEFAULT_HEXES.map((hex,) => ({ id: generateSwatchId(), hex, }),);
 }
 
 /**
