@@ -10,13 +10,13 @@ import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
-import { Header, } from '../../components/layout/Header';
+import { Layout, } from '../../components/layout/Layout';
 import { useToast, } from '../../components/common/toast';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import type { AppearanceSettings, } from '@rw/shared';
+import { buildBlockTree, type AppearanceSettings, } from '@rw/shared';
 import { api, fetchAppearance, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { appearanceCssVars, } from '../../utils/appearanceStyle';
@@ -551,10 +551,26 @@ const AdminPageEditor: Component = () => {
 
             <Show when={showPreview()}>
                 <PreviewOverlay backUrl="" onClose={() => setShowPreview(false,)}>
-                    <Header navigation={[]} siteName="RW" />
-                    <main style={{ 'min-height': '70vh', }}>
-                        <For each={blocks()}>
-                            {(block,) => {
+                    {/* Wrap in the public <Layout> so the preview renders
+                        the configured site header, footer, navigation,
+                        appearance vars, swatches, and fonts — the same
+                        chrome a real visitor sees. */}
+                    <Layout>
+                        {/* Wrap in the same `.dynamic-page page-wrapper`
+                            div the public DynamicPage uses, so styles
+                            scoped to that selector apply identically in
+                            preview. */}
+                        <div class="dynamic-page page-wrapper">
+                        <Show when={title() && showTitle()}>
+                            <h1
+                                class="dynamic-page__title"
+                                style={{ 'text-align': (titleAlignment() || 'left') as any, }}
+                            >
+                                {title()}
+                            </h1>
+                        </Show>
+                        <For
+                            each={buildBlockTree(blocks().map((block,) => {
                                 const { title: t, content: c, __styleRef, ...rest } = block.data || {};
                                 const ref = (__styleRef as any) || block.styleRef;
                                 let resolvedStyle: any = undefined;
@@ -564,9 +580,10 @@ const AdminPageEditor: Component = () => {
                                     const tmpl = allStyles.find((s: any,) => s.id === ref.templateId);
                                     resolvedStyle = tmpl || { id: ref.templateId, };
                                 }
-                                const renderBlock = {
+                                return {
                                     id: block.id,
                                     pageId: params.id,
+                                    parentBlockId: block.parentBlockId ?? null,
                                     type: block.type,
                                     title: t || null,
                                     content: c || null,
@@ -576,16 +593,18 @@ const AdminPageEditor: Component = () => {
                                     style: resolvedStyle,
                                     createdAt: new Date(),
                                     updatedAt: new Date(),
-                                };
-                                return <BlockRenderer block={renderBlock as any} />;
-                            }}
+                                } as any;
+                            }),)}
+                        >
+                            {(block,) => <BlockRenderer block={block as any} />}
                         </For>
                         <Show when={!blocks().length}>
                             <div style={{ padding: '4rem 2rem', 'text-align': 'center', color: '#999', }}>
                                 No content blocks to preview
                             </div>
                         </Show>
-                    </main>
+                        </div>
+                    </Layout>
                 </PreviewOverlay>
             </Show>
         </div>

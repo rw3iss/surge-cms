@@ -149,6 +149,19 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     >
                         &#8943;
                     </button>
+                    <button
+                        class="content-block__hover-btn content-block__hover-btn--delete"
+                        onClick={() => setShowRemoveConfirm(true,)}
+                        title="Delete block"
+                        aria-label="Delete block"
+                    >
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                            <path
+                                d="M5 2V1h6v1h3v2H2V2h3zm1 2h4v9H6V4zm-2 0h1v9H4V4zm7 0h1v9h-1V4z"
+                                fill="currentColor"
+                            />
+                        </svg>
+                    </button>
                     <Show when={showOptionsMenu()}>
                         <div class="content-block__options-menu">
                             <button onClick={() => { props.onToggleEdit(props.block.id,); setShowOptionsMenu(false,); }}>

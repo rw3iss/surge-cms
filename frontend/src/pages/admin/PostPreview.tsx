@@ -1,7 +1,7 @@
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createMemo, For, Show, } from 'solid-js';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
-import { Header, } from '../../components/layout/Header';
+import { Layout, } from '../../components/layout/Layout';
 import PostContentBlock from '../../components/blocks/posts/PostContentBlock';
 
 const PostPreview: Component = () => {
@@ -26,9 +26,12 @@ const PostPreview: Component = () => {
         <Show when={previewData()}>
             {(data,) => (
                 <PreviewOverlay backUrl={`/admin/posts/${params.id}`}>
-                    <Header navigation={[]} siteName="RW" />
-                    <main class="container" style={{ 'min-height': '70vh', 'padding-top': '2rem', }}>
-                        <article style={{ 'max-width': '800px', margin: '0 auto', }}>
+                    {/* Render the post inside the real public <Layout>
+                        so the preview shows configured header, footer,
+                        navigation, swatches, fonts, and appearance. */}
+                    <Layout>
+                        <div class="post-page page-wrapper">
+                        <article style={{ 'max-width': '800px', margin: '0 auto', padding: '2rem 1rem', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{data().title || 'Untitled Post'}</h1>
                             <div style={{ color: '#999', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
                                 {data().status === 'draft' ? 'Draft' : 'Preview'}
@@ -47,7 +50,8 @@ const PostPreview: Component = () => {
                                 </div>
                             </Show>
                         </article>
-                    </main>
+                        </div>
+                    </Layout>
                 </PreviewOverlay>
             )}
         </Show>

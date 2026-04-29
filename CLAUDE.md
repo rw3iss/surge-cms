@@ -11,18 +11,30 @@ Monorepo with three workspaces: `frontend` (SolidJS), `backend` (Express/Node), 
 The repo directory and workspace identifiers (`rw-cms`, `@rw/shared`) are historical and will be renamed in a future cut. Treat them as opaque package names — the product is SiteSurge.
 
 ## Core Capabilities
-- **Block-based editor** — drag-and-drop blocks (rich text, image, video, hero, carousel, post list, social feed, form, campaign, HTML, spacer)
-- **Posts & pages** — drafts, publish, revisions, SSR body for SEO, RSS at `/feed.xml`, full-text search
-- **Campaigns + donations** — Stripe Elements, recurring subscriptions, public-donor toggle
-- **Forms / surveys / polls** — typed question library, submission inbox, CSV export
-- **Users & roles** — email/password + Patreon OAuth, member tiers, gated content, user/IP bans
-- **Media library** — sharp thumbnails, local FS or S3
-- **Social connections** — pull-based sync (YouTube, Instagram, X, Facebook, TikTok, Patreon); embeddable in posts
-- **Header & footer editors** — drag-and-drop rows + columns, fully styled
-- **Appearance** — shared color swatches (`swatch:{id}` references), custom fonts (`@font-face` injection), reusable block-style templates
-- **Backend SDK** — `cms.*` typed surface for routes / scripts / future plugins
-- **First-run setup wizard** — `/setup` walks env, migrations, seed, admin creation
-- **PWA + CDN-ready** — static frontend bundle, app shell
+- **Block-based editor** — categorized AddBlockMenu (Text / Media / Blocks / Layout, collapsible per category, feature-flag gated). Blocks: Rich Text, Custom HTML, URL Link, Image (multi-image), Video, Document, Hero, Carousel, Posts, Campaign, Form, Social, Group, Spacer. Click-outside-to-deselect + Escape close the flyout. Per-block trash icon. Recent-items submenus on Campaign/Form/Posts pre-fill the new block's id.
+- **Group block** — recursive composition via `parent_block_id` (migration 026). Flex container with direction, 1-16 columns, item min/max width+height, wrap, align/justify. Each slot is a `group_item` holding ≤1 child; empty slots show an inline picker. Tree assembly via `buildBlockTree(flat)` shared utility.
+- **Inline editing** — Rich Text and Custom HTML edit in place on the block preview. HTML block has a code ↔ preview toggle (CodeMirror 6 with HTML lang), drag-resize on the bottom edge, and per-block height persisted in `localStorage` under `sitesurge.editor.blockHeights`.
+- **Image block** — multi-image with thumbnail strip, per-image Select Media / Upload New / URL paste / alt / caption / link / allowMaximize. Block-level direction + item min/max width+height (any CSS length).
+- **Social block** — provider + count + per-slot pinning. Auto-feed when no slots are filled; pinned posts otherwise. Per-slot inline search dropdown of recent posts; "Edit…" opens a full search modal preconfigured to the provider.
+- **Preview mode** — wraps content in the public `<Layout>` so previews render the real site header, footer, navigation, swatches, fonts, and appearance. Pages also wrap in `.dynamic-page.page-wrapper`; posts in `.post-page.page-wrapper`.
+- **Posts & pages** — drafts, publish, revisions, SSR body for SEO, RSS at `/feed.xml`, full-text search.
+- **Campaigns + donations** — Stripe Elements, recurring subscriptions, public-donor toggle.
+- **Forms / surveys / polls** — typed question library, submission inbox, CSV export.
+- **Users & roles** — email/password + Patreon OAuth, member tiers, gated content, user/IP bans.
+- **Media library** — sharp thumbnails, local FS or S3. Reusable `MediaSelectModal` and `MediaUploadModal` mounted via Portal.
+- **Social connections** — pull-based sync (YouTube, Instagram, X, Facebook, TikTok, Patreon).
+- **Header & footer editors** — drag-and-drop rows + columns, fully styled.
+- **Appearance** — shared color swatches (`swatch:{id}` references), custom fonts (`@font-face` injection), reusable block-style templates.
+- **Backend SDK** — `cms.*` typed surface for routes / scripts / future plugins. `cms.pages.reorderBlocks(pageId, parentBlockId, blockIds, ctx)` is per-parent.
+- **Block IDs** — admin generates real UUIDs (`crypto.randomUUID`) so a child block can reference its parent before either has saved. Backend `createBlock` accepts a client-supplied `id`.
+- **First-run setup wizard** — `/setup` walks env, migrations, seed, admin creation.
+- **PWA + CDN-ready** — static frontend bundle, app shell.
+
+## Removed / merged block types
+- `post` (single embed) → merged into Posts (`post_list` type, labelled "Posts" in the picker). Migration 027 deletes legacy rows.
+- `gallery` → folded into the multi-image upgrade of `image`. Migration 027 deletes legacy rows; public renderer shows a polite fallback note for any that survived.
+- `social_media` (single post) → merged into Social (`social_feed` type, labelled "Social"). Migration 028 deletes legacy rows. Editor coalesces legacy single-post fields into a one-slot list on first edit.
+- Enum values stay in `block_type` for safety; the picker just doesn't surface them.
 
 ## Architecture
 

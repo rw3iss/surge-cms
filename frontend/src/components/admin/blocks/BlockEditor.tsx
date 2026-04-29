@@ -1,4 +1,4 @@
-import { Component, createEffect, createMemo, createSignal, For, Index, on, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDevices';
 import AddBlockMenu from './AddBlockMenu';
@@ -184,6 +184,65 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const deselectBlock = () => {
         setSelectedBlockId(null,);
     };
+
+    // ─── Click-outside-to-deselect + Escape ───
+    //
+    // Closes the block edit panel when the user clicks outside the
+    // block editor (and outside any active popover or modal). Clicks
+    // inside .block-editor — the block list, the flyout panel, the
+    // AddBlockMenu trigger, etc. — keep the selection. Clicks inside
+    // portal-mounted popovers (block picker panel, recent-items
+    // submenu, entity-search dropdown, modals) also keep selection so
+    // they can do their work without yanking the panel shut.
+    //
+    // Anywhere else — admin header, page properties panel, page bg,
+    // sidebar nav — deselects.
+    const KEEP_SELECTION_SELECTORS = [
+        '.block-editor',
+        '.add-block-menu__panel',
+        '.add-block-menu__submenu',
+        '.entity-search__dropdown',
+        '.confirm-modal-overlay',
+        '.media-select-modal',
+        '.media-upload-modal',
+        '.social-post-modal-backdrop',
+        '.image-block-modal',
+        '[role="dialog"]',
+        '[data-keep-block-selection]',
+    ].join(', ');
+
+    const onDocumentMouseDown = (e: MouseEvent,) => {
+        if (!selectedBlockId()) return;
+        const target = e.target as HTMLElement | null;
+        if (!target || !target.closest) return;
+        if (target.closest(KEEP_SELECTION_SELECTORS,)) return;
+        deselectBlock();
+    };
+
+    const onDocumentKeyDown = (e: KeyboardEvent,) => {
+        if (e.key !== 'Escape') return;
+        if (!selectedBlockId()) return;
+        // Don't steal Escape from an open modal / popover — they close
+        // themselves first; the block panel can stay until the next
+        // Escape, which lands here once those have torn down.
+        if (document.querySelector(
+            '.confirm-modal-overlay, .media-select-modal, .media-upload-modal, ' +
+            '.social-post-modal-backdrop, .image-block-modal, .add-block-menu__panel, ' +
+            '[role="dialog"]',
+        )) {
+            return;
+        }
+        deselectBlock();
+    };
+
+    onMount(() => {
+        document.addEventListener('mousedown', onDocumentMouseDown,);
+        document.addEventListener('keydown', onDocumentKeyDown,);
+    },);
+    onCleanup(() => {
+        document.removeEventListener('mousedown', onDocumentMouseDown,);
+        document.removeEventListener('keydown', onDocumentKeyDown,);
+    },);
 
     // ─── Preview mode controls ───
     const [isMobile, setIsMobile,] = createSignal(false,);

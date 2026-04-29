@@ -10,18 +10,21 @@ SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, customizable content platform
 
 ## Features at a glance
 
-- **Block-based page builder** — drag-and-drop blocks (rich text, image, video, hero, carousel, post list, social feed, form, campaign, HTML, spacer, …)
-- **Posts & pages** — drafts, scheduled publish, slugs, revisions, full-text search, RSS feed, SEO-friendly SSR body
-- **Donations & campaigns** — Stripe-backed fundraising with progress, top contributors, recurring subscriptions
-- **Forms / surveys / polls** — custom questions, submissions inbox, results display
-- **Users & roles** — email/password + Patreon SSO, member tiers, gated content, IP/user bans
-- **Media library** — upload, crop, thumbnails (sharp), local FS or S3
-- **Social connections** — pull-based sync from YouTube, Instagram, X/Twitter, Facebook, TikTok, Patreon
-- **Custom header & footer editors** — drag-and-drop rows + columns, fully styled per site
-- **Global appearance system** — shared color swatches, custom fonts, reusable block-style templates, `swatch:{id}` references everywhere
-- **Backend SDK** — `cms.pages`, `cms.posts`, `cms.campaigns`, … one typed surface for routes, scripts, and plugins
+- **Block-based page builder** — categorized "+ Add Block" picker (Text / Media / Blocks / Layout) with feature-flag gating, hover submenus that pre-fill from recent campaigns / forms / posts, and recursive **Group** blocks (direction, columns 1-16, item min/max width+height, wrap, align/justify).
+- **Block library** — Rich Text, Custom HTML, URL Link, Image (multi-image with thumbnail strip + layout), Video, Document, Hero, Carousel, Posts, Campaign, Form, Social, Group, Spacer.
+- **Inline editing** — Rich Text edits in place on the block preview; HTML block has a code ↔ preview toggle (CodeMirror 6, syntax highlighted), drag-resize handle, and per-block height persisted in localStorage.
+- **Real preview** — admin Preview wraps content in the public `<Layout>` so the configured site header, footer, navigation, swatches, fonts, and appearance render exactly as a visitor would see them.
+- **Posts & pages** — drafts, scheduled publish, slugs, revisions, full-text search, RSS feed, SEO-friendly SSR body.
+- **Donations & campaigns** — Stripe-backed fundraising with progress, top contributors, recurring subscriptions.
+- **Forms / surveys / polls** — custom questions, submissions inbox, results display.
+- **Users & roles** — email/password + Patreon SSO, member tiers, gated content, IP/user bans.
+- **Media library** — upload, crop, thumbnails (sharp), local FS or S3.
+- **Social connections** — pull-based sync from YouTube, Instagram, X/Twitter, Facebook, TikTok, Patreon. The Social block holds either an auto-feed for a connected provider or hand-picked posts via per-slot search + advanced selection modal.
+- **Custom header & footer editors** — drag-and-drop rows + columns, fully styled per site.
+- **Global appearance system** — shared color swatches, custom fonts, reusable block-style templates, `swatch:{id}` references everywhere.
+- **Backend SDK** — `cms.pages`, `cms.posts`, `cms.campaigns`, … one typed surface for routes, scripts, and plugins.
 - **First-run setup wizard** — run the app, open `/setup`, done. Validates DB / Redis / SMTP / S3 inline.
-- **PWA + CDN-ready** — static frontend bundle, app shell, offline-friendly
+- **PWA + CDN-ready** — static frontend bundle, app shell, offline-friendly.
 
 ---
 
@@ -70,8 +73,9 @@ Quick stats — total pages, posts, active campaigns, pending messages — plus 
 Pages are top-level content (`/about`, `/team`, `/{slug}`). Each page is built from blocks.
 
 - **Create / edit / publish** — title, slug, status (draft / published), `showTitle`, homepage flag, `show_in_nav`.
-- **Blocks** — drag to reorder, configure per-block padding and style, hide without deleting.
-- **Available block types**: rich text, image, video, hero, carousel, post list, social feed, form, campaign, HTML, spacer.
+- **Blocks** — drag to reorder (top-level + intra-group), button-driven move-up/down, click outside or hit Escape to deselect, trash icon in the block hover bar to delete with confirm.
+- **Available block types**: Rich Text, Custom HTML, URL Link, Image (multi-image), Video, Document, Hero, Carousel, Posts, Campaign, Form, Social, **Group** (recursive), Spacer.
+- **Group block** — flex container with direction (row / column), 1-16 columns, item min/max width and height (any CSS length), wrap, align, justify. Each slot is a `group_item` that holds at most one child block; empty slots show an inline AddBlockMenu picker.
 - **Per-block styling** — pick a style template, override colors/spacing inline, scope styles to that block.
 </details>
 

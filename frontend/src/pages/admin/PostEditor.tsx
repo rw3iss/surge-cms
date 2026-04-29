@@ -9,7 +9,7 @@ import { BlockData, } from '../../components/admin/blocks/ContentBlock';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
-import { Header, } from '../../components/layout/Header';
+import { Layout, } from '../../components/layout/Layout';
 import PostContentBlock from '../../components/blocks/posts/PostContentBlock';
 import { useToast, } from '../../components/common/toast';
 import { useAutoSave, } from '../../hooks/useAutoSave';
@@ -414,9 +414,14 @@ const AdminPostEditor: Component = () => {
             {/* Inline preview overlay — no navigation, preserves editor state */}
             <Show when={showPreview()}>
                 <PreviewOverlay onClose={() => setShowPreview(false,)}>
-                    <Header navigation={[]} siteName="RW" />
-                    <main class="container" style={{ 'min-height': '70vh', 'padding-top': '2rem', }}>
-                        <article style={{ 'max-width': '800px', margin: '0 auto', }}>
+                    {/* Wrap in the public <Layout> so the preview shows
+                        the configured site header, footer, navigation,
+                        appearance vars, swatches, and fonts. */}
+                    <Layout>
+                        {/* Match the public Post page wrapper so scoped
+                            styles apply identically in preview. */}
+                        <div class="post-page page-wrapper">
+                        <article style={{ 'max-width': '800px', margin: '0 auto', padding: '2rem 1rem', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{title() || 'Untitled Post'}</h1>
                             <div style={{ color: '#999', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
                                 {status() === 'draft' ? 'Draft' : 'Preview'}
@@ -450,7 +455,8 @@ const AdminPostEditor: Component = () => {
                                 </div>
                             </Show>
                         </article>
-                    </main>
+                        </div>
+                    </Layout>
                 </PreviewOverlay>
             </Show>
         </div>
