@@ -11,7 +11,6 @@ import GroupItemBlock from './types/GroupItemBlock';
 import ImageBlock from './types/ImageBlock';
 import PostListBlock from './types/PostListBlock';
 import SocialFeedBlock from './types/SocialFeedBlock';
-import SocialMediaBlock from './types/SocialMediaBlock';
 import TextBlock from './types/TextBlock';
 import UrlLinkBlock from './types/UrlLinkBlock';
 import VideoBlock from './types/VideoBlock';
@@ -367,7 +366,10 @@ const BlockContentForm: Component<{
             <TextBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'social_media'}>
-            <SocialMediaBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
+            {/* Legacy single-post blocks edit through the merged
+                Social Feed UI; SocialFeedBlock coalesces the legacy
+                postId/postUrl fields into a one-item slot list. */}
+            <SocialFeedBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'image'}>
             <ImageBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />

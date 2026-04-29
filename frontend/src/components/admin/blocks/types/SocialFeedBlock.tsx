@@ -1,5 +1,16 @@
-import { Component, createSignal, For, onMount, Show, } from 'solid-js';
+/**
+ * Merged Social Feed editor — replaces the previous Social Feed and
+ * single-post Social Media block. The operator picks a provider, then
+ * either lets the feed auto-fill from recent posts (count > items
+ * filled) or hand-picks specific posts via the per-slot picker.
+ *
+ * Each slot has a search input that opens a recent-posts dropdown for
+ * the selected provider, plus an "Edit" button that opens a fuller
+ * SocialPostSelectModal for advanced search / pagination.
+ */
+import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Show, } from 'solid-js';
 import { api, } from '../../../../services/api';
+import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 
 interface SocialFeedBlockProps {
     data: Record<string, any>;
@@ -7,27 +18,56 @@ interface SocialFeedBlockProps {
     onUpdate: (data: Record<string, any>,) => void;
 }
 
-const PROVIDERS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter',];
+interface SocialItem {
+    id: string;
+    postId?: string;
+    postUrl?: string;
+    thumbnailUrl?: string;
+    content?: string;
+    authorName?: string;
+}
 
+const PROVIDERS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter',];
 const LAYOUT_OPTIONS = [
-    { value: 'grid', label: 'Grid (auto-fill columns)', },
+    { value: 'grid', label: 'Grid (auto-fill)', },
     { value: '2-col', label: '2 Columns', },
     { value: '1-col', label: '1 Column', },
-    { value: 'row', label: 'Horizontal Row (scrollable)', },
+    { value: 'row', label: 'Horizontal Row', },
 ];
 
-/**
- * Admin editor for the "Social Feed" block type.
- * Lets the user pick a connected social provider — the public-side
- * BlockRenderer then renders a grid of recent posts from that provider.
- *
- * Unlike SocialMediaBlock (which picks a SINGLE post), this selects an
- * entire feed / provider to display.
- */
+const newId = (): string =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ?
+        crypto.randomUUID() :
+        `si-${Date.now()}-${Math.random().toString(16,).slice(2,)}`;
+
+const blankItem = (): SocialItem => ({ id: newId(), });
+
+/** Coalesce items[] from new shape, fall back to legacy single-post
+ *  fields (postId/postUrl/thumbnailUrl) so old social_media blocks
+ *  rendered through this editor surface their existing selection. */
+function resolveItems(data: Record<string, any>,): SocialItem[] {
+    if (Array.isArray(data.items,) && data.items.length > 0) return data.items as SocialItem[];
+    if (data.postId || data.postUrl) {
+        return [{
+            id: 'legacy',
+            postId: data.postId,
+            postUrl: data.postUrl,
+            thumbnailUrl: data.thumbnailUrl,
+            content: data.content,
+            authorName: data.authorName,
+        },];
+    }
+    return [];
+}
+
 const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
-    // Fetch connected providers without createResource to avoid
-    // triggering the app-level Suspense boundary (which causes a
-    // scroll-to-top jump when the flyout panel loads this component).
+    const provider = () => (props.data.provider || props.data.socialPlatform || props.data.platform || '') as string;
+    const items = (): SocialItem[] => resolveItems(props.data);
+    const count = (): number => {
+        const c = Number(props.data.count ?? items().length ?? 1);
+        return Number.isFinite(c,) && c > 0 ? Math.min(50, Math.max(1, c,),) : 1;
+    };
+
     const [connections, setConnections,] = createSignal<any[]>([],);
     onMount(async () => {
         try {
@@ -38,120 +78,270 @@ const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
         } catch { /* ignore */ }
     },);
 
-    const connectedProviders = () => {
-        const connected = new Set(
-            connections().map((c: any,) => c.provider as string),
-        );
-        return PROVIDERS.map(p => ({
-            id: p,
-            label: p.charAt(0,).toUpperCase() + p.slice(1,),
-            connected: connected.has(p,),
-        }),);
+    const connectedSet = () => new Set(connections().map((c: any,) => c.provider as string,),);
+
+    const update = (patch: Record<string, any>,) => props.onUpdate({ ...props.data, ...patch, },);
+
+    const writeItems = (next: SocialItem[],) => {
+        // Migrate to the items[] shape on write. Strip the legacy
+        // single-post fields so they don't drift.
+        const {
+            postId: _p, postUrl: _u, thumbnailUrl: _t, authorName: _a,
+            content: _c, socialPlatform: _sp, platform: _pl,
+            ...rest
+        } = props.data;
+        props.onUpdate({ ...rest, provider: provider(), items: next, count: next.length, },);
     };
 
-    const selectedPlatform = () => props.data.socialPlatform || props.data.platform || '';
+    const padToCount = (n: number,): SocialItem[] => {
+        const list = [...items(),];
+        while (list.length < n) list.push(blankItem(),);
+        return list.slice(0, n,);
+    };
+
+    const setCount = (n: number,) => {
+        const clamped = Math.min(50, Math.max(1, n,),);
+        const list = padToCount(clamped,);
+        const {
+            postId: _p, postUrl: _u, thumbnailUrl: _t, authorName: _a,
+            content: _c, socialPlatform: _sp, platform: _pl,
+            ...rest
+        } = props.data;
+        props.onUpdate({ ...rest, provider: provider(), items: list, count: clamped, },);
+    };
+
+    const updateItem = (idx: number, patch: Partial<SocialItem>,) => {
+        const list = padToCount(count(),);
+        list[idx] = { ...list[idx], ...patch, };
+        writeItems(list,);
+    };
+
+    const clearItem = (idx: number,) => updateItem(idx, { postId: undefined, postUrl: undefined, thumbnailUrl: undefined, content: undefined, authorName: undefined, });
 
     return (
         <div class="block-social-feed">
-            <Show
-                when={props.mode === 'edit'}
-                fallback={
-                    <div class="block-social-feed__preview">
-                        <Show
-                            when={selectedPlatform()}
-                            fallback={
-                                <span class="block-text__empty">
-                                    No social feed configured. Click Edit to choose a provider.
-                                </span>
-                            }
-                        >
-                            <span class="badge badge--info">
-                                {selectedPlatform().charAt(0,).toUpperCase() + selectedPlatform().slice(1,)}
-                            </span>
-                            <span>
-                                {' '}feed — {props.data.limit || 6} posts,{' '}
-                                {LAYOUT_OPTIONS.find(o => o.value === (props.data.layout || 'grid'),)?.label || 'Grid'} layout
-                            </span>
-                        </Show>
-                    </div>
-                }
-            >
+            <Show when={props.mode === 'edit'} fallback={<div />}>
+                {/* Provider */}
                 <div class="form-group">
                     <label>Provider</label>
                     <select
-                        value={selectedPlatform()}
-                        onChange={(e,) => {
-                            props.onUpdate({
-                                ...props.data,
-                                socialPlatform: e.currentTarget.value,
-                                platform: e.currentTarget.value,
-                            },);
-                        }}
+                        value={provider()}
+                        onChange={(e,) => update({ provider: e.currentTarget.value, socialPlatform: e.currentTarget.value, platform: e.currentTarget.value, },)}
                     >
-                        <option value="">Select a provider...</option>
-                        <For each={connectedProviders()}>
+                        <option value="">Select a provider…</option>
+                        <For each={PROVIDERS}>
                             {(p,) => (
-                                <option value={p.id} disabled={!p.connected}>
-                                    {p.label}{!p.connected ? ' (not connected)' : ''}
+                                <option value={p} disabled={!connectedSet().has(p,)}>
+                                    {p.charAt(0,).toUpperCase() + p.slice(1,)}
+                                    {!connectedSet().has(p,) ? ' (not connected)' : ''}
                                 </option>
                             )}
                         </For>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>Layout</label>
+                <Show when={provider()}>
+                    {/* Count */}
+                    <div class="form-group">
+                        <label>Number of posts</label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={count()}
+                            onInput={(e,) => setCount(Number(e.currentTarget.value,) || 1,)}
+                        />
+                        <small class="form-help">Leave slots empty to auto-fill from recent posts; pick specific posts to pin.</small>
+                    </div>
+
+                    {/* Layout (used when slots are empty / auto-feed) */}
+                    <div class="form-group">
+                        <label>Layout</label>
                         <select
                             value={props.data.layout || 'grid'}
-                            onChange={(e,) => {
-                                props.onUpdate({
-                                    ...props.data,
-                                    layout: e.currentTarget.value,
-                                },);
-                            }}
+                            onChange={(e,) => update({ layout: e.currentTarget.value, },)}
                         >
                             <For each={LAYOUT_OPTIONS}>
                                 {(o,) => <option value={o.value}>{o.label}</option>}
                             </For>
                         </select>
-                </div>
-                <div class="form-group">
-                    <label>Posts</label>
-                    <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={props.data.limit || 6}
-                        onInput={(e,) => {
-                            props.onUpdate({
-                                ...props.data,
-                                limit: Math.max(1, Math.min(50, Number(e.currentTarget.value,) || 6,),),
-                            },);
-                        }}
-                    />
-                </div>
-                <Show when={(props.data.layout || 'grid') === 'row'}>
+                    </div>
+
+                    {/* Per-slot pickers */}
                     <div class="form-group">
-                        <label>Row Height</label>
-                        <input
-                            type="text"
-                            value={props.data.rowHeight || ''}
-                            onChange={(e,) => props.onUpdate({ ...props.data, rowHeight: e.currentTarget.value, },)}
-                            onKeyDown={(e,) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                            placeholder="e.g. 300px, 40vh (blank for auto)"
-                        />
+                        <label>Posts</label>
+                        <div class="social-slot-list">
+                            <Index each={padToCount(count(),)}>
+                                {(item, idx,) => (
+                                    <SocialSlotRow
+                                        item={item()}
+                                        provider={provider()}
+                                        index={idx}
+                                        onChange={(patch,) => updateItem(idx, patch,)}
+                                        onClear={() => clearItem(idx,)}
+                                    />
+                                )}
+                            </Index>
+                        </div>
+                    </div>
+
+                    {/* Show comments — preserved from old SocialMedia editor */}
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={props.data.showComments || false}
+                                onChange={(e,) => update({ showComments: e.currentTarget.checked, },)}
+                            />
+                            <span>Show comments</span>
+                        </label>
                     </div>
                 </Show>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input
-                            type="checkbox"
-                            checked={props.data.snapScroll ?? false}
-                            onChange={(e,) => props.onUpdate({ ...props.data, snapScroll: e.currentTarget.checked, },)}
-                        />
-                        <span>Snap scrolling</span>
-                    </label>
-                </div>
+            </Show>
+        </div>
+    );
+};
+
+// ─── Per-slot row ──────────────────────────────────────────────────
+
+interface SocialSlotRowProps {
+    item: SocialItem;
+    provider: string;
+    index: number;
+    onChange: (patch: Partial<SocialItem>,) => void;
+    onClear: () => void;
+}
+
+const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
+    const [search, setSearch,] = createSignal('',);
+    const [showDropdown, setShowDropdown,] = createSignal(false,);
+    const [showModal, setShowModal,] = createSignal(false,);
+    const [recent, setRecent,] = createSignal<SocialPost[]>([],);
+    const [loading, setLoading,] = createSignal(false,);
+
+    let containerRef: HTMLDivElement | undefined;
+
+    const display = () => props.item.content?.substring(0, 80,) || props.item.postId || '';
+
+    const loadRecent = async () => {
+        if (!props.provider) return;
+        setLoading(true,);
+        try {
+            const response = await api.get(`/social/posts/${props.provider}?limit=10&sort=date&sortDir=desc`,);
+            if (response.success) {
+                setRecent(((response as any).data || []) as SocialPost[],);
+            }
+        } catch { /* ignore */ } finally { setLoading(false,); }
+    };
+
+    const onFocus = () => {
+        if (recent().length === 0 && !loading()) void loadRecent();
+        setShowDropdown(true,);
+    };
+
+    const handleClickOutside = (e: MouseEvent,) => {
+        if (containerRef && !containerRef.contains(e.target as Node,)) {
+            setShowDropdown(false,);
+        }
+    };
+
+    onMount(() => {
+        document.addEventListener('mousedown', handleClickOutside,);
+    },);
+    onCleanup(() => document.removeEventListener('mousedown', handleClickOutside,),);
+
+    const filtered = createMemo(() => {
+        const q = search().toLowerCase().trim();
+        if (!q) return recent();
+        return recent().filter(p =>
+            (p.content || '').toLowerCase().includes(q,) ||
+            (p.authorName || '').toLowerCase().includes(q,),
+        );
+    },);
+
+    const selectPost = (post: SocialPost,) => {
+        props.onChange({
+            postId: post.externalId || post.id,
+            postUrl: post.mediaUrl,
+            thumbnailUrl: post.thumbnailUrl,
+            content: post.content,
+            authorName: post.authorName,
+        },);
+        setShowDropdown(false,);
+        setSearch('',);
+    };
+
+    return (
+        <div class="social-slot-row" ref={containerRef}>
+            <span class="social-slot-row__num">{props.index + 1}</span>
+            <Show when={props.item.thumbnailUrl}>
+                <img class="social-slot-row__thumb" src={props.item.thumbnailUrl} alt="" />
+            </Show>
+            <div class="social-slot-row__field">
+                <input
+                    type="text"
+                    placeholder={display() ? '' : 'Search posts… (or leave blank for auto-feed)'}
+                    value={search() || display()}
+                    onFocus={onFocus}
+                    onInput={(e,) => { setSearch(e.currentTarget.value,); setShowDropdown(true,); }}
+                />
+                <Show when={showDropdown()}>
+                    <div class="social-slot-row__dropdown">
+                        <Show when={loading()} fallback={
+                            <Show
+                                when={filtered().length > 0}
+                                fallback={<div class="social-slot-row__empty">No recent posts.</div>}
+                            >
+                                <For each={filtered()}>
+                                    {(p,) => (
+                                        <button
+                                            type="button"
+                                            class="social-slot-row__option"
+                                            onClick={() => selectPost(p,)}
+                                        >
+                                            <Show when={p.thumbnailUrl}>
+                                                <img src={p.thumbnailUrl} alt="" />
+                                            </Show>
+                                            <span class="social-slot-row__option-text">
+                                                {(p.content || '(no caption)').substring(0, 100,)}
+                                            </span>
+                                        </button>
+                                    )}
+                                </For>
+                            </Show>
+                        }>
+                            <div class="social-slot-row__loading">Loading…</div>
+                        </Show>
+                    </div>
+                </Show>
+            </div>
+            <button
+                type="button"
+                class="btn btn--small btn--secondary"
+                onClick={() => setShowModal(true,)}
+                disabled={!props.provider}
+                title="Open advanced post search"
+            >
+                Edit…
+            </button>
+            <Show when={props.item.postId}>
+                <button
+                    type="button"
+                    class="btn btn--small btn--ghost"
+                    onClick={() => props.onClear()}
+                    title="Clear this slot"
+                >
+                    ×
+                </button>
+            </Show>
+
+            <Show when={showModal()}>
+                <SocialPostSelectModal
+                    provider={props.provider}
+                    initialPostId={props.item.postId}
+                    onSelect={selectPost}
+                    onClose={() => setShowModal(false,)}
+                />
             </Show>
         </div>
     );

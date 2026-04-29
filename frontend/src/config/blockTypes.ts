@@ -164,8 +164,11 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
         recentSource: 'forms',
         recentDataField: 'formId',
     },
-    { type: 'social_feed', label: 'Social Feed', icon: '⌘', category: 'blocks', },
-    { type: 'social_media', label: 'Social Media Post', icon: '@', category: 'blocks', },
+    { type: 'social_feed', label: 'Social', icon: '⌘', category: 'blocks', },
+    // social_media has been merged into the Social block (social_feed
+    // type). Existing rows still render; new content is created as
+    // social_feed. Hidden from the picker.
+    { type: 'social_media', label: 'Social Media Post (legacy)', enabled: false, },
 
     // ─── Layout ───────────────────────────────────────────
     {

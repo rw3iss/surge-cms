@@ -44,7 +44,11 @@ const HOVER_CLOSE_DELAY_MS = 120;
 export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
     const [open, setOpen,] = createSignal(false,);
     const [pos, setPos,] = createSignal({ top: 0, left: 0, maxHeight: 400, },);
-    const [collapsed, setCollapsed,] = createSignal<Record<string, boolean>>({},);
+    // Sections start collapsed — keeps the menu compact and lets the
+    // operator open the one they want without scrolling past everything.
+    const [collapsed, setCollapsed,] = createSignal<Record<string, boolean>>(
+        Object.fromEntries(MENU_CATEGORIES.map((c,) => [c.key, true,]),),
+    );
     const [hoveredType, setHoveredType,] = createSignal<BlockType | null>(null,);
     const [submenuPos, setSubmenuPos,] = createSignal({ top: 0, left: 0, },);
 

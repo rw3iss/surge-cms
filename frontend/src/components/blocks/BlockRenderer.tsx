@@ -561,18 +561,40 @@ const FEED_LAYOUT_CLASS: Record<string, string> = {
     'row': 'social-feed-block__grid social-feed-block__grid--row',
 };
 
+interface SocialFeedItem {
+    id?: string;
+    postId?: string;
+    postUrl?: string;
+    thumbnailUrl?: string;
+    content?: string;
+    authorName?: string;
+}
+
 const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
-    const platform = () => props.block.settings.socialPlatform as SocialPlatform | undefined;
-    const limit = () => (props.block.settings.limit as number) || 6;
-    const layout = () => (props.block.settings.layout as string) || 'grid';
-    const snapScroll = () => props.block.settings.snapScroll as boolean ?? false;
-    const rowHeight = () => (props.block.settings.rowHeight as string) || undefined;
+    const settings = () => (props.block.settings || {}) as Record<string, any>;
+    const provider = (): SocialPlatform | undefined =>
+        (settings().provider || settings().socialPlatform || settings().platform) as SocialPlatform | undefined;
+    const items = (): SocialFeedItem[] => {
+        const list = settings().items;
+        return Array.isArray(list,) ? (list as SocialFeedItem[]) : [];
+    };
+    const filledItems = () => items().filter(i => i.postId || i.postUrl,);
+    const count = (): number => Number(settings().count ?? items().length ?? 0);
+    const limit = () => (settings().limit as number) || count() || 6;
+    const layout = () => (settings().layout as string) || 'grid';
+    const snapScroll = () => settings().snapScroll as boolean ?? false;
+    const rowHeight = () => (settings().rowHeight as string) || undefined;
     const blockStyle = () => (props.block as any).style as Record<string, any> | undefined;
 
+    // Auto-feed only fires when no slots are pinned. If the operator
+    // hand-picked posts, render those exclusively (no API fetch).
+    const useAutoFeed = () => filledItems().length === 0;
+
     const [posts,] = createResource(
-        () => `${platform()}:${limit()}`,
-        async () => {
-            const p = platform();
+        () => useAutoFeed() ? `${provider()}:${limit()}` : '',
+        async (key,) => {
+            if (!key) return [];
+            const p = provider();
             if (!p) return [];
             const response = await fetchSocialPosts(p, limit(),);
             return response.success ? (response.data as SocialPost[]) : [];
@@ -587,7 +609,7 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
             style={hasRowHeight() ? { height: rowHeight(), } : undefined}
         >
             <Show
-                when={posts()?.length}
+                when={useAutoFeed() ? (posts()?.length ?? 0) > 0 : filledItems().length > 0}
                 fallback={
                     <Show when={!posts.loading}>
                         <p class="social-feed-block__empty">No social posts available.</p>
@@ -603,18 +625,36 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
                         ...(blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {}),
                     }}
                 >
-                    <For each={posts()}>
-                        {(post,) => (
-                            <SocialEmbed
-                                platform={post.platform}
-                                externalId={post.externalId}
-                                mediaUrl={post.mediaUrl}
-                                content={post.content}
-                                thumbnailUrl={post.thumbnailUrl}
-                                authorName={post.authorName}
-                            />
-                        )}
-                    </For>
+                    <Show
+                        when={useAutoFeed()}
+                        fallback={
+                            <For each={filledItems()}>
+                                {(item,) => (
+                                    <SocialEmbed
+                                        platform={provider()!}
+                                        externalId={item.postId || ''}
+                                        mediaUrl={item.postUrl || ''}
+                                        content={item.content || ''}
+                                        thumbnailUrl={item.thumbnailUrl}
+                                        authorName={item.authorName}
+                                    />
+                                )}
+                            </For>
+                        }
+                    >
+                        <For each={posts()}>
+                            {(post,) => (
+                                <SocialEmbed
+                                    platform={post.platform}
+                                    externalId={post.externalId}
+                                    mediaUrl={post.mediaUrl}
+                                    content={post.content}
+                                    thumbnailUrl={post.thumbnailUrl}
+                                    authorName={post.authorName}
+                                />
+                            )}
+                        </For>
+                    </Show>
                 </div>
             </Show>
         </div>
