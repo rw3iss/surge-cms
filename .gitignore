@@ -13,3 +13,5 @@ pnpm-lock.yml
 backend/cache/
 backend/data/
 .playwright-mcp/
+
+.env*
