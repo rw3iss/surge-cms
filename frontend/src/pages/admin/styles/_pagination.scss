@@ -27,7 +27,7 @@
 
     &:hover:not(:disabled):not(&--active) {
       background: #f5f5f5;
-      border-color: #bbb;
+      border-color: $text-light;
     }
 
     &:disabled {
@@ -45,12 +45,12 @@
 
   &__ellipsis {
     padding: 0 4px;
-    color: #999;
+    color: $text-light;
   }
 
   &__info {
     margin-left: auto;
-    color: #666;
+    color: $text-color;
     font-size: 0.85rem;
   }
 }

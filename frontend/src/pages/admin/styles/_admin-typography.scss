@@ -19,4 +19,21 @@
   --admin-font-display: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --admin-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --admin-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  // Color tokens for places that previously hardcoded grays inline.
+  // Sourced from the design tokens in styles/variables.scss so a future
+  // theme tweak (or operator-supplied admin theme) can override them
+  // by setting these custom properties on the admin root.
+  --admin-text: #{$text-color};
+  --admin-text-muted: #{$text-light};
+  --admin-border: #{$border-color};
+  --admin-bg-subtle: #{$background-dark};
+}
+
+// Public site root also exposes the muted-text variable so block
+// renderers / shared utilities that previously inlined `#888` can read
+// from the same token.
+:root {
+  --site-text-muted: #{$text-light};
+  --site-border: #{$border-color};
 }

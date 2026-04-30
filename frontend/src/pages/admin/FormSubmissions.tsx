@@ -98,7 +98,7 @@ const FormSubmissions: Component = () => {
                             {(q: any,) => (
                                 <div style={{ 'margin-bottom': '1.5rem', }}>
                                     <h3 style={{ 'font-size': '0.95rem', margin: '0 0 0.5rem', }}>{q.question}</h3>
-                                    <span style={{ 'font-size': '0.8rem', color: '#888', }}>{q.responses} response{q.responses !== 1 ? 's' : ''}</span>
+                                    <span style={{ 'font-size': '0.8rem', color: 'var(--admin-text-muted, #6b7280)', }}>{q.responses} response{q.responses !== 1 ? 's' : ''}</span>
 
                                     <Show when={q.type === 'choice'}>
                                         <div style={{ 'margin-top': '0.5rem', }}>
@@ -119,26 +119,26 @@ const FormSubmissions: Component = () => {
                                     <Show when={q.type === 'number'}>
                                         <div style={{ display: 'flex', gap: '1rem', 'margin-top': '0.5rem', 'flex-wrap': 'wrap', }}>
                                             <div style={{ padding: '4px 12px', background: '#f8f9fa', 'border-radius': '6px', 'text-align': 'center', }}>
-                                                <div style={{ 'font-size': '0.75rem', color: '#888', }}>Min</div>
+                                                <div style={{ 'font-size': '0.75rem', color: 'var(--admin-text-muted, #6b7280)', }}>Min</div>
                                                 <div style={{ 'font-weight': '600', }}>{q.min}</div>
                                             </div>
                                             <div style={{ padding: '4px 12px', background: '#f8f9fa', 'border-radius': '6px', 'text-align': 'center', }}>
-                                                <div style={{ 'font-size': '0.75rem', color: '#888', }}>Max</div>
+                                                <div style={{ 'font-size': '0.75rem', color: 'var(--admin-text-muted, #6b7280)', }}>Max</div>
                                                 <div style={{ 'font-weight': '600', }}>{q.max}</div>
                                             </div>
                                             <div style={{ padding: '4px 12px', background: '#f8f9fa', 'border-radius': '6px', 'text-align': 'center', }}>
-                                                <div style={{ 'font-size': '0.75rem', color: '#888', }}>Avg</div>
+                                                <div style={{ 'font-size': '0.75rem', color: 'var(--admin-text-muted, #6b7280)', }}>Avg</div>
                                                 <div style={{ 'font-weight': '600', }}>{q.avg}</div>
                                             </div>
                                             <div style={{ padding: '4px 12px', background: '#f8f9fa', 'border-radius': '6px', 'text-align': 'center', }}>
-                                                <div style={{ 'font-size': '0.75rem', color: '#888', }}>Median</div>
+                                                <div style={{ 'font-size': '0.75rem', color: 'var(--admin-text-muted, #6b7280)', }}>Median</div>
                                                 <div style={{ 'font-weight': '600', }}>{q.median}</div>
                                             </div>
                                         </div>
                                     </Show>
 
                                     <Show when={q.type === 'text'}>
-                                        <div style={{ 'font-size': '0.85rem', color: '#888', 'margin-top': '0.25rem', }}>
+                                        <div style={{ 'font-size': '0.85rem', color: 'var(--admin-text-muted, #6b7280)', 'margin-top': '0.25rem', }}>
                                             {q.responses} text response{q.responses !== 1 ? 's' : ''}
                                         </div>
                                     </Show>

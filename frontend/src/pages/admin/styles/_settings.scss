@@ -273,7 +273,7 @@
 
   &__expiry {
     font-size: 11px;
-    color: #888;
+    color: $text-light;
 
     &--warn {
       color: var(--site-primary, #{$primary-color});

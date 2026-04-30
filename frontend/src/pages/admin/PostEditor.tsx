@@ -429,7 +429,7 @@ const AdminPostEditor: Component = () => {
                         <div class="post-page page-wrapper">
                         <article style={{ 'max-width': '800px', margin: '0 auto', padding: '2rem 1rem', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{title() || 'Untitled Post'}</h1>
-                            <div style={{ color: '#999', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
+                            <div style={{ color: 'var(--admin-text-muted, #6b7280)', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
                                 {status() === 'draft' ? 'Draft' : 'Preview'}
                                 {excerpt() ? ` — ${excerpt()}` : ''}
                             </div>

@@ -41,6 +41,11 @@ The repo directory and workspace identifiers (`rw-cms`, `@rw/shared`) are histor
 - **Read `frontend/src/components/admin/ADMIN_STYLES.md` before adding admin styles.** It documents which partial owns what, when to hoist to `styles/shared/` vs keep admin-local, and the convention for `@use 'sass:color';` + `@use '../../../styles/variables' as *;` at the top of each partial.
 - Repeated inline `style={{ ... }}` patterns belong in a partial. Common shared helpers (`.confirm-modal*`, `.preview-empty-message`, `.form-help-muted`) live in `styles/shared/` or `global.scss`.
 
+## Theme tokens (CSS custom properties)
+- **Site-wide** (`Layout` applies these from `AppearanceSettings`): `--site-primary`, `--site-link`, `--site-heading`, `--site-bg`, `--site-text`, `--site-text-muted`, `--site-border`, `--site-font`, `--site-heading-font`, `--site-heading-weight`, `--site-radius`, `--site-gutter`, `--site-max-width`, `--site-block-padding`, `--site-line-height`. Public-side inline styles should reference these (e.g. `color: var(--site-text-muted, #6b7280)`) so an operator-set theme propagates.
+- **Admin shell** (declared in `pages/admin/styles/_admin-typography.scss`): `--admin-text`, `--admin-text-muted`, `--admin-border`, `--admin-bg-subtle`, plus `--admin-font-display`, `--admin-font-body`, `--admin-font-mono`. Admin-side inline styles use these. The token values come from `styles/variables.scss`.
+- Hardcoded grays (`#888`, `#999`, `#bbb`, `#ccc`, `#d0d0d0`) in SCSS partials are already swept onto `$text-light` / `$text-color` / `$border-color` from the token palette. Don't add new literal hex values — extend `variables.scss` instead.
+
 ## Architecture
 
 ```

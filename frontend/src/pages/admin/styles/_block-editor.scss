@@ -34,11 +34,11 @@
   background: none;
   border: 1px solid $border-color;
   border-radius: $border-radius-sm;
-  color: #999;
+  color: $text-light;
   cursor: pointer;
   transition: all 0.15s;
 
-  &:hover { color: var(--admin-page-text, #{$text-color}); border-color: #bbb; }
+  &:hover { color: var(--admin-page-text, #{$text-color}); border-color: $text-light; }
   &--active {
     color: var(--site-primary, #{$primary-color});
     border-color: var(--site-primary, #{$primary-color});
@@ -165,7 +165,7 @@
     font-family: $font-family;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    color: #999;
+    color: $text-light;
     margin-bottom: 2px;
     line-height: 1.3;
   }
@@ -220,7 +220,7 @@
 
   &:hover {
     color: var(--admin-page-text, #{$text-color});
-    border-color: #bbb;
+    border-color: $text-light;
     background: $background-dark;
   }
 
@@ -302,7 +302,7 @@
       font-family: $font-family;
       text-transform: uppercase;
       letter-spacing: 0.4px;
-      color: #999;
+      color: $text-light;
       margin-bottom: 2px;
       line-height: 1.3;
     }
@@ -336,7 +336,7 @@
     .form-help, small {
       display: block;
       font-size: 10px;
-      color: #aaa;
+      color: $text-light;
       margin-top: 1px;
       line-height: 1.3;
     }
@@ -415,11 +415,11 @@
 .block-editor__empty {
   padding: $spacing-xl $spacing-md;
   text-align: center;
-  color: #aaa;
+  color: $text-light;
   font-size: $font-size-sm;
 
   strong {
-    color: #888;
+    color: $text-light;
   }
 }
 
@@ -503,14 +503,14 @@
   &__hover-drag {
     cursor: grab;
     padding: 2px 4px;
-    color: #999;
+    color: $text-light;
     font-size: 14px;
 
     &:active { cursor: grabbing; }
   }
 
   &__hover-label {
-    color: #888;
+    color: $text-light;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 600;
@@ -521,7 +521,7 @@
   &__hover-btn {
     background: none;
     border: none;
-    color: #888;
+    color: $text-light;
     cursor: pointer;
     padding: 2px 5px;
     font-size: 10px;
@@ -628,7 +628,7 @@
   justify-content: center;
   gap: $spacing-xs;
   padding: $spacing-xl;
-  color: #bbb;
+  color: $text-light;
   font-size: $font-size-sm;
   border: 2px dashed #e0e0e0;
   border-radius: $border-radius-md;
@@ -640,7 +640,7 @@
 .block-preview__empty-label {
   text-transform: capitalize;
   font-weight: 600;
-  color: #999;
+  color: $text-light;
 }
 
 

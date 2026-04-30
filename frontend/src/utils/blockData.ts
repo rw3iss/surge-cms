@@ -25,9 +25,9 @@ export function resolveDraftStyle(block: BlockData,): Record<string, unknown> | 
 }
 
 /** Build a `Block` from a `BlockData` so the public BlockRenderer can
- *  render the draft. The returned object intentionally omits a few
- *  server-only fields (createdAt/updatedAt are filled with `new Date()`
- *  to satisfy the type — they're not used by the renderer). */
+ *  render the draft. The returned object omits server-only fields
+ *  (createdAt / updatedAt are filled with `new Date()` to satisfy the
+ *  type — the renderer doesn't read them). */
 export function blockDataToRenderBlock(block: BlockData, pageId: string,): Block {
     const data = block.data || {};
     const { title, content, __styleRef: _ignored, ...settings } = data as Record<string, unknown>;
@@ -41,11 +41,8 @@ export function blockDataToRenderBlock(block: BlockData, pageId: string,): Block
         settings: settings as Block['settings'],
         order: block.sort_order || 0,
         isVisible: true,
+        style: resolveDraftStyle(block,) ?? null,
         createdAt: new Date(),
         updatedAt: new Date(),
-        // The renderer reads `style` off the block; the type doesn't
-        // declare it but the data path supports it via `as any` casts
-        // throughout the codebase.
-        ...({ style: resolveDraftStyle(block,), } as Record<string, unknown>),
-    } as Block;
+    };
 }

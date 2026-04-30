@@ -22,7 +22,7 @@ interface BlockRendererProps {
 }
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
-    const blockStyle = () => (props.block as any).style as Record<string, any> | undefined;
+    const blockStyle = () => props.block.style as Record<string, any> | undefined;
     const s = () => blockStyle() || {};
 
     return (
@@ -126,7 +126,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                         Gallery is removed; legacy `post` blocks still
                         have a renderer (above) until Phase 4 removes them. */}
                     <Match when={props.block.type === 'gallery'}>
-                        <div class="block--legacy" style={{ padding: '0.75rem', color: '#888', 'font-size': '0.875rem', 'font-style': 'italic', }}>
+                        <div class="block--legacy" style={{ padding: '0.75rem', color: 'var(--site-text-muted, #6b7280)', 'font-size': '0.875rem', 'font-style': 'italic', }}>
                             (Gallery blocks are no longer supported — please update this page.)
                         </div>
                     </Match>
@@ -441,7 +441,7 @@ const FormBlock: Component<{ block: Block; }> = (props,) => {
     return (
         <Show when={form()} fallback={
             <Show when={form.loading}>
-                <p style={{ color: '#999', 'text-align': 'center', padding: '1rem', }}>Loading form...</p>
+                <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>Loading form...</p>
             </Show>
         }>
             <div class="form-block">
@@ -511,8 +511,8 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
     );
 
     const gap = () => {
-        const style = (props.block as any).style;
-        return style?.gap || '1rem';
+        const style = props.block.style as Record<string, unknown> | undefined;
+        return (style?.gap as string | undefined) || '1rem';
     };
 
     const direction = () => (props.block.settings.direction as string) || 'vertical';
@@ -525,10 +525,10 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
             </Show>
             <Show when={isAllCampaigns()}>
                 <Show when={allCampaigns.loading}>
-                    <p style={{ color: '#999', 'text-align': 'center', padding: '1rem', }}>Loading campaigns...</p>
+                    <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>Loading campaigns...</p>
                 </Show>
                 <Show when={!allCampaigns.loading && allCampaigns()?.length === 0}>
-                    <p style={{ color: '#999', 'text-align': 'center', padding: '1rem', }}>No active campaigns.</p>
+                    <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>No active campaigns.</p>
                 </Show>
                 <Show when={!allCampaigns.loading && (allCampaigns()?.length ?? 0) > 0}>
                     <div
@@ -581,7 +581,7 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const layout = () => (settings().layout as string) || 'grid';
     const snapScroll = () => settings().snapScroll as boolean ?? false;
     const rowHeight = () => (settings().rowHeight as string) || undefined;
-    const blockStyle = () => (props.block as any).style as Record<string, any> | undefined;
+    const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
     // Auto-feed only fires when no slots are pinned. If the operator
     // hand-picked posts, render those exclusively (no API fetch).
@@ -728,7 +728,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
     },);
 
     return (
-        <Show when={items().length > 0} fallback={<div style={{ padding: '2rem', color: '#999', 'text-align': 'center', }}>No carousel items</div>}>
+        <Show when={items().length > 0} fallback={<div style={{ padding: '2rem', color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', }}>No carousel items</div>}>
             <HeroCarousel
                 items={items()}
                 options={options()}

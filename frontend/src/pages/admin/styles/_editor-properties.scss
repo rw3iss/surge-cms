@@ -369,9 +369,9 @@
   gap: 6px;
   padding: 4px 8px;
   font-size: 0.75rem;
-  color: #666;
+  color: $text-color;
 
-  &--saving { color: #888; }
+  &--saving { color: $text-light; }
   &--saved { color: #4caf50; }
   &--error { color: var(--site-primary, #{$primary-color}); }
 
@@ -401,7 +401,7 @@
 
   &__empty {
     padding: $spacing-md;
-    color: #999;
+    color: $text-light;
     text-align: center;
     font-size: 0.9rem;
   }
@@ -429,6 +429,6 @@
     font-size: 0.85rem;
 
     strong { font-weight: 600; }
-    span { color: #888; font-size: 0.75rem; }
+    span { color: $text-light; font-size: 0.75rem; }
   }
 }

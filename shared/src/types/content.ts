@@ -61,6 +61,12 @@ export interface Block {
     settings: BlockSettings;
     order: number;
     isVisible: boolean;
+    /** Per-block style. Either a hydrated style-template object, a
+     *  `{ id }` reference (the unhydrated form), or a bag of inline
+     *  CSS-token overrides (`backgroundColor`, `padding`, etc.) the
+     *  renderer applies directly. `null` means "explicitly cleared";
+     *  `undefined` means "inherit from site defaults". */
+    style?: Record<string, unknown> | null;
     createdAt: Date;
     updatedAt: Date;
     /** In-memory tree assembly. Populated by `buildBlockTree()`; not stored. */

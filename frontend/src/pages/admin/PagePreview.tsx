@@ -48,7 +48,7 @@ const PagePreview: Component = () => {
                                 </h1>
                             </Show>
                             <For each={tree()}>
-                                {(block,) => <BlockRenderer block={block as any} />}
+                                {(block,) => <BlockRenderer block={block} />}
                             </For>
                             <Show when={!data().blocks?.length}>
                                 <div class="preview-empty-message">No content blocks to preview</div>
