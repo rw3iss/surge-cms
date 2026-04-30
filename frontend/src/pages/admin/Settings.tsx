@@ -1294,38 +1294,77 @@ function AdminAppearancePanel() {
                 <div class="alert alert--error" style={{ 'margin-bottom': '1rem', }}>{error()}</div>
             </Show>
 
-            <div class="settings-grid">
-                <section class="settings-card">
-                    <h3 class="settings-card__title">Sidebar</h3>
-                    <p class="settings-card__lede">
-                        Colors applied to the left admin sidebar — background, links, icons, and the
-                        site name displayed at the top.
-                    </p>
+            <div class="settings-grid settings-grid--equal">
+                {/* Left column: Sidebar on top, Inputs below — both
+                    nav-chrome controls live in one stack so the
+                    Page-area card on the right can occupy a single
+                    tall column without breaking responsive fallback.
+                    `--equal` makes the two columns 50/50 instead of the
+                    default 3:2 used by other settings tabs. */}
+                <div class="settings-grid__col">
+                    <section class="settings-card">
+                        <h3 class="settings-card__title">Sidebar</h3>
+                        <p class="settings-card__lede">
+                            Colors applied to the left admin sidebar — background, links, icons, and the
+                            site name displayed at the top.
+                        </p>
 
-                    <ThemeField
-                        label="Sidebar background"
-                        sublabel="Background of the left sidebar"
-                    >
-                        <ColorPicker
-                            value={sidebarBg()}
-                            onChange={(hex,) => { setSidebarBg(hex,); markDirty(); }}
-                            clearable
-                            onClear={() => { setSidebarBg('',); markDirty(); }}
-                        />
-                    </ThemeField>
+                        <ThemeField
+                            label="Sidebar background"
+                            sublabel="Background of the left sidebar"
+                        >
+                            <ColorPicker
+                                value={sidebarBg()}
+                                onChange={(hex,) => { setSidebarBg(hex,); markDirty(); }}
+                                clearable
+                                onClear={() => { setSidebarBg('',); markDirty(); }}
+                            />
+                        </ThemeField>
 
-                    <ThemeField
-                        label="Sidebar text & icons"
-                        sublabel="Color for sidebar nav text and icons"
-                    >
-                        <ColorPicker
-                            value={sidebarText()}
-                            onChange={(hex,) => { setSidebarText(hex,); markDirty(); }}
-                            clearable
-                            onClear={() => { setSidebarText('',); markDirty(); }}
-                        />
-                    </ThemeField>
-                </section>
+                        <ThemeField
+                            label="Sidebar text & icons"
+                            sublabel="Color for sidebar nav text and icons"
+                        >
+                            <ColorPicker
+                                value={sidebarText()}
+                                onChange={(hex,) => { setSidebarText(hex,); markDirty(); }}
+                                clearable
+                                onClear={() => { setSidebarText('',); markDirty(); }}
+                            />
+                        </ThemeField>
+                    </section>
+
+                    <section class="settings-card">
+                        <h3 class="settings-card__title">Inputs</h3>
+                        <p class="settings-card__lede">
+                            Background and text color used by all admin inputs, selects, and textareas.
+                        </p>
+
+                        <ThemeField
+                            label="Input background"
+                            sublabel="Background of inputs / selects / textareas"
+                        >
+                            <ColorPicker
+                                value={inputBg()}
+                                onChange={(hex,) => { setInputBg(hex,); markDirty(); }}
+                                clearable
+                                onClear={() => { setInputBg('',); markDirty(); }}
+                            />
+                        </ThemeField>
+
+                        <ThemeField
+                            label="Input text"
+                            sublabel="Text color inside inputs / selects / textareas"
+                        >
+                            <ColorPicker
+                                value={inputText()}
+                                onChange={(hex,) => { setInputText(hex,); markDirty(); }}
+                                clearable
+                                onClear={() => { setInputText('',); markDirty(); }}
+                            />
+                        </ThemeField>
+                    </section>
+                </div>
 
                 <section class="settings-card">
                     <h3 class="settings-card__title">Page area</h3>
@@ -1390,37 +1429,6 @@ function AdminAppearancePanel() {
                             onChange={(hex,) => { setPanelBorder(hex,); markDirty(); }}
                             clearable
                             onClear={() => { setPanelBorder('',); markDirty(); }}
-                        />
-                    </ThemeField>
-                </section>
-
-                <section class="settings-card">
-                    <h3 class="settings-card__title">Inputs</h3>
-                    <p class="settings-card__lede">
-                        Background and text color used by all admin inputs, selects, and textareas.
-                    </p>
-
-                    <ThemeField
-                        label="Input background"
-                        sublabel="Background of inputs / selects / textareas"
-                    >
-                        <ColorPicker
-                            value={inputBg()}
-                            onChange={(hex,) => { setInputBg(hex,); markDirty(); }}
-                            clearable
-                            onClear={() => { setInputBg('',); markDirty(); }}
-                        />
-                    </ThemeField>
-
-                    <ThemeField
-                        label="Input text"
-                        sublabel="Text color inside inputs / selects / textareas"
-                    >
-                        <ColorPicker
-                            value={inputText()}
-                            onChange={(hex,) => { setInputText(hex,); markDirty(); }}
-                            clearable
-                            onClear={() => { setInputText('',); markDirty(); }}
                         />
                     </ThemeField>
                 </section>

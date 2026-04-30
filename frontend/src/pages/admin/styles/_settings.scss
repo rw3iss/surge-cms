@@ -311,6 +311,27 @@
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
+
+  // 50/50 columns instead of the default 3:2. Used by the Admin tab
+  // so Sidebar+Inputs (stacked left) and Page area (right) read as
+  // equal-width siblings.
+  &--equal {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // A grid cell that itself stacks multiple settings-cards (e.g. the
+  // Admin tab's left column with Sidebar + Inputs vertically while
+  // Page area sits in the right column).
+  &__col {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
+    min-width: 0;
+  }
 }
 
 .settings-card {
