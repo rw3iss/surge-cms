@@ -128,10 +128,11 @@
 - ✅ **U6** — PreviewOverlay accepts `title` and `status` props; PageEditor and PostEditor pass them through. Title shows next to the "Preview Mode" badge with ellipsis at narrow widths; status shows as a small uppercase pill.
 
 ### Deferred from Phase B (not enough ROI / needs runtime testing)
-- A2 (consolidate adminData and recentItems): caches serve different shapes (full list vs. top-10). Working as-is. Generic factory is a future-cleanup.
-- A3 (typed render-block helper to kill `as any` casts): partly addressed by the Phase A `blockDataToRenderBlock` helper which removed the worst offender; the remaining ~25 casts are in different code paths.
-- A5 (verify recent-items sort/limit endpoints): needs runtime smoke-test in the admin.
-- A7 (toast standardization): too broad for this pass; touches every editor.
+- ✅ **A2** — extracted a generic `createEntityCache()` factory at `services/entityCache.ts`. Both `adminData.ts` and `recentItems.ts` are still separate consumers (different cache shapes — full list vs. top-10) but share the implementation: lazy fetch, in-flight dedup, reactive `peek()` via internal signal tick, explicit `invalidate()`. ~30 LoC removed from `adminData.ts`.
+- A3 (typed render-block helper to kill `as any` casts): the Phase A `blockDataToRenderBlock` helper already removed the worst offender. Remaining `as any` casts are in narrowly-scoped JSON-blob paths (block.style, block.data) that would each need a type-narrowing helper of its own — diminishing returns.
+- ✅ **A5** — recent-items endpoint URLs corrected. Admin `/campaigns` and `/forms` use `sortBy=created_at&sortOrder=desc&limit=10` (the route accepts those params and silently ignored the previous `sort=created_desc` query). `/posts` uses `sort=date_desc&limit=10` (the value the repo's switch matches). Comment in `services/recentItems.ts` documents the per-route shape difference.
+- ✅ **A7 (partial)** — Page and Post editor confirmation-modal failure paths now call `toast.error(...)` instead of `setError(...)`. The form-level error banner is hidden by the open modal so the previous `setError` calls were silent; toasts surface visibly. The wider sweep of `setError` patterns elsewhere (validation banners that DO surface) was left intact.
+- S2/S4 (rest): inspected — remaining inline `color: '#888'` patterns include a font-size and other adjacent properties so they don't map cleanly onto `.form-help-muted`. Marginal ROI; defer.
 
 ### Phase C — applied (architectural / high risk)
 - ✅ **S3** — AdminLayout.scss split.
@@ -140,8 +141,8 @@
   - `AdminLayout.scss` is now a 25-line index that `@use`s all partials. Each partial declares `@use 'sass:color'; @use '../../../styles/variables' as *;` at the top so Sass module scoping doesn't drop the design tokens.
   - Wrote `frontend/src/components/admin/ADMIN_STYLES.md` documenting which partial owns what, when to hoist to `styles/shared/`, and the relationship to main-site `global.scss`. Referenced from `CLAUDE.md`.
 
-### Phase C — deferred to dedicated plan
-- **A4: BlockEditor blocks → Solid store with `reconcile`.** Same audit reasoning still stands: the proper fix for the "Index keys by position, not identity" trade-off is a Solid store with reconcile so `<For>` can keep keying by identity AND data updates don't remount. The `<Index>` workaround in place today works (HTML / Rich Text inline editors keep focus, ContentBlock's transient signals reset on `block.id` change). Migrating to a store would touch BlockEditor's iteration plus several memos and risks subtle reactivity regressions late in a session — better as a focused PR with manual exercise of all editor paths.
+### Phase C — applied (architectural / high risk)
+- ✅ **A4** — BlockEditor migrated to a Solid `createStore` mirror with `reconcile({ key: 'id', merge: true })`. `<Index>` reverted to `<For>` everywhere (top-level + nested groups), and ContentBlock's `createEffect on(props.block.id, reset)` workaround removed since identity is now stable across data updates. Inline editors keep focus on every keystroke as expected, and reorders preserve transient signals correctly.
 
 ### Social rename — done at the same time
 - `social_feed` and `social_media` block types collapsed to a single `social` type.

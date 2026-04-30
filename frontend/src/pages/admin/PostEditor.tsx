@@ -375,10 +375,12 @@ const AdminPostEditor: Component = () => {
                             invalidatePostsCache();
                             navigate('/admin/posts',);
                         } else {
-                            setError((response as any).error?.message || 'Failed to delete post',);
+                            // Modal hides the form's error banner — use a toast so
+                            // the message actually surfaces.
+                            toast.error((response as any).error?.message || 'Failed to delete post',);
                         }
                     } catch (err: any) {
-                        setError(err.message || 'Failed to delete post',);
+                        toast.error(err.message || 'Failed to delete post',);
                     } finally {
                         setDeleting(false,);
                     }
@@ -400,10 +402,10 @@ const AdminPostEditor: Component = () => {
                             setStatus('draft',);
                             markClean();
                         } else {
-                            setError((response as any).error?.message || 'Failed to restore post',);
+                            toast.error((response as any).error?.message || 'Failed to restore post',);
                         }
                     } catch (err: any) {
-                        setError(err.message || 'Failed to restore post',);
+                        toast.error(err.message || 'Failed to restore post',);
                     } finally {
                         setRestoring(false,);
                     }

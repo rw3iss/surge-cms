@@ -24,10 +24,16 @@ export interface RecentItem {
 
 const LIMIT = 10;
 
+// The admin list endpoints use slightly different query shapes:
+//   • /posts:     ?sort=date_desc       (single string switched in repo)
+//   • /campaigns: ?sortBy=created_at&sortOrder=desc
+//   • /forms:     ?sortBy=updated_at&sortOrder=desc
+// All accept `?limit=N`. We pin "newest-first, top 10" explicitly so
+// the submenu order doesn't depend on the route's default.
 const ENDPOINTS: Record<RecentSource, string> = {
-    campaigns: '/campaigns?sort=created_desc&limit=10',
-    forms: '/forms?sort=created_desc&limit=10',
-    posts: '/posts?sort=created_desc&limit=10',
+    campaigns: '/campaigns?sortBy=created_at&sortOrder=desc&limit=10',
+    forms: '/forms?sortBy=updated_at&sortOrder=desc&limit=10',
+    posts: '/posts?sort=date_desc&limit=10',
 };
 
 interface CacheEntry {

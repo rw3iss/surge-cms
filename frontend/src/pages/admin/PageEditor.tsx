@@ -519,9 +519,10 @@ const AdminPageEditor: Component = () => {
                     try {
                         const response = await api.put(`/pages/${params.id}`, { status: 'deleted', },);
                         if (response.success) { markClean(); navigate('/admin/pages',); }
-                        else setError((response as any).error?.message || 'Failed to delete page',);
+                        // Modal hides the form's error banner — surface via toast.
+                        else toast.error((response as any).error?.message || 'Failed to delete page',);
                     } catch (err: any) {
-                        setError(err.message || 'Failed to delete page',);
+                        toast.error(err.message || 'Failed to delete page',);
                     } finally {
                         setDeleting(false,);
                     }
@@ -540,9 +541,9 @@ const AdminPageEditor: Component = () => {
                     try {
                         const response = await api.put(`/pages/${params.id}`, { status: 'draft', },);
                         if (response.success) { setStatus('draft',); markClean(); }
-                        else setError((response as any).error?.message || 'Failed to restore page',);
+                        else toast.error((response as any).error?.message || 'Failed to restore page',);
                     } catch (err: any) {
-                        setError(err.message || 'Failed to restore page',);
+                        toast.error(err.message || 'Failed to restore page',);
                     } finally {
                         setRestoring(false,);
                     }

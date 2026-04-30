@@ -1,4 +1,5 @@
-import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, } from 'solid-js';
+import { createStore, reconcile, } from 'solid-js/store';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDevices';
 import AddBlockMenu from './AddBlockMenu';
@@ -110,6 +111,20 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const [flyoutSide, setFlyoutSide,] = createSignal<'left' | 'right'>('right',);
     const [flyoutMode, setFlyoutMode,] = createSignal<FlyoutMode>('inline',);
 
+    // ─── Internal block store ───
+    //
+    // Mirror `props.blocks` into a Solid store keyed by `id`. `reconcile`
+    // mutates store proxies in place when their fields change rather than
+    // replacing the array's items, so iterating with `<For>` keeps the
+    // same component instance for an unchanged-id block — even when the
+    // parent emits a brand-new array on every keystroke. That stability
+    // is what lets the inline HTML / Rich Text editors keep CodeMirror
+    // (and caret focus) alive while the user types.
+    const [storeBlocks, setStoreBlocks,] = createStore<BlockData[]>([],);
+    createEffect(() => {
+        setStoreBlocks(reconcile(props.blocks, { key: 'id', merge: true, },),);
+    },);
+
     // ─── Saved-state snapshots for dirty detection ───
     // savedSnapshots stores the last-saved version of each block keyed by id.
     const [savedSnapshots, setSavedSnapshots,] = createSignal<Map<string, BlockData>>(new Map(),);
@@ -155,9 +170,12 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     /** Top-level blocks, sorted by `sort_order` for stable iteration.
      *  Children of group / group_item are filtered out — they render
-     *  recursively inside their parent's ContentBlock. */
+     *  recursively inside their parent's ContentBlock.
+     *
+     *  Reads from `storeBlocks` (the reconciled mirror) so each item
+     *  is a stable proxy reference; `<For>` can key by identity safely. */
     const topLevelBlocks = createMemo(() =>
-        props.blocks
+        storeBlocks
             .filter(b => b.parentBlockId == null)
             .sort((a, b,) => a.sort_order - b.sort_order,),
     );
@@ -676,55 +694,48 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                             class={`content-blocks-list ${draggingId() ? 'content-blocks-list--dragging' : ''} ${previewContainerClass()}`}
                             style={previewContainerStyle()}
                         >
-                            {/* `Index` rather than `For` so the row's
-                                component instance survives data updates
-                                — typing in HTML / Rich Text inline
-                                editors no longer remounts CodeMirror or
-                                contenteditable, which would otherwise
-                                drop focus on every keystroke. The trade
-                                is that ContentBlock-internal signals
-                                (e.g. open options menu) survive a
-                                reorder; ContentBlock resets those when
-                                the block.id changes. */}
-                            <Show
-                                when={topLevelBlocks().length > 0}
+                            {/* `<For>` keys by reference identity. With
+                                the reconcile-backed store above, item
+                                proxies survive data updates, so a
+                                keystroke in an inline editor doesn't
+                                remount the row — focus stays put. */}
+                            <For
+                                each={topLevelBlocks()}
                                 fallback={
                                     <div class="block-editor__empty">
                                         Click <strong>+ Add Block</strong> below to add content blocks.
                                     </div>
                                 }
                             >
-                                <Index each={topLevelBlocks()}>
-                                    {(block, index,) => (
-                                        <ContentBlock
-                                            block={block()}
-                                            index={index}
-                                            total={topLevelBlocks().length}
-                                            allBlocks={props.blocks}
-                                            isSelected={selectedBlockId() === block().id}
-                                            isDirty={isBlockDirty(block().id,)}
-                                            isEditing={false}
-                                            isDragging={draggingId() === block().id}
-                                            collapsed={false}
-                                            selectedBlockId={selectedBlockId()}
-                                            dirtyBlockIds={dirtyBlockIds()}
-                                            draggingId={draggingId()}
-                                            onToggleEdit={() => selectBlock(block().id,)}
-                                            onCancel={deselectBlock}
-                                            onUpdate={updateBlock}
-                                            onRemove={removeBlock}
-                                            onMoveUp={moveBlockUp}
-                                            onMoveDown={moveBlockDown}
-                                            onMoveToTop={moveBlockToTop}
-                                            onMoveToBottom={moveBlockToBottom}
-                                            onDragStart={handleDragStart}
-                                            onAddChildBlock={addChildBlock}
-                                            blockTypes={blockTypes()}
-                                            onChangeType={changeBlockType}
-                                        />
-                                    )}
-                                </Index>
-                            </Show>
+                                {(block, index,) => (
+                                    <ContentBlock
+                                        block={block}
+                                        index={index()}
+                                        total={topLevelBlocks().length}
+                                        allBlocks={storeBlocks}
+                                        isSelected={selectedBlockId() === block.id}
+                                        isDirty={isBlockDirty(block.id,)}
+                                        isEditing={false}
+                                        isDragging={draggingId() === block.id}
+                                        collapsed={false}
+                                        selectedBlockId={selectedBlockId()}
+                                        dirtyBlockIds={dirtyBlockIds()}
+                                        draggingId={draggingId()}
+                                        onToggleEdit={() => selectBlock(block.id,)}
+                                        onCancel={deselectBlock}
+                                        onUpdate={updateBlock}
+                                        onRemove={removeBlock}
+                                        onMoveUp={moveBlockUp}
+                                        onMoveDown={moveBlockDown}
+                                        onMoveToTop={moveBlockToTop}
+                                        onMoveToBottom={moveBlockToBottom}
+                                        onDragStart={handleDragStart}
+                                        onAddChildBlock={addChildBlock}
+                                        blockTypes={blockTypes()}
+                                        onChangeType={changeBlockType}
+                                    />
+                                )}
+                            </For>
                         </div>
                         <Show when={isMobile() && showDeviceHeight() && !isFullWidth()}>
                             <div class="block-editor__fold-mask" style={{ top: `${deviceHeight()}px`, }} />

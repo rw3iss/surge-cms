@@ -1,14 +1,15 @@
 /**
- * Lightweight in-memory cache for admin reference data (campaigns, forms, etc.).
- * Loaded once on first access, then served from memory.
+ * Admin reference data: full lists of campaigns, forms, posts.
+ * Backed by the generic `entityCache` primitive — only the API path
+ * and the cached shape live here.
  *
- * Invalidation here also busts the AddBlockMenu's recent-items cache
- * for the matching source so submenus stay fresh after a save / delete.
+ * Invalidation also busts the AddBlockMenu's recent-items cache for
+ * the matching source so submenus stay fresh after a save / delete.
  */
-import { api, } from './api';
+import { createEntityCache, } from './entityCache';
 import { invalidateRecent, } from './recentItems';
 
-interface CachedItem {
+export interface CachedItem {
     id: string;
     title: string;
     slug: string;
@@ -16,46 +17,28 @@ interface CachedItem {
     [key: string]: unknown;
 }
 
-let campaignsCache: CachedItem[] | null = null;
-let formsCache: CachedItem[] | null = null;
+const campaignsCache = createEntityCache<CachedItem>({ path: '/campaigns', },);
+const formsCache = createEntityCache<CachedItem>({ path: '/forms', },);
 
-export async function getCampaigns(forceRefresh = false,): Promise<CachedItem[]> {
-    if (campaignsCache && !forceRefresh) return campaignsCache;
+export const getCampaigns = (forceRefresh = false,): Promise<CachedItem[]> =>
+    campaignsCache.get(forceRefresh,);
 
-    const response = await api.get('/campaigns',);
-    if (response.success) {
-        campaignsCache = (response as any).data || [];
-    } else {
-        campaignsCache = [];
-    }
-    return campaignsCache!;
-}
-
-export async function getForms(forceRefresh = false,): Promise<CachedItem[]> {
-    if (formsCache && !forceRefresh) return formsCache;
-
-    const response = await api.get('/forms',);
-    if (response.success) {
-        formsCache = (response as any).data || [];
-    } else {
-        formsCache = [];
-    }
-    return formsCache!;
-}
+export const getForms = (forceRefresh = false,): Promise<CachedItem[]> =>
+    formsCache.get(forceRefresh,);
 
 export function invalidateCampaignsCache(): void {
-    campaignsCache = null;
+    campaignsCache.invalidate();
     invalidateRecent('campaigns',);
 }
 
 export function invalidateFormsCache(): void {
-    formsCache = null;
+    formsCache.invalidate();
     invalidateRecent('forms',);
 }
 
-/** Posts don't have an in-memory list cache yet (they're paged in the
- *  admin), but the AddBlockMenu's recent-items cache still needs a
- *  bust on save / delete — call this from PostEditor. */
+/** Posts have no full-list admin cache (the admin list is paginated),
+ *  but the AddBlockMenu's recent-items cache still needs a bust on
+ *  save / delete — call this from PostEditor. */
 export function invalidatePostsCache(): void {
     invalidateRecent('posts',);
 }
