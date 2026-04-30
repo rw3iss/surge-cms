@@ -1,0 +1,254 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+.form-section {
+  margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-xl;
+  border-bottom: 1px solid $border-color;
+
+  &:last-of-type {
+    border-bottom: none;
+    margin-bottom: $spacing-lg;
+  }
+
+  h2 {
+    font-size: $font-size-lg;
+    margin-bottom: $spacing-lg;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-lg;
+
+    h2 {
+      margin-bottom: 0;
+    }
+  }
+}
+
+
+
+.form-group {
+  margin-bottom: $spacing-md;
+
+  &--grow {
+    flex: 1;
+  }
+
+  label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: $spacing-xs;
+    font-size: $font-size-sm;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="url"],
+  input[type="number"],
+  input[type="password"],
+  textarea,
+  select {
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    font-size: $font-size-base;
+    // Input bg/text are themable globally via Settings → Admin →
+    // Inputs. Falling back to white + page-text → static text-color
+    // keeps the default neutral.
+    background-color: var(--admin-input-bg, #fff);
+    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+    transition: border-color $transition-fast, background-color $transition-fast, color $transition-fast;
+
+    &::placeholder {
+      // Placeholder uses the input text token at lower alpha so it
+      // visibly differentiates from real input but still respects the
+      // operator's chosen color family.
+      color: var(--admin-input-text, $text-light);
+      opacity: 0.5;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--site-primary, #{$primary-color});
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right $spacing-md center;
+    padding-right: $spacing-xl;
+  }
+}
+
+
+
+.form-row {
+  display: flex;
+  gap: $spacing-md;
+  align-items: flex-start;
+
+  .form-group {
+    min-width: 150px;
+  }
+}
+
+
+
+.form-help {
+  display: block;
+  margin-top: $spacing-xs;
+  font-size: $font-size-xs;
+  // Helper text derives from the configured page-text at reduced
+  // opacity so it stays subordinate to body copy without being a
+  // hardcoded grey that disappears on dark themes. Falls back to
+  // the static $text-light when no page-text is configured.
+  color: var(--admin-page-text, #{$text-light});
+  opacity: 0.7;
+}
+
+
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  font-weight: normal;
+
+  input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+}
+
+
+
+.form-actions {
+  display: flex;
+  gap: $spacing-md;
+  padding-top: $spacing-lg;
+  border-top: 1px solid $border-color;
+  margin-top: $spacing-lg;
+}
+
+
+
+// Empty state
+.empty-state {
+  text-align: center;
+  padding: $spacing-xl;
+  color: $text-light;
+  background: $background-dark;
+  border-radius: $border-radius-md;
+}
+
+
+
+// Question cards for form editor
+.questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+}
+
+
+
+.question-card {
+  background: $background-dark;
+  border-radius: $border-radius-md;
+  border: 1px solid $border-color;
+  overflow: hidden;
+
+  .question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-sm $spacing-md;
+    background: color.adjust($background-dark, $lightness: -2%);
+    border-bottom: 1px solid $border-color;
+  }
+
+  .question-number {
+    font-weight: 600;
+    font-size: $font-size-sm;
+  }
+
+  .question-actions {
+    display: flex;
+    gap: $spacing-xs;
+  }
+
+  .question-body {
+    padding: $spacing-md;
+  }
+}
+
+
+
+// Options for poll questions
+.options-section {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: $background;
+  border-radius: $border-radius-md;
+
+  > label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: $spacing-sm;
+    font-size: $font-size-sm;
+  }
+}
+
+
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-sm;
+}
+
+
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .option-indicator {
+    color: $text-light;
+    font-size: $font-size-lg;
+    width: 20px;
+    text-align: center;
+  }
+
+  input {
+    flex: 1;
+    padding: $spacing-xs $spacing-sm;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+
+    &:focus {
+      outline: none;
+      border-color: var(--site-primary, #{$primary-color});
+    }
+  }
+}

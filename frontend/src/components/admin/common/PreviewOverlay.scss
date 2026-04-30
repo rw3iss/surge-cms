@@ -26,6 +26,33 @@
         border-radius: $border-radius-sm;
     }
 
+    &__title {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        margin-left: $spacing-md;
+        max-width: 40vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__status {
+        font-size: $font-size-xs;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-left: $spacing-sm;
+        padding: 1px $spacing-sm;
+        background: rgba(255,255,255,0.2);
+        border-radius: $border-radius-full;
+    }
+
+    // Push the close button to the far right while title/status hug
+    // the badge on the left.
+    &__close {
+        margin-left: auto;
+    }
+
     &__close {
         background: none;
         border: 1px solid rgba(255,255,255,0.3);

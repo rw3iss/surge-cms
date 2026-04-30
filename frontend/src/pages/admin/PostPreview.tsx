@@ -45,9 +45,7 @@ const PostPreview: Component = () => {
                                 </div>
                             </Show>
                             <Show when={!data().blocks?.length}>
-                                <div style={{ padding: '2rem', 'text-align': 'center', color: '#999', }}>
-                                    No content blocks to preview
-                                </div>
+                                <div class="preview-empty-message">No content blocks to preview</div>
                             </Show>
                         </article>
                         </div>

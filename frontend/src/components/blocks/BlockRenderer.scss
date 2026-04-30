@@ -19,7 +19,6 @@
   }
 
   // Center media / embed block types horizontally within their container
-  &--social_media,
   &--image,
   &--video,
   &--document,
@@ -34,8 +33,8 @@
     }
   }
 
-  // Social feed: center normally, but constrain width for row-scroll
-  &--social_feed {
+  // Social block: center normally, but constrain width for row-scroll
+  &--social {
     overflow: hidden;
 
     .block__inner {

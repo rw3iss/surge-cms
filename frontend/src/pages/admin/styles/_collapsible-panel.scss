@@ -1,0 +1,84 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// ─── Collapsible panel (properties sections) ───
+.collapsible-panel {
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  background: $background;
+  margin-bottom: $spacing-sm;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    transition: background 0.1s;
+
+    &:hover { background: $background-dark; }
+  }
+
+  &__header-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-size: $font-size-sm;
+    color: var(--admin-page-text, #{$text-color});
+    padding: 0;
+    min-width: 0;
+  }
+
+  &__icon {
+    font-size: 10px;
+    color: $text-light;
+    width: 14px;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: $font-size-sm;
+    flex-shrink: 0;
+  }
+
+  &__subtitle {
+    color: $text-light;
+    font-size: $font-size-xs;
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+
+  &__header-content {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+  }
+
+  &__header-extra {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin-left: $spacing-sm;
+    flex-shrink: 0;
+  }
+
+  &__body {
+    padding: $spacing-sm $spacing-md $spacing-md;
+    border-top: 1px solid $border-color;
+  }
+}

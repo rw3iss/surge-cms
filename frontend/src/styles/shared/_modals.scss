@@ -1,0 +1,50 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../variables' as *;
+
+
+// Confirm modal
+.confirm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+
+
+.confirm-modal {
+    background: $background;
+    border-radius: $border-radius-lg;
+    padding: $spacing-xl;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: $shadow-xl;
+
+    &__title {
+        margin: 0 0 $spacing-sm;
+        font-size: $font-size-lg;
+        font-weight: 600;
+    }
+
+    &__message {
+        margin: 0 0 $spacing-xl;
+        color: $text-light;
+        font-size: $font-size-sm;
+        line-height: 1.5;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $spacing-md;
+    }
+}

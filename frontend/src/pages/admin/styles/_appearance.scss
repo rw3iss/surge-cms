@@ -1,0 +1,360 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// ─── Appearance Theme Editor ───
+
+.appearance-panel {
+  // Tail padding so that closing the swatch editor (which lives at
+  // the bottom of the Appearance panel) doesn't leave the page
+  // bouncing back to the top — the page has enough scroll room
+  // already that the layout shift stays in place.
+  padding-bottom: 100px;
+
+  &__action-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding-bottom: $spacing-md;
+    margin-bottom: $spacing-lg;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__saved {
+    color: #28a745;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+}
+
+
+
+.theme-section {
+  // Same panel theming as .settings-card / .dashboard-panel: bg + text
+  // and border are themable via Settings → Admin. The Appearance tab
+  // uses this class for its sectioned editor (Colors / Typography /
+  // Layout) so it inherits admin panel styling uniformly.
+  background: var(--admin-panel-bg, #{$background});
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+
+  // Same panel-scoped overrides as .settings-card so descendants
+  // pick up panel-text instead of the global page-text rule.
+  h1, h2, h3, h4, h5, h6,
+  label,
+  .theme-field__label,
+  .theme-field__sublabel {
+    color: inherit;
+  }
+
+  &__title {
+    margin: 0 0 $spacing-sm;
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: inherit;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid var(--admin-panel-border, #{$border-color});
+  }
+
+  &__description {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-sm;
+    color: inherit;
+    opacity: 0.7;
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+}
+
+
+
+.theme-field {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+
+  &__label-group {
+    flex: 0 0 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__sublabel {
+    font-size: $font-size-xs;
+    // Sublabel derives from page-text muted to 70% opacity. When the
+    // theme-field is inside a panel, the panel-text override on the
+    // panel container kicks in via `color: inherit` on the parent.
+    // The opacity is the same regardless so it always reads as
+    // visually subordinate to the main label.
+    color: var(--admin-page-text, #{$text-light});
+    opacity: 0.7;
+  }
+
+  &__control {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  &__input {
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-family: inherit;
+  }
+
+  @include mobile-only {
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    &__label-group {
+      flex: none;
+    }
+  }
+}
+
+
+
+// ─── Site Colors Panel ───
+
+.site-colors-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+
+
+.site-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: $spacing-sm;
+  max-width: 560px;
+
+  &__swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: $border-radius-sm;
+    border: 1px solid $border-color;
+    cursor: pointer;
+    transition: transform 0.1s, border-color $transition-fast;
+    // Slot for the inline ID label at the bottom of the swatch.
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0 0 3px 0;
+
+    &:hover {
+      transform: scale(1.08);
+      border-color: var(--admin-page-text, #{$text-color});
+    }
+
+    &--add {
+      background: $background;
+      color: $text-light;
+      font-size: 1.25rem;
+      font-weight: 700;
+      align-items: center;
+      padding: 0;
+      border: 1px dashed $border-color;
+
+      &:hover {
+        border-color: var(--site-primary, #{$primary-color}) !important;
+        color: var(--site-primary, #{$primary-color});
+      }
+    }
+  }
+
+  &__swatch-id {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 9px;
+    line-height: 1;
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.85);
+    color: #1a1a1a;
+    border-radius: 2px;
+    pointer-events: none;
+    max-width: calc(100% - 4px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+
+
+.site-colors-grid__swatch--active {
+  outline: 2px solid var(--site-primary, #{$primary-color});
+  outline-offset: 2px;
+}
+
+
+
+.site-colors-editor {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: $background-dark;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  max-width: 480px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__preview {
+    width: 72px;
+    height: 72px;
+    border-radius: $border-radius-md;
+    border: 2px solid $border-color;
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color $transition-fast, transform 0.1s;
+
+    &:hover {
+      border-color: var(--site-primary, #{$primary-color});
+      transform: scale(1.03);
+    }
+
+    &--active {
+      border-color: var(--site-primary, #{$primary-color});
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.25);
+    }
+  }
+
+  &__hex {
+    width: 110px;
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-family: var(--admin-font-mono, monospace);
+    font-size: $font-size-sm;
+  }
+
+  &__field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $spacing-md;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-light;
+  }
+
+  &__input {
+    padding: 6px 10px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+
+    &--mono {
+      font-family: var(--admin-font-mono, monospace);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--site-primary, #{$primary-color});
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+    }
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+    line-height: 1.4;
+
+    code {
+      font-family: var(--admin-font-mono, monospace);
+      background: rgba(0, 0, 0, 0.05);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  }
+
+  &__wheel-wrap {
+    display: flex;
+    justify-content: center;
+    padding: $spacing-sm 0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+}
+
+
+
+.site-colors-usage-list {
+  list-style: none;
+  margin: $spacing-md 0 0;
+  padding: 0;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-sm;
+  overflow: hidden;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: $font-size-sm;
+    background: $background;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid $border-color;
+    }
+  }
+
+  &__source { color: $text-color; }
+  &__count {
+    font-family: var(--admin-font-mono, monospace);
+    font-weight: 600;
+    color: $text-light;
+  }
+}

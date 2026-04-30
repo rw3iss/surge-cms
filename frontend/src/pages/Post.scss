@@ -39,8 +39,7 @@
 
 .post-block {
   // Center media-type blocks horizontally
-  &--social_media,
-  &--social_feed,
+  &--social,
   &--image,
   &--video,
   &--document,
@@ -58,7 +57,7 @@
     }
 
     // Row layout needs full width to scroll within
-    .social-feed-block__grid--row {
+    .social-block__grid--row {
       max-width: 100%;
     }
   }

@@ -1,0 +1,56 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// ─── Pagination controls ───
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: $spacing-md 0;
+  flex-wrap: wrap;
+
+  &__btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    background: #fff;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    color: #333;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled):not(&--active) {
+      background: #f5f5f5;
+      border-color: #bbb;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--active {
+      background: var(--site-primary, #{$primary-color});
+      border-color: var(--site-primary, #{$primary-color});
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  &__ellipsis {
+    padding: 0 4px;
+    color: #999;
+  }
+
+  &__info {
+    margin-left: auto;
+    color: #666;
+    font-size: 0.85rem;
+  }
+}

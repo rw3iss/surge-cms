@@ -30,7 +30,7 @@ const TextBlock: Component<TextBlockProps> = (props,) => {
                 }
             >
                 <div class="form-group">
-                    <small class="form-help" style={{ color: '#888', }}>
+                    <small class="form-help-muted">
                         Click the block to edit text directly with the in-place toolbar.
                     </small>
                 </div>

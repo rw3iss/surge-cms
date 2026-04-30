@@ -185,7 +185,7 @@ const ImageBlock: Component<ImageBlockProps> = (props,) => {
                     when={selected()}
                     fallback={
                         <div class="form-group">
-                            <small class="form-help" style={{ color: '#888', }}>
+                            <small class="form-help-muted">
                                 Click + above to add an image.
                             </small>
                         </div>

@@ -90,11 +90,8 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     <Match when={props.block.type === 'campaign'}>
                         <CampaignBlock block={props.block} />
                     </Match>
-                    <Match when={props.block.type === 'social_feed'}>
-                        <SocialFeedBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'social_media'}>
-                        <SocialMediaEmbed block={props.block} />
+                    <Match when={props.block.type === 'social'}>
+                        <SocialBlock block={props.block} />
                     </Match>
                     <Match when={props.block.type === 'text'}>
                         <RichTextBlock block={props.block} />
@@ -555,13 +552,13 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
 };
 
 const FEED_LAYOUT_CLASS: Record<string, string> = {
-    'grid': 'social-feed-block__grid',
-    '2-col': 'social-feed-block__grid social-feed-block__grid--2col',
-    '1-col': 'social-feed-block__grid social-feed-block__grid--1col',
-    'row': 'social-feed-block__grid social-feed-block__grid--row',
+    'grid': 'social-block__grid',
+    '2-col': 'social-block__grid social-block__grid--2col',
+    '1-col': 'social-block__grid social-block__grid--1col',
+    'row': 'social-block__grid social-block__grid--row',
 };
 
-interface SocialFeedItem {
+interface SocialBlockItem {
     id?: string;
     postId?: string;
     postUrl?: string;
@@ -570,13 +567,13 @@ interface SocialFeedItem {
     authorName?: string;
 }
 
-const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
+const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const settings = () => (props.block.settings || {}) as Record<string, any>;
     const provider = (): SocialPlatform | undefined =>
-        (settings().provider || settings().socialPlatform || settings().platform) as SocialPlatform | undefined;
-    const items = (): SocialFeedItem[] => {
+        settings().provider as SocialPlatform | undefined;
+    const items = (): SocialBlockItem[] => {
         const list = settings().items;
-        return Array.isArray(list,) ? (list as SocialFeedItem[]) : [];
+        return Array.isArray(list,) ? (list as SocialBlockItem[]) : [];
     };
     const filledItems = () => items().filter(i => i.postId || i.postUrl,);
     const count = (): number => Number(settings().count ?? items().length ?? 0);
@@ -605,20 +602,20 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
 
     return (
         <div
-            class={`social-feed-block${hasRowHeight() ? ' social-feed-block--has-height' : ''}`}
+            class={`social-block${hasRowHeight() ? ' social-block--has-height' : ''}`}
             style={hasRowHeight() ? { height: rowHeight(), } : undefined}
         >
             <Show
                 when={useAutoFeed() ? (posts()?.length ?? 0) > 0 : filledItems().length > 0}
                 fallback={
                     <Show when={!posts.loading}>
-                        <p class="social-feed-block__empty">No social posts available.</p>
+                        <p class="social-block__empty">No social posts available.</p>
                     </Show>
                 }
             >
                 <div
                     class={`${FEED_LAYOUT_CLASS[layout()] || FEED_LAYOUT_CLASS.grid}${
-                        !snapScroll() ? ' social-feed-block__grid--no-snap' : ''
+                        !snapScroll() ? ' social-block__grid--no-snap' : ''
                     }`}
                     style={{
                         ...(blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {}),
@@ -658,22 +655,6 @@ const SocialFeedBlock: Component<{ block: Block; }> = (props,) => {
                 </div>
             </Show>
         </div>
-    );
-};
-
-const SocialMediaEmbed: Component<{ block: Block; }> = (props,) => {
-    const s = () => props.block.settings || {};
-    return (
-        <Show when={s().provider && (s().postId || s().postUrl)}>
-            <SocialEmbed
-                platform={s().provider as SocialPlatform}
-                externalId={String(s().postId || '',)}
-                mediaUrl={s().postUrl as string}
-                content={(s().content || props.block.content) as string}
-                thumbnailUrl={s().thumbnailUrl as string}
-                authorName={s().authorName as string}
-            />
-        </Show>
     );
 };
 

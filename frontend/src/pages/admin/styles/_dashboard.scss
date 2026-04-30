@@ -1,0 +1,576 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// ─── Dashboard: Site Features panel ───
+//
+// Compact vertical list. The container is width-constrained so it
+// doesn't stretch the full content area on wide displays. Header is
+// `inline-flex` with the manage link sitting right next to the
+// heading text, not pushed to the far right by `space-between`.
+.dashboard-features {
+  margin-top: $spacing-lg;
+  padding: $spacing-lg;
+  background: var(--admin-panel-bg, #fff);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+  max-width: 480px;
+
+  &__header {
+    display: inline-flex;
+    align-items: baseline;
+    gap: $spacing-md;
+    margin-bottom: $spacing-md;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-lg;
+    }
+  }
+
+  &__manage {
+    color: var(--site-primary, #{$primary-color});
+    font-size: $font-size-sm;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      filter: brightness(0.9);
+      text-decoration: underline;
+    }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+
+
+// One feature row: name on the left, status pill aligned on the right.
+// Pills are right-aligned by `margin-left: auto` rather than a flex
+// `space-between`, so the column visually feels like a tight pair
+// rather than a stretched layout.
+.dashboard-feature-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $border-color;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__name {
+    font-weight: 500;
+    font-size: $font-size-sm;
+  }
+
+  &__badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: $border-radius-full;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+
+    &--enabled {
+      background: rgba($success-color, 0.15);
+      color: color-mix(in srgb, $success-color 75%, black);
+    }
+
+    &--disabled {
+      background: rgba($text-light, 0.15);
+      color: $text-light;
+    }
+  }
+}
+
+
+
+.dashboard-loading {
+  padding: $spacing-2xl;
+  text-align: center;
+  color: $text-light;
+}
+
+
+
+.dashboard-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+}
+
+
+
+.dashboard-alert {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius-md;
+  text-decoration: none;
+  font-weight: 500;
+  transition: transform 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+  }
+
+  &--warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: currentColor;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  &--warning &__icon {
+    background: #856404;
+    color: #fff;
+  }
+
+  &__arrow {
+    margin-left: auto;
+    font-size: 1.2rem;
+  }
+}
+
+
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+}
+
+
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  background: var(--admin-panel-bg, white);
+  // Panel-text drives stat values; the muted label below uses a
+  // softer color via its own rule so it still feels secondary.
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border-radius: $border-radius-lg;
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+  }
+
+  &--wide {
+    grid-column: span 2;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: $border-radius-md;
+    flex-shrink: 0;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    &--blue { background: #dbeafe; color: #2563eb; }
+    &--green { background: #dcfce7; color: #16a34a; }
+    &--purple { background: #f3e8ff; color: #9333ea; }
+    &--orange { background: #ffedd5; color: #ea580c; }
+    &--red { background: #fee2e2; color: #dc2626; }
+    &--teal { background: #ccfbf1; color: #0d9488; }
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__label {
+    font-size: 0.8rem;
+    color: $text-light;
+    margin-top: 2px;
+  }
+}
+
+
+
+.dashboard-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-lg;
+  margin-bottom: $spacing-xl;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+.dashboard-panel {
+  background: var(--admin-panel-bg, white);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+  overflow: hidden;
+
+  // Headings + labels inside this panel inherit panel-text rather
+  // than the global page-text rule (see `.settings-card` for the
+  // same reasoning).
+  h1, h2, h3, h4, h5, h6, label {
+    color: inherit;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+
+    h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+    }
+  }
+
+  &__link {
+    font-size: 0.85rem;
+    color: var(--site-primary, #{$primary-color});
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__body {
+    padding: $spacing-md $spacing-lg;
+  }
+}
+
+
+
+.dashboard-activity-item {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $border-color;
+  text-decoration: none;
+  color: inherit;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: $background-dark; margin: 0 (-$spacing-lg); padding: $spacing-sm $spacing-lg; }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__title {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: 0.8rem;
+    color: $text-light;
+  }
+}
+
+
+
+.dashboard-summary-list {
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.dashboard-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $border-color;
+
+  &:last-child { border-bottom: none; }
+
+  &__label {
+    font-size: 0.9rem;
+    color: $text-light;
+  }
+
+  &__value {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+}
+
+
+
+.dashboard-quick-actions {
+  margin-bottom: $spacing-xl;
+
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: $spacing-md;
+  }
+
+  &__grid {
+    display: flex;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+  }
+}
+
+
+
+.quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  background: white;
+  border: 1px dashed $border-color;
+  border-radius: $border-radius-md;
+  color: $text-light;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--site-primary, #{$primary-color});
+    color: var(--site-primary, #{$primary-color});
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 52%, white);
+  }
+
+  &__icon {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+}
+
+
+
+.text-muted {
+  color: $text-light;
+}
+
+
+
+// ─── Global Search ───
+
+.global-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  backdrop-filter: blur(4px);
+}
+
+
+
+.global-search {
+  width: 100%;
+  max-width: 640px;
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+
+  &__input-wrap {
+    display: flex;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: $font-size-lg;
+    font-family: inherit;
+    background: transparent;
+
+    &::placeholder {
+      color: $text-light;
+    }
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+    padding: 2px 6px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    white-space: nowrap;
+  }
+
+  &__loading,
+  &__empty {
+    padding: $spacing-lg;
+    text-align: center;
+    color: $text-light;
+    font-size: $font-size-sm;
+  }
+
+  &__results {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-lg;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-bottom: 1px solid color.adjust($border-color, $lightness: 5%);
+
+    &:last-child { border-bottom: none; }
+
+    &--active {
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
+    }
+  }
+
+  &__item-type {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-light;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    background: $background-dark;
+    border-radius: $border-radius-sm;
+    white-space: nowrap;
+  }
+
+  &__item-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__item-title {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: var(--admin-page-text, #{$text-color});
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item-snippet {
+    font-size: $font-size-xs;
+    color: $text-light;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  &__footer {
+    display: flex;
+    gap: $spacing-md;
+    padding: $spacing-xs $spacing-lg;
+    background: $background-dark;
+    border-top: 1px solid $border-color;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+}
+
+
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    $background-dark 25%,
+    color.adjust($background-dark, $lightness: 3%) 50%,
+    $background-dark 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s infinite;
+  border-radius: $border-radius-sm;
+
+  &--row {
+    height: 52px;
+  }
+
+  &--text {
+    height: 1em;
+    width: 80%;
+  }
+
+  &--circle {
+    border-radius: 50%;
+  }
+}

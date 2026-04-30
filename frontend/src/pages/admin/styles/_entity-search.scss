@@ -1,0 +1,61 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// ─── Entity Search Select (reusable) ───
+
+.entity-search {
+  &__dropdown {
+    // Position is set inline as fixed + calculated coords so it
+    // escapes overflow:auto containers (flyout panel, modals).
+    z-index: $z-index-modal;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  &__option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: $background-dark;
+    }
+
+    &--selected {
+      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
+    }
+  }
+
+  &__option-title {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__option-meta {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__empty {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-align: center;
+  }
+}

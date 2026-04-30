@@ -18,7 +18,7 @@
 
 export type BlockType =
     | 'text'
-    | 'social_media'
+    | 'social'
     | 'image'
     | 'video'
     | 'document'
@@ -30,7 +30,6 @@ export type BlockType =
     | 'form'
     | 'post'
     | 'post_list'
-    | 'social_feed'
     | 'gallery'
     | 'carousel'
     | 'spacer'
@@ -164,11 +163,7 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
         recentSource: 'forms',
         recentDataField: 'formId',
     },
-    { type: 'social_feed', label: 'Social', icon: '⌘', category: 'blocks', },
-    // social_media has been merged into the Social block (social_feed
-    // type). Existing rows still render; new content is created as
-    // social_feed. Hidden from the picker.
-    { type: 'social_media', label: 'Social Media Post (legacy)', enabled: false, },
+    { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
 
     // ─── Layout ───────────────────────────────────────────
     {

@@ -33,8 +33,13 @@ The repo directory and workspace identifiers (`rw-cms`, `@rw/shared`) are histor
 ## Removed / merged block types
 - `post` (single embed) → merged into Posts (`post_list` type, labelled "Posts" in the picker). Migration 027 deletes legacy rows.
 - `gallery` → folded into the multi-image upgrade of `image`. Migration 027 deletes legacy rows; public renderer shows a polite fallback note for any that survived.
-- `social_media` (single post) → merged into Social (`social_feed` type, labelled "Social"). Migration 028 deletes legacy rows. Editor coalesces legacy single-post fields into a one-slot list on first edit.
+- `social_media` + `social_feed` → unified as a single `social` block type (label: "Social"). Migration 028 deletes legacy `social_media` rows; migration 029 renames `social_feed` rows to `social` and adds the `social` enum value. Single-post and feed UX live in one editor.
 - Enum values stay in `block_type` for safety; the picker just doesn't surface them.
+
+## Admin styles
+- `frontend/src/pages/admin/AdminLayout.scss` is a slim index — actual rules live in `frontend/src/pages/admin/styles/_*.scss` partials grouped by feature (admin shell, block editor, inline editors, dashboard, settings, etc.) and in `frontend/src/styles/shared/` for things both the admin and the main site use.
+- **Read `frontend/src/components/admin/ADMIN_STYLES.md` before adding admin styles.** It documents which partial owns what, when to hoist to `styles/shared/` vs keep admin-local, and the convention for `@use 'sass:color';` + `@use '../../../styles/variables' as *;` at the top of each partial.
+- Repeated inline `style={{ ... }}` patterns belong in a partial. Common shared helpers (`.confirm-modal*`, `.preview-empty-message`, `.form-help-muted`) live in `styles/shared/` or `global.scss`.
 
 ## Architecture
 

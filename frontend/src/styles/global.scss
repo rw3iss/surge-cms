@@ -458,3 +458,28 @@ html:not([data-active-outlines='show']) {
     max-width: 600px;
   }
 }
+
+// ─── Shared admin utilities ─────────────────────────────────────────
+//
+// Tiny presentation helpers that were being inlined as `style={{ ... }}`
+// across multiple block editors and preview components. Centralised
+// here so future palette / spacing changes stay in lockstep.
+
+/** Centered "nothing to show" message used by editor previews. */
+.preview-empty-message {
+  padding: $spacing-2xl $spacing-lg;
+  text-align: center;
+  color: $text-light;
+  font-size: $font-size-sm;
+}
+
+/** Muted helper text under form fields. Replaces inline
+ *  `style={{ color: '#888' }}` patterns across block editor forms
+ *  (GroupBlock, GroupItemBlock, ImageBlock, BlockEditController…). */
+.form-help-muted {
+  display: block;
+  margin-bottom: $spacing-sm;
+  color: $text-light;
+  font-size: $font-size-xs;
+  line-height: $line-height-tight;
+}

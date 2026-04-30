@@ -16,7 +16,7 @@ const router = Router();
 const contentBlockSchema = z.object({
     id: z.string().optional(),
     type: z.enum([
-        'text', 'rich_text', 'social_media', 'social_feed', 'image', 'video',
+        'text', 'rich_text', 'social', 'image', 'video',
         'document', 'url_link', 'hero', 'html', 'campaign', 'form', 'post', 'post_list',
         'gallery', 'carousel', 'spacer',
     ],),

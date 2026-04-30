@@ -1,0 +1,659 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+.admin-layout {
+  // Body type. IBM Plex Sans reads cleanly at UI sizes; a hair of
+  // negative letter-spacing tightens the rhythm for dense admin chrome.
+  font-family: var(--admin-font-body);
+  letter-spacing: -0.005em;
+
+  // All headings inside admin chrome use the display face. Negative
+  // letter-spacing scales with size so larger headings read tighter
+  // — that's what makes display type feel "designed" rather than
+  // just "bigger".
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--admin-font-display);
+    letter-spacing: -0.015em;
+    // Headings follow page-text by default, so the operator's color
+    // applies uniformly. Specific contexts (admin-header, panels)
+    // can override.
+    color: var(--admin-page-text, #{$text-color});
+  }
+  h1 { font-weight: 700; letter-spacing: -0.022em; }
+  h2 { font-weight: 700; letter-spacing: -0.018em; }
+  h3 { font-weight: 600; }
+
+  // Global input/select/textarea defaults so inputs OUTSIDE
+  // `.form-group` (e.g. inline editor controls) also pick up the
+  // configured admin input theme. Specific component classes can
+  // still override.
+  input[type="text"],
+  input[type="email"],
+  input[type="url"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  textarea,
+  select {
+    background-color: var(--admin-input-bg, #fff);
+    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+  }
+
+  display: flex;
+  min-height: 100vh;
+
+  &__hamburger {
+    display: none;
+    position: fixed;
+    top: $spacing-md;
+    left: $spacing-md;
+    z-index: 1002;
+    background: $secondary-color;
+    border: none;
+    border-radius: $border-radius-md;
+    padding: 10px;
+    cursor: pointer;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    box-shadow: $shadow-md;
+
+    span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: white;
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    &--open {
+      span:nth-child(1) {
+        transform: translateY(7px) rotate(45deg);
+      }
+      span:nth-child(2) {
+        opacity: 0;
+      }
+      span:nth-child(3) {
+        transform: translateY(-7px) rotate(-45deg);
+      }
+    }
+  }
+
+  &__overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  &__sidebar {
+    width: 200px;
+    // Sidebar tokens come from admin appearance settings; fall back to
+    // the static dark navy + white when unset.
+    background: var(--admin-sidebar-bg, #{$secondary-color});
+    color: var(--admin-sidebar-text, white);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    transition: width 0.2s ease;
+    overflow: hidden;
+  }
+
+  &__logo {
+    padding: $spacing-lg;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    overflow: hidden;
+
+    a {
+      color: var(--admin-sidebar-text, white);
+      // Display face + tighter tracking so the brand mark feels
+      // like a logo rather than a paragraph header.
+      font-family: var(--admin-font-display);
+      font-size: $font-size-xl;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      text-decoration: none;
+    }
+  }
+
+  &__nav {
+    flex: 1;
+    padding: $spacing-md 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  &__nav-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+  }
+
+  &__nav-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__nav-link {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-lg;
+    // Sidebar text inherits from --admin-sidebar-text. Idle links use
+    // an alpha multiplier on top, hover/active use the full color.
+    color: var(--admin-sidebar-text, rgba(255, 255, 255, 0.7));
+    opacity: 0.75;
+    // Body type for sidebar items (as opposed to the logo above) so
+    // they read clearly at smaller sizes and don't compete with the
+    // brand mark visually.
+    font-family: var(--admin-font-body);
+    font-weight: 500;
+    font-size: $font-size-sm;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+    transition: all $transition-fast;
+
+    &:hover,
+    &.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--admin-sidebar-text, white);
+      opacity: 1;
+    }
+
+    &.active {
+      // Active nav row uses the configured brand color, falling back to
+      // the static SCSS color when the var isn't set (e.g. before
+      // appearance settings load).
+      border-left: 3px solid var(--site-primary, #{$primary-color});
+    }
+  }
+
+  &__sidebar-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    overflow: hidden;
+  }
+
+  &__user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    flex-shrink: 0;
+    border: none;
+    cursor: default;
+    line-height: 1;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  &__user-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  // When collapsed the avatar becomes the logout button
+  button.admin-layout__user-avatar {
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  }
+
+  &__user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  &__user-name {
+    font-size: $font-size-xs;
+    color: rgba(255, 255, 255, 0.7);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3;
+  }
+
+  &__user-logout {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0;
+    text-align: left;
+    line-height: 1.3;
+
+    &:hover { color: rgba(255, 255, 255, 0.7); }
+  }
+
+  &__collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 6px 0;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.04);
+    }
+  }
+
+  &__main {
+    flex: 1;
+    margin-left: 200px;
+    padding: $spacing-xl;
+    // Page area uses --admin-page-bg / --admin-page-text from settings,
+    // falling back to the static neutral background and text colors.
+    background: var(--admin-page-bg, #{$background-dark});
+    color: var(--admin-page-text, #{$text-color});
+    min-height: 100vh;
+    // Use clip instead of hidden — hidden creates a new scroll container
+    // which breaks position:sticky on descendant elements (flyout panel).
+    overflow-x: clip;
+    min-width: 0;
+    transition: margin-left 0.2s ease;
+  }
+
+  // ─── Collapsed sidebar ───
+  $collapsed-width: 56px;
+
+  &--collapsed {
+    .admin-layout__sidebar {
+      width: $collapsed-width;
+    }
+
+    .admin-layout__logo {
+      padding: $spacing-sm;
+      text-align: center;
+
+      // Hide text, show only the logo icon
+      a { font-size: $font-size-sm; }
+    }
+
+    .admin-layout__nav-link {
+      justify-content: center;
+      padding: $spacing-sm;
+    }
+
+    .admin-layout__nav-label {
+      display: none;
+    }
+
+    .admin-layout__user {
+      justify-content: center;
+      padding: $spacing-xs;
+    }
+
+    .admin-layout__main {
+      margin-left: $collapsed-width;
+    }
+  }
+}
+
+
+
+// Mobile responsive styles
+@media (max-width: 768px) {
+  .admin-layout {
+    &__hamburger {
+      display: flex;
+    }
+
+    &__overlay {
+      display: block;
+    }
+
+    &__sidebar {
+      transform: translateX(-100%);
+
+      &--open {
+        transform: translateX(0);
+      }
+    }
+
+    &__main {
+      margin-left: 0 !important;
+      padding: $spacing-md;
+      padding-top: calc(#{$spacing-md} + 58px);
+    }
+
+    &--collapsed .admin-layout__sidebar {
+      width: 200px;
+    }
+
+    .admin-layout__collapse-toggle {
+      display: none;
+    }
+  }
+
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-sm;
+
+    h1 {
+      font-size: $font-size-xl;
+    }
+  }
+
+  .admin-form {
+    padding: $spacing-md;
+  }
+
+  .admin-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .connection-card {
+    flex-wrap: wrap;
+
+    &__info {
+      flex-basis: calc(100% - 56px);
+    }
+
+    &__actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+
+  .media-modal {
+    padding: $spacing-sm;
+
+    &__container {
+      max-width: 100vw;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+
+    &__footer {
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+
+  .block-toolbar {
+    flex-wrap: wrap;
+
+    &__actions {
+      margin-left: 0;
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+}
+
+// Admin table wrapper for horizontal scroll
+.admin-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+
+
+// Stack form fields on mobile
+@media (max-width: 768px) {
+  .admin-form {
+    .form-row {
+      flex-direction: column;
+    }
+  }
+}
+
+// Admin common styles
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid $border-color;
+
+  h1 {
+    margin: 0;
+    font-size: $font-size-3xl;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--admin-page-text, #{$text-color});
+  }
+
+  &__subtitle {
+    color: $text-light;
+    font-size: $font-size-sm;
+    margin-top: 4px;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+}
+
+
+
+// Tables
+.admin-table-container {
+  // Tables read as panels — they get the same panel bg/text tokens
+  // as cards, so a customized panel color flows uniformly through
+  // the listing pages (/admin/pages, /admin/posts, /admin/users, etc).
+  background: var(--admin-panel-bg, #{$background});
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border-radius: $border-radius-lg;
+  overflow: hidden;
+  box-shadow: $shadow-sm;
+
+  // Same panel-scoped override as .settings-card: descendant headings
+  // and labels follow panel-text rather than the global page-text rule.
+  h1, h2, h3, h4, h5, h6, label {
+    color: inherit;
+  }
+}
+
+
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  // Table cells inherit container color — the explicit `color: inherit`
+  // is here so any earlier global rules (or admin theme overrides)
+  // don't leak into table content.
+  color: inherit;
+
+  th, td {
+    padding: $spacing-md;
+    text-align: left;
+    border-bottom: 1px solid $border-color;
+  }
+
+  th {
+    background: $background-dark;
+    font-weight: 600;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  tbody tr:hover {
+    background: $background-dark;
+  }
+
+  td:last-child {
+    white-space: nowrap;
+  }
+
+  &__sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+
+    &:hover {
+      color: var(--admin-page-text, #{$text-color});
+    }
+  }
+
+  &__sort-icon {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+}
+
+
+
+// Forms
+.admin-form {
+  background: $background;
+  padding: $spacing-xl;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-sm;
+}
+
+
+
+// Filter bar
+.admin-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+    flex-wrap: wrap;
+
+    &__search {
+        flex: 1;
+        min-width: 200px;
+        max-width: 400px;
+    }
+
+    &__select {
+        min-width: 140px;
+    }
+
+    input, select {
+        padding: $spacing-xs $spacing-sm;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        font-size: $font-size-sm;
+    }
+}
+
+
+
+// ─── Dashboard ───
+
+.admin-header__subtitle {
+  // Subtitle derives from page-text muted to 70%, falling back to
+  // the static $text-light when no page-text is configured.
+  color: var(--admin-page-text, #{$text-light});
+  opacity: 0.7;
+  margin-top: $spacing-xs;
+  font-size: 0.95rem;
+}
+
+
+
+// ─── Admin List Page ───
+
+.admin-list-page {
+  &__bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 55%, white);
+    border: 1px solid var(--site-primary, #{$primary-color});
+    border-radius: $border-radius-md;
+  }
+
+  &__bulk-count {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--site-primary, #{$primary-color});
+  }
+
+  &__empty {
+    padding: $spacing-3xl;
+    text-align: center;
+    color: $text-light;
+    background: $background;
+    border: 1px dashed $border-color;
+    border-radius: $border-radius-lg;
+  }
+
+  &__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+}
+
+
+
+.admin-table__row--clickable {
+  cursor: pointer;
+
+  &:hover {
+    background: $background-dark;
+  }
+}

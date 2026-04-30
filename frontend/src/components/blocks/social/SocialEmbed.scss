@@ -144,8 +144,8 @@
   100% { background-position: 200% 0; }
 }
 
-// Grid for social_feed block in BlockRenderer
-.social-feed-block {
+// Grid for social block in BlockRenderer
+.social-block {
   max-width: 100%;
   overflow: hidden;
 
@@ -159,7 +159,7 @@
       height: 100%;
     }
 
-    .social-feed-block__grid--row {
+    .social-block__grid--row {
       // Each card slot fills the row height
       > * {
         height: 100%;
@@ -293,7 +293,7 @@
       }
 
       // When snap is disabled, remove snap behavior and start from beginning
-      &.social-feed-block__grid--no-snap {
+      &.social-block__grid--no-snap {
         scroll-snap-type: none;
 
         > * {
@@ -301,7 +301,7 @@
         }
       }
 
-      // Height is now handled by .social-feed-block--has-height above
+      // Height is now handled by .social-block--has-height above
     }
   }
 

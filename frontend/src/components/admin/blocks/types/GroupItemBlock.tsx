@@ -23,7 +23,7 @@ const GroupItemBlock: Component<GroupItemBlockProps> = (props,) => {
 
     return (
         <FormSection title="Slot size & alignment">
-            <small class="form-help" style={{ display: 'block', 'margin-bottom': '0.5rem', color: '#888', }}>
+            <small class="form-help-muted">
                 Override the parent group's defaults for this slot. Any valid CSS length (px, %, rem) works.
             </small>
             <FormField label="Width" inline>

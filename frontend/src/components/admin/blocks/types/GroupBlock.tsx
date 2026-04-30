@@ -106,7 +106,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
             </FormSection>
 
             <FormSection title="Item size defaults">
-                <small class="form-help" style={{ display: 'block', 'margin-bottom': '0.5rem', color: '#888', }}>
+                <small class="form-help-muted">
                     Applies to every slot in this group. Each slot can also override individually.
                 </small>
                 <FormField label="Item min width" inline>

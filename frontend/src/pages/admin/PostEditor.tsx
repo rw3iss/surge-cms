@@ -413,7 +413,11 @@ const AdminPostEditor: Component = () => {
 
             {/* Inline preview overlay — no navigation, preserves editor state */}
             <Show when={showPreview()}>
-                <PreviewOverlay onClose={() => setShowPreview(false,)}>
+                <PreviewOverlay
+                    onClose={() => setShowPreview(false,)}
+                    title={title() || 'Untitled post'}
+                    status={status() === 'published' ? 'Published' : status() === 'archived' ? 'Archived' : 'Draft'}
+                >
                     {/* Wrap in the public <Layout> so the preview shows
                         the configured site header, footer, navigation,
                         appearance vars, swatches, and fonts. */}
@@ -450,9 +454,7 @@ const AdminPostEditor: Component = () => {
                                 </div>
                             </Show>
                             <Show when={!blocks().length}>
-                                <div style={{ padding: '2rem', 'text-align': 'center', color: '#999', }}>
-                                    No content blocks to preview
-                                </div>
+                                <div class="preview-empty-message">No content blocks to preview</div>
                             </Show>
                         </article>
                         </div>

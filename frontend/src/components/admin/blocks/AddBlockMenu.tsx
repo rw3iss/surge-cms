@@ -160,7 +160,9 @@ export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
         setCollapsed(prev => ({ ...prev, [key]: !prev[key], }),);
     };
 
-    /** Show the recent-items submenu for an item with `recentSource`. */
+    /** Show the recent-items submenu for an item with `recentSource`.
+     *  Position is clamped to the viewport on both axes so narrow
+     *  windows (e.g. inline flyouts) still show the whole submenu. */
     const openSubmenu = (type: BlockType, source: RecentSource, rowEl: HTMLElement,) => {
         if (closeSubmenuTimer) {
             clearTimeout(closeSubmenuTimer,);
@@ -169,11 +171,19 @@ export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
         setHoveredType(type,);
         const r = rowEl.getBoundingClientRect();
         const vw = window.innerWidth;
+        const vh = window.innerHeight;
         let left = r.right + SUBMENU_OFFSET_PX;
         if (left + SUBMENU_WIDTH > vw - 12) {
             left = Math.max(12, r.left - SUBMENU_WIDTH - SUBMENU_OFFSET_PX,);
         }
-        setSubmenuPos({ top: r.top, left, },);
+        // Vertical clamp: if the row is near the bottom, anchor the
+        // submenu so its bottom sits 12px above the viewport floor.
+        const SUBMENU_MIN_HEIGHT = 160;
+        let top = r.top;
+        if (top + SUBMENU_MIN_HEIGHT > vh - 12) {
+            top = Math.max(12, vh - SUBMENU_MIN_HEIGHT - 12,);
+        }
+        setSubmenuPos({ top, left, },);
         // Fetch lazily; re-uses cache.
         if (!getRecent(source,)) void fetchRecent(source,);
     };

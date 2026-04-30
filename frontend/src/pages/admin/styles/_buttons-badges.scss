@@ -1,0 +1,203 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius-md;
+  // Display face on buttons gives them slightly more weight
+  // / character than body type would. Letter-spacing slightly
+  // tighter than the default to read as a "button label" rather
+  // than a paragraph fragment.
+  font-family: var(--admin-font-display);
+  font-weight: 600;
+  font-size: $font-size-sm;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: background $transition-fast, color $transition-fast, opacity $transition-fast;
+  gap: $spacing-xs;
+
+  &--primary {
+    background: var(--site-primary, #{$primary-color});
+    color: white;
+
+    &:hover:not(:disabled) {
+      filter: brightness(0.9);
+      color: white;
+    }
+  }
+
+  &--secondary {
+    background: $background;
+    color: var(--admin-page-text, #{$text-color});
+    border: 1px solid var(--site-primary, #{$border-color});
+
+    &:hover:not(:disabled) {
+      background: $background-dark;
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    color: var(--site-primary, #{$text-color});
+    border: 1px solid var(--site-primary, #{$border-color});
+
+    &:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+
+  &--danger {
+    background: $error-color;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: color.adjust($error-color, $lightness: -10%);
+    }
+  }
+
+  // Ghost-style button used for destructive secondary actions
+  // (e.g. "Delete Account"). Text-only red, hover background tint.
+  &--danger-text {
+    color: $error-color;
+
+    &:hover:not(:disabled) {
+      background: rgba($error-color, 0.08);
+      color: $error-color;
+    }
+  }
+
+  &--danger-ghost {
+    background: transparent;
+    color: $error-color;
+    padding: 2px $spacing-xs;
+    font-size: $font-size-xs;
+
+    &:hover:not(:disabled) {
+      background: rgba($error-color, 0.06);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: var(--site-primary, #{$text-light});
+    border: none;
+    padding: $spacing-xs $spacing-sm;
+
+    &:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.05);
+      filter: brightness(0.9);
+    }
+  }
+
+  &--small {
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+  }
+
+  &--sm {
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+  }
+
+  &--xs {
+    padding: 2px $spacing-xs;
+    font-size: $font-size-xs;
+  }
+
+  &--icon {
+    padding: $spacing-xs;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+
+
+.table-link {
+  color: var(--admin-page-text, #{$text-color});
+  font-weight: 500;
+
+  &:hover {
+    color: var(--site-primary, #{$primary-color});
+  }
+}
+
+
+
+// Badges
+.badge {
+  display: inline-block;
+  padding: 2px $spacing-sm;
+  border-radius: $border-radius-full;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  text-transform: capitalize;
+
+  &--success {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  &--warning {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  &--info {
+    background: #d1ecf1;
+    color: #0c5460;
+  }
+
+  &--error {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  &--muted {
+    background: $background-dark;
+    color: $text-light;
+  }
+}
+
+
+
+// Alerts
+.alert {
+  padding: $spacing-md;
+  border-radius: $border-radius-md;
+  margin-bottom: $spacing-lg;
+
+  &--error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+
+  &--success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+}
+
+
+
+.badge--small {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+}

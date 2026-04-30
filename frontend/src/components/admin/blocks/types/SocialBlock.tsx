@@ -1,8 +1,7 @@
 /**
- * Merged Social Feed editor — replaces the previous Social Feed and
- * single-post Social Media block. The operator picks a provider, then
- * either lets the feed auto-fill from recent posts (count > items
- * filled) or hand-picks specific posts via the per-slot picker.
+ * Social block editor — operator picks a provider, sets a count, then
+ * either lets the block auto-fill from recent posts (no slots filled)
+ * or hand-picks specific posts via the per-slot picker.
  *
  * Each slot has a search input that opens a recent-posts dropdown for
  * the selected provider, plus an "Edit" button that opens a fuller
@@ -12,7 +11,10 @@ import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Sh
 import { api, } from '../../../../services/api';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 
-interface SocialFeedBlockProps {
+/** Editor for the unified Social block. Picks a provider, sets a count,
+ *  and either auto-fills (no slots filled) or hand-picks posts via the
+ *  per-slot search dropdown / SocialPostSelectModal. */
+interface SocialBlockProps {
     data: Record<string, any>;
     mode: 'view' | 'edit';
     onUpdate: (data: Record<string, any>,) => void;
@@ -42,26 +44,12 @@ const newId = (): string =>
 
 const blankItem = (): SocialItem => ({ id: newId(), });
 
-/** Coalesce items[] from new shape, fall back to legacy single-post
- *  fields (postId/postUrl/thumbnailUrl) so old social_media blocks
- *  rendered through this editor surface their existing selection. */
 function resolveItems(data: Record<string, any>,): SocialItem[] {
-    if (Array.isArray(data.items,) && data.items.length > 0) return data.items as SocialItem[];
-    if (data.postId || data.postUrl) {
-        return [{
-            id: 'legacy',
-            postId: data.postId,
-            postUrl: data.postUrl,
-            thumbnailUrl: data.thumbnailUrl,
-            content: data.content,
-            authorName: data.authorName,
-        },];
-    }
-    return [];
+    return Array.isArray(data.items,) ? (data.items as SocialItem[]) : [];
 }
 
-const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
-    const provider = () => (props.data.provider || props.data.socialPlatform || props.data.platform || '') as string;
+const SocialBlock: Component<SocialBlockProps> = (props,) => {
+    const provider = () => (props.data.provider || '') as string;
     const items = (): SocialItem[] => resolveItems(props.data);
     const count = (): number => {
         const c = Number(props.data.count ?? items().length ?? 1);
@@ -83,14 +71,7 @@ const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
     const update = (patch: Record<string, any>,) => props.onUpdate({ ...props.data, ...patch, },);
 
     const writeItems = (next: SocialItem[],) => {
-        // Migrate to the items[] shape on write. Strip the legacy
-        // single-post fields so they don't drift.
-        const {
-            postId: _p, postUrl: _u, thumbnailUrl: _t, authorName: _a,
-            content: _c, socialPlatform: _sp, platform: _pl,
-            ...rest
-        } = props.data;
-        props.onUpdate({ ...rest, provider: provider(), items: next, count: next.length, },);
+        props.onUpdate({ ...props.data, provider: provider(), items: next, count: next.length, },);
     };
 
     const padToCount = (n: number,): SocialItem[] => {
@@ -102,12 +83,7 @@ const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
     const setCount = (n: number,) => {
         const clamped = Math.min(50, Math.max(1, n,),);
         const list = padToCount(clamped,);
-        const {
-            postId: _p, postUrl: _u, thumbnailUrl: _t, authorName: _a,
-            content: _c, socialPlatform: _sp, platform: _pl,
-            ...rest
-        } = props.data;
-        props.onUpdate({ ...rest, provider: provider(), items: list, count: clamped, },);
+        props.onUpdate({ ...props.data, provider: provider(), items: list, count: clamped, },);
     };
 
     const updateItem = (idx: number, patch: Partial<SocialItem>,) => {
@@ -126,7 +102,7 @@ const SocialFeedBlock: Component<SocialFeedBlockProps> = (props,) => {
                     <label>Provider</label>
                     <select
                         value={provider()}
-                        onChange={(e,) => update({ provider: e.currentTarget.value, socialPlatform: e.currentTarget.value, platform: e.currentTarget.value, },)}
+                        onChange={(e,) => update({ provider: e.currentTarget.value, },)}
                     >
                         <option value="">Select a provider…</option>
                         <For each={PROVIDERS}>
@@ -347,4 +323,4 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
     );
 };
 
-export default SocialFeedBlock;
+export default SocialBlock;

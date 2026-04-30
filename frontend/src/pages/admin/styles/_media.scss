@@ -1,0 +1,445 @@
+// Auto-split from AdminLayout.scss on 2026-04-30.
+// See ADMIN_STYLES.md for the splitting rationale.
+
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+
+// Media grid
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $spacing-md;
+
+  &__item {
+    background: $background;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    box-shadow: $shadow-sm;
+    transition: box-shadow $transition-fast;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+
+    &:hover {
+      box-shadow: $shadow-md;
+    }
+  }
+
+  &__preview {
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: $background-dark;
+
+    img,
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__file-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $background-dark;
+    color: $text-light;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+
+  &__info {
+    padding: $spacing-sm;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  &__name {
+    font-size: $font-size-xs;
+    font-weight: 500;
+    color: var(--admin-page-text, #{$text-color});
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__filename {
+    font-size: 11px;
+    color: $text-light;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.7;
+  }
+
+  &__description {
+    font-size: 11px;
+    color: $text-light;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    display: flex;
+    gap: $spacing-xs;
+    font-size: 11px;
+    color: $text-light;
+    margin-top: 2px;
+
+    span {
+      &:not(:last-child)::after {
+        content: '\00b7';
+        margin-left: $spacing-xs;
+      }
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    margin-top: $spacing-xs;
+  }
+
+  &__edit {
+    padding: $spacing-sm;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    input, textarea {
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-sm;
+      font-size: $font-size-xs;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: var(--site-primary, #{$primary-color});
+      }
+    }
+
+    textarea {
+      resize: vertical;
+    }
+  }
+
+  &__edit-actions {
+    display: flex;
+    gap: 4px;
+  }
+}
+
+
+
+// Media modal
+.media-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: $spacing-lg;
+
+  &__container {
+    position: relative;
+    background: $background;
+    border-radius: $border-radius-lg;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: $shadow-xl;
+  }
+
+  &__close-icon {
+    position: absolute;
+    top: $spacing-sm;
+    right: $spacing-sm;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  &__content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    background: #1a1a1a;
+    cursor: pointer;
+
+    img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+
+    video {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+
+    audio {
+      width: 100%;
+      max-width: 400px;
+    }
+  }
+
+  &__audio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-lg;
+    padding: $spacing-xl;
+  }
+
+  &__audio-icon {
+    font-size: 4rem;
+    color: $text-light;
+  }
+
+  &__file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-md;
+    padding: $spacing-xl;
+    text-align: center;
+  }
+
+  &__file-icon {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $text-light;
+    background: $background-dark;
+    padding: $spacing-lg $spacing-xl;
+    border-radius: $border-radius-md;
+  }
+
+  &__file-name {
+    font-size: $font-size-base;
+    color: var(--admin-page-text, #{$text-color});
+    max-width: 400px;
+    word-break: break-all;
+  }
+
+  &__file-hint {
+    font-size: $font-size-sm;
+    color: $text-light;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    background: $background;
+    border-top: 1px solid $border-color;
+    gap: $spacing-md;
+  }
+
+  &__meta {
+    flex: 1;
+    text-align: center;
+    min-width: 0;
+
+    span {
+      display: block;
+
+      &:first-child {
+        font-weight: 500;
+        color: var(--admin-page-text, #{$text-color});
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+
+  &__meta-details {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+}
+
+
+
+// Media Picker Modal
+.media-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: $z-index-modal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+}
+
+
+
+.media-picker {
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xl;
+  width: 100%;
+  max-width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-lg;
+    border-bottom: 1px solid $border-color;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-lg;
+    }
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: $text-light;
+    padding: 0 $spacing-xs;
+    line-height: 1;
+
+    &:hover {
+      color: var(--admin-page-text, #{$text-color});
+    }
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: $spacing-lg;
+  }
+
+  &__loading,
+  &__empty {
+    text-align: center;
+    color: $text-light;
+    padding: $spacing-2xl;
+  }
+
+  &__grid {
+    display: grid;
+    gap: $spacing-md;
+
+    &--image {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+
+    &--video,
+    &--document {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+  }
+
+  &__item {
+    border: 2px solid $border-color;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--site-primary, #{$primary-color}) 80%, white);
+    }
+
+    &--selected {
+      border-color: var(--site-primary, #{$primary-color});
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
+    }
+  }
+
+  &__thumb {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__video-thumb,
+  &__doc-thumb {
+    width: 100%;
+    aspect-ratio: 4/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $background-dark;
+  }
+
+  &__play-icon {
+    font-size: 28px;
+    color: $text-light;
+  }
+
+  &__doc-icon {
+    font-size: 32px;
+  }
+
+  &__item-info {
+    padding: $spacing-sm;
+    border-top: 1px solid $border-color;
+  }
+
+  &__item-name {
+    display: block;
+    font-size: $font-size-xs;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__item-size {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $border-color;
+  }
+}

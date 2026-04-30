@@ -10,7 +10,7 @@ import GroupBlock from './types/GroupBlock';
 import GroupItemBlock from './types/GroupItemBlock';
 import ImageBlock from './types/ImageBlock';
 import PostListBlock from './types/PostListBlock';
-import SocialFeedBlock from './types/SocialFeedBlock';
+import SocialBlock from './types/SocialBlock';
 import TextBlock from './types/TextBlock';
 import UrlLinkBlock from './types/UrlLinkBlock';
 import VideoBlock from './types/VideoBlock';
@@ -49,7 +49,7 @@ const HeroBlockEdit: Component<{ data: Record<string, any>; onUpdate: (d: Record
  *  settings (block style, padding, etc.) for HTML blocks. */
 const HtmlBlockEdit: Component<{ data: Record<string, any>; onUpdate: (d: Record<string, any>,) => void; }> = () => (
     <div class="form-group">
-        <small class="form-help" style={{ color: '#888', }}>
+        <small class="form-help-muted">
             HTML content is edited directly on the block — click the block to switch between Code and Preview modes.
         </small>
     </div>
@@ -365,12 +365,6 @@ const BlockContentForm: Component<{
         <Match when={props.block.type === 'text' || props.block.type === 'rich_text'}>
             <TextBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
-        <Match when={props.block.type === 'social_media'}>
-            {/* Legacy single-post blocks edit through the merged
-                Social Feed UI; SocialFeedBlock coalesces the legacy
-                postId/postUrl fields into a one-item slot list. */}
-            <SocialFeedBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
         <Match when={props.block.type === 'image'}>
             <ImageBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
@@ -395,8 +389,8 @@ const BlockContentForm: Component<{
         <Match when={props.block.type === 'form'}>
             <FormBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
-        <Match when={props.block.type === 'social_feed'}>
-            <SocialFeedBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
+        <Match when={props.block.type === 'social'}>
+            <SocialBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'carousel'}>
             <CarouselBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />

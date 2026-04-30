@@ -1,0 +1,22 @@
+@use '../../../styles/variables' as *;
+
+// Admin typography tokens.
+//
+// Three paired faces:
+//   • Manrope — display / headings / logo / buttons / tabs / sidebar
+//     nav / labels. Narrow geometric letterforms with a premium SaaS
+//     feel; weights 500–800 carry confidence without going thin.
+//   • IBM Plex Sans — body text, paragraphs, descriptions, helper
+//     text. Classic IBM-designed business tone, slightly more
+//     humanistic than Inter for longer reading.
+//   • JetBrains Mono — slugs, IDs, dotted paths.
+//
+// Exposed as CSS custom properties on the admin root so elements
+// reference tokens (`var(--admin-font-display)`) rather than re-stating
+// the full stack.
+
+:root, .admin-layout {
+  --admin-font-display: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --admin-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --admin-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}

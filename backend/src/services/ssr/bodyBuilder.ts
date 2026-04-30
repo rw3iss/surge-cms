@@ -116,7 +116,7 @@ export interface PageBody {
  * Render a CMS page's HTML body. Honors `showTitle` (matches the
  * public renderer's behavior). Emits the page description and any
  * text-relevant blocks (rich_text, text, html). Skips dynamic blocks
- * (form, social_feed, post_list, carousel, etc.) — bots can't index
+ * (form, social, post_list, carousel, etc.) — bots can't index
  * runtime feeds anyway, and the SPA will render them when it mounts.
  */
 export function buildPageBody(p: PageBody,): string {
@@ -195,8 +195,7 @@ function renderBlockForSeo(block: {
         // Including their type as a comment so we know what's there
         // when debugging the SSR output.
         case 'form':
-        case 'social_feed':
-        case 'social_media':
+        case 'social':
         case 'post_list':
         case 'carousel':
         case 'gallery':

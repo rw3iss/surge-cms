@@ -115,7 +115,7 @@ CREATE INDEX idx_pages_nav ON pages(show_in_nav, nav_order);
 
 CREATE TYPE block_type AS ENUM (
     'rich_text', 'post', 'post_list', 'form', 'image', 'video',
-    'gallery', 'social_feed', 'campaign', 'hero', 'html',
+    'gallery', 'social', 'campaign', 'hero', 'html',
     'group', 'group_item'
 );
 

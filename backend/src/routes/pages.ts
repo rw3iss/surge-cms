@@ -42,7 +42,7 @@ const blockSchema = z.object({
     parentBlockId: z.string().uuid().nullable().optional(),
     type: z.enum([
         'rich_text', 'text', 'post', 'post_list', 'form', 'image', 'video', 'gallery',
-        'social_feed', 'social_media', 'campaign', 'hero', 'html',
+        'social', 'campaign', 'hero', 'html',
         'document', 'url_link', 'carousel', 'spacer',
         'group', 'group_item',
     ],),

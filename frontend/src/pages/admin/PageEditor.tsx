@@ -11,6 +11,7 @@ import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
 import { Layout, } from '../../components/layout/Layout';
+import { blockDataToRenderBlock, } from '../../utils/blockData';
 import { useToast, } from '../../components/common/toast';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
@@ -550,7 +551,12 @@ const AdminPageEditor: Component = () => {
             />
 
             <Show when={showPreview()}>
-                <PreviewOverlay backUrl="" onClose={() => setShowPreview(false,)}>
+                <PreviewOverlay
+                    backUrl=""
+                    onClose={() => setShowPreview(false,)}
+                    title={title() || 'Untitled page'}
+                    status={status() === 'published' ? 'Published' : 'Draft'}
+                >
                     {/* Wrap in the public <Layout> so the preview renders
                         the configured site header, footer, navigation,
                         appearance vars, swatches, and fonts — the same
@@ -569,39 +575,11 @@ const AdminPageEditor: Component = () => {
                                 {title()}
                             </h1>
                         </Show>
-                        <For
-                            each={buildBlockTree(blocks().map((block,) => {
-                                const { title: t, content: c, __styleRef, ...rest } = block.data || {};
-                                const ref = (__styleRef as any) || block.styleRef;
-                                let resolvedStyle: any = undefined;
-                                if (ref?.custom) resolvedStyle = ref.custom;
-                                else if (ref?.templateId) {
-                                    const allStyles = BlockStyleService.getCached();
-                                    const tmpl = allStyles.find((s: any,) => s.id === ref.templateId);
-                                    resolvedStyle = tmpl || { id: ref.templateId, };
-                                }
-                                return {
-                                    id: block.id,
-                                    pageId: params.id,
-                                    parentBlockId: block.parentBlockId ?? null,
-                                    type: block.type,
-                                    title: t || null,
-                                    content: c || null,
-                                    settings: rest,
-                                    order: block.sort_order || 0,
-                                    isVisible: true,
-                                    style: resolvedStyle,
-                                    createdAt: new Date(),
-                                    updatedAt: new Date(),
-                                } as any;
-                            }),)}
-                        >
-                            {(block,) => <BlockRenderer block={block as any} />}
+                        <For each={buildBlockTree(blocks().map((b,) => blockDataToRenderBlock(b, params.id,),),)}>
+                            {(block,) => <BlockRenderer block={block} />}
                         </For>
                         <Show when={!blocks().length}>
-                            <div style={{ padding: '4rem 2rem', 'text-align': 'center', color: '#999', }}>
-                                No content blocks to preview
-                            </div>
+                            <div class="preview-empty-message">No content blocks to preview</div>
                         </Show>
                         </div>
                     </Layout>
