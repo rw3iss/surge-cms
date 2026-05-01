@@ -84,6 +84,24 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      // Public-discoverable backend artifacts. In production the
+      // backend serves these from the same origin as the SPA, so
+      // relative links like `/sitemap.xml` work either way. In dev
+      // the vite server holds the SPA's origin; without these proxy
+      // entries, `<a href="/sitemap.xml">` lands on vite's SPA shell
+      // (or a 404) instead of the backend route.
+      '/sitemap.xml': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/feed.xml': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/robots.txt': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
   build: {
