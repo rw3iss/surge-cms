@@ -4,7 +4,7 @@
  * Color fields throughout the app store one of three things in a
  * single string column:
  *
- *   1. A raw hex literal — `"#e63946"`, `"#fff"`, `"#abc123"`.
+ *   1. A raw hex literal — `"#3498cf"`, `"#fff"`, `"#abc123"`.
  *   2. A swatch reference — `"swatch:abc123"` — pointing at an entry
  *      in the user's site swatch palette (`services/siteColors`).
  *   3. Empty / `"none"` / `"transparent"` — represents "no color".

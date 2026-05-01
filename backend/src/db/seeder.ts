@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: unknown; }> = [
     },
     {
         key: 'theme',
-        value: { primaryColor: '#e63946', secondaryColor: '#1d3557', accentColor: '#f1faee', },
+        value: { primaryColor: '#3498cf', secondaryColor: '#1d3557', accentColor: '#f1faee', },
     },
     // Provider flags — default OFF. The public-settings endpoint also
     // requires the feature's runtime conditions (e.g. a connected

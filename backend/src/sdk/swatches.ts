@@ -7,7 +7,7 @@
  * palette directly:
  *
  *   const list = await cms.swatches.list();
- *   await cms.swatches.replace([{ id: 'brand-red', hex: '#e63946' }], ctx);
+ *   await cms.swatches.replace([{ id: 'brand-blue', hex: '#3498cf' }], ctx);
  *
  * The `usages` helper scans every JSONB column that might carry a
  * `swatch:{id}` reference and returns counts by source — used by the
@@ -28,7 +28,7 @@ const SWATCH_ID_RE = /^[a-zA-Z0-9_-]{1,32}$/;
 const CACHE_KEY = 'settings:site_colors';
 
 const DEFAULT_HEXES = [
-    '#ffffff', '#000000', '#e63946', '#1d3557', '#f1faee',
+    '#ffffff', '#000000', '#3498cf', '#1d3557', '#f1faee',
     '#457b9d', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51',
     '#264653', '#6b705c', '#a8dadc', '#ff006e', '#8338ec',
 ];

@@ -119,7 +119,7 @@ function FooterItem(props: { item: SiteLayoutItem; },) {
                     class="footer__item-button"
                     style={{
                         ...baseStyle(),
-                        'background-color': colorCssValue(item().buttonColor, '#e63946',),
+                        'background-color': colorCssValue(item().buttonColor, '#3498cf',),
                         color: colorCssValue(item().textColor, '#fff',),
                     }}
                 >

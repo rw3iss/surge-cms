@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'RW',
         short_name: 'RW',
         description: 'Independent journalism for the people',
-        theme_color: '#e63946',
+        theme_color: '#3498cf',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',

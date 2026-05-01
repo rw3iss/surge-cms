@@ -552,7 +552,7 @@ interface SiteSwatchRow { id: string; hex: string; name?: string; }
 const DEFAULT_SITE_COLOR_HEXES = [
     '#ffffff',
     '#000000',
-    '#e63946',
+    '#3498cf',
     '#1d3557',
     '#f1faee',
     '#457b9d',

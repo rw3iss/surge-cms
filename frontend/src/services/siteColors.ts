@@ -29,7 +29,7 @@ import { api, } from './api';
 const DEFAULT_HEXES = [
     '#ffffff',
     '#000000',
-    '#e63946',
+    '#3498cf',
     '#1d3557',
     '#f1faee',
     '#457b9d',

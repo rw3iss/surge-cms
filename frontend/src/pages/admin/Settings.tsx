@@ -785,8 +785,8 @@ function AppearancePanel() {
     // Colors
     const [backgroundColor, setBackgroundColor,] = createSignal('#ffffff',);
     const [textColor, setTextColor,] = createSignal('#1a1a1a',);
-    const [primaryColor, setPrimaryColor,] = createSignal('#e63946',);
-    const [linkColor, setLinkColor,] = createSignal('#e63946',);
+    const [primaryColor, setPrimaryColor,] = createSignal('#3498cf',);
+    const [linkColor, setLinkColor,] = createSignal('#3498cf',);
     const [headingColor, setHeadingColor,] = createSignal('#1a1a1a',);
     const [borderColor, setBorderColor,] = createSignal('#e5e7eb',);
 

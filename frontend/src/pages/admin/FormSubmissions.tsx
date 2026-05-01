@@ -107,7 +107,7 @@ const FormSubmissions: Component = () => {
                                                     <div style={{ display: 'flex', 'align-items': 'center', gap: '8px', 'margin-bottom': '4px', }}>
                                                         <span style={{ 'min-width': '100px', 'font-size': '0.85rem', }}>{opt.value}</span>
                                                         <div style={{ flex: '1', height: '18px', background: '#f0f0f0', 'border-radius': '4px', overflow: 'hidden', }}>
-                                                            <div style={{ width: `${opt.percentage}%`, height: '100%', background: 'var(--site-primary, #e63946)', 'border-radius': '4px', transition: 'width 0.3s', }} />
+                                                            <div style={{ width: `${opt.percentage}%`, height: '100%', background: 'var(--site-primary, #3498cf)', 'border-radius': '4px', transition: 'width 0.3s', }} />
                                                         </div>
                                                         <span style={{ 'min-width': '40px', 'text-align': 'right', 'font-size': '0.85rem', 'font-weight': '600', }}>{opt.percentage}%</span>
                                                     </div>

@@ -96,7 +96,7 @@ const ShopPage: Component = () => {
                                 'color': '#6b7280',
                             },
                             button: {
-                                'background-color': '#e63946',
+                                'background-color': '#3498cf',
                                 'border-radius': '8px',
                                 'font-family': 'inherit',
                                 'font-weight': '600',
@@ -120,7 +120,7 @@ const ShopPage: Component = () => {
                     cart: {
                         styles: {
                             button: {
-                                'background-color': '#e63946',
+                                'background-color': '#3498cf',
                                 'border-radius': '8px',
                                 'font-family': 'inherit',
                                 ':hover': {

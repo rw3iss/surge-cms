@@ -918,7 +918,7 @@ function EditableItem(props: {
                     <span
                         style={{
                             ...baseStyle(),
-                            'background-color': colorCssValue(it().buttonColor, '#e63946',),
+                            'background-color': colorCssValue(it().buttonColor, '#3498cf',),
                             color: colorCssValue(it().textColor, '#fff',),
                         }}
                         class="footer__item-button"
@@ -1525,7 +1525,7 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                     <input
                         type="text"
                         value={props.item.buttonColor ?? ''}
-                        placeholder="e.g. #e63946"
+                        placeholder="e.g. #3498cf"
                         onInput={(e,) => props.onChange({ buttonColor: e.currentTarget.value, },)}
                     />
                 </label>
