@@ -10,6 +10,7 @@ import fontsRoutes from './fonts';
 import formsRoutes from './forms';
 import healthRoutes from './health';
 import mailingListsRoutes, { publicMailingListsRouter, } from './mailingLists';
+import mailSendRoutes from './mailSend';
 import mailTemplatesRoutes from './mailTemplates';
 import mediaRoutes from './media';
 import messagesRoutes from './messages';
@@ -46,6 +47,7 @@ router.use('/dev', devRoutes,);
 router.use('/fonts', fontsRoutes,);
 router.use('/mailing-lists', mailingListsRoutes,);
 router.use('/mail-templates', mailTemplatesRoutes,);
+router.use('/mail', mailSendRoutes,);
 router.use('/lists', publicMailingListsRouter,);
 
 export default router;

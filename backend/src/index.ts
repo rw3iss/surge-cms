@@ -72,6 +72,16 @@ async function bootRunningMode(): Promise<void> {
     initScheduledPublisher();
     cronRegistry.startAll();
     logger.info('Cron jobs started',);
+
+    // Resume any send jobs left in `running` state by a previous
+    // crash. Idempotent — already-sent recipients are skipped because
+    // the worker only pulls `pending`.
+    try {
+        const { resumeRunningJobs, } = await import('./services/mail/sendWorker');
+        void resumeRunningJobs();
+    } catch (err) {
+        logger.warn('Could not start send-job resumer', { error: err, },);
+    }
 }
 
 async function main(): Promise<void> {

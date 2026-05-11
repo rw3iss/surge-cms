@@ -210,3 +210,101 @@
 
     &:hover { color: var(--site-primary, $primary-color); }
 }
+
+// ─── Send wizard + Job status ───────────────────────────────────────
+
+.mail-send-page,
+.mail-job-page {
+    .send-confirm-summary {
+        background: var(--admin-bg-subtle, #f7fafc);
+        border: 1px solid var(--admin-border, #{$border-color});
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+
+        > div { padding: 0.15rem 0; }
+    }
+
+    .send-confirm-preview {
+        margin: 1rem 0;
+        text-align: center;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: space-between;
+        margin: 1rem 0;
+
+        .btn--primary { margin-left: auto; }
+    }
+}
+
+.job-summary {
+    background: var(--admin-bg-subtle, #f7fafc);
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 6px;
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    position: relative;
+    background: #eee;
+    border-radius: 4px;
+    height: 18px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+
+    &__fill {
+        position: absolute;
+        top: 0; bottom: 0; left: 0;
+        background: var(--site-primary, $primary-color);
+        transition: width 300ms ease;
+    }
+
+    &__label {
+        position: relative;
+        display: block;
+        text-align: center;
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 600;
+        color: #fff;
+        mix-blend-mode: difference;
+    }
+}
+
+.status-tabs {
+    display: flex;
+    gap: 0.25rem;
+
+    &__tab {
+        background: transparent;
+        border: 1px solid var(--admin-border, #{$border-color});
+        padding: 0.35rem 0.75rem;
+        font-size: 13px;
+        cursor: pointer;
+        border-radius: 4px;
+        color: var(--admin-text, $text-color);
+
+        &.is-active {
+            background: var(--site-primary, $primary-color);
+            color: #fff;
+            border-color: var(--site-primary, $primary-color);
+        }
+    }
+}
+
+.job-recipient-error {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $text-light;
+    font-size: 12px;
+    cursor: help;
+}

@@ -1,49 +1,38 @@
-import nodemailer from 'nodemailer';
+/**
+ * Transactional email helpers. Thin wrapper over the configured
+ * MailProvider so welcome / donation-receipt / mailing-list sends all
+ * flow through the same pipeline. Switching providers
+ * (`MAIL_PROVIDER=mailgun` etc.) routes every outbound message via
+ * the new adapter, no code change required at the call sites.
+ */
 import { config, } from '../config';
 import { logger, } from '../utils/logger';
+import { getProvider, } from './mail/providers/factory';
 
 interface EmailOptions {
     to: string;
     subject: string;
     html: string;
     text?: string;
-}
-
-let transporter: nodemailer.Transporter | null = null;
-
-function getTransporter(): nodemailer.Transporter {
-    if (!transporter) {
-        if (!config.email.host) {
-            throw new Error('Email configuration not set',);
-        }
-
-        transporter = nodemailer.createTransport({
-            host: config.email.host,
-            port: config.email.port,
-            secure: config.email.secure,
-            auth: {
-                user: config.email.user,
-                pass: config.email.pass,
-            },
-        },);
-    }
-
-    return transporter;
+    fromName?: string;
+    fromEmail?: string;
+    replyTo?: string;
+    headers?: Record<string, string>;
 }
 
 export async function sendEmail(options: EmailOptions,): Promise<void> {
     try {
-        const transport = getTransporter();
-
-        await transport.sendMail({
-            from: config.email.from,
+        const provider = getProvider();
+        await provider.send({
             to: options.to,
+            fromName: options.fromName,
+            fromEmail: options.fromEmail ?? config.email.from ?? 'no-reply@example.com',
+            replyTo: options.replyTo,
             subject: options.subject,
             html: options.html,
-            text: options.text || options.html.replace(/<[^>]*>/g, '',),
+            headers: options.headers,
         },);
-
-        logger.info('Email sent successfully', { to: options.to, subject: options.subject, },);
+        logger.info('Email sent', { to: options.to, subject: options.subject, },);
     } catch (error) {
         logger.error('Failed to send email', { error, to: options.to, },);
         throw error;
@@ -53,12 +42,11 @@ export async function sendEmail(options: EmailOptions,): Promise<void> {
 export async function sendWelcomeEmail(email: string, name: string,): Promise<void> {
     await sendEmail({
         to: email,
-        subject: 'Welcome to RW!',
+        subject: 'Welcome!',
         html: `
-      <h1>Welcome to RW, ${name}!</h1>
-      <p>Thank you for joining our community.</p>
+      <h1>Welcome, ${name}!</h1>
+      <p>Thank you for joining.</p>
       <p>As a member, you now have access to exclusive content and features.</p>
-      <p>Best regards,<br>The RW Team</p>
     `,
     },);
 }
@@ -82,8 +70,7 @@ export async function sendDonationThankYou(
       <p>We received your generous donation of ${amountFormatted}${
             campaignTitle ? ` to our "${campaignTitle}" campaign` : ''
         }.</p>
-      <p>Your support helps us continue our mission of independent journalism.</p>
-      <p>Best regards,<br>The RW Team</p>
+      <p>Your support helps us continue our mission.</p>
     `,
     },);
 }
@@ -94,11 +81,10 @@ export async function verifyEmailConfig(): Promise<boolean> {
             logger.warn('Email configuration not set',);
             return false;
         }
-
-        const transport = getTransporter();
-        await transport.verify();
-        logger.info('Email configuration verified',);
-        return true;
+        const ok = await getProvider().verify();
+        if (ok) logger.info('Email configuration verified',);
+        else logger.warn('Email configuration verification failed',);
+        return ok;
     } catch (error) {
         logger.error('Email configuration verification failed', { error, },);
         return false;

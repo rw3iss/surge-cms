@@ -344,3 +344,28 @@ export const mailTemplatesApi = {
         api.post('/mail-templates/preview', data,),
     variables: () => api.get('/mail-templates/variables',),
 };
+
+// ─── Mail Send API ─────────────────────────────────────────────────
+
+export const mailSendApi = {
+    send: (data: {
+        listId: string;
+        templateId?: string | null;
+        subject: string;
+        preheader?: string;
+        fromName?: string;
+        fromEmail?: string;
+        replyTo?: string;
+        blocks: unknown[];
+    },) => api.post('/mail/send', data,),
+    job: (id: string,) => api.get(`/mail/jobs/${id}`,),
+    recipients: (id: string, params: { status?: string; limit?: number; offset?: number; } = {},) => {
+        const qs = new URLSearchParams();
+        if (params.status) qs.set('status', params.status,);
+        if (params.limit !== undefined) qs.set('limit', String(params.limit,),);
+        if (params.offset !== undefined) qs.set('offset', String(params.offset,),);
+        return api.get(`/mail/jobs/${id}/recipients?${qs.toString()}`,);
+    },
+    retry: (id: string,) => api.post(`/mail/jobs/${id}/retry`, {},),
+    cancel: (id: string,) => api.patch(`/mail/jobs/${id}`, { status: 'cancelled', },),
+};
