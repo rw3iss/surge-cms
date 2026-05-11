@@ -71,7 +71,7 @@
       // Placeholder uses the input text token at lower alpha so it
       // visibly differentiates from real input but still respects the
       // operator's chosen color family.
-      color: var(--admin-input-text, $text-light);
+      color: var(--admin-input-text, #{$text-light});
       opacity: 0.5;
     }
 

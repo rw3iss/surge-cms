@@ -71,7 +71,7 @@
       transition: border-color $transition-fast;
 
       &::placeholder {
-        color: var(--admin-input-text, $text-light);
+        color: var(--admin-input-text, #{$text-light});
         opacity: 0.5;
       }
 

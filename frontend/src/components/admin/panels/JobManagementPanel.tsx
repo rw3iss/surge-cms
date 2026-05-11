@@ -35,8 +35,8 @@ const JobManagementPanel: Component = () => {
     const statusBadge = (job: CronJob,) => {
         if (job.isRunning) return 'badge--info';
         if (job.lastResult === 'success') return 'badge--success';
-        if (job.lastResult === 'error') return 'badge--danger';
-        return 'badge--secondary';
+        if (job.lastResult === 'error') return 'badge--error';
+        return 'badge--muted';
     };
 
     const statusLabel = (job: CronJob,) => {

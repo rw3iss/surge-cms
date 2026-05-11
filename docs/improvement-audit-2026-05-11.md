@@ -106,3 +106,16 @@ Nothing required deferral.
 ## Verification
 
 `npm run build` (full repo: shared → backend → frontend → PWA) passed cleanly after each phase. No TypeScript errors. No revert was necessary.
+
+---
+
+## Follow-up sweep — codebase-wide check for the same issue classes
+
+After Phase A + B landed, ran a wider scan for the same bug patterns elsewhere:
+
+- **Non-existent badge variants.** `badge--danger` and `badge--secondary` found in `frontend/src/components/admin/panels/JobManagementPanel.tsx:38,39` (the job-management panel under Settings → Admin). Mapped `--danger → --error`, `--secondary → --muted` to use the palette that actually exists.
+- **SCSS `var(--token, $scss-var)` interpolation bug.** Found in `frontend/src/components/admin/forms/forms.scss:74` and `frontend/src/pages/admin/styles/_forms.scss:74` (different partials, same line by coincidence — both define `::placeholder` color). Fixed with `#{$x}` interpolation.
+- **Bare `class="modal-overlay"`.** Zero remaining — all admin modals now use `.confirm-modal-overlay`.
+- **Duplicate converter / style-resolution logic.** Already caught in A-2 / A-3; no further duplications surfaced in this sweep.
+
+Final state: a full-repo grep for `var\(--[a-z-]+, \$` and `badge--danger|badge--secondary` both return zero hits. Build still green.
