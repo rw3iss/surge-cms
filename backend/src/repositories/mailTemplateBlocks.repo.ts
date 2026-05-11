@@ -11,7 +11,7 @@
  * style props and doesn't have to know about the indirection.
  */
 import { query, getPool, } from '../db';
-import * as blockStylesRepo from './blockStyles.repo';
+import * as blockStyleResolution from '../services/blockStyleResolution';
 
 export interface MailTemplateBlockRow {
     id: string;
@@ -71,35 +71,14 @@ export async function findByTemplateResolved(templateId: string,): Promise<MailT
 }
 
 /**
- * Inline block-style template refs. Mirrors `pages.repo.populateBlockStyles`
- * but typed for the mail-template block shape so renderer consumers
- * stay strict.
+ * Inline block-style template refs. Delegates to the shared resolver
+ * in `services/blockStyleResolution.ts` so pages, posts, and mail
+ * templates can't drift on the contract.
  */
 export async function populateBlockStyles<T extends { style: Record<string, unknown>; }>(
     blocks: T[],
 ): Promise<T[]> {
-    const templateIds = [
-        ...new Set(
-            blocks
-                .filter((b,) => b.style && typeof b.style.id === 'string',)
-                .map((b,) => b.style.id as string,),
-        ),
-    ];
-    if (templateIds.length === 0) return blocks;
-
-    const stylesMap = await blockStylesRepo.findByIds(templateIds,);
-    return blocks.map((block,) => {
-        const id = block.style?.id;
-        if (typeof id === 'string' && stylesMap.has(id,)) {
-            const template = stylesMap.get(id,)!;
-            // Strip identity columns from the merged template; the
-            // renderer only cares about presentation props.
-            const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...styleProps } =
-                template as unknown as Record<string, unknown>;
-            return { ...block, style: styleProps as Record<string, unknown>, };
-        }
-        return block;
-    },);
+    return blockStyleResolution.populateBlockStyles(blocks,);
 }
 
 export interface SaveBlockInput {

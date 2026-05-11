@@ -6,6 +6,7 @@ import BlockEditor from '../../components/admin/blocks/BlockEditor';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { BlockData, } from '../../components/admin/blocks/ContentBlock';
+import { deriveStyleRefFromStyle, } from '../../services/blockStyleRef';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
@@ -122,18 +123,16 @@ const AdminPostEditor: Component = () => {
             }
             if (p.contentBlocks?.length) {
                 const converted = p.contentBlocks.map((b: any,) => {
-                    // b.style comes from backend: { id: "uuid", ...props } for template, or { backgroundColor: ... } for custom
-                    const styleRef = b.style?.id ?
-                        { templateId: b.style.id, } :
-                        b.style ?
-                        { custom: b.style, } :
-                        undefined;
+                    // b.style is the persisted style payload: either
+                    // `{ id: <uuid> }` (template ref) or flat custom
+                    // props. The shared kernel produces the editor's
+                    // styleRef shape from either.
                     return {
                         id: b.id || generateBlockId(),
                         type: b.type,
                         sort_order: b.sortOrder ?? b.sort_order,
                         data: b.data || {},
-                        styleRef,
+                        styleRef: deriveStyleRefFromStyle(b.style,),
                     };
                 },);
                 setBlocks(converted,);

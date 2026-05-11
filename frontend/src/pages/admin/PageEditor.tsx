@@ -37,13 +37,13 @@ const generateBlockId = () =>
         // Fallback for older browsers — still valid v4 shape via random hex.
         `${Date.now().toString(16,)}-${Math.random().toString(16,).slice(2,)}`;
 
-function pageBlockToBlockData(block: any,): BlockData {
-    const styleRef = block.style?.id ?
-        { templateId: block.style.id, } :
-        block.style ?
-        { custom: block.style, } :
-        undefined;
+// StyleRef / style logic lives in the shared kernel so the page,
+// post, and mail converters can't drift apart.
+import {
+    deriveStyleRefFromStyle, resolveActiveStyleRef, styleRefToPersistedStyle,
+} from '../../services/blockStyleRef';
 
+function pageBlockToBlockData(block: any,): BlockData {
     return {
         id: block.id,
         type: block.type,
@@ -54,24 +54,18 @@ function pageBlockToBlockData(block: any,): BlockData {
             content: block.content || '',
             ...(block.settings || {}),
         },
-        styleRef,
+        styleRef: deriveStyleRefFromStyle(block.style,),
     };
 }
 
 function blockDataToPageBlock(block: BlockData, order: number,) {
-    const { title, content, __styleRef, ...settings } = block.data;
-    let style: any = undefined;
-    // Detect explicit "clear" via __styleRef being present but null/empty
-    const hasExplicitStyleRef = '__styleRef' in block.data;
-    const explicitlyCleared = hasExplicitStyleRef && (__styleRef === null || __styleRef === undefined);
-    const ref = hasExplicitStyleRef ? __styleRef : block.styleRef;
+    const { title, content, __styleRef: _unused, ...settings } = block.data;
 
-    if (ref?.templateId) {
-        style = { id: ref.templateId, };
-    } else if (ref?.custom) {
-        const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...customProps } = ref.custom;
-        style = Object.keys(customProps,).length > 0 ? customProps : undefined;
-    }
+    const resolved = resolveActiveStyleRef(block.data, block.styleRef,);
+    const persisted = styleRefToPersistedStyle(resolved,);
+    // Pages tolerate `style: null` to wipe the column, so we preserve
+    // the explicit-clear sentinel through to the wire.
+    const style = persisted === undefined && resolved.explicitlyCleared ? null : persisted;
 
     return {
         type: block.type,
@@ -86,8 +80,7 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
         settings: Object.keys(settings,).length > 0 ? settings : {},
         order,
         isVisible: true,
-        // Send null explicitly when cleared so the backend wipes the style column
-        style: style ?? (explicitlyCleared ? null : undefined),
+        style,
     };
 }
 

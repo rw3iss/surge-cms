@@ -40,16 +40,16 @@
     .admin-header__back {
         display: inline-block;
         margin-bottom: 0.5rem;
-        color: var(--admin-text-muted, $text-light);
+        color: var(--admin-text-muted, #{$text-light});
         text-decoration: none;
 
-        &:hover { color: var(--site-primary, $primary-color); }
+        &:hover { color: var(--site-primary, #{$primary-color}); }
     }
 
     .empty-state {
         padding: 2rem;
         text-align: center;
-        color: var(--admin-text-muted, $text-light);
+        color: var(--admin-text-muted, #{$text-light});
     }
 }
 
@@ -102,7 +102,7 @@
     }
 
     &__label {
-        color: var(--admin-text-muted, $text-light);
+        color: var(--admin-text-muted, #{$text-light});
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -122,7 +122,7 @@
         border: none;
         padding: 0.25rem 0;
         font-size: 13px;
-        color: var(--admin-text, $text-color);
+        color: var(--admin-text, #{$text-color});
         cursor: pointer;
         font-weight: 500;
     }
@@ -144,22 +144,10 @@
     }
 
     &__loading {
-        color: var(--admin-text-muted, $text-light);
+        color: var(--admin-text-muted, #{$text-light});
         font-size: 13px;
         margin-right: auto;
     }
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--admin-text-muted, $text-light);
-    padding: 0.25rem 0.5rem;
-
-    &:hover { color: var(--admin-text, $text-color); }
 }
 
 // ─── Variable form (inside preview modal) ───────────────────────────
@@ -180,7 +168,7 @@
     &__path {
         font-family: monospace;
         font-size: 12px;
-        color: var(--site-primary, $primary-color);
+        color: var(--site-primary, #{$primary-color});
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -193,7 +181,7 @@
     code {
         font-family: monospace;
         font-size: 13px;
-        color: var(--site-primary, $primary-color);
+        color: var(--site-primary, #{$primary-color});
         white-space: nowrap;
     }
 }
@@ -208,7 +196,7 @@
     cursor: pointer;
     text-align: left;
 
-    &:hover { color: var(--site-primary, $primary-color); }
+    &:hover { color: var(--site-primary, #{$primary-color}); }
 }
 
 // ─── Send wizard + Job status ───────────────────────────────────────
@@ -262,7 +250,7 @@
     &__fill {
         position: absolute;
         top: 0; bottom: 0; left: 0;
-        background: var(--site-primary, $primary-color);
+        background: var(--site-primary, #{$primary-color});
         transition: width 300ms ease;
     }
 
@@ -289,12 +277,12 @@
         font-size: 13px;
         cursor: pointer;
         border-radius: 4px;
-        color: var(--admin-text, $text-color);
+        color: var(--admin-text, #{$text-color});
 
         &.is-active {
-            background: var(--site-primary, $primary-color);
+            background: var(--site-primary, #{$primary-color});
             color: #fff;
-            border-color: var(--site-primary, $primary-color);
+            border-color: var(--site-primary, #{$primary-color});
         }
     }
 }

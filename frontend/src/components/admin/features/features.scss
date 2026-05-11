@@ -20,7 +20,7 @@
         display: flex;
         align-items: center;
         gap: 0.4rem;
-        color: var(--admin-text, $text-color);
+        color: var(--admin-text, #{$text-color});
     }
 
     &__desc {
@@ -77,7 +77,7 @@
     border-radius: 8px;
 
     h3 { margin: 0 0 0.5rem; }
-    p { margin: 0.25rem 0; color: var(--admin-text, $text-color); }
+    p { margin: 0.25rem 0; color: var(--admin-text, #{$text-color}); }
 
     ul {
         padding-left: 1.5rem;

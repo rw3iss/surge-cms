@@ -29,7 +29,7 @@ const MailingLists: Component = () => {
         switch (s) {
             case 'completed': return 'badge--success';
             case 'failed':
-            case 'cancelled': return 'badge--danger';
+            case 'cancelled': return 'badge--error';
             case 'running':
             case 'pending': return 'badge--info';
             default: return '';

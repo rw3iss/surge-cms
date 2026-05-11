@@ -10,8 +10,8 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createResource, createSignal, For, onMount, Show,
 } from 'solid-js';
-import { Portal, } from 'solid-js/web';
 import type { MailingList, MailingListSubscriber, } from '@rw/shared';
+import SubscriberFormModal from '../../components/admin/mailing-lists/SubscriberFormModal';
 import { mailingListsApi, } from '../../services/api';
 
 interface SubscriberListResponse { items: MailingListSubscriber[]; total: number; }
@@ -35,7 +35,10 @@ const MailingListEdit: Component = () => {
     const [showAdd, setShowAdd,] = createSignal(false,);
     const [editingSub, setEditingSub,] = createSignal<MailingListSubscriber | null>(null,);
 
-    onMount(async () => {
+    /** Fetch the list and apply its fields to local signals. Used on
+     *  mount and after save so the header (and form) always show the
+     *  server-of-record state. */
+    const refreshList = async (): Promise<void> => {
         if (isNew()) return;
         const res = await mailingListsApi.get(params.id,);
         if (res.success && res.data) {
@@ -47,7 +50,9 @@ const MailingListEdit: Component = () => {
             setRegisteredUsersOnly(l.registeredUsersOnly,);
             setDoubleOptIn(l.doubleOptIn,);
         }
-    },);
+    };
+
+    onMount(() => { void refreshList(); },);
 
     const slugify = (s: string,): string =>
         s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-',).replace(/^-+|-+$/g, '',).slice(0, 64,);
@@ -73,7 +78,13 @@ const MailingListEdit: Component = () => {
                 }
             } else {
                 const res = await mailingListsApi.update(params.id, data,);
-                if (!res.success) setError(typeof res.error === 'string' ? res.error : 'Save failed.',);
+                if (!res.success) {
+                    setError(typeof res.error === 'string' ? res.error : 'Save failed.',);
+                } else {
+                    // Reload so the header + form reflect any
+                    // server-side normalization (slug lowercase, etc.).
+                    await refreshList();
+                }
             }
         } finally { setSaving(false,); }
     };
@@ -289,103 +300,6 @@ const MailingListEdit: Component = () => {
                 </section>
             </Show>
         </div>
-    );
-};
-
-// ─── Subscriber add/edit modal ──────────────────────────────────────
-
-interface SubscriberFormModalProps {
-    listId: string;
-    subscriber?: MailingListSubscriber;
-    onClose: () => void;
-    onSaved: () => void;
-}
-
-const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
-    const isEditing = () => !!p.subscriber;
-    const [email, setEmail,] = createSignal(p.subscriber?.email ?? '',);
-    const [name, setName,] = createSignal(p.subscriber?.name ?? '',);
-    const [phone, setPhone,] = createSignal(p.subscriber?.phone ?? '',);
-    const [saving, setSaving,] = createSignal(false,);
-    const [error, setError,] = createSignal<string | null>(null,);
-
-    const handleSave = async (): Promise<void> => {
-        setSaving(true,);
-        setError(null,);
-        try {
-            const data = { email: email(), name: name() || undefined, phone: phone() || undefined, };
-            if (isEditing()) {
-                await mailingListsApi.updateSubscriber(p.listId, p.subscriber!.id, data,);
-            } else {
-                await mailingListsApi.addSubscriber(p.listId, data,);
-            }
-            p.onSaved();
-        } catch (e) {
-            setError(String(e,),);
-        } finally { setSaving(false,); }
-    };
-
-    const handleRemove = async (): Promise<void> => {
-        if (!confirm('Remove this subscriber?',)) return;
-        await mailingListsApi.removeSubscriber(p.listId, p.subscriber!.id,);
-        p.onSaved();
-    };
-
-    const handleForceConfirm = async (): Promise<void> => {
-        await mailingListsApi.forceConfirm(p.listId, p.subscriber!.id,);
-        p.onSaved();
-    };
-
-    return (
-        <Portal>
-            <div class="confirm-modal-overlay" onClick={p.onClose}>
-                <div class="subscriber-modal" onClick={(e,) => e.stopPropagation()}>
-                <h3>{isEditing() ? 'Edit Subscriber' : 'Add Subscriber'}</h3>
-                <Show when={error()}>
-                    <div class="alert alert--error">{error()}</div>
-                </Show>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input
-                        type="email"
-                        value={email()}
-                        onInput={(e,) => setEmail(e.currentTarget.value,)}
-                        disabled={isEditing()}
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Name</label>
-                    <input
-                        type="text"
-                        value={name()}
-                        onInput={(e,) => setName(e.currentTarget.value,)}
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Phone</label>
-                    <input
-                        type="tel"
-                        value={phone()}
-                        onInput={(e,) => setPhone(e.currentTarget.value,)}
-                    />
-                </div>
-                <Show when={isEditing() && p.subscriber?.status === 'pending_confirmation'}>
-                    <button type="button" class="btn btn--small btn--secondary" onClick={handleForceConfirm}>
-                        Force Confirm
-                    </button>
-                </Show>
-                <div class="modal-actions">
-                    <Show when={isEditing()}>
-                        <button type="button" class="btn btn--danger" onClick={handleRemove}>Remove</button>
-                    </Show>
-                    <button type="button" class="btn btn--secondary" onClick={p.onClose}>Cancel</button>
-                    <button type="button" class="btn btn--primary" onClick={handleSave} disabled={saving()}>
-                        {saving() ? 'Saving…' : 'Save'}
-                    </button>
-                </div>
-            </div>
-        </div>
-        </Portal>
     );
 };
 

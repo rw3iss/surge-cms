@@ -67,7 +67,7 @@ const MailJob: Component = () => {
         switch (j.status) {
             case 'completed': return 'badge--success';
             case 'failed':
-            case 'cancelled': return 'badge--danger';
+            case 'cancelled': return 'badge--error';
             case 'running':
             case 'pending': return 'badge--info';
             default: return '';
@@ -191,7 +191,7 @@ const MailJob: Component = () => {
                                                     {(r,) => (
                                                         <tr>
                                                             <td>{r.email}</td>
-                                                            <td><span class={`badge badge--${r.status === 'sent' ? 'success' : r.status === 'failed' ? 'danger' : 'muted'}`}>{r.status}</span></td>
+                                                            <td><span class={`badge badge--${r.status === 'sent' ? 'success' : r.status === 'failed' ? 'error' : 'muted'}`}>{r.status}</span></td>
                                                             <td>{r.attemptCount}</td>
                                                             <td>{r.sentAt ? new Date(r.sentAt,).toLocaleString() : '—'}</td>
                                                             <td class="job-recipient-error" title={r.error}>{r.error ? `${r.error.slice(0, 60,)}…` : ''}</td>

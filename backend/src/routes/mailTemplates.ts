@@ -13,12 +13,12 @@
  */
 import { Router, } from 'express';
 import { z, } from 'zod';
-import { query, } from '../db';
 import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from '../services/mail/renderer';
+import { loadMailRenderContext, } from '../services/mail/siteContext';
 import {
     buildSampleContext, describeVariables, substituteVariables,
 } from '../services/mail/variables';
@@ -145,20 +145,7 @@ router.post('/preview', authenticate(), requireAdmin, async (req, res,) => {
         const parsed = previewSchema.safeParse(req.body,);
         if (!parsed.success) throw new ValidationError('Invalid preview input', { issues: parsed.error.issues, },);
 
-        // Read site palette + name/url from site_settings.
-        const settingsRes = await query<{ key: string; value: unknown; }>(
-            `SELECT key, value FROM site_settings`,
-        );
-        const settingsMap: Record<string, unknown> = {};
-        for (const row of settingsRes.rows) settingsMap[row.key] = row.value;
-
-        const palette: Record<string, string> = {};
-        const rawSwatches = settingsMap.site_colors;
-        if (Array.isArray(rawSwatches,)) {
-            for (const s of rawSwatches as Array<{ id?: unknown; hex?: unknown; }>) {
-                if (typeof s.id === 'string' && typeof s.hex === 'string') palette[s.id] = s.hex;
-            }
-        }
+        const renderCtx = await loadMailRenderContext();
 
         // The preview endpoint accepts in-progress blocks that may not
         // have IDs yet — synthesize a placeholder so the renderer's
@@ -181,9 +168,7 @@ router.post('/preview', authenticate(), requireAdmin, async (req, res,) => {
             blocks: resolved,
             subject: parsed.data.subject ?? '',
             preheader: parsed.data.preheader,
-            siteName: (settingsMap.site_name as string) ?? 'Site',
-            siteUrl: (settingsMap.site_url as string) ?? '',
-            palette,
+            ...renderCtx,
         },);
 
         // Merge sample defaults from the catalog with operator-supplied

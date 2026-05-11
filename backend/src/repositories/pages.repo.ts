@@ -11,7 +11,7 @@ import {
     PaginationOptions,
     updateById,
 } from './base.repo';
-import * as blockStylesRepo from './blockStyles.repo';
+import * as blockStyleResolution from '../services/blockStyleResolution';
 
 // Rich text body is sanitized because the editor surface (WYSIWYG)
 // shouldn't accept arbitrary scripts. The custom HTML block is intentionally
@@ -219,30 +219,13 @@ export async function findBlocksByPageIdWithStyles(pageId: string, visibleOnly =
 }
 
 /**
- * Resolve block styles: if block.style has an `id`, fetch the template
- * and merge its properties into the style object. Custom styles are already inline.
+ * Resolve block styles: if `block.style` has an `id`, fetch the
+ * template and inline its properties. Implementation lives in
+ * `services/blockStyleResolution.ts` so pages, posts, and mail
+ * templates share one contract.
  */
 export async function populateBlockStyles(blocks: any[],): Promise<any[]> {
-    // Collect template IDs from blocks whose style has an id
-    const templateIds = [
-        ...new Set(
-            blocks
-                .filter(b => b.style?.id)
-                .map(b => b.style.id as string),
-        ),
-    ];
-
-    if (templateIds.length === 0) return blocks;
-
-    const stylesMap = await blockStylesRepo.findByIds(templateIds,);
-
-    return blocks.map(block => {
-        if (block.style?.id && stylesMap.has(block.style.id,)) {
-            const template = stylesMap.get(block.style.id,)!;
-            return { ...block, style: { ...template, }, };
-        }
-        return block;
-    },);
+    return blockStyleResolution.populateBlockStyles(blocks,);
 }
 
 export async function createBlock(pageId: string, data: Record<string, unknown>,): Promise<Block> {

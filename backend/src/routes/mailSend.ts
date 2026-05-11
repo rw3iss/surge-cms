@@ -20,6 +20,7 @@ import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { logAudit, } from '../services/audit';
 import { renderMailHtml, } from '../services/mail/renderer';
 import { kickJob, } from '../services/mail/sendWorker';
+import { loadMailRenderContext, } from '../services/mail/siteContext';
 import { handleRouteError, sendCreated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -54,19 +55,7 @@ router.post('/send', authenticate(), requireAdmin, async (req: AuthenticatedRequ
 
         // Resolve site palette + identity from site_settings so the
         // renderer can substitute CSS variables to literal values.
-        const settingsRes = await query<{ key: string; value: unknown; }>(
-            `SELECT key, value FROM site_settings`,
-        );
-        const settingsMap: Record<string, unknown> = {};
-        for (const row of settingsRes.rows) settingsMap[row.key] = row.value;
-
-        const palette: Record<string, string> = {};
-        const rawSwatches = settingsMap.site_colors;
-        if (Array.isArray(rawSwatches,)) {
-            for (const s of rawSwatches as Array<{ id?: unknown; hex?: unknown; }>) {
-                if (typeof s.id === 'string' && typeof s.hex === 'string') palette[s.id] = s.hex;
-            }
-        }
+        const renderCtx = await loadMailRenderContext();
 
         // Render once. Tokens `{{...}}` survive into the output and
         // get per-recipient substituted by the worker.
@@ -83,9 +72,7 @@ router.post('/send', authenticate(), requireAdmin, async (req: AuthenticatedRequ
             blocks: resolvedBlocks,
             subject: parsed.data.subject,
             preheader: parsed.data.preheader,
-            siteName: (settingsMap.site_name as string) ?? 'Site',
-            siteUrl: (settingsMap.site_url as string) ?? '',
-            palette,
+            ...renderCtx,
         },);
 
         const subscribed = await subs.listSubscribedForSend(list.id,);
