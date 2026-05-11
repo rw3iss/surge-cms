@@ -145,7 +145,7 @@ const MailingListEdit: Component = () => {
                 <div class="alert alert--error">{error()}</div>
             </Show>
 
-            <section class="admin-section">
+            <section class="admin-section list-settings">
                 <header class="admin-section__header"><h2>Settings</h2></header>
 
                 <div class="list-settings__grid">
@@ -184,31 +184,25 @@ const MailingListEdit: Component = () => {
                     </FormSection>
 
                     <FormSection title="Subscription policy">
-                        <FormField label="Enabled" inline>
-                            <Toggle checked={isEnabled()} onChange={setIsEnabled} ariaLabel="Enabled" />
-                        </FormField>
-                        <FormField
-                            label="Registered users only"
-                            hint="Public subscribe requires a logged-in user."
-                            inline
-                        >
-                            <Toggle
+                        <div class="policy-rows">
+                            <PolicyRow
+                                checked={isEnabled()}
+                                onChange={setIsEnabled}
+                                label="Enabled"
+                            />
+                            <PolicyRow
                                 checked={registeredUsersOnly()}
                                 onChange={setRegisteredUsersOnly}
-                                ariaLabel="Registered users only"
+                                label="Registered users only"
+                                hint="Public subscribe requires a logged-in user."
                             />
-                        </FormField>
-                        <FormField
-                            label="Double opt-in"
-                            hint="Subscribers must click a confirmation link before receiving mail."
-                            inline
-                        >
-                            <Toggle
+                            <PolicyRow
                                 checked={doubleOptIn()}
                                 onChange={setDoubleOptIn}
-                                ariaLabel="Double opt-in"
+                                label="Double opt-in"
+                                hint="Subscribers must click a confirmation link before receiving mail."
                             />
-                        </FormField>
+                        </div>
                     </FormSection>
                 </div>
             </section>
@@ -305,5 +299,29 @@ const MailingListEdit: Component = () => {
         </div>
     );
 };
+
+/**
+ * Single row in the Subscription policy section: toggle on the
+ * left, name + sub-label stacked to the right. Clicking the label
+ * flips the toggle (one tap target for the whole row).
+ */
+interface PolicyRowProps {
+    checked: boolean;
+    onChange: (next: boolean,) => void;
+    label: string;
+    hint?: string;
+}
+
+const PolicyRow: Component<PolicyRowProps> = (p,) => (
+    <label class="policy-row">
+        <Toggle checked={p.checked} onChange={p.onChange} ariaLabel={p.label} />
+        <div class="policy-row__text">
+            <span class="policy-row__label">{p.label}</span>
+            <Show when={p.hint}>
+                <span class="policy-row__hint">{p.hint}</span>
+            </Show>
+        </div>
+    </label>
+);
 
 export default MailingListEdit;
