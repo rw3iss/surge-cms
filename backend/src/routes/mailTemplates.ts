@@ -23,6 +23,7 @@ import {
     buildSampleContext, describeVariables, substituteVariables,
 } from '../services/mail/variables';
 import { logAudit, } from '../services/audit';
+import { cache, } from '../services/cache';
 import { handleRouteError, sendCreated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -60,6 +61,7 @@ router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest,
         const parsed = templateSchema.safeParse(req.body,);
         if (!parsed.success) throw new ValidationError('Invalid input', { issues: parsed.error.issues, },);
         const created = await templates.create({ ...parsed.data, createdBy: req.userId!, },);
+        await cache.invalidateMailTemplatesCache();
         await logAudit({
             userId: req.userId!,
             action: 'create',
@@ -88,6 +90,7 @@ router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
         if (!parsed.success) throw new ValidationError('Invalid input', { issues: parsed.error.issues, },);
         const updated = await templates.update(req.params.id, parsed.data,);
         if (!updated) throw new NotFoundError('Template not found',);
+        await cache.invalidateMailTemplatesCache(req.params.id,);
         await logAudit({
             userId: req.userId!,
             action: 'update',
@@ -104,6 +107,7 @@ router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
 router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
         await templates.remove(req.params.id,);
+        await cache.invalidateMailTemplatesCache(req.params.id,);
         await logAudit({
             userId: req.userId!,
             action: 'delete',
@@ -122,6 +126,7 @@ router.put('/:id/blocks', authenticate(), requireAdmin, async (req: Authenticate
         const parsed = z.array(blockSchema,).safeParse(arr,);
         if (!parsed.success) throw new ValidationError('Invalid blocks', { issues: parsed.error.issues, },);
         await templateBlocks.replaceAll(req.params.id, parsed.data,);
+        await cache.invalidateMailTemplatesCache(req.params.id,);
         sendSuccess(res, { ok: true, count: parsed.data.length, },);
     } catch (e) { handleRouteError(res, e, 'save template blocks',); }
 },);

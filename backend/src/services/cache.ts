@@ -136,6 +136,20 @@ export async function invalidateUserCache(userId?: string,): Promise<void> {
     }
 }
 
+/** Invalidate mailing-list catalog + per-list caches. */
+export async function invalidateMailingListsCache(listId?: string,): Promise<void> {
+    if (listId) await del(`mail:list:${listId}`,);
+    await del('mail:lists:enabled',);
+    await delPattern('mail:lists:*',);
+}
+
+/** Invalidate mail-template catalog + per-template caches. */
+export async function invalidateMailTemplatesCache(templateId?: string,): Promise<void> {
+    if (templateId) await del(`mail:template:${templateId}`,);
+    await del('mail:templates',);
+    await delPattern('mail:templates:*',);
+}
+
 export async function invalidateSettingsCache(): Promise<void> {
     await delPattern('settings:*',);
     await delPattern('navigation:*',);
@@ -203,6 +217,8 @@ export const cache = {
     invalidateCampaignCache,
     invalidateFormCache,
     invalidateUserCache,
+    invalidateMailingListsCache,
+    invalidateMailTemplatesCache,
     invalidateSettingsCache,
     invalidateSitemapCache,
     flushAll,

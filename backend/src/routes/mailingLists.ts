@@ -29,6 +29,9 @@ import { NotFoundError, ValidationError, } from '../middleware/error';
 import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
 import { logAudit, } from '../services/audit';
+import { cache, } from '../services/cache';
+import { sendEmail, } from '../services/email';
+import { config, } from '../config';
 import { handleRouteError, sendCreated, sendSuccess, } from '../utils/response';
 
 const router = Router();
@@ -61,6 +64,7 @@ router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest,
         const parsed = listSchema.safeParse(req.body,);
         if (!parsed.success) throw new ValidationError('Invalid input', { issues: parsed.error.issues, },);
         const created = await lists.create({ ...parsed.data, createdBy: req.userId!, },);
+        await cache.invalidateMailingListsCache();
         await logAudit({
             userId: req.userId!,
             action: 'create',
@@ -88,6 +92,7 @@ router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
         if (!parsed.success) throw new ValidationError('Invalid input', { issues: parsed.error.issues, },);
         const updated = await lists.update(req.params.id, parsed.data,);
         if (!updated) throw new NotFoundError('Mailing list not found',);
+        await cache.invalidateMailingListsCache(req.params.id,);
         await logAudit({
             userId: req.userId!,
             action: 'update',
@@ -104,6 +109,7 @@ router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedReques
 router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
     try {
         await lists.remove(req.params.id,);
+        await cache.invalidateMailingListsCache(req.params.id,);
         await logAudit({
             userId: req.userId!,
             action: 'delete',
@@ -255,11 +261,34 @@ publicMailingListsRouter.post(
                 confirmationToken,
             },);
 
-            // The confirmation email send for double-opt-in is wired in
-            // Phase 5 — at that point getProvider() will be available
-            // and the renderer will have a built-in "confirmation"
-            // template. For V1 the subscriber sits in pending_confirmation
-            // until an admin force-confirms or the Phase 5 email lands.
+            // Fire the double-opt-in confirmation email if needed.
+            // Failures don't roll back the subscription — the operator
+            // can resend or force-confirm from the admin UI.
+            if (wantsDoubleOpt && confirmationToken) {
+                try {
+                    const fe = (config.frontendUrl as string | undefined) ?? '';
+                    const confirmUrl = `${fe}/lists/${encodeURIComponent(list.slug,)}/confirm/${encodeURIComponent(confirmationToken,)}`;
+                    await sendEmail({
+                        to: email,
+                        subject: `Confirm your subscription to ${list.name}`,
+                        html: `
+                            <h1>One more step</h1>
+                            <p>Click the button below to confirm your subscription to <strong>${list.name}</strong>:</p>
+                            <p style="text-align:center;padding:1rem 0">
+                                <a href="${confirmUrl}" style="background:#3498cf;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;display:inline-block">Confirm subscription</a>
+                            </p>
+                            <p>Or copy and paste this URL into your browser:<br><code>${confirmUrl}</code></p>
+                            <p>If you didn't subscribe, you can safely ignore this email.</p>
+                        `,
+                    },);
+                } catch (mailErr) {
+                    // Log but don't fail the request. Operator gets a
+                    // "Force confirm" button in the admin UI for the
+                    // pending row if the email never lands.
+                    // eslint-disable-next-line no-console
+                    console.warn('Failed to send double-opt-in confirmation', mailErr,);
+                }
+            }
 
             sendSuccess(res, { status: created.status, id: created.id, },);
         } catch (e) { handleRouteError(res, e, 'public subscribe',); }
