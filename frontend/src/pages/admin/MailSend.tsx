@@ -127,14 +127,19 @@ const MailSend: Component = () => {
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Mailing list</label>
+                            {/* The <select>'s value attr is set when
+                                the element first renders, but the <For>
+                                options arrive async from onMount — so
+                                pre-selection via ?list=<id> needs to
+                                drive the `selected` attr on the right
+                                option once it exists. */}
                             <select
-                                value={draft.listId}
                                 onChange={(e,) => setDraft('listId', e.currentTarget.value,)}
                             >
-                                <option value="">Select a list…</option>
+                                <option value="" selected={draft.listId === ''}>Select a list…</option>
                                 <For each={lists()}>
                                     {(l,) => (
-                                        <option value={l.id} disabled={!l.isEnabled}>
+                                        <option value={l.id} disabled={!l.isEnabled} selected={l.id === draft.listId}>
                                             {l.name} — {l.subscriberCount ?? 0} subscribers{!l.isEnabled ? ' (disabled)' : ''}
                                         </option>
                                     )}
@@ -144,12 +149,11 @@ const MailSend: Component = () => {
                         <div class="form-group">
                             <label>Template</label>
                             <select
-                                value={draft.templateId ?? ''}
                                 onChange={(e,) => { void loadTemplate(e.currentTarget.value,); }}
                             >
-                                <option value="__new__">New blank template…</option>
+                                <option value="__new__" selected={draft.templateId === null}>New blank template…</option>
                                 <For each={templates().filter((t,) => t.isEnabled,)}>
-                                    {(t,) => <option value={t.id}>{t.name}</option>}
+                                    {(t,) => <option value={t.id} selected={t.id === draft.templateId}>{t.name}</option>}
                                 </For>
                             </select>
                         </div>
