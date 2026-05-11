@@ -234,17 +234,24 @@
 // their top form in a FormSection-driven layout. Sections stack
 // vertically; rows inside use flex so paired fields (e.g. Name +
 // Slug) sit side-by-side on wide screens and stack on narrow ones.
+//
+// FormSection's `__title` primitive is sized for block-editor
+// flyouts where space is tight. On these full-page settings cards we
+// want section headers that anchor the visual hierarchy, so we
+// scope-override the typography inside .template-settings__grid /
+// .list-settings__grid (rather than editing the primitive, which
+// would ripple through every block editor in the admin).
 .template-settings,
 .list-settings {
     &__grid {
         display: flex;
         flex-direction: column;
-        gap: 1.25rem;
+        gap: 2.25rem;
     }
 
     &__row {
         display: flex;
-        gap: 1rem;
+        gap: 1.25rem;
         align-items: flex-start;
         flex-wrap: wrap;
 
@@ -253,12 +260,39 @@
 
     &__field--grow { flex: 1 1 240px; }
 
+    // Scoped FormSection overrides. The base primitive renders its
+    // title at $font-size-sm/600 (tight; sized for flyout panels).
+    // On these page-level settings cards we lift it so the section
+    // boundaries are obvious without being heavy.
+    .admin-form-section {
+        gap: 0.85rem;
+
+        &__title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            letter-spacing: -0.005em;
+            color: var(--admin-text, #{$text-color});
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.35rem;
+            border-bottom: 1px solid var(--admin-border, #{$border-color});
+            // The primitive is inline-flex (so a tooltip icon hugs
+            // the text). Make it span the row so the bottom border
+            // runs full-width.
+            display: flex;
+            width: 100%;
+        }
+    }
+
     @media (max-width: #{$breakpoint-md - 1px}) {
+        &__grid { gap: 1.75rem; }
+
         &__row {
             flex-direction: column;
             gap: 0.75rem;
         }
         &__field--grow { flex: 1 1 auto; width: 100%; }
+
+        .admin-form-section__title { font-size: 1rem; }
     }
 }
 
