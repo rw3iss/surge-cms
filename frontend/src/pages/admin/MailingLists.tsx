@@ -92,49 +92,6 @@ const MailingLists: Component = () => {
 
             <section class="admin-section">
                 <header class="admin-section__header">
-                    <h2>Jobs (Sending…)</h2>
-                </header>
-                <Show when={!jobs.loading} fallback={<p>Loading…</p>}>
-                    <Show
-                        when={(jobs() ?? []).length > 0}
-                        fallback={<div class="empty-state"><em>No send jobs yet.</em></div>}
-                    >
-                        <div class="admin-table-container">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Subject</th>
-                                        <th>List</th>
-                                        <th>Status</th>
-                                        <th>Progress</th>
-                                        <th>Started</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <For each={jobs() ?? []}>
-                                        {(j,) => (
-                                            <tr>
-                                                <td><A href={`/admin/mail/jobs/${j.id}`}>{j.subject}</A></td>
-                                                <td>{j.listName ?? <em class="form-help-muted">(deleted)</em>}</td>
-                                                <td><span class={`badge ${statusBadge(j.status,)}`}>{j.status}</span></td>
-                                                <td>{j.sentCount + j.failedCount}/{j.totalRecipients}</td>
-                                                <td>{formatTimestamp(j.startedAt,)}</td>
-                                                <td>
-                                                    <A href={`/admin/mail/jobs/${j.id}`} class="btn btn--small btn--secondary">View</A>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </For>
-                                </tbody>
-                            </table>
-                        </div>
-                    </Show>
-                </Show>
-            </section>
-
-            <section class="admin-section">
-                <header class="admin-section__header">
                     <h2>Mail Templates</h2>
                     <div class="admin-section__actions">
                         <A href="/admin/mail-templates/new" class="btn btn--small btn--primary">+ New Template</A>
@@ -166,6 +123,49 @@ const MailingLists: Component = () => {
                                                 <td>{new Date(t.updatedAt,).toLocaleDateString()}</td>
                                                 <td>
                                                     <A href={`/admin/mail-templates/${t.id}`} class="btn btn--small btn--secondary">Edit</A>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Show>
+                </Show>
+            </section>
+
+            <section class="admin-section">
+                <header class="admin-section__header">
+                    <h2>Jobs (Sent)</h2>
+                </header>
+                <Show when={!jobs.loading} fallback={<p>Loading…</p>}>
+                    <Show
+                        when={(jobs() ?? []).length > 0}
+                        fallback={<div class="empty-state"><em>No send jobs yet.</em></div>}
+                    >
+                        <div class="admin-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>List</th>
+                                        <th>Status</th>
+                                        <th>Progress</th>
+                                        <th>Started</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={jobs() ?? []}>
+                                        {(j,) => (
+                                            <tr>
+                                                <td><A href={`/admin/mail/jobs/${j.id}`}>{j.subject}</A></td>
+                                                <td>{j.listName ?? <em class="form-help-muted">(deleted)</em>}</td>
+                                                <td><span class={`badge ${statusBadge(j.status,)}`}>{j.status}</span></td>
+                                                <td>{j.sentCount + j.failedCount}/{j.totalRecipients}</td>
+                                                <td>{formatTimestamp(j.startedAt,)}</td>
+                                                <td>
+                                                    <A href={`/admin/mail/jobs/${j.id}`} class="btn btn--small btn--secondary">View</A>
                                                 </td>
                                             </tr>
                                         )}
