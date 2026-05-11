@@ -330,3 +330,17 @@ export const mailingListsApi = {
     forceConfirm: (id: string, subId: string,) =>
         api.post(`/mailing-lists/${id}/subscribers/${subId}/force-confirm`, {},),
 };
+
+// ─── Mail Templates API ────────────────────────────────────────────
+
+export const mailTemplatesApi = {
+    list: () => api.get('/mail-templates',),
+    get: (id: string,) => api.get(`/mail-templates/${id}`,),
+    create: (data: Record<string, unknown>,) => api.post('/mail-templates', data,),
+    update: (id: string, data: Record<string, unknown>,) => api.put(`/mail-templates/${id}`, data,),
+    saveBlocks: (id: string, blocks: unknown[],) => api.put(`/mail-templates/${id}/blocks`, { blocks, },),
+    remove: (id: string,) => api.delete(`/mail-templates/${id}`,),
+    preview: (data: { blocks: unknown[]; subject: string; preheader?: string; variables?: Record<string, string>; },) =>
+        api.post('/mail-templates/preview', data,),
+    variables: () => api.get('/mail-templates/variables',),
+};

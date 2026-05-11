@@ -42,6 +42,7 @@ const AdminMessages = lazy(() => import('./pages/admin/Messages'));
 const AdminMessageView = lazy(() => import('./pages/admin/MessageView'));
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
+const AdminMailTemplateEdit = lazy(() => import('./pages/admin/MailTemplateEdit'));
 const AdminMedia = lazy(() => import('./pages/admin/Media'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
@@ -109,6 +110,7 @@ const App: Component = () => {
                                     <Route path="/messages/:id" component={AdminMessageView} />
                                     <Route path="/mailing-lists" component={AdminMailingLists} />
                                     <Route path="/mailing-lists/:id" component={AdminMailingListEdit} />
+                                    <Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />
                                     <Route path="/media" component={AdminMedia} />
                                     <Route path="/settings" component={AdminSettings} />
                                 </Route>

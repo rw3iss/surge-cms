@@ -6,13 +6,17 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import type { MailingList, } from '@rw/shared';
-import { mailingListsApi, } from '../../services/api';
+import type { MailingList, MailTemplate, } from '@rw/shared';
+import { mailingListsApi, mailTemplatesApi, } from '../../services/api';
 
 const MailingLists: Component = () => {
-    const [lists, { refetch, },] = createResource(async () => {
+    const [lists,] = createResource(async () => {
         const res = await mailingListsApi.list();
         return res.success ? (res as { data: MailingList[]; }).data : [];
+    },);
+    const [templates,] = createResource(async () => {
+        const res = await mailTemplatesApi.list();
+        return res.success ? (res as { data: MailTemplate[]; }).data : [];
     },);
 
     return (
@@ -70,10 +74,45 @@ const MailingLists: Component = () => {
             <section class="admin-section">
                 <header class="admin-section__header">
                     <h2>Mail Templates</h2>
+                    <div class="admin-section__actions">
+                        <A href="/admin/mail-templates/new" class="btn btn--small btn--primary">+ New Template</A>
+                    </div>
                 </header>
-                <p class="form-help-muted">
-                    Mail Template editor ships in Phase 3 of the Mailing Lists rollout.
-                </p>
+                <Show when={!templates.loading} fallback={<p>Loading…</p>}>
+                    <Show
+                        when={(templates() ?? []).length > 0}
+                        fallback={<div class="empty-state"><em>No templates yet. Create one to use in sends.</em></div>}
+                    >
+                        <div class="admin-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Subject</th>
+                                        <th>Status</th>
+                                        <th>Updated</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={templates() ?? []}>
+                                        {(t,) => (
+                                            <tr>
+                                                <td><A href={`/admin/mail-templates/${t.id}`}>{t.name}</A></td>
+                                                <td>{t.subject || <em class="form-help-muted">(none)</em>}</td>
+                                                <td>{t.isEnabled ? <span class="badge badge--success">Enabled</span> : <span class="badge">Disabled</span>}</td>
+                                                <td>{new Date(t.updatedAt,).toLocaleDateString()}</td>
+                                                <td>
+                                                    <A href={`/admin/mail-templates/${t.id}`} class="btn btn--small btn--secondary">Edit</A>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Show>
+                </Show>
             </section>
         </div>
     );
