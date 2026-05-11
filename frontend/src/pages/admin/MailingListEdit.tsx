@@ -214,7 +214,7 @@ const MailingListEdit: Component = () => {
             </section>
 
             <Show when={!isNew()}>
-                <section class="admin-section">
+                <section class="admin-section admin-section--wide">
                     <header class="admin-section__header">
                         <h2>Subscribers ({subscribers()?.total ?? 0})</h2>
                         <div class="admin-section__actions">

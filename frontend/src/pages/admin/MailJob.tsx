@@ -208,7 +208,7 @@ const MailJob: Component = () => {
                             </Show>
                         </section>
 
-                        <section class="admin-section">
+                        <section class="admin-section admin-section--wide">
                             <header class="admin-section__header">
                                 <h2>Recipients ({recipients()?.total ?? 0})</h2>
                                 <div class="status-tabs">

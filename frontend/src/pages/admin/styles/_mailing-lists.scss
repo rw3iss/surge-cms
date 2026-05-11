@@ -1,11 +1,29 @@
 @use 'sass:color';
 @use '../../../styles/variables' as *;
 
+// Width modifiers for .admin-section inside the mailing-lists pages:
+//
+//   .admin-section          — 1200px max (default; fits text-heavy
+//                              forms without sprawling)
+//   .admin-section--wide    — 1600px max (table sections — gives
+//                              wide tables room for all columns)
+//   .admin-section--full    — uncapped (full-width; reserved for
+//                              specialty layouts e.g. the block
+//                              editor on template pages)
+//
+// Modifier rules are nested under the page selectors so they
+// override the scoped default by source order without needing
+// !important. The same modifier classes work on MailJob /
+// MailSend because those pages compose `.mailing-list-edit-page`
+// on their root <div>.
 .mailing-lists-page,
 .mailing-list-edit-page {
     .admin-section {
         margin-bottom: 2rem;
         max-width: 1200px;
+
+        &--wide { max-width: 1600px; }
+        &--full { max-width: none; }
 
         &__header {
             display: flex;

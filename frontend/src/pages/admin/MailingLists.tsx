@@ -49,7 +49,7 @@ const MailingLists: Component = () => {
                 </div>
             </div>
 
-            <section class="admin-section">
+            <section class="admin-section admin-section--wide">
                 <header class="admin-section__header">
                     <h2>Lists</h2>
                 </header>
@@ -90,7 +90,7 @@ const MailingLists: Component = () => {
                 </Show>
             </section>
 
-            <section class="admin-section">
+            <section class="admin-section admin-section--wide">
                 <header class="admin-section__header">
                     <h2>Mail Templates</h2>
                     <div class="admin-section__actions">
@@ -134,7 +134,7 @@ const MailingLists: Component = () => {
                 </Show>
             </section>
 
-            <section class="admin-section">
+            <section class="admin-section admin-section--wide">
                 <header class="admin-section__header">
                     <h2>Jobs (Sent)</h2>
                 </header>
