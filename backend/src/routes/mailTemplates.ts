@@ -169,12 +169,16 @@ router.post('/preview', authenticate(), requireAdmin, async (req, res,) => {
             parentBlockId: b.parentBlockId ?? null,
             blockType: b.blockType,
             position: b.position,
-            settings: b.settings,
-            style: b.style,
+            settings: (b.settings ?? {}) as Record<string, unknown>,
+            style: (b.style ?? {}) as Record<string, unknown>,
         }));
 
+        // Resolve `style = { id: <templateId> }` refs to their inlined
+        // property bags so the renderer sees a plain style record.
+        const resolved = await templateBlocks.populateBlockStyles(blocksForRender,);
+
         const result = renderMailHtml({
-            blocks: blocksForRender,
+            blocks: resolved,
             subject: parsed.data.subject ?? '',
             preheader: parsed.data.preheader,
             siteName: (settingsMap.site_name as string) ?? 'Site',

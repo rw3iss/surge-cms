@@ -14,40 +14,8 @@ import {
 import type { MailTemplate, VariableDescriptor, } from '@rw/shared';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
+import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { mailTemplatesApi, } from '../../services/api';
-
-interface BackendBlock {
-    id: string;
-    parentBlockId: string | null;
-    blockType: string;
-    position: number;
-    settings: Record<string, unknown>;
-    style: Record<string, unknown>;
-}
-
-function backendToEditor(rows: BackendBlock[],): BlockData[] {
-    return rows.map((r,) => ({
-        id: r.id,
-        type: r.blockType as BlockData['type'],
-        parentBlockId: r.parentBlockId,
-        sort_order: r.position,
-        data: r.settings ?? {},
-        styleRef: r.style && Object.keys(r.style,).length > 0
-            ? { custom: r.style as Record<string, unknown>, }
-            : undefined,
-    }));
-}
-
-function editorToBackend(blocks: BlockData[],): unknown[] {
-    return blocks.map((b, i,) => ({
-        id: b.id,
-        parentBlockId: b.parentBlockId ?? null,
-        blockType: b.type,
-        position: b.sort_order ?? i,
-        settings: b.data ?? {},
-        style: b.styleRef?.custom ?? {},
-    }));
-}
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();

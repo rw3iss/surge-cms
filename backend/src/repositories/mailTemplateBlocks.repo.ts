@@ -4,8 +4,14 @@
  * it. Save is a transactional replace: delete all blocks for the
  * template, insert the new flat list. Simplifies the editor by
  * avoiding per-block diffing.
+ *
+ * Block-style template refs (`style = { id: <uuid> }` pointing at a
+ * row in `block_styles`) are resolved on read via
+ * `populateBlockStyles` — the renderer ingests the fully-inlined
+ * style props and doesn't have to know about the indirection.
  */
 import { query, getPool, } from '../db';
+import * as blockStylesRepo from './blockStyles.repo';
 
 export interface MailTemplateBlockRow {
     id: string;
@@ -46,7 +52,54 @@ export async function findByTemplate(templateId: string,): Promise<MailTemplateB
          ORDER BY parent_block_id NULLS FIRST, position`,
         [templateId,],
     );
+    // Return the raw shape on this path (the editor reads style.id and
+    // turns it into a styleRef so the picker shows the correct
+    // template). The renderer path uses `findByTemplateResolved`.
     return r.rows.map(map,);
+}
+
+/**
+ * Same as `findByTemplate` but resolves any `style.id` template refs
+ * to their inlined property bags via `block_styles`. The email
+ * renderer + preview pipelines call this so each block's `style`
+ * payload is a plain `{ backgroundColor, textColor, padding, … }`
+ * record by the time it hits `cellStyleFromBlock`.
+ */
+export async function findByTemplateResolved(templateId: string,): Promise<MailTemplateBlockRow[]> {
+    const rows = await findByTemplate(templateId,);
+    return populateBlockStyles(rows,);
+}
+
+/**
+ * Inline block-style template refs. Mirrors `pages.repo.populateBlockStyles`
+ * but typed for the mail-template block shape so renderer consumers
+ * stay strict.
+ */
+export async function populateBlockStyles<T extends { style: Record<string, unknown>; }>(
+    blocks: T[],
+): Promise<T[]> {
+    const templateIds = [
+        ...new Set(
+            blocks
+                .filter((b,) => b.style && typeof b.style.id === 'string',)
+                .map((b,) => b.style.id as string,),
+        ),
+    ];
+    if (templateIds.length === 0) return blocks;
+
+    const stylesMap = await blockStylesRepo.findByIds(templateIds,);
+    return blocks.map((block,) => {
+        const id = block.style?.id;
+        if (typeof id === 'string' && stylesMap.has(id,)) {
+            const template = stylesMap.get(id,)!;
+            // Strip identity columns from the merged template; the
+            // renderer only cares about presentation props.
+            const { id: _id, name: _name, isDefault: _d, createdAt: _ca, updatedAt: _ua, ...styleProps } =
+                template as unknown as Record<string, unknown>;
+            return { ...block, style: styleProps as Record<string, unknown>, };
+        }
+        return block;
+    },);
 }
 
 export interface SaveBlockInput {

@@ -16,6 +16,7 @@ import * as jobs from '../repositories/mailSendJobs.repo';
 import * as recipients from '../repositories/mailSendRecipients.repo';
 import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
+import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { logAudit, } from '../services/audit';
 import { renderMailHtml, } from '../services/mail/renderer';
 import { kickJob, } from '../services/mail/sendWorker';
@@ -74,11 +75,12 @@ router.post('/send', authenticate(), requireAdmin, async (req: AuthenticatedRequ
             parentBlockId: b.parentBlockId ?? null,
             blockType: b.blockType,
             position: b.position,
-            settings: b.settings,
-            style: b.style,
+            settings: (b.settings ?? {}) as Record<string, unknown>,
+            style: (b.style ?? {}) as Record<string, unknown>,
         }));
+        const resolvedBlocks = await templateBlocks.populateBlockStyles(blocksForRender,);
         const rendered = renderMailHtml({
-            blocks: blocksForRender,
+            blocks: resolvedBlocks,
             subject: parsed.data.subject,
             preheader: parsed.data.preheader,
             siteName: (settingsMap.site_name as string) ?? 'Site',
