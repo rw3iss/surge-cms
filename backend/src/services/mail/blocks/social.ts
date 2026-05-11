@@ -6,8 +6,6 @@ interface SocialItem { postUrl?: string; postId?: string; thumbnailUrl?: string;
 /**
  * Social → fallback. Embedded provider widgets don't work in email,
  * so each pinned item renders as a card-link with thumbnail + excerpt.
- * Auto-feed (no items) renders an empty row — Phase 5 may denormalize
- * the provider's recent posts into settings at send time.
  */
 export const renderSocial: BlockEmailRenderer = (node,) => {
     const items: SocialItem[] = Array.isArray(node.settings.items,)
@@ -31,5 +29,5 @@ export const renderSocial: BlockEmailRenderer = (node,) => {
         </td></tr>`;
     },).join('\n',);
 
-    return `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
 };

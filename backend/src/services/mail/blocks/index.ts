@@ -1,12 +1,15 @@
 /**
- * Per-block-type email renderer registry. Each renderer returns an
- * HTML fragment containing one or more `<tr>` rows (the outer
- * `<table>` is added by `services/mail/renderer.ts`).
+ * Per-block-type email renderer registry. Each renderer returns just
+ * the *cell content* (no `<tr><td>` wrapping). The orchestration in
+ * `renderNode` wraps it in a styled `<tr><td>` with the block's
+ * persisted `style` JSONB applied — padding, background, text color,
+ * alignment, font size — so the cell always reflects the operator's
+ * intent without each renderer having to reimplement style handling.
  *
- * Renderers are pure: they receive a fully-resolved block + the
- * rendering context and produce a string. No DB calls; no async. Any
- * dynamic block (e.g. post_list) must denormalize its data into
- * settings before render time.
+ * Renderers can optionally return a struct with `cellStyle` overrides
+ * (e.g. Spacer setting a hard cell height) or `rawRow` to opt out of
+ * wrapping entirely (no current block uses rawRow, but it's there
+ * for future use).
  */
 import { renderRichText, } from './richText';
 import { renderImage, } from './image';
@@ -22,6 +25,7 @@ import { renderCampaign, } from './campaign';
 import { renderPostList, } from './postList';
 import { renderCarousel, } from './carousel';
 import { renderDocument, } from './document';
+import { cellStyleFromBlock, inlineStyle, } from './_util';
 
 export interface EmailBlockNode {
     id: string;
@@ -41,7 +45,22 @@ export interface EmailRenderCtx {
     linkColor: string;
 }
 
-export type BlockEmailRenderer = (node: EmailBlockNode, ctx: EmailRenderCtx,) => string;
+export interface BlockEmailRenderResult {
+    /** Cell content. Wrapped in <tr><td style="..."> by renderNode. */
+    content: string;
+    /** Per-cell style overrides merged on top of the block.style-
+     *  derived style. Used e.g. by Spacer to enforce a fixed height. */
+    cellStyle?: Record<string, string>;
+    /** Opt out: emit this verbatim (no wrapping). Reserved for future
+     *  use — no current renderer needs it. */
+    rawRow?: string;
+}
+
+export type BlockEmailRendererOut = string | BlockEmailRenderResult;
+export type BlockEmailRenderer = (
+    node: EmailBlockNode,
+    ctx: EmailRenderCtx,
+) => BlockEmailRendererOut;
 
 export const RENDERERS: Record<string, BlockEmailRenderer> = {
     rich_text: renderRichText,
@@ -67,8 +86,24 @@ export const RENDERERS: Record<string, BlockEmailRenderer> = {
     gallery: renderImage,
 };
 
+function toResult(out: BlockEmailRendererOut,): BlockEmailRenderResult {
+    return typeof out === 'string' ? { content: out, } : out;
+}
+
+/**
+ * Render one block, wrapping it in a styled `<tr><td>` that applies
+ * the block's persisted style. Per-renderer cellStyle (e.g. Spacer's
+ * height) overrides defaults.
+ */
 export function renderNode(node: EmailBlockNode, ctx: EmailRenderCtx,): string {
     const fn = RENDERERS[node.blockType];
     if (!fn) return '';
-    return fn(node, ctx,);
+    const out = toResult(fn(node, ctx,),);
+    if (out.rawRow !== undefined) return out.rawRow;
+    if (!out.content) return '';
+
+    const style = { ...cellStyleFromBlock(node, ctx,), ...(out.cellStyle ?? {}), };
+    const styleAttr = inlineStyle(style,);
+    const styleStr = styleAttr ? ` style="${styleAttr}"` : '';
+    return `<tr><td${styleStr}>${out.content}</td></tr>`;
 }

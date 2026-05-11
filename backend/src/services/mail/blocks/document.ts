@@ -9,11 +9,9 @@ export const renderDocument: BlockEmailRenderer = (node,) => {
     const url = String(node.settings.url ?? node.settings.fileUrl ?? '#',);
     const name = String(node.settings.fileName ?? node.settings.title ?? node.settings.url ?? 'Document',);
     const size = node.settings.fileSize ? ` (${formatBytes(Number(node.settings.fileSize,),)})` : '';
-    return `<tr><td style="padding:12px">
-        <a href="${escapeHtml(url,)}" style="display:inline-block;padding:10px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;text-decoration:none;color:#333">
-            📄 ${escapeHtml(name,)}${size}
-        </a>
-    </td></tr>`;
+    return `<a href="${escapeHtml(url,)}" style="display:inline-block;padding:10px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;text-decoration:none;color:#333">
+        📄 ${escapeHtml(name,)}${size}
+    </a>`;
 };
 
 function formatBytes(bytes: number,): string {

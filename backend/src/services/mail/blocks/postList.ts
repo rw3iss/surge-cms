@@ -6,9 +6,7 @@ interface ResolvedPost { slug: string; title: string; excerpt?: string; featured
 /**
  * Post list → row-per-post static list. The send route is responsible
  * for denormalizing `settings.resolvedPosts` from current DB state at
- * render time so each email sees the same content (preview also
- * passes `resolvedPosts` if the operator's template specifies a
- * query). If absent, falls back to a "View latest posts" link.
+ * render time. Without it, falls back to a "View latest posts" link.
  */
 export const renderPostList: BlockEmailRenderer = (node, ctx,) => {
     const posts: ResolvedPost[] = Array.isArray(node.settings.resolvedPosts,)
@@ -16,9 +14,10 @@ export const renderPostList: BlockEmailRenderer = (node, ctx,) => {
         : [];
 
     if (posts.length === 0) {
-        return `<tr><td style="padding:16px;text-align:center">
-            <a href="${escapeHtml(absUrl(ctx.siteUrl, '/posts',),)}" style="color:${ctx.linkColor}">View latest posts →</a>
-        </td></tr>`;
+        return {
+            content: `<a href="${escapeHtml(absUrl(ctx.siteUrl, '/posts',),)}" style="color:${ctx.linkColor}">View latest posts →</a>`,
+            cellStyle: { 'text-align': 'center', },
+        };
     }
 
     const rows = posts.map((p,) => {
@@ -33,5 +32,5 @@ export const renderPostList: BlockEmailRenderer = (node, ctx,) => {
         </td></tr>`;
     },).join('\n',);
 
-    return `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
 };

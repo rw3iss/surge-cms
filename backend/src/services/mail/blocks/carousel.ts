@@ -23,5 +23,5 @@ export const renderCarousel: BlockEmailRenderer = (node, ctx,) => {
         ? `<div style="text-align:center;padding-top:6px"><a href="${link}" style="color:${ctx.linkColor}">View more →</a></div>`
         : '';
 
-    return `<tr><td style="padding:8px">${wrapped}${more}</td></tr>`;
+    return wrapped + more;
 };

@@ -9,7 +9,8 @@ export const renderForm: BlockEmailRenderer = (node, ctx,) => {
     const slug = String(node.settings.formSlug ?? node.settings.slug ?? '',);
     const label = String(node.settings.ctaText ?? node.settings.label ?? 'Open the form',);
     const target = slug ? absUrl(ctx.siteUrl, `/forms/${slug}`,) : ctx.siteUrl || '#';
-    return `<tr><td style="padding:16px;text-align:center">
-        <a href="${escapeHtml(target,)}" style="background:${ctx.linkColor};color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;display:inline-block">${escapeHtml(label,)}</a>
-    </td></tr>`;
+    return {
+        content: `<a href="${escapeHtml(target,)}" style="background:${ctx.linkColor};color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;display:inline-block">${escapeHtml(label,)}</a>`,
+        cellStyle: { 'text-align': 'center', },
+    };
 };
