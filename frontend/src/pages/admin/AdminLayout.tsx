@@ -183,7 +183,12 @@ const AdminLayout: ParentComponent = (props,) => {
                 <aside class={`admin-layout__sidebar ${sidebarOpen() ? 'admin-layout__sidebar--open' : ''}`}>
                     <div class="admin-layout__logo">
                         <A href="/" onClick={handleNavClick}>
-                            <SiteLogo size="small" name={siteName()} logoSrc={siteLogo()} />
+                            <SiteLogo
+                                size="small"
+                                name={siteName()}
+                                logoSrc={siteLogo()}
+                                compact={collapsed()}
+                            />
                         </A>
                     </div>
                     <nav class="admin-layout__nav">

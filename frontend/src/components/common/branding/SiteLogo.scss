@@ -31,6 +31,35 @@
     padding-right: 10px;
   }
 
+  // Compact-mode initial. Renders as a circular tinted chip with the
+  // first letter of the site name — used when the admin sidebar is
+  // collapsed and no logo image has been uploaded, so the brand spot
+  // doesn't go blank.
+  &__initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--site-primary, #{$primary-color});
+    color: #fff;
+    font-weight: 700;
+    font-size: $font-size-base;
+    line-height: 1;
+    font-family: var(--admin-font-display, inherit);
+  }
+
+  // Compact mode: hide the wordmark, tighten the gap, drop the
+  // image padding so the icon-only mark sits neatly inside a
+  // collapsed sidebar.
+  &--compact {
+    gap: 0;
+
+    .site-logo__text { display: none; }
+    .site-logo__custom-img { padding-right: 0; }
+  }
+
   // ─── Size modifiers ───
 
   &--small {
