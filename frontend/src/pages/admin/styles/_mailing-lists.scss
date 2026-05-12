@@ -645,12 +645,31 @@
     }
 }
 
-.job-recipient-error {
-    max-width: 320px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: $text-light;
-    font-size: 12px;
-    cursor: help;
+// Recipients table inside the MailJob page. The first four columns
+// get fixed minima sized to their content; the Error column gets
+// width:auto + 100% on the table so it claims everything left over.
+// Error text is allowed to wrap across multiple lines (anywhere,
+// including inside long words like "ENOTFOUND" / hostnames) instead
+// of being truncated — operators want to see the whole reason a
+// recipient failed.
+.job-recipients-table {
+    width: 100%;
+    table-layout: auto;
+
+    &__email    { width: 1%; white-space: nowrap; }
+    &__status   { width: 1%; white-space: nowrap; }
+    &__attempts { width: 1%; white-space: nowrap; }
+    &__sent-at  { width: 1%; white-space: nowrap; }
+    &__error    { width: auto; }
+
+    .job-recipient-error {
+        color: var(--admin-text-muted, #{$text-light});
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        max-width: none;
+        cursor: help;
+    }
 }

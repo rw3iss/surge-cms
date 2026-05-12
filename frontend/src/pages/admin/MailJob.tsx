@@ -242,14 +242,14 @@ const MailJob: Component = () => {
                                     fallback={<div class="empty-state"><em>No recipients match.</em></div>}
                                 >
                                     <div class="admin-table-container">
-                                        <table class="admin-table">
+                                        <table class="admin-table job-recipients-table">
                                             <thead>
                                                 <tr>
-                                                    <th>Email</th>
-                                                    <th>Status</th>
-                                                    <th>Attempts</th>
-                                                    <th>Sent at</th>
-                                                    <th>Error</th>
+                                                    <th class="job-recipients-table__email">Email</th>
+                                                    <th class="job-recipients-table__status">Status</th>
+                                                    <th class="job-recipients-table__attempts">Attempts</th>
+                                                    <th class="job-recipients-table__sent-at">Sent at</th>
+                                                    <th class="job-recipients-table__error">Error</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -260,7 +260,7 @@ const MailJob: Component = () => {
                                                             <td><span class={`badge badge--${r.status === 'sent' ? 'success' : r.status === 'failed' ? 'error' : 'muted'}`}>{r.status}</span></td>
                                                             <td>{r.attemptCount}</td>
                                                             <td>{r.sentAt ? new Date(r.sentAt,).toLocaleString() : '—'}</td>
-                                                            <td class="job-recipient-error" title={r.error}>{r.error ? `${r.error.slice(0, 60,)}…` : ''}</td>
+                                                            <td class="job-recipient-error" title={r.error}>{r.error ?? ''}</td>
                                                         </tr>
                                                     )}
                                                 </For>
