@@ -4,7 +4,7 @@ import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
 import { deleteById, paginatedQuery, PaginatedResult, PaginationOptions, } from './base.repo';
-import * as blockStylesRepo from './blockStyles.repo';
+import * as blockStyleResolution from '../services/blockStyleResolution';
 
 export interface ContentBlock {
     id: string;
@@ -65,25 +65,13 @@ export async function findContentBlocks(postId: string,): Promise<ContentBlock[]
         style: row.style as Record<string, unknown> | null,
     }));
 
-    // Resolve template IDs: if style.id exists, fetch the template and merge
-    const templateIds = [
-        ...new Set(
-            blocks
-                .filter(b => b.style?.id)
-                .map(b => b.style!.id as string),
-        ),
-    ];
-
-    if (templateIds.length > 0) {
-        const stylesMap = await blockStylesRepo.findByIds(templateIds,);
-        for (const block of blocks) {
-            if (block.style?.id && stylesMap.has(block.style.id as string,)) {
-                block.style = { ...stylesMap.get(block.style.id as string,), };
-            }
-        }
-    }
-
-    return blocks;
+    // Inline `style = { id: <template> }` template refs to flat
+    // style props via the shared resolver — same contract pages.repo
+    // and mailTemplateBlocks.repo use. The block-style template id
+    // is preserved inside `data.__styleRef` at write time (see
+    // saveContentBlocks), so the picker still knows which template
+    // was selected; we don't need to surface the id in `style`.
+    return blockStyleResolution.populateBlockStyles(blocks,);
 }
 
 export async function saveContentBlocks(

@@ -2,6 +2,7 @@ import { Component, createEffect, createMemo, createSignal, For, on, onCleanup, 
 import { createStore, reconcile, } from 'solid-js/store';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDevices';
+import { BlockStyleService, } from '../../../services/blockStyles';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
@@ -257,6 +258,13 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     onMount(() => {
         document.addEventListener('mousedown', onDocumentMouseDown,);
         document.addEventListener('keydown', onDocumentKeyDown,);
+        // Preload the block-style template cache so BlockPreview can
+        // resolve `styleRef.templateId` references on the very first
+        // paint. Without this, blocks referencing a saved style
+        // template rendered un-styled until the operator clicked them
+        // (which triggered a re-render that hit the now-populated
+        // cache).
+        BlockStyleService.preload();
     },);
     onCleanup(() => {
         document.removeEventListener('mousedown', onDocumentMouseDown,);

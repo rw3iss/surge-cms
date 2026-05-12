@@ -1,3 +1,4 @@
+import { createSignal, } from 'solid-js';
 import { api, } from './api';
 
 export interface BlockStyleData {
@@ -42,26 +43,46 @@ export const BLOCK_STYLE_DEFAULTS: Required<
     overflowY: '',
 };
 
-let cachedStyles: BlockStyleData[] | null = null;
+// Reactive cache. BlockPreview (and any other renderer) reads the
+// styles synchronously via `getCached()` — which now goes through the
+// signal — so once `preload()` populates the cache, every consumer
+// re-renders with the resolved template props on the next tick.
+// Previously the cache was a plain variable, so a block referencing a
+// style template would render with no style on first paint until some
+// other interaction (e.g. clicking the block) happened to trigger a
+// re-evaluation. With the signal there's no longer that race.
+const [styles, setStyles,] = createSignal<BlockStyleData[]>([],);
+let pending: Promise<BlockStyleData[]> | null = null;
 
 export const BlockStyleService = {
-    /** Returns the cached styles synchronously (empty if not yet loaded) */
+    /** Returns the cached styles synchronously. Inside a reactive scope
+     *  (e.g. a JSX expression in BlockPreview), this subscribes to
+     *  cache changes so the consumer re-renders when preload finishes. */
     getCached(): BlockStyleData[] {
-        return cachedStyles || [];
+        return styles();
     },
 
     async getAll(): Promise<BlockStyleData[]> {
-        if (cachedStyles) return cachedStyles;
-        const res = await api.get('/block-styles',);
-        if (res.success) {
-            cachedStyles = (res as any).data || [];
-            return cachedStyles!;
-        }
-        return [];
+        if (styles().length > 0) return styles();
+        if (pending) return pending;
+        pending = (async () => {
+            const res = await api.get('/block-styles',);
+            const list = res.success ? ((res as any).data || []) : [];
+            setStyles(list,);
+            pending = null;
+            return list;
+        })();
+        return pending;
     },
 
+    /** Idempotent fire-and-forget loader. Editors call this on mount so
+     *  the cache is populated before any block renders for the first
+     *  time. */
+    preload(): void { void this.getAll(); },
+
     invalidateCache() {
-        cachedStyles = null;
+        setStyles([],);
+        pending = null;
     },
 
     async create(data: Partial<BlockStyleData>,): Promise<BlockStyleData | null> {
@@ -70,6 +91,7 @@ export const BlockStyleService = {
         const res = await api.post('/block-styles', payload,);
         if (res.success) {
             this.invalidateCache();
+            void this.getAll();
             return (res as any).data;
         }
         return null;
@@ -79,6 +101,7 @@ export const BlockStyleService = {
         const res = await api.put(`/block-styles/${id}`, data,);
         if (res.success) {
             this.invalidateCache();
+            void this.getAll();
             return (res as any).data;
         }
         return null;
@@ -88,6 +111,7 @@ export const BlockStyleService = {
         const res = await api.delete(`/block-styles/${id}`,);
         if (res.success) {
             this.invalidateCache();
+            void this.getAll();
             return true;
         }
         return false;
