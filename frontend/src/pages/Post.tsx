@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { ContentAccessLevel, Post, } from '@rw/shared';
+import type { ContentAccessLevel, ContentLockedDetails, Post, } from '@rw/shared';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
@@ -46,10 +46,14 @@ const PostPage: Component = () => {
             if (!response.success) {
                 const raw = response as any;
                 if (raw.error?.code === 'CONTENT_LOCKED' && raw.error.details) {
-                    const d = raw.error.details as { accessLevel: ContentAccessLevel; preview: LockedContent['preview']; };
+                    const d = raw.error.details as ContentLockedDetails;
+                    // ContentLockedDetails.preview types fields as `string |
+                    // null`; LockedContent uses `string | undefined`. Both
+                    // are read only via truthy `<Show>` gates in ContentGate,
+                    // so the cast is safe (null and undefined behave alike).
                     setLockedContent({
                         accessLevel: d.accessLevel,
-                        preview: d.preview,
+                        preview: (d.preview ?? {}) as LockedContent['preview'],
                     },);
                     return null;
                 }
