@@ -45,4 +45,25 @@ describe('csrfProtection', () => {
         const { next, } = run({ method: 'GET', path: '/x', headers: {}, cookies: {}, },);
         expect(next,).toHaveBeenCalledOnce();
     },);
+
+    it('skips cookie check even when auth cookies are also present (Bearer wins downstream)', () => {
+        const { res, next, } = run({
+            method: 'POST',
+            path: '/api/v1/posts',
+            headers: { authorization: 'Bearer some-jwt', },
+            cookies: { accessToken: 'cookie-token', 'csrf-token': 'tok', },
+        },);
+        expect(next,).toHaveBeenCalledOnce();
+        expect(res.status,).not.toHaveBeenCalled();
+    },);
+
+    it('skips the Stripe webhook path', () => {
+        const { next, } = run({
+            method: 'POST',
+            path: '/api/v1/payments/webhook',
+            headers: {},
+            cookies: {},
+        },);
+        expect(next,).toHaveBeenCalledOnce();
+    },);
 },);
