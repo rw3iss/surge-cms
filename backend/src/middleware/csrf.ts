@@ -27,6 +27,15 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction,)
         return next();
     }
 
+    // Header-authenticated requests (Bearer JWT or API key) skip the
+    // cookie CSRF check: a cross-site attacker cannot set the
+    // Authorization header from a form/img/script tag, so there is no
+    // cookie ambient authority to ride. The token itself is still
+    // validated by the auth middleware downstream.
+    if (req.headers.authorization?.startsWith('Bearer ',)) {
+        return next();
+    }
+
     const cookieToken = req.cookies['csrf-token'];
     const headerToken = req.headers['x-csrf-token'];
 

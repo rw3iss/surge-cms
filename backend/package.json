@@ -53,7 +53,9 @@
     "@types/nodemailer": "^6.4.14",
     "@types/pg": "^8.10.9",
     "@types/sanitize-html": "^2.16.1",
+    "@types/supertest": "^7.2.0",
     "eslint": "^8.56.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vitest": "^1.1.3"
