@@ -7,7 +7,7 @@
  *       'posts.list',
  *       { tag: 'news', limit: 10 },
  *       30_000,
- *       () => api.get('/posts/public?...'),
+ *       () => api.get('/posts?...'),
  *   );
  *
  * The same `(namespace, params)` pair returns the cached result while

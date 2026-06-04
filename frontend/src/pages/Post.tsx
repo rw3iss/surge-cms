@@ -45,10 +45,11 @@ const PostPage: Component = () => {
             const response = await fetchPost(slug, preview,);
             if (!response.success) {
                 const raw = response as any;
-                if (raw.locked) {
+                if (raw.error?.code === 'CONTENT_LOCKED' && raw.error.details) {
+                    const d = raw.error.details as { accessLevel: ContentAccessLevel; preview: LockedContent['preview']; };
                     setLockedContent({
-                        accessLevel: raw.accessLevel,
-                        preview: raw.preview || {},
+                        accessLevel: d.accessLevel,
+                        preview: d.preview,
                     },);
                     return null;
                 }

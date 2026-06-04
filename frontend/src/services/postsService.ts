@@ -2,7 +2,7 @@
  * PostsService — flexible post querying for the post-list block (and
  * any future feed-style consumer).
  *
- * Wraps `GET /posts/public` with normalized filter params, sends the
+ * Wraps `GET /posts` with normalized filter params, sends the
  * request through the generic `requestCache` (short TTL, hash-keyed)
  * so multiple block instances on the same page coalesce into one
  * network round-trip, and returns the typed result.
@@ -111,7 +111,7 @@ export async function fetchPostList(
 
     return cached(NAMESPACE, params, ttl, async () => {
         const queryString = new URLSearchParams(params,).toString();
-        const response = await api.get<PostWithBlocks[]>(`/posts/public?${queryString}`,);
+        const response = await api.get<PostWithBlocks[]>(`/posts?${queryString}`,);
         if (!response.success) {
             return { posts: [], total: 0, };
         }

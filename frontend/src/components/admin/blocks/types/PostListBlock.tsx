@@ -82,7 +82,7 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
 
     /**
      * Fetch each pinned post via the admin endpoint so drafts /
-     * scheduled posts also resolve. The public `/posts/public?ids=`
+     * scheduled posts also resolve. The public `/posts?ids=`
      * filter only returns published posts and would leave drafts
      * unnamed. Failures are tolerated silently — the row falls back
      * to the truncated ID.

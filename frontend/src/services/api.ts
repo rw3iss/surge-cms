@@ -235,7 +235,7 @@ export const fetchPosts = (params?: { page?: number; limit?: number; tag?: strin
     if (params?.limit) searchParams.set('limit', String(params.limit,),);
     if (params?.tag) searchParams.set('tag', params.tag,);
     if (params?.category) searchParams.set('category', params.category,);
-    return api.get(`/posts/public?${searchParams.toString()}`,);
+    return api.get(`/posts?${searchParams.toString()}`,);
 };
 
 export const fetchNavigation = () => api.get('/pages/navigation',);
