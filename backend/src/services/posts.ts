@@ -89,7 +89,12 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
         filters.search || ''}:${filters.publishedBefore || ''}:${filters.publishedAfter || ''}:${
         filters.ids ? filters.ids.join('|',) : ''}:${filters.withContentBlocks ? 'b' : ''}`;
 
-    if (anonymous) {
+    // Never let admin-shaped results (drafts via includeNonPublishedForIds)
+    // touch the public cache — even if the caller mislabels the request
+    // as anonymous (e.g. an API key, which has no `user`).
+    const cacheable = anonymous && !isAdmin;
+
+    if (cacheable) {
         const cached = await cache.get<ListResult<Post>>(cacheKey,);
         if (cached) return cached;
     }
@@ -104,7 +109,7 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
     };
 
-    if (anonymous) await cache.set(cacheKey, out, 300,);
+    if (cacheable) await cache.set(cacheKey, out, 300,);
     return out;
 }
 

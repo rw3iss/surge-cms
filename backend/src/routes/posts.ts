@@ -93,7 +93,7 @@ export const postsRoutes = [
                     withContentBlocks: query.withBlocks === '1' || query.withBlocks === 'true',
                 },
                 pagination: { page: query.page, limit: query.limit, },
-                anonymous: !user,
+                anonymous: !user && !apiKey,
                 isAdmin,
             },);
             return reply(result.data, { meta: result.meta, },);
