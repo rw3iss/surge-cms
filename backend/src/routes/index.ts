@@ -1,5 +1,6 @@
 import { Router, } from 'express';
 import { registerModule, } from '../api/registry';
+import { apiKeysRoutes, } from './apiKeys';
 import auditRoutes from './audit';
 import authRoutes from './auth';
 import blockStylesRoutes from './blockStyles';
@@ -42,6 +43,7 @@ router.use('/settings', settingsRoutes,);
 router.use('/search', searchRoutes,);
 router.use('/health', healthRoutes,);
 router.use('/sitemap', sitemapRoutes,);
+router.use('/api-keys', registerModule('api-keys', apiKeysRoutes,),);
 router.use('/audit', auditRoutes,);
 router.use('/dashboard', dashboardRoutes,);
 router.use('/dev', devRoutes,);
