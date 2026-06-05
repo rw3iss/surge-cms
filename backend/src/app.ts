@@ -13,7 +13,7 @@ import { createSsrMiddleware, } from './middleware/ssr';
 import { registerModule, } from './api/registry';
 import routes from './routes';
 import { setupRoutes, } from './routes/setup';
-import sitemapRoutes from './routes/sitemap';
+import { sitemapRoutes, } from './routes/sitemap';
 import { feedRoutes, } from './routes/feed';
 import unsubscribeRoutes from './routes/unsubscribe';
 import { logger, } from './utils/logger';
@@ -118,8 +118,15 @@ export function createApp(mode: AppMode = 'running',): Express {
         app.use('/uploads', express.static(path.join(process.cwd(), config.upload.dir,),),);
         app.use('/avatars', express.static(path.resolve(config.dataDir, 'avatars',),),);
 
-        app.use(sitemapRoutes,);
-        app.use(`/api/${config.apiVersion}`, sitemapRoutes,);
+        // Sitemap routes carry their own literal paths ('/sitemap.xml',
+        // '/admin/sitemap/regenerate'), so the canonical mount is the
+        // site root — mountPath '' keeps absolutePaths equal to those
+        // literals in the manifest. Mounted again under /api/v1 for the
+        // aliased external URLs (the /api/v1/sitemap/* alias lives in
+        // routes/index.ts as a plain router).
+        const sitemapRouter = registerModule('sitemap', sitemapRoutes, { mountPath: '', },);
+        app.use(sitemapRouter,);
+        app.use(`/api/${config.apiVersion}`, sitemapRouter,);
         // The feed router has one '/' route; mounting it at '/feed.xml'
         // (and the /api/v1 alias) preserves the canonical external URLs.
         // registerModule once records the canonical mountPath in the

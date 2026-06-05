@@ -12,6 +12,10 @@
  */
 import { config, } from '../config';
 import { query, } from '../db';
+import { cache, } from './cache';
+
+const CACHE_KEY = 'sitemap:xml';
+const CACHE_TTL = 3600; // 1 hour
 
 interface SitemapRow {
     slug: string;
@@ -99,4 +103,37 @@ export async function buildSitemap(): Promise<string> {
  *  fresh sitemap covered. */
 export function countSitemapUrls(xml: string,): number {
     return (xml.match(/<url>/g,) || []).length;
+}
+
+/** Empty-but-valid urlset, served on error so crawlers don't choke. */
+export const EMPTY_SITEMAP_XML =
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>';
+
+/** Cache-aware sitemap read. Returns cached XML if present, else builds,
+ *  caches (3600s — public-only data, safe to cache freely), and returns. */
+export async function getSitemapXml(): Promise<string> {
+    const cached = await cache.get<string>(CACHE_KEY,);
+    if (cached) return cached;
+    const xml = await buildSitemap();
+    await cache.set(CACHE_KEY, xml, CACHE_TTL,);
+    return xml;
+}
+
+export interface SitemapRegenerateResult {
+    urlCount: number;
+    bytes: number;
+    regeneratedAt: string;
+}
+
+/** Admin: drop the cached sitemap, rebuild now, re-cache, and report
+ *  the fresh URL count / byte size. */
+export async function regenerateSitemap(): Promise<SitemapRegenerateResult> {
+    await cache.invalidateSitemapCache();
+    const xml = await buildSitemap();
+    await cache.set(CACHE_KEY, xml, CACHE_TTL,);
+    return {
+        urlCount: countSitemapUrls(xml,),
+        bytes: xml.length,
+        regeneratedAt: new Date().toISOString(),
+    };
 }

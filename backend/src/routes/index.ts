@@ -1,5 +1,5 @@
 import { Router, } from 'express';
-import { registerModule, } from '../api/registry';
+import { buildRouter, registerModule, } from '../api/registry';
 import { apiKeysRoutes, } from './apiKeys';
 import { auditRoutes, } from './audit';
 import { authRoutes, } from './auth';
@@ -21,7 +21,7 @@ import paymentsRoutes from './payments';
 import { postsRoutes, } from './posts';
 import { searchRoutes, } from './search';
 import settingsRoutes from './settings';
-import sitemapRoutes from './sitemap';
+import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
 import { usersRoutes, } from './users';
 
@@ -42,7 +42,10 @@ router.use('/social', registerModule('social', socialRoutes, { mountPath: '/api/
 router.use('/settings', settingsRoutes,);
 router.use('/search', registerModule('search', searchRoutes, { mountPath: '/api/v1/search', },),);
 router.use('/health', registerModule('health', healthRoutes, { mountPath: '/api/v1/health', },),);
-router.use('/sitemap', sitemapRoutes,);
+// Legacy alias: /api/v1/sitemap/sitemap.xml + /api/v1/sitemap/admin/...
+// The canonical mount (and manifest registration) lives in app.ts at the
+// site root + /api/v1; this is a plain router so we don't double-register.
+router.use('/sitemap', buildRouter(sitemapRoutes,),);
 router.use('/api-keys', registerModule('api-keys', apiKeysRoutes, { mountPath: '/api/v1/api-keys', },),);
 router.use('/audit', registerModule('audit', auditRoutes, { mountPath: '/api/v1/audit', },),);
 router.use('/dashboard', registerModule('dashboard', dashboardRoutes, { mountPath: '/api/v1/dashboard', },),);
