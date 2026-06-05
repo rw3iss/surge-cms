@@ -1,25 +1,21 @@
 /**
- * Font manager HTTP routes.
+ * Font manager routes.
  *
- * - `GET /fonts` (public) — list all uploaded fonts so the public
- *   site can inject @font-face declarations.
- * - `POST /fonts` (admin) — multipart upload; saves the binary,
- *   inserts the row, returns the new font.
+ * - `GET /fonts` (public) — list uploaded fonts so the public site can
+ *   inject @font-face declarations.
+ * - `POST /fonts` (admin) — multipart upload (multer single 'file');
+ *   saves the binary, inserts the row, returns the new font.
  * - `DELETE /fonts/:id` (admin) — remove file + row.
  *
- * All business logic lives in `sdk/fonts.ts`; these handlers exist
- * to translate HTTP shape into SDK calls (multer payload, response
- * formatting, auth gating).
+ * Business logic lives in `services/fonts.ts`.
  */
-import { Router, } from 'express';
 import multer from 'multer';
-import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
-import { cms, } from '../sdk';
-import { handleRouteError, sendCreated, sendSuccess, } from '../utils/response';
+import { z, } from 'zod';
+import { defineRoute, reply, } from '../api/defineRoute';
+import { AppError, NotFoundError, } from '../core/errors';
+import * as fonts from '../services/fonts';
 
-const router = Router();
-
-// Memory storage so the SDK can take a Buffer and own the disk write
+// Memory storage so the service can take a Buffer and own the disk write
 // path itself. Font files are small (typically < 1MB) so in-memory is
 // fine. Bigger limits would warrant disk-staging.
 const upload = multer({
@@ -27,56 +23,40 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024, }, // 5 MB cap per font
 },);
 
-router.get('/', async (_req, res,) => {
-    try {
-        const fonts = await cms.fonts.list();
-        sendSuccess(res, fonts,);
-    } catch (error) {
-        handleRouteError(res, error, 'list fonts',);
-    }
-},);
+export const fontsRoutes = [
 
-router.post(
-    '/',
-    authenticate(),
-    requireAdmin,
-    upload.single('file',),
-    async (req: AuthenticatedRequest, res,) => {
-        try {
-            if (!req.file) {
-                return res.status(400,).json({
-                    success: false,
-                    error: { code: 'NO_FILE', message: 'No font file uploaded', },
-                },);
-            }
-            const customId = (req.body?.customId as string | undefined) || undefined;
-            const familyName = (req.body?.familyName as string | undefined) || undefined;
-            const font = await cms.fonts.create({
-                buffer: req.file.buffer,
-                originalName: req.file.originalname,
-                customId,
-                familyName,
+    defineRoute({
+        method: 'get', path: '/', auth: 'public',
+        summary: 'List all uploaded fonts (with @font-face source URLs).',
+        handler: () => fonts.list(),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/', auth: 'admin',
+        summary: 'Upload a font (multipart, field "file"). Optional customId / familyName.',
+        pre: [upload.single('file',),],
+        handler: async ({ req, },) => {
+            const file = (req as { file?: Express.Multer.File; }).file;
+            if (!file) throw new AppError(400, 'NO_FILE', 'No font file uploaded',);
+            const body = req.body as { customId?: string; familyName?: string; };
+            const font = await fonts.create({
+                buffer: file.buffer,
+                originalName: file.originalname,
+                customId: body?.customId || undefined,
+                familyName: body?.familyName || undefined,
             },);
-            sendCreated(res, font,);
-        } catch (error) {
-            handleRouteError(res, error, 'upload font',);
-        }
-    },
-);
+            return reply(font, { status: 201, },);
+        },
+    },),
 
-router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const deleted = await cms.fonts.remove(req.params.id,);
-        if (!deleted) {
-            return res.status(404,).json({
-                success: false,
-                error: { code: 'NOT_FOUND', message: 'Font not found', },
-            },);
-        }
-        sendSuccess(res, deleted,);
-    } catch (error) {
-        handleRouteError(res, error, 'delete font',);
-    }
-},);
-
-export default router;
+    defineRoute({
+        method: 'delete', path: '/:id', auth: 'admin',
+        summary: 'Delete a font (file + row).',
+        input: { params: z.object({ id: z.string(), },), },
+        handler: async ({ params, },) => {
+            const deleted = await fonts.remove(params.id,);
+            if (!deleted) throw new NotFoundError('Font',);
+            return deleted;
+        },
+    },),
+];
