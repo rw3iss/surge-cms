@@ -17,6 +17,14 @@ import { logger, } from '../utils/logger';
 
 const providerParams = z.object({ provider: z.string(), },);
 
+/** Path-param schema for routes that mutate a specific provider. Uses the
+ *  same enum as the POST body so an invalid provider yields a 400
+ *  VALIDATION_ERROR with field details (parity with the pre-framework PUT,
+ *  which validated the provider through the zod enum). */
+const providerEnumParams = z.object({
+    provider: z.enum(connections.VALID_PROVIDERS as [string, ...string[]],),
+},);
+
 const upsertSchema = z.object({
     provider: z.enum(connections.VALID_PROVIDERS as [string, ...string[]],),
     enabled: z.boolean().optional(),
@@ -95,7 +103,7 @@ export const connectionsRoutes = [
     defineRoute({
         method: 'put', path: '/:provider', auth: 'admin',
         summary: 'Update a connection (provider taken from the path).',
-        input: { params: providerParams, body: upsertSchema.partial(), },
+        input: { params: providerEnumParams, body: upsertSchema.partial(), },
         handler: async ({ params, body, userId, },) => {
             await connections.upsert({ ...body, provider: params.provider, }, userId!,);
             return { message: 'Connection updated', };

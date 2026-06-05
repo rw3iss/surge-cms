@@ -13,6 +13,7 @@ import type { ApiKeyScope, } from '@rw/shared';
 import * as repo from '../repositories/apiKeys.repo';
 import { logAudit, } from './audit';
 import { logger, } from '../utils/logger';
+import { uuidOrNull, } from '../utils/uuid';
 import type { AuditContext, } from './types';
 
 export type { ApiKeyRow, } from '../repositories/apiKeys.repo';
@@ -45,7 +46,9 @@ export async function create(
         keyHash: hashKey(plaintextKey,),
         keyPrefix: plaintextKey.slice(0, 12,),
         scopes: input.scopes,
-        createdBy: ctx.userId && ctx.userId !== 'system' ? ctx.userId : null,
+        // created_by is a UUID FK; synthetic actors (api-key:<name>, system)
+        // become NULL.
+        createdBy: uuidOrNull(ctx.userId,),
     },);
     await logAudit({
         userId: ctx.userId,

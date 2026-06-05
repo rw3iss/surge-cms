@@ -17,6 +17,7 @@
 import type { SocialPlatform, SocialPost, } from '@rw/shared';
 import { query, } from '../db';
 import { mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 import { cache, } from './cache';
 import {
     getLiveFeed,
@@ -177,7 +178,8 @@ export async function setHomepagePosts(postIds: string[], userId?: string,): Pro
          value = EXCLUDED.value,
          updated_by = EXCLUDED.updated_by,
          updated_at = NOW()`,
-        [JSON.stringify({ postIds, },), userId,],
+        // updated_by is a UUID FK; synthetic actors (api-key:<name>) become NULL.
+        [JSON.stringify({ postIds, },), uuidOrNull(userId,),],
     );
     await cache.del('social:homepage',);
 }

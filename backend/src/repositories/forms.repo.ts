@@ -2,6 +2,7 @@ import type { Form, FormQuestion, FormSubmission, } from '@rw/shared';
 import { query, } from '../db';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 import { deleteById, findByIdOrThrow, paginatedQuery, PaginatedResult, PaginationOptions, } from './base.repo';
 
 // ─── Forms ───
@@ -93,7 +94,9 @@ export async function createForm(data: Record<string, unknown>, userId: string,)
             data.allowMultipleSubmissions ?? false,
             data.requiresAuth ?? false,
             data.successMessage,
-            userId,
+            // created_by is a UUID FK; synthetic actors (api-key:<name>,
+            // system) become NULL.
+            uuidOrNull(userId,),
         ],
     );
 
@@ -291,7 +294,10 @@ export async function checkDuplicateSubmission(
 ): Promise<boolean> {
     const existing = await query(
         `SELECT id FROM form_submissions WHERE form_id = $1 AND (user_id = $2 OR ip_address = $3)`,
-        [formId, userId, ipAddress,],
+        // user_id is a UUID column; an api-key/synthetic actor can't match a
+        // real submitter, so coerce to NULL (the OR ip_address branch still
+        // applies) rather than letting Postgres reject the invalid UUID.
+        [formId, uuidOrNull(userId,), ipAddress,],
     );
     return existing.rows.length > 0;
 }
@@ -306,6 +312,7 @@ export async function createSubmission(
     await query(
         `INSERT INTO form_submissions (form_id, user_id, ip_address, user_agent, answers)
      VALUES ($1, $2, $3, $4, $5)`,
-        [formId, userId, ipAddress, userAgent, JSON.stringify(answers,),],
+        // user_id is a UUID FK; an api-key/synthetic submitter becomes NULL.
+        [formId, uuidOrNull(userId,), ipAddress, userAgent, JSON.stringify(answers,),],
     );
 }

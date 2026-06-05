@@ -1,6 +1,7 @@
 import type { Campaign, Donation, DonationSummary, } from '@rw/shared';
 import { query, } from '../db';
 import { mapRow, mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 import {
     deleteById,
     findByIdOrThrow,
@@ -118,7 +119,9 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
             data.startDate,
             data.endDate,
             data.isPublished || false,
-            userId,
+            // created_by is a UUID FK; synthetic actors (api-key:<name>,
+            // system) become NULL.
+            uuidOrNull(userId,),
         ],
     );
     return mapRow<Campaign>(result.rows[0],);

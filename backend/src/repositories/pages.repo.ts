@@ -3,6 +3,7 @@ import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
+import { uuidOrNull, } from '../utils/uuid';
 import {
     deleteById,
     findByIdOrThrow,
@@ -178,7 +179,9 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
             data.navOrder || 0,
             data.isPrivate || false,
             data.accessLevel || 'public',
-            userId,
+            // created_by is a UUID FK; synthetic actors (api-key:<name>,
+            // system) become NULL.
+            uuidOrNull(userId,),
             data.publishAt || null,
         ],
     );

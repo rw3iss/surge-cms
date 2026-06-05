@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 import { findByIdOrThrow, PaginatedResult, PaginationOptions, updateById, } from './base.repo';
 
 export interface UserFilters {
@@ -145,7 +146,8 @@ export async function banUser(
     await query('UPDATE users SET is_banned = true, updated_at = NOW() WHERE id = $1', [userId,],);
     await query(
         `INSERT INTO users_banned (email, reason, banned_by, expires_at) VALUES ($1, $2, $3, $4)`,
-        [email, reason, bannedBy, expiresAt,],
+        // banned_by is a UUID FK; synthetic actors (api-key:<name>) become NULL.
+        [email, reason, uuidOrNull(bannedBy,), expiresAt,],
     );
     await query('DELETE FROM user_sessions WHERE user_id = $1', [userId,],);
 }
@@ -166,7 +168,8 @@ export async function banIp(
 ): Promise<void> {
     await query(
         `INSERT INTO users_banned (ip_address, reason, banned_by, expires_at) VALUES ($1, $2, $3, $4)`,
-        [ipAddress, reason, bannedBy, expiresAt,],
+        // banned_by is a UUID FK; synthetic actors (api-key:<name>) become NULL.
+        [ipAddress, reason, uuidOrNull(bannedBy,), expiresAt,],
     );
 }
 

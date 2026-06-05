@@ -2,6 +2,7 @@ import type { ContactMessage, MessageStatus, } from '@rw/shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 import { deleteById, PaginatedResult, PaginationOptions, } from './base.repo';
 
 // ─── Messages ───
@@ -83,7 +84,8 @@ export async function createMessage(
         `INSERT INTO contact_messages (name, email, subject, message, user_id, ip_address, user_agent)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-        [data.name, data.email, data.subject, data.message, userId, ipAddress, userAgent,],
+        // user_id is a UUID FK; an API-key/synthetic submitter becomes NULL.
+        [data.name, data.email, data.subject, data.message, uuidOrNull(userId,), ipAddress, userAgent,],
     );
     return mapRow<ContactMessage>(result.rows[0],);
 }
@@ -99,7 +101,8 @@ export async function updateMessageStatus(
     if (status === 'replied') {
         values.push(new Date().toISOString(),);
         updates.push(`replied_at = $${values.length}`,);
-        values.push(userId,);
+        // replied_by is a UUID FK; synthetic actors become NULL.
+        values.push(uuidOrNull(userId,),);
         updates.push(`replied_by = $${values.length}`,);
     }
 

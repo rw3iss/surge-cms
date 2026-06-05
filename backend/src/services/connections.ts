@@ -18,6 +18,7 @@ import { getOAuthProvider, isOAuthProvider, } from './oauth';
 import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
 import { logger, } from '../utils/logger';
 import { mapRow, mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 
 export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter',];
 
@@ -100,6 +101,9 @@ export async function get(provider: string,): Promise<Record<string, unknown> | 
 export async function upsert(data: UpsertConnectionInput, userId: string,): Promise<void> {
     assertValidProvider(data.provider,);
 
+    // connected_by is a UUID FK; synthetic actors (api-key:<name>) become NULL.
+    const connectedBy = uuidOrNull(userId,);
+
     const existing = await query(
         `SELECT id, credentials FROM social_connections WHERE provider = $1`,
         [data.provider,],
@@ -125,7 +129,7 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
                 data.autoPublish,
                 data.autoPublishCount ?? null,
                 JSON.stringify(mergedCreds,),
-                userId,
+                connectedBy,
             ],
         );
     } else {
@@ -138,7 +142,7 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
                 data.autoPublish ?? false,
                 data.autoPublishCount ?? null,
                 JSON.stringify(mergedCreds,),
-                userId,
+                connectedBy,
             ],
         );
     }
@@ -310,7 +314,9 @@ export async function completeOAuth(
                 accessToken: tokenResult.accessToken,
                 tokenExpiresAt,
             },),
-            userId,
+            // connected_by is a UUID FK; the state-carried actor may be a
+            // synthetic api-key:<name> — coerce to NULL.
+            uuidOrNull(userId as string | null | undefined,),
         ],
     );
 
