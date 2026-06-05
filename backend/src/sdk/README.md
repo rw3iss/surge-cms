@@ -1,10 +1,6 @@
 # CMS SDK
 
-> **Note (2026-06):** capability modules are migrating to
-> `backend/src/services/<module>.ts` as part of the headless API work
-> (see `docs/superpowers/specs/2026-06-04-headless-api-design.md`).
-> The `cms.*` aggregate and these docs remain valid — files under
-> `sdk/` re-export from `services/` during the transition.
+> **Note (2026-06):** migration to `backend/src/services/<module>.ts` is **complete** (headless API Phase 3 sweep). All 25 route modules now use the manifest framework; all capability modules live in `services/`. Files under `sdk/` permanently re-export from `services/` — the `cms.*` aggregate remains the supported in-process surface. See `docs/superpowers/specs/2026-06-04-headless-api-design.md`.
 
 Single import surface for every capability in the CMS. Routes, scripts, tests, and plugins all import the same `cms` object — business logic, cache invalidation, and audit logging live in one place.
 
@@ -20,12 +16,17 @@ Conventions live in `docs/superpowers/specs/2026-04-28-cms-sdk-design.md`. The s
 
 ### From a route
 
+Route handlers are now manifest-framework handlers (`defineRoute`). The SDK is used from the handler body; the framework shapes the response envelope automatically.
+
 ```ts
-router.post('/pages', authenticate(), requireAdmin, async (req, res) => {
-    const data = pageSchema.parse(req.body);
-    const page = await cms.pages.create(data, auditFromRequest(req));
-    sendCreated(res, page);
-});
+defineRoute({
+    method: 'post', path: '/', auth: 'admin', summary: 'Create page',
+    handler: async (ctx) => {
+        const data = pageSchema.parse(ctx.req.body);
+        const page = await cms.pages.create(data, auditFromRequest(ctx.req));
+        return reply(page, { status: 201 });
+    },
+})
 ```
 
 `auditFromRequest(req)` builds the `AuditContext` (user id, ip, user-agent) the SDK threads through writes for audit logging.

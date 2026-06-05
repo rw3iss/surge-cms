@@ -2,11 +2,9 @@
  * Shared bulk action helper for admin list endpoints.
  * Supports bulk delete (soft via status='deleted') and bulk status change.
  */
-import { Response, } from 'express';
 import { z, } from 'zod';
 import { query, } from '../db';
 import { ValidationError, } from '../middleware/error';
-import { handleRouteError, sendSuccess, } from './response';
 
 export const bulkActionSchema = z.object({
     ids: z.array(z.string(),).min(1,).max(500,),
@@ -65,17 +63,3 @@ export async function performBulkAction(
     return { updated: ids.length, action, };
 }
 
-/** @deprecated legacy Express-coupled wrapper — used by routes not yet
- *  on the manifest framework. Removed in Phase 3 (module sweep). */
-export async function handleBulkAction(
-    res: Response,
-    body: unknown,
-    config: BulkActionConfig,
-): Promise<void> {
-    try {
-        const result = await performBulkAction(body, config,);
-        sendSuccess(res, result,);
-    } catch (error) {
-        handleRouteError(res, error, 'bulk action',);
-    }
-}
