@@ -5,7 +5,7 @@ import { auditRoutes, } from './audit';
 import { authRoutes, } from './auth';
 import { blockStylesRoutes, } from './blockStyles';
 import { campaignsRoutes, } from './campaigns';
-import connectionsRoutes from './connections';
+import { connectionsRoutes, } from './connections';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
 import { fontsRoutes, } from './fonts';
@@ -32,7 +32,7 @@ router.use('/block-styles', registerModule('block-styles', blockStylesRoutes,),)
 router.use('/pages', registerModule('pages', pagesRoutes,),);
 router.use('/posts', registerModule('posts', postsRoutes,),);
 router.use('/campaigns', registerModule('campaigns', campaignsRoutes,),);
-router.use('/connections', connectionsRoutes,);
+router.use('/connections', registerModule('connections', connectionsRoutes,),);
 router.use('/payments', paymentsRoutes,);
 router.use('/forms', registerModule('forms', formsRoutes,),);
 router.use('/users', registerModule('users', usersRoutes,),);

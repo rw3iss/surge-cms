@@ -1,0 +1,363 @@
+/**
+ * Social-connection service.
+ *
+ * Owns all data access, credential masking, OAuth orchestration, and the
+ * cron register/unregister side-effects for the `connections` routes.
+ * Routes stay thin and call into here.
+ *
+ * Credentials are JSONB blobs holding app id/secret plus issued OAuth
+ * tokens. `sanitizeCredentials` masks the sensitive fields before they
+ * leave the server; raw credentials never appear in an API response.
+ */
+import crypto from 'crypto';
+import { config, } from '../config';
+import { AppError, NotFoundError, } from '../core/errors';
+import { query, } from '../db';
+import { cache, } from './cache';
+import { getOAuthProvider, isOAuthProvider, } from './oauth';
+import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
+import { logger, } from '../utils/logger';
+import { mapRow, mapRows, } from '../utils/mapRow';
+
+export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter',];
+
+export interface UpsertConnectionInput {
+    provider: string;
+    enabled?: boolean;
+    autoPublish?: boolean;
+    autoPublishCount?: number | null;
+    credentials?: Record<string, unknown>;
+}
+
+/** Mask sensitive credential fields, keeping non-secret metadata + boolean
+ *  "has*" flags so the admin UI can show connection state. */
+export function sanitizeCredentials(
+    credentials: Record<string, unknown> | null,
+): Record<string, unknown> {
+    if (!credentials) return {};
+    const sanitized = { ...credentials, };
+    if (sanitized.accessToken) {
+        const token = String(sanitized.accessToken,);
+        sanitized.accessToken = token.slice(0, 8,) + '...' + token.slice(-4,);
+        sanitized.hasAccessToken = true;
+    }
+    if (sanitized.appSecret) {
+        sanitized.appSecret = '••••••••';
+        sanitized.hasAppSecret = true;
+    }
+    if (sanitized.refreshToken) {
+        sanitized.refreshToken = '••••••••';
+        sanitized.hasRefreshToken = true;
+    }
+    return sanitized;
+}
+
+function assertValidProvider(provider: string,): void {
+    if (!VALID_PROVIDERS.includes(provider,)) {
+        throw new AppError(400, 'BAD_REQUEST', 'Invalid provider',);
+    }
+}
+
+/** List all connections with credentials masked. */
+export async function list(): Promise<Record<string, unknown>[]> {
+    const result = await query(
+        `SELECT id, provider, is_connected, is_enabled, display_name, account_id,
+                credentials, settings, auto_publish, auto_publish_count, sort_order,
+                last_synced_at, connected_by, created_at, updated_at
+         FROM social_connections
+         ORDER BY sort_order, provider`,
+    );
+
+    return mapRows(result.rows,).map((conn: any,) => ({
+        ...conn,
+        credentials: sanitizeCredentials(conn.credentials,),
+    }),);
+}
+
+/** Fetch one connection (masked credentials). Returns null if missing. */
+export async function get(provider: string,): Promise<Record<string, unknown> | null> {
+    assertValidProvider(provider,);
+
+    const result = await query(
+        `SELECT * FROM social_connections WHERE provider = $1`,
+        [provider,],
+    );
+
+    if (result.rows.length === 0) {
+        return null;
+    }
+
+    const conn = mapRow(result.rows[0],) as Record<string, unknown>;
+    return {
+        ...conn,
+        credentials: sanitizeCredentials(conn.credentials as Record<string, unknown>,),
+    };
+}
+
+/** Create or update a connection's app credentials + publish settings.
+ *  Merges new credentials over existing so saving app creds doesn't wipe
+ *  issued tokens. */
+export async function upsert(data: UpsertConnectionInput, userId: string,): Promise<void> {
+    assertValidProvider(data.provider,);
+
+    const existing = await query(
+        `SELECT id, credentials FROM social_connections WHERE provider = $1`,
+        [data.provider,],
+    );
+
+    // Merge new credentials with existing (don't overwrite tokens when saving app creds)
+    const existingCreds = existing.rows[0]?.credentials || {};
+    const mergedCreds = { ...existingCreds, ...data.credentials, };
+
+    if (existing.rows.length > 0) {
+        await query(
+            `UPDATE social_connections
+             SET is_enabled = COALESCE($2, is_enabled),
+                 auto_publish = COALESCE($3, auto_publish),
+                 auto_publish_count = $4,
+                 credentials = $5::jsonb,
+                 connected_by = $6,
+                 updated_at = NOW()
+             WHERE provider = $1`,
+            [
+                data.provider,
+                data.enabled,
+                data.autoPublish,
+                data.autoPublishCount ?? null,
+                JSON.stringify(mergedCreds,),
+                userId,
+            ],
+        );
+    } else {
+        await query(
+            `INSERT INTO social_connections (provider, is_enabled, auto_publish, auto_publish_count, credentials, connected_by)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+            [
+                data.provider,
+                data.enabled ?? true,
+                data.autoPublish ?? false,
+                data.autoPublishCount ?? null,
+                JSON.stringify(mergedCreds,),
+                userId,
+            ],
+        );
+    }
+}
+
+/** Disconnect: clear issued tokens (keep app credentials for reconnect),
+ *  stop the refresh cron, and bust the social cache. */
+export async function disconnect(provider: string,): Promise<void> {
+    assertValidProvider(provider,);
+
+    // Keep app credentials (appId, appSecret) but clear tokens
+    const result = await query(
+        `UPDATE social_connections
+         SET is_connected = false,
+             display_name = NULL,
+             account_id = NULL,
+             credentials = credentials - 'accessToken' - 'tokenExpiresAt' - 'refreshToken',
+             last_synced_at = NULL,
+             updated_at = NOW()
+         WHERE provider = $1
+         RETURNING id`,
+        [provider,],
+    );
+
+    if (result.rows.length === 0) {
+        throw new NotFoundError('Connection',);
+    }
+
+    unregisterProviderCron(provider,);
+    await cache.delPattern('social:*',);
+
+    logger.info(`Social connection disconnected: ${provider}`,);
+}
+
+/** Build the OAuth redirect_uri for a provider. In dev the API is on 3001
+ *  while the frontend base is 3000 — swap the port. */
+function buildCallbackUrl(provider: string,): string {
+    const base = config.frontendUrl.replace(/:3000$/, ':3001',); // In dev, API is on 3001
+    return `${base}/api/${config.apiVersion}/connections/${provider}/oauth/callback`;
+}
+
+/** Generate an OAuth authorization URL + state, storing the state in Redis
+ *  for 10 minutes. Requires saved app credentials. */
+export async function startOAuth(
+    provider: string,
+    userId: string | undefined,
+): Promise<{ authUrl: string; state: string; }> {
+    if (!isOAuthProvider(provider,)) {
+        throw new AppError(400, 'BAD_REQUEST', `${provider} does not use OAuth`,);
+    }
+
+    const connResult = await query(
+        `SELECT credentials FROM social_connections WHERE provider = $1`,
+        [provider,],
+    );
+
+    const credentials = connResult.rows[0]?.credentials;
+    if (!credentials?.appId || !credentials?.appSecret) {
+        throw new AppError(
+            400,
+            'MISSING_CREDENTIALS',
+            'Save your App ID and App Secret before connecting.',
+        );
+    }
+
+    const state = crypto.randomBytes(32,).toString('hex',);
+    const statePayload = JSON.stringify({
+        provider,
+        userId,
+        timestamp: Date.now(),
+    },);
+
+    // Store state in Redis for 10 minutes
+    await cache.set(`oauth_state:${state}`, statePayload, 600,);
+
+    const redirectUri = buildCallbackUrl(provider,);
+    const oauthProvider = getOAuthProvider(provider, credentials, redirectUri,);
+    const authUrl = oauthProvider.getAuthorizationUrl(state,);
+
+    return { authUrl, state, };
+}
+
+/**
+ * Outcome of an OAuth callback. The route maps each variant to a
+ * byte-identical redirect query string (the original used `+`-encoded
+ * literals for the static messages and `encodeURIComponent` for the
+ * dynamic ones — `encoded` carries that distinction so nothing changes
+ * on the wire).
+ *   - success:        ?oauth_success=<provider>
+ *   - static error:   ?oauth_error=<message verbatim, already +-encoded>
+ *   - dynamic error:  ?oauth_error=<encodeURIComponent(message)>
+ */
+export type OAuthCallbackResult =
+    | { kind: 'success'; provider: string; }
+    | { kind: 'error'; query: string; };
+
+/**
+ * Complete the OAuth dance: validate state, exchange the code, persist the
+ * token (always — even if account discovery fails), discover account info,
+ * register the refresh cron, and bust the social cache. Returns a typed
+ * result so the route can build the exact redirect URL it always did.
+ */
+export async function completeOAuth(
+    provider: string,
+    code: string | undefined,
+    state: string | undefined,
+    oauthError: unknown,
+    errorDescription: unknown,
+): Promise<OAuthCallbackResult> {
+    // Handle OAuth denial
+    if (oauthError) {
+        logger.warn(`OAuth denied for ${provider}`, { error: oauthError, error_description: errorDescription, },);
+        return { kind: 'error', query: encodeURIComponent(String(errorDescription || oauthError,),), };
+    }
+
+    if (!code || !state) {
+        return { kind: 'error', query: 'Missing+authorization+code+or+state', };
+    }
+
+    // Validate state
+    const statePayload = await cache.get(`oauth_state:${state}`,);
+    if (!statePayload) {
+        return { kind: 'error', query: 'Invalid+or+expired+authorization+state', };
+    }
+
+    await cache.del(`oauth_state:${state}`,);
+    // cache.get() already JSON-parses the value, so statePayload is an
+    // object — don't double-parse.
+    const parsed = typeof statePayload === 'string' ?
+        JSON.parse(statePayload,) :
+        statePayload as Record<string, unknown>;
+    const { userId, } = parsed;
+
+    // Read app credentials
+    const connResult = await query(
+        `SELECT credentials FROM social_connections WHERE provider = $1`,
+        [provider,],
+    );
+
+    const credentials = connResult.rows[0]?.credentials;
+    if (!credentials?.appId || !credentials?.appSecret) {
+        return { kind: 'error', query: 'App+credentials+not+found', };
+    }
+
+    const redirectUri = buildCallbackUrl(provider,);
+    const oauthProvider = getOAuthProvider(provider, credentials, redirectUri,);
+
+    // Exchange code for tokens
+    const tokenResult = await oauthProvider.exchangeCode(String(code,),);
+
+    // Calculate token expiry
+    const tokenExpiresAt = tokenResult.expiresIn ?
+        new Date(Date.now() + tokenResult.expiresIn * 1000,).toISOString() :
+        null;
+
+    // ALWAYS save the token first — getUserInfo can fail (e.g. no FB Page
+    // linked) but the token is still valid. If we lose it, the user has to
+    // re-authorize from scratch.
+    await query(
+        `UPDATE social_connections
+         SET credentials = credentials || $2::jsonb,
+             connected_by = $3,
+             updated_at = NOW()
+         WHERE provider = $1`,
+        [
+            provider,
+            JSON.stringify({
+                ...credentials,
+                accessToken: tokenResult.accessToken,
+                tokenExpiresAt,
+            },),
+            userId,
+        ],
+    );
+
+    // Try to get user/account info (discovers the IG Business Account ID
+    // via the Facebook Pages API). This can fail if the user's Instagram
+    // isn't linked to a Facebook Page yet — in that case we still keep the
+    // token and redirect with a descriptive message so they can fix the
+    // link and retry.
+    let userInfo;
+    try {
+        userInfo = await oauthProvider.getUserInfo(tokenResult.accessToken,);
+    } catch (infoError) {
+        const msg = infoError instanceof Error ? infoError.message : 'Could not retrieve account info';
+        logger.warn(`OAuth ${provider}: token saved but getUserInfo failed`, { error: msg, },);
+        // Token is saved — redirect with a specific message
+        return {
+            kind: 'error',
+            query: encodeURIComponent(
+                msg + '. Your token was saved — link your Instagram to a Facebook Page, then reconnect.',
+            ),
+        };
+    }
+
+    // Full success — save account info too
+    await query(
+        `UPDATE social_connections
+         SET is_connected = true,
+             display_name = $2,
+             account_id = $3,
+             credentials = credentials || $4::jsonb,
+             updated_at = NOW()
+         WHERE provider = $1`,
+        [
+            provider,
+            userInfo.displayName,
+            userInfo.accountId,
+            JSON.stringify({
+                ...(userInfo.rawData || {}),
+            },),
+        ],
+    );
+
+    // Register and start the token refresh cron
+    registerProviderCron(provider,);
+
+    await cache.delPattern('social:*',);
+
+    logger.info(`OAuth connection successful: ${provider} (${userInfo.displayName})`,);
+    return { kind: 'success', provider, };
+}
