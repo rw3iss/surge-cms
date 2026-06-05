@@ -20,7 +20,7 @@ import { pagesRoutes, } from './pages';
 import paymentsRoutes from './payments';
 import { postsRoutes, } from './posts';
 import { searchRoutes, } from './search';
-import settingsRoutes from './settings';
+import { settingsRoutes, } from './settings';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
 import { usersRoutes, } from './users';
@@ -39,7 +39,7 @@ router.use('/users', registerModule('users', usersRoutes, { mountPath: '/api/v1/
 router.use('/messages', registerModule('messages', messagesRoutes, { mountPath: '/api/v1/messages', },),);
 router.use('/media', mediaRoutes,);
 router.use('/social', registerModule('social', socialRoutes, { mountPath: '/api/v1/social', },),);
-router.use('/settings', settingsRoutes,);
+router.use('/settings', registerModule('settings', settingsRoutes, { mountPath: '/api/v1/settings', },),);
 router.use('/search', registerModule('search', searchRoutes, { mountPath: '/api/v1/search', },),);
 router.use('/health', registerModule('health', healthRoutes, { mountPath: '/api/v1/health', },),);
 // Legacy alias: /api/v1/sitemap/sitemap.xml + /api/v1/sitemap/admin/...
