@@ -31,7 +31,7 @@ const LIMIT = 10;
 // All accept `?limit=N`. We pin "newest-first, top 10" explicitly so
 // the submenu order doesn't depend on the route's default.
 const ENDPOINTS: Record<RecentSource, string> = {
-    campaigns: '/campaigns?sortBy=created_at&sortOrder=desc&limit=10',
+    campaigns: '/campaigns?all=true&sortBy=created_at&sortOrder=desc&limit=10',
     forms: '/forms?sortBy=updated_at&sortOrder=desc&limit=10',
     posts: '/posts?sort=date_desc&limit=10',
 };

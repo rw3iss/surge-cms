@@ -242,7 +242,7 @@ export const fetchNavigation = () => api.get('/pages/navigation',);
 
 export const fetchSettings = () => api.get('/settings/public',);
 
-export const fetchCampaigns = (includePast = false,) => api.get(`/campaigns/public?includePast=${includePast}`,);
+export const fetchCampaigns = (includePast = false,) => api.get(`/campaigns?includePast=${includePast}`,);
 
 export const fetchCampaign = (slug: string,) => api.get(`/campaigns/slug/${slug}`,);
 

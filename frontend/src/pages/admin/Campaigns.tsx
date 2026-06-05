@@ -36,6 +36,7 @@ const AdminCampaigns: Component = () => {
         endpoint: '/campaigns',
         initialLimit: 20,
         params: () => ({
+            all: 'true',
             status: searchParams.status,
             sortBy: sortBy(),
             sortOrder: sortOrder(),

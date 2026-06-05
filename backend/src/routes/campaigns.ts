@@ -1,13 +1,10 @@
-import { Router, } from 'express';
 import { z, } from 'zod';
-import { authenticate, AuthenticatedRequest, requireAdmin, } from '../middleware/auth';
-import * as campaignsRepo from '../repositories/campaigns.repo';
-import { logAudit, } from '../services/audit';
-import { cache, } from '../services/cache';
-import { handleBulkAction, } from '../utils/bulkActions';
-import { handleRouteError, sendCreated, sendPaginated, sendSuccess, } from '../utils/response';
+import { defineRoute, reply, } from '../api/defineRoute';
+import { isAdminRole, } from '../api/roles';
+import { NotFoundError, } from '../core/errors';
+import * as campaigns from '../services/campaigns';
 
-const router = Router();
+// ─── Schemas ──────────────────────────────────────────────────────
 
 const campaignSchema = z.object({
     title: z.string().min(1,).max(255,),
@@ -22,189 +19,158 @@ const campaignSchema = z.object({
     isPublished: z.boolean().optional(),
 },);
 
-// ─── Public Routes ───
-
-router.get('/public', async (req, res,) => {
-    try {
-        const {
-            includePast = 'false',
-            activeOnly = 'true',
-            sortBy = 'created_at',
-            sortOrder = 'desc',
-        } = req.query;
-
-        const cacheKey = `campaigns:public:${includePast}:${activeOnly}:${sortBy}:${sortOrder}`;
-
-        const cached = await cache.get(cacheKey,);
-        if (cached) return sendSuccess(res, cached,);
-
-        const campaigns = await campaignsRepo.findPublicCampaigns({
-            includePast: includePast === 'true',
-            activeOnly: activeOnly !== 'false',
-            sortBy: String(sortBy,),
-            sortOrder: String(sortOrder,),
-        },);
-        await cache.set(cacheKey, campaigns, 300,);
-        sendSuccess(res, campaigns,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch campaigns',);
-    }
+const listQuery = z.object({
+    // Public params
+    includePast: z.string().optional(),
+    activeOnly: z.string().optional(),
+    sortBy: z.string().optional(),
+    sortOrder: z.string().optional(),
+    // Admin trigger + filters
+    all: z.string().optional(),
+    status: z.string().optional(),
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(20,),
 },);
 
-router.get('/slug/:slug', async (req, res,) => {
-    try {
-        const { slug, } = req.params;
-        const cacheKey = `campaign:slug:${slug}`;
+const donationsQuery = z.object({
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(20,),
+},);
 
-        const cached = await cache.get(cacheKey,);
-        if (cached) return sendSuccess(res, cached,);
+const allDonationsQuery = z.object({
+    campaignId: z.string().optional(),
+    status: z.string().optional(),
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(50,),
+},);
 
-        const campaign = await campaignsRepo.findCampaignBySlug(slug,);
-        if (!campaign) {
-            return res.status(404,).json({
-                success: false,
-                error: { code: 'NOT_FOUND', message: 'Campaign not found', },
+const idParams = z.object({ id: z.string(), },);
+
+// ─── Routes ───────────────────────────────────────────────────────
+// Literal paths (/slug/:slug, /donations/summary, /donations/all,
+// /bulk) and /:id/donations declared before the /:id catch-all.
+
+export const campaignsRoutes = [
+
+    // List campaigns. Public published-only array by default; admins
+    // passing all=true (or status) get the paginated all-statuses list.
+    defineRoute({
+        method: 'get', path: '/', auth: 'optional',
+        summary: 'List campaigns. Public published-only by default; admins passing all=true/status get the paginated admin list.',
+        input: { query: listQuery, },
+        handler: async ({ user, apiKey, query, },) => {
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+
+            if (isAdmin && (query.all === 'true' || query.status !== undefined)) {
+                const result = await campaigns.list(
+                    { status: query.status, sortBy: query.sortBy, sortOrder: query.sortOrder, },
+                    { page: query.page, limit: query.limit, },
+                );
+                return reply(result.data, { meta: result.meta, },);
+            }
+
+            return campaigns.listPublicCached({
+                includePast: query.includePast === 'true',
+                activeOnly: query.activeOnly !== 'false',
+                sortBy: query.sortBy ?? 'created_at',
+                sortOrder: query.sortOrder ?? 'desc',
             },);
-        }
+        },
+    },),
 
-        await cache.set(cacheKey, campaign, 300,);
-        sendSuccess(res, campaign,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch campaign',);
-    }
-},);
+    // Public slug fetch (cached, published-only).
+    defineRoute({
+        method: 'get', path: '/slug/:slug', auth: 'public',
+        summary: 'Fetch a published campaign by slug.',
+        input: { params: z.object({ slug: z.string(), },), },
+        handler: async ({ params, },) => {
+            const campaign = await campaigns.getPublicBySlugCached(params.slug,);
+            if (!campaign) throw new NotFoundError('Campaign',);
+            return campaign;
+        },
+    },),
 
-router.get('/:id/donations', async (req, res,) => {
-    try {
-        const { page = 1, limit = 20, } = req.query;
-        const pagination = { page: Number(page,), limit: Number(limit,), };
-        const result = await campaignsRepo.findCampaignDonations(req.params.id, pagination,);
-        sendPaginated(res, result.data, pagination.page, pagination.limit, result.total,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch donations',);
-    }
-},);
+    // Donation summary (admin, cached).
+    defineRoute({
+        method: 'get', path: '/donations/summary', auth: 'admin',
+        summary: 'Dashboard donation summary.',
+        handler: () => campaigns.donationSummary(),
+    },),
 
-// ─── Admin Routes ───
+    // All donations (admin).
+    defineRoute({
+        method: 'get', path: '/donations/all', auth: 'admin',
+        summary: 'List all donations with optional campaign/status filters.',
+        input: { query: allDonationsQuery, },
+        handler: async ({ query, },) => {
+            const result = await campaigns.listAllDonations(
+                { campaignId: query.campaignId, status: query.status, },
+                { page: query.page, limit: query.limit, },
+            );
+            return reply(result.data, { meta: result.meta, },);
+        },
+    },),
 
-router.get('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const { status, page = 1, limit = 20, sortBy, sortOrder, } = req.query;
-        const pagination = { page: Number(page,), limit: Number(limit,), };
-        const result = await campaignsRepo.findAllCampaigns(
-            { status: status as string, sortBy: sortBy as string, sortOrder: sortOrder as string, },
-            pagination,
-        );
-        sendPaginated(res, result.data, pagination.page, pagination.limit, result.total,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch campaigns',);
-    }
-},);
+    // Donations for a campaign (public).
+    defineRoute({
+        method: 'get', path: '/:id/donations', auth: 'public',
+        summary: 'List a campaign\'s donations.',
+        input: { params: idParams, query: donationsQuery, },
+        handler: async ({ params, query, },) => {
+            const result = await campaigns.listDonationsForCampaign(
+                params.id,
+                { page: query.page, limit: query.limit, },
+            );
+            return reply(result.data, { meta: result.meta, },);
+        },
+    },),
 
-router.get('/donations/summary', authenticate(), requireAdmin, async (_req: AuthenticatedRequest, res,) => {
-    try {
-        const cacheKey = 'donations:summary';
-        const cached = await cache.get(cacheKey,);
-        if (cached) return sendSuccess(res, cached,);
+    // Bulk actions (admin).
+    defineRoute({
+        method: 'post', path: '/bulk', auth: 'admin',
+        summary: 'Bulk status change / delete by id list.',
+        handler: ({ body, },) => campaigns.bulk(body,),
+    },),
 
-        const summary = await campaignsRepo.getDonationSummary();
-        await cache.set(cacheKey, summary, 300,);
-        sendSuccess(res, summary,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch donation summary',);
-    }
-},);
+    // Fetch by id (admin).
+    defineRoute({
+        method: 'get', path: '/:id', auth: 'admin',
+        summary: 'Fetch a campaign by id (any status).',
+        input: { params: idParams, },
+        handler: async ({ params, },) => {
+            const campaign = await campaigns.getById(params.id,);
+            if (!campaign) throw new NotFoundError('Campaign',);
+            return campaign;
+        },
+    },),
 
-router.get('/donations/all', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const { campaignId, status, page = 1, limit = 50, } = req.query;
-        const pagination = { page: Number(page,), limit: Number(limit,), };
-        const result = await campaignsRepo.findAllDonations(
-            { campaignId: campaignId as string, status: status as string, },
-            pagination,
-        );
-        sendPaginated(res, result.data, pagination.page, pagination.limit, result.total,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch donations',);
-    }
-},);
+    // Create (admin).
+    defineRoute({
+        method: 'post', path: '/', auth: 'admin',
+        summary: 'Create a campaign.',
+        input: { body: campaignSchema, },
+        handler: async ({ body, audit, },) => {
+            const campaign = await campaigns.create(body, audit(),);
+            return reply(campaign, { status: 201, },);
+        },
+    },),
 
-router.get('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const campaign = await campaignsRepo.findCampaignById(req.params.id,);
-        sendSuccess(res, campaign,);
-    } catch (error) {
-        handleRouteError(res, error, 'fetch campaign',);
-    }
-},);
+    // Update (admin).
+    defineRoute({
+        method: 'put', path: '/:id', auth: 'admin',
+        summary: 'Update a campaign.',
+        input: { params: idParams, body: campaignSchema.partial(), },
+        handler: ({ params, body, audit, },) => campaigns.update(params.id, body, audit(),),
+    },),
 
-router.post('/', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const data = campaignSchema.parse(req.body,);
-        const campaign = await campaignsRepo.createCampaign(data, req.userId!,);
-        await cache.invalidateCampaignCache();
-        await logAudit({
-            userId: req.userId!,
-            action: 'create',
-            entityType: 'campaign',
-            entityId: campaign.id,
-            newValues: data,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
-        sendCreated(res, campaign,);
-    } catch (error) {
-        handleRouteError(res, error, 'create campaign',);
-    }
-},);
-
-router.put('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        const data = campaignSchema.partial().parse(req.body,);
-        const campaign = await campaignsRepo.updateCampaign(req.params.id, data,);
-        await cache.invalidateCampaignCache(req.params.id,);
-        await logAudit({
-            userId: req.userId!,
-            action: 'update',
-            entityType: 'campaign',
-            entityId: req.params.id,
-            newValues: data,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
-        sendSuccess(res, campaign,);
-    } catch (error) {
-        handleRouteError(res, error, 'update campaign',);
-    }
-},);
-
-router.delete('/:id', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    try {
-        await campaignsRepo.deleteCampaign(req.params.id,);
-        await cache.invalidateCampaignCache(req.params.id,);
-        await logAudit({
-            userId: req.userId!,
-            action: 'delete',
-            entityType: 'campaign',
-            entityId: req.params.id,
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent',),
-        },);
-        sendSuccess(res, { message: 'Campaign deleted', },);
-    } catch (error) {
-        handleRouteError(res, error, 'delete campaign',);
-    }
-},);
-
-// ─── Bulk Actions ───
-
-router.post('/bulk', authenticate(), requireAdmin, async (req: AuthenticatedRequest, res,) => {
-    await handleBulkAction(res, req.body, {
-        table: 'campaigns',
-        allowedStatuses: ['draft', 'active', 'completed', 'cancelled',],
-        softDelete: false,
-        onInvalidate: () => cache.invalidateCampaignCache(),
-    },);
-},);
-
-export default router;
+    // Delete (admin).
+    defineRoute({
+        method: 'delete', path: '/:id', auth: 'admin',
+        summary: 'Delete a campaign.',
+        input: { params: idParams, },
+        handler: async ({ params, audit, },) => {
+            await campaigns.remove(params.id, audit(),);
+            return { message: 'Campaign deleted', };
+        },
+    },),
+];

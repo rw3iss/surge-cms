@@ -501,7 +501,7 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
                 sortBy,
                 sortOrder,
             },);
-            const response = await api.get(`/campaigns/public?${params.toString()}`,);
+            const response = await api.get(`/campaigns?${params.toString()}`,);
             if (response.success && response.data) {
                 const data = response.data;
                 return Array.isArray(data) ? data as Campaign[] : (data as any).data || [];
