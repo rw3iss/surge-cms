@@ -126,6 +126,8 @@ backend/src/
 | /health | health.ts | none | Health/readiness checks |
 | /api-keys | apiKeys.ts | admin (JWT only) | API key management |
 
+Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/feed.xml`, RSS), `sitemap` (`/sitemap.xml`), `unsubscribe` (`/u/:token`, `/lists/:slug/confirm/:token`, HTML). Each also has `/api/v1` aliases where noted. The full 28-module/196-route surface is in `docs/API.md` + `docs/api-manifest.json`.
+
 ### Services
 - **auth** - JWT generation, Patreon OAuth, session management
 - **cache** - Redis wrapper with typed get/set and per-entity invalidation helpers
@@ -140,13 +142,14 @@ backend/src/
 - See `.env.example` or README for full variable list
 
 ### Key Patterns
-- Snake_case in DB, camelCase in API responses (manual mapping in routes)
+- Snake_case in DB, camelCase in API responses (mapped in repositories/services via `mapRow`)
 - Redis caching on public endpoints with pattern-based invalidation
 - Multer for file uploads, sharp for image thumbnails, nanoid for filenames
 - Custom error classes (AppError, NotFoundError, ValidationError, etc.)
 - PostgreSQL triggers for: updated_at, campaign totals, form submission counts, search vectors
-- **Route manifest framework** — `defineRoute({ method, path, auth, summary, input(zod), handler })` + `registerModule()` in `backend/src/api/`. Auth tiers: `public | optional | user | admin | apiKey`; `admin` and `apiKey`-tier routes accept an admin JWT **or** a scoped `ssk_` API key (`Authorization: Bearer ssk_…`; GET/HEAD→`read+`, mutations→`write+`, hierarchy `read < write < admin`); `optional`-tier routes also accept keys (valid key = machine client, gets admin-shaped response; invalid key fails with 401). Keys cannot manage keys (`/api-keys` rejects key auth with 403). Key writes audit as `api-key:<name>`. Admin-shaped responses bypass the public Redis cache. Handlers return data or `reply(data, {meta, status})`; errors throw → `middleware/error.ts`. `manifest()` emits the machine-readable route list. Bearer-authenticated requests skip CSRF.
-- **Services own business logic** — `services/<module>.ts` is the canonical home; `routes/` are thin manifests; `sdk/` re-exports from `services/` during the headless-API transition (`cms.*` still works). Converted so far: posts.
+- **Route manifest framework** — `defineRoute({ method, path, auth, summary, input(zod), handler })` + `registerModule()` in `backend/src/api/`. Auth tiers: `public | optional | user | admin | apiKey`; `admin` and `apiKey`-tier routes accept an admin JWT **or** a scoped `ssk_` API key (`Authorization: Bearer ssk_…`; GET/HEAD→`read+`, mutations→`write+`, hierarchy `read < write < admin`); `optional`-tier routes also accept keys (valid key = machine client, gets admin-shaped response; invalid key fails with 401). Keys cannot manage keys (`/api-keys` rejects key auth with 403). Key writes audit as `api-key:<name>`. Admin-shaped responses bypass the public Redis cache. Handlers return data or `reply(data, {meta, status})`; errors throw → `middleware/error.ts`. `manifest()` emits the machine-readable route list. Bearer-authenticated requests skip CSRF. **Sweep complete: all 28 route modules are on the manifest** — the legacy `handleRouteError`/`send*`/`handleBulkAction` helpers and `utils/response.ts` are deleted.
+- **Services own business logic** — `services/<module>.ts` is the canonical home; `routes/` are thin manifests (no inline SQL, no `res.json`, no try/catch); SQL lives in `repositories/` and `services/`; `sdk/` re-exports from `services/` (`cms.*` still works).
+- **API docs generated from the manifest** — `npm run docs:api` builds the running-mode app, reads `manifest()`, and writes `docs/API.md` + `docs/api-manifest.json` (do not hand-edit those two).
 - **Unified list endpoints** — converted modules drop `/public` suffixes: one `GET /<module>` with `optional` auth, role-shaped (anon → published only; admins passing `status`/`sort` get the all-statuses view). Gated content returns `error.code 'CONTENT_LOCKED'` with a preview in `error.details` (`ContentLockedDetails`). First instance: posts (`/posts/public` is gone).
 
 ## Frontend
@@ -222,6 +225,7 @@ npm run build            # Build all workspaces
 npm run db:migrate       # Run database migrations
 npm run db:seed          # Seed initial data
 npm run test -w backend  # Run backend unit tests (vitest)
+npm run docs:api         # Regenerate docs/API.md + docs/api-manifest.json from the live manifest
 ```
 
 ## External Services
@@ -234,8 +238,8 @@ npm run test -w backend  # Run backend unit tests (vitest)
 - **Social APIs** - YouTube, Twitter, Instagram, Facebook, TikTok (all optional)
 
 ## Important Notes
-- No ORM - all SQL is hand-written in route files
-- DB field mapping (snake_case → camelCase) done manually in route handlers
+- No ORM - SQL is hand-written, living in `repositories/` and `services/` (routes are thin manifest handlers)
+- DB field mapping (snake_case → camelCase) handled in the repository/service layer via `mapRow`
 - Auth tokens stored in both cookies and response body for flexibility
 - Public endpoints are cached in Redis, admin mutations invalidate relevant caches
 - File uploads go through multer → sharp (thumbnails) → storage provider
