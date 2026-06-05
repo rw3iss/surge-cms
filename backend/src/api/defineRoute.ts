@@ -1,3 +1,4 @@
+import type { RequestHandler, } from 'express';
 import type { z, ZodType, } from 'zod';
 import type { AuthTier, } from '@rw/shared';
 import type { HandlerCtx, HttpMethod, RouteDef, } from './types';
@@ -24,6 +25,7 @@ export function defineRoute<
     auth: AuthTier;
     summary: string;
     input?: { params?: P; query?: Q; body?: B; };
+    pre?: RequestHandler[];
     raw?: boolean;
     handler: (ctx: HandlerCtx<z.infer<P>, z.infer<Q>, z.infer<B>>,) => Promise<unknown> | unknown;
 },): RouteDef {

@@ -75,7 +75,7 @@ function wrap(def: RouteDef,): RequestHandler {
 export function buildRouter(defs: RouteDef[],): Router {
     const router = Router();
     for (const def of defs) {
-        router[def.method](def.path, ...authMiddlewaresFor(def.auth,), wrap(def,),);
+        router[def.method](def.path, ...authMiddlewaresFor(def.auth,), ...(def.pre ?? []), wrap(def,),);
     }
     return router;
 }

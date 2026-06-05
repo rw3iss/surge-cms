@@ -129,6 +129,17 @@ describe('route framework', () => {
         },);
     },);
 
+    it('runs pre middlewares before the handler', async () => {
+        const app = appFor([defineRoute({
+            method: 'get', path: '/pre', auth: 'public', summary: 't',
+            pre: [(req, _res, next,) => { (req as any).preRan = true; next(); },],
+            handler: (ctx,) => ({ preRan: (ctx.req as any).preRan === true, }),
+        },),],);
+        const res = await request(app,).get('/pre',);
+        expect(res.status,).toBe(200,);
+        expect(res.body.data.preRan,).toBe(true,);
+    },);
+
     it('treats a non-raw undefined return as a 500 INTERNAL_ERROR', async () => {
         const app = appFor([defineRoute({
             method: 'get', path: '/forgot-raw', auth: 'public', summary: 't',

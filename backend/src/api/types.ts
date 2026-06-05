@@ -1,5 +1,5 @@
 import type { AuthTier, ApiMeta, User, } from '@rw/shared';
-import type { Request, Response, } from 'express';
+import type { Request, RequestHandler, Response, } from 'express';
 import type { ZodType, } from 'zod';
 import type { AuditContext, } from '../services/types';
 import type { ApiKeyRow, } from '../services/apiKeys';
@@ -57,6 +57,9 @@ export interface RouteDef {
     /** one-line human description, surfaced in docs/API.md */
     summary: string;
     input?: RouteInput;
+    /** middlewares (multer, rate limiters) running after auth, before
+     *  the handler. */
+    pre?: RequestHandler[];
     /** raw handlers write to `res` themselves (streams, redirects,
      *  XML, webhooks). The wrapper skips response shaping but still
      *  catches errors and registers the route in the manifest. A raw
