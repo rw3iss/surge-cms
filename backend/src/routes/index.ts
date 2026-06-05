@@ -17,7 +17,7 @@ import { mailTemplatesRoutes, } from './mailTemplates';
 import { mediaRoutes, } from './media';
 import { messagesRoutes, } from './messages';
 import { pagesRoutes, } from './pages';
-import paymentsRoutes from './payments';
+import { paymentsRoutes, } from './payments';
 import { postsRoutes, } from './posts';
 import { searchRoutes, } from './search';
 import { settingsRoutes, } from './settings';
@@ -33,7 +33,7 @@ router.use('/pages', registerModule('pages', pagesRoutes, { mountPath: '/api/v1/
 router.use('/posts', registerModule('posts', postsRoutes, { mountPath: '/api/v1/posts', },),);
 router.use('/campaigns', registerModule('campaigns', campaignsRoutes, { mountPath: '/api/v1/campaigns', },),);
 router.use('/connections', registerModule('connections', connectionsRoutes, { mountPath: '/api/v1/connections', },),);
-router.use('/payments', paymentsRoutes,);
+router.use('/payments', registerModule('payments', paymentsRoutes, { mountPath: '/api/v1/payments', },),);
 router.use('/forms', registerModule('forms', formsRoutes, { mountPath: '/api/v1/forms', },),);
 router.use('/users', registerModule('users', usersRoutes, { mountPath: '/api/v1/users', },),);
 router.use('/messages', registerModule('messages', messagesRoutes, { mountPath: '/api/v1/messages', },),);
