@@ -3,7 +3,7 @@ import type { NextFunction, RequestHandler, Response, } from 'express';
 import type { AuthTier, } from '@rw/shared';
 import { authenticate, AuthenticatedRequest, } from '../middleware/auth';
 import { auditFromRequest, } from '../services/types';
-import { adminOrApiKey, } from './apiKeyAuth';
+import { adminOrApiKey, optionalOrApiKey, } from './apiKeyAuth';
 import type { ApiKeyRequest, } from './apiKeyAuth';
 import { isReply, } from './types';
 import type { RouteDef, } from './types';
@@ -22,7 +22,7 @@ const registry: ModuleEntry[] = [];
 export function authMiddlewaresFor(tier: AuthTier,): RequestHandler[] {
     switch (tier) {
         case 'public': return [];
-        case 'optional': return [authenticate(false,),];
+        case 'optional': return optionalOrApiKey();
         case 'user': return [authenticate(),];
         case 'admin': return adminOrApiKey();
         case 'apiKey': return adminOrApiKey();

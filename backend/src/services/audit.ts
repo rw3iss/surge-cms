@@ -1,5 +1,6 @@
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
+import { uuidOrNull, } from '../utils/uuid';
 
 interface AuditLogEntry {
     userId: string;
@@ -35,8 +36,8 @@ export async function logAudit(entry: AuditLogEntry,): Promise<void> {
         // user_id is a UUID FK. Synthetic actors ('system',
         // 'api-key:<name>') get NULL in the column and are preserved
         // in new_values.actor — same pattern as non-UUID entityIds.
-        const isUuidUser = UUID_RE.test(entry.userId,);
-        const userIdForDb = isUuidUser ? entry.userId : null;
+        const userIdForDb = uuidOrNull(entry.userId,);
+        const isUuidUser = userIdForDb !== null;
         const valuesWithActor = !isUuidUser
             ? { ...(newValues ?? {}), actor: entry.userId, }
             : newValues;

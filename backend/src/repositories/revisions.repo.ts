@@ -5,6 +5,7 @@ import type { Revision as SharedRevision, RevisionEntityType, } from '@rw/shared
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
+import { uuidOrNull, } from '../utils/uuid';
 
 export type { RevisionEntityType, };
 
@@ -27,9 +28,7 @@ export async function createRevision(
     const nextVersion = versionResult.rows[0].next_version as number;
 
     // author_id is a UUID FK; synthetic actors (api-key:<name>, system) become NULL.
-    const authorForDb = authorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authorId,) ?
-        authorId :
-        null;
+    const authorForDb = uuidOrNull(authorId,);
 
     const result = await query(
         `INSERT INTO revisions (entity_type, entity_id, version, snapshot, author_id, summary)

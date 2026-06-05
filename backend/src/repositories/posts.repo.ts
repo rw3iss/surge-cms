@@ -3,6 +3,7 @@ import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
+import { uuidOrNull, } from '../utils/uuid';
 import { deleteById, paginatedQuery, PaginatedResult, PaginationOptions, } from './base.repo';
 import * as blockStyleResolution from '../services/blockStyleResolution';
 
@@ -342,7 +343,9 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             data.excerpt,
             content,
             data.featuredImage,
-            authorId,
+            // author_id is a UUID FK; synthetic actors (api-key:<name>,
+            // system) become NULL rather than 500ing the INSERT.
+            uuidOrNull(authorId,),
             data.status || 'draft',
             data.isPrivate || false,
             data.accessLevel || 'public',

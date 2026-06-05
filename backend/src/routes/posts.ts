@@ -61,8 +61,10 @@ export const postsRoutes = [
         method: 'get', path: '/', auth: 'optional',
         summary: 'List posts. Public gate by default; admins passing status/sort get the all-statuses listing.',
         input: { query: listQuery, },
-        handler: async ({ user, query, },) => {
-            const isAdmin = isAdminRole(user?.role,);
+        handler: async ({ user, query, apiKey, },) => {
+            // API keys are admin-equivalent for response shaping (any
+            // active key has at least read scope; drafts are admin reads).
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
 
             // Admin view is explicit: only when an admin sends status or
             // sort. An admin browsing the public site sends neither and
