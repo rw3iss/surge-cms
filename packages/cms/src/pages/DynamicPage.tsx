@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
-import { buildBlockTree, type ContentAccessLevel, type ContentLockedDetails, type Page, } from '@rw/cms-shared';
+import { buildBlockTree, isAdminRole, type ContentAccessLevel, type ContentLockedDetails, type Page, } from '@rw/cms-shared';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';
@@ -39,7 +39,7 @@ const DynamicPage: Component = () => {
         slug,
         async (slug,) => {
             setLockedContent(null,);
-            const preview = (isPreviewMode() && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')) ? 'admin' : undefined;
+            const preview = (isPreviewMode() && isAdminRole(auth.user?.role,)) ? 'admin' : undefined;
             const response = await fetchPage(slug, preview,);
             if (!response.success) {
                 // Locked content now arrives as a CONTENT_LOCKED error

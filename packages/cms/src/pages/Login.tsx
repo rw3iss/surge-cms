@@ -1,3 +1,4 @@
+import { isAdminRole, } from '@rw/cms-shared';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -67,7 +68,7 @@ const Login: Component = () => {
             // headed) and regular users go to the homepage.
             const explicitReturn = searchParams.return;
             const role = auth.user?.role;
-            const isAdmin = role === 'admin' || role === 'sysadmin';
+            const isAdmin = isAdminRole(role,);
             const target = (typeof explicitReturn === 'string' && explicitReturn)
                 ? explicitReturn
                 : isAdmin ? '/admin' : '/';

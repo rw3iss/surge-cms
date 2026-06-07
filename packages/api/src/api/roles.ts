@@ -1,3 +1,5 @@
-/** Role predicates shared by route manifests. Centralized so a future
- *  role addition (e.g. an editor tier) is a one-file change. */
-export const isAdminRole = (role?: string,): boolean => role === 'admin' || role === 'sysadmin';
+/** Role predicates shared by route manifests. The implementation lives in
+ *  @rw/cms-shared so the CMS UI and the API agree on what "admin" means;
+ *  this module re-exports it to keep the existing `../api/roles` import
+ *  paths in the route files stable. */
+export { isAdminRole, } from '@rw/cms-shared';

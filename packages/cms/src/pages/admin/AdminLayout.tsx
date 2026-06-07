@@ -1,5 +1,5 @@
 import { A, useLocation, useNavigate, } from '@solidjs/router';
-import type { AppearanceSettings, } from '@rw/cms-shared';
+import { isAdminRole, type AppearanceSettings, } from '@rw/cms-shared';
 import { createEffect, createMemo, createResource, createSignal, For, ParentComponent, Show, } from 'solid-js';
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';
@@ -85,7 +85,7 @@ const AdminLayout: ParentComponent = (props,) => {
     createEffect(() => {
         if (!auth.isLoading && !auth.isAuthenticated) {
             navigate(`/login?return=${location.pathname}`,);
-        } else if (!auth.isLoading && auth.user?.role !== 'admin' && auth.user?.role !== 'sysadmin') {
+        } else if (!auth.isLoading && !isAdminRole(auth.user?.role,)) {
             navigate('/',);
         }
     },);
@@ -162,7 +162,7 @@ const AdminLayout: ParentComponent = (props,) => {
     };
 
     return (
-        <Show when={!auth.isLoading && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')} fallback={<div>Loading...</div>}>
+        <Show when={!auth.isLoading && isAdminRole(auth.user?.role,)} fallback={<div>Loading...</div>}>
             <div
                 ref={(el,) => { rootRef = el; }}
                 class={`admin-layout ${collapsed() ? 'admin-layout--collapsed' : ''}`}

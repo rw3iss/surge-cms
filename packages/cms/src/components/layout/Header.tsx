@@ -1,5 +1,5 @@
 import { A, useLocation, } from '@solidjs/router';
-import type { NavigationItem, } from '@rw/cms-shared';
+import { isAdminRole, type NavigationItem, } from '@rw/cms-shared';
 import { Component, createEffect, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';
@@ -460,7 +460,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                             </ul>
                         </Show>
 
-                        <Show when={auth.isAuthenticated && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')}>
+                        <Show when={auth.isAuthenticated && isAdminRole(auth.user?.role,)}>
                             <ul class="header__nav-list">
                                 <li class="header__nav-item">
                                     <A
@@ -602,7 +602,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
 
                         {/* Admin link */}
-                        <Show when={auth.isAuthenticated && (auth.user?.role === 'admin' || auth.user?.role === 'sysadmin')}>
+                        <Show when={auth.isAuthenticated && isAdminRole(auth.user?.role,)}>
                             <ul class="header__nav-list">
                                 <li class="header__nav-item">
                                     <A

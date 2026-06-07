@@ -1,4 +1,4 @@
-import type { User, } from '@rw/cms-shared';
+import { isAdminRole, type User, } from '@rw/cms-shared';
 import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
 import { api, setUnauthorizedHandler, } from '../services/api';
 
@@ -274,5 +274,5 @@ export function useUser() {
 
 export function useIsAdmin() {
     const { user, } = useAuth();
-    return () => user?.role === 'admin' || user?.role === 'sysadmin';
+    return () => isAdminRole(user?.role,);
 }

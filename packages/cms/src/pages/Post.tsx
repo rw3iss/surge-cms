@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { ContentAccessLevel, ContentLockedDetails, Post, } from '@rw/cms-shared';
+import { isAdminRole, type ContentAccessLevel, type ContentLockedDetails, type Post, } from '@rw/cms-shared';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
@@ -34,7 +34,7 @@ const PostPage: Component = () => {
      *  posts. Admins always do — the explicit `?preview=admin` URL is
      *  no longer required just to view your own draft. Public
      *  visitors never see drafts. */
-    const isAdminViewer = () => auth.user?.role === 'admin' || auth.user?.role === 'sysadmin';
+    const isAdminViewer = () => isAdminRole(auth.user?.role,);
     const usePreview = () => isPreviewMode() || isAdminViewer();
 
     const [post,] = createResource(
