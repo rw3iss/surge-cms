@@ -1,4 +1,4 @@
-import type { User, UserRole, } from '@rw/shared';
+import type { User, UserRole, } from '@rw/cms-shared';
 import { NextFunction, Request, Response, } from 'express';
 import jwt from 'jsonwebtoken';
 import { config, } from '../config';

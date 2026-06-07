@@ -12,7 +12,7 @@
  * data — published-only (and the slug cache is only populated for forms
  * that do NOT require auth). No admin shaping touches these caches.
  */
-import type { Form, FormQuestion, FormSubmission, } from '@rw/shared';
+import type { Form, FormQuestion, FormSubmission, } from '@rw/cms-shared';
 import { ValidationError, } from '../core/errors';
 import * as repo from '../repositories/forms.repo';
 import { performBulkAction, } from '../utils/bulkActions';

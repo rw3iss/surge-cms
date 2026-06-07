@@ -3,7 +3,7 @@
  * `subscriberCount` on list-reads (subquery against
  * `mailing_list_subscribers`, scoped to `status='subscribed'`).
  */
-import type { MailingList, } from '@rw/shared';
+import type { MailingList, } from '@rw/cms-shared';
 import { query, } from '../db';
 
 interface DbRow {

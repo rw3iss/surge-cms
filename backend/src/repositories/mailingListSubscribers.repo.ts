@@ -9,7 +9,7 @@
  * valid; rotating `MAIL_UNSUBSCRIBE_SECRET` is the only way to
  * invalidate them.
  */
-import type { MailingListSubscriber, SubscriberStatus, } from '@rw/shared';
+import type { MailingListSubscriber, SubscriberStatus, } from '@rw/cms-shared';
 import { query, } from '../db';
 import { generateUnsubscribeToken, } from '../services/mail/unsubscribe';
 

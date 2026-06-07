@@ -8,7 +8,7 @@
  * lookups, avatar + password admin overrides). The `sdk/users.ts` shim
  * re-exports it so `cms.users` keeps working for scripts and plugins.
  */
-import type { PatreonMembership, User, } from '@rw/shared';
+import type { PatreonMembership, User, } from '@rw/cms-shared';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { nanoid, } from 'nanoid';

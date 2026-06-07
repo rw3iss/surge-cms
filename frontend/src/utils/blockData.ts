@@ -6,7 +6,7 @@
  * PostPreview routes used to inline this transform — keep one source
  * of truth here so future field changes don't drift.
  */
-import type { Block, } from '@rw/shared';
+import type { Block, } from '@rw/cms-shared';
 import type { BlockData, } from '../components/admin/blocks/ContentBlock';
 import { BlockStyleService, type BlockStyleData, } from '../services/blockStyles';
 

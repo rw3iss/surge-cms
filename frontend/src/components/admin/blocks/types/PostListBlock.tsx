@@ -12,7 +12,7 @@
  * checkbox groups all render with the canonical small-bold label
  * style used elsewhere in admin (see `components/admin/forms/`).
  */
-import type { Post, } from '@rw/shared';
+import type { Post, } from '@rw/cms-shared';
 import { Component, createSignal, For, JSX, onMount, Show, } from 'solid-js';
 import { api, } from '../../../../services/api';
 import { FormCheck, FormField, FormSection, } from '../../forms';

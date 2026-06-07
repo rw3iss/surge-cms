@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { ContentAccessLevel, ContentLockedDetails, Post, } from '@rw/shared';
+import type { ContentAccessLevel, ContentLockedDetails, Post, } from '@rw/cms-shared';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';

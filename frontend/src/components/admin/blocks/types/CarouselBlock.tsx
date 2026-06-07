@@ -1,4 +1,4 @@
-import type { HeroCarouselSettings, } from '@rw/shared';
+import type { HeroCarouselSettings, } from '@rw/cms-shared';
 import { Component, Show, } from 'solid-js';
 import HeroContentEditor from '../HeroContentEditor';
 

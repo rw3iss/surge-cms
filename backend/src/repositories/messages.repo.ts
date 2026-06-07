@@ -1,4 +1,4 @@
-import type { ContactMessage, MessageStatus, } from '@rw/shared';
+import type { ContactMessage, MessageStatus, } from '@rw/cms-shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';

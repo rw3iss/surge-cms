@@ -12,7 +12,7 @@
  * massaging — except for the `daysAgo` → ISO conversion, which lives
  * here so block consumers don't have to repeat the math.
  */
-import type { Post, } from '@rw/shared';
+import type { Post, } from '@rw/cms-shared';
 import { api, } from './api';
 import { cached, invalidateNamespace, } from './requestCache';
 

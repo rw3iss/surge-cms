@@ -14,7 +14,7 @@
  *     gate plus optional date / id / search filters. Returns
  *     `PostWithBlocks` when `withContentBlocks: true` is requested.
  */
-import type { Post, User, } from '@rw/shared';
+import type { Post, User, } from '@rw/cms-shared';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import * as repo from '../repositories/posts.repo';
@@ -135,7 +135,7 @@ export async function getBySlugAnyStatus(slug: string,): Promise<repo.PostWithBl
  *   - missing → NotFoundError
  *   - private + anonymous → UnauthorizedError
  *   - gated + insufficient access → AppError(403, CONTENT_LOCKED) whose
- *     `details` carries `ContentLockedDetails` from @rw/shared.
+ *     `details` carries `ContentLockedDetails` from @rw/cms-shared.
  * Caches public, non-private posts for anonymous readers.
  */
 export async function getPublicBySlug(

@@ -1,4 +1,4 @@
-import type { SiteSettings, } from '@rw/shared';
+import type { SiteSettings, } from '@rw/cms-shared';
 import { createSignal, } from 'solid-js';
 import { fetchSettings, } from '../services/api';
 import { FEATURES, FeatureConfig, FeatureKey, getDependents as registryDependents, getFeature, } from '../config/features';

@@ -1,4 +1,4 @@
-import type { AuthResponse, User, UserRole, } from '@rw/shared';
+import type { AuthResponse, User, UserRole, } from '@rw/cms-shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid, } from 'nanoid';

@@ -4,9 +4,9 @@
 	"description": "RW portfolio site CMS",
 	"private": true,
 	"workspaces": [
+		"packages/shared",
 		"frontend",
-		"backend",
-		"shared"
+		"backend"
 	],
 	"scripts": {
 		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",

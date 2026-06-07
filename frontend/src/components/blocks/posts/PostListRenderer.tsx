@@ -29,7 +29,7 @@
  *           the top and bottom (visible on hover).
  *   full  — render every content block, no clipping or expansion UI.
  */
-import type { Block, } from '@rw/shared';
+import type { Block, } from '@rw/cms-shared';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { fetchPostList, type PostWithBlocks, } from '../../../services/postsService';
 import { BlockRenderer, } from '../BlockRenderer';

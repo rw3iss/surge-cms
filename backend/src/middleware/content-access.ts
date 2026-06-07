@@ -1,4 +1,4 @@
-import type { User, } from '@rw/shared';
+import type { User, } from '@rw/cms-shared';
 import { query, } from '../db';
 
 export type ContentAccessLevel = 'public' | 'member' | 'patron';

@@ -1,6 +1,6 @@
 import type { RequestHandler, } from 'express';
 import type { z, ZodType, } from 'zod';
-import type { AuthTier, } from '@rw/shared';
+import type { AuthTier, } from '@rw/cms-shared';
 import type { HandlerCtx, HttpMethod, RouteDef, } from './types';
 
 /**

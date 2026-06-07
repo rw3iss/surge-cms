@@ -1,5 +1,5 @@
 import { z, } from 'zod';
-import { API_KEY_SCOPES, } from '@rw/shared';
+import { API_KEY_SCOPES, } from '@rw/cms-shared';
 import { ForbiddenError, NotFoundError, } from '../core/errors';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as apiKeys from '../services/apiKeys';

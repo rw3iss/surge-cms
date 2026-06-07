@@ -19,7 +19,7 @@ import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/factory';
 import { buildVariableContext, substituteVariables, } from './variables';
 import { generateUnsubscribeToken, } from './unsubscribe';
-import type { MailingListSubscriber, } from '@rw/shared';
+import type { MailingListSubscriber, } from '@rw/cms-shared';
 
 const sleep = (ms: number,): Promise<void> => new Promise((r,) => setTimeout(r, ms,),);
 

@@ -14,7 +14,7 @@
  * caches ONLY non-private, public-access pages (same gate as posts'
  * getPublicBySlug), so no admin/member-shaped data reaches the cache.
  */
-import type { Block, NavigationItem, Page, User, } from '@rw/shared';
+import type { Block, NavigationItem, Page, User, } from '@rw/cms-shared';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import * as repo from '../repositories/pages.repo';

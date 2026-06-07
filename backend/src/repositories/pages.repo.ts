@@ -1,4 +1,4 @@
-import type { Block, NavigationItem, Page, } from '@rw/shared';
+import type { Block, NavigationItem, Page, } from '@rw/cms-shared';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';

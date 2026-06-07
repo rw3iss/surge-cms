@@ -6,7 +6,7 @@
  */
 import { Component, createSignal, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import type { MailingListSubscriber, } from '@rw/shared';
+import type { MailingListSubscriber, } from '@rw/cms-shared';
 import { mailingListsApi, } from '../../../services/api';
 
 interface SubscriberFormModalProps {

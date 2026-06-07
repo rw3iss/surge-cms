@@ -1,4 +1,4 @@
-import type { AppearanceSettings, } from '@rw/shared';
+import type { AppearanceSettings, } from '@rw/cms-shared';
 import { colorCssValue, } from '../services/colorResolver';
 
 /**

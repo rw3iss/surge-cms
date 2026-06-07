@@ -1,4 +1,4 @@
-import type { AuthTier, ApiMeta, User, } from '@rw/shared';
+import type { AuthTier, ApiMeta, User, } from '@rw/cms-shared';
 import type { Request, RequestHandler, Response, } from 'express';
 import type { ZodType, } from 'zod';
 import type { AuditContext, } from '../services/types';

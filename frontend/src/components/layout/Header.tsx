@@ -1,5 +1,5 @@
 import { A, useLocation, } from '@solidjs/router';
-import type { NavigationItem, } from '@rw/shared';
+import type { NavigationItem, } from '@rw/cms-shared';
 import { Component, createEffect, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';

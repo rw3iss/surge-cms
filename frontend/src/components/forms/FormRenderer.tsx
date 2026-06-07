@@ -6,7 +6,7 @@ import type {
     NumberSummary,
     QuestionResult,
     TextSummary,
-} from '@rw/shared';
+} from '@rw/cms-shared';
 import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { fetchFormResults, submitForm, } from '../../services/api';
 import './FormRenderer.scss';

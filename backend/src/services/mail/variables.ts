@@ -8,7 +8,7 @@
  *   detectVariables(text)       — scan for { paths } used in a string
  *   describeVariables()         — catalog for the editor UI
  */
-import type { MailingList, MailingListSubscriber, VariableDescriptor, } from '@rw/shared';
+import type { MailingList, MailingListSubscriber, VariableDescriptor, } from '@rw/cms-shared';
 
 export interface VariableContext {
     user: { name: string; email: string; phone: string; custom: Record<string, unknown>; };

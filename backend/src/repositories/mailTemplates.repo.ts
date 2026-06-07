@@ -2,7 +2,7 @@
  * Data access for `mail_templates`. Standard CRUD; the block payload
  * lives in `mailTemplateBlocks.repo`.
  */
-import type { MailTemplate, } from '@rw/shared';
+import type { MailTemplate, } from '@rw/cms-shared';
 import { query, } from '../db';
 
 interface DbRow {

@@ -9,7 +9,7 @@
  * Scopes are coarse and hierarchical: read < write < admin.
  */
 import crypto from 'crypto';
-import type { ApiKeyScope, } from '@rw/shared';
+import type { ApiKeyScope, } from '@rw/cms-shared';
 import * as repo from '../repositories/apiKeys.repo';
 import { logAudit, } from './audit';
 import { logger, } from '../utils/logger';

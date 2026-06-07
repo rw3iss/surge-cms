@@ -11,7 +11,7 @@ import SitemapPanel from '../../components/admin/panels/SitemapPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { api, fetchAdminAppearance, fetchAppearance, fetchSiteBranding, saveAdminAppearance, saveAppearance, saveSiteBranding, } from '../../services/api';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
-import type { SiteSwatch, } from '@rw/shared';
+import type { SiteSwatch, } from '@rw/cms-shared';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';

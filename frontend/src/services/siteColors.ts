@@ -17,7 +17,7 @@
  * `isValidSwatchId`). The backend persists whatever IDs the client
  * sends after deduping.
  */
-import type { SiteSwatch, } from '@rw/shared';
+import type { SiteSwatch, } from '@rw/cms-shared';
 import { createSignal, } from 'solid-js';
 import { api, } from './api';
 

@@ -14,7 +14,7 @@
  * are published feed items with NO per-user or admin shaping, so the
  * caches are safe to populate for any reader (matching prior behavior).
  */
-import type { SocialPlatform, SocialPost, } from '@rw/shared';
+import type { SocialPlatform, SocialPost, } from '@rw/cms-shared';
 import { query, } from '../db';
 import { mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';

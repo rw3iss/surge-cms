@@ -1,5 +1,5 @@
 import { A, useParams, } from '@solidjs/router';
-import type { Campaign, } from '@rw/shared';
+import type { Campaign, } from '@rw/cms-shared';
 import { Component, createResource, Show, } from 'solid-js';
 import DonationForm from '../components/forms/donations/DonationForm';
 import SeoHead from '../components/common/seo/SeoHead';

@@ -1,4 +1,4 @@
-import type { ApiResponse, } from '@rw/shared';
+import type { ApiResponse, } from '@rw/cms-shared';
 import { createSignal, } from 'solid-js';
 
 /**

@@ -1,4 +1,4 @@
-import type { OutboundMessage, } from '@rw/shared';
+import type { OutboundMessage, } from '@rw/cms-shared';
 import { MailProvider, NotImplementedError, } from './types';
 
 /** Native SendGrid REST adapter. V1: stub. */

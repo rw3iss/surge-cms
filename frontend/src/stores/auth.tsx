@@ -1,4 +1,4 @@
-import type { User, } from '@rw/shared';
+import type { User, } from '@rw/cms-shared';
 import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
 import { api, setUnauthorizedHandler, } from '../services/api';
 

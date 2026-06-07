@@ -1,5 +1,5 @@
 import { A, useLocation, useNavigate, } from '@solidjs/router';
-import type { AppearanceSettings, } from '@rw/shared';
+import type { AppearanceSettings, } from '@rw/cms-shared';
 import { createEffect, createMemo, createResource, createSignal, For, ParentComponent, Show, } from 'solid-js';
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';

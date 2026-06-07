@@ -1,6 +1,6 @@
 import { Router, } from 'express';
 import type { NextFunction, RequestHandler, Response, } from 'express';
-import type { AuthTier, } from '@rw/shared';
+import type { AuthTier, } from '@rw/cms-shared';
 import { authenticate, AuthenticatedRequest, } from '../middleware/auth';
 import { auditFromRequest, } from '../services/types';
 import { adminOrApiKey, optionalOrApiKey, } from './apiKeyAuth';

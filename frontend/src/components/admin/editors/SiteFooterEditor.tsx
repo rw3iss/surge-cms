@@ -1,4 +1,4 @@
-import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, SiteLayoutItemType, } from '@rw/shared';
+import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, SiteLayoutItemType, } from '@rw/cms-shared';
 import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
 import { fetchSiteFooter, saveSiteFooter, } from '../../../services/api';
 import { colorCssValue, } from '../../../services/colorResolver';

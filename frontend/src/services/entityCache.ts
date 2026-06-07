@@ -15,7 +15,7 @@
  * and refresh on invalidation without piping through a signal manually.
  */
 import { createSignal, } from 'solid-js';
-import type { ApiResponse, } from '@rw/shared';
+import type { ApiResponse, } from '@rw/cms-shared';
 import { api, } from './api';
 
 export interface EntityCacheOptions<TItem> {

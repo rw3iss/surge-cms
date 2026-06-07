@@ -1,4 +1,4 @@
-import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@rw/shared';
+import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@rw/cms-shared';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { Portal, } from 'solid-js/web';

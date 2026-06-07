@@ -5,7 +5,7 @@
  * off mail_send_recipients and substitutes per-recipient vars at
  * delivery.
  */
-import type { MailSendJob, MailSendJobStatus, } from '@rw/shared';
+import type { MailSendJob, MailSendJobStatus, } from '@rw/cms-shared';
 import { query, } from '../db';
 
 interface DbRow {

@@ -1,4 +1,4 @@
-import type { SiteSwatch, } from '@rw/shared';
+import type { SiteSwatch, } from '@rw/cms-shared';
 import { createEffect, createMemo, For, onCleanup, Show, } from 'solid-js';
 import { createSignal, } from 'solid-js';
 import {

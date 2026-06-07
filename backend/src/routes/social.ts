@@ -1,4 +1,4 @@
-import type { SocialPlatform, } from '@rw/shared';
+import type { SocialPlatform, } from '@rw/cms-shared';
 import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, NotFoundError, } from '../core/errors';

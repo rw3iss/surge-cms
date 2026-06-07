@@ -17,7 +17,7 @@ import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import type { AppearanceSettings, } from '@rw/shared';
+import type { AppearanceSettings, } from '@rw/cms-shared';
 import { invalidatePostsCache, } from '../../services/adminData';
 import { api, fetchAppearance, } from '../../services/api';
 import { BlockStyleService, } from '../../services/blockStyles';

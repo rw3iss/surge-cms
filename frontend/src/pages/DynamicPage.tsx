@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
-import { buildBlockTree, type ContentAccessLevel, type ContentLockedDetails, type Page, } from '@rw/shared';
+import { buildBlockTree, type ContentAccessLevel, type ContentLockedDetails, type Page, } from '@rw/cms-shared';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';

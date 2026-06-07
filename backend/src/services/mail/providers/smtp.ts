@@ -5,7 +5,7 @@
  * services on day one without us shipping native adapters.
  */
 import nodemailer, { Transporter, } from 'nodemailer';
-import type { OutboundMessage, } from '@rw/shared';
+import type { OutboundMessage, } from '@rw/cms-shared';
 import { config, } from '../../../config';
 import type { MailProvider, } from './types';
 

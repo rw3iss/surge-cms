@@ -31,7 +31,7 @@
  * deleted resolves to the caller-supplied fallback, never `undefined`,
  * so the UI keeps rendering even with stale references in old data.
  */
-import type { SiteSwatch, } from '@rw/shared';
+import type { SiteSwatch, } from '@rw/cms-shared';
 import { findSwatch, swatches, } from './siteColors';
 
 const SWATCH_PREFIX = 'swatch:';

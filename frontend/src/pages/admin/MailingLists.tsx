@@ -6,7 +6,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import type { MailingList, MailSendJob, MailTemplate, } from '@rw/shared';
+import type { MailingList, MailSendJob, MailTemplate, } from '@rw/cms-shared';
 import { mailingListsApi, mailSendApi, mailTemplatesApi, } from '../../services/api';
 
 type JobWithListName = MailSendJob & { listName: string | null; };

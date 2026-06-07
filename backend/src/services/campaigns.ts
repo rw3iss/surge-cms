@@ -13,7 +13,7 @@
  * to populate for anonymous readers unconditionally — an admin cannot
  * poison them with draft data the way the posts module could.
  */
-import type { Campaign, Donation, DonationSummary, } from '@rw/shared';
+import type { Campaign, Donation, DonationSummary, } from '@rw/cms-shared';
 import * as repo from '../repositories/campaigns.repo';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';

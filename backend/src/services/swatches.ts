@@ -13,7 +13,7 @@
  * `swatch:{id}` reference and returns counts by source — used by the
  * swatch editor's delete-confirm UI.
  */
-import type { SiteSwatch, } from '@rw/shared';
+import type { SiteSwatch, } from '@rw/cms-shared';
 import { query, } from '../db';
 import { logAudit, } from './audit';
 import { cache, } from './cache';

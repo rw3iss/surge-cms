@@ -2,7 +2,7 @@
  * Wizard-side API client for the setup endpoints. The backend's
  * `routes/setup.ts` is the matching server. Keep types here in sync
  * with `services/setup/types.ts` on the backend; we don't share them
- * through `@rw/shared` because the wizard payload is internal and
+ * through `@rw/cms-shared` because the wizard payload is internal and
  * shouldn't pollute the public type surface.
  */
 import { api, } from './api';

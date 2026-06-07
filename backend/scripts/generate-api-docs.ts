@@ -22,7 +22,7 @@
  */
 import { writeFileSync, } from 'fs';
 import path from 'path';
-import { ERROR_CODES, } from '@rw/shared';
+import { ERROR_CODES, } from '@rw/cms-shared';
 import { createApp, } from '../src/app';
 import { manifest, } from '../src/api/registry';
 

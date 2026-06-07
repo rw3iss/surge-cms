@@ -10,7 +10,7 @@
  * Temp-file cleanup is owned here: every upload path runs its cleanup in
  * a `finally`/`catch` so a thrown error never leaks staged files.
  */
-import type { Media, } from '@rw/shared';
+import type { Media, } from '@rw/cms-shared';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
