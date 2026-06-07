@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-06-05T07:40:27.817Z",
+  "generatedAt": "2026-06-07T17:03:13.563Z",
   "totalModules": 28,
-  "totalRoutes": 196,
+  "totalRoutes": 198,
   "modules": [
     {
       "module": "api-keys",
@@ -260,6 +260,13 @@
           "absolutePath": "/api/v1/connections/:provider/oauth/callback",
           "auth": "public",
           "summary": "OAuth provider callback. Persists tokens, then redirects to admin settings."
+        },
+        {
+          "method": "PUT",
+          "path": "/:provider/reorder",
+          "absolutePath": "/api/v1/connections/:provider/reorder",
+          "auth": "admin",
+          "summary": "Move a connection up/down in the manual sort order."
         },
         {
           "method": "GET",
@@ -1540,6 +1547,13 @@
           "absolutePath": "/api/v1/users/:id/unban",
           "auth": "admin",
           "summary": "Unban a user."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "absolutePath": "/api/v1/users/:id",
+          "auth": "admin",
+          "summary": "Permanently delete a user (orphans authored content, audit-logged)."
         }
       ]
     }
