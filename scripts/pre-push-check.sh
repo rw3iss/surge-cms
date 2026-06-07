@@ -24,12 +24,12 @@ fi
 
 # Type-check and build
 echo "--- build shared ---"
-npm run build -w shared
+npm run build -w packages/shared
 
 echo "--- build backend ---"
-npm run build -w backend
+npm run build -w packages/api
 
 echo "--- build frontend ---"
-npm run build -w frontend
+npm run build -w packages/cms
 
 echo "=== Pre-push checks passed ==="

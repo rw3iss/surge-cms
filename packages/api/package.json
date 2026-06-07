@@ -1,5 +1,5 @@
 {
-  "name": "@rw/backend",
+  "name": "@rw/cms-api",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",
-    "@rw/cms-shared": "file:../packages/shared",
+    "@rw/cms-shared": "file:../shared",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",

@@ -1,7 +1,5 @@
 packages:
-  - frontend
-  - backend
-  - packages/shared
+  - packages/*
 allowBuilds:
   '@parcel/watcher': true
   core-js: true

@@ -53,8 +53,9 @@
         "dist",
         "build",
         "*.min.js",
-        "frontend/dist",
-        "backend/dist"
+        "packages/cms/dist",
+        "packages/api/dist",
+        "packages/shared/dist"
     ],
     "env": {
         "builtin": true,

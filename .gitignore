@@ -10,8 +10,8 @@ dist/
 pnpm-lock.yml
 
 # Runtime artifacts
-backend/cache/
-backend/data/
+packages/api/cache/
+packages/api/data/
 .playwright-mcp/
 
 .env*

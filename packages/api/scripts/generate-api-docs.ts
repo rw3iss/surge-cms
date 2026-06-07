@@ -40,7 +40,7 @@ interface ManifestModule {
     routes: ManifestRoute[];
 }
 
-const REPO_ROOT = path.resolve(process.cwd(), '..',);
+const REPO_ROOT = path.resolve(process.cwd(), '..', '..',);
 const DOCS_DIR = path.join(REPO_ROOT, 'docs',);
 
 function escapeCell(value: string,): string {

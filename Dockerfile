@@ -4,9 +4,9 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-COPY backend/package*.json backend/
-COPY frontend/package*.json frontend/
-COPY shared/package*.json shared/
+COPY packages/api/package*.json packages/api/
+COPY packages/cms/package*.json packages/cms/
+COPY packages/shared/package*.json packages/shared/
 
 RUN npm ci
 
@@ -14,13 +14,13 @@ RUN npm ci
 COPY . .
 
 # Build shared types
-RUN npm run build -w shared
+RUN npm run build -w packages/shared
 
 # Build backend
-RUN npm run build -w backend
+RUN npm run build -w packages/api
 
 # Expose port
 EXPOSE 3001
 
 # Start backend
-CMD ["npm", "start", "-w", "backend"]
+CMD ["npm", "start", "-w", "packages/api"]

@@ -23,13 +23,13 @@ jobs:
         run: npx oxlint@latest --deny-warnings || true
 
       - name: Build shared
-        run: npm run build -w shared
+        run: npm run build -w packages/shared
 
       - name: Build backend
-        run: npm run build -w backend
+        run: npm run build -w packages/api
 
       - name: Build frontend
-        run: npm run build -w frontend
+        run: npm run build -w packages/cms
 
   # ── Deploy to server ──
   deploy:

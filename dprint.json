@@ -13,9 +13,9 @@
     },
     "json": {},
     "includes": [
-        "frontend/src/**/*.{ts,tsx}",
-        "backend/src/**/*.ts",
-        "shared/src/**/*.ts"
+        "packages/cms/src/**/*.{ts,tsx}",
+        "packages/api/src/**/*.ts",
+        "packages/shared/src/**/*.ts"
     ],
     "excludes": [
         "**/node_modules",

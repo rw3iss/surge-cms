@@ -150,7 +150,7 @@ export function createApp(mode: AppMode = 'running',): Express {
 
     // SSR + frontend serving. Same in both modes; the SPA handles its
     // own redirect to /setup based on the status endpoint.
-    const distDir = path.resolve(process.cwd(), '../frontend/dist',);
+    const distDir = path.resolve(process.cwd(), '../cms/dist',);
     app.use(createSsrMiddleware(distDir,),);
     app.use(express.static(distDir, { index: false, },),);
     app.get('*', async (req, res, next,) => {

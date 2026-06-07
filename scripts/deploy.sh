@@ -34,18 +34,18 @@ npm install
 # ── 3. Build all workspaces ──
 echo ""
 echo "--- build shared ---"
-npm run build -w shared
+npm run build -w packages/shared
 
 echo "--- build backend ---"
-npm run build -w backend
+npm run build -w packages/api
 
 echo "--- build frontend ---"
-npm run build -w frontend
+npm run build -w packages/cms
 
 # ── 4. Run database migrations ──
 echo ""
 echo "--- database migrations ---"
-npm run db:migrate -w backend 2>&1 || {
+npm run db:migrate -w packages/api 2>&1 || {
   echo "WARNING: Migration may have encountered issues. Check output above."
 }
 
@@ -65,10 +65,10 @@ if pm2 describe rw-backend > /dev/null 2>&1; then
   echo "PM2 process 'rw-backend' restarted."
 else
   # Start new pm2 process
-  cd "$PROJECT_ROOT/backend"
+  cd "$PROJECT_ROOT/packages/api"
   NODE_ENV=production pm2 start dist/index.js \
     --name rw-backend \
-    --cwd "$PROJECT_ROOT/backend" \
+    --cwd "$PROJECT_ROOT/packages/api" \
     --env production \
     --max-memory-restart 512M \
     --time
