@@ -11,6 +11,14 @@
  * Business logic lives in `services/mailSend.ts`.
  */
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    MailJobPatchBody,
+    MailJobRecipientsQuery,
+    MailJobsListQuery,
+    MailSendBody,
+    MailTemplateBlockInput,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailSend from '../services/mailSend';
 
@@ -21,7 +29,7 @@ const blockSchema = z.object({
     position: z.number().int().min(0,),
     settings: z.record(z.string(), z.unknown(),).optional(),
     style: z.record(z.string(), z.unknown(),).optional(),
-},);
+},) satisfies z.ZodType<MailTemplateBlockInput>;
 
 const sendSchema = z.object({
     listId: z.string().uuid(),
@@ -36,7 +44,7 @@ const sendSchema = z.object({
     fromEmail: z.string().email().optional(),
     replyTo: z.string().email().optional(),
     blocks: z.array(blockSchema,),
-},);
+},) satisfies z.ZodType<MailSendBody>;
 
 const jobsQuery = z.object({
     limit: z.coerce.number().int().min(1,).optional(),
@@ -49,8 +57,12 @@ const recipientsQuery = z.object({
     status: z.string().optional(),
 },);
 
+// Queries coerce (string → number), so assert z.infer compatibility.
+type _AssertJobsQuery = AssertCompatible<z.infer<typeof jobsQuery>, MailJobsListQuery>;
+type _AssertRecipientsQuery = AssertCompatible<z.infer<typeof recipientsQuery>, MailJobRecipientsQuery>;
+
 const idParams = z.object({ id: z.string(), },);
-const patchSchema = z.object({ status: z.enum(['cancelled',],), },);
+const patchSchema = z.object({ status: z.enum(['cancelled',],), },) satisfies z.ZodType<MailJobPatchBody>;
 
 export const mailSendRoutes = [
 

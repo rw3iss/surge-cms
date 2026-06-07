@@ -14,6 +14,12 @@
  * Business logic lives in `services/mailTemplates.ts`.
  */
 import { z, } from 'zod';
+import type {
+    MailTemplateBlockInput,
+    MailTemplateBlocksReplaceBody,
+    MailTemplateCreateBody,
+    MailTemplatePreviewBody,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailTemplates from '../services/mailTemplates';
 
@@ -26,7 +32,7 @@ const templateSchema = z.object({
     fromName: z.string().max(255,).optional(),
     fromEmail: z.string().email().or(z.literal('',),).optional(),
     replyTo: z.string().email().or(z.literal('',),).optional(),
-},);
+},) satisfies z.ZodType<MailTemplateCreateBody>;
 
 const blockSchema = z.object({
     id: z.string().uuid().optional(),
@@ -35,14 +41,14 @@ const blockSchema = z.object({
     position: z.number().int().min(0,),
     settings: z.record(z.string(), z.unknown(),).optional(),
     style: z.record(z.string(), z.unknown(),).optional(),
-},);
+},) satisfies z.ZodType<MailTemplateBlockInput>;
 
 const previewSchema = z.object({
     blocks: z.array(blockSchema,).optional(),
     subject: z.string().max(1000,).optional(),
     preheader: z.string().max(255,).optional(),
     variables: z.record(z.string(), z.string(),).optional(),
-},);
+},) satisfies z.ZodType<MailTemplatePreviewBody>;
 
 const idParams = z.object({ id: z.string(), },);
 
@@ -106,7 +112,7 @@ export const mailTemplatesRoutes = [
         summary: 'Replace a template\'s whole block tree (transactional).',
         input: {
             params: idParams,
-            body: z.object({ blocks: z.array(blockSchema,).default([],), },),
+            body: z.object({ blocks: z.array(blockSchema,).default([],), },) satisfies z.ZodType<MailTemplateBlocksReplaceBody>,
         },
         handler: async ({ params, body, },) => {
             const result = await mailTemplates.replaceBlocks(params.id, body.blocks,);

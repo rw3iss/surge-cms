@@ -24,6 +24,14 @@
  * Business logic lives in `services/mailingLists.ts`.
  */
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    ListSubscribeBody,
+    MailingListCreateBody,
+    MailingListSubscriberCreateBody,
+    MailingListSubscribersBulkDeleteBody,
+    MailingListSubscribersQuery,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailingLists from '../services/mailingLists';
 
@@ -35,14 +43,14 @@ const listSchema = z.object({
     registeredUsersOnly: z.boolean().optional(),
     doubleOptIn: z.boolean().optional(),
     defaultTemplateId: z.string().uuid().nullable().optional(),
-},);
+},) satisfies z.ZodType<MailingListCreateBody>;
 
 const subscriberAdminSchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
     phone: z.string().optional(),
     customFields: z.record(z.string(), z.unknown(),).optional(),
-},);
+},) satisfies z.ZodType<MailingListSubscriberCreateBody>;
 
 const subscribersQuery = z.object({
     limit: z.coerce.number().int().min(1,).optional(),
@@ -50,6 +58,9 @@ const subscribersQuery = z.object({
     search: z.string().optional(),
     status: z.string().optional(),
 },);
+
+// Query coerces (string → number), so assert z.infer compatibility.
+type _AssertSubscribersQuery = AssertCompatible<z.infer<typeof subscribersQuery>, MailingListSubscribersQuery>;
 
 const idParams = z.object({ id: z.string(), },);
 const subIdParams = z.object({ id: z.string(), subId: z.string(), },);
@@ -138,7 +149,10 @@ export const mailingListsRoutes = [
     defineRoute({
         method: 'post', path: '/:id/subscribers/bulk-delete', auth: 'admin',
         summary: 'Bulk-delete subscribers by id list.',
-        input: { params: idParams, body: z.object({ ids: z.array(z.string(),).default([],), },), },
+        input: {
+            params: idParams,
+            body: z.object({ ids: z.array(z.string(),).default([],), },) satisfies z.ZodType<MailingListSubscribersBulkDeleteBody>,
+        },
         handler: ({ params, body, audit, },) => mailingLists.bulkRemoveSubscribers(params.id, body.ids, audit(),),
     },),
 
@@ -161,7 +175,7 @@ const subscribeSchema = z.object({
     name: z.string().optional(),
     phone: z.string().optional(),
     customFields: z.record(z.string(), z.unknown(),).optional(),
-},);
+},) satisfies z.ZodType<ListSubscribeBody>;
 
 export const listsPublicRoutes = [
 

@@ -55,3 +55,6 @@ export * from './routes/sitemap';
 export * from './routes/unsubscribe';
 export * from './routes/media';
 export * from './routes/payments';
+export * from './routes/mailingLists';
+export * from './routes/mailTemplates';
+export * from './routes/mailSend';
