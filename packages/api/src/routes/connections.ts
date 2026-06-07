@@ -8,6 +8,11 @@
  * pre-framework handler.
  */
 import { z, } from 'zod';
+import type {
+    ConnectionProviderParams,
+    ConnectionReorderBody,
+    ConnectionUpsertBody,
+} from '@rw/cms-shared';
 import { config, } from '../config';
 import { defineRoute, } from '../api/defineRoute';
 import * as connections from '../services/connections';
@@ -15,7 +20,7 @@ import { logger, } from '../utils/logger';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
-const providerParams = z.object({ provider: z.string(), },);
+const providerParams = z.object({ provider: z.string(), },) satisfies z.ZodType<ConnectionProviderParams>;
 
 /** Path-param schema for routes that mutate a specific provider. Uses the
  *  same enum as the POST body so an invalid provider yields a 400
@@ -23,7 +28,7 @@ const providerParams = z.object({ provider: z.string(), },);
  *  which validated the provider through the zod enum). */
 const providerEnumParams = z.object({
     provider: z.enum(connections.VALID_PROVIDERS as [string, ...string[]],),
-},);
+},) satisfies z.ZodType<ConnectionProviderParams>;
 
 const upsertSchema = z.object({
     provider: z.enum(connections.VALID_PROVIDERS as [string, ...string[]],),
@@ -31,7 +36,7 @@ const upsertSchema = z.object({
     autoPublish: z.boolean().optional(),
     autoPublishCount: z.number().nullable().optional(),
     credentials: z.record(z.unknown(),).optional(),
-},);
+},) satisfies z.ZodType<ConnectionUpsertBody>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal/segmented paths (/:provider/oauth/...) are distinct from the
@@ -98,7 +103,7 @@ export const connectionsRoutes = [
         summary: 'Move a connection up/down in the manual sort order.',
         input: {
             params: providerEnumParams,
-            body: z.object({ direction: z.enum(['up', 'down',],), },),
+            body: z.object({ direction: z.enum(['up', 'down',],), },) satisfies z.ZodType<ConnectionReorderBody>,
         },
         handler: async ({ params, body, },) => {
             await connections.reorder(params.provider, body.direction,);

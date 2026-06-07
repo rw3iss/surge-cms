@@ -47,3 +47,5 @@ export * from './routes/social';
 export * from './routes/campaigns';
 export * from './routes/forms';
 export * from './routes/pages';
+export * from './routes/auth';
+export * from './routes/connections';

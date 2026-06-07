@@ -14,6 +14,10 @@
  */
 import rateLimit from 'express-rate-limit';
 import { z, } from 'zod';
+import type {
+    AuthLoginBody,
+    AuthRefreshBody,
+} from '@rw/cms-shared';
 import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, UnauthorizedError, } from '../core/errors';
@@ -41,11 +45,14 @@ const loginSchema = z.object({
      * instead of the default 7. Persistence is purely a cookie-lifetime
      * concern; the server-side session row keeps its normal expiry. */
     rememberMe: z.boolean().optional(),
-},);
+},) satisfies z.ZodType<AuthLoginBody>;
 
+// `refreshToken` is optional: when omitted the handler falls back to the
+// `refreshToken` cookie. Mirrors the DTO so the cookie-fallback path is
+// reachable (it was unreachable when the field was required).
 const refreshSchema = z.object({
-    refreshToken: z.string(),
-},);
+    refreshToken: z.string().optional(),
+},) satisfies z.ZodType<AuthRefreshBody>;
 
 // ─── Cookie helpers ───────────────────────────────────────────────
 // maxAge values mirror the pre-framework route handlers exactly.

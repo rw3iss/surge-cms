@@ -10,6 +10,7 @@
  * leave the server; raw credentials never appear in an API response.
  */
 import crypto from 'crypto';
+import type { ConnectionRow, MaskedCredentials, } from '@rw/cms-shared';
 import { config, } from '../config';
 import { AppError, NotFoundError, } from '../core/errors';
 import { query, transaction, } from '../db';
@@ -34,7 +35,7 @@ export interface UpsertConnectionInput {
  *  "has*" flags so the admin UI can show connection state. */
 export function sanitizeCredentials(
     credentials: Record<string, unknown> | null,
-): Record<string, unknown> {
+): MaskedCredentials {
     if (!credentials) return {};
     const sanitized = { ...credentials, };
     if (sanitized.accessToken) {
@@ -60,7 +61,7 @@ function assertValidProvider(provider: string,): void {
 }
 
 /** List all connections with credentials masked. */
-export async function list(): Promise<Record<string, unknown>[]> {
+export async function list(): Promise<ConnectionRow[]> {
     const result = await query(
         `SELECT id, provider, is_connected, is_enabled, display_name, account_id,
                 credentials, settings, auto_publish, auto_publish_count, sort_order,
@@ -76,7 +77,7 @@ export async function list(): Promise<Record<string, unknown>[]> {
 }
 
 /** Fetch one connection (masked credentials). Returns null if missing. */
-export async function get(provider: string,): Promise<Record<string, unknown> | null> {
+export async function get(provider: string,): Promise<ConnectionRow | null> {
     assertValidProvider(provider,);
 
     const result = await query(
@@ -92,7 +93,7 @@ export async function get(provider: string,): Promise<Record<string, unknown> | 
     return {
         ...conn,
         credentials: sanitizeCredentials(conn.credentials as Record<string, unknown>,),
-    };
+    } as ConnectionRow;
 }
 
 /** Create or update a connection's app credentials + publish settings.
