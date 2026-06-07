@@ -1,4 +1,12 @@
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    MessageBulkDeleteBody,
+    MessageBulkStatusBody,
+    MessageListQuery,
+    MessageStatusUpdateBody,
+    MessageSubmitBody,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as messages from '../services/messages';
@@ -10,11 +18,11 @@ const messageSchema = z.object({
     email: z.string().email(),
     subject: z.string().max(255,).optional(),
     message: z.string().min(1,).max(5000,),
-},);
+},) satisfies z.ZodType<MessageSubmitBody>;
 
 const updateStatusSchema = z.object({
     status: z.enum(['unread', 'read', 'replied', 'archived', 'spam',],),
-},);
+},) satisfies z.ZodType<MessageStatusUpdateBody>;
 
 const listQuery = z.object({
     status: z.string().optional(),
@@ -22,6 +30,14 @@ const listQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(50,),
 },);
+
+const bulkStatusBody = z.object({
+    messageIds: z.array(z.string().uuid(),),
+    status: z.enum(['unread', 'read', 'replied', 'archived', 'spam',],),
+},) satisfies z.ZodType<MessageBulkStatusBody>;
+
+// Query schema coerces (string → number), so assert z.infer compatibility.
+type _AssertMessageListQuery = AssertCompatible<z.infer<typeof listQuery>, MessageListQuery>;
 
 const idParams = z.object({ id: z.string(), },);
 
@@ -75,12 +91,7 @@ export const messagesRoutes = [
     defineRoute({
         method: 'post', path: '/bulk-status', auth: 'admin',
         summary: 'Bulk update message status.',
-        input: {
-            body: z.object({
-                messageIds: z.array(z.string().uuid(),),
-                status: z.enum(['unread', 'read', 'replied', 'archived', 'spam',],),
-            },),
-        },
+        input: { body: bulkStatusBody, },
         handler: async ({ body, audit, },) => {
             await messages.bulkUpdateStatus(body.messageIds, body.status, audit(),);
             return { message: `${body.messageIds.length} messages updated`, };
@@ -92,7 +103,7 @@ export const messagesRoutes = [
         method: 'post', path: '/bulk-delete', auth: 'admin',
         summary: 'Bulk delete messages by id list.',
         input: {
-            body: z.object({ messageIds: z.array(z.string().uuid(),), },),
+            body: z.object({ messageIds: z.array(z.string().uuid(),), },) satisfies z.ZodType<MessageBulkDeleteBody>,
         },
         handler: async ({ body, audit, },) => {
             await messages.bulkRemove(body.messageIds, audit(),);

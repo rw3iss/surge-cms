@@ -1,4 +1,11 @@
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    CampaignAllDonationsQuery,
+    CampaignCreateBody,
+    CampaignDonationsQuery,
+    CampaignListQuery,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
@@ -17,7 +24,7 @@ const campaignSchema = z.object({
     startDate: z.string().datetime().nullish(),
     endDate: z.string().datetime().nullish(),
     isPublished: z.boolean().optional(),
-},);
+},) satisfies z.ZodType<CampaignCreateBody>;
 
 const listQuery = z.object({
     // Public params
@@ -45,6 +52,11 @@ const allDonationsQuery = z.object({
 },);
 
 const idParams = z.object({ id: z.string(), },);
+
+// Query schemas coerce (string → number), so assert z.infer compatibility.
+type _AssertCampaignListQuery = AssertCompatible<z.infer<typeof listQuery>, CampaignListQuery>;
+type _AssertCampaignDonationsQuery = AssertCompatible<z.infer<typeof donationsQuery>, CampaignDonationsQuery>;
+type _AssertCampaignAllDonationsQuery = AssertCompatible<z.infer<typeof allDonationsQuery>, CampaignAllDonationsQuery>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal paths (/slug/:slug, /donations/summary, /donations/all,

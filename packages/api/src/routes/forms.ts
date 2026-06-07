@@ -1,4 +1,12 @@
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    FormCreateBody,
+    FormListQuery,
+    FormQuestionInput,
+    FormSubmissionsQuery,
+    FormSubmitBody,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
@@ -21,7 +29,7 @@ const questionSchema = z.object({
         pattern: z.string().optional(),
         patternMessage: z.string().optional(),
     },).optional(),
-},);
+},) satisfies z.ZodType<FormQuestionInput>;
 
 const formSchema = z.object({
     title: z.string().min(1,).max(255,),
@@ -33,14 +41,14 @@ const formSchema = z.object({
     requiresAuth: z.boolean().optional(),
     successMessage: z.string().optional(),
     questions: z.array(questionSchema,).optional(),
-},);
+},) satisfies z.ZodType<FormCreateBody>;
 
 const submissionSchema = z.object({
     answers: z.array(z.object({
         questionId: z.string().uuid(),
         value: z.union([z.string(), z.array(z.string(),), z.number(), z.boolean(),],),
     },),),
-},);
+},) satisfies z.ZodType<FormSubmitBody>;
 
 const listQuery = z.object({
     all: z.string().optional(),
@@ -58,6 +66,10 @@ const submissionsQuery = z.object({
 
 const idParams = z.object({ id: z.string(), },);
 const slugParams = z.object({ slug: z.string(), },);
+
+// Query schemas coerce (string → number), so assert z.infer compatibility.
+type _AssertFormListQuery = AssertCompatible<z.infer<typeof listQuery>, FormListQuery>;
+type _AssertFormSubmissionsQuery = AssertCompatible<z.infer<typeof submissionsQuery>, FormSubmissionsQuery>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal/specific paths (/slug/:slug/*, /:id/submissions/export, /bulk)

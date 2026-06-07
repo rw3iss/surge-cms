@@ -1,4 +1,11 @@
-import type { SocialPlatform, } from '@rw/cms-shared';
+import type {
+    AssertCompatible,
+    SocialFeedQuery,
+    SocialHomepageSetBody,
+    SocialPlatform,
+    SocialPlatformPostsQuery,
+    SocialPostsQuery,
+} from '@rw/cms-shared';
 import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, NotFoundError, } from '../core/errors';
@@ -24,7 +31,22 @@ const feedQuery = z.object({
     limit: z.coerce.number().int().optional(),
 },);
 
+const homepageSetBody = z.object({
+    postIds: z.array(z.string().uuid(),),
+},) satisfies z.ZodType<SocialHomepageSetBody>;
+
+// platform is a free string at the schema level; the handler narrows it
+// to SocialPlatform (invalid values are ignored / treated as "all").
+const syncBody = z.object({
+    platform: z.string().optional(),
+},).optional();
+
 const platformParams = z.object({ platform: z.string(), },);
+
+// Query schemas coerce (string → number), so assert z.infer compatibility.
+type _AssertSocialPostsQuery = AssertCompatible<z.infer<typeof postsQuery>, SocialPostsQuery>;
+type _AssertSocialFeedQuery = AssertCompatible<z.infer<typeof feedQuery>, SocialFeedQuery>;
+type _AssertSocialPlatformPostsQuery = AssertCompatible<z.infer<typeof platformPostsQuery>, SocialPlatformPostsQuery>;
 
 function assertPlatform(p: string,): SocialPlatform {
     if (!social.VALID_PLATFORMS.includes(p as SocialPlatform,)) {
@@ -83,7 +105,7 @@ export const socialRoutes = [
     defineRoute({
         method: 'put', path: '/homepage', auth: 'admin',
         summary: 'Set the homepage social post selection.',
-        input: { body: z.object({ postIds: z.array(z.string().uuid(),), },), },
+        input: { body: homepageSetBody, },
         handler: async ({ body, userId, },) => {
             await social.setHomepagePosts(body.postIds, userId,);
             return { message: 'Homepage posts updated', };
@@ -94,7 +116,7 @@ export const socialRoutes = [
     defineRoute({
         method: 'post', path: '/sync', auth: 'admin',
         summary: 'Sync social posts from one or all platforms.',
-        input: { body: z.object({ platform: z.string().optional(), },).optional(), },
+        input: { body: syncBody, },
         handler: async ({ body, },) => {
             const platform = body?.platform as SocialPlatform | undefined;
             const results = await social.sync(platform,);

@@ -1,4 +1,11 @@
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    PageBlockBody,
+    PageCreateBody,
+    PageListQuery,
+    PageReorderBlocksBody,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
@@ -23,7 +30,7 @@ const pageSchema = z.object({
     navOrder: z.number().int().optional(),
     isPrivate: z.boolean().optional(),
     accessLevel: z.enum(['public', 'member', 'patron',],).optional(),
-},);
+},) satisfies z.ZodType<PageCreateBody>;
 
 const blockSchema = z.object({
     /** Optional client-supplied UUID. When present, used as the row's
@@ -44,7 +51,12 @@ const blockSchema = z.object({
     order: z.number().int().optional(),
     isVisible: z.boolean().optional(),
     style: z.record(z.unknown(),).nullable().optional(),
-},);
+},) satisfies z.ZodType<PageBlockBody>;
+
+const reorderBlocksBody = z.object({
+    blockIds: z.array(z.string(),),
+    parentBlockId: z.string().nullable().optional(),
+},) satisfies z.ZodType<PageReorderBlocksBody>;
 
 const listQuery = z.object({
     status: z.string().optional(),
@@ -56,6 +68,9 @@ const listQuery = z.object({
 
 const idParams = z.object({ id: z.string(), },);
 const versionParams = z.object({ id: z.string(), version: z.coerce.number().int(), },);
+
+// Query schema coerces (string → number), so assert z.infer compatibility.
+type _AssertPageListQuery = AssertCompatible<z.infer<typeof listQuery>, PageListQuery>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal paths (/navigation, /homepage, /slug/:slug, /bulk) and the
@@ -155,10 +170,7 @@ export const pagesRoutes = [
         summary: 'Reorder a page\'s blocks within one parent.',
         input: {
             params: z.object({ pageId: z.string(), },),
-            body: z.object({
-                blockIds: z.array(z.string(),),
-                parentBlockId: z.string().nullable().optional(),
-            },),
+            body: reorderBlocksBody,
         },
         handler: async ({ params, body, audit, },) => {
             await pages.reorderBlocks(params.pageId, body.parentBlockId ?? null, body.blockIds, audit(),);

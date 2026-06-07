@@ -3,6 +3,14 @@ import multer from 'multer';
 import { nanoid, } from 'nanoid';
 import path from 'path';
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    UserBanIpBody,
+    UserCreateBody,
+    UserListQuery,
+    UserPasswordBody,
+    UserUpdateBody,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, } from '../core/errors';
 import * as users from '../services/users';
@@ -36,21 +44,24 @@ const updateUserSchema = z.object({
     role: z.enum(['anonymous', 'member', 'admin', 'sysadmin',],).optional(),
     isActive: z.boolean().optional(),
     avatarUrl: z.string().optional().nullable(),
-},);
+},) satisfies z.ZodType<UserUpdateBody>;
 
 const createUserSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8,),
     displayName: z.string().min(1,).max(255,),
     role: z.enum(['member', 'admin', 'sysadmin',],).optional(),
-},);
+},) satisfies z.ZodType<UserCreateBody>;
 
+// Shared by POST /ban-ip and POST /:id/ban. As a wire DTO it maps to the
+// ban-ip body (every field optional); the per-user ban handler reads only
+// reason + expiresAt off the same shape.
 const banUserSchema = z.object({
     email: z.string().email().optional(),
     ipAddress: z.string().optional(),
     reason: z.string().optional(),
     expiresAt: z.string().datetime().optional(),
-},);
+},) satisfies z.ZodType<UserBanIpBody & { email?: string; }>;
 
 const listQuery = z.object({
     search: z.string().optional(),
@@ -61,6 +72,9 @@ const listQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(50,),
 },);
+
+// Query schema coerces (string → number), so assert z.infer compatibility.
+type _AssertUserListQuery = AssertCompatible<z.infer<typeof listQuery>, UserListQuery>;
 
 const bansQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
@@ -163,7 +177,7 @@ export const usersRoutes = [
     defineRoute({
         method: 'post', path: '/:id/password', auth: 'admin',
         summary: 'Set a user\'s password.',
-        input: { params: idParams, body: z.object({ password: z.string().min(8,), },), },
+        input: { params: idParams, body: z.object({ password: z.string().min(8,), },) satisfies z.ZodType<UserPasswordBody>, },
         handler: async ({ params, body, audit, },) => {
             await users.setPassword(params.id, body.password, audit(),);
             return { message: 'Password updated', };
