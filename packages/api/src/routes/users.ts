@@ -189,4 +189,14 @@ export const usersRoutes = [
             return { message: 'User unbanned successfully', };
         },
     },),
+
+    defineRoute({
+        method: 'delete', path: '/:id', auth: 'admin',
+        summary: 'Permanently delete a user (orphans authored content, audit-logged).',
+        input: { params: idParams, },
+        handler: async ({ params, audit, },) => {
+            await users.remove(params.id, audit(),);
+            return { message: 'User deleted', };
+        },
+    },),
 ];

@@ -1,6 +1,6 @@
 import type { PatreonMembership, User, } from '@rw/cms-shared';
 import bcrypt from 'bcryptjs';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
@@ -211,4 +211,46 @@ export async function removeBan(banId: string,): Promise<void> {
     if (result.rows[0].email) {
         await query('UPDATE users SET is_banned = false WHERE email = $1', [result.rows[0].email,],);
     }
+}
+
+/**
+ * Permanently delete a user row.
+ *
+ * Several tables reference `users(id)` WITHOUT an `ON DELETE` clause (so
+ * they default to RESTRICT and would block a raw delete). These hold the
+ * user's authorship/actor footprint (created/authored/uploaded/banned-by/
+ * connected-by/replied-by/updated-by). We orphan those references to NULL
+ * first — matching the intent of the columns that already declare
+ * `ON DELETE SET NULL` — so authored content survives the deletion. The
+ * remaining FKs (sessions, memberships, subscriptions, etc.) are already
+ * ON DELETE CASCADE / SET NULL and resolve themselves on the final DELETE.
+ * All of this runs in one transaction so the row is never half-deleted.
+ */
+export async function deleteUser(id: string,): Promise<void> {
+    await transaction(async (client,) => {
+        // Null the RESTRICT-bound actor columns (no ON DELETE clause in schema).
+        const nullouts: Array<[string, string,]> = [
+            ['users_banned', 'banned_by',],
+            ['pages', 'created_by',],
+            ['posts', 'author_id',],
+            ['social_connections', 'connected_by',],
+            ['media', 'uploaded_by',],
+            ['campaigns', 'created_by',],
+            ['forms', 'created_by',],
+            ['contact_messages', 'replied_by',],
+            ['site_settings', 'updated_by',],
+        ];
+        for (const [table, column,] of nullouts) {
+            await client.query(
+                `UPDATE ${table} SET ${column} = NULL WHERE ${column} = $1`,
+                [id,],
+            );
+        }
+
+        const result = await client.query(
+            'DELETE FROM users WHERE id = $1 RETURNING id',
+            [id,],
+        );
+        if (result.rows.length === 0) throw new NotFoundError('User',);
+    },);
 }

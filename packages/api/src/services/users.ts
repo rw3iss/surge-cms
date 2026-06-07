@@ -147,6 +147,26 @@ export async function setAvatar(
     return user;
 }
 
+/**
+ * Permanently delete a user. Reads the row first (for the audit snapshot),
+ * orphans the user's authored content to NULL, deletes the row, then busts
+ * the user cache. The admin UI presents this as irreversible.
+ */
+export async function remove(id: string, ctx: AuditContext,): Promise<void> {
+    const existing = await repo.findUserById(id,);
+    await repo.deleteUser(id,);
+    await cache.invalidateUserCache(id,);
+    await logAudit({
+        userId: ctx.userId,
+        action: 'delete',
+        entityType: 'user',
+        entityId: id,
+        oldValues: { email: existing.email, displayName: existing.displayName, role: existing.role, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+}
+
 /** Admin password override. */
 export async function setPassword(id: string, password: string, ctx: AuditContext,): Promise<void> {
     const passwordHash = await bcrypt.hash(password, 12,);
