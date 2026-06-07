@@ -20,7 +20,11 @@ services:
       - redis_data:/data
 
   app:
-    build: .
+    # This compose file lives in config/; build context is the repo root (..)
+    # so the Dockerfile's COPY paths (package*.json, packages/*) still resolve.
+    build:
+      context: ..
+      dockerfile: config/Dockerfile
     ports:
       - "3001:3001"
     depends_on:
@@ -34,7 +38,7 @@ services:
       JWT_SECRET: dev-jwt-secret-change-in-production-32chars
       FRONTEND_URL: http://localhost:3000
     volumes:
-      - ./uploads:/app/uploads
+      - ../uploads:/app/uploads
 
 volumes:
   postgres_data:

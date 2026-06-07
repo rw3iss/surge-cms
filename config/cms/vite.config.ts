@@ -3,7 +3,15 @@ import { resolve } from 'path';
 import solidPlugin from 'vite-plugin-solid';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// This config lives in config/cms/ but the app source is in packages/cms/.
+// `root` re-anchors Vite so index.html, public/, and src/ resolve against the
+// package; outDir/envDir are pinned explicitly to the package as well.
+const CMS_ROOT = resolve(__dirname, '../../packages/cms');
+
 export default defineConfig({
+  root: CMS_ROOT,
+  envDir: CMS_ROOT,
+  publicDir: resolve(CMS_ROOT, 'public'),
   plugins: [
     solidPlugin(),
     VitePWA({
@@ -119,6 +127,8 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: resolve(CMS_ROOT, 'dist'),
+    emptyOutDir: true,
     target: 'esnext',
     sourcemap: true,
     rollupOptions: {
@@ -133,7 +143,7 @@ export default defineConfig({
     preprocessorOptions: {
       scss: {
         api: 'modern-compiler',
-        additionalData: `@use 'sass:color';\n@use "${resolve(__dirname, 'src/styles/variables.scss').replace(/\\/g, '/')}" as *;\n`,
+        additionalData: `@use 'sass:color';\n@use "${resolve(CMS_ROOT, 'src/styles/variables.scss').replace(/\\/g, '/')}" as *;\n`,
       },
     },
   },

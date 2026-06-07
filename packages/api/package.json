@@ -14,7 +14,7 @@
     "sitemap": "tsx scripts/generate-sitemap.ts",
     "docs:api": "tsx scripts/generate-api-docs.ts",
     "lint": "eslint src --ext .ts",
-    "test": "vitest"
+    "test": "vitest --config ../../config/api/vitest.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",
