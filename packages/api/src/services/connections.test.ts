@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi, } from 'vitest';
 
 const queryMock = vi.fn().mockResolvedValue({ rows: [], },);
-vi.mock('../db', () => ({ query: (...args: unknown[]) => queryMock(...args), }),);
+const txClientQueryMock = vi.fn().mockResolvedValue({ rows: [], },);
+vi.mock('../db', () => ({
+    query: (...args: unknown[]) => queryMock(...args),
+    transaction: async (cb: (client: { query: typeof txClientQueryMock; },) => unknown,) =>
+        cb({ query: txClientQueryMock, },),
+}),);
 
-import { upsert, } from './connections';
+const delPatternMock = vi.fn().mockResolvedValue(undefined,);
+vi.mock('./cache', () => ({ cache: { delPattern: (...a: unknown[]) => delPatternMock(...a), }, }),);
+
+import { reorder, upsert, } from './connections';
 
 describe('connections.upsert actor handling', () => {
     beforeEach(() => queryMock.mockClear(),);
@@ -30,5 +38,41 @@ describe('connections.upsert actor handling', () => {
         );
         const params = insertCall![1] as unknown[];
         expect(params[params.length - 1],).toBe(uuid,);
+    },);
+},);
+
+describe('connections.reorder', () => {
+    beforeEach(() => {
+        queryMock.mockReset();
+        txClientQueryMock.mockReset().mockResolvedValue({ rows: [], },);
+        delPatternMock.mockClear();
+    },);
+
+    it('swaps sort_order with the upper neighbour when moving up', async () => {
+        queryMock.mockResolvedValueOnce({
+            rows: [
+                { id: 'id-a', provider: 'instagram', sort_order: 0, },
+                { id: 'id-b', provider: 'youtube', sort_order: 1, },
+            ],
+        },);
+
+        await reorder('youtube', 'up',);
+
+        // youtube (index 1) swaps with instagram (index 0): each gets the
+        // other's array index as the new sort_order.
+        const updates = txClientQueryMock.mock.calls.map((c,) => c[1] as unknown[]);
+        expect(updates,).toContainEqual(['id-b', 0,],);
+        expect(updates,).toContainEqual(['id-a', 1,],);
+        expect(delPatternMock,).toHaveBeenCalledWith('social:*',);
+    },);
+
+    it('is a no-op at the top edge', async () => {
+        queryMock.mockResolvedValueOnce({
+            rows: [{ id: 'id-a', provider: 'instagram', sort_order: 0, },],
+        },);
+
+        await reorder('instagram', 'up',);
+
+        expect(txClientQueryMock,).not.toHaveBeenCalled();
     },);
 },);

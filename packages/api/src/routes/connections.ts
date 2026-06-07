@@ -94,6 +94,19 @@ export const connectionsRoutes = [
     },),
 
     defineRoute({
+        method: 'put', path: '/:provider/reorder', auth: 'admin',
+        summary: 'Move a connection up/down in the manual sort order.',
+        input: {
+            params: providerEnumParams,
+            body: z.object({ direction: z.enum(['up', 'down',],), },),
+        },
+        handler: async ({ params, body, },) => {
+            await connections.reorder(params.provider, body.direction,);
+            return { message: 'Connection reordered', };
+        },
+    },),
+
+    defineRoute({
         method: 'get', path: '/:provider', auth: 'admin',
         summary: 'Fetch one connection (credentials masked). null when not found.',
         input: { params: providerParams, },

@@ -12,7 +12,7 @@
 import crypto from 'crypto';
 import { config, } from '../config';
 import { AppError, NotFoundError, } from '../core/errors';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { cache, } from './cache';
 import { getOAuthProvider, isOAuthProvider, } from './oauth';
 import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
@@ -175,6 +175,55 @@ export async function disconnect(provider: string,): Promise<void> {
     await cache.delPattern('social:*',);
 
     logger.info(`Social connection disconnected: ${provider}`,);
+}
+
+/**
+ * Move a connection one slot up or down in the manual sort order.
+ *
+ * `social_connections.sort_order` (indexed by idx_social_connections_sort)
+ * drives the list ordering. We load the rows in the same order `list()`
+ * uses, find the target's neighbour in the requested direction, and swap
+ * their `sort_order` values in a single transaction. No-op (still 200) when
+ * the target is already at the edge. Rows that never had an explicit order
+ * share sort_order=0; we normalise to the row's array index on swap so
+ * repeated moves stay well-defined.
+ */
+export async function reorder(provider: string, direction: 'up' | 'down',): Promise<void> {
+    assertValidProvider(provider,);
+
+    const ordered = await query(
+        `SELECT id, provider, sort_order
+         FROM social_connections
+         ORDER BY sort_order, provider`,
+    );
+    const rows = ordered.rows as Array<{ id: string; provider: string; sort_order: number; }>;
+
+    const index = rows.findIndex((r,) => r.provider === provider);
+    if (index === -1) {
+        throw new NotFoundError('Connection',);
+    }
+
+    const swapWith = direction === 'up' ? index - 1 : index + 1;
+    if (swapWith < 0 || swapWith >= rows.length) {
+        return; // already at the edge — nothing to do
+    }
+
+    // Normalise to array indices so ties (all-zero sort_order) resolve.
+    const a = rows[index];
+    const b = rows[swapWith];
+
+    await transaction(async (client,) => {
+        await client.query(
+            `UPDATE social_connections SET sort_order = $2, updated_at = NOW() WHERE id = $1`,
+            [a.id, swapWith,],
+        );
+        await client.query(
+            `UPDATE social_connections SET sort_order = $2, updated_at = NOW() WHERE id = $1`,
+            [b.id, index,],
+        );
+    },);
+
+    await cache.delPattern('social:*',);
 }
 
 /** Build the OAuth redirect_uri for a provider. In dev the API is on 3001
