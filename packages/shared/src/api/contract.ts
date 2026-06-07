@@ -87,3 +87,15 @@ export interface FieldValidationError {
     message: string;
     code: string;
 }
+
+/**
+ * Compile-time assertion that the backend's zod-inferred type `A` is
+ * assignable to the published DTO `B`. Used in route files to bind a
+ * coercion-bearing query/body schema to its DTO without an awkward
+ * `satisfies z.ZodType<...>` (zod coercion makes input ≠ output, which
+ * defeats `satisfies`). Resolves to `true` when compatible; a mismatch
+ * is a type error at the `type _Assert... = AssertCompatible<...>` line.
+ *
+ *   type _Assert = AssertCompatible<z.infer<typeof listQuery>, PostListQuery>;
+ */
+export type AssertCompatible<A extends B, B,> = true;

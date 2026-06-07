@@ -3,6 +3,7 @@
  * parallel count/stat queries across pages, posts, users, campaigns,
  * messages, donations, forms, and subscriptions.
  */
+import type { DashboardRecentPost, } from '@rw/cms-shared';
 import { query, } from '../db';
 
 export interface DashboardSummary {
@@ -13,7 +14,7 @@ export interface DashboardSummary {
     messages: { unread: number; };
     donations: { last30Days: { count: number; totalCents: number; }; };
     forms: { submissionsLast30Days: number; };
-    recentPosts: unknown[];
+    recentPosts: DashboardRecentPost[];
     quickActions: Array<{ label: string; href: string; urgent: boolean; }>;
 }
 
@@ -99,7 +100,7 @@ export async function summary(): Promise<DashboardSummary> {
         forms: {
             submissionsLast30Days: parseInt(formSubmissions.rows[0].count, 10,),
         },
-        recentPosts: recentPosts.rows,
+        recentPosts: recentPosts.rows as DashboardRecentPost[],
         quickActions,
     };
 }

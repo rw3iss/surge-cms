@@ -1,4 +1,5 @@
 import { z, } from 'zod';
+import type { AdminSearchQuery, AssertCompatible, SearchQuery, } from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as search from '../services/search';
 
@@ -12,6 +13,10 @@ const publicQuery = z.object({
 const adminQuery = publicQuery.extend({
     limit: z.coerce.number().int().default(50,),
 },);
+
+// Queries coerce (string → number), so assert z.infer compatibility.
+type _AssertSearchQuery = AssertCompatible<z.infer<typeof publicQuery>, SearchQuery>;
+type _AssertAdminSearchQuery = AssertCompatible<z.infer<typeof adminQuery>, AdminSearchQuery>;
 
 export const searchRoutes = [
 

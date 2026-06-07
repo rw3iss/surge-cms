@@ -1,5 +1,6 @@
 import { z, } from 'zod';
 import { API_KEY_SCOPES, } from '@rw/cms-shared';
+import type { ApiKeyCreateBody, } from '@rw/cms-shared';
 import { ForbiddenError, NotFoundError, } from '../core/errors';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as apiKeys from '../services/apiKeys';
@@ -7,7 +8,7 @@ import * as apiKeys from '../services/apiKeys';
 const createSchema = z.object({
     name: z.string().min(1,).max(100,),
     scopes: z.array(z.enum(API_KEY_SCOPES,),).min(1,).default(['read',],),
-},);
+},) satisfies z.ZodType<ApiKeyCreateBody>;
 
 /** Keys must not mint or revoke keys — management requires a real
  *  admin login. */

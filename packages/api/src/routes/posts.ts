@@ -1,4 +1,10 @@
 import { z, } from 'zod';
+import type {
+    AssertCompatible,
+    PostListQuery,
+    PostReorderBlocksBody,
+    PostSearchQuery,
+} from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
@@ -50,6 +56,20 @@ const listQuery = z.object({
     status: z.string().optional(),
     sort: z.string().optional(),
 },);
+
+const searchQuery = z.object({
+    q: z.string().min(1,),
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(10,),
+},);
+
+const reorderBlocksBody = z.object({ blockIds: z.array(z.string(),), },) satisfies z.ZodType<PostReorderBlocksBody>;
+
+// DTO bindings — drift between these zod schemas and the published DTOs
+// is a compile error here. Query schemas coerce (string → number), so we
+// assert z.infer compatibility rather than `satisfies z.ZodType<…>`.
+type _AssertPostListQuery = AssertCompatible<z.infer<typeof listQuery>, PostListQuery>;
+type _AssertPostSearchQuery = AssertCompatible<z.infer<typeof searchQuery>, PostSearchQuery>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Order matters: literal paths (/search, /slug/:slug, /bulk) must be
@@ -103,13 +123,7 @@ export const postsRoutes = [
     defineRoute({
         method: 'get', path: '/search', auth: 'public',
         summary: 'Full-text search over published posts.',
-        input: {
-            query: z.object({
-                q: z.string().min(1,),
-                page: z.coerce.number().int().min(1,).default(1,),
-                limit: z.coerce.number().int().min(1,).max(100,).default(10,),
-            },),
-        },
+        input: { query: searchQuery, },
         handler: async ({ query, },) => {
             const result = await posts.search(query.q, { page: query.page, limit: query.limit, },);
             return reply(result.data, { meta: result.meta, },);
@@ -199,7 +213,7 @@ export const postsRoutes = [
         summary: 'Reorder a post\'s content blocks.',
         input: {
             params: idParams,
-            body: z.object({ blockIds: z.array(z.string(),), },),
+            body: reorderBlocksBody,
         },
         handler: async ({ params, body, },) => {
             await posts.reorderContentBlocks(params.id, body.blockIds,);

@@ -1,3 +1,4 @@
+import type { HealthBasicResponse, HealthLiveResponse, } from '@rw/cms-shared';
 import { defineRoute, } from '../api/defineRoute';
 import * as health from '../services/health';
 import { logger, } from '../utils/logger';
@@ -12,7 +13,7 @@ export const healthRoutes = [
     defineRoute({
         method: 'get', path: '/', auth: 'public',
         summary: 'Basic health check.',
-        handler: () => ({ status: 'healthy', timestamp: new Date().toISOString(), }),
+        handler: (): HealthBasicResponse => ({ status: 'healthy', timestamp: new Date().toISOString(), }),
     },),
 
     defineRoute({
@@ -48,6 +49,6 @@ export const healthRoutes = [
     defineRoute({
         method: 'get', path: '/live', auth: 'public',
         summary: 'Liveness check (k8s).',
-        handler: () => ({ live: true, }),
+        handler: (): HealthLiveResponse => ({ live: true, }),
     },),
 ];

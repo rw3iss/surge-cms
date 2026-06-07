@@ -1,3 +1,4 @@
+import type { SetupGenerateJwtResponse, } from '@rw/cms-shared';
 import { defineRoute, } from '../api/defineRoute';
 import { getInstallationState, } from '../services/installation';
 import {
@@ -74,7 +75,7 @@ export const setupRoutes = [
     defineRoute({
         method: 'post', path: '/generate-jwt', auth: 'public',
         summary: 'Generate a random JWT secret (setup-only).',
-        handler: async () => {
+        handler: async (): Promise<SetupGenerateJwtResponse> => {
             await ensureSetupAllowed();
             return generateJwtSecret();
         },

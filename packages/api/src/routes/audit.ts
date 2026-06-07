@@ -1,4 +1,5 @@
 import { z, } from 'zod';
+import type { AssertCompatible, AuditListQuery, } from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as audit from '../services/audit';
 
@@ -13,6 +14,9 @@ const listQuery = z.object({
     page: z.coerce.number().int().optional(),
     limit: z.coerce.number().int().optional(),
 },);
+
+// Query coerces (string → number), so assert z.infer compatibility.
+type _AssertAuditListQuery = AssertCompatible<z.infer<typeof listQuery>, AuditListQuery>;
 
 export const auditRoutes = [
 

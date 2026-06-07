@@ -1,4 +1,5 @@
 import { z, } from 'zod';
+import type { BlockStyleCreateBody, } from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as blockStyles from '../services/blockStyles';
 
@@ -17,7 +18,7 @@ const blockStyleSchema = z.object({
     gap: z.string().nullable().optional(),
     overflowX: z.string().nullable().optional(),
     overflowY: z.string().nullable().optional(),
-},);
+},) satisfies z.ZodType<BlockStyleCreateBody>;
 
 const idParams = z.object({ id: z.string(), },);
 
