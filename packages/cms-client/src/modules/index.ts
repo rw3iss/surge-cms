@@ -19,6 +19,10 @@ import { FontsModule, } from './fonts';
 import { DevModule, } from './dev';
 import { HealthModule, } from './health';
 import { SetupModule, } from './setup';
+import { MailingListsModule, } from './mailingLists';
+import { MailTemplatesModule, } from './mailTemplates';
+import { MailSendModule, } from './mailSend';
+import { PaymentsModule, } from './payments';
 
 export interface CmsModules {
     posts: PostsModule;
@@ -40,6 +44,10 @@ export interface CmsModules {
     dev: DevModule;
     health: HealthModule;
     setup: SetupModule;
+    mailingLists: MailingListsModule;
+    mailTemplates: MailTemplatesModule;
+    mailSend: MailSendModule;
+    payments: PaymentsModule;
 }
 
 export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModules {
@@ -69,6 +77,10 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.dev = new DevModule(core,);
     c.health = new HealthModule(core,);
     c.setup = new SetupModule(core,);
+    c.mailingLists = new MailingListsModule(core,);
+    c.mailTemplates = new MailTemplatesModule(core,);
+    c.mailSend = new MailSendModule(core,);
+    c.payments = new PaymentsModule(core,);
     return c as CmsClientCore & CmsModules;
 }
 
@@ -77,4 +89,5 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
+    MailingListsModule, MailTemplatesModule, MailSendModule, PaymentsModule,
 };
