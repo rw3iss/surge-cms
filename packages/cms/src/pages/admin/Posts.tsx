@@ -6,6 +6,7 @@ import SortTh from '../../components/admin/common/SortTh';
 import { useBulkActions, } from '../../hooks/useBulkActions';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
+import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
 
 function formatDate(iso: string | null | undefined,): string {
@@ -19,7 +20,7 @@ const AdminPosts: Component = () => {
     const currentSort = () => searchParams.sort || 'updated_desc';
 
     const list = usePaginatedList<any>({
-        endpoint: '/posts',
+        fetch: (p,) => cms.posts.list(p,),
         initialLimit: 20,
         params: () => ({
             status: searchParams.status,

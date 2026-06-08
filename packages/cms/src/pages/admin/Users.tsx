@@ -6,6 +6,7 @@ import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
 
 function formatDate(iso: string | null | undefined,): string {
@@ -27,7 +28,7 @@ const AdminUsers: Component = () => {
     const sortOrder = () => currentSort().endsWith('_asc',) ? 'asc' : 'desc';
 
     const list = usePaginatedList<any>({
-        endpoint: '/users',
+        fetch: (p,) => cms.users.list(p,),
         initialLimit: 50,
         params: () => ({
             search: searchParams.search,

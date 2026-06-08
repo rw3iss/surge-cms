@@ -1,14 +1,26 @@
 import { createSignal, } from 'solid-js';
-import { api, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 
 export type BulkEntityType = 'post' | 'page' | 'campaign' | 'form' | 'message';
 
-const ENTITY_ENDPOINT: Record<BulkEntityType, string> = {
-    post: '/posts',
-    page: '/pages',
-    campaign: '/campaigns',
-    form: '/forms',
-    message: '/messages',
+interface BulkBody {
+    ids: string[];
+    action: 'delete' | 'status';
+    value?: string;
+}
+
+/**
+ * Maps an entity type to its `cms.<module>.bulk` method. The wire body for
+ * every bulk endpoint is `{ ids, action, value }` (the backend's shared
+ * bulkActions runner reads `value`); the per-entity DTOs vary slightly in
+ * field naming, so the body is cast at the call boundary.
+ */
+const ENTITY_BULK: Record<BulkEntityType, (body: BulkBody,) => Promise<{ updated: number; }>> = {
+    post: (body,) => cms.posts.bulk(body as never,),
+    page: (body,) => cms.pages.bulk(body as never,),
+    campaign: (body,) => cms.campaigns.bulk(body as never,),
+    form: (body,) => cms.forms.bulk(body as never,),
+    message: (body,) => cms.messages.bulk(body as never,),
 };
 
 export interface UseBulkActionsOptions {
@@ -18,7 +30,8 @@ export interface UseBulkActionsOptions {
 
 /**
  * Manage multi-select state and bulk actions for admin list pages.
- * Calls `POST /{entity}/bulk` with { ids, action, value }.
+ * Calls `cms.<entity>.bulk({ ids, action, value })`; errors surface via
+ * the client's error bus (toast).
  */
 export function useBulkActions(opts: UseBulkActionsOptions,) {
     const [selected, setSelected,] = createSignal<Set<string>>(new Set<string>(),);
@@ -57,16 +70,11 @@ export function useBulkActions(opts: UseBulkActionsOptions,) {
 
         setBusy(true,);
         try {
-            const endpoint = `${ENTITY_ENDPOINT[opts.entityType]}/bulk`;
-            const response = await api.post(endpoint, { ids, action, value, },);
-            if (!response.success) {
-                alert('Bulk action failed: ' + ((response as any).error?.message || 'unknown'),);
-            } else {
-                clear();
-                opts.onComplete?.();
-            }
-        } catch (err: any) {
-            alert('Bulk action error: ' + (err.message || 'unknown'),);
+            await ENTITY_BULK[opts.entityType]({ ids, action, value, },);
+            clear();
+            opts.onComplete?.();
+        } catch {
+            // The cms.onError bus surfaces the error/toast.
         } finally {
             setBusy(false,);
         }

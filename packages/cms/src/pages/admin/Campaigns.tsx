@@ -5,6 +5,7 @@ import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
+import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
 
 function formatDate(iso: string | null | undefined,): string {
@@ -33,7 +34,7 @@ const AdminCampaigns: Component = () => {
     };
 
     const list = usePaginatedList<any>({
-        endpoint: '/campaigns',
+        fetch: (p,) => cms.campaigns.list(p,),
         initialLimit: 20,
         params: () => ({
             all: 'true',

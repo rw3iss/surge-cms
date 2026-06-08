@@ -1,6 +1,7 @@
+import { UnauthorizedError, } from '@rw/cms-client';
 import { isAdminRole, type User, } from '@rw/cms-shared';
 import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
-import { api, setUnauthorizedHandler, } from '../services/api';
+import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
 
 interface AuthState {
     user: User | null;
@@ -69,9 +70,11 @@ export const AuthProvider: ParentComponent = (props,) => {
         if (!isLocalhost()) return false;
         if (wasManuallyLoggedOut()) return false;
         try {
-            const response = await api.get<{ user: User; }>('/auth/autologin',);
-            if (response.success && response.data?.user) {
-                setUser(response.data.user,);
+            // suppressUnauthorized: a 404/403/401 from the dev-only autologin
+            // probe must not pop the session-expired modal.
+            const res = await suppressUnauthorized(() => cms.auth.autologin(),);
+            if (res?.user) {
+                setUser(res.user,);
                 return true;
             }
         } catch {
@@ -82,14 +85,13 @@ export const AuthProvider: ParentComponent = (props,) => {
 
     const refreshUser = async () => {
         try {
-            const response = await api.get<{ user: User; }>('/auth/me',);
-            if (response.success && response.data?.user) {
-                setUser(response.data.user,);
-            } else {
-                // Try autologin from localhost
-                if (!await tryAutologin()) {
-                    setUser(null,);
-                }
+            // suppressUnauthorized: a 401 from the session probe is handled
+            // here (autologin fallback / setUser(null)), not by the modal.
+            const res = await suppressUnauthorized(() => cms.auth.me(),);
+            if (res?.user) {
+                setUser(res.user,);
+            } else if (!await tryAutologin()) {
+                setUser(null,);
             }
         } catch {
             // Try autologin from localhost
@@ -102,19 +104,19 @@ export const AuthProvider: ParentComponent = (props,) => {
     const login = async (email: string, password: string, rememberMe?: boolean,) => {
         setIsLoading(true,);
         try {
-            const response = await api.post<{ user: User; }>('/auth/login', { email, password, rememberMe, },);
-            if (response.success && response.data?.user) {
-                // Explicit login clears any prior manual logout from this session.
-                setManuallyLoggedOut(false,);
-                // Defensive: clear any lingering session-expired flag so
-                // the modal can't briefly reappear after the new session
-                // is established (a 401 from a request that raced with
-                // the login response would otherwise re-trigger it).
-                setSessionExpired(false,);
-                setUser(response.data.user,);
-            } else {
-                throw new Error(response.error?.message || 'Login failed',);
-            }
+            // suppressUnauthorized: a login failure (401/wrong password) must
+            // NOT fire the global session-expired modal — it's surfaced here.
+            const res = await suppressUnauthorized(
+                () => cms.auth.login({ email, password, rememberMe, },),
+            );
+            // Explicit login clears any prior manual logout from this session.
+            setManuallyLoggedOut(false,);
+            // Defensive: clear any lingering session-expired flag so the modal
+            // can't briefly reappear after the new session is established (a
+            // 401 from a request that raced with the login response would
+            // otherwise re-trigger it).
+            setSessionExpired(false,);
+            setUser(res.user,);
         } finally {
             setIsLoading(false,);
         }
@@ -129,7 +131,9 @@ export const AuthProvider: ParentComponent = (props,) => {
 
     const logout = async () => {
         try {
-            await api.post('/auth/logout',);
+            // suppressUnauthorized: logout's own 401 (already-expired session)
+            // shouldn't trigger the modal — we're clearing the user anyway.
+            await suppressUnauthorized(() => cms.auth.logout(),);
         } finally {
             // Mark this session as manually-logged-out BEFORE clearing the
             // user — otherwise the createEffect that watches user() could
@@ -153,14 +157,19 @@ export const AuthProvider: ParentComponent = (props,) => {
         // matters when the user previously had a session.
         if (!user()) return false;
         try {
-            const response = await api.get<{ user: User; }>('/auth/me',);
-            if (response.success && response.data?.user) {
-                setUser(response.data.user,);
+            // suppressUnauthorized: this probe owns its own session-expired
+            // handling below; its 401 must not also fire the global modal.
+            const res = await suppressUnauthorized(() => cms.auth.me(),);
+            if (res?.user) {
+                setUser(res.user,);
                 setSessionExpired(false,);
                 return true;
             }
-        } catch {
-            /* fall through */
+        } catch (err) {
+            // A non-401 transient error (network, 5xx) shouldn't be treated
+            // as a definitive session-expiry — keep the user as-is and bail.
+            if (!(err instanceof UnauthorizedError)) return false;
+            /* UnauthorizedError → fall through to session-expired */
         }
         // Reaching here means the previously-authenticated session is
         // gone. Surface the modal but DON'T clear the user signal yet —

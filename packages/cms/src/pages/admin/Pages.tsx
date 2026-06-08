@@ -5,6 +5,7 @@ import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
+import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
 
 function formatDate(iso: string | null | undefined,): string {
@@ -18,7 +19,7 @@ const AdminPages: Component = () => {
     const currentSort = () => searchParams.sort || 'updated_desc';
 
     const list = usePaginatedList<any>({
-        endpoint: '/pages',
+        fetch: (p,) => cms.pages.list(p,),
         initialLimit: 20,
         params: () => ({
             status: searchParams.status,
