@@ -6,7 +6,7 @@ function memStore(initial: AuthTokens | null = null,): TokenStore {
     let v = initial;
     return { load: () => v, save: (t,) => { v = t; }, clear: () => { v = null; }, };
 }
-const tokens = (a: string,): AuthTokens => ({ accessToken: a, refreshToken: `r-${a}`, },);
+const tokens = (a: string,): AuthTokens => ({ accessToken: a, refreshToken: `r-${a}`, });
 
 describe('AuthManager', () => {
     it('auto-loads tokens from the store on construction (bearer)', async () => {

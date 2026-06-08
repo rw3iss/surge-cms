@@ -1,5 +1,5 @@
 import {
-    type CmsClientConfig, type ResolvedConfig, DEFAULT_RETRY, DEFAULT_TTL,
+    type CmsClientConfig, type ResolvedConfig, type TtlMap, DEFAULT_RETRY, DEFAULT_TTL,
 } from './types';
 
 function resolveFetch(injected?: typeof fetch,): typeof fetch {
@@ -16,6 +16,13 @@ export function resolveConfig(config: CmsClientConfig,): ResolvedConfig {
     const cacheObj = (typeof cacheOpt === 'object' && cacheOpt !== null) ? cacheOpt : {};
     const authMode = config.auth?.mode ?? (config.auth?.apiKey ? 'apiKey' : 'bearer');
 
+    const ttl: TtlMap = { ...DEFAULT_TTL, };
+    if (cacheObj.ttl) {
+        for (const [key, value,] of Object.entries(cacheObj.ttl,)) {
+            if (value !== undefined) ttl[key] = value;
+        }
+    }
+
     return {
         baseUrl,
         apiBase: `${baseUrl}/api/v1`,
@@ -26,7 +33,7 @@ export function resolveConfig(config: CmsClientConfig,): ResolvedConfig {
         customStore: config.auth?.store,
         cacheEnabled,
         cacheAdapter: cacheObj.adapter ?? 'auto',
-        ttl: { ...DEFAULT_TTL, ...cacheObj.ttl, },
+        ttl,
         namespace: cacheObj.namespace ?? 'cms',
         fetchImpl: resolveFetch(config.fetch,),
         timeoutMs: config.timeoutMs ?? 30_000,
