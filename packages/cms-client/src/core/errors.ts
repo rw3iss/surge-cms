@@ -1,4 +1,6 @@
-import type { ApiError, ContentLockedDetails, ErrorCode, } from '@rw/cms-shared';
+import type {
+    ApiError, ContentLockedDetails, ErrorCode, SettingsFeatureCascadeResult,
+} from '@rw/cms-shared';
 
 /** Base class for every error the client throws. Carries the wire code,
  *  HTTP status, and raw details so callers can switch on `code` or
@@ -28,6 +30,41 @@ export class UnauthorizedError extends CmsError {}
 export class ForbiddenError extends CmsError {}
 export class NotFoundError extends CmsError {}
 export class ConflictError extends CmsError {}
+
+/**
+ * Thrown by `cms.settings.update()` when PUT /settings rejects a feature
+ * toggle on its dependency planner. The backend answers **409** with a
+ * NON-STANDARD body — `{ success: false, error: <SettingsFeatureCascadeResult> }`
+ * — where `error` is the planner's verbatim refusal (NOT an `{ code, message }`
+ * ApiError). `errorFromEnvelope` detects that shape and surfaces it here so
+ * the cascade fields survive (the generic envelope path would drop them,
+ * since the body has no `code`/`message`/`details`).
+ *
+ * `result` carries the typed refusal: `kind: 'missing_prerequisites'`
+ * (read `result.missing`) or `kind: 'has_dependents'` (read
+ * `result.dependents`). Consumers render a confirmation modal and retry
+ * `update()` with `enableDependencies: true` / `disableDependents: true`.
+ */
+export class FeatureCascadeError extends CmsError {
+    readonly result: SettingsFeatureCascadeResult;
+    constructor(result: SettingsFeatureCascadeResult, status = 409,) {
+        super(
+            `Feature toggle blocked: ${result.kind} for "${result.target}"`,
+            { code: 'CONFLICT', status, details: result as unknown as Record<string, unknown>, },
+        );
+        this.result = result;
+    }
+}
+
+/** Type-guard for the non-standard cascade 409 body (`payload.error` is the
+ *  planner result itself, not an `{ code, message, details }` ApiError). */
+export function isFeatureCascadeResult(v: unknown,): v is SettingsFeatureCascadeResult {
+    if (typeof v !== 'object' || v === null) return false;
+    const r = v as Record<string, unknown>;
+    return r.ok === false
+        && (r.kind === 'missing_prerequisites' || r.kind === 'has_dependents')
+        && typeof r.target === 'string';
+}
 export class ServiceUnavailableError extends CmsError {}
 export class InternalError extends CmsError {}
 
@@ -80,6 +117,12 @@ export class AbortError extends CmsError {
 
 /** Build the right subclass from an HTTP status + error envelope. */
 export function errorFromEnvelope(status: number, error: ApiError, retryAfter?: number,): CmsError {
+    // Non-standard PUT /settings 409: `error` IS the planner result
+    // (`{ ok:false, kind, target, ... }`), not an `{ code, message }`
+    // ApiError. Catch it here so the cascade fields aren't lost.
+    if (status === 409 && isFeatureCascadeResult(error,)) {
+        return new FeatureCascadeError(error, status,);
+    }
     const { code, message, details, } = error;
     const requestId = (details?.requestId as string | undefined);
     const base = { status, details, requestId, };
