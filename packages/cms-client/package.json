@@ -25,6 +25,7 @@
         "typecheck": "tsc --noEmit",
         "test": "vitest --config ../../config/cms-client/vitest.config.ts run --passWithNoTests",
         "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts",
+        "test:integration": "vitest --config ../../config/cms-client/vitest.integration.config.ts run",
         "check:drift": "tsx scripts/check-drift.ts"
     },
     "dependencies": {
