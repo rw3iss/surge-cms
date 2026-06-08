@@ -1,5 +1,9 @@
 import { Component, createSignal, Show, } from 'solid-js';
-import { api, } from '../../../../services/api';
+
+function getCsrfToken(): string {
+    const match = document.cookie.match(/csrf-token=([^;]+)/,);
+    return match ? match[1] : '';
+}
 
 interface UrlLinkBlockProps {
     data: Record<string, any>;
@@ -13,7 +17,22 @@ const UrlLinkBlock: Component<UrlLinkBlockProps> = (props,) => {
     const fetchPreview = async () => {
         if (!props.data.url) return;
         setFetching(true,);
-        const response = await api.post('/utils/url-preview', { url: props.data.url, },);
+        // TODO: deferred — POST /utils/url-preview backend route not yet
+        // implemented. The endpoint 404s today; the inline fetch preserves
+        // the block's existing graceful-failure behavior until it lands.
+        const res = await fetch('/api/v1/utils/url-preview', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-csrf-token': getCsrfToken(),
+            },
+            body: JSON.stringify({ url: props.data.url, },),
+        },);
+        const response = await res.json() as {
+            success?: boolean;
+            data?: Record<string, any>;
+        };
         if (response.success) {
             const preview = (response as any).data;
             props.onUpdate({
