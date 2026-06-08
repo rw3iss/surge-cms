@@ -8,7 +8,7 @@
  * SocialPostSelectModal for advanced search / pagination.
  */
 import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Show, } from 'solid-js';
-import { api, } from '../../../../services/api';
+import { cms, } from '../../../../services/cmsClient';
 import Toggle from '../../common/Toggle';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 
@@ -60,11 +60,9 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
     const [connections, setConnections,] = createSignal<any[]>([],);
     onMount(async () => {
         try {
-            const response = await api.get('/connections',);
-            if (response.success) {
-                setConnections(((response as any).data as any[]).filter((c: any,) => c.isConnected),);
-            }
-        } catch { /* ignore */ }
+            const list = await cms.connections.list();
+            setConnections((list as any[]).filter((c: any,) => c.isConnected),);
+        } catch { /* ignore — bus toasts; provider list just stays empty */ }
     },);
 
     const connectedSet = () => new Set(connections().map((c: any,) => c.provider as string,),);
@@ -201,11 +199,9 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
         if (!props.provider) return;
         setLoading(true,);
         try {
-            const response = await api.get(`/social/posts/${props.provider}?limit=10&sort=date&sortDir=desc`,);
-            if (response.success) {
-                setRecent(((response as any).data || []) as SocialPost[],);
-            }
-        } catch { /* ignore */ } finally { setLoading(false,); }
+            const res = await cms.social.platformPosts(props.provider, { limit: 10, sort: 'date', sortDir: 'desc', } as any,);
+            setRecent((res.data || []) as unknown as SocialPost[],);
+        } catch { /* ignore — bus toasts; recent list just stays empty */ } finally { setLoading(false,); }
     };
 
     const onFocus = () => {

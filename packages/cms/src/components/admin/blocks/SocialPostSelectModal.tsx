@@ -8,7 +8,7 @@
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import Pagination from '../common/Pagination';
 
 export interface SocialPost {
@@ -49,24 +49,36 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
         `${props.provider}:${page()}:${sort()}:${sortDir()}:${search()}`;
 
     const [result,] = createResource(fetchKey, async () => {
-        const params = new URLSearchParams({
-            page: String(page(),),
-            limit: String(LIMIT,),
+        const query: Record<string, unknown> = {
+            page: page(),
+            limit: LIMIT,
             sort: sort(),
             sortDir: sortDir(),
-        },);
-        const q = search().trim();
-        if (q) params.set('search', q,);
-        const response = await api.get(`/social/posts/${props.provider}?${params.toString()}`,);
-        if (!response.success) return null;
-        return {
-            posts: ((response as any).data || []) as SocialPost[],
-            meta: (response as any).meta || { total: 0, totalPages: 1, page: 1, limit: LIMIT, },
         };
+        const q = search().trim();
+        if (q) query.search = q;
+        try {
+            const res = await cms.social.platformPosts(props.provider, query as any,);
+            return {
+                posts: (res.data || []) as unknown as SocialPost[],
+                meta: res.meta || { total: 0, totalPages: 1, page: 1, limit: LIMIT, },
+            };
+        } catch {
+            // Bus toasts the failure; the modal falls back to an empty grid.
+            return null;
+        }
     },);
 
     const posts = () => result()?.posts || [];
-    const meta = () => result()?.meta || { total: 0, totalPages: 1, page: 1, limit: LIMIT, };
+    const meta = () => {
+        const m = result()?.meta;
+        return {
+            total: m?.total ?? 0,
+            totalPages: m?.totalPages ?? 1,
+            page: m?.page ?? 1,
+            limit: m?.limit ?? LIMIT,
+        };
+    };
 
     const submitSearch = () => {
         setSearch(searchInput(),);

@@ -14,7 +14,7 @@
  */
 import type { Post, } from '@rw/cms-shared';
 import { Component, createSignal, For, JSX, onMount, Show, } from 'solid-js';
-import { api, } from '../../../../services/api';
+import { cms, } from '../../../../services/cmsClient';
 import { FormCheck, FormField, FormSection, } from '../../forms';
 import './PostListBlock.scss';
 
@@ -91,8 +91,7 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
         if (ids.length === 0) { setPinnedDetails({},); return; }
         const results = await Promise.all(ids.map(async (id,) => {
             try {
-                const res = await api.get<Post>(`/posts/${encodeURIComponent(id,)}`,);
-                if (res.success && (res as any).data) return (res as any).data as Post;
+                return await cms.posts.getById(id,) as unknown as Post;
             } catch { /* ignore — show fallback ID */ }
             return null;
         }),);
@@ -126,18 +125,14 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
         setPickerLoading(true,);
         try {
             // Admin endpoint — includes drafts so users can pin them.
-            const params = new URLSearchParams({
-                page: '1',
-                limit: '100',
+            const params: Record<string, unknown> = {
+                page: 1,
+                limit: 100,
                 sort: pickerSort(),
-            },);
-            if (pickerSearch().trim()) params.set('search', pickerSearch().trim(),);
-            const res = await api.get<Post[]>(`/posts?${params.toString()}`,);
-            if (res.success && Array.isArray((res as any).data,)) {
-                setPickerPosts((res as any).data as Post[],);
-            } else {
-                setPickerPosts([],);
-            }
+            };
+            if (pickerSearch().trim()) params.search = pickerSearch().trim();
+            const res = await cms.posts.list(params as any,);
+            setPickerPosts((res.data || []) as unknown as Post[],);
         } catch {
             setPickerPosts([],);
         } finally {
