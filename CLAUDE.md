@@ -4,7 +4,7 @@
 
 SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, feature-based, block-based general-purpose CMS. Pages, posts, campaigns, forms, users, media, social connections, plus a custom header/footer editor and a global appearance system (swatches, fonts, block-style templates).
 
-Monorepo with four workspaces under `packages/*`: `api` (`@rw/cms-api`, Express/Node), `cms` (`@rw/cms-web`, SolidJS), `shared` (`@rw/cms-shared`, types/DTOs/utils consumed by all), `cms-client` (`@rw/cms-client`, headless TS client — **scaffold only, not implemented**). All build/tool config lives in `./config`.
+Monorepo with four workspaces under `packages/*`: `api` (`@rw/cms-api`, Express/Node), `cms` (`@rw/cms-web`, SolidJS), `shared` (`@rw/cms-shared`, types/DTOs/utils consumed by all), `cms-client` (`@rw/cms-client`, headless TS client — **fully implemented**). All build/tool config lives in `./config`.
 
 **Stack:** SolidJS + Vite | Express + PostgreSQL + Redis | Stripe | Patreon OAuth | S3/Local storage
 
@@ -57,7 +57,7 @@ rw-cms/
 │   ├── api/         # @rw/cms-api  — Express REST API (port 3001), SSR, migrations
 │   ├── cms/         # @rw/cms-web  — SolidJS SPA (port 3000, proxies API to 3001)
 │   ├── shared/      # @rw/cms-shared — types, src/api/routes/ DTOs, format/validation utils
-│   └── cms-client/  # @rw/cms-client — headless HTTP client (scaffold only)
+│   └── cms-client/  # @rw/cms-client — headless HTTP client (implemented)
 ├── config/          # all build/tool config (per-package subdirs + repo-wide)
 └── docs/            # API.md, api-manifest.json, client-sdk-plan.md, plans/specs
 ```
@@ -249,7 +249,11 @@ npm run docker:up            # docker compose -f config/docker-compose.yml up -d
 - **Import scope:** the workspace scope is `@rw/cms-*` (was `@rw/shared`). Import shared types/DTOs/utils from `@rw/cms-shared`. `@rw/cms-shared` imports from no sibling package.
 - **dprint pre-existing drift:** ~250 files predate the formatter config, so `npm run format:check` currently FAILS (known/expected). Don't bulk-reformat as a side effect; format only files you touch.
 - **DTO convention + drift:** request/response DTOs for all 28 modules live in `packages/shared/src/api/routes/` — conventions in the barrel header (`packages/shared/src/api/index.ts`). Backend zod binds to them (`satisfies z.ZodType<X>` / `AssertCompatible`), so a DTO mismatch is a compile error.
-- **cms-client = scaffold only:** `packages/cms-client` is structure + charter pointer, no implementation (next project). Doctrine: once built, ALL client-side requests — including from `@rw/cms-web` — should route through `@rw/cms-client`; direct `api.*` calls in `packages/cms` are the interim pattern.
+- **cms-client — IMPLEMENTED:** `packages/cms-client` (`@rw/cms-client`) is fully built: 26 module namespaces, all 198 API routes covered, SWR cache, token auto-load, typed error bus, SolidJS adapter. See `packages/cms-client/docs/Overview.md`.
+  - **Doctrine:** All client-side requests SHOULD route through `@rw/cms-client` (`createClient`). It exposes `cms.<module>.<method>()` for all 198 routes, with SWR caching, token auto-load, and a typed error bus. `@rw/cms-web` has not yet been migrated (interim: direct `api.ts` calls).
+  - Usage: `const cms = createClient({ baseUrl: 'https://cms.example.com', auth: { apiKey: 'ssk_…' } }); const posts = await cms.posts.list();`
+  - `npm run check:drift -w packages/cms-client` — guards client↔API coverage against `docs/api-manifest.json`.
+  - `npm run test:integration -w packages/cms-client` — manual live-API smoke test (requires `SMOKE_API_KEY` env + running server).
 
 ## External Services
 - **PostgreSQL** - Primary database

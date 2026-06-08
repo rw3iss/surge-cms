@@ -1,12 +1,18 @@
 # Client SDK — Charter & Planning Notes
 
-Status: **charter only — no implementation yet** (deferred by decision 2026-06-05).
-Prerequisite work is complete: every route module is on the typed manifest
-framework, `docs/api-manifest.json` is generated from the live registry,
-`docs/API.md` documents all 28 modules / 198 routes, **and every module now
-ships request/response DTOs** in `@rw/cms-shared` (see below). A package
-skeleton already exists at `packages/cms-client` (`@rw/cms-client`) — structure
-and charter pointer only, layout matching this document.
+Status: **IMPLEMENTED** (2026-06-08).
+The client is built at `packages/cms-client` (`@rw/cms-client`). **Live reference:
+[packages/cms-client/docs/Overview.md](../packages/cms-client/docs/Overview.md).**
+
+The implementation exposes 26 module namespaces via `createClient` covering all
+198 API routes, with SWR caching, token auto-load, a typed error bus, and an
+optional SolidJS adapter. Consumed via `createClient` — see Overview.md.
+
+All prerequisite work was complete before implementation: every route module on
+the typed manifest framework, `docs/api-manifest.json` generated from the live
+registry, `docs/API.md` documenting all 28 modules / 198 routes, **and every
+module shipping request/response DTOs** in `@rw/cms-shared` (see below). The
+package lives at `packages/cms-client` (`@rw/cms-client`).
 
 ## Goal
 
@@ -170,12 +176,18 @@ packages/cms-client/            # workspace package; separate repo possible afte
 └── README.md
 ```
 
-## Open questions for the kickoff brainstorm
+## Open questions — RESOLVED
 
-1. Publish target: npm public, private registry, or monorepo workspace only?
-2. Hand-rolled vs codegen (see above) — and if codegen, does the manifest gain
-   input/output schema references?
-3. Browser cookie-mode support in v1, or Bearer-only first?
-4. Should `admin`-scope keys gain exclusive rights to destructive ops
-   (`requiredScopeFor` per-route overrides) before the SDK encodes scopes?
-5. Retry/backoff policy and idempotency keys for unsafe retries?
+1. **Publish target:** monorepo workspace (`private: true`), npm-publish-ready
+   structure (exports map, `files: ["dist"]`, dual ESM+CJS+.d.ts) — publish when
+   the SiteSurge rename lands.
+2. **Hand-rolled vs codegen:** hand-rolled thin client. One `request()` core +
+   26 per-module namespaces written against the DTOs. CI drift guard via
+   `npm run check:drift -w packages/cms-client`.
+3. **Cookie-mode in v1:** Bearer-first (localStorage persistence, auto-refresh).
+   Cookie mode is supported as an option but Bearer + API-key are the primary paths.
+4. **Scope rights:** API-key scopes (`read < write < admin`) encoded in the
+   client; `cms.apiKeys` rejects key callers at the server (403 by design).
+5. **Retry / idempotency:** GET auto-retry (3 attempts, exponential backoff);
+   writes opt-in via `MutationOptions.retry`. Forward-compat `idempotencyKey`
+   field on `MutationOptions`.
