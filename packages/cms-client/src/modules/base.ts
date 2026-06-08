@@ -33,8 +33,10 @@ export abstract class ModuleBase {
         return this.core.send<T>(req,);
     }
 
-    /** Multipart upload (FormData passes through untouched). */
-    protected upload<T>(path: string, formData: FormData, opts: {
+    /** Multipart upload (FormData passes through untouched). Named
+     *  `uploadForm` so module classes can expose an ergonomic public
+     *  `upload(file, fields?)` without an override-signature clash. */
+    protected uploadForm<T>(path: string, formData: FormData, opts: {
         params?: Record<string, string | number>; invalidates?: string[]; options?: MutationOptions;
     } = {},): Promise<T> {
         const req: InternalRequest & { invalidates?: string[]; } = {
