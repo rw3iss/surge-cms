@@ -24,7 +24,8 @@
         "build": "tsup --config ../../config/cms-client/tsup.config.ts",
         "typecheck": "tsc --noEmit",
         "test": "vitest --config ../../config/cms-client/vitest.config.ts run --passWithNoTests",
-        "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts"
+        "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts",
+        "check:drift": "tsx scripts/check-drift.ts"
     },
     "dependencies": {
         "@rw/cms-shared": "file:../shared"

@@ -93,6 +93,8 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     return c as CmsClientCore & CmsModules;
 }
 
+export { ROUTE_COVERAGE, INTENTIONALLY_UNEXPOSED, } from './coverage';
+
 export {
     PostsModule, PagesModule, CampaignsModule, FormsModule, MediaModule,
     UsersModule, MessagesModule, SocialModule, SearchModule, AuditModule, DashboardModule,

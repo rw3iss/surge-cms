@@ -4,6 +4,9 @@ import type {
     PaymentsSubscriptionsResponse, PaymentsTransactionsQuery, PaymentsTransactionsResponse,
     PaymentsPublicPlansResponse, PaymentsAdminPlansResponse, PaymentsPlanCreateBody,
     PaymentsPlanCreateResponse, PaymentsPlanUpdateBody, PaymentsPlanUpdateResponse,
+    PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
+    PaymentsAdminTransactionsQuery, PaymentsAdminTransactionsResponse,
+    PaymentsAdminUserTransactionsResponse,
 } from '@rw/cms-shared';
 import { ModuleBase, } from './base';
 
@@ -49,6 +52,21 @@ export class PaymentsModule extends ModuleBase {
     /** GET /payments/plans — active plans for the public subscribe page. */
     plans(): Promise<PaymentsPublicPlansResponse> {
         return this.get<PaymentsPublicPlansResponse>('/payments/plans',);
+    }
+
+    /** GET /payments/admin/subscriptions — all subscriptions (admin). */
+    adminSubscriptions(query?: PaymentsAdminSubscriptionsQuery,): Promise<PaymentsAdminSubscriptionsResponse> {
+        return this.get<PaymentsAdminSubscriptionsResponse>('/payments/admin/subscriptions', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /payments/admin/transactions — all transactions (admin; type/status filters). */
+    adminTransactions(query?: PaymentsAdminTransactionsQuery,): Promise<PaymentsAdminTransactionsResponse> {
+        return this.get<PaymentsAdminTransactionsResponse>('/payments/admin/transactions', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /payments/admin/user/:userId/transactions — one user's transactions (admin). */
+    adminUserTransactions(userId: string,): Promise<PaymentsAdminUserTransactionsResponse> {
+        return this.get<PaymentsAdminUserTransactionsResponse>('/payments/admin/user/:userId/transactions', { params: { userId, }, },);
     }
 
     /** GET /payments/admin/plans — all plans (admin). */
