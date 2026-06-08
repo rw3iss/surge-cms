@@ -8,7 +8,8 @@ aggregate over HTTP through per-module namespaces (`cms.posts`, `cms.pages`,
 **Why it exists.** There is exactly one client all consumers route through:
 
 - **`@rw/cms-web`** — our own SolidJS SPA (an optional `./solid` adapter ships
-  reactive resources for it).
+  reactive resources for it). **Used in production by `@rw/cms-web` (cookie
+  mode)** — the SPA routes every backend call through this client.
 - **External apps** — any browser or server app that talks to a SiteSurge
   instance gets the same typed surface.
 - **Node / agent scripts** — works in Node ≥ 18 (inject a `fetch` for older).

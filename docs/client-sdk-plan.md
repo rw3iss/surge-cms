@@ -4,6 +4,12 @@ Status: **IMPLEMENTED** (2026-06-08).
 The client is built at `packages/cms-client` (`@rw/cms-client`). **Live reference:
 [packages/cms-client/docs/Overview.md](../packages/cms-client/docs/Overview.md).**
 
+**Doctrine realized (2026-06-08):** `@rw/cms-web` (`packages/cms`) is now fully
+migrated to the client — `services/api.ts` is deleted and the `cms` singleton
+(cookie mode, `packages/cms/src/services/cmsClient.ts`) is its sole networking
+path. Two endpoints stay on inline `fetch` as known follow-ups: Join's
+`POST /auth/register` and UrlLinkBlock's `GET /utils/url-preview`.
+
 The implementation exposes 26 module namespaces via `createClient` covering all
 198 API routes, with SWR caching, token auto-load, a typed error bus, and an
 optional SolidJS adapter. Consumed via `createClient` — see Overview.md.

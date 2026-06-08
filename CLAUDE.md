@@ -173,8 +173,11 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 - `createResource` for async data fetching
 
 ### API Client
-- `services/api.ts` - ApiService class with get/post/put/patch/delete/upload
-- Utility functions: fetchPage, fetchPost, fetchPosts, fetchNavigation, fetchSettings, fetchCampaigns, fetchForm, submitForm, submitContactMessage, fetchSocialPosts, search
+- **`@rw/cms-client` is the one networking path.** `services/api.ts` is DELETED — there is no envelope wrapper, no `fetch*` helpers, no `ApiService` class. Every backend call goes through the typed client singleton.
+- `services/cmsClient.ts` exports `cms` — `createClient({ baseUrl: window.location.origin, auth: { mode: 'cookie' }, cache: { adapter: 'localstorage' } })`. Cookie mode preserves the httpOnly + CSRF session (no backend change). `cms.onError(...)` is the cross-cutting bus: a non-auth `UnauthorizedError` → session-expired handler; `ServiceUnavailableError`/`NEEDS_SETUP` → redirect to `/setup`. Auth-path 401s are filtered so login failures don't trip the session-expired modal.
+- Call sites use `cms.<module>.<method>()` with `try/catch`. Errors are typed (`UnauthorizedError`, `ContentLockedError`, `ServiceUnavailableError`, …). Paginated list methods return `{ data, meta }` (`PageMeta = { page, limit, total, totalPages }`); single-entity GETs return the entity directly.
+- Hooks take typed fetchers: `usePaginatedList({ fetch: (params) => cms.<module>.list(params), initialLimit?, params? })`; `useBulkActions({ entityType })` maps to `cms[entity].bulk({ ids, action, value })`. All entity `BulkBody` DTOs agree on `{ ids, action, value }`.
+- **Deferred (still on inline `fetch`):** Join's `POST /auth/register` and UrlLinkBlock's `GET /utils/url-preview` remain raw `fetch` calls — known follow-ups to fold into `cms.*` once those routes are exposed on the client.
 
 ### Public Pages
 | Route | Component | Description |
@@ -250,7 +253,7 @@ npm run docker:up            # docker compose -f config/docker-compose.yml up -d
 - **dprint pre-existing drift:** ~250 files predate the formatter config, so `npm run format:check` currently FAILS (known/expected). Don't bulk-reformat as a side effect; format only files you touch.
 - **DTO convention + drift:** request/response DTOs for all 28 modules live in `packages/shared/src/api/routes/` — conventions in the barrel header (`packages/shared/src/api/index.ts`). Backend zod binds to them (`satisfies z.ZodType<X>` / `AssertCompatible`), so a DTO mismatch is a compile error.
 - **cms-client — IMPLEMENTED:** `packages/cms-client` (`@rw/cms-client`) is fully built: 26 module namespaces, all 198 API routes covered, SWR cache, token auto-load, typed error bus, SolidJS adapter. See `packages/cms-client/docs/Overview.md`.
-  - **Doctrine:** All client-side requests SHOULD route through `@rw/cms-client` (`createClient`). It exposes `cms.<module>.<method>()` for all 198 routes, with SWR caching, token auto-load, and a typed error bus. `@rw/cms-web` has not yet been migrated (interim: direct `api.ts` calls).
+  - **Doctrine (realized):** All client-side requests route through `@rw/cms-client` (`createClient`). It exposes `cms.<module>.<method>()` for all 198 routes, with SWR caching, token auto-load, and a typed error bus. **`@rw/cms-web` is fully migrated** — `services/api.ts` is deleted and the `cms` singleton (`packages/cms/src/services/cmsClient.ts`, cookie mode) is the sole networking path. Two endpoints remain on inline `fetch` as known follow-ups: Join's `POST /auth/register` and UrlLinkBlock's `GET /utils/url-preview`.
   - Usage: `const cms = createClient({ baseUrl: 'https://cms.example.com', auth: { apiKey: 'ssk_…' } }); const posts = await cms.posts.list();`
   - `npm run check:drift -w packages/cms-client` — guards client↔API coverage against `docs/api-manifest.json`.
   - `npm run test:integration -w packages/cms-client` — manual live-API smoke test (requires `SMOKE_API_KEY` env + running server).
