@@ -71,11 +71,9 @@ export class SettingsModule extends ModuleBase {
 
     // ─── Arbitrary key (admin) ────────────────────────────────────
 
-    /** GET /settings/:key — one stored section, verbatim (untyped value).
-     *  Named `getKey` so it doesn't clash with the protected `get` helper. */
-    getKey(key: string,): Promise<unknown> {
-        return this.get<unknown>('/settings/:key', { params: { key, }, },);
-    }
+    // NOTE: there is no `GET /settings/:key` route on the backend — reads go
+    // through the literal-path getters above (getPublic / getSiteHeader / …).
+    // Only PUT/DELETE accept an arbitrary key.
 
     /** PUT /settings/:key — write a value to an arbitrary settings row. */
     setKey(key: string, body: SettingsRawKeyBody,): Promise<SettingsRawKeyResponse> {
