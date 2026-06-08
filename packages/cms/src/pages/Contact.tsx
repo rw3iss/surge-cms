@@ -1,6 +1,6 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
-import { submitContactMessage, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
 import './Contact.scss';
 
@@ -18,23 +18,18 @@ const ContactPage: Component = () => {
         setErrorMsg('',);
 
         try {
-            const response = await submitContactMessage({
+            await cms.messages.submit({
                 name: name(),
                 email: email(),
                 subject: subject(),
                 message: message(),
             },);
 
-            if (response.success) {
-                setStatus('success',);
-                setName('',);
-                setEmail('',);
-                setSubject('',);
-                setMessage('',);
-            } else {
-                setErrorMsg(response.error?.message || 'Failed to send message. Please try again.',);
-                setStatus('error',);
-            }
+            setStatus('success',);
+            setName('',);
+            setEmail('',);
+            setSubject('',);
+            setMessage('',);
         } catch {
             setErrorMsg('Something went wrong. Please check your connection and try again.',);
             setStatus('error',);

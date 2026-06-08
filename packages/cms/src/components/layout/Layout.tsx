@@ -1,7 +1,7 @@
 import { Meta, Title, } from '@solidjs/meta';
 import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@rw/cms-shared';
 import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
-import { fetchAppearance, fetchNavigation, fetchSiteFooter, fetchSiteHeader, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { swatchCssVars, } from '../../services/colorResolver';
 import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
@@ -14,8 +14,11 @@ import './Layout.scss';
 
 export const Layout: ParentComponent = (props,) => {
     const [navigation,] = createResource(async () => {
-        const response = await fetchNavigation();
-        return response.success ? response.data as NavigationItem[] : [];
+        try {
+            return await cms.pages.navigation() as NavigationItem[];
+        } catch {
+            return [];
+        }
     },);
 
     const [settings,] = createResource(async () => {
@@ -23,23 +26,29 @@ export const Layout: ParentComponent = (props,) => {
     },);
 
     const [headerSettings,] = createResource(async () => {
-        const response = await fetchSiteHeader();
-        if (response.success && response.data) {
-            const data = response.data as SiteHeaderSettings;
-            if (data.items?.length) return data;
+        try {
+            const data = await cms.settings.getSiteHeader() as SiteHeaderSettings | null;
+            if (data?.items?.length) return data;
+        } catch {
+            // fall through to null
         }
         return null;
     },);
 
     const [appearance,] = createResource(async () => {
-        const response = await fetchAppearance();
-        return response.success ? response.data as AppearanceSettings : null;
+        try {
+            return await cms.settings.getAppearance() as AppearanceSettings;
+        } catch {
+            return null;
+        }
     },);
 
     const [footerSettings,] = createResource<SiteFooterSettings | null>(async () => {
-        const response = await fetchSiteFooter();
-        if (response.success && response.data) return response.data as SiteFooterSettings;
-        return null;
+        try {
+            return await cms.settings.getSiteFooter() as SiteFooterSettings;
+        } catch {
+            return null;
+        }
     },);
 
     // Apply font size to <html> so rem units throughout the site respect it

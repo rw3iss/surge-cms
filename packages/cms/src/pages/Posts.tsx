@@ -3,7 +3,7 @@ import type { Post, } from '@rw/cms-shared';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { siteName, } from '../stores/siteSettings';
-import { fetchPosts, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { buildCollectionPage, } from '../utils/schema';
 import './Posts.scss';
 
@@ -23,25 +23,28 @@ const PostsPage: Component = () => {
         if (append) setLoadingMore(true,);
         else setLoading(true,);
 
+        const tag = Array.isArray(searchParams.tag,) ? searchParams.tag[0] : searchParams.tag;
+        const category = Array.isArray(searchParams.category,) ? searchParams.category[0] : searchParams.category;
+
         try {
-            const response = await fetchPosts({
+            const { data, meta, } = await cms.posts.list({
                 page: pageNum,
                 limit: PAGE_SIZE,
-                tag: searchParams.tag,
-                category: searchParams.category,
+                tag,
+                category,
             },);
 
-            if (response.success) {
-                const data = (response as any).data as Post[] || [];
-                const meta = (response as any).meta || {};
-                if (append) {
-                    setPosts(prev => [...prev, ...data,],);
-                } else {
-                    setPosts(data,);
-                }
-                setTotal(meta.total || 0,);
-                setPage(pageNum,);
+            const items = data ?? [];
+            if (append) {
+                setPosts(prev => [...prev, ...items,],);
+            } else {
+                setPosts(items,);
             }
+            setTotal(meta?.total || 0,);
+            setPage(pageNum,);
+        } catch {
+            // Non-critical read — leave existing list intact; the cms.onError
+            // bus surfaces the failure.
         } finally {
             setLoading(false,);
             setLoadingMore(false,);

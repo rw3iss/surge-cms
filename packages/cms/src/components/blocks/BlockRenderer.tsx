@@ -2,7 +2,7 @@ import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, Social
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import { api, fetchAppearance, fetchSocialPosts, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import FormRenderer from '../forms/FormRenderer';
 import HeroCarousel from './HeroCarousel';
@@ -399,8 +399,11 @@ const PostBlock: Component<{ block: Block; }> = (props,) => {
 
     const [post,] = createResource(postId, async (id,) => {
         if (!id) return null;
-        const response = await api.get<Post>(`/posts/${id}`,);
-        return response.success ? response.data : null;
+        try {
+            return await cms.posts.getById(id,) as Post;
+        } catch {
+            return null;
+        }
     },);
 
     return (
@@ -427,12 +430,14 @@ const FormBlock: Component<{ block: Block; }> = (props,) => {
             const slug = formSlug();
             // Try slug first if available (public endpoint), then fall back to id
             if (slug) {
-                const response = await api.get<Form>(`/forms/slug/${slug}`,);
-                if (response.success && response.data) return response.data;
+                try {
+                    return await cms.forms.getBySlug(slug,) as Form;
+                } catch { /* fall through to id */ }
             }
             if (id) {
-                const response = await api.get<Form>(`/forms/${id}`,);
-                if (response.success && response.data) return response.data;
+                try {
+                    return await cms.forms.getById(id,) as Form;
+                } catch { /* fall through to null */ }
             }
             return null;
         },
@@ -485,8 +490,11 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
         () => isAllCampaigns() ? null : campaignId(),
         async (id,) => {
             if (!id) return null;
-            const response = await api.get<Campaign>(`/campaigns/${id}`,);
-            return response.success ? response.data : null;
+            try {
+                return await cms.campaigns.getById(id,) as Campaign;
+            } catch {
+                return null;
+            }
         },
     );
 
@@ -495,18 +503,16 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
         async () => {
             const sortBy = (props.block.settings.sortBy as string) || 'created_at';
             const sortOrder = (props.block.settings.sortOrder as string) || 'desc';
-            const params = new URLSearchParams({
-                includePast: 'false',
-                activeOnly: 'true',
-                sortBy,
-                sortOrder,
-            },);
-            const response = await api.get(`/campaigns?${params.toString()}`,);
-            if (response.success && response.data) {
-                const data = response.data;
-                return Array.isArray(data) ? data as Campaign[] : (data as any).data || [];
+            try {
+                return await cms.campaigns.listPublic({
+                    includePast: 'false',
+                    activeOnly: 'true',
+                    sortBy,
+                    sortOrder,
+                },) as Campaign[];
+            } catch {
+                return [];
             }
-            return [];
         },
     );
 
@@ -593,8 +599,12 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
             if (!key) return [];
             const p = provider();
             if (!p) return [];
-            const response = await fetchSocialPosts(p, limit(),);
-            return response.success ? (response.data as SocialPost[]) : [];
+            try {
+                const { data, } = await cms.social.listPosts({ platform: p, limit: limit(), },);
+                return (data ?? []) as SocialPost[];
+            } catch {
+                return [];
+            }
         },
     );
 
@@ -720,8 +730,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
     const [appearance, setAppearance,] = createSignal<any>(null,);
     onMount(async () => {
         try {
-            const res = await fetchAppearance();
-            if (res.success) setAppearance(res.data,);
+            setAppearance(await cms.settings.getAppearance(),);
         } catch { /* ignore */ }
     },);
 

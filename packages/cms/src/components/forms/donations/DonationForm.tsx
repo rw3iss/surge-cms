@@ -1,6 +1,6 @@
 import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import { useAuth, } from '../../../stores/auth';
 import './DonationForm.scss';
 
@@ -98,25 +98,14 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
         setLoading(true,);
 
         try {
-            const response = await api.post<{ clientSecret: string; paymentIntentId: string; }>(
-                '/payments/donate',
-                {
-                    amountCents,
-                    campaignId: props.campaignId,
-                    donorName: donorName() || undefined,
-                    donorEmail: donorEmail(),
-                    message: message() || undefined,
-                    visibility: visibility(),
-                },
-            );
-
-            if (!response.success) {
-                setError((response as any).error?.message || 'Failed to create donation',);
-                setLoading(false,);
-                return;
-            }
-
-            const { clientSecret, } = (response as any).data;
+            const { clientSecret, } = await cms.payments.donate({
+                amountCents,
+                campaignId: props.campaignId,
+                donorName: donorName() || undefined,
+                donorEmail: donorEmail(),
+                message: message() || undefined,
+                visibility: visibility(),
+            },);
 
             const result = await stripeInstance.confirmCardPayment(clientSecret, {
                 payment_method: {

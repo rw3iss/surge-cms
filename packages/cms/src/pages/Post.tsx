@@ -1,10 +1,11 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, type ContentAccessLevel, type ContentLockedDetails, type Post, } from '@rw/cms-shared';
+import { isAdminRole, type ContentAccessLevel, type Post, } from '@rw/cms-shared';
+import { ContentLockedError, } from '@rw/cms-client';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchPost, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { siteLogo, siteName, } from '../stores/siteSettings';
 import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
@@ -42,24 +43,21 @@ const PostPage: Component = () => {
         async (slug,) => {
             setLockedContent(null,);
             const preview = (usePreview() && isAdminViewer()) ? 'admin' : undefined;
-            const response = await fetchPost(slug, preview,);
-            if (!response.success) {
-                const raw = response as any;
-                if (raw.error?.code === 'CONTENT_LOCKED' && raw.error.details) {
-                    const d = raw.error.details as ContentLockedDetails;
-                    // ContentLockedDetails.preview types fields as `string |
+            try {
+                return await cms.posts.getBySlug(slug, preview ? { preview, } : undefined,) as Post;
+            } catch (e) {
+                if (e instanceof ContentLockedError) {
+                    // ContentLockedError.preview types fields as `string |
                     // null`; LockedContent uses `string | undefined`. Both
                     // are read only via truthy `<Show>` gates in ContentGate,
                     // so the cast is safe (null and undefined behave alike).
                     setLockedContent({
-                        accessLevel: d.accessLevel,
-                        preview: (d.preview ?? {}) as LockedContent['preview'],
+                        accessLevel: e.accessLevel as ContentAccessLevel,
+                        preview: (e.preview ?? {}) as LockedContent['preview'],
                     },);
-                    return null;
                 }
                 return null;
             }
-            return response.data as Post;
         },
     );
 

@@ -1,10 +1,11 @@
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
-import { buildBlockTree, isAdminRole, type ContentAccessLevel, type ContentLockedDetails, type Page, } from '@rw/cms-shared';
+import { buildBlockTree, isAdminRole, type ContentAccessLevel, type Page, } from '@rw/cms-shared';
+import { ContentLockedError, UnauthorizedError, } from '@rw/cms-client';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchPage, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
@@ -40,27 +41,24 @@ const DynamicPage: Component = () => {
         async (slug,) => {
             setLockedContent(null,);
             const preview = (isPreviewMode() && isAdminRole(auth.user?.role,)) ? 'admin' : undefined;
-            const response = await fetchPage(slug, preview,);
-            if (!response.success) {
-                // Locked content now arrives as a CONTENT_LOCKED error
-                // envelope with the preview in error.details (same shape
-                // as the post detail route).
-                const raw = response as any;
-                if (raw.error?.code === 'CONTENT_LOCKED' && raw.error.details) {
-                    const d = raw.error.details as ContentLockedDetails;
+            try {
+                return await cms.pages.getBySlug(slug, preview ? { preview, } : undefined,) as Page;
+            } catch (e) {
+                // Gated content now arrives as a ContentLockedError carrying
+                // the preview shape (same as the post detail route).
+                if (e instanceof ContentLockedError) {
                     setLockedContent({
-                        accessLevel: d.accessLevel,
-                        preview: (d.preview ?? {}) as LockedContent['preview'],
+                        accessLevel: e.accessLevel as ContentAccessLevel,
+                        preview: (e.preview ?? {}) as LockedContent['preview'],
                     },);
                     return null;
                 }
-                if (response.error?.code === 'UNAUTHORIZED') {
+                if (e instanceof UnauthorizedError) {
                     navigate(`/login?return=/${slug}`,);
                     return null;
                 }
                 return null;
             }
-            return response.data as Page;
         },
     );
 

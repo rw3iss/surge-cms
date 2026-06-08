@@ -1,6 +1,7 @@
 import type {
     ChoiceSummary,
     Form,
+    FormAnswer,
     FormQuestion,
     FormResults,
     NumberSummary,
@@ -8,7 +9,7 @@ import type {
     TextSummary,
 } from '@rw/cms-shared';
 import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
-import { fetchFormResults, submitForm, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import './FormRenderer.scss';
 
 interface FormRendererProps {
@@ -43,14 +44,10 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
             const formAnswers = Object.entries(answers(),).map(([questionId, value,],) => ({
                 questionId,
                 value,
-            }),);
-            const response = await submitForm(props.form.slug, formAnswers,);
-            if (response.success) {
-                setSubmitted(true,);
-                if (props.form.showResults) loadResults();
-            } else {
-                setError((response as any).error?.message || 'Submission failed',);
-            }
+            }),) as FormAnswer[];
+            await cms.forms.submit(props.form.slug, { answers: formAnswers, },);
+            setSubmitted(true,);
+            if (props.form.showResults) loadResults();
         } catch {
             setError('An error occurred. Please try again.',);
         } finally {
@@ -61,8 +58,9 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
     const loadResults = async () => {
         setLoadingResults(true,);
         try {
-            const response = await fetchFormResults(props.form.slug,);
-            if (response.success) setResults(response.data as FormResults,);
+            setResults(await cms.forms.results(props.form.slug,) as FormResults,);
+        } catch {
+            // Non-critical — leave results unset; bus surfaces the error.
         } finally {
             setLoadingResults(false,);
         }

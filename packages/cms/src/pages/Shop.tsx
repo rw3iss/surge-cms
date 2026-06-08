@@ -1,7 +1,7 @@
 import { Component, createSignal, onCleanup, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { siteName, } from '../stores/siteSettings';
-import { fetchSettings, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import './Shop.scss';
 
 declare global {
@@ -19,14 +19,7 @@ const ShopPage: Component = () => {
     onMount(async () => {
         try {
             // Fetch Shopify config from settings
-            const response = await fetchSettings();
-            if (!response.success) {
-                setError('Failed to load shop configuration.',);
-                setLoading(false,);
-                return;
-            }
-
-            const data = response.data as any;
+            const data = await cms.settings.getPublic() as any;
             const shopifyDomain = data?.shopifyDomain;
             const shopifyToken = data?.shopifyStorefrontToken;
 

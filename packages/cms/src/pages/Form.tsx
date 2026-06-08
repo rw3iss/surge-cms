@@ -3,7 +3,7 @@ import type { Form, } from '@rw/cms-shared';
 import { Component, createResource, Show, } from 'solid-js';
 import FormRenderer from '../components/forms/FormRenderer';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchForm, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import './Form.scss';
 
 const FormPage: Component = () => {
@@ -11,8 +11,11 @@ const FormPage: Component = () => {
     const canonicalUrl = () => `${window.location.origin}/forms/${params.slug}`;
 
     const [form,] = createResource(() => params.slug, async (slug,) => {
-        const response = await fetchForm(slug,);
-        return response.success ? response.data as Form : null;
+        try {
+            return await cms.forms.getBySlug(slug,) as Form;
+        } catch {
+            return null;
+        }
     },);
 
     return (

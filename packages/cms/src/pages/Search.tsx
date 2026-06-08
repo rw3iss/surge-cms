@@ -1,7 +1,7 @@
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
-import { search, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
 
 const SearchPage: Component = () => {
@@ -10,8 +10,11 @@ const SearchPage: Component = () => {
 
     const [results,] = createResource(() => searchParams.q, async (q,) => {
         if (!q || q.length < 2) return null;
-        const response = await search(q,);
-        return response.success ? response.data : null;
+        try {
+            return await cms.search.query(q,);
+        } catch {
+            return null;
+        }
     },);
 
     const handleSearch = (e: Event,) => {

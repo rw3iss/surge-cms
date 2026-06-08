@@ -2,7 +2,7 @@ import { loadStripe, Stripe, } from '@stripe/stripe-js';
 import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { siteName, } from '../stores/siteSettings';
-import { api, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 
 interface Plan {
@@ -32,14 +32,20 @@ const SubscribePage: Component = () => {
     const [successMessage, setSuccessMessage,] = createSignal('',);
 
     const [plans,] = createResource(async () => {
-        const response = await api.get<Plan[]>('/payments/plans',);
-        return response.success ? (response as any).data as Plan[] : [];
+        try {
+            return await cms.payments.plans() as unknown as Plan[];
+        } catch {
+            return [];
+        }
     },);
 
     const [subscriptions, { refetch: refetchSubs, },] = createResource(async () => {
         if (!auth.user) return [];
-        const response = await api.get<UserSubscription[]>('/payments/subscriptions',);
-        return response.success ? (response as any).data as UserSubscription[] : [];
+        try {
+            return await cms.payments.subscriptions() as unknown as UserSubscription[];
+        } catch {
+            return [];
+        }
     },);
 
     onMount(async () => {
@@ -72,18 +78,7 @@ const SubscribePage: Component = () => {
         setSubscribing(planId,);
 
         try {
-            const response = await api.post<{ subscriptionId: string; status: string; clientSecret?: string; }>(
-                '/payments/subscribe',
-                { planId, },
-            );
-
-            if (!response.success) {
-                setError((response as any).error?.message || 'Failed to create subscription',);
-                setSubscribing(null,);
-                return;
-            }
-
-            const data = (response as any).data;
+            const data = await cms.payments.subscribe({ planId, },);
 
             if (data.clientSecret && stripeInstance) {
                 const result = await stripeInstance.confirmCardPayment(data.clientSecret,);
@@ -109,14 +104,9 @@ const SubscribePage: Component = () => {
         setCancelling(true,);
 
         try {
-            const response = await api.post('/payments/unsubscribe',);
-
-            if (!response.success) {
-                setError((response as any).error?.message || 'Failed to cancel subscription',);
-            } else {
-                setSuccessMessage('Subscription will cancel at end of billing period',);
-                refetchSubs();
-            }
+            await cms.payments.unsubscribe();
+            setSuccessMessage('Subscription will cancel at end of billing period',);
+            refetchSubs();
         } catch (err) {
             setError('An unexpected error occurred',);
         } finally {

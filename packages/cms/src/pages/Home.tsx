@@ -2,7 +2,7 @@ import { buildBlockTree, type Page, } from '@rw/cms-shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchHomepage, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { siteDescription, siteLogo, siteName, } from '../stores/siteSettings';
 import { buildOrganization, } from '../utils/schema';
 import './Home.scss';
@@ -14,8 +14,11 @@ const Home: Component = () => {
     // a fixed slug, so renaming the slug of the page-flagged-as-homepage
     // doesn't break the public root.
     const [page,] = createResource(async () => {
-        const response = await fetchHomepage();
-        return response.success ? response.data as Page : null;
+        try {
+            return await cms.pages.homepage() as Page;
+        } catch {
+            return null;
+        }
     },);
 
     return (

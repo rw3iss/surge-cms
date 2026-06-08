@@ -3,7 +3,7 @@ import type { Campaign, } from '@rw/cms-shared';
 import { Component, createResource, Show, } from 'solid-js';
 import DonationForm from '../components/forms/donations/DonationForm';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchCampaign, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildDonation, } from '../utils/schema';
 import './Campaign.scss';
@@ -13,8 +13,11 @@ const CampaignPage: Component = () => {
     const canonicalUrl = () => `${window.location.origin}/campaigns/${params.slug}`;
 
     const [campaign,] = createResource(() => params.slug, async (slug,) => {
-        const response = await fetchCampaign(slug,);
-        return response.success ? response.data as Campaign : null;
+        try {
+            return await cms.campaigns.getBySlug(slug,) as Campaign;
+        } catch {
+            return null;
+        }
     },);
 
     const progress = () => {

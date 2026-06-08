@@ -2,14 +2,17 @@ import { A, } from '@solidjs/router';
 import type { Campaign, } from '@rw/cms-shared';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
-import { fetchCampaigns, } from '../services/api';
+import { cms, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
 import './Donate.scss';
 
 const DonatePage: Component = () => {
     const [campaigns,] = createResource(async () => {
-        const response = await fetchCampaigns(true,);
-        return response.success ? response.data as Campaign[] : [];
+        try {
+            return await cms.campaigns.listPublic({ includePast: 'true', },) as Campaign[];
+        } catch {
+            return [];
+        }
     },);
 
     const activeCampaigns = () => campaigns()?.filter(c => c.status === 'active') || [];
