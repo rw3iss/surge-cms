@@ -17,7 +17,7 @@ import type { MailingList, MailTemplate, } from '@rw/cms-shared';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
-import { mailingListsApi, mailTemplatesApi, mailSendApi, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 interface DraftStore {
     listId: string;
@@ -65,9 +65,13 @@ const MailSend: Component = () => {
     } | null>(null,);
 
     onMount(async () => {
-        const [lr, tr,] = await Promise.all([mailingListsApi.list(), mailTemplatesApi.list(),],);
-        if (lr.success && lr.data) setLists(lr.data as MailingList[],);
-        if (tr.success && tr.data) setTemplates(tr.data as MailTemplate[],);
+        try {
+            const [lr, tr,] = await Promise.all([cms.mailingLists.list(), cms.mailTemplates.list(),],);
+            setLists(lr as MailingList[],);
+            setTemplates(tr as MailTemplate[],);
+        } catch {
+            /* error toasted by the bus */
+        }
     },);
 
     const selectedList = createMemo(() => lists().find((l,) => l.id === draft.listId,) ?? null,);
@@ -78,9 +82,13 @@ const MailSend: Component = () => {
             setLoadedTemplateSnapshot(null,);
             return;
         }
-        const r = await mailTemplatesApi.get(id,);
-        if (r.success && r.data) {
-            const d = r.data as MailTemplate & { blocks: BackendBlock[]; };
+        let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
+        try {
+            d = await cms.mailTemplates.getById(id,) as MailTemplate & { blocks: BackendBlock[]; };
+        } catch {
+            return;
+        }
+        if (d) {
             const blocks = backendToEditor(d.blocks ?? [],);
             setDraft({
                 templateId: d.id,
@@ -125,7 +133,7 @@ const MailSend: Component = () => {
         setSending(true,);
         setError(null,);
         try {
-            const r = await mailSendApi.send({
+            const r = await cms.mailSend.send({
                 listId: draft.listId,
                 templateId: draft.templateId,
                 templateWasModified: isModifiedFromTemplate(),
@@ -135,13 +143,10 @@ const MailSend: Component = () => {
                 fromEmail: draft.fromEmail || undefined,
                 replyTo: draft.replyTo || undefined,
                 blocks: editorToBackend(draft.blocks,),
-            },);
-            if (r.success && r.data) {
-                const d = r.data as { jobId: string; };
-                navigate(`/admin/mail/jobs/${d.jobId}`,);
-            } else {
-                setError(typeof r.error === 'string' ? r.error : 'Send failed.',);
-            }
+            } as any,);
+            navigate(`/admin/mail/jobs/${(r as { jobId: string; }).jobId}`,);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Send failed.',);
         } finally { setSending(false,); }
     };
 

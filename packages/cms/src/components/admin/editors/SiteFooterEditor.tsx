@@ -1,6 +1,6 @@
 import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, SiteLayoutItemType, } from '@rw/cms-shared';
 import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
-import { fetchSiteFooter, saveSiteFooter, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
 import ColorPicker from '../appearance/ColorPicker';
 import Tooltip from '../common/Tooltip';
@@ -126,9 +126,11 @@ const SiteFooterEditor: Component = () => {
     const [showSettings, setShowSettings,] = createSignal(false,);
 
     onMount(async () => {
-        const r = await fetchSiteFooter();
-        if (r.success && r.data) {
-            setSettings(r.data as SiteFooterSettings,);
+        try {
+            const data = await cms.settings.getSiteFooter() as SiteFooterSettings;
+            if (data) setSettings(data,);
+        } catch {
+            /* error toasted by the bus */
         }
         setLoaded(true,);
     },);
@@ -474,13 +476,11 @@ const SiteFooterEditor: Component = () => {
     const save = async () => {
         setSaving(true,);
         try {
-            const r = await saveSiteFooter(settings(),);
-            if (r.success) {
-                toast.success('Footer saved',);
-                setDirty(false,);
-            } else {
-                toast.error(r.error?.message || 'Save failed',);
-            }
+            await cms.settings.siteFooter(settings() as any,);
+            toast.success('Footer saved',);
+            setDirty(false,);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Save failed',);
         } finally {
             setSaving(false,);
         }

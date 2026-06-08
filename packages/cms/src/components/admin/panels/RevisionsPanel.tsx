@@ -1,6 +1,6 @@
 import type { Revision, RevisionEntityType, } from '@rw/cms-shared';
 import { Component, createResource, For, Show, } from 'solid-js';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 
 export interface RevisionsPanelProps {
     entityType: RevisionEntityType;
@@ -9,17 +9,18 @@ export interface RevisionsPanelProps {
     onRestored?: () => void;
 }
 
-const endpointFor = (type: 'post' | 'page',) => type === 'post' ? '/posts' : '/pages';
-
 const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
+    const moduleFor = () => props.entityType === 'post' ? cms.posts : cms.pages;
+
     const [revisions, { refetch, },] = createResource(
         () => `${props.entityType}:${props.entityId}`,
         async () => {
             if (!props.entityId || props.entityId === 'new') return [] as Revision[];
-            const response = await api.get(
-                `${endpointFor(props.entityType,)}/${props.entityId}/revisions`,
-            );
-            return (response.success ? ((response as any).data as Revision[]) : []) || [];
+            try {
+                return (await moduleFor().listRevisions(props.entityId,) as Revision[]) || [];
+            } catch {
+                return [] as Revision[];
+            }
         },
     );
 
@@ -27,15 +28,12 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
         if (!confirm(`Restore revision v${version}? The current state will be saved as a revision first.`,)) {
             return;
         }
-        const response = await api.post(
-            `${endpointFor(props.entityType,)}/${props.entityId}/revisions/${version}/restore`,
-            {},
-        );
-        if (response.success) {
+        try {
+            await moduleFor().restoreRevision(props.entityId, version,);
             await refetch();
             props.onRestored?.();
-        } else {
-            alert('Failed to restore revision: ' + ((response as any).error?.message || 'unknown'),);
+        } catch (e) {
+            alert('Failed to restore revision: ' + (e instanceof Error ? e.message : 'unknown'),);
         }
     };
 

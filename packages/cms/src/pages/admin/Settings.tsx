@@ -9,7 +9,8 @@ import FontManagerPanel from '../../components/admin/appearance/FontManagerPanel
 import JobManagementPanel from '../../components/admin/panels/JobManagementPanel';
 import SitemapPanel from '../../components/admin/panels/SitemapPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
-import { api, fetchAdminAppearance, fetchAppearance, fetchSiteBranding, saveAdminAppearance, saveAppearance, saveSiteBranding, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
+import { FeatureCascadeError, } from '@rw/cms-client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import type { SiteSwatch, } from '@rw/cms-shared';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
@@ -62,8 +63,11 @@ const PROVIDERS = [
 function ConnectionsPanel() {
     const [searchParams, setSearchParams,] = useSearchParams();  // eslint-disable-line
     const [connections, { refetch, },] = createResource(async () => {
-        const response = await api.get('/connections',);
-        return response.success ? (response as any).data : [];
+        try {
+            return await cms.connections.list() as any[];
+        } catch {
+            return [] as any[];
+        }
     },);
     const [editingProvider, setEditingProvider,] = createSignal<string | null>(null,);
 
@@ -138,16 +142,17 @@ function ConnectionsPanel() {
         };
 
         const conn = getConnection(provider,);
-        const response = conn ?
-            await api.put(`/connections/${provider}`, data,) :
-            await api.post('/connections', data,);
-
-        if (response.success) {
+        try {
+            if (conn) {
+                await cms.connections.update(provider, data as any,);
+            } else {
+                await cms.connections.upsert(data as any,);
+            }
             setConnSuccess('Connection saved.',);
             setEditingProvider(null,);
             refetch();
-        } else {
-            setConnError((response as any).error?.message || 'Failed to save',);
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Failed to save',);
         }
     };
 
@@ -156,15 +161,15 @@ function ConnectionsPanel() {
         setConnError('',);
 
         try {
-            const response = await api.get(`/connections/${provider}/oauth/authorize`,);
-            if (response.success && (response as any).data?.authUrl) {
-                window.location.href = (response as any).data.authUrl;
+            const response = await cms.connections.oauthAuthorize(provider,) as { authUrl?: string; };
+            if (response?.authUrl) {
+                window.location.href = response.authUrl;
             } else {
-                setConnError((response as any).error?.message || 'Failed to start OAuth flow',);
+                setConnError('Failed to start OAuth flow',);
                 setOauthLoading(false,);
             }
-        } catch {
-            setConnError('Failed to start OAuth flow',);
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Failed to start OAuth flow',);
             setOauthLoading(false,);
         }
     };
@@ -173,12 +178,12 @@ function ConnectionsPanel() {
         const providerName = PROVIDERS.find((p,) => p.id === provider)?.name || provider;
         if (!confirm(`Disconnect ${providerName}? This will remove the access token and stop auto-refresh.`,)) return;
 
-        const response = await api.delete(`/connections/${provider}`,);
-        if (response.success) {
+        try {
+            await cms.connections.remove(provider,);
             setConnSuccess(`${providerName} disconnected.`,);
             refetch();
-        } else {
-            setConnError((response as any).error?.message || 'Failed to disconnect',);
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Failed to disconnect',);
         }
     };
 
@@ -776,9 +781,8 @@ function AppearancePanel() {
 
     onMount(async () => {
         try {
-            const res = await fetchAppearance();
-            if (res.success && res.data) {
-                const d = res.data as any;
+            const d = await cms.settings.getAppearance() as any;
+            if (d) {
                 if (d.backgroundColor) setBackgroundColor(d.backgroundColor,);
                 if (d.textColor) setTextColor(d.textColor,);
                 if (d.primaryColor) setPrimaryColor(d.primaryColor,);
@@ -808,7 +812,7 @@ function AppearancePanel() {
         setSuccess(false,);
 
         try {
-            const res = await saveAppearance({
+            await cms.settings.appearance({
                 backgroundColor: backgroundColor(),
                 textColor: textColor(),
                 primaryColor: primaryColor(),
@@ -824,21 +828,17 @@ function AppearancePanel() {
                 borderRadius: borderRadius() || undefined,
                 maxContentWidth: maxContentWidth() || undefined,
                 blockPadding: blockPadding() || undefined,
-            },);
+            } as any,);
 
-            if (res.success) {
-                // Appearance save also touches site_settings.site_appearance,
-                // which the public settings endpoint includes. Refresh
-                // the public settings store so the live Header / Footer
-                // / SiteLogo pick up new colors / fonts immediately.
-                await reloadSiteSettings();
-                setIsDirty(false,);
-                setSuccess(true,);
-            } else {
-                setError((res as any).error?.message || 'Failed to save',);
-            }
-        } catch {
-            setError('Failed to save appearance settings',);
+            // Appearance save also touches site_settings.site_appearance,
+            // which the public settings endpoint includes. Refresh
+            // the public settings store so the live Header / Footer
+            // / SiteLogo pick up new colors / fonts immediately.
+            await reloadSiteSettings();
+            setIsDirty(false,);
+            setSuccess(true,);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to save appearance settings',);
         } finally {
             setSaving(false,);
         }
@@ -1194,9 +1194,8 @@ function AdminAppearancePanel() {
 
     onMount(async () => {
         try {
-            const res = await fetchAdminAppearance();
-            if (res.success && res.data) {
-                const d = res.data as any;
+            const d = await cms.settings.getAdminAppearance() as any;
+            if (d) {
                 setSidebarBg(d.sidebarBg || '',);
                 setSidebarText(d.sidebarText || '',);
                 setPageBg(d.pageBg || '',);
@@ -1217,7 +1216,7 @@ function AdminAppearancePanel() {
         setError('',);
         setSuccess(false,);
         try {
-            const res = await saveAdminAppearance({
+            await cms.settings.adminAppearance({
                 sidebarBg: sidebarBg() || undefined,
                 sidebarText: sidebarText() || undefined,
                 pageBg: pageBg() || undefined,
@@ -1227,19 +1226,15 @@ function AdminAppearancePanel() {
                 panelBorder: panelBorder() || undefined,
                 inputBg: inputBg() || undefined,
                 inputText: inputText() || undefined,
-            },);
-            if (res.success) {
-                // Refresh the in-memory store so the chrome updates
-                // without a hard reload — same pattern as the public
-                // appearance / site-settings stores.
-                await reloadAdminAppearance();
-                setIsDirty(false,);
-                setSuccess(true,);
-            } else {
-                setError(res.error?.message || 'Failed to save admin appearance',);
-            }
-        } catch {
-            setError('Failed to save admin appearance',);
+            } as any,);
+            // Refresh the in-memory store so the chrome updates
+            // without a hard reload — same pattern as the public
+            // appearance / site-settings stores.
+            await reloadAdminAppearance();
+            setIsDirty(false,);
+            setSuccess(true,);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to save admin appearance',);
         } finally {
             setSaving(false,);
         }
@@ -1424,8 +1419,11 @@ const AdminSettings: Component = () => {
     };
 
     const [settings, { refetch, },] = createResource(async () => {
-        const response = await api.get('/settings',);
-        return response.success ? (response as any).data : {};
+        try {
+            return await cms.settings.getAll();
+        } catch {
+            return {};
+        }
     },);
 
     const [siteName, setSiteName,] = createSignal('',);
@@ -1476,9 +1474,8 @@ const AdminSettings: Component = () => {
     // Load branding on mount
     onMount(async () => {
         try {
-            const res = await fetchSiteBranding();
-            if (res.success && res.data) {
-                const data = res.data as any;
+            const data = await cms.settings.getSiteBranding() as any;
+            if (data) {
                 if (data.logo) setLogo(data.logo,);
                 if (data.favicon) setFavicon(data.favicon,);
             }
@@ -1510,22 +1507,27 @@ const AdminSettings: Component = () => {
             data.analytics = { googleAnalyticsId: analyticsId(), };
         }
 
-        await api.put('/settings', data,);
+        try {
+            await cms.settings.update(data as any,);
 
-        // Save branding separately
-        await saveSiteBranding({
-            logo: logo(),
-            favicon: favicon(),
-        },);
+            // Save branding separately
+            await cms.settings.siteBranding({
+                logo: logo(),
+                favicon: favicon(),
+            } as any,);
 
-        // Force the public site-settings cache to refetch so the live
-        // Header, AdminLayout sidebar, and footer pick up the new
-        // logo / name / tagline / description without a page reload.
-        await reloadSiteSettings();
+            // Force the public site-settings cache to refetch so the live
+            // Header, AdminLayout sidebar, and footer pick up the new
+            // logo / name / tagline / description without a page reload.
+            await reloadSiteSettings();
 
-        setSaving(false,);
-        setSuccess(true,);
-        refetch();
+            setSuccess(true,);
+            refetch();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to save settings.',);
+        } finally {
+            setSaving(false,);
+        }
     };
 
     return (
@@ -1625,9 +1627,21 @@ const AdminSettings: Component = () => {
                                                 };
                                                 if (opts?.enableDependencies) payload.enableDependencies = true;
                                                 if (opts?.disableDependents) payload.disableDependents = true;
-                                                const res = await api.put('/settings', payload,);
-                                                if (!res.success) {
-                                                    alert(typeof res.error === 'string' ? res.error : `Could not toggle ${f.label}.`,);
+                                                try {
+                                                    await cms.settings.update(payload as any,);
+                                                } catch (e) {
+                                                    if (e instanceof FeatureCascadeError) {
+                                                        // The dependency planner rejected the toggle.
+                                                        // The client-side store usually pre-empts this
+                                                        // by opening FeatureDependencyModal first; if a
+                                                        // stale store let it through, surface the cascade.
+                                                        const r = e.result;
+                                                        const chain = r.kind === 'missing_prerequisites'
+                                                            ? r.missing : r.dependents;
+                                                        alert(`Could not toggle ${f.label}: ${chain.join(', ',)}`,);
+                                                    } else {
+                                                        alert(e instanceof Error ? e.message : `Could not toggle ${f.label}.`,);
+                                                    }
                                                     return;
                                                 }
                                                 await reloadSiteSettings();

@@ -1,7 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import VideoPlayer from '../../components/blocks/media/VideoPlayer';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 function formatSize(bytes: number,): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -37,23 +37,27 @@ const AdminMedia: Component = () => {
     const [saving, setSaving,] = createSignal(false,);
     const [viewingMedia, setViewingMedia,] = createSignal<any>(null,);
 
-    const queryString = () => {
-        const params = new URLSearchParams();
-        if (typeFilter()) params.set('type', typeFilter(),);
-        if (searchQuery()) params.set('search', searchQuery(),);
-        if (sortBy()) params.set('sort', sortBy(),);
-        return params.toString();
+    const mediaQuery = () => {
+        const q: Record<string, string> = {};
+        if (typeFilter()) q.type = typeFilter();
+        if (searchQuery()) q.search = searchQuery();
+        if (sortBy()) q.sort = sortBy();
+        return q;
     };
 
-    const [media, { refetch, },] = createResource(queryString, async (qs,) => {
-        const response = await api.get(`/media${qs ? `?${qs}` : ''}`,);
-        return response.success ? (response as any).data : [];
+    const [media, { refetch, },] = createResource(mediaQuery, async (q,) => {
+        try {
+            const res = await cms.media.list(q as any,);
+            return res.data;
+        } catch {
+            return [];
+        }
     },);
 
     const handleUpload = async (e: Event,) => {
         const input = e.target as HTMLInputElement;
         if (input.files?.[0]) {
-            await api.upload('/media', input.files[0],);
+            await cms.media.upload(input.files[0],);
             input.value = '';
             refetch();
         }
@@ -76,11 +80,14 @@ const AdminMedia: Component = () => {
         const id = editingId();
         if (!id) return;
         setSaving(true,);
-        await api.put(`/media/${id}`, {
-            title: editTitle(),
-            caption: editDescription(),
-        },);
-        setSaving(false,);
+        try {
+            await cms.media.update(id, {
+                title: editTitle(),
+                caption: editDescription(),
+            } as any,);
+        } finally {
+            setSaving(false,);
+        }
         setEditingId(null,);
         refetch();
     };
@@ -88,7 +95,7 @@ const AdminMedia: Component = () => {
     const handleDelete = async (id: string, e: Event,) => {
         e.stopPropagation();
         if (!confirm('Delete this file permanently?',)) return;
-        await api.delete(`/media/${id}`,);
+        await cms.media.remove(id,);
         refetch();
     };
 

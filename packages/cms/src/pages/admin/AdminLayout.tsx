@@ -4,7 +4,7 @@ import { createEffect, createMemo, createResource, createSignal, For, ParentComp
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';
 import SiteLogo from '../../components/common/branding/SiteLogo';
-import { fetchAppearance, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { swatchCssVars, } from '../../services/colorResolver';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '../../stores/adminAppearance';
@@ -100,8 +100,11 @@ const AdminLayout: ParentComponent = (props,) => {
     // active sidebar row, page editor "+ Add Block" trigger, etc.) uses
     // the configured brand color rather than the static fallback.
     const [appearance,] = createResource(async () => {
-        const r = await fetchAppearance();
-        return r.success ? r.data as AppearanceSettings : null;
+        try {
+            return await cms.settings.getAppearance() as AppearanceSettings;
+        } catch {
+            return null;
+        }
     },);
     // Admin-specific chrome tokens (sidebar bg/text, page bg/text,
     // panel bg). Merged into the same root-element style so a single

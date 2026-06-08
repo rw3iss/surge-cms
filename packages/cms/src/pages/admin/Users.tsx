@@ -5,7 +5,6 @@ import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
-import { api, } from '../../services/api';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
 
@@ -73,15 +72,16 @@ const AdminUsers: Component = () => {
             setFormError('Password must be at least 8 characters',); return;
         }
         setFormSaving(true,);
-        const response = await api.post('/users', {
-            email: formEmail(), displayName: formName(),
-            password: formPassword(), role: formRole(),
-        },);
-        setFormSaving(false,);
-        if (response.success) {
+        try {
+            await cms.users.create({
+                email: formEmail(), displayName: formName(),
+                password: formPassword(), role: formRole(),
+            } as any,);
             resetForm(); setShowForm(false,); list.refetch();
-        } else {
-            setFormError((response as any).error?.message || 'Failed to create user',);
+        } catch (e) {
+            setFormError(e instanceof Error ? e.message : 'Failed to create user',);
+        } finally {
+            setFormSaving(false,);
         }
     };
 

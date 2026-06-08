@@ -19,7 +19,7 @@ import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { buildBlockTree, type AppearanceSettings, } from '@rw/cms-shared';
-import { api, fetchAppearance, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { appearanceCssVars, } from '../../utils/appearanceStyle';
 
@@ -100,14 +100,20 @@ const AdminPageEditor: Component = () => {
 
     const [page,] = createResource(() => isNew() ? null : params.id, async (id,) => {
         if (!id) return null;
-        const response = await api.get(`/pages/${id}`,);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.pages.getById(id,);
+        } catch {
+            return null;
+        }
     },);
 
     // Load site appearance settings for the preview container
     const [appearance,] = createResource(async () => {
-        const response = await fetchAppearance();
-        return response.success ? response.data as AppearanceSettings : null;
+        try {
+            return await cms.settings.getAppearance() as AppearanceSettings;
+        } catch {
+            return null;
+        }
     },);
 
     /**
@@ -145,7 +151,7 @@ const AdminPageEditor: Component = () => {
     const [deleting, setDeleting,] = createSignal(false,);
 
     createEffect(() => {
-        const p = page();
+        const p = page() as any;
         if (p) {
             setTitle(p.title || '',);
             setTitleAlignment(p.titleAlignment || 'left',);
@@ -173,7 +179,7 @@ const AdminPageEditor: Component = () => {
         const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
 
         for (const id of deletedIds) {
-            await api.delete(`/pages/${pageId}/blocks/${id}`,);
+            await cms.pages.deleteBlock(pageId, id,);
         }
 
         // Per-parent "order" is the block's index within its siblings.
@@ -196,9 +202,9 @@ const AdminPageEditor: Component = () => {
             const order = orderById.get(b.id,) ?? 0;
             const payload = blockDataToPageBlock(b, order,);
             if (origIds.has(b.id,)) {
-                await api.put(`/pages/${pageId}/blocks/${b.id}`, payload,);
+                await cms.pages.updateBlock(pageId, b.id, payload as any,);
             } else {
-                await api.post(`/pages/${pageId}/blocks`, { ...payload, id: b.id, },);
+                await cms.pages.createBlock(pageId, { ...payload, id: b.id, } as any,);
             }
         }
 
@@ -214,10 +220,10 @@ const AdminPageEditor: Component = () => {
         for (const [parentKey, ids,] of byParent.entries()) {
             const existingCount = ids.filter(id => origIds.has(id,)).length;
             if (ids.length > 1 && existingCount > 1) {
-                await api.put(`/pages/${pageId}/blocks/reorder`, {
+                await cms.pages.reorderBlocks(pageId, {
                     parentBlockId: parentKey,
                     blockIds: ids,
-                },);
+                } as any,);
             }
         }
     };
@@ -255,20 +261,10 @@ const AdminPageEditor: Component = () => {
 
             let pageId = params.id;
             if (isNew()) {
-                const response = await api.post('/pages', data,);
-                if (!response.success) {
-                    showError(response, 'Failed to create page',);
-                    endSave();
-                    return;
-                }
-                pageId = (response as any).data.id;
+                const created = await cms.pages.create(data as any,);
+                pageId = (created as any).id;
             } else {
-                const response = await api.put(`/pages/${params.id}`, data,);
-                if (!response.success) {
-                    showError(response, 'Failed to save page',);
-                    endSave();
-                    return;
-                }
+                await cms.pages.update(params.id, data as any,);
             }
 
             if (pageId) await syncBlocks(pageId,);
@@ -504,12 +500,12 @@ const AdminPageEditor: Component = () => {
                     setShowDeleteConfirm(false,);
                     setDeleting(true,);
                     try {
-                        const response = await api.put(`/pages/${params.id}`, { status: 'deleted', },);
-                        if (response.success) { markClean(); navigate('/admin/pages',); }
-                        // Modal hides the form's error banner — surface via toast.
-                        else toast.error((response as any).error?.message || 'Failed to delete page',);
+                        await cms.pages.update(params.id, { status: 'deleted', } as any,);
+                        markClean();
+                        navigate('/admin/pages',);
                     } catch (err: any) {
-                        toast.error(err.message || 'Failed to delete page',);
+                        // Modal hides the form's error banner — surface via toast.
+                        toast.error(err?.message || 'Failed to delete page',);
                     } finally {
                         setDeleting(false,);
                     }
@@ -526,11 +522,11 @@ const AdminPageEditor: Component = () => {
                     setShowRestoreConfirm(false,);
                     setRestoring(true,);
                     try {
-                        const response = await api.put(`/pages/${params.id}`, { status: 'draft', },);
-                        if (response.success) { setStatus('draft',); markClean(); }
-                        else toast.error((response as any).error?.message || 'Failed to restore page',);
+                        await cms.pages.update(params.id, { status: 'draft', } as any,);
+                        setStatus('draft',);
+                        markClean();
                     } catch (err: any) {
-                        toast.error(err.message || 'Failed to restore page',);
+                        toast.error(err?.message || 'Failed to restore page',);
                     } finally {
                         setRestoring(false,);
                     }

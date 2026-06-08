@@ -1,14 +1,17 @@
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const AdminMessageView: Component = () => {
     const params = useParams();
 
     const [message,] = createResource(() => params.id, async (id,) => {
-        const response = await api.get(`/messages/${id}`,);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.messages.getById(id,);
+        } catch {
+            return null;
+        }
     },);
 
     const statusBadge = (status: string,) => {
@@ -29,7 +32,7 @@ const AdminMessageView: Component = () => {
     };
 
     const handleStatusChange = async (status: string,) => {
-        await api.put(`/messages/${params.id}/status`, { status, },);
+        await cms.messages.updateStatus(params.id, { status, } as any,);
         window.location.reload();
     };
 

@@ -6,7 +6,7 @@
  * Headless clients send the key as `Authorization: Bearer ssk_…`.
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 
 interface ApiKeyRow {
     id: string;
@@ -22,8 +22,11 @@ const SCOPES = ['read', 'write', 'admin',] as const;
 
 const ApiKeysPanel: Component = () => {
     const [keys, { refetch, },] = createResource(async () => {
-        const res = await api.get<ApiKeyRow[]>('/api-keys',);
-        return res.success ? (res.data ?? []) : [];
+        try {
+            return await cms.apiKeys.list() as unknown as ApiKeyRow[];
+        } catch {
+            return [];
+        }
     },);
 
     const [name, setName,] = createSignal('',);
@@ -43,29 +46,30 @@ const ApiKeysPanel: Component = () => {
         setError(null,);
         if (!name().trim() || scopes().length === 0) return;
         setCreating(true,);
-        const res = await api.post<{ apiKey: ApiKeyRow; key: string; }>('/api-keys', {
-            name: name().trim(),
-            scopes: scopes(),
-        },);
-        setCreating(false,);
-        if (res.success && res.data) {
-            setCreatedKey(res.data.key,);
+        try {
+            const res = await cms.apiKeys.create({
+                name: name().trim(),
+                scopes: scopes(),
+            } as any,) as { apiKey: ApiKeyRow; key: string; };
+            setCreatedKey(res.key,);
             setName('',);
             setScopes(['read',],);
             void refetch();
-        } else {
-            setError((res as any).error?.message || 'Failed to create key',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to create key',);
+        } finally {
+            setCreating(false,);
         }
     };
 
     const handleRevoke = async (key: ApiKeyRow,) => {
         setError(null,);
         if (!confirm(`Revoke "${key.name}"? Clients using it will stop working immediately.`,)) return;
-        const res = await api.delete(`/api-keys/${key.id}`,);
-        if (res.success) {
+        try {
+            await cms.apiKeys.revoke(key.id,);
             void refetch();
-        } else {
-            setError((res as any).error?.message || 'Failed to revoke key',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to revoke key',);
         }
     };
 

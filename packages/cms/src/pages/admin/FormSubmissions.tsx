@@ -1,19 +1,26 @@
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const FormSubmissions: Component = () => {
     const params = useParams();
 
     const [form,] = createResource(() => params.id, async (id,) => {
-        const res = await api.get(`/forms/${id}`,);
-        return res.success ? (res as any).data : null;
+        try {
+            return await cms.forms.getById(id,);
+        } catch {
+            return null;
+        }
     },);
 
     const [submissions,] = createResource(() => params.id, async (id,) => {
-        const res = await api.get(`/forms/${id}/submissions?limit=200`,);
-        return res.success ? (res as any).data : [];
+        try {
+            const res = await cms.forms.listSubmissions(id, { limit: 200, } as any,);
+            return res.data;
+        } catch {
+            return [];
+        }
     },);
 
     const formatDate = (d: string,) => new Date(d,).toLocaleString();

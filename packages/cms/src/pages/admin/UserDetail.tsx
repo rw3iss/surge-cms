@@ -2,7 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, } from '../../utils/badges';
 import './UserDetail.scss';
 
@@ -11,8 +11,11 @@ const AdminUserDetail: Component = () => {
     const navigate = useNavigate();
 
     const [userData, { refetch, },] = createResource(() => params.id, async (id,) => {
-        const response = await api.get(`/users/${id}`,);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.users.getById(id,) as any;
+        } catch {
+            return null;
+        }
     },);
 
     // Editable fields
@@ -55,17 +58,18 @@ const AdminUserDetail: Component = () => {
     const handleSave = async () => {
         setSaving(true,);
         clearMessages();
-        const response = await api.put(`/users/${params.id}`, {
-            displayName: displayName(),
-            role: role(),
-            isActive: isActive(),
-        },);
-        setSaving(false,);
-        if (response.success) {
+        try {
+            await cms.users.update(params.id, {
+                displayName: displayName(),
+                role: role(),
+                isActive: isActive(),
+            } as any,);
             setSuccess('Profile updated.',);
             refetch();
-        } else {
-            setError((response as any).error?.message || 'Failed to update',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to update',);
+        } finally {
+            setSaving(false,);
         }
     };
 
@@ -75,14 +79,14 @@ const AdminUserDetail: Component = () => {
         if (!file) return;
 
         clearMessages();
-        const response = await api.upload(`/users/${params.id}/avatar`, file, 'avatar',);
-        input.value = '';
-
-        if (response.success) {
+        try {
+            await cms.users.uploadAvatar(params.id, file,);
+            input.value = '';
             setSuccess('Avatar updated.',);
             refetch();
-        } else {
-            setError((response as any).error?.message || 'Failed to upload avatar',);
+        } catch (err) {
+            input.value = '';
+            setError(err instanceof Error ? err.message : 'Failed to upload avatar',);
         }
     };
 
@@ -93,14 +97,15 @@ const AdminUserDetail: Component = () => {
         }
         setPasswordSaving(true,);
         clearMessages();
-        const response = await api.post(`/users/${params.id}/password`, { password: newPassword(), },);
-        setPasswordSaving(false,);
-        if (response.success) {
+        try {
+            await cms.users.setPassword(params.id, { password: newPassword(), } as any,);
             setSuccess('Password changed.',);
             setNewPassword('',);
             setShowPassword(false,);
-        } else {
-            setError((response as any).error?.message || 'Failed to change password',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to change password',);
+        } finally {
+            setPasswordSaving(false,);
         }
     };
 
@@ -109,34 +114,37 @@ const AdminUserDetail: Component = () => {
         const body: Record<string, unknown> = {};
         if (banReason()) body.reason = banReason();
         if (banExpiry()) body.expiresAt = new Date(banExpiry(),).toISOString();
-        const response = await api.post(`/users/${params.id}/ban`, body,);
-        if (response.success) {
+        try {
+            await cms.users.ban(params.id, body as any,);
             setSuccess('User banned.',);
             setShowBanForm(false,);
             setBanReason('',);
             setBanExpiry('',);
             refetch();
-        } else {
-            setError((response as any).error?.message || 'Failed to ban user',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to ban user',);
         }
     };
 
     const handleUnban = async () => {
         clearMessages();
-        const response = await api.post(`/users/${params.id}/unban`, {},);
-        if (response.success) {
+        try {
+            await cms.users.unban(params.id,);
             setSuccess('User unbanned.',);
             refetch();
-        } else {
-            setError((response as any).error?.message || 'Failed to unban user',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to unban user',);
         }
     };
 
     const handleDelete = async () => {
         if (!confirm('Permanently delete this user? This cannot be undone.',)) return;
-        const response = await api.delete(`/users/${params.id}`,);
-        if (response.success) navigate('/admin/users',);
-        else setError((response as any).error?.message || 'Failed to delete user',);
+        try {
+            await cms.users.remove(params.id,);
+            navigate('/admin/users',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to delete user',);
+        }
     };
 
     const formatDate = (d: string | Date | undefined,) => {

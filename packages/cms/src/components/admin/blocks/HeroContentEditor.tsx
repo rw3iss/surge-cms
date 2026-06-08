@@ -8,7 +8,7 @@ import type {
 } from '@rw/cms-shared';
 import type { AppearanceSettings, } from '@rw/cms-shared';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
-import { fetchAppearance, fetchHeroSettings, saveHeroSettings, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import HeroCarousel from '../../blocks/HeroCarousel';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
@@ -90,8 +90,11 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
     const [loading, setLoading,] = createSignal(true,);
 
     const [appearance,] = createResource(async () => {
-        const res = await fetchAppearance();
-        return res.success ? res.data as AppearanceSettings : null;
+        try {
+            return await cms.settings.getAppearance() as AppearanceSettings;
+        } catch {
+            return null;
+        }
     },);
 
     const gutterWidth = () => appearance()?.gutterWidth || undefined;
@@ -130,9 +133,8 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
             return;
         }
         try {
-            const res = await fetchHeroSettings();
-            if (res.success && res.data) {
-                const data = res.data as HeroCarouselSettings;
+            const data = await cms.settings.getHomepageHero() as HeroCarouselSettings;
+            if (data) {
                 if (data.items?.length) {
                     setItems(data.items.toSorted((a, b,) => a.order - b.order),);
                 }
@@ -199,15 +201,11 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                 items: items().map((item, i,) => ({ ...item, order: i, })),
                 options: options(),
             };
-            const res = await saveHeroSettings(payload,);
-            if (res.success) {
-                setIsDirty(false,);
-                toast.success('Hero settings saved.',);
-            } else {
-                toast.error('Failed to save: ' + ((res as any).error?.message || 'Unknown error'),);
-            }
+            await cms.settings.setHomepageHero(payload as any,);
+            setIsDirty(false,);
+            toast.success('Hero settings saved.',);
         } catch (e) {
-            toast.error('Failed to save hero settings.',);
+            toast.error('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'),);
             console.error(e,);
         } finally {
             setSaving(false,);

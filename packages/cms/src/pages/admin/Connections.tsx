@@ -1,7 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const PROVIDERS = [
     { id: 'instagram', name: 'Instagram', icon: 'IG', },
@@ -31,8 +31,11 @@ function formatExpiry(iso: string | undefined | null,): string | null {
 
 const AdminConnections: Component = () => {
     const [connections, { refetch, },] = createResource(async () => {
-        const response = await api.get('/connections',);
-        return response.success ? (response as any).data : [];
+        try {
+            return await cms.connections.list() as any[];
+        } catch {
+            return [] as any[];
+        }
     },);
 
     const getConnection = (providerId: string,) => {
@@ -41,12 +44,12 @@ const AdminConnections: Component = () => {
 
     const handleDisconnect = async (provider: string,) => {
         if (!confirm(`Disconnect ${provider}? This will remove stored credentials.`,)) return;
-        await api.delete(`/connections/${provider}`,);
+        await cms.connections.remove(provider,);
         refetch();
     };
 
     const moveConnection = async (provider: string, direction: 'up' | 'down',) => {
-        await api.put(`/connections/${provider}/reorder`, { direction, },);
+        await cms.connections.reorder(provider, { direction, } as any,);
         refetch();
     };
 

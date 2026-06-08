@@ -8,7 +8,7 @@ import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateCampaignsCache, } from '../../services/adminData';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const CampaignEditor: Component = () => {
     const params = useParams();
@@ -35,9 +35,13 @@ const CampaignEditor: Component = () => {
     const [campaign,] = createResource(
         () => !isNew() ? params.id : null,
         async (id,) => {
-            const response = await api.get(`/campaigns/${id}`,);
-            if (response.success && response.data) {
-                const data = response.data as any;
+            let data: any = null;
+            try {
+                data = await cms.campaigns.getById(id,);
+            } catch {
+                return null;
+            }
+            if (data) {
                 setTitle(data.title || '',);
                 setSlug(data.slug || '',);
                 setDescription(data.description || '',);
@@ -116,21 +120,16 @@ const CampaignEditor: Component = () => {
                 featuredImage: featuredImage() || null,
             };
 
-            let response;
             if (isNew()) {
-                response = await api.post('/campaigns', payload,);
+                await cms.campaigns.create(payload as any,);
             } else {
-                response = await api.put(`/campaigns/${params.id}`, payload,);
+                await cms.campaigns.update(params.id, payload as any,);
             }
 
-            if (response.success) {
-                invalidateCampaignsCache();
-                autoSave.clear();
-                markClean();
-                navigate('/admin/campaigns',);
-            } else {
-                showError(response, 'Failed to save campaign',);
-            }
+            invalidateCampaignsCache();
+            autoSave.clear();
+            markClean();
+            navigate('/admin/campaigns',);
         } catch (err) {
             showError(err, 'An error occurred while saving',);
         } finally {
@@ -148,13 +147,9 @@ const CampaignEditor: Component = () => {
         }
 
         try {
-            const response = await api.delete(`/campaigns/${params.id}`,);
-            if (response.success) {
-                invalidateCampaignsCache();
-                navigate('/admin/campaigns',);
-            } else {
-                showError(response, 'Failed to delete campaign',);
-            }
+            await cms.campaigns.remove(params.id,);
+            invalidateCampaignsCache();
+            navigate('/admin/campaigns',);
         } catch (err) {
             showError(err, 'An error occurred while deleting',);
         }

@@ -9,7 +9,7 @@ import {
     Component, createResource, createSignal, For, onCleanup, onMount, Show,
 } from 'solid-js';
 import type { MailSendJob, MailSendRecipient, } from '@rw/cms-shared';
-import { mailSendApi, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 type StatusFilter = 'all' | 'pending' | 'sent' | 'failed';
 
@@ -21,17 +21,21 @@ const MailJob: Component = () => {
     const [error, setError,] = createSignal<string | null>(null,);
 
     const fetchJob = async (): Promise<void> => {
-        const r = await mailSendApi.job(params.id,);
-        if (r.success && r.data) setJob(r.data as MailSendJob,);
+        try {
+            setJob(await cms.mailSend.getJob(params.id,) as MailSendJob,);
+        } catch {
+            /* error toasted by the bus */
+        }
     };
 
     const [recipients, { refetch: refetchRecipients, },] = createResource(
         () => ({ id: params.id, status: filter() === 'all' ? undefined : filter(), }),
         async (args,) => {
-            const r = await mailSendApi.recipients(args.id, { status: args.status, limit: 100, },);
-            return r.success
-                ? (r.data as { items: MailSendRecipient[]; total: number; })
-                : { items: [], total: 0, };
+            try {
+                return await cms.mailSend.jobRecipients(args.id, { status: args.status, limit: 100, } as any,) as { items: MailSendRecipient[]; total: number; };
+            } catch {
+                return { items: [], total: 0, };
+            }
         },
     );
 
@@ -78,20 +82,21 @@ const MailJob: Component = () => {
         setBusy(true,);
         setError(null,);
         try {
-            const r = await mailSendApi.retry(params.id,);
-            if (!r.success) setError(typeof r.error === 'string' ? r.error : 'Retry failed.',);
+            await cms.mailSend.retryJob(params.id,);
             await fetchJob();
             refetchRecipients();
             // The worker just started a fresh run — re-arm polling so
             // progress updates appear live.
             startPolling();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Retry failed.',);
         } finally { setBusy(false,); }
     };
 
     const handleCancel = async (): Promise<void> => {
         if (!confirm('Cancel this send? In-flight deliveries will finish; remaining recipients will not be contacted.',)) return;
         setBusy(true,);
-        await mailSendApi.cancel(params.id,);
+        await cms.mailSend.cancelJob(params.id,);
         await fetchJob();
         setBusy(false,);
     };

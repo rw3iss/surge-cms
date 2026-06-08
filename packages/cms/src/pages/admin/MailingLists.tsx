@@ -6,23 +6,32 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import type { MailingList, MailSendJob, MailTemplate, } from '@rw/cms-shared';
-import { mailingListsApi, mailSendApi, mailTemplatesApi, } from '../../services/api';
+import type { MailSendJob, } from '@rw/cms-shared';
+import { cms, } from '../../services/cmsClient';
 
 type JobWithListName = MailSendJob & { listName: string | null; };
 
 const MailingLists: Component = () => {
     const [lists,] = createResource(async () => {
-        const res = await mailingListsApi.list();
-        return res.success ? (res as { data: MailingList[]; }).data : [];
+        try {
+            return await cms.mailingLists.list();
+        } catch {
+            return [];
+        }
     },);
     const [templates,] = createResource(async () => {
-        const res = await mailTemplatesApi.list();
-        return res.success ? (res as { data: MailTemplate[]; }).data : [];
+        try {
+            return await cms.mailTemplates.list();
+        } catch {
+            return [];
+        }
     },);
     const [jobs,] = createResource(async () => {
-        const res = await mailSendApi.listJobs({ limit: 50, },);
-        return res.success ? (res as { data: JobWithListName[]; }).data : [];
+        try {
+            return await cms.mailSend.listJobs({ limit: 50, },) as JobWithListName[];
+        } catch {
+            return [];
+        }
     },);
 
     const statusBadge = (s: MailSendJob['status'],): string => {

@@ -18,7 +18,7 @@ import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
-import { mailTemplatesApi, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
@@ -43,14 +43,17 @@ const MailTemplateEdit: Component = () => {
     onMount(async () => {
         // Load the variable catalog once on mount; cheap, no DB read.
         try {
-            const r = await mailTemplatesApi.variables();
-            if (r.success && r.data) setVariableCatalog(r.data as VariableDescriptor[],);
+            setVariableCatalog(await cms.mailTemplates.variables() as VariableDescriptor[],);
         } catch { /* ignore */ }
 
         if (isNew()) return;
-        const res = await mailTemplatesApi.get(params.id,);
-        if (res.success && res.data) {
-            const d = res.data as MailTemplate & { blocks: BackendBlock[]; };
+        let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
+        try {
+            d = await cms.mailTemplates.getById(params.id,) as MailTemplate & { blocks: BackendBlock[]; };
+        } catch {
+            return;
+        }
+        if (d) {
             setName(d.name,);
             setDescription(d.description ?? '',);
             setIsEnabled(d.isEnabled,);
@@ -78,30 +81,23 @@ const MailTemplateEdit: Component = () => {
                 replyTo: replyTo() || undefined,
             };
             if (isNew()) {
-                const r = await mailTemplatesApi.create(meta,);
-                if (r.success && r.data) {
-                    const created = r.data as MailTemplate;
-                    if (blocks().length > 0) {
-                        await mailTemplatesApi.saveBlocks(created.id, editorToBackend(blocks(),),);
-                    }
-                    navigate(`/admin/mail-templates/${created.id}`,);
-                } else {
-                    setError(typeof r.error === 'string' ? r.error : 'Save failed.',);
+                const created = await cms.mailTemplates.create(meta as any,) as MailTemplate;
+                if (blocks().length > 0) {
+                    await cms.mailTemplates.replaceBlocks(created.id, { blocks: editorToBackend(blocks(),), } as any,);
                 }
+                navigate(`/admin/mail-templates/${created.id}`,);
             } else {
-                const r1 = await mailTemplatesApi.update(params.id, meta,);
-                if (!r1.success) {
-                    setError(typeof r1.error === 'string' ? r1.error : 'Save failed.',);
-                    return;
-                }
-                await mailTemplatesApi.saveBlocks(params.id, editorToBackend(blocks(),),);
+                await cms.mailTemplates.update(params.id, meta as any,);
+                await cms.mailTemplates.replaceBlocks(params.id, { blocks: editorToBackend(blocks(),), } as any,);
             }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Save failed.',);
         } finally { setSaving(false,); }
     };
 
     const handleDelete = async (): Promise<void> => {
         if (!confirm('Delete this template? This cannot be undone.',)) return;
-        await mailTemplatesApi.remove(params.id,);
+        await cms.mailTemplates.remove(params.id,);
         navigate('/admin/mailing-lists',);
     };
 

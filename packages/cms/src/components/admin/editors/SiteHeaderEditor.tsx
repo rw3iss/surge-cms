@@ -1,5 +1,5 @@
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
-import { fetchSiteHeader, saveSiteHeader, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
@@ -148,9 +148,8 @@ const SiteHeaderEditor: Component = () => {
 
     onMount(async () => {
         try {
-            const res = await fetchSiteHeader();
-            if (res.success && res.data) {
-                const data = res.data as any;
+            const data = await cms.settings.getSiteHeader() as any;
+            if (data) {
                 if (data.items?.length) {
                     setItems(data.items.toSorted((a: SiteHeaderItem, b: SiteHeaderItem,) => a.order - b.order),);
                 }
@@ -260,15 +259,11 @@ const SiteHeaderEditor: Component = () => {
                 sticky: sticky(),
                 autoHide: autoHide(),
             };
-            const res = await saveSiteHeader(payload,);
-            if (res.success) {
-                setIsDirty(false,);
-                toast.success('Site header saved.',);
-            } else {
-                toast.error('Failed to save: ' + ((res as any).error?.message || 'Unknown error'),);
-            }
+            await cms.settings.siteHeader(payload as any,);
+            setIsDirty(false,);
+            toast.success('Site header saved.',);
         } catch (e) {
-            toast.error('Failed to save site header.',);
+            toast.error('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'),);
             console.error(e,);
         } finally {
             setSaving(false,);

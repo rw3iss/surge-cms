@@ -7,7 +7,7 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import type { MailingListSubscriber, } from '@rw/cms-shared';
-import { mailingListsApi, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 
 interface SubscriberFormModalProps {
     listId: string;
@@ -34,24 +34,24 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
         try {
             const data = { email: email(), name: name() || undefined, phone: phone() || undefined, };
             if (isEditing()) {
-                await mailingListsApi.updateSubscriber(p.listId, p.subscriber!.id, data,);
+                await cms.mailingLists.updateSubscriber(p.listId, p.subscriber!.id, data as any,);
             } else {
-                await mailingListsApi.addSubscriber(p.listId, data,);
+                await cms.mailingLists.addSubscriber(p.listId, data as any,);
             }
             p.onSaved();
         } catch (e) {
-            setError(String(e,),);
+            setError(e instanceof Error ? e.message : String(e,),);
         } finally { setSaving(false,); }
     };
 
     const handleRemove = async (): Promise<void> => {
         if (!confirm('Remove this subscriber?',)) return;
-        await mailingListsApi.removeSubscriber(p.listId, p.subscriber!.id,);
+        await cms.mailingLists.removeSubscriber(p.listId, p.subscriber!.id,);
         p.onSaved();
     };
 
     const handleForceConfirm = async (): Promise<void> => {
-        await mailingListsApi.forceConfirm(p.listId, p.subscriber!.id,);
+        await cms.mailingLists.forceConfirmSubscriber(p.listId, p.subscriber!.id,);
         p.onSaved();
     };
 

@@ -9,7 +9,7 @@
  * (e.g. after a bulk DB import) and a deep link to the live route.
  */
 import { Component, createSignal, Show, } from 'solid-js';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 
 interface SitemapInfo {
@@ -26,16 +26,11 @@ const SitemapPanel: Component = () => {
     const regenerate = async () => {
         setBusy(true,);
         try {
-            const response = await api.post('/admin/sitemap/regenerate', {},);
-            if (response.success) {
-                const data = (response as any).data as SitemapInfo;
-                setInfo(data,);
-                toast.success(
-                    `Sitemap rebuilt: ${data.urlCount} URLs (${(data.bytes / 1024).toFixed(1,)} KB)`,
-                );
-            } else {
-                toast.error('Failed to regenerate sitemap',);
-            }
+            const data = await cms.sitemap.regenerate() as unknown as SitemapInfo;
+            setInfo(data,);
+            toast.success(
+                `Sitemap rebuilt: ${data.urlCount} URLs (${(data.bytes / 1024).toFixed(1,)} KB)`,
+            );
         } catch (err: any) {
             toast.error(err?.message || 'Failed to regenerate sitemap',);
         } finally {

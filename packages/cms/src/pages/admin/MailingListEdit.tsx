@@ -14,7 +14,7 @@ import type { MailingList, MailingListSubscriber, } from '@rw/cms-shared';
 import { FormField, FormSection, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
 import SubscriberFormModal from '../../components/admin/mailing-lists/SubscriberFormModal';
-import { mailingListsApi, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 interface SubscriberListResponse { items: MailingListSubscriber[]; total: number; }
 
@@ -42,15 +42,16 @@ const MailingListEdit: Component = () => {
      *  server-of-record state. */
     const refreshList = async (): Promise<void> => {
         if (isNew()) return;
-        const res = await mailingListsApi.get(params.id,);
-        if (res.success && res.data) {
-            const l = res.data as MailingList;
+        try {
+            const l = await cms.mailingLists.getById(params.id,) as MailingList;
             setName(l.name,);
             setSlug(l.slug,);
             setDescription(l.description ?? '',);
             setIsEnabled(l.isEnabled,);
             setRegisteredUsersOnly(l.registeredUsersOnly,);
             setDoubleOptIn(l.doubleOptIn,);
+        } catch {
+            /* error toasted by the bus */
         }
     };
 
@@ -72,28 +73,22 @@ const MailingListEdit: Component = () => {
                 doubleOptIn: doubleOptIn(),
             };
             if (isNew()) {
-                const res = await mailingListsApi.create(data,);
-                if (res.success && res.data) {
-                    navigate(`/admin/mailing-lists/${(res.data as MailingList).id}`,);
-                } else {
-                    setError(typeof res.error === 'string' ? res.error : 'Save failed.',);
-                }
+                const created = await cms.mailingLists.create(data as any,);
+                navigate(`/admin/mailing-lists/${(created as MailingList).id}`,);
             } else {
-                const res = await mailingListsApi.update(params.id, data,);
-                if (!res.success) {
-                    setError(typeof res.error === 'string' ? res.error : 'Save failed.',);
-                } else {
-                    // Reload so the header + form reflect any
-                    // server-side normalization (slug lowercase, etc.).
-                    await refreshList();
-                }
+                await cms.mailingLists.update(params.id, data as any,);
+                // Reload so the header + form reflect any server-side
+                // normalization (slug lowercase, etc.).
+                await refreshList();
             }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Save failed.',);
         } finally { setSaving(false,); }
     };
 
     const handleDelete = async (): Promise<void> => {
         if (!confirm('Delete this list and all its subscribers? This cannot be undone.',)) return;
-        await mailingListsApi.remove(params.id,);
+        await cms.mailingLists.remove(params.id,);
         navigate('/admin/mailing-lists',);
     };
 
@@ -103,8 +98,11 @@ const MailingListEdit: Component = () => {
         () => isNew() ? null : { id: params.id, search: search(), },
         async (args,) => {
             if (!args) return null;
-            const res = await mailingListsApi.listSubscribers(args.id, { search: args.search, limit: 100, },);
-            return res.success ? (res as { data: SubscriberListResponse; }).data : { items: [], total: 0, };
+            try {
+                return await cms.mailingLists.subscribers(args.id, { search: args.search, limit: 100, },) as SubscriberListResponse;
+            } catch {
+                return { items: [], total: 0, };
+            }
         },
     );
 
@@ -118,7 +116,7 @@ const MailingListEdit: Component = () => {
         const ids = Array.from(selectedIds(),);
         if (ids.length === 0) return;
         if (!confirm(`Remove ${ids.length} subscriber(s) from the list?`,)) return;
-        await mailingListsApi.bulkRemoveSubscribers(params.id, ids,);
+        await cms.mailingLists.bulkDeleteSubscribers(params.id, { ids, },);
         setSelectedIds(new Set<string>(),);
         refetchSubs();
     };

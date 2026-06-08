@@ -7,7 +7,7 @@
  * re-fetches the registry without reloading the page.
  */
 import { Component, createResource, For, Show, } from 'solid-js';
-import { fetchCrons, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 
 interface CronJob {
     name: string;
@@ -23,8 +23,11 @@ interface CronJob {
 
 const JobManagementPanel: Component = () => {
     const [crons, { refetch, },] = createResource(async () => {
-        const response = await fetchCrons();
-        return response.success ? (response as any).data as CronJob[] : [];
+        try {
+            return await cms.dev.listCrons() as unknown as CronJob[];
+        } catch {
+            return [];
+        }
     },);
 
     const formatDate = (iso: string | null,) => {

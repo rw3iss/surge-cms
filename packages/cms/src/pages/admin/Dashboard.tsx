@@ -1,7 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 
 /**
@@ -19,8 +19,11 @@ const DASHBOARD_FEATURES: Array<{ key: 'posts' | 'campaigns' | 'forms' | 'messag
 
 const AdminDashboard: Component = () => {
     const [stats,] = createResource(async () => {
-        const response = await api.get('/dashboard/summary',);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.dashboard.summary();
+        } catch {
+            return null;
+        }
     },);
 
     // Make the feature flags reactive on the dashboard the same way

@@ -8,7 +8,7 @@
  */
 import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import { mailTemplatesApi, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 import VariableForm from './VariableForm';
 
 interface Props {
@@ -33,22 +33,17 @@ const MailPreviewModal: Component<Props> = (p,) => {
         setLoading(true,);
         setError(null,);
         try {
-            const res = await mailTemplatesApi.preview({
+            const d = await cms.mailTemplates.preview({
                 blocks: p.blocks,
                 subject: p.subject,
                 preheader: p.preheader,
                 variables: vars(),
-            },);
-            if (res.success && res.data) {
-                const d = res.data as { html: string; subject: string; preheader?: string; detectedVariables: string[]; };
-                setHtml(d.html,);
-                setRenderedSubject(d.subject,);
-                setDetected(d.detectedVariables,);
-            } else {
-                setError(typeof res.error === 'string' ? res.error : 'Preview failed.',);
-            }
+            } as any,) as { html: string; subject: string; preheader?: string; detectedVariables: string[]; };
+            setHtml(d.html,);
+            setRenderedSubject(d.subject,);
+            setDetected(d.detectedVariables,);
         } catch (e) {
-            setError(String(e,),);
+            setError(e instanceof Error ? e.message : 'Preview failed.',);
         } finally {
             setLoading(false,);
         }

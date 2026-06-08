@@ -1,13 +1,17 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
 
 const AdminMessages: Component = () => {
     const [messages,] = createResource(async () => {
-        const response = await api.get('/messages',);
-        return response.success ? (response as any).data : [];
+        try {
+            const res = await cms.messages.list();
+            return res.data;
+        } catch {
+            return [];
+        }
     },);
 
     const statusBadge = getStatusBadgeClass;

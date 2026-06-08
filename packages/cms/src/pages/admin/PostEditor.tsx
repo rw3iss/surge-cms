@@ -19,7 +19,7 @@ import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import type { AppearanceSettings, } from '@rw/cms-shared';
 import { invalidatePostsCache, } from '../../services/adminData';
-import { api, fetchAppearance, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { appearanceCssVars, } from '../../utils/appearanceStyle';
 
@@ -35,14 +35,20 @@ const AdminPostEditor: Component = () => {
 
     const [post,] = createResource(() => isNew() ? null : params.id, async (id,) => {
         if (!id) return null;
-        const response = await api.get(`/posts/${id}`,);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.posts.getById(id,);
+        } catch {
+            return null;
+        }
     },);
 
     // Load site appearance for the preview container
     const [appearance,] = createResource(async () => {
-        const response = await fetchAppearance();
-        return response.success ? response.data as AppearanceSettings : null;
+        try {
+            return await cms.settings.getAppearance() as AppearanceSettings;
+        } catch {
+            return null;
+        }
     },);
 
     /**
@@ -108,7 +114,7 @@ const AdminPostEditor: Component = () => {
     },);
 
     createEffect(() => {
-        const p = post();
+        const p = post() as any;
         if (p) {
             setTitle(p.title || '',);
             setSlug(p.slug || '',);
@@ -170,13 +176,11 @@ const AdminPostEditor: Component = () => {
             })),
         };
 
-        const response = isNew() ?
-            await api.post('/posts', data,) :
-            await api.put(`/posts/${params.id}`, data,);
+        try {
+            const saved = isNew() ?
+                await cms.posts.create(data,) :
+                await cms.posts.update(params.id, data,);
 
-        endSave();
-
-        if (response.success) {
             setSavedBlocks(structuredClone(blocks(),),);
             autoSave.clear();
             markClean();
@@ -186,11 +190,13 @@ const AdminPostEditor: Component = () => {
             // subsequent saves PUT instead of POST. Existing posts stay
             // on the same editor URL.
             if (isNew()) {
-                const newId = (response as any).data?.id;
+                const newId = (saved as any)?.id;
                 if (newId) navigate(`/admin/posts/${newId}`, { replace: true, },);
             }
-        } else {
-            showError(response, 'Failed to save post',);
+        } catch (e) {
+            showError(e, 'Failed to save post',);
+        } finally {
+            endSave();
         }
     };
 
@@ -368,18 +374,14 @@ const AdminPostEditor: Component = () => {
                     setShowDeleteConfirm(false,);
                     setDeleting(true,);
                     try {
-                        const response = await api.put(`/posts/${params.id}`, { status: 'deleted', },);
-                        if (response.success) {
-                            markClean();
-                            invalidatePostsCache();
-                            navigate('/admin/posts',);
-                        } else {
-                            // Modal hides the form's error banner — use a toast so
-                            // the message actually surfaces.
-                            toast.error((response as any).error?.message || 'Failed to delete post',);
-                        }
+                        await cms.posts.update(params.id, { status: 'deleted', } as any,);
+                        markClean();
+                        invalidatePostsCache();
+                        navigate('/admin/posts',);
                     } catch (err: any) {
-                        toast.error(err.message || 'Failed to delete post',);
+                        // Modal hides the form's error banner — use a toast so
+                        // the message actually surfaces.
+                        toast.error(err?.message || 'Failed to delete post',);
                     } finally {
                         setDeleting(false,);
                     }
@@ -396,15 +398,11 @@ const AdminPostEditor: Component = () => {
                     setShowRestoreConfirm(false,);
                     setRestoring(true,);
                     try {
-                        const response = await api.put(`/posts/${params.id}`, { status: 'draft', },);
-                        if (response.success) {
-                            setStatus('draft',);
-                            markClean();
-                        } else {
-                            toast.error((response as any).error?.message || 'Failed to restore post',);
-                        }
+                        await cms.posts.update(params.id, { status: 'draft', } as any,);
+                        setStatus('draft',);
+                        markClean();
                     } catch (err: any) {
-                        toast.error(err.message || 'Failed to restore post',);
+                        toast.error(err?.message || 'Failed to restore post',);
                     } finally {
                         setRestoring(false,);
                     }

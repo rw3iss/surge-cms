@@ -9,7 +9,7 @@ import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateFormsCache, } from '../../services/adminData';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 interface FormQuestion {
     id?: string;
@@ -44,9 +44,13 @@ const FormEditor: Component = () => {
     const [form,] = createResource(
         () => !isNew() ? params.id : null,
         async (id,) => {
-            const response = await api.get(`/forms/${id}`,);
-            if (response.success && response.data) {
-                const data = response.data as any;
+            let data: any = null;
+            try {
+                data = await cms.forms.getById(id,);
+            } catch {
+                return null;
+            }
+            if (data) {
                 setTitle(data.title || '',);
                 setSlug(data.slug || '',);
                 setDescription(data.description || '',);
@@ -203,21 +207,16 @@ const FormEditor: Component = () => {
                 })),
             };
 
-            let response;
             if (isNew()) {
-                response = await api.post('/forms', payload,);
+                await cms.forms.create(payload as any,);
             } else {
-                response = await api.put(`/forms/${params.id}`, payload,);
+                await cms.forms.update(params.id, payload as any,);
             }
 
-            if (response.success) {
-                invalidateFormsCache();
-                autoSave.clear();
-                markClean();
-                navigate('/admin/forms',);
-            } else {
-                showError(response, 'Failed to save form',);
-            }
+            invalidateFormsCache();
+            autoSave.clear();
+            markClean();
+            navigate('/admin/forms',);
         } catch (err) {
             showError(err, 'An error occurred while saving',);
         } finally {
@@ -235,13 +234,9 @@ const FormEditor: Component = () => {
         }
 
         try {
-            const response = await api.delete(`/forms/${params.id}`,);
-            if (response.success) {
-                invalidateFormsCache();
-                navigate('/admin/forms',);
-            } else {
-                showError(response, 'Failed to delete form',);
-            }
+            await cms.forms.remove(params.id,);
+            invalidateFormsCache();
+            navigate('/admin/forms',);
         } catch (err) {
             showError(err, 'An error occurred while deleting',);
         }

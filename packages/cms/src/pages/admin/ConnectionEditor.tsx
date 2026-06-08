@@ -2,7 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
-import { api, } from '../../services/api';
+import { cms, } from '../../services/cmsClient';
 
 const PROVIDER_NAMES: Record<string, string> = {
     instagram: 'Instagram',
@@ -20,8 +20,11 @@ const AdminConnectionEditor: Component = () => {
     const providerName = () => PROVIDER_NAMES[provider()] || provider();
 
     const [connection,] = createResource(() => provider(), async (p,) => {
-        const response = await api.get(`/connections/${p}`,);
-        return response.success ? (response as any).data : null;
+        try {
+            return await cms.connections.getByProvider(p,) as any;
+        } catch {
+            return null;
+        }
     },);
 
     const [enabled, setEnabled,] = createSignal(true,);
@@ -60,14 +63,15 @@ const AdminConnectionEditor: Component = () => {
             },
         };
 
-        const response = connection() ?
-            await api.put(`/connections/${provider()}`, data,) :
-            await api.post('/connections', data,);
-
-        if (response.success) {
+        try {
+            if (connection()) {
+                await cms.connections.update(provider(), data as any,);
+            } else {
+                await cms.connections.upsert(data as any,);
+            }
             setSuccess(true,);
-        } else {
-            setError((response as any).error?.message || 'Failed to save connection',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to save connection',);
         }
     };
 

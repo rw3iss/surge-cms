@@ -1,7 +1,7 @@
 import { useNavigate, } from '@solidjs/router';
 import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { useKeyboardShortcuts, } from '../../../hooks/useKeyboardShortcuts';
-import { api, } from '../../../services/api';
+import { cms, } from '../../../services/cmsClient';
 
 interface SearchResultItem {
     id: string;
@@ -50,9 +50,8 @@ const GlobalSearch: Component = () => {
         debounceTimer = setTimeout(async () => {
             setLoading(true,);
             try {
-                const res = await api.get(`/search?q=${encodeURIComponent(q,)}`,);
-                if (res.success && (res as any).data) {
-                    const data = (res as any).data;
+                const data = await cms.search.query(q,) as any;
+                if (data) {
                     const all: SearchResultItem[] = [
                         ...(data.pages || []).map((p: any,) => ({
                             id: p.id,
