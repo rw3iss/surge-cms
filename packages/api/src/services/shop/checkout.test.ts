@@ -35,14 +35,20 @@ vi.mock('../../repositories/shop/shopOrders.repo', () => ({
     createOrderItems: (...a: unknown[]) => createOrderItemsMock(...a),
 }),);
 
+// Shop config comes from the settings service now (not an inline reader).
+// Mock it so this suite exercises only checkout's validation/total logic:
+// tax off, no flat shipping, usd.
+vi.mock('./settings', () => ({
+    getShopSettings: vi.fn().mockResolvedValue({
+        currency: 'usd', taxEnabled: false, businessName: '', storeEnabled: true,
+    },),
+}),);
+
 import * as checkout from './checkout';
 
 const ctx = { userId: 'u1', ipAddress: '', userAgent: '', };
 
-// Helper: shop_settings row + a variant lookup row.
-function settingsRow() {
-    return { rows: [{ value: { currency: 'usd', taxEnabled: false, storeEnabled: true, }, }], };
-}
+// Helper: a variant lookup row.
 function variantRow(overrides: Record<string, unknown> = {},) {
     return {
         rows: [{
@@ -64,8 +70,9 @@ describe('shop checkout service', () => {
     },);
 
     it('rejects checkout when a variant has insufficient inventory (409)', async () => {
+        // Shop config comes from the mocked settings service; queryMock now
+        // only serves the variant lookup.
         queryMock
-            .mockResolvedValueOnce(settingsRow(),) // getShopSettings
             .mockResolvedValueOnce(variantRow({ inventory_qty: 1, }),); // variant: only 1 in stock
         await expect(
             checkout.createCheckout(
@@ -77,7 +84,6 @@ describe('shop checkout service', () => {
 
     it('computes subtotal from DB prices, ignoring any client-supplied price', async () => {
         queryMock
-            .mockResolvedValueOnce(settingsRow(),)
             .mockResolvedValueOnce(variantRow({ price_cents: 2500, },),); // DB says 2500
         // Client sends only {variantId, qty} — no price channel exists.
         const totals = await checkout.previewCheckout({ items: [{ variantId: 'v1', qty: 2, },], },);
@@ -87,7 +93,6 @@ describe('shop checkout service', () => {
 
     it('creates the order + items + a PaymentIntent tagged orderType=shop', async () => {
         queryMock
-            .mockResolvedValueOnce(settingsRow(),)
             .mockResolvedValueOnce(variantRow(),);
         const result = await checkout.createCheckout(
             { items: [{ variantId: 'v1', qty: 1, },], customerEmail: 'a@b.com', customerName: 'A', }, ctx,

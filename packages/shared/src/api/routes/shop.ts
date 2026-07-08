@@ -15,6 +15,7 @@
 
 import type {
     ShopAddress,
+    ShopAppearance,
     ShopCategory,
     ShopCollection,
     ShopFulfillmentStatus,
@@ -24,7 +25,9 @@ import type {
     ShopProduct,
     ShopProductDetail,
     ShopProductType,
+    ShopPublicSettings,
     ShopReview,
+    ShopSettings,
 } from '../../types/shop';
 import type { BulkActionResult, } from './_shared';
 
@@ -428,3 +431,29 @@ export interface ShopOrderDownloadParams {
 export interface ShopOrderDownloadResponse {
     url: string;
 }
+
+// ─── Settings ─────────────────────────────────────────────────────
+// Two `site_settings` JSONB rows (shop_settings + shop_appearance). The
+// public GET emits a storefront-safe projection (no Stripe secret keys,
+// no business address); the admin GET/PUT carry the full config.
+
+/** GET /shop/settings — storefront-safe projection (public/optional). */
+export interface ShopSettingsPublicResponse {
+    settings: ShopPublicSettings;
+    appearance: ShopAppearance;
+}
+
+/** GET /shop/settings/admin — full config (admin). */
+export interface ShopSettingsAdminResponse {
+    settings: ShopSettings;
+    appearance: ShopAppearance;
+}
+
+/** Body for PUT /shop/settings (admin) — merge partial into either row. */
+export interface ShopSettingsUpdateBody {
+    settings?: Partial<ShopSettings>;
+    appearance?: Partial<ShopAppearance>;
+}
+
+/** PUT /shop/settings — the updated full config. */
+export type ShopSettingsUpdateResponse = ShopSettingsAdminResponse;

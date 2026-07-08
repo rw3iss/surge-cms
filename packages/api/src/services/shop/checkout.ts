@@ -19,6 +19,7 @@ import { logger, } from '../../utils/logger';
 import { getPaymentProvider, } from '../payment';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
 import { generateOrderNumber, } from './orderNumber';
+import { getShopSettings, } from './settings';
 import type { AuditContext, } from '../types';
 
 const paymentProvider = getPaymentProvider();
@@ -68,24 +69,9 @@ interface ResolvedLine {
     requiresShipping: boolean;
 }
 
-// ─── Shop settings read (shipping + tax config) ───────────────────
-
-const DEFAULT_SETTINGS: ShopSettings = {
-    currency: 'usd',
-    taxEnabled: true,
-    businessName: '',
-    storeEnabled: true,
-    stripeTaxEnabled: false,
-    shipping: {},
-};
-
-async function getShopSettings(): Promise<ShopSettings> {
-    const result = await query<{ value: ShopSettings; }>(
-        `SELECT value FROM site_settings WHERE key = 'shop_settings'`,
-    );
-    if (result.rows.length === 0) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...result.rows[0].value, };
-}
+// Shop settings (shipping + tax + currency) come from the shop settings
+// service (services/shop/settings.ts) which reads the `shop_settings`
+// site_settings row merged with the registry-seeded defaults.
 
 // ─── Validation + total computation ───────────────────────────────
 

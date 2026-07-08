@@ -15,6 +15,7 @@ import type {
     ShopReviewCreateBody,
     ShopReviewListQuery,
     ShopReviewModerateBody,
+    ShopSettingsUpdateBody,
 } from '@rw/cms-shared';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
@@ -24,6 +25,7 @@ import * as checkout from '../services/shop/checkout';
 import * as orders from '../services/shop/orders';
 import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
+import * as shopSettings from '../services/shop/settings';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -183,6 +185,37 @@ const orderUpdateSchema = z.object({
     trackingNumber: z.string().nullish(),
     notes: z.string().nullish(),
 },) satisfies z.ZodType<ShopOrderUpdateBody>;
+
+// ── Settings ──
+
+const shopSettingsPatch = z.object({
+    currency: z.string().length(3,).optional(),
+    taxEnabled: z.boolean().optional(),
+    businessName: z.string().optional(),
+    businessAddress: z.string().optional(),
+    storeEnabled: z.boolean().optional(),
+    stripeTaxEnabled: z.boolean().optional(),
+    shipping: z.object({
+        flatCents: z.number().int().min(0,).optional(),
+        freeThresholdCents: z.number().int().min(0,).optional(),
+        rates: z.array(z.object({
+            name: z.string(),
+            priceCents: z.number().int().min(0,),
+        },),).optional(),
+    },).optional(),
+},);
+
+const shopAppearancePatch = z.object({
+    gridColumns: z.number().int().min(1,).max(6,).optional(),
+    showRatings: z.boolean().optional(),
+    cardStyle: z.string().optional(),
+    currencyDisplay: z.string().optional(),
+},);
+
+const shopSettingsUpdateSchema = z.object({
+    settings: shopSettingsPatch.optional(),
+    appearance: shopAppearancePatch.optional(),
+},) satisfies z.ZodType<ShopSettingsUpdateBody>;
 
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertProductListQuery = AssertCompatible<z.infer<typeof productListQuery>, ShopProductListQuery>;
@@ -573,5 +606,31 @@ export const shopRoutes = [
         summary: 'Re-send the order receipt email (admin).',
         input: { params: idParams, },
         handler: ({ params, audit, },) => orders.resendReceipt(params.id, audit(),),
+    },),
+
+    // ── Settings ──
+    // The literal /settings/admin is declared before /settings; neither
+    // takes a path param, so there's no catch-all collision.
+
+    // Public storefront projection (cache-safe: no Stripe secret keys).
+    defineRoute({
+        method: 'get', path: '/settings', auth: 'optional',
+        summary: 'Storefront shop settings: appearance + a safe subset of config (currency, store/tax flags). No secret keys.',
+        handler: () => shopSettings.getPublic(),
+    },),
+
+    // Full config (admin).
+    defineRoute({
+        method: 'get', path: '/settings/admin', auth: 'admin',
+        summary: 'Full shop settings + appearance (admin).',
+        handler: () => shopSettings.getAdmin(),
+    },),
+
+    // Update config (admin): merge partial into shop_settings / shop_appearance.
+    defineRoute({
+        method: 'put', path: '/settings', auth: 'admin',
+        summary: 'Update shop settings and/or appearance (admin); merges the partial and returns the full config.',
+        input: { body: shopSettingsUpdateSchema, },
+        handler: ({ body, audit, },) => shopSettings.update(body, audit(),),
     },),
 ];

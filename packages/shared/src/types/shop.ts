@@ -233,3 +233,19 @@ export interface ShopAppearance {
     cardStyle: string;
     currencyDisplay?: string;
 }
+
+/**
+ * Storefront-safe projection of `ShopSettings`. Emitted by the public
+ * `GET /shop/settings` endpoint (cached, served to everyone). Carries only
+ * display-relevant flags — NEVER Stripe secret keys, payout/account
+ * internals, or business address. Stripe keys live in env/config, not in
+ * these `site_settings` rows, so they can't leak here by construction.
+ */
+export interface ShopPublicSettings {
+    currency: string;
+    /** display flag only (does the store apply tax?) — not a rate */
+    taxEnabled: boolean;
+    storeEnabled: boolean;
+    businessName: string;
+    currencyDisplay?: string;
+}
