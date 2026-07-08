@@ -135,11 +135,16 @@ function splitStructure(input: Partial<ProductWriteInput>,): {
 
 async function syncStructure(
     productId: string,
-    structure: repo.ProductStructure,
+    structure: repo.ProductStructure | null,
     taxonomy: { categoryIds?: string[]; collectionIds?: string[]; tags?: string[]; },
 ): Promise<void> {
     await transaction(async (client,) => {
-        await repo.replaceProductStructure(productId, structure, client,);
+        // Only replace options/variants/media when structure was supplied.
+        // A `null` structure (e.g. a taxonomy-only update) must NOT wipe the
+        // product's variants — that would destroy the catalog + inventory.
+        if (structure !== null) {
+            await repo.replaceProductStructure(productId, structure, client,);
+        }
         if (taxonomy.categoryIds !== undefined) {
             await catalog.setProductCategories(productId, taxonomy.categoryIds, client,);
         }
@@ -186,7 +191,7 @@ export async function update(
         || taxonomy.collectionIds !== undefined
         || taxonomy.tags !== undefined;
     if (hasStructure || hasTaxonomy) {
-        await syncStructure(id, hasStructure ? structure : {}, taxonomy,);
+        await syncStructure(id, hasStructure ? structure : null, taxonomy,);
     }
     await invalidateProductCache();
     await logAudit({

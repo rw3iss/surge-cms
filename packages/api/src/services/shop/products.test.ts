@@ -103,4 +103,23 @@ describe('shop products service', () => {
         const params = variantInserts[0].params as unknown[];
         expect(params[params.length - 1],).toBe(true,);
     },);
+
+    it('taxonomy-only update does NOT touch variants/options (no structure wipe)', async () => {
+        // Regression: previously a taxonomy-only update passed `{}` as the
+        // structure, so replaceProductStructure deleted every variant and
+        // synthesized a default — silently destroying the catalog.
+        await products.update('p1', { categoryIds: ['c1',], }, ctx,);
+        const variantWrites = txnQueries.filter((q,) =>
+            q.sql.includes('shop_variants') || q.sql.includes('shop_product_options')
+        );
+        expect(variantWrites.length,).toBe(0,);
+    },);
+
+    it('update WITH variants re-syncs the structure', async () => {
+        await products.update('p1', {
+            variants: [{ priceCents: 500, }, { priceCents: 700, },],
+        }, ctx,);
+        const variantInserts = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
+        expect(variantInserts.length,).toBe(2,);
+    },);
 },);
