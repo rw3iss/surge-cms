@@ -19,7 +19,13 @@ const SubscribePage = lazy(() => import('./pages/Subscribe'));
 const CampaignPage = lazy(() => import('./pages/Campaign'));
 const ContactPage = lazy(() => import('./pages/Contact'));
 const FormPage = lazy(() => import('./pages/Form'));
-const ShopPage = lazy(() => import('./pages/Shop'));
+const ShopIndexPage = lazy(() => import('./pages/shop/ShopIndex'));
+const ShopProductPage = lazy(() => import('./pages/shop/ShopProduct'));
+const ShopCollectionPage = lazy(() => import('./pages/shop/ShopCollection'));
+const ShopCategoryPage = lazy(() => import('./pages/shop/ShopCategory'));
+const ShopCartPage = lazy(() => import('./pages/shop/ShopCart'));
+const ShopCheckoutPage = lazy(() => import('./pages/shop/ShopCheckout'));
+const ShopOrderConfirmationPage = lazy(() => import('./pages/shop/ShopOrderConfirmation'));
 const SearchPage = lazy(() => import('./pages/Search'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const SetupPage = lazy(() => import('./pages/setup/Setup'));
@@ -83,7 +89,13 @@ const App: Component = () => {
                                     <Route path="/donate" component={DynamicPage} />
                                     <Route path="/subscribe" component={SubscribePage} />
                                     <Route path="/campaigns/:slug" component={CampaignPage} />
-                                    <Route path="/shop" component={ShopPage} />
+                                    <Route path="/shop" component={ShopIndexPage} />
+                                    <Route path="/shop/cart" component={ShopCartPage} />
+                                    <Route path="/shop/checkout" component={ShopCheckoutPage} />
+                                    <Route path="/shop/collections/:slug" component={ShopCollectionPage} />
+                                    <Route path="/shop/categories/:slug" component={ShopCategoryPage} />
+                                    <Route path="/shop/orders/:number" component={ShopOrderConfirmationPage} />
+                                    <Route path="/shop/:slug" component={ShopProductPage} />
                                     <Route path="/contact" component={ContactPage} />
                                     <Route path="/forms/:slug" component={FormPage} />
                                     <Route path="/search" component={SearchPage} />

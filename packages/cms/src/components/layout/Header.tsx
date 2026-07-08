@@ -3,6 +3,8 @@ import { isAdminRole, type NavigationItem, } from '@rw/cms-shared';
 import { Component, createEffect, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { cartCount, } from '../../stores/shopCart';
 import SiteLogo from '../common/branding/SiteLogo';
 import './Header.scss';
 
@@ -475,6 +477,14 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
 
                         <div class="header__actions">
+                            <Show when={isFeatureEnabled('shop',)}>
+                                <A href="/shop/cart" class="header__cart" aria-label="Cart" onClick={closeMobileMenu}>
+                                    <span class="header__cart-icon" aria-hidden="true">🛒</span>
+                                    <Show when={cartCount() > 0}>
+                                        <span class="header__cart-badge">{cartCount()}</span>
+                                    </Show>
+                                </A>
+                            </Show>
                             <Show
                                 when={auth.isAuthenticated}
                                 fallback={
