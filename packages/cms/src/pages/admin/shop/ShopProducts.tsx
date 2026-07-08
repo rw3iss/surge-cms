@@ -7,6 +7,7 @@ import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../../hooks/useSearchFilter';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
+import { money, } from '../../shop/shopFormat';
 import ShopGuard from './ShopGuard';
 
 const ShopProductsInner: Component = () => {
@@ -118,6 +119,7 @@ const ShopProductsInner: Component = () => {
                                         <input type="checkbox" checked={allSelected()} onChange={toggleAll} />
                                     </th>
                                     <th>Title</th>
+                                    <th>Price</th>
                                     <th>Status</th>
                                     <th>Rating</th>
                                     <th>Actions</th>
@@ -138,6 +140,14 @@ const ShopProductsInner: Component = () => {
                                                 <A href={`/admin/shop/products/${p.id}`} class="table-link">
                                                     {p.title}
                                                 </A>
+                                            </td>
+                                            <td>
+                                                <Show
+                                                    when={p.fromPriceCents != null}
+                                                    fallback={<span class="form-help-muted">—</span>}
+                                                >
+                                                    {money(p.fromPriceCents!,)}
+                                                </Show>
                                             </td>
                                             <td>
                                                 <span class={`badge ${getStatusBadgeClass(p.status,)}`}>

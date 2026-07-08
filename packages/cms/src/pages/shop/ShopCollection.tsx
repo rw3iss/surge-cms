@@ -79,6 +79,8 @@ const ShopCollectionInner: Component = () => {
                                                 cardStyle={appearance().cardStyle}
                                                 showRatings={appearance().showRatings}
                                                 currency={currency()}
+                                                priceCents={product.fromPriceCents}
+                                                image={product.primaryImageUrl}
                                             />
                                         )}
                                     </For>

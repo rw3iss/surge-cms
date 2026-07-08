@@ -12,12 +12,12 @@ interface ProductCardProps {
     showRatings?: boolean;
     /** display currency for any price shown */
     currency?: string;
-    /** optional starting price (cents) — the public product-list DTO does
-     *  NOT carry price/variants, so this is only populated by callers that
-     *  have detail (e.g. a collection page that also loaded variants). When
-     *  absent the card shows "View for price". */
+    /** optional starting price (cents). List rows carry this as
+     *  `product.fromPriceCents` (min active-variant price); callers pass it
+     *  through. When absent the card shows "View for price". */
     priceCents?: number | null;
-    /** optional image url — likewise absent on the list DTO. */
+    /** optional image url. List rows carry this as `product.primaryImageUrl`
+     *  (position-0 image); callers pass it through. */
     image?: string | null;
 }
 
@@ -57,7 +57,7 @@ const ProductCard: Component<ProductCardProps> = (props,) => {
                         when={props.priceCents != null}
                         fallback={<span class="shop-card__price-cta">View for price</span>}
                     >
-                        {money(props.priceCents!, props.currency,)}
+                        <span class="shop-card__price-from">From</span> {money(props.priceCents!, props.currency,)}
                     </Show>
                 </div>
             </div>

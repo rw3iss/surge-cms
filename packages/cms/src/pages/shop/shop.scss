@@ -162,6 +162,12 @@
         font-size: $font-size-sm;
     }
 
+    &__price-from {
+        font-weight: 500;
+        color: var(--site-text-muted, #6b7280);
+        font-size: $font-size-sm;
+    }
+
     &--minimal {
         border: none;
         background: transparent;
