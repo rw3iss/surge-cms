@@ -2,8 +2,12 @@ import { z, } from 'zod';
 import type {
     AssertCompatible,
     ShopCategoryCreateBody,
+    ShopCheckoutBody,
+    ShopCheckoutPreviewBody,
     ShopCollectionCreateBody,
     ShopCollectionListQuery,
+    ShopOrderListQuery,
+    ShopOrderUpdateBody,
     ShopProductBySlugQuery,
     ShopProductCreateBody,
     ShopProductListQuery,
@@ -16,6 +20,8 @@ import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
 import * as catalog from '../services/shop/catalog';
+import * as checkout from '../services/shop/checkout';
+import * as orders from '../services/shop/orders';
 import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
 
@@ -131,12 +137,60 @@ const reviewModerateSchema = z.object({
     status: z.enum(['approved', 'rejected',],),
 },) satisfies z.ZodType<ShopReviewModerateBody>;
 
+// ── Checkout / orders ──
+
+const addressSchema = z.object({
+    name: z.string().optional(),
+    line1: z.string().optional(),
+    line2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().optional(),
+    phone: z.string().optional(),
+},);
+
+const checkoutLineSchema = z.object({
+    variantId: z.string(),
+    qty: z.number().int().min(1,),
+},);
+
+const checkoutPreviewSchema = z.object({
+    items: z.array(checkoutLineSchema,),
+    shippingAddress: addressSchema.nullish(),
+},) satisfies z.ZodType<ShopCheckoutPreviewBody>;
+
+const checkoutSchema = z.object({
+    items: z.array(checkoutLineSchema,),
+    customerEmail: z.string().email(),
+    customerName: z.string().nullish(),
+    shippingAddress: addressSchema.nullish(),
+    billingAddress: addressSchema.nullish(),
+},) satisfies z.ZodType<ShopCheckoutBody>;
+
+const orderListQuery = z.object({
+    status: z.string().optional(),
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(20,),
+},);
+
+const orderNumberParams = z.object({ orderNumber: z.string(), },);
+const downloadParams = z.object({ orderNumber: z.string(), token: z.string(), },);
+
+const orderUpdateSchema = z.object({
+    status: z.enum(['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',],).optional(),
+    fulfillmentStatus: z.enum(['unfulfilled', 'partial', 'fulfilled',],).optional(),
+    trackingNumber: z.string().nullish(),
+    notes: z.string().nullish(),
+},) satisfies z.ZodType<ShopOrderUpdateBody>;
+
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertProductListQuery = AssertCompatible<z.infer<typeof productListQuery>, ShopProductListQuery>;
 type _AssertProductSlugQuery = AssertCompatible<z.infer<typeof productSlugQuery>, ShopProductBySlugQuery>;
 type _AssertCollectionListQuery = AssertCompatible<z.infer<typeof collectionListQuery>, ShopCollectionListQuery>;
 type _AssertReviewListQuery = AssertCompatible<z.infer<typeof reviewListQuery>, ShopReviewListQuery>;
 type _AssertReviewAdminListQuery = AssertCompatible<z.infer<typeof reviewAdminListQuery>, ShopReviewAdminListQuery>;
+type _AssertOrderListQuery = AssertCompatible<z.infer<typeof orderListQuery>, ShopOrderListQuery>;
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal paths (/products/slug/:slug, /products/bulk, /categories/*,
@@ -427,5 +481,97 @@ export const shopRoutes = [
             await reviews.remove(params.id, audit(),);
             return { message: 'Review deleted', };
         },
+    },),
+
+    // ── Checkout ──
+    // Literal /checkout* paths declared before the /orders/:id family so
+    // they never collide. Both are `optional` (guest or logged-in).
+
+    // Live-total preview — validate + price without creating an order.
+    defineRoute({
+        method: 'post', path: '/checkout/preview', auth: 'optional',
+        summary: 'Preview checkout totals (subtotal/shipping/tax) without creating an order.',
+        input: { body: checkoutPreviewSchema, },
+        handler: ({ body, },) => checkout.previewCheckout(body,),
+    },),
+
+    // Place order → order(pending) + items + Stripe PaymentIntent.
+    defineRoute({
+        method: 'post', path: '/checkout', auth: 'optional',
+        summary: 'Place an order: validate the cart, create a pending order + Stripe PaymentIntent, return the client secret.',
+        input: { body: checkoutSchema, },
+        handler: async ({ body, audit, },) => {
+            const result = await checkout.createCheckout(body, audit(),);
+            return reply(result, { status: 201, },);
+        },
+    },),
+
+    // ── Orders ──
+    // Literal /orders/number/:orderNumber before /orders/:id. The
+    // download route (/orders/:orderNumber/download/:token, 4 segments)
+    // never collides with /orders/:id.
+
+    // List orders (auth required): user → own, admin → all. Paginated.
+    defineRoute({
+        method: 'get', path: '/orders', auth: 'user',
+        summary: 'List orders. Regular users see their own (by user_id/email); admins see all. Paginated.',
+        input: { query: orderListQuery, },
+        handler: async ({ query, user, apiKey, },) => {
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            const result = await orders.list(
+                { status: query.status, },
+                { isAdmin, userId: user?.id, email: user?.email, },
+                { page: query.page, limit: query.limit, },
+            );
+            return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    // Public confirmation view by order number (limited projection for anon).
+    defineRoute({
+        method: 'get', path: '/orders/number/:orderNumber', auth: 'optional',
+        summary: 'Fetch an order by its human order number (public confirmation view; limited fields for anonymous callers).',
+        input: { params: orderNumberParams, },
+        handler: async ({ params, user, apiKey, },) => {
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            const order = await orders.getByNumber(params.orderNumber, isAdmin,);
+            if (!order) throw new NotFoundError('Order',);
+            return order;
+        },
+    },),
+
+    // Token-gated digital download → resolved file URL (JSON).
+    defineRoute({
+        method: 'get', path: '/orders/:orderNumber/download/:token', auth: 'public',
+        summary: 'Resolve a token-gated digital download to a file URL (public; unguessable token is the guard).',
+        input: { params: downloadParams, },
+        handler: ({ params, },) => orders.getDigitalDownload(params.orderNumber, params.token,),
+    },),
+
+    // Order detail by id: user → own, admin → any.
+    defineRoute({
+        method: 'get', path: '/orders/:id', auth: 'user',
+        summary: 'Fetch an order by id with items. Users see their own; admins see any.',
+        input: { params: idParams, },
+        handler: ({ params, user, apiKey, },) => {
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            return orders.get(params.id, { isAdmin, userId: user?.id, email: user?.email, },);
+        },
+    },),
+
+    // Update order (admin): status/fulfillment/tracking/notes; refund on 'refunded'.
+    defineRoute({
+        method: 'patch', path: '/orders/:id', auth: 'admin',
+        summary: 'Update an order (admin): status/fulfillment/tracking/notes. Transition to refunded issues a Stripe refund.',
+        input: { params: idParams, body: orderUpdateSchema, },
+        handler: ({ params, body, audit, },) => orders.update(params.id, body, audit(),),
+    },),
+
+    // Resend the receipt email (admin).
+    defineRoute({
+        method: 'post', path: '/orders/:id/resend-receipt', auth: 'admin',
+        summary: 'Re-send the order receipt email (admin).',
+        input: { params: idParams, },
+        handler: ({ params, audit, },) => orders.resendReceipt(params.id, audit(),),
     },),
 ];

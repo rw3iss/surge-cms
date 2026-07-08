@@ -576,6 +576,14 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
         case 'payment_intent.succeeded': {
             const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
+            // Shop orders route here too — delegate to the shop fulfillment
+            // handler and stop (donations never carry orderType='shop').
+            if (paymentIntent.metadata?.orderType === 'shop') {
+                const { fulfillShopOrder, } = await import('./shop/fulfillment');
+                await fulfillShopOrder(paymentIntent,);
+                break;
+            }
+
             const donationResult = await query(
                 `UPDATE donations SET status = 'completed', stripe_charge_id = $1
                  WHERE stripe_payment_intent_id = $2

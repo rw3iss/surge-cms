@@ -14,8 +14,13 @@
  */
 
 import type {
+    ShopAddress,
     ShopCategory,
     ShopCollection,
+    ShopFulfillmentStatus,
+    ShopOrder,
+    ShopOrderDetail,
+    ShopOrderStatus,
     ShopProduct,
     ShopProductDetail,
     ShopProductType,
@@ -317,4 +322,109 @@ export type ShopReviewModerateResponse = ShopReview;
 /** DELETE /shop/reviews/:id — confirmation message. */
 export interface ShopReviewDeleteResponse {
     message: string;
+}
+
+// ─── Checkout ─────────────────────────────────────────────────────
+// Both routes are `optional` auth (guest or logged-in). Totals are always
+// computed server-side from DB variant prices — the client's items are just
+// {variantId, qty}.
+
+/** One cart line as sent to checkout: a variant + quantity. */
+export interface ShopCheckoutLine {
+    variantId: string;
+    qty: number;
+}
+
+/** Body for POST /shop/checkout/preview — validate + price WITHOUT
+ *  creating an order (live checkout-page total). */
+export interface ShopCheckoutPreviewBody {
+    items: ShopCheckoutLine[];
+    shippingAddress?: ShopAddress | null;
+}
+
+/** Server-computed totals (cents). */
+export interface ShopCheckoutTotals {
+    subtotalCents: number;
+    shippingCents: number;
+    taxCents: number;
+    totalCents: number;
+    currency: string;
+}
+
+/** POST /shop/checkout/preview — the computed totals. */
+export type ShopCheckoutPreviewResponse = ShopCheckoutTotals;
+
+/** Body for POST /shop/checkout — place the order + create a PaymentIntent. */
+export interface ShopCheckoutBody {
+    items: ShopCheckoutLine[];
+    customerEmail: string;
+    customerName?: string | null;
+    shippingAddress?: ShopAddress | null;
+    billingAddress?: ShopAddress | null;
+}
+
+/** POST /shop/checkout — the PaymentIntent client secret + order refs. */
+export interface ShopCheckoutResponse {
+    clientSecret: string | null;
+    orderId: string;
+    orderNumber: string;
+    totalCents: number;
+}
+
+// ─── Orders ───────────────────────────────────────────────────────
+// Role-shaped: user sees own (by user_id/email), admin sees all. Never
+// cached. The by-number route is public (confirmation page) with a limited
+// projection for anonymous callers.
+
+/** Query accepted by GET /shop/orders. */
+export interface ShopOrderListQuery {
+    status?: string;
+    page?: number;
+    limit?: number;
+}
+
+/** GET /shop/orders — order rows (own/all). Page meta on the envelope. */
+export type ShopOrderListResponse = ShopOrder[];
+
+/** Params for the order-by-id family. */
+export interface ShopOrderIdParams {
+    id: string;
+}
+
+/** GET /shop/orders/:id — full order detail (order + items). */
+export type ShopOrderResponse = ShopOrderDetail;
+
+/** Params for GET /shop/orders/number/:orderNumber. */
+export interface ShopOrderByNumberParams {
+    orderNumber: string;
+}
+
+/** GET /shop/orders/number/:orderNumber — the confirmation detail. */
+export type ShopOrderByNumberResponse = ShopOrderDetail;
+
+/** Body for PATCH /shop/orders/:id (admin). */
+export interface ShopOrderUpdateBody {
+    status?: ShopOrderStatus;
+    fulfillmentStatus?: ShopFulfillmentStatus;
+    trackingNumber?: string | null;
+    notes?: string | null;
+}
+
+/** PATCH /shop/orders/:id — the updated order detail. */
+export type ShopOrderUpdateResponse = ShopOrderDetail;
+
+/** POST /shop/orders/:id/resend-receipt — confirmation message. */
+export interface ShopOrderResendReceiptResponse {
+    message: string;
+}
+
+/** Params for GET /shop/orders/:orderNumber/download/:token. */
+export interface ShopOrderDownloadParams {
+    orderNumber: string;
+    token: string;
+}
+
+/** GET /shop/orders/:orderNumber/download/:token — the resolved file URL. */
+export interface ShopOrderDownloadResponse {
+    url: string;
 }

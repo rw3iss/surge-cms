@@ -201,6 +201,11 @@ export interface ShopProductDetail extends ShopProduct {
     tags: string[];
 }
 
+/** Full order detail: the order row plus its line-item snapshots. */
+export interface ShopOrderDetail extends ShopOrder {
+    items: ShopOrderItem[];
+}
+
 // ── Config (site_settings rows: shop_settings / shop_appearance) ──────
 
 export interface ShopShippingRate {
