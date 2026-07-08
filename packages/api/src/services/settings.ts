@@ -170,6 +170,9 @@ async function computePublicFeatures(
         // enforces the prerequisite — once on, the row will be `true`
         // (and `users_enabled` will be too).
         mailing_lists: { enabled: settings.mailing_lists_enabled === true, },
+        // Shop is opt-in. Requires `users`. Disabled until the admin
+        // installs the feature and the `shop_enabled` row flips to true.
+        shop: { enabled: settings.shop_enabled === true, },
     };
 }
 

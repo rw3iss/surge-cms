@@ -254,6 +254,13 @@ export interface SiteFeatures {
      * the mailing-list sends use. Requires `users`.
      */
     mailing_lists: { enabled: boolean; };
+    /**
+     * Shop ecommerce feature module. When enabled, the admin sidebar
+     * exposes the Shop area (products, categories, collections, orders,
+     * reviews, settings) and the public `/shop/*` storefront routes
+     * activate. Requires `users`. Disabled by default.
+     */
+    shop: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */

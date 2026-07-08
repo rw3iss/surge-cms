@@ -29,7 +29,7 @@ import type { SiteHeaderSettings, } from '../../types/siteHeader';
  */
 export type SettingsFeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists';
+    | 'mailing_lists' | 'shop';
 
 // ─── GET /settings/public ─────────────────────────────────────────────
 
@@ -81,9 +81,28 @@ export interface SettingsUpdateBody {
     disableDependents?: boolean;
 }
 
-/** PUT /settings (200, standard envelope) — confirmation message. */
+/** PUT /settings (200, standard envelope) — confirmation + optional install results. */
 export interface SettingsUpdateResponse {
     message: string;
+    /** Present when the update toggled one or more features. One entry
+     *  per feature step in the plan, carrying the migrations that ran
+     *  (empty when the feature was already installed or was disabled). */
+    features?: {
+        key: string;
+        enabled: boolean;
+        appliedMigrations: string[];
+    }[];
+}
+
+/** POST /settings/features/:key/uninstall — body (must pass `confirm: true`). */
+export interface SettingsFeatureUninstallBody {
+    confirm: true;
+}
+
+/** POST /settings/features/:key/uninstall — success response. */
+export interface SettingsFeatureUninstallResponse {
+    message: string;
+    droppedTables: string[];
 }
 
 /**
