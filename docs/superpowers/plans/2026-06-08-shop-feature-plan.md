@@ -1,5 +1,7 @@
 # Shop Feature + Feature-Lifecycle Implementation Plan
 
+**Status:** Implemented (2026-07-08) — Phases 0–8 complete; 29 modules / 234 routes.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship a toggle-able `shop` ecommerce feature (catalog with variants, media, reviews, cart, on-site Stripe checkout, orders, storefront) — preceded by hardening the feature-lifecycle system (idempotent install with status relay + a real uninstall that drops tables/data).

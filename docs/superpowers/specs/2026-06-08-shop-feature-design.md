@@ -1,7 +1,8 @@
 # Shop (Ecommerce) Feature + Feature-Lifecycle System — Design
 
 Date: 2026-06-08
-Status: Approved (pending spec review)
+Status: Implemented
+Implemented: 2026-07-08
 
 ## Goal
 

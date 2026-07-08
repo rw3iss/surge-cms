@@ -788,7 +788,7 @@ await cms.payments.donate({ campaignId, amount: 2500 });
 ```
 </details>
 
-<details><summary><code>cms.settings</code> — public/admin settings + feature toggles (20 methods)</summary>
+<details><summary><code>cms.settings</code> — public/admin settings + feature toggles (21 methods)</summary>
 
 `update()` runs the feature dependency planner and throws `FeatureCascadeError`
 on a rejected toggle (see [Feature cascade](#feature-cascade-settings-409)).
@@ -798,7 +798,8 @@ There is no `GET /settings/:key` — reads go through the literal-path getters.
 |--------|-----------|------|------|-------|
 | `getPublic` | `() → SettingsPublicResponse` | `GET /settings/public` | public | cached GET |
 | `getAll` | `() → SettingsGetAllResponse` | `GET /settings` | admin | cached GET |
-| `update` | `(body: SettingsUpdateBody) → SettingsUpdateResponse` | `PUT /settings` | admin | mutation → settings (throws `FeatureCascadeError` on 409) |
+| `update` | `(body: SettingsUpdateBody) → SettingsUpdateResponse` | `PUT /settings` | admin | mutation → settings (feature toggles relay `features: [{ key, enabled, appliedMigrations }]`; throws `FeatureCascadeError` on 409) |
+| `uninstallFeature` | `(key: string) → SettingsFeatureUninstallResponse` | `POST /settings/features/:key/uninstall` | admin | mutation → settings (sends `{ confirm: true }`; drops the feature's tables + data → `{ droppedTables }`) |
 | `setKey` | `(key: string, body: SettingsRawKeyBody) → SettingsRawKeyResponse` | `PUT /settings/:key` | admin | mutation → settings |
 | `deleteKey` | `(key: string) → SettingsRawKeyDeleteResponse` | `DELETE /settings/:key` | admin | mutation → settings |
 | `getHomepageHero` | `() → SettingsHomepageHeroResponse` | `GET /settings/homepage-hero` | public | cached GET |
@@ -820,6 +821,69 @@ There is no `GET /settings/:key` — reads go through the literal-path getters.
 ```ts
 const pub = await cms.settings.getPublic();
 await cms.settings.update({ features: { mailing_lists: true } });
+```
+</details>
+
+<details><summary><code>cms.shop</code> — ecommerce: catalog, reviews, checkout, orders, settings (grouped sub-objects)</summary>
+
+Mounted at `/api/v1/shop`; **every method 404s when the `shop` feature is
+disabled** (`NotFoundError`). Exposed as grouped sub-objects
+(`cms.shop.products`, `.categories`, `.collections`, `.tags`, `.reviews`,
+`.checkout`, `.orders`, `.settings`) rather than a flat method list.
+
+**`cms.shop.products`** — catalog entries with nested options/variants/media.
+
+| Method | Signature | HTTP | Auth | Cache |
+|--------|-----------|------|------|-------|
+| `listPublic` | `(query?: ShopProductListQuery) → Paginated<ShopProductListItem>` | `GET /shop/products` | public | cached GET (active-only, paginated; adds `fromPriceCents`/`primaryImageUrl`) |
+| `list` | `(query?: ShopProductListQuery) → Paginated<ShopProductListItem>` | `GET /shop/products?all=true` | public | cached GET (all-statuses, admin) |
+| `getBySlug` | `(slug: string, preview?: 'admin') → ShopProductBySlugResponse` | `GET /shop/products/slug/:slug` | public | cached GET (full nested detail) |
+| `getById` | `(id: string) → ShopProductByIdResponse` | `GET /shop/products/:id` | admin | cached GET |
+| `create` | `(body: ShopProductCreateBody) → ShopProductCreateResponse` | `POST /shop/products` | admin | mutation → shop |
+| `update` | `(id: string, body: ShopProductUpdateBody) → ShopProductUpdateResponse` | `PUT /shop/products/:id` | admin | mutation → shop |
+| `remove` | `(id: string) → ShopProductDeleteResponse` | `DELETE /shop/products/:id` | admin | mutation → shop |
+| `bulk` | `(body: ShopProductBulkBody) → ShopProductBulkResponse` | `POST /shop/products/bulk` | admin | mutation → shop |
+
+**`cms.shop.categories`** (hierarchical) — `list` · `getBySlug` · `create` · `update` · `remove` (GET public / writes admin).
+**`cms.shop.collections`** (curated) — `list` (public published; `all=true` admin) · `getBySlug` · `create` · `update` · `remove`.
+**`cms.shop.tags`** — `list()` → distinct tag list (public).
+
+**`cms.shop.reviews`** — moderation + rating denormalization.
+
+| Method | Signature | HTTP | Auth | Cache |
+|--------|-----------|------|------|-------|
+| `list` | `(productId, params?) → Paginated<ShopReview>` | `GET /shop/products/:productId/reviews` | public | cached GET (approved-only) |
+| `create` | `(productId, body: ShopReviewCreateBody) → …` | `POST /shop/products/:productId/reviews` | user | mutation → shop (pending; verified-purchase badge) |
+| `markHelpful` | `(reviewId) → …` | `POST /shop/reviews/:id/helpful` | public | mutation → shop |
+| `adminList` | `(params?) → Paginated<…>` | `GET /shop/reviews` | admin | cached GET (moderation queue) |
+| `moderate` | `(reviewId, body) → …` | `PUT /shop/reviews/:id` | admin | mutation → shop (approve/reject; recomputes rating) |
+| `remove` | `(reviewId) → …` | `DELETE /shop/reviews/:id` | admin | mutation → shop |
+
+**`cms.shop.checkout`** — the on-site Stripe flow.
+
+| Method | Signature | HTTP | Auth | Cache |
+|--------|-----------|------|------|-------|
+| `preview` | `(body: ShopCheckoutPreviewBody) → ShopCheckoutPreviewResponse` | `POST /shop/checkout/preview` | optional | mutation (server-priced totals; no order) |
+| `create` | `(body: ShopCheckoutBody) → ShopCheckoutResponse` | `POST /shop/checkout` | optional | mutation → shop (`{ clientSecret, orderId, orderNumber, totalCents }`) |
+
+**`cms.shop.orders`** — role-shaped (users see own, admins all); never cached.
+
+| Method | Signature | HTTP | Auth | Cache |
+|--------|-----------|------|------|-------|
+| `list` | `(query?) → Paginated<…>` | `GET /shop/orders` | user (own) / admin (all) | cached GET |
+| `get` | `(id) → ShopOrderResponse` | `GET /shop/orders/:id` | user / admin | cached GET |
+| `getByNumber` | `(orderNumber) → …` | `GET /shop/orders/number/:orderNumber` | user / admin | cached GET (confirmation page) |
+| `update` | `(id, body) → …` | `PATCH /shop/orders/:id` | admin | mutation → shop (status/fulfillment/tracking/refund) |
+| `resendReceipt` | `(id) → …` | `POST /shop/orders/:id/resend-receipt` | admin | mutation |
+| `downloadUrl` | `(orderNumber, token) → { url }` | `GET /shop/orders/:orderNumber/download/:token` | token-gated | GET (digital delivery) |
+
+**`cms.shop.settings`** — `getPublic()` (storefront-safe projection, public) · `getAdmin()` (full config, admin) · `update(body)` (`PUT /shop/settings`, admin merge).
+
+```ts
+const { data: products } = await cms.shop.products.listPublic({ page: 1 });
+const product = await cms.shop.products.getBySlug('t-shirt');
+const preview = await cms.shop.checkout.preview({ items: [{ variantId, qty: 2 }] });
+const { clientSecret, orderNumber } = await cms.shop.checkout.create({ /* items + address */ });
 ```
 </details>
 
@@ -851,7 +915,7 @@ await cms.sitemap.regenerate();
 
 ## Drift & coverage
 
-The method surface mirrors `docs/api-manifest.json` (28 modules / 198 routes).
+The method surface mirrors `docs/api-manifest.json` (29 modules / 234 routes).
 `src/modules/coverage.ts` declares `ROUTE_COVERAGE` (one entry per client
 method, in manifest form) and `INTENTIONALLY_UNEXPOSED`.
 `npm run check:drift -w packages/cms-client` (`scripts/check-drift.ts`) asserts
