@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-08T19:24:20.087Z",
-  "totalModules": 28,
-  "totalRoutes": 199,
+  "generatedAt": "2026-07-08T19:43:47.188Z",
+  "totalModules": 29,
+  "totalRoutes": 217,
   "modules": [
     {
       "module": "api-keys",
@@ -1362,6 +1362,138 @@
           "absolutePath": "/api/v1/setup/install",
           "auth": "public",
           "summary": "Run the installer, then restart into running mode (responds before restart)."
+        }
+      ]
+    },
+    {
+      "module": "shop",
+      "mountPath": "/api/v1/shop",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/products",
+          "absolutePath": "/api/v1/shop/products",
+          "auth": "optional",
+          "summary": "List products. Public active-only by default; admins passing all=true/status get the paginated admin list."
+        },
+        {
+          "method": "GET",
+          "path": "/products/slug/:slug",
+          "absolutePath": "/api/v1/shop/products/slug/:slug",
+          "auth": "optional",
+          "summary": "Fetch a product by slug with full nested detail. Public active-only; admins can preview=admin for any status."
+        },
+        {
+          "method": "POST",
+          "path": "/products/bulk",
+          "absolutePath": "/api/v1/shop/products/bulk",
+          "auth": "admin",
+          "summary": "Bulk status change / delete products by id list."
+        },
+        {
+          "method": "GET",
+          "path": "/products/:id",
+          "absolutePath": "/api/v1/shop/products/:id",
+          "auth": "admin",
+          "summary": "Fetch a product by id with full nested detail (any status)."
+        },
+        {
+          "method": "POST",
+          "path": "/products",
+          "absolutePath": "/api/v1/shop/products",
+          "auth": "admin",
+          "summary": "Create a product with its options/variants/media/taxonomy."
+        },
+        {
+          "method": "PUT",
+          "path": "/products/:id",
+          "absolutePath": "/api/v1/shop/products/:id",
+          "auth": "admin",
+          "summary": "Update a product and (when supplied) its structure/taxonomy."
+        },
+        {
+          "method": "DELETE",
+          "path": "/products/:id",
+          "absolutePath": "/api/v1/shop/products/:id",
+          "auth": "admin",
+          "summary": "Delete a product."
+        },
+        {
+          "method": "GET",
+          "path": "/categories",
+          "absolutePath": "/api/v1/shop/categories",
+          "auth": "public",
+          "summary": "List all categories (flat; tree via parentId)."
+        },
+        {
+          "method": "GET",
+          "path": "/categories/slug/:slug",
+          "absolutePath": "/api/v1/shop/categories/slug/:slug",
+          "auth": "public",
+          "summary": "Fetch a category by slug with its active products."
+        },
+        {
+          "method": "POST",
+          "path": "/categories",
+          "absolutePath": "/api/v1/shop/categories",
+          "auth": "admin",
+          "summary": "Create a category."
+        },
+        {
+          "method": "PUT",
+          "path": "/categories/:id",
+          "absolutePath": "/api/v1/shop/categories/:id",
+          "auth": "admin",
+          "summary": "Update a category."
+        },
+        {
+          "method": "DELETE",
+          "path": "/categories/:id",
+          "absolutePath": "/api/v1/shop/categories/:id",
+          "auth": "admin",
+          "summary": "Delete a category."
+        },
+        {
+          "method": "GET",
+          "path": "/collections",
+          "absolutePath": "/api/v1/shop/collections",
+          "auth": "optional",
+          "summary": "List collections. Public published-only; admins passing all=true get every collection."
+        },
+        {
+          "method": "GET",
+          "path": "/collections/slug/:slug",
+          "absolutePath": "/api/v1/shop/collections/slug/:slug",
+          "auth": "public",
+          "summary": "Fetch a collection by slug with its curated active products."
+        },
+        {
+          "method": "POST",
+          "path": "/collections",
+          "absolutePath": "/api/v1/shop/collections",
+          "auth": "admin",
+          "summary": "Create a collection (productIds set membership)."
+        },
+        {
+          "method": "PUT",
+          "path": "/collections/:id",
+          "absolutePath": "/api/v1/shop/collections/:id",
+          "auth": "admin",
+          "summary": "Update a collection (productIds reset membership)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/collections/:id",
+          "absolutePath": "/api/v1/shop/collections/:id",
+          "auth": "admin",
+          "summary": "Delete a collection."
+        },
+        {
+          "method": "GET",
+          "path": "/tags",
+          "absolutePath": "/api/v1/shop/tags",
+          "auth": "public",
+          "summary": "Distinct product tag list."
         }
       ]
     },

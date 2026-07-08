@@ -255,6 +255,26 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/settings/:key',
     'POST /api/v1/settings/features/:key/uninstall',
 
+    // ── shop (feature-gated; catalog) ──
+    'GET /api/v1/shop/products',
+    'GET /api/v1/shop/products/slug/:slug',
+    'POST /api/v1/shop/products/bulk',
+    'GET /api/v1/shop/products/:id',
+    'POST /api/v1/shop/products',
+    'PUT /api/v1/shop/products/:id',
+    'DELETE /api/v1/shop/products/:id',
+    'GET /api/v1/shop/categories',
+    'GET /api/v1/shop/categories/slug/:slug',
+    'POST /api/v1/shop/categories',
+    'PUT /api/v1/shop/categories/:id',
+    'DELETE /api/v1/shop/categories/:id',
+    'GET /api/v1/shop/collections',
+    'GET /api/v1/shop/collections/slug/:slug',
+    'POST /api/v1/shop/collections',
+    'PUT /api/v1/shop/collections/:id',
+    'DELETE /api/v1/shop/collections/:id',
+    'GET /api/v1/shop/tags',
+
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',
     'GET /sitemap.xml',
