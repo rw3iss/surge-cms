@@ -9,7 +9,7 @@ import type {
     SettingsSiteBrandingResponse, SettingsSiteBrandingBody,
     SettingsAppearanceResponse, SettingsAppearanceBody,
     SettingsSiteColorsResponse, SettingsSiteColorsBody, SettingsSiteColorsReplaceResponse,
-    SettingsSwatchUsagesResponse,
+    SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
 } from '@rw/cms-shared';
 import { ModuleBase, } from './base';
 import { CmsError, FeatureCascadeError, isFeatureCascadeResult, } from '../core/errors';
@@ -181,6 +181,15 @@ export class SettingsModule extends ModuleBase {
     swatchUsages(id: string,): Promise<SettingsSwatchUsagesResponse> {
         return this.get<SettingsSwatchUsagesResponse>('/settings/site-colors/usages/:id', {
             params: { id, },
+        },);
+    }
+
+    // ─── Feature lifecycle ────────────────────────────────────────
+
+    /** Permanently remove a feature (drops tables + data). Irreversible. */
+    uninstallFeature(key: string,): Promise<SettingsFeatureUninstallResponse> {
+        return this.mutate<SettingsFeatureUninstallResponse>('POST', '/settings/features/:key/uninstall', {
+            params: { key, }, body: { confirm: true, }, invalidates: ['settings',],
         },);
     }
 }

@@ -38,6 +38,7 @@ describe('module assembly', () => {
         expect(typeof cms.mailingLists.addSubscriber,).toBe('function',);
         expect(typeof cms.settings.getPublic,).toBe('function',);
         expect(typeof cms.settings.update,).toBe('function',);
+        expect(typeof cms.settings.uninstallFeature,).toBe('function',);
         expect(typeof cms.payments.donate,).toBe('function',);
         expect(typeof cms.payments.adminSubscriptions,).toBe('function',);
         expect(typeof cms.payments.adminTransactions,).toBe('function',);
@@ -49,9 +50,9 @@ describe('module assembly', () => {
         expect(typeof cms.sitemap.regenerate,).toBe('function',);
     },);
 
-    it('exports a complete coverage registry (192 + 6 = 198 manifest routes)', () => {
+    it('exports a complete coverage registry (193 + 6 = 199 manifest routes)', () => {
         const unique = new Set(ROUTE_COVERAGE,);
         expect(unique.size,).toBe(ROUTE_COVERAGE.length,); // no duplicates
-        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(198,);
+        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(199,);
     },);
 },);

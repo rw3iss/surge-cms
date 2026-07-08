@@ -253,6 +253,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/settings/site-colors/usages/:id',
     'PUT /api/v1/settings/:key',
     'DELETE /api/v1/settings/:key',
+    'POST /api/v1/settings/features/:key/uninstall',
 
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',

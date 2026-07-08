@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-06-07T17:59:18.858Z",
+  "generatedAt": "2026-07-08T19:24:20.087Z",
   "totalModules": 28,
-  "totalRoutes": 198,
+  "totalRoutes": 199,
   "modules": [
     {
       "module": "api-keys",
@@ -1286,6 +1286,13 @@
           "absolutePath": "/api/v1/settings/site-colors/usages/:id",
           "auth": "admin",
           "summary": "Count swatch:{id} references across the DB (delete-confirm UI)."
+        },
+        {
+          "method": "POST",
+          "path": "/features/:key/uninstall",
+          "absolutePath": "/api/v1/settings/features/:key/uninstall",
+          "auth": "admin",
+          "summary": "Permanently remove a feature: drop its tables + data. Irreversible."
         },
         {
           "method": "PUT",

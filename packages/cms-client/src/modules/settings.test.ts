@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, } from 'vitest';
 import type {
     SettingsPublicResponse, SettingsUpdateResponse, SettingsFeatureCascadeResult,
-    SitemapRegenerateResponse,
+    SitemapRegenerateResponse, SettingsFeatureUninstallResponse,
 } from '@rw/cms-shared';
 import { createClient, } from '../index';
 import { FeatureCascadeError, } from '../core/errors';
@@ -76,6 +76,20 @@ describe('settings + feed + sitemap modules', () => {
         const [url, init,] = fetchImpl.mock.calls[0];
         expect(String(url,),).toBe('http://api/feed.xml',);
         expect((init as RequestInit).method,).toBe('GET',);
+    },);
+
+    it('settings.uninstallFeature() POSTs /settings/features/:key/uninstall with body {confirm:true}', async () => {
+        const data: SettingsFeatureUninstallResponse = { message: 'Removed shop', droppedTables: ['shop_orders',], };
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(data,),);
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        const out = await cms.settings.uninstallFeature('shop',);
+        expect(out.message,).toBe('Removed shop',);
+        expect(out.droppedTables,).toEqual(['shop_orders',],);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/settings/features/shop/uninstall',);
+        expect((init as RequestInit).method,).toBe('POST',);
+        const body = JSON.parse((init as RequestInit).body as string,);
+        expect(body,).toEqual({ confirm: true, },);
     },);
 
     it('sitemap.regenerate() POSTs /api/v1/admin/sitemap/regenerate (standard JSON)', async () => {
