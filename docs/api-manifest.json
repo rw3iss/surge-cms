@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-08T19:43:47.188Z",
+  "generatedAt": "2026-07-08T19:55:24.705Z",
   "totalModules": 29,
-  "totalRoutes": 217,
+  "totalRoutes": 223,
   "modules": [
     {
       "module": "api-keys",
@@ -1494,6 +1494,48 @@
           "absolutePath": "/api/v1/shop/tags",
           "auth": "public",
           "summary": "Distinct product tag list."
+        },
+        {
+          "method": "GET",
+          "path": "/products/:productId/reviews",
+          "absolutePath": "/api/v1/shop/products/:productId/reviews",
+          "auth": "optional",
+          "summary": "List a product's approved reviews (public), paginated (newest or most-helpful)."
+        },
+        {
+          "method": "POST",
+          "path": "/products/:productId/reviews",
+          "absolutePath": "/api/v1/shop/products/:productId/reviews",
+          "auth": "user",
+          "summary": "Submit a product review (user tier). Created pending for moderation."
+        },
+        {
+          "method": "POST",
+          "path": "/reviews/:id/helpful",
+          "absolutePath": "/api/v1/shop/reviews/:id/helpful",
+          "auth": "optional",
+          "summary": "Increment a review's helpful count."
+        },
+        {
+          "method": "GET",
+          "path": "/reviews",
+          "absolutePath": "/api/v1/shop/reviews",
+          "auth": "admin",
+          "summary": "List reviews for moderation (any status; filter by status/productId)."
+        },
+        {
+          "method": "PUT",
+          "path": "/reviews/:id",
+          "absolutePath": "/api/v1/shop/reviews/:id",
+          "auth": "admin",
+          "summary": "Moderate a review (approve/reject); recomputes the product rating."
+        },
+        {
+          "method": "DELETE",
+          "path": "/reviews/:id",
+          "absolutePath": "/api/v1/shop/reviews/:id",
+          "auth": "admin",
+          "summary": "Delete a review; recomputes the product rating if it was approved."
         }
       ]
     },

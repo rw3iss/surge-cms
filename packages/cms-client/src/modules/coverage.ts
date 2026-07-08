@@ -275,6 +275,14 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/shop/collections/:id',
     'GET /api/v1/shop/tags',
 
+    // ── shop reviews (feature-gated) ──
+    'GET /api/v1/shop/products/:productId/reviews',
+    'POST /api/v1/shop/products/:productId/reviews',
+    'POST /api/v1/shop/reviews/:id/helpful',
+    'GET /api/v1/shop/reviews',
+    'PUT /api/v1/shop/reviews/:id',
+    'DELETE /api/v1/shop/reviews/:id',
+
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',
     'GET /sitemap.xml',

@@ -67,4 +67,37 @@ describe('shop module', () => {
         const [url,] = fetchImpl.mock.calls[0];
         expect(String(url,),).toBe('http://api/api/v1/shop/tags',);
     },);
+
+    it('reviews.list() GETs /shop/products/:id/reviews and returns Paginated', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(
+            jsonResponse([], { page: 1, limit: 20, total: 0, totalPages: 0, },),
+        );
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        const out = await cms.shop.reviews.list('p1',);
+        expect(out.data,).toEqual([],);
+        expect(out.meta.total,).toBe(0,);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/shop/products/p1/reviews',);
+        expect((init as RequestInit).method,).toBe('GET',);
+    },);
+
+    it('reviews.create() POSTs /shop/products/:id/reviews with the body', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ id: 'r1', }, undefined, 201,),);
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        await cms.shop.reviews.create('p1', { rating: 5, title: 'Great', },);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/shop/products/p1/reviews',);
+        expect((init as RequestInit).method,).toBe('POST',);
+        expect(JSON.parse((init as RequestInit).body as string,),).toEqual({ rating: 5, title: 'Great', },);
+    },);
+
+    it('reviews.moderate() PUTs /shop/reviews/:id with the status', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ id: 'r1', status: 'approved', },),);
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        await cms.shop.reviews.moderate('r1', { status: 'approved', },);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/shop/reviews/r1',);
+        expect((init as RequestInit).method,).toBe('PUT',);
+        expect(JSON.parse((init as RequestInit).body as string,),).toEqual({ status: 'approved', },);
+    },);
 },);

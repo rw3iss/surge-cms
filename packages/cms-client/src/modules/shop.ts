@@ -26,6 +26,16 @@ import type {
     ShopProductListResponse,
     ShopProductUpdateBody,
     ShopProductUpdateResponse,
+    ShopReviewAdminListQuery,
+    ShopReviewAdminListResponse,
+    ShopReviewCreateBody,
+    ShopReviewCreateResponse,
+    ShopReviewDeleteResponse,
+    ShopReviewHelpfulResponse,
+    ShopReviewListQuery,
+    ShopReviewListResponse,
+    ShopReviewModerateBody,
+    ShopReviewModerateResponse,
     ShopTagListResponse,
 } from '@rw/cms-shared';
 import { ModuleBase, } from './base';
@@ -114,5 +124,43 @@ export class ShopModule extends ModuleBase {
     /** Tags — distinct product tag list. */
     readonly tags = {
         list: (): Promise<ShopTagListResponse> => this.get<ShopTagListResponse>('/shop/tags',),
+    };
+
+    /** Reviews — product reviews + ratings with moderation. Public list is
+     *  approved-only; admin list is the any-status moderation queue. */
+    readonly reviews = {
+        /** GET /shop/products/:productId/reviews — approved, paginated. */
+        list: (productId: string, params?: ShopReviewListQuery,): Promise<Paginated<ShopReviewListResponse[number]>> =>
+            this.getPaged<ShopReviewListResponse[number]>('/shop/products/:productId/reviews', {
+                params: { productId, }, query: params as Record<string, unknown>,
+            },),
+
+        /** POST /shop/products/:productId/reviews (user tier) — creates a pending review. */
+        create: (productId: string, body: ShopReviewCreateBody,): Promise<ShopReviewCreateResponse> =>
+            this.mutate<ShopReviewCreateResponse>('POST', '/shop/products/:productId/reviews', {
+                params: { productId, }, body, invalidates: ['shop',],
+            },),
+
+        /** POST /shop/reviews/:id/helpful — increment helpful count. */
+        markHelpful: (reviewId: string,): Promise<ShopReviewHelpfulResponse> =>
+            this.mutate<ShopReviewHelpfulResponse>('POST', '/shop/reviews/:id/helpful', {
+                params: { id: reviewId, }, invalidates: ['shop',],
+            },),
+
+        /** GET /shop/reviews (admin) — any-status moderation queue. */
+        adminList: (params?: ShopReviewAdminListQuery,): Promise<Paginated<ShopReviewAdminListResponse[number]>> =>
+            this.getPaged<ShopReviewAdminListResponse[number]>('/shop/reviews', { query: params as Record<string, unknown>, },),
+
+        /** PUT /shop/reviews/:id (admin) — approve/reject; recomputes rating. */
+        moderate: (reviewId: string, body: ShopReviewModerateBody,): Promise<ShopReviewModerateResponse> =>
+            this.mutate<ShopReviewModerateResponse>('PUT', '/shop/reviews/:id', {
+                params: { id: reviewId, }, body, invalidates: ['shop',],
+            },),
+
+        /** DELETE /shop/reviews/:id (admin). */
+        remove: (reviewId: string,): Promise<ShopReviewDeleteResponse> =>
+            this.mutate<ShopReviewDeleteResponse>('DELETE', '/shop/reviews/:id', {
+                params: { id: reviewId, }, invalidates: ['shop',],
+            },),
     };
 }
