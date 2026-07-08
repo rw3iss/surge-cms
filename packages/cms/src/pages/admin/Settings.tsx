@@ -1627,8 +1627,9 @@ const AdminSettings: Component = () => {
                                                 };
                                                 if (opts?.enableDependencies) payload.enableDependencies = true;
                                                 if (opts?.disableDependents) payload.disableDependents = true;
+                                                let result;
                                                 try {
-                                                    await cms.settings.update(payload as any,);
+                                                    result = await cms.settings.update(payload as any,);
                                                 } catch (e) {
                                                     if (e instanceof FeatureCascadeError) {
                                                         // The dependency planner rejected the toggle.
@@ -1642,6 +1643,24 @@ const AdminSettings: Component = () => {
                                                     } else {
                                                         alert(e instanceof Error ? e.message : `Could not toggle ${f.label}.`,);
                                                     }
+                                                    return;
+                                                }
+                                                await reloadSiteSettings();
+                                                refetch();
+                                                // Surface the install (migrations ran) so the
+                                                // operator knows the feature's tables are ready.
+                                                if (next) {
+                                                    const installed = (result?.features ?? []).some(
+                                                        (s,) => s.enabled && s.appliedMigrations.length > 0,
+                                                    );
+                                                    if (installed) alert(`${f.label} installed.`,);
+                                                }
+                                            }}
+                                            onRemove={async () => {
+                                                try {
+                                                    await cms.settings.uninstallFeature(f.key,);
+                                                } catch (e) {
+                                                    alert(e instanceof Error ? e.message : `Could not remove ${f.label}.`,);
                                                     return;
                                                 }
                                                 await reloadSiteSettings();
