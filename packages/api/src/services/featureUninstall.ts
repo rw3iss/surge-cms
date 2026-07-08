@@ -50,6 +50,7 @@ export async function uninstallFeature(key: FeatureKey, ctx: AuditContext,): Pro
         await client.query('BEGIN',);
         await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`feature:${key}`,],);
 
+        // Point-in-time read: a dependent enabled concurrently (holding its own advisory lock, not ours) is a rare, accepted race for this admin-only op.
         // Dependent-safety: read current enabled state; block if any
         // ENABLED feature still requires this one.
         const rows = await client.query<{ key: string; value: unknown; }>(

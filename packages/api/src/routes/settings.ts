@@ -179,6 +179,19 @@ export const settingsRoutes = [
     },),
 
     defineRoute({
+        method: 'post', path: '/features/:key/uninstall', auth: 'admin',
+        summary: 'Permanently remove a feature: drop its tables + data. Irreversible.',
+        input: {
+            params: z.object({ key: z.string(), },),
+            body: z.object({ confirm: z.literal(true,), },),
+        },
+        handler: async ({ params, audit, },) => {
+            const result = await settings.uninstallFeature(params.key as never, audit(),);
+            return { message: `Removed ${params.key}`, ...result, };
+        },
+    },),
+
+    defineRoute({
         method: 'put', path: '/:key', auth: 'admin',
         summary: 'Upsert an arbitrary settings row by key.',
         input: { params: keyParams, body: z.object({ value: z.unknown(), },), },

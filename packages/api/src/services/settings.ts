@@ -272,6 +272,8 @@ export interface UpdateSettingsInput {
     disableDependents?: boolean;
 }
 
+export { uninstallFeature, UninstallError, } from './featureUninstall';
+
 /** Thrown when the feature dependency planner rejects a toggle. Carries
  *  the planner result so the route can return it as the 409 body. */
 export class FeatureCascadeError extends Error {
