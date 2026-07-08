@@ -5,5 +5,6 @@ export * from './form';
 export * from './hero';
 export * from './mail';
 export * from './message';
+export * from './shop';
 export * from './siteHeader';
 export * from './user';

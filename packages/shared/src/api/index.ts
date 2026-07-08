@@ -58,3 +58,4 @@ export * from './routes/payments';
 export * from './routes/mailingLists';
 export * from './routes/mailTemplates';
 export * from './routes/mailSend';
+export * from './routes/shop';
