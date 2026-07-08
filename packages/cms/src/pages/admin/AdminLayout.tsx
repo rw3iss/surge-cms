@@ -24,6 +24,7 @@ const ICONS: Record<string, string> = {
     users: '<circle cx="8" cy="5" r="2.5" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M3 14c0-3 2.5-5 5-5s5 2 5 5" stroke="currentColor" fill="none" stroke-width="1.2"/>',
     messages: '<path d="M2 3h12v8H6l-3 2v-2H2V3z" stroke="currentColor" fill="none" stroke-width="1.2"/>',
     mail: '<rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2 4l6 5 6-5" stroke="currentColor" fill="none" stroke-width="1.2"/>',
+    shop: '<path d="M3 5h10l-.7 7a1 1 0 01-1 .9H4.7a1 1 0 01-1-.9L3 5z" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M5.5 5V4a2.5 2.5 0 015 0v1" stroke="currentColor" fill="none" stroke-width="1.2"/>',
     connections: '<circle cx="5" cy="5" r="2" stroke="currentColor" fill="none" stroke-width="1.2"/><circle cx="11" cy="11" r="2" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M6.5 6.5l3 3" stroke="currentColor" stroke-width="1.2"/>',
     settings: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" stroke="currentColor" stroke-width="1"/>',
     developer: '<path d="M5 5L2 8l3 3M11 5l3 3-3 3M9 3l-2 10" stroke="currentColor" fill="none" stroke-width="1.2"/>',
@@ -55,7 +56,7 @@ interface NavItem {
      * without a feature (Dashboard, Pages, Media, Users, Settings)
      * always render — they're core CMS surfaces.
      */
-    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists';
+    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop';
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -68,6 +69,7 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', },
+    { path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', },
     { path: '/admin/settings', label: 'Settings', icon: 'settings', },
 ];
 

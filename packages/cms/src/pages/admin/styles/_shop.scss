@@ -1,0 +1,281 @@
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+// Shop admin section — dashboard cards, product editor (options/variants/
+// media), order detail, reviews queue. Reuses shared helpers where it can
+// (.admin-table, .badge, .confirm-modal*, .form-help-muted, .stat-card,
+// .settings-tabs*). These rules cover only shop-specific layout.
+
+.shop-admin {
+    &__disabled {
+        max-width: 32rem;
+        padding: $spacing-xl 0;
+
+        h1 {
+            margin-bottom: $spacing-sm;
+        }
+
+        .btn {
+            margin-top: $spacing-md;
+        }
+    }
+
+    &__cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: $spacing-md;
+        margin-bottom: $spacing-lg;
+    }
+
+    &__card {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__quick-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+    }
+
+    &__section {
+        margin-top: $spacing-lg;
+    }
+
+    &__section-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: $spacing-sm;
+
+        h2 {
+            margin: 0;
+        }
+    }
+
+    &__edit-modal {
+        text-align: left;
+        max-width: 34rem;
+        width: 100%;
+    }
+
+    &__product-picker,
+    &__reviews {
+        max-height: 18rem;
+        overflow-y: auto;
+        border: 1px solid var(--admin-border, $border-color);
+        border-radius: $border-radius-md;
+        padding: $spacing-sm;
+        margin-top: $spacing-xs;
+    }
+
+    &__product-picker {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__reviews {
+        max-height: none;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__review {
+        border: 1px solid var(--admin-border, $border-color);
+        border-radius: $border-radius-md;
+        padding: $spacing-md;
+
+        p {
+            margin: $spacing-xs 0;
+        }
+    }
+
+    &__review-head {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+
+    &__review-rating {
+        color: var(--site-primary, $primary-color);
+        letter-spacing: 1px;
+    }
+
+    &__review-actions {
+        display: flex;
+        gap: $spacing-xs;
+        margin-top: $spacing-sm;
+    }
+}
+
+// ── Product editor ─────────────────────────────────────────────────────
+
+.shop-product-editor {
+    &__grid {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-lg;
+    }
+
+    &__option-row {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+        margin-bottom: $spacing-xs;
+
+        input {
+            flex: 1;
+        }
+    }
+
+    &__variants {
+        input {
+            width: 100%;
+            min-width: 4rem;
+        }
+    }
+
+    &__media-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+        margin-top: $spacing-sm;
+    }
+
+    &__media-item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+        align-items: center;
+        width: 6rem;
+    }
+
+    &__media-thumb {
+        width: 6rem;
+        height: 6rem;
+        object-fit: cover;
+        border-radius: $border-radius-md;
+        border: 1px solid var(--admin-border, $border-color);
+
+        &--video {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: var(--admin-bg-subtle, $background-dark);
+            color: var(--admin-text-muted, $text-light);
+        }
+    }
+
+    &__media-actions {
+        display: flex;
+        gap: 2px;
+    }
+
+    &__checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+    }
+
+    &__check {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: 0.9rem;
+    }
+
+    &__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        align-items: center;
+
+        input {
+            flex: 1;
+            min-width: 10rem;
+        }
+    }
+
+    &__tag {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        padding: 2px $spacing-xs;
+        background: var(--admin-bg-subtle, $background-dark);
+        border-radius: $border-radius-md;
+        font-size: 0.85rem;
+
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: var(--admin-text-muted, $text-light);
+            font-size: 1rem;
+            line-height: 1;
+        }
+    }
+}
+
+// ── Order detail ───────────────────────────────────────────────────────
+
+.shop-order {
+    &__grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: $spacing-lg;
+
+        @include md {
+            grid-template-columns: 2fr 1fr;
+        }
+    }
+
+    &__totals {
+        margin-top: $spacing-md;
+        max-width: 22rem;
+        margin-left: auto;
+
+        > div {
+            display: flex;
+            justify-content: space-between;
+            padding: $spacing-xs 0;
+        }
+    }
+
+    &__totals-grand {
+        border-top: 1px solid var(--admin-border, $border-color);
+        font-weight: 600;
+    }
+
+    &__addresses {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $spacing-md;
+        margin-top: $spacing-lg;
+    }
+
+    &__side {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+    }
+
+    &__panel {
+        border: 1px solid var(--admin-border, $border-color);
+        border-radius: $border-radius-md;
+        padding: $spacing-md;
+
+        h3 {
+            margin: 0 0 $spacing-sm;
+        }
+
+        .btn {
+            margin-top: $spacing-xs;
+            margin-right: $spacing-xs;
+        }
+    }
+}

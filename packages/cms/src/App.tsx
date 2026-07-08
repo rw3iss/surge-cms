@@ -47,6 +47,15 @@ const AdminMailSend = lazy(() => import('./pages/admin/MailSend'));
 const AdminMailJob = lazy(() => import('./pages/admin/MailJob'));
 const AdminMedia = lazy(() => import('./pages/admin/Media'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminShopDashboard = lazy(() => import('./pages/admin/shop/ShopDashboard'));
+const AdminShopProducts = lazy(() => import('./pages/admin/shop/ShopProducts'));
+const AdminShopProductEditor = lazy(() => import('./pages/admin/shop/ShopProductEditor'));
+const AdminShopCategories = lazy(() => import('./pages/admin/shop/ShopCategories'));
+const AdminShopCollections = lazy(() => import('./pages/admin/shop/ShopCollections'));
+const AdminShopOrders = lazy(() => import('./pages/admin/shop/ShopOrders'));
+const AdminShopOrderDetail = lazy(() => import('./pages/admin/shop/ShopOrderDetail'));
+const AdminShopReviews = lazy(() => import('./pages/admin/shop/ShopReviews'));
+const AdminShopSettings = lazy(() => import('./pages/admin/shop/ShopSettings'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
 const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
 
@@ -116,6 +125,16 @@ const App: Component = () => {
                                     <Route path="/mail/send" component={AdminMailSend} />
                                     <Route path="/mail/jobs/:id" component={AdminMailJob} />
                                     <Route path="/media" component={AdminMedia} />
+                                    <Route path="/shop" component={AdminShopDashboard} />
+                                    <Route path="/shop/products" component={AdminShopProducts} />
+                                    <Route path="/shop/products/new" component={AdminShopProductEditor} />
+                                    <Route path="/shop/products/:id" component={AdminShopProductEditor} />
+                                    <Route path="/shop/categories" component={AdminShopCategories} />
+                                    <Route path="/shop/collections" component={AdminShopCollections} />
+                                    <Route path="/shop/orders" component={AdminShopOrders} />
+                                    <Route path="/shop/orders/:id" component={AdminShopOrderDetail} />
+                                    <Route path="/shop/reviews" component={AdminShopReviews} />
+                                    <Route path="/shop/settings" component={AdminShopSettings} />
                                     <Route path="/settings" component={AdminSettings} />
                                 </Route>
 
