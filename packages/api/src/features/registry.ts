@@ -21,6 +21,19 @@ export interface FeatureConfig {
     requires?: FeatureKey[];
     /** Migration filenames (relative to db/migrations/) to apply on first enable. */
     migrations?: string[];
+    /** Tables this feature owns, in CREATION order. Uninstall drops them
+     *  in reverse with CASCADE. A feature with no `tables` is NOT
+     *  uninstallable (its schema is part of the base install). */
+    tables?: string[];
+    /** Extra site_settings keys this feature owns (beyond `<key>_enabled`),
+     *  deleted on uninstall. Supports exact keys or a `prefix*` glob. */
+    settingsKeys?: string[];
+    /** Idempotent init run inside the enable transaction, AFTER migrations.
+     *  Seed defaults / register crons. Receives the txn client. */
+    onEnable?: (client: import('pg').PoolClient, key: FeatureKey,) => Promise<void>;
+    /** Idempotent cleanup run inside the uninstall transaction, BEFORE
+     *  tables are dropped. Deregister crons / purge external resources. */
+    onUninstall?: (client: import('pg').PoolClient, key: FeatureKey,) => Promise<void>;
 }
 
 export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
@@ -119,4 +132,14 @@ export function assertNoCycles(): void {
 
 export function getAllFeatures(): FeatureConfig[] {
     return Object.values(FEATURE_REGISTRY);
+}
+
+/** A feature is uninstallable iff it declares owned tables. */
+export function isUninstallable(key: FeatureKey,): boolean {
+    return (FEATURE_REGISTRY[key].tables ?? []).length > 0;
+}
+
+/** Tables to drop on uninstall, in DROP order (reverse of creation). */
+export function getUninstallableTables(key: FeatureKey,): string[] {
+    return [...(FEATURE_REGISTRY[key].tables ?? []),].reverse();
 }
