@@ -47,6 +47,10 @@ import type {
     ShopReviewListResponse,
     ShopReviewModerateBody,
     ShopReviewModerateResponse,
+    ShopSettingsAdminResponse,
+    ShopSettingsPublicResponse,
+    ShopSettingsUpdateBody,
+    ShopSettingsUpdateResponse,
     ShopTagListResponse,
 } from '@rw/cms-shared';
 import { ModuleBase, } from './base';
@@ -220,5 +224,22 @@ export class ShopModule extends ModuleBase {
             this.get<{ url: string; }>('/shop/orders/:orderNumber/download/:token', {
                 params: { orderNumber, token, },
             },),
+    };
+
+    /** Settings — the shop config + appearance (two site_settings rows).
+     *  `getPublic` is the storefront-safe projection (no secret keys);
+     *  `getAdmin`/`update` carry the full config (admin only). */
+    readonly settings = {
+        /** GET /shop/settings — storefront-safe projection (public). */
+        getPublic: (): Promise<ShopSettingsPublicResponse> =>
+            this.get<ShopSettingsPublicResponse>('/shop/settings',),
+
+        /** GET /shop/settings/admin — full config (admin). */
+        getAdmin: (): Promise<ShopSettingsAdminResponse> =>
+            this.get<ShopSettingsAdminResponse>('/shop/settings/admin',),
+
+        /** PUT /shop/settings (admin) — merge partial; returns full config. */
+        update: (body: ShopSettingsUpdateBody,): Promise<ShopSettingsUpdateResponse> =>
+            this.mutate<ShopSettingsUpdateResponse>('PUT', '/shop/settings', { body, invalidates: ['shop',], },),
     };
 }

@@ -138,4 +138,30 @@ describe('shop module', () => {
         const [url,] = fetchImpl.mock.calls[0];
         expect(String(url,),).toBe('http://api/api/v1/shop/orders/number/SS-1',);
     },);
+
+    it('settings.getPublic() GETs /shop/settings', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(
+            jsonResponse({ settings: { currency: 'usd', }, appearance: { gridColumns: 3, }, },),
+        );
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        const out = await cms.shop.settings.getPublic();
+        expect(out.settings.currency,).toBe('usd',);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/shop/settings',);
+        expect((init as RequestInit).method,).toBe('GET',);
+    },);
+
+    it('settings.update() PUTs /shop/settings with the body', async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(
+            jsonResponse({ settings: { currency: 'eur', }, appearance: { gridColumns: 4, }, },),
+        );
+        const cms = createClient({ baseUrl: 'http://api', fetch: fetchImpl as never, auth: { store: null, }, },);
+        await cms.shop.settings.update({ settings: { currency: 'eur', }, appearance: { gridColumns: 4, }, },);
+        const [url, init,] = fetchImpl.mock.calls[0];
+        expect(String(url,),).toBe('http://api/api/v1/shop/settings',);
+        expect((init as RequestInit).method,).toBe('PUT',);
+        expect(JSON.parse((init as RequestInit).body as string,),).toEqual({
+            settings: { currency: 'eur', }, appearance: { gridColumns: 4, },
+        },);
+    },);
 },);

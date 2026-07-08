@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-08T20:07:49.605Z",
+  "generatedAt": "2026-07-08T20:16:37.671Z",
   "totalModules": 29,
-  "totalRoutes": 231,
+  "totalRoutes": 234,
   "modules": [
     {
       "module": "api-keys",
@@ -1592,6 +1592,27 @@
           "absolutePath": "/api/v1/shop/orders/:id/resend-receipt",
           "auth": "admin",
           "summary": "Re-send the order receipt email (admin)."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/shop/settings",
+          "auth": "optional",
+          "summary": "Storefront shop settings: appearance + a safe subset of config (currency, store/tax flags). No secret keys."
+        },
+        {
+          "method": "GET",
+          "path": "/settings/admin",
+          "absolutePath": "/api/v1/shop/settings/admin",
+          "auth": "admin",
+          "summary": "Full shop settings + appearance (admin)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/shop/settings",
+          "auth": "admin",
+          "summary": "Update shop settings and/or appearance (admin); merges the partial and returns the full config."
         }
       ]
     },

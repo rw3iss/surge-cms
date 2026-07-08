@@ -293,6 +293,11 @@ export const ROUTE_COVERAGE: string[] = [
     'PATCH /api/v1/shop/orders/:id',
     'POST /api/v1/shop/orders/:id/resend-receipt',
 
+    // ── shop settings (feature-gated) ──
+    'GET /api/v1/shop/settings',
+    'GET /api/v1/shop/settings/admin',
+    'PUT /api/v1/shop/settings',
+
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',
     'GET /sitemap.xml',
