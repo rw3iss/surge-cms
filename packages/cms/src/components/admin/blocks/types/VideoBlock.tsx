@@ -1,6 +1,7 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
+import { cms, } from '../../../../services/cmsClient';
 import Toggle from '../../common/Toggle';
 
 interface VideoBlockProps {
@@ -20,26 +21,14 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
         setUploading(true,);
 
         try {
-            const formData = new FormData();
-            formData.append('file', file,);
-
-            const response = await fetch('/api/v1/media/block-upload', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include',
+            const media = await cms.media.blockUpload(file,);
+            props.onUpdate({
+                ...props.data,
+                url: media.url,
+                fileName: media.originalName || file.name,
+                fileSize: file.size,
+                mediaId: undefined,
             },);
-            const result = await response.json();
-
-            if (result.success) {
-                const media = result.data;
-                props.onUpdate({
-                    ...props.data,
-                    url: media.url,
-                    fileName: media.originalName || file.name,
-                    fileSize: file.size,
-                    mediaId: undefined,
-                },);
-            }
         } finally {
             setUploading(false,);
         }

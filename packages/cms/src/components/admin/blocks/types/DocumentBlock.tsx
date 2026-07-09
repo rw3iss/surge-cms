@@ -1,5 +1,6 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
+import { cms, } from '../../../../services/cmsClient';
 
 interface DocumentBlockProps {
     data: Record<string, any>;
@@ -18,26 +19,14 @@ const DocumentBlock: Component<DocumentBlockProps> = (props,) => {
         setUploading(true,);
 
         try {
-            const formData = new FormData();
-            formData.append('file', file,);
-
-            const response = await fetch('/api/v1/media/block-upload', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include',
+            const media = await cms.media.blockUpload(file,);
+            props.onUpdate({
+                url: media.url,
+                fileName: media.originalName || file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+                mediaId: undefined,
             },);
-            const result = await response.json();
-
-            if (result.success) {
-                const media = result.data;
-                props.onUpdate({
-                    url: media.url,
-                    fileName: media.originalName || file.name,
-                    fileSize: file.size,
-                    mimeType: file.type,
-                    mediaId: undefined,
-                },);
-            }
         } finally {
             setUploading(false,);
         }
