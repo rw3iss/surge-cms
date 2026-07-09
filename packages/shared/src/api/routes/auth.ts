@@ -49,6 +49,27 @@ export interface AuthLoginBody extends LoginCredentials {
  *  the httpOnly cookie pair. */
 export type AuthLoginResponse = AuthResponse;
 
+// ─── POST /auth/register ──────────────────────────────────────────
+
+/** Body for POST /auth/register — public member self-registration.
+ *  Gated behind the `users` feature (403 when disabled). `password` is
+ *  min-8 (matches the Join form's own client-side rule). Pre-gated by the
+ *  same per-IP rate limiter as login (429 RATE_LIMITED). */
+export interface AuthRegisterBody {
+    name: string;
+    email: string;
+    password: string;
+}
+
+/** POST /auth/register — creates a `member`-role account with
+ *  `auth_provider='email'`. Does NOT auto-login: no session is created and
+ *  no auth cookies are set. The caller signs in via /auth/login afterwards.
+ *  A duplicate email returns 409 CONFLICT; a banned email is rejected. */
+export interface AuthRegisterResponse {
+    userId: string;
+    email: string;
+}
+
 // ─── POST /auth/refresh ───────────────────────────────────────────
 
 /** Body for POST /auth/refresh. `refreshToken` is optional in the body —

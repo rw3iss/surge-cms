@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid, } from 'nanoid';
 import { config, } from '../config';
+import { ConflictError, } from '../core/errors';
 import { query, transaction, } from '../db';
+import { logAudit, } from './audit';
 import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 
@@ -328,6 +330,64 @@ export async function createAdminUser(
     );
 
     return mapRow<User>(result.rows[0],);
+}
+
+/**
+ * Public member self-registration. Creates a `member`-role, email-provider
+ * account with a bcrypt (12-round) password hash. Deliberately does NOT
+ * mint tokens or create a session — the caller signs in via /auth/login
+ * afterwards.
+ *
+ * Callers must pre-check the `users` feature flag (route-level gate). This
+ * service enforces the data-integrity rules: rejects a banned email and a
+ * duplicate email.
+ */
+export async function registerMember(
+    input: { name: string; email: string; password: string; },
+    ctx?: { ipAddress?: string; userAgent?: string; },
+): Promise<{ userId: string; email: string; }> {
+    const email = input.email.trim().toLowerCase();
+
+    // Reject banned emails/IPs (mirrors the login/Patreon ban check).
+    const banCheck = await query(
+        'SELECT 1 FROM users_banned WHERE (email = $1 OR ip_address = $2) AND (expires_at IS NULL OR expires_at > NOW())',
+        [email, ctx?.ipAddress,],
+    );
+    if (banCheck.rows.length > 0) {
+        throw new ConflictError('An account with this email already exists.',);
+    }
+
+    // Duplicate-email guard (any provider — one address, one account).
+    const existing = await query('SELECT 1 FROM users WHERE email = $1', [email,],);
+    if (existing.rows.length > 0) {
+        throw new ConflictError('An account with this email already exists.',);
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 12,);
+
+    const result = await query(
+        `INSERT INTO users (email, password_hash, display_name, role, auth_provider)
+     VALUES ($1, $2, $3, 'member', 'email')
+     RETURNING id, email`,
+        [email, passwordHash, input.name.trim(),],
+    );
+
+    const row = result.rows[0] as { id: string; email: string; };
+
+    try {
+        await logAudit({
+            userId: 'system',
+            action: 'register',
+            entityType: 'user',
+            entityId: row.id,
+            ipAddress: ctx?.ipAddress,
+            userAgent: ctx?.userAgent,
+        },);
+    } catch (err) {
+        logger.warn('Failed to audit member registration', { error: err, },);
+    }
+
+    return { userId: row.id, email: row.email, };
 }
 
 export function generateState(): string {

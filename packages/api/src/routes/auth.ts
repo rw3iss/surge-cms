@@ -17,10 +17,11 @@ import { z, } from 'zod';
 import type {
     AuthLoginBody,
     AuthRefreshBody,
+    AuthRegisterBody,
 } from '@rw/cms-shared';
 import { config, } from '../config';
-import { defineRoute, reply, } from '../api/defineRoute';
-import { AppError, UnauthorizedError, } from '../core/errors';
+import { defineRoute, } from '../api/defineRoute';
+import { AppError, ForbiddenError, UnauthorizedError, } from '../core/errors';
 import {
     authenticateWithEmail,
     authenticateWithPatreon,
@@ -32,8 +33,10 @@ import {
     invalidateSession,
     isLocalhostIp,
     refreshTokens,
+    registerMember,
     syncPatreonMembership,
 } from '../services/auth';
+import { isFeatureEnabledServer, } from '../services/settings';
 import { logger, } from '../utils/logger';
 
 // ─── Schemas ──────────────────────────────────────────────────────
@@ -46,6 +49,12 @@ const loginSchema = z.object({
      * concern; the server-side session row keeps its normal expiry. */
     rememberMe: z.boolean().optional(),
 },) satisfies z.ZodType<AuthLoginBody>;
+
+const registerSchema = z.object({
+    name: z.string().min(1,),
+    email: z.string().email(),
+    password: z.string().min(8,),
+},) satisfies z.ZodType<AuthRegisterBody>;
 
 // `refreshToken` is optional: when omitted the handler falls back to the
 // `refreshToken` cookie. Mirrors the DTO so the cookie-fallback path is
@@ -171,6 +180,26 @@ export const authRoutes = [
             },);
 
             return authResponse;
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/register', auth: 'public',
+        summary: 'Public member self-registration (gated behind the `users` feature). No auto-login.',
+        pre: [loginLimiter,],
+        input: { body: registerSchema, },
+        handler: async ({ body, req, },) => {
+            if (!(await isFeatureEnabledServer('users',))) {
+                throw new ForbiddenError('Public registration is not enabled.',);
+            }
+
+            const ipAddress = clientIp(req.headers, req.ip,);
+            const userAgent = req.headers['user-agent'];
+
+            return registerMember(
+                { name: body.name, email: body.email, password: body.password, },
+                { ipAddress, userAgent, },
+            );
         },
     },),
 
