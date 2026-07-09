@@ -25,6 +25,7 @@ import { shopRoutes, } from './shop';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
 import { usersRoutes, } from './users';
+import { utilsRoutes, } from './utils';
 
 const router = Router();
 
@@ -42,6 +43,7 @@ router.use('/media', registerModule('media', mediaRoutes, { mountPath: '/api/v1/
 router.use('/social', registerModule('social', socialRoutes, { mountPath: '/api/v1/social', },),);
 router.use('/settings', registerModule('settings', settingsRoutes, { mountPath: '/api/v1/settings', },),);
 router.use('/search', registerModule('search', searchRoutes, { mountPath: '/api/v1/search', },),);
+router.use('/utils', registerModule('utils', utilsRoutes, { mountPath: '/api/v1/utils', },),);
 router.use('/health', registerModule('health', healthRoutes, { mountPath: '/api/v1/health', },),);
 // Legacy alias: /api/v1/sitemap/sitemap.xml + /api/v1/sitemap/admin/...
 // The canonical mount (and manifest registration) lives in app.ts at the
