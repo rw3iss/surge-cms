@@ -101,9 +101,13 @@ export class AuthManager implements AuthRuntime {
     }
 
     async login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthResponse> {
+        // Cookie mode: attach the CSRF header (and trigger the one-time
+        // csrf-token round-trip) exactly like logout does — the server
+        // guards POST /auth/login, so a header-less login is rejected
+        // with CSRF_ERROR. Bearer/apiKey modes return no header here.
         const res = await performRequest<AuthResponse>({
             fetchImpl: this.fetchImpl, method: 'POST', url: `${this.apiBase}/auth/login`,
-            headers: {}, body: credentials, timeoutMs: 30_000,
+            headers: await this.authHeaders('POST',), body: credentials, timeoutMs: 30_000,
         },);
         await this.setSession(res,);
         return res;
@@ -116,7 +120,7 @@ export class AuthManager implements AuthRuntime {
             try {
                 const res = await performRequest<AuthResponse>({
                     fetchImpl: this.fetchImpl, method: 'POST', url: `${this.apiBase}/auth/refresh`,
-                    headers: {}, body: { refreshToken: this.tokens!.refreshToken, }, timeoutMs: 30_000,
+                    headers: await this.authHeaders('POST',), body: { refreshToken: this.tokens!.refreshToken, }, timeoutMs: 30_000,
                 },);
                 await this.setSession(res,);
                 return res;
