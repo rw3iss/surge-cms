@@ -68,7 +68,35 @@ conservative by design; recommend an eyeball pass across a few wide-screen admin
 pages (Settings, an editor, a list) and a follow-up run once the browser is
 available to fine-tune per-page widths (Phase C).
 
-## 7. Deferred (Phase C — plan separately)
-- Bespoke per-page redesigns + per-section max-width tuning (needs visual iteration).
-- Shared-component consolidation (unify one-off widgets into configurable components).
+## 7. Phase C — per-type width tuning (applied, visually verified)
+
+The headless-Chrome launch was fixed (stale `SingletonLock` symlink in the MCP
+profile pointing at a dead PID — removed; not a code issue). With the browser
+working, each page type was screenshotted and tuned:
+
+- **F5 — Single-column form pages get a tidy width.** `_shop.scss`:
+  `.admin-layout__main > .shop-settings` → `max-width: 60rem`, and its
+  settings-card controls fill the (now-narrow) card (override the 46rem field
+  cap locally). A single-column settings form is no longer a wide, near-empty
+  1400px card — it's a compact, aligned form (header + tabs + card share the
+  60rem column). Verified on all four shop-settings tabs incl. the Stripe panel.
+
+**Per-type verification (screenshots reviewed at 2560px):**
+| Page type | Example | Result |
+|---|---|---|
+| 2-col card grid | `/admin/settings` | Balanced, centered @1400 ✓ |
+| Single-col form | `/admin/shop/settings` | Tidy @60rem, inputs fill card ✓ |
+| Data list/table | `/admin/posts` | Contained table @1400 ✓ |
+| 2-col editor | `/admin/shop/products/:id`, `/admin/campaigns/new` | Columns fill @1400, full-width tables below ✓ |
+| Status panel | Payments tab | Clean; live Stripe status ✓ |
+
+## 8. Still deferred (future Phase C)
+- Per-tab narrowing for the *main* Settings single-column tabs (Site Header/
+  Footer/Connections) — same `.admin-narrow`-style treatment; low risk, do when
+  touching those pages.
+- Shared-component consolidation (unify one-off widgets into configurable ones).
 - Full design-token sweep of remaining hardcoded values.
+
+## 9. Documentation
+No user-facing API/CLI/config surface changed (admin CSS only) → no README/docs
+sync required. This audit records the styling changes.

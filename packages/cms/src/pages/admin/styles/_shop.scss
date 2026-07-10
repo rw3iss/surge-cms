@@ -184,13 +184,27 @@
 
 // ── Product editor ─────────────────────────────────────────────────────
 
-// Shop settings — the settings-card packs its field rows flush (the form
-// fields carry no vertical margin), so give the card a comfortable row gap.
+// Shop settings is a single-column form — keep it a tidy, readable width
+// instead of stretching across the full 1400px content column (overrides the
+// `.admin-layout__main > *` cap via the higher-specificity child selector).
+.admin-layout__main > .shop-settings {
+    max-width: 60rem;
+}
+
+// The settings-card packs its field rows flush (the form fields carry no
+// vertical margin), so give the card a comfortable row gap; let its controls
+// fill the (now-narrow) card rather than stopping at the global field cap.
 .shop-settings {
     .settings-card {
         display: flex;
         flex-direction: column;
         gap: $spacing-lg;
+
+        input:not([type="checkbox"]):not([type="radio"]),
+        select,
+        textarea {
+            max-width: 100%;
+        }
     }
 }
 
