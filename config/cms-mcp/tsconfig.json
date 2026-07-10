@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "lib": ["ES2022"],
+        "types": ["node"],
+        "declaration": true,
+        "sourceMap": true,
+        "outDir": "../../packages/cms-mcp/dist",
+        "rootDir": "../../packages/cms-mcp/src",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true
+    },
+    "include": ["../../packages/cms-mcp/src/**/*"],
+    "exclude": ["../../packages/cms-mcp/node_modules", "../../packages/cms-mcp/dist"]
+}

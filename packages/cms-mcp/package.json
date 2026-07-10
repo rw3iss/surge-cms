@@ -1,0 +1,31 @@
+{
+    "name": "@rw/cms-mcp",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "bin": {
+        "cms-mcp": "dist/index.js"
+    },
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": ["dist"],
+    "scripts": {
+        "build": "tsup --config ../../config/cms-mcp/tsup.config.ts",
+        "start": "node dist/index.js",
+        "dev": "tsx src/index.ts",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest --config ../../config/cms-mcp/vitest.config.ts run --passWithNoTests"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@rw/cms-client": "file:../cms-client",
+        "@rw/cms-shared": "file:../shared"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "tsup": "^8.0.0",
+        "tsx": "^4.7.0",
+        "vitest": "^1.1.3",
+        "@types/node": "^20.11.0"
+    }
+}

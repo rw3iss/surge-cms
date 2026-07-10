@@ -10,7 +10,7 @@
 		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
 		"dev:frontend": "npm run dev --workspace=packages/cms",
 		"dev:backend": "npm run dev --workspace=packages/api",
-		"build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/cms-client && npm run build --workspace=packages/api && npm run build --workspace=packages/cms",
+		"build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/cms-client && npm run build --workspace=packages/cms-mcp && npm run build --workspace=packages/api && npm run build --workspace=packages/cms",
 		"build:frontend": "npm run build --workspace=packages/cms",
 		"build:backend": "npm run build --workspace=packages/api",
 		"start": "npm run start --workspace=packages/api",
