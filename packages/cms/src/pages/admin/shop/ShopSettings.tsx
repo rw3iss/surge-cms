@@ -53,6 +53,24 @@ const ShopSettingsInner: Component = () => {
         }
     },);
 
+    // Live Stripe connection status (cached ~60s server-side). Loads on mount
+    // so the Payments tab is ready; "Recheck" forces a fresh server-side check.
+    const [stripeStatus, { mutate: setStripeStatus, },] = createResource(
+        async () => {
+            try { return await cms.shop.settings.stripeStatus(); } catch { return null; }
+        },
+    );
+    const [rechecking, setRechecking,] = createSignal(false,);
+    const recheckStripe = async () => {
+        setRechecking(true,);
+        try {
+            const fresh = await cms.shop.settings.stripeStatus(true,).catch(() => null,);
+            setStripeStatus(fresh,);
+        } finally {
+            setRechecking(false,);
+        }
+    };
+
     const save = async () => {
         setSaving(true,);
         try {
@@ -121,12 +139,92 @@ const ShopSettingsInner: Component = () => {
                     </Show>
 
                     <Show when={tab() === 'payments'}>
-                        <p class="form-help-muted">
-                            Stripe API keys are managed via environment variables and are not editable here.
-                        </p>
-                        <FormField label="Stripe status" inline>
-                            <span class="badge badge--info">Configured via env</span>
-                        </FormField>
+                        <Show
+                            when={stripeStatus.state !== 'pending' ? stripeStatus() : null}
+                            fallback={<p class="form-help-muted">Checking Stripe connection…</p>}
+                            keyed
+                        >
+                            {(s,) => {
+                                const accepting = s.connected && (s.mode === 'test' || s.chargesEnabled);
+                                const level = accepting ? 'ok' : s.connected ? 'warn' : 'error';
+                                return (
+                                    <div class="shop-stripe">
+                                        <div class={`shop-stripe__banner shop-stripe__banner--${level}`}>
+                                            <span class="shop-stripe__dot" />
+                                            <div class="shop-stripe__headline">
+                                                <strong>
+                                                    {accepting
+                                                        ? 'Connected — accepting payments'
+                                                        : s.connected
+                                                            ? 'Connected — not yet accepting live charges'
+                                                            : s.configured
+                                                                ? 'Not connected'
+                                                                : 'Stripe not configured'}
+                                                </strong>
+                                                <Show when={s.mode}>
+                                                    <span class={`badge ${s.mode === 'live' ? 'badge--success' : 'badge--info'}`}>
+                                                        {s.mode === 'live' ? 'Live mode' : 'Test mode'}
+                                                    </span>
+                                                </Show>
+                                            </div>
+                                        </div>
+
+                                        <Show when={s.connected}>
+                                            <dl class="shop-stripe__details">
+                                                <div><dt>Account</dt><dd>{s.displayName || s.accountId}</dd></div>
+                                                <Show when={s.country}><div><dt>Country</dt><dd>{s.country}</dd></div></Show>
+                                                <Show when={s.defaultCurrency}><div><dt>Currency</dt><dd>{s.defaultCurrency}</dd></div></Show>
+                                                <div><dt>Charges enabled</dt><dd>{s.chargesEnabled ? 'Yes' : 'No'}</dd></div>
+                                                <div><dt>Payouts enabled</dt><dd>{s.payoutsEnabled ? 'Yes' : 'No'}</dd></div>
+                                                <div><dt>Webhook secret</dt><dd>{s.webhookConfigured ? 'Configured' : 'Missing'}</dd></div>
+                                                <div><dt>Publishable key</dt><dd>{s.publishableKeyConfigured ? 'Configured' : 'Missing'}</dd></div>
+                                            </dl>
+                                        </Show>
+
+                                        <Show when={s.connected && s.mode === 'test'}>
+                                            <p class="form-help-muted">
+                                                Test mode — no real charges. Use card 4242 4242 4242 4242 (any future expiry / CVC) to place test orders.
+                                            </p>
+                                        </Show>
+                                        <Show when={s.connected && s.mode === 'live' && !s.chargesEnabled}>
+                                            <p class="shop-stripe__help">
+                                                This account isn't fully activated for live charges yet. Finish onboarding in the{' '}
+                                                <a href="https://dashboard.stripe.com" target="_blank" rel="noreferrer">Stripe Dashboard</a>.
+                                            </p>
+                                        </Show>
+                                        <Show when={s.connected && !s.webhookConfigured}>
+                                            <p class="shop-stripe__help">
+                                                No webhook signing secret set — paid orders won't auto-fulfill. Set <code>STRIPE_WEBHOOK_SECRET</code>{' '}
+                                                (from <code>stripe listen</code> locally, or a Dashboard webhook endpoint in production).
+                                            </p>
+                                        </Show>
+                                        <Show when={s.connected && !s.publishableKeyConfigured}>
+                                            <p class="shop-stripe__help">
+                                                No storefront publishable key — checkout can't load. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the web app env.
+                                            </p>
+                                        </Show>
+                                        <Show when={!s.connected}>
+                                            <p class="shop-stripe__help">
+                                                <Show when={s.error}><span>{s.error}</span><br /></Show>
+                                                Set <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PUBLISHABLE_KEY</code> in the API env, then restart the server.
+                                                Get keys from the{' '}
+                                                <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe Dashboard → Developers → API keys</a>.
+                                            </p>
+                                        </Show>
+
+                                        <div class="shop-stripe__footer">
+                                            <button class="btn btn--small btn--secondary" onClick={recheckStripe} disabled={rechecking()}>
+                                                {rechecking() ? 'Checking…' : 'Recheck'}
+                                            </button>
+                                            <Show when={s.checkedAt}>
+                                                <span class="form-help-muted">Last checked {new Date(s.checkedAt,).toLocaleTimeString()}</span>
+                                            </Show>
+                                        </div>
+                                    </div>
+                                );
+                            }}
+                        </Show>
+
                         <FormCheck
                             label="Use Stripe Tax"
                             checked={settings.stripeTaxEnabled || false}

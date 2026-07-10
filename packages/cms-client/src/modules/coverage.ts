@@ -300,6 +300,7 @@ export const ROUTE_COVERAGE: string[] = [
     // ── shop settings (feature-gated) ──
     'GET /api/v1/shop/settings',
     'GET /api/v1/shop/settings/admin',
+    'GET /api/v1/shop/settings/stripe-status',
     'PUT /api/v1/shop/settings',
 
     // ── feed / sitemap (raw, root-mounted) ──

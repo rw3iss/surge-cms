@@ -29,6 +29,13 @@ const stripe = new Proxy({} as Stripe, {
     },
 },);
 
+/** The memoized Stripe client, or null when no secret key is configured.
+ *  For read-only checks (e.g. connection status) that must not throw. */
+export function getStripeClient(): Stripe | null {
+    if (!config.stripe.secretKey) return null;
+    return stripeClient();
+}
+
 export class StripePaymentProvider implements PaymentProvider {
     async createPaymentIntent(params: CreatePaymentIntentParams,): Promise<PaymentIntentResult> {
         const paymentIntent = await stripe.paymentIntents.create({

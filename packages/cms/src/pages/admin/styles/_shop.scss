@@ -194,6 +194,101 @@
     }
 }
 
+// Stripe connection status panel (Payments tab).
+.shop-stripe {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    &__banner {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        padding: $spacing-md;
+        border-radius: $border-radius-md;
+        border: 1px solid;
+
+        // Level colors: ok (green), warn (amber), error (red).
+        &--ok {
+            background: rgba($success-color, 0.08);
+            border-color: rgba($success-color, 0.4);
+        }
+        &--warn {
+            background: rgba($warning-color, 0.08);
+            border-color: rgba($warning-color, 0.4);
+        }
+        &--error {
+            background: rgba($error-color, 0.08);
+            border-color: rgba($error-color, 0.4);
+        }
+    }
+
+    &__dot {
+        flex-shrink: 0;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+
+        .shop-stripe__banner--ok & { background: $success-color; }
+        .shop-stripe__banner--warn & { background: $warning-color; }
+        .shop-stripe__banner--error & { background: $error-color; }
+    }
+
+    &__headline {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: $spacing-sm $spacing-lg;
+        margin: 0;
+
+        div {
+            display: flex;
+            justify-content: space-between;
+            gap: $spacing-sm;
+            padding: $spacing-xs 0;
+            border-bottom: 1px solid var(--admin-border, $border-color);
+        }
+
+        dt {
+            color: var(--admin-text-muted, $text-light);
+            font-size: $font-size-sm;
+        }
+        dd {
+            margin: 0;
+            font-weight: 500;
+            font-size: $font-size-sm;
+            text-align: right;
+        }
+    }
+
+    &__help {
+        font-size: $font-size-sm;
+        line-height: 1.5;
+        color: var(--admin-page-text, $text-color);
+
+        code {
+            background: var(--admin-bg-subtle, $background-dark);
+            padding: 1px 5px;
+            border-radius: $border-radius-sm;
+            font-size: 0.85em;
+        }
+
+        a { color: var(--site-primary, $primary-color); }
+    }
+
+    &__footer {
+        display: flex;
+        align-items: center;
+        gap: $spacing-md;
+    }
+}
+
 .shop-product-editor {
     &__grid {
         display: flex;

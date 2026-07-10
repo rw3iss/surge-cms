@@ -26,6 +26,7 @@ import * as orders from '../services/shop/orders';
 import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
 import * as shopSettings from '../services/shop/settings';
+import * as stripeStatus from '../services/shop/stripeStatus';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -111,6 +112,9 @@ const collectionSchema = z.object({
 },) satisfies z.ZodType<ShopCollectionCreateBody>;
 
 const collectionListQuery = z.object({ all: z.string().optional(), },);
+
+// refresh travels as the string 'true'; the handler compares === 'true'.
+const stripeStatusQuery = z.object({ refresh: z.string().optional(), },);
 
 // ── Reviews ──
 
@@ -624,6 +628,15 @@ export const shopRoutes = [
         method: 'get', path: '/settings/admin', auth: 'admin',
         summary: 'Full shop settings + appearance (admin).',
         handler: () => shopSettings.getAdmin(),
+    },),
+
+    // Stripe connection status (admin) — a live, cached Stripe API check so the
+    // admin sees whether payments are actually wired up + accepting charges.
+    defineRoute({
+        method: 'get', path: '/settings/stripe-status', auth: 'admin',
+        summary: 'Stripe connection status (cached ~60s; ?refresh=true forces a re-check).',
+        input: { query: stripeStatusQuery, },
+        handler: ({ query, },) => stripeStatus.getStripeStatus(query.refresh === 'true',),
     },),
 
     // Update config (admin): merge partial into shop_settings / shop_appearance.

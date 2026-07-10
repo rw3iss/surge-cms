@@ -457,3 +457,39 @@ export interface ShopSettingsUpdateBody {
 
 /** PUT /shop/settings — the updated full config. */
 export type ShopSettingsUpdateResponse = ShopSettingsAdminResponse;
+
+/** Query for GET /shop/settings/stripe-status. */
+export interface ShopStripeStatusQuery {
+    /** Bypass the short-lived cache and re-check Stripe now. */
+    refresh?: boolean;
+}
+
+/**
+ * GET /shop/settings/stripe-status — Stripe connection health for the admin.
+ * Derived from a live Stripe API check (cached ~60s). No secret keys; only
+ * booleans + public account metadata.
+ */
+export interface ShopStripeStatusResponse {
+    /** A Stripe secret key is present in the environment. */
+    configured: boolean;
+    /** The Stripe API was reachable and the key is valid. */
+    connected: boolean;
+    /** The account can accept charges right now. */
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    detailsSubmitted: boolean;
+    /** 'test' | 'live' from the secret-key prefix. */
+    mode: 'test' | 'live' | null;
+    accountId: string | null;
+    displayName: string | null;
+    country: string | null;
+    defaultCurrency: string | null;
+    /** A webhook signing secret is configured (fulfillment depends on it). */
+    webhookConfigured: boolean;
+    /** The browser publishable key is configured server-side. */
+    publishableKeyConfigured: boolean;
+    /** Error message when connected=false. */
+    error: string | null;
+    /** ISO timestamp the status was computed. */
+    checkedAt: string;
+}

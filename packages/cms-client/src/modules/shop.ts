@@ -51,6 +51,7 @@ import type {
     ShopSettingsPublicResponse,
     ShopSettingsUpdateBody,
     ShopSettingsUpdateResponse,
+    ShopStripeStatusResponse,
     ShopTagListResponse,
 } from '@rw/cms-shared';
 import { ModuleBase, } from './base';
@@ -237,6 +238,13 @@ export class ShopModule extends ModuleBase {
         /** GET /shop/settings/admin — full config (admin). */
         getAdmin: (): Promise<ShopSettingsAdminResponse> =>
             this.get<ShopSettingsAdminResponse>('/shop/settings/admin',),
+
+        /** GET /shop/settings/stripe-status — live (cached ~60s) Stripe
+         *  connection status. Pass refresh=true to force a re-check. */
+        stripeStatus: (refresh?: boolean,): Promise<ShopStripeStatusResponse> =>
+            this.get<ShopStripeStatusResponse>('/shop/settings/stripe-status', {
+                query: refresh ? { refresh: true, } : undefined,
+            },),
 
         /** PUT /shop/settings (admin) — merge partial; returns full config. */
         update: (body: ShopSettingsUpdateBody,): Promise<ShopSettingsUpdateResponse> =>
