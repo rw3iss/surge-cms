@@ -299,6 +299,27 @@
     overflow-x: clip;
     min-width: 0;
     transition: margin-left 0.2s ease;
+
+    // Cap the content column so pages read as a balanced, centered column
+    // over the full-bleed page background instead of sprawling edge-to-edge
+    // on wide displays. Each admin page renders a single root element, so
+    // `> *` targets that page root. A page that genuinely needs full bleed
+    // can opt out with `.admin-full-bleed`.
+    > *:not(.admin-full-bleed) {
+      max-width: $admin-content-max-width;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    // Keep form controls at a comfortable, readable line length rather than
+    // stretching the whole column. Narrow containers (columns, table cells,
+    // inline fields) are already under the cap, so this only reins in wide
+    // single-column forms.
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      max-width: $admin-form-max-width;
+    }
   }
 
   // ─── Collapsed sidebar ───

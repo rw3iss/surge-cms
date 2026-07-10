@@ -46,6 +46,12 @@ $breakpoint-2xl: 1536px;
 $container-max-width: 1200px;
 $container-padding: $spacing-md;
 
+// Admin content widths — cap the content column so pages don't sprawl
+// edge-to-edge on wide displays, and keep form fields at a readable line
+// length. Applied in _admin-shell.scss.
+$admin-content-max-width: 1400px; // page content column (tables, editors, dashboards)
+$admin-form-max-width: 46rem;     // single form control max width (~735px)
+
 // Admin shell
 $admin-sidebar-width: 200px;
 $admin-sidebar-collapsed-width: 56px;

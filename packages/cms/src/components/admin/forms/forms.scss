@@ -141,7 +141,9 @@
   &__items {
     display: flex;
     flex-direction: column;
-    gap: $spacing-sm;
+    // Comfortable field separation for a professional, uncramped form.
+    // Dense checkbox lists opt into `--tight` below.
+    gap: $spacing-md;
 
     // Tight: 5px row gap. Used for dense lists like Show-fields where
     // many short checkboxes shouldn't sprawl vertically.
