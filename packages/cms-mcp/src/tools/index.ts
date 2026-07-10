@@ -10,6 +10,10 @@ import { postTools, } from './posts';
 import { blockStyleTools, } from './blockStyles';
 import { appearanceTools, } from './appearance';
 import { layoutTools, } from './layout';
+import { settingsTools, } from './settings';
+import { mediaTools, } from './media';
+import { navigationTools, } from './navigation';
+import { referenceTools, } from './reference';
 
 export function allTools(): ToolDef[] {
     return [
@@ -19,5 +23,9 @@ export function allTools(): ToolDef[] {
         ...blockStyleTools,
         ...appearanceTools,
         ...layoutTools,
+        ...settingsTools,
+        ...mediaTools,
+        ...navigationTools,
+        ...referenceTools,
     ];
 }
