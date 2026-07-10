@@ -126,6 +126,7 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: { exclude: ['@pageloop/client', '@pageloop/vanilla'] },
   build: {
     outDir: resolve(CMS_ROOT, 'dist'),
     emptyOutDir: true,

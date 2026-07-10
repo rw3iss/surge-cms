@@ -41,5 +41,10 @@
 	},
 	"engines": {
 		"node": ">=20.0.0"
+	},
+	"dependencies": {
+		"@pageloop/client": "^0.6.1",
+		"@pageloop/vanilla": "^0.6.1",
+		"solid-js": "^1.9.14"
 	}
 }

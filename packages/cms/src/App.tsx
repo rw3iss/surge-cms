@@ -5,6 +5,8 @@ import { AppErrorBoundary, } from './components/common/ErrorBoundary';
 import { Layout, } from './components/layout';
 import { ToastProvider, } from './components/common/toast';
 import { AuthProvider, } from './stores/auth';
+import { PageLoopProvider, usePageLoop } from '@pageloop/client/solid';
+import '@pageloop/client/solid/style.css';
 import './styles/global.scss';
 
 // Lazy load pages for code splitting
@@ -76,85 +78,87 @@ const App: Component = () => {
         <MetaProvider>
             <AuthProvider>
                 <ToastProvider>
-                    <Suspense fallback={<PageLoading />}>
-                        <Router>
-                            <AppErrorBoundary>
-                                {/* Public routes with main layout */}
-                                <Route path="/" component={Layout}>
-                                    <Route path="/" component={HomePage} />
-                                    <Route path="/login" component={LoginPage} />
-                                    <Route path="/join" component={JoinPage} />
-                                    <Route path="/posts" component={PostsPage} />
-                                    <Route path="/posts/:slug" component={PostPage} />
-                                    <Route path="/donate" component={DynamicPage} />
-                                    <Route path="/subscribe" component={SubscribePage} />
-                                    <Route path="/campaigns/:slug" component={CampaignPage} />
-                                    <Route path="/shop" component={ShopIndexPage} />
-                                    <Route path="/shop/cart" component={ShopCartPage} />
-                                    <Route path="/shop/checkout" component={ShopCheckoutPage} />
-                                    <Route path="/shop/collections/:slug" component={ShopCollectionPage} />
-                                    <Route path="/shop/categories/:slug" component={ShopCategoryPage} />
-                                    <Route path="/shop/orders/:number" component={ShopOrderConfirmationPage} />
-                                    <Route path="/shop/:slug" component={ShopProductPage} />
-                                    <Route path="/contact" component={ContactPage} />
-                                    <Route path="/forms/:slug" component={FormPage} />
-                                    <Route path="/search" component={SearchPage} />
-                                    {/* Dynamic page route - must be last among
-                                        single-segment paths. */}
-                                    <Route path="/:slug" component={DynamicPage} />
-                                    {/* Catch-all 404 lives INSIDE Layout so the
-                                        public Header/Footer + theme tokens
-                                        (--site-primary, etc.) apply. Multi-
-                                        segment paths like /pages/foo land here
-                                        instead of the un-themed root catch-all. */}
-                                    <Route path="*" component={NotFoundPage} />
-                                </Route>
+					<PageLoopProvider config={{ endpoint: 'https://pageloop.dev', projectId: 'cms' }}>
+						<Suspense fallback={<PageLoading />}>
+							<Router>
+								<AppErrorBoundary>
+									{/* Public routes with main layout */}
+									<Route path="/" component={Layout}>
+										<Route path="/" component={HomePage} />
+										<Route path="/login" component={LoginPage} />
+										<Route path="/join" component={JoinPage} />
+										<Route path="/posts" component={PostsPage} />
+										<Route path="/posts/:slug" component={PostPage} />
+										<Route path="/donate" component={DynamicPage} />
+										<Route path="/subscribe" component={SubscribePage} />
+										<Route path="/campaigns/:slug" component={CampaignPage} />
+										<Route path="/shop" component={ShopIndexPage} />
+										<Route path="/shop/cart" component={ShopCartPage} />
+										<Route path="/shop/checkout" component={ShopCheckoutPage} />
+										<Route path="/shop/collections/:slug" component={ShopCollectionPage} />
+										<Route path="/shop/categories/:slug" component={ShopCategoryPage} />
+										<Route path="/shop/orders/:number" component={ShopOrderConfirmationPage} />
+										<Route path="/shop/:slug" component={ShopProductPage} />
+										<Route path="/contact" component={ContactPage} />
+										<Route path="/forms/:slug" component={FormPage} />
+										<Route path="/search" component={SearchPage} />
+										{/* Dynamic page route - must be last among
+											single-segment paths. */}
+										<Route path="/:slug" component={DynamicPage} />
+										{/* Catch-all 404 lives INSIDE Layout so the
+											public Header/Footer + theme tokens
+											(--site-primary, etc.) apply. Multi-
+											segment paths like /pages/foo land here
+											instead of the un-themed root catch-all. */}
+										<Route path="*" component={NotFoundPage} />
+									</Route>
 
-                                {/* Admin routes with admin layout */}
-                                <Route path="/admin" component={AdminLayout}>
-                                    <Route path="/" component={AdminDashboard} />
-                                    <Route path="/pages" component={AdminPages} />
-                                    <Route path="/pages/:id/preview" component={AdminPagePreview} />
-                                    <Route path="/pages/:id" component={AdminPageEditor} />
-                                    <Route path="/posts" component={AdminPosts} />
-                                    <Route path="/posts/:id/preview" component={AdminPostPreview} />
-                                    <Route path="/posts/new" component={AdminPostEditor} />
-                                    <Route path="/posts/:id" component={AdminPostEditor} />
-                                    <Route path="/users" component={AdminUsers} />
-                                    <Route path="/users/:id" component={AdminUserDetail} />
-                                    <Route path="/campaigns" component={AdminCampaigns} />
-                                    <Route path="/campaigns/new" component={AdminCampaignEditor} />
-                                    <Route path="/campaigns/:id" component={AdminCampaignEditor} />
-                                    <Route path="/forms" component={AdminForms} />
-                                    <Route path="/forms/new" component={AdminFormEditor} />
-                                    <Route path="/forms/:id/submissions" component={AdminFormSubmissions} />
-                                    <Route path="/forms/:id" component={AdminFormEditor} />
-                                    <Route path="/messages" component={AdminMessages} />
-                                    <Route path="/messages/:id" component={AdminMessageView} />
-                                    <Route path="/mailing-lists" component={AdminMailingLists} />
-                                    <Route path="/mailing-lists/:id" component={AdminMailingListEdit} />
-                                    <Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />
-                                    <Route path="/mail/send" component={AdminMailSend} />
-                                    <Route path="/mail/jobs/:id" component={AdminMailJob} />
-                                    <Route path="/media" component={AdminMedia} />
-                                    <Route path="/shop" component={AdminShopDashboard} />
-                                    <Route path="/shop/products" component={AdminShopProducts} />
-                                    <Route path="/shop/products/new" component={AdminShopProductEditor} />
-                                    <Route path="/shop/products/:id" component={AdminShopProductEditor} />
-                                    <Route path="/shop/categories" component={AdminShopCategories} />
-                                    <Route path="/shop/collections" component={AdminShopCollections} />
-                                    <Route path="/shop/orders" component={AdminShopOrders} />
-                                    <Route path="/shop/orders/:id" component={AdminShopOrderDetail} />
-                                    <Route path="/shop/reviews" component={AdminShopReviews} />
-                                    <Route path="/shop/settings" component={AdminShopSettings} />
-                                    <Route path="/settings" component={AdminSettings} />
-                                </Route>
+									{/* Admin routes with admin layout */}
+									<Route path="/admin" component={AdminLayout}>
+										<Route path="/" component={AdminDashboard} />
+										<Route path="/pages" component={AdminPages} />
+										<Route path="/pages/:id/preview" component={AdminPagePreview} />
+										<Route path="/pages/:id" component={AdminPageEditor} />
+										<Route path="/posts" component={AdminPosts} />
+										<Route path="/posts/:id/preview" component={AdminPostPreview} />
+										<Route path="/posts/new" component={AdminPostEditor} />
+										<Route path="/posts/:id" component={AdminPostEditor} />
+										<Route path="/users" component={AdminUsers} />
+										<Route path="/users/:id" component={AdminUserDetail} />
+										<Route path="/campaigns" component={AdminCampaigns} />
+										<Route path="/campaigns/new" component={AdminCampaignEditor} />
+										<Route path="/campaigns/:id" component={AdminCampaignEditor} />
+										<Route path="/forms" component={AdminForms} />
+										<Route path="/forms/new" component={AdminFormEditor} />
+										<Route path="/forms/:id/submissions" component={AdminFormSubmissions} />
+										<Route path="/forms/:id" component={AdminFormEditor} />
+										<Route path="/messages" component={AdminMessages} />
+										<Route path="/messages/:id" component={AdminMessageView} />
+										<Route path="/mailing-lists" component={AdminMailingLists} />
+										<Route path="/mailing-lists/:id" component={AdminMailingListEdit} />
+										<Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />
+										<Route path="/mail/send" component={AdminMailSend} />
+										<Route path="/mail/jobs/:id" component={AdminMailJob} />
+										<Route path="/media" component={AdminMedia} />
+										<Route path="/shop" component={AdminShopDashboard} />
+										<Route path="/shop/products" component={AdminShopProducts} />
+										<Route path="/shop/products/new" component={AdminShopProductEditor} />
+										<Route path="/shop/products/:id" component={AdminShopProductEditor} />
+										<Route path="/shop/categories" component={AdminShopCategories} />
+										<Route path="/shop/collections" component={AdminShopCollections} />
+										<Route path="/shop/orders" component={AdminShopOrders} />
+										<Route path="/shop/orders/:id" component={AdminShopOrderDetail} />
+										<Route path="/shop/reviews" component={AdminShopReviews} />
+										<Route path="/shop/settings" component={AdminShopSettings} />
+										<Route path="/settings" component={AdminSettings} />
+									</Route>
 
-                                {/* Setup wizard — outside the main Layout so it can render its own chrome. */}
-                                <Route path="/setup" component={SetupPage} />
-                            </AppErrorBoundary>
-                        </Router>
+									{/* Setup wizard — outside the main Layout so it can render its own chrome. */}
+									<Route path="/setup" component={SetupPage} />
+								</AppErrorBoundary>
+							</Router>
                     </Suspense>
+					</PageLoopProvider>
                 </ToastProvider>
             </AuthProvider>
         </MetaProvider>
