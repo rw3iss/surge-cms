@@ -172,157 +172,169 @@ const CampaignEditor: Component = () => {
 
             <Show when={isNew() || campaign()} fallback={<div>Loading...</div>}>
                 <form onSubmit={handleSubmit} class="admin-form">
-                    <div class="form-group">
-                        <label for="title">Title *</label>
-                        <input
-                            type="text"
-                            id="title"
-                            value={title()}
-                            onInput={handleTitleChange}
-                            required
-                            placeholder="Campaign title"
-                        />
-                    </div>
+                    {/* Section 1 — content on the left, publishing controls on the right */}
+                    <div class="form-section form-columns">
+                        <div class="form-columns__main">
+                            <div class="form-group">
+                                <label for="title">Title *</label>
+                                <input
+                                    type="text"
+                                    id="title"
+                                    value={title()}
+                                    onInput={handleTitleChange}
+                                    required
+                                    placeholder="Campaign title"
+                                />
+                            </div>
 
-                    <div class="form-group">
-                        <label for="slug">URL Slug *</label>
-                        <input
-                            type="text"
-                            id="slug"
-                            value={slug()}
-                            onInput={(e,) => {
-                                setSlug((e.target as HTMLInputElement).value,);
-                                markDirty();
-                            }}
-                            required
-                            placeholder="campaign-url-slug"
-                        />
-                        <small class="form-help">Used in the URL: /campaigns/{slug() || 'slug'}</small>
-                    </div>
+                            <div class="form-group">
+                                <label for="slug">URL Slug *</label>
+                                <input
+                                    type="text"
+                                    id="slug"
+                                    value={slug()}
+                                    onInput={(e,) => {
+                                        setSlug((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                    required
+                                    placeholder="campaign-url-slug"
+                                />
+                                <small class="form-help">Used in the URL: /campaigns/{slug() || 'slug'}</small>
+                            </div>
 
-                    <div class="form-group">
-                        <label for="shortDescription">Short Description</label>
-                        <input
-                            type="text"
-                            id="shortDescription"
-                            value={shortDescription()}
-                            onInput={(e,) => {
-                                setShortDescription((e.target as HTMLInputElement).value,);
-                                markDirty();
-                            }}
-                            placeholder="Brief description for listings"
-                            maxLength={200}
-                        />
-                    </div>
+                            <div class="form-group">
+                                <label for="shortDescription">Short Description</label>
+                                <input
+                                    type="text"
+                                    id="shortDescription"
+                                    value={shortDescription()}
+                                    onInput={(e,) => {
+                                        setShortDescription((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                    placeholder="Brief description for listings"
+                                    maxLength={200}
+                                />
+                            </div>
 
-                    <div class="form-group">
-                        <label for="description">Full Description *</label>
-                        <textarea
-                            id="description"
-                            value={description()}
-                            onInput={(e,) => {
-                                setDescription((e.target as HTMLTextAreaElement).value,);
-                                markDirty();
-                            }}
-                            required
-                            placeholder="Detailed description of the campaign..."
-                            rows={6}
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <Toggle
-                            checked={hasGoal()}
-                            onChange={(next,) => { setHasGoal(next,); markDirty(); }}
-                            label="Set a fundraising goal"
-                        />
-                    </div>
-
-                    <Show when={hasGoal()}>
-                        <div class="form-group">
-                            <label for="goalAmount">Goal Amount ($)</label>
-                            <input
-                                type="number"
-                                id="goalAmount"
-                                value={goalAmount()}
-                                onInput={(e,) => {
-                                    setGoalAmount((e.target as HTMLInputElement).value,);
-                                    markDirty();
-                                }}
-                                placeholder="10000"
-                                min="0"
-                                step="0.01"
-                            />
-                            <small class="form-help">Leave empty for an open/unlimited fund</small>
+                            <div class="form-group">
+                                <label for="description">Full Description *</label>
+                                <textarea
+                                    id="description"
+                                    value={description()}
+                                    onInput={(e,) => {
+                                        setDescription((e.target as HTMLTextAreaElement).value,);
+                                        markDirty();
+                                    }}
+                                    required
+                                    placeholder="Detailed description of the campaign..."
+                                    rows={6}
+                                />
+                            </div>
                         </div>
-                    </Show>
 
-                    <div class="form-group">
-                        <label for="featuredImage">Featured Image URL</label>
-                        <input
-                            type="url"
-                            id="featuredImage"
-                            value={featuredImage()}
-                            onInput={(e,) => {
-                                setFeaturedImage((e.target as HTMLInputElement).value,);
-                                markDirty();
-                            }}
-                            placeholder="https://..."
-                        />
-                    </div>
+                        <div class="form-columns__side">
+                            <div class="form-group">
+                                <Toggle
+                                    checked={isPublished()}
+                                    onChange={(next,) => { setIsPublished(next,); markDirty(); }}
+                                    label="Published (visible to the public)"
+                                />
+                            </div>
 
-                    <div class="form-row">
-                        <div class="form-group form-group--grow">
-                            <label for="startDate">Start Date</label>
-                            <input
-                                type="datetime-local"
-                                id="startDate"
-                                value={startDate()}
-                                onInput={(e,) => {
-                                    setStartDate((e.target as HTMLInputElement).value,);
-                                    markDirty();
-                                }}
-                            />
-                            <small class="form-help">When the campaign starts accepting donations (optional)</small>
-                        </div>
-                        <div class="form-group form-group--grow">
-                            <label for="endDate">End Date</label>
-                            <input
-                                type="datetime-local"
-                                id="endDate"
-                                value={endDate()}
-                                onInput={(e,) => {
-                                    setEndDate((e.target as HTMLInputElement).value,);
-                                    markDirty();
-                                }}
-                            />
-                            <small class="form-help">When the campaign stops accepting donations (optional)</small>
+                            <div class="form-group">
+                                <label for="status">Status</label>
+                                <select
+                                    id="status"
+                                    value={status()}
+                                    onChange={(e,) => {
+                                        setStatus((e.target as HTMLSelectElement).value,);
+                                        markDirty();
+                                    }}
+                                >
+                                    <option value="draft">Draft</option>
+                                    <option value="active">Active</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <Toggle
-                            checked={isPublished()}
-                            onChange={(next,) => { setIsPublished(next,); markDirty(); }}
-                            label="Published (visible to the public)"
-                        />
-                    </div>
+                    {/* Section 2 — goal + featured image on the left, schedule on the right */}
+                    <div class="form-section form-columns">
+                        <div class="form-columns__main">
+                            <div class="form-group">
+                                <Toggle
+                                    checked={hasGoal()}
+                                    onChange={(next,) => { setHasGoal(next,); markDirty(); }}
+                                    label="Set a fundraising goal"
+                                />
+                            </div>
 
-                    <div class="form-group">
-                        <label for="status">Status</label>
-                        <select
-                            id="status"
-                            value={status()}
-                            onChange={(e,) => {
-                                setStatus((e.target as HTMLSelectElement).value,);
-                                markDirty();
-                            }}
-                        >
-                            <option value="draft">Draft</option>
-                            <option value="active">Active</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                            <Show when={hasGoal()}>
+                                <div class="form-group">
+                                    <label for="goalAmount">Goal Amount ($)</label>
+                                    <input
+                                        type="number"
+                                        id="goalAmount"
+                                        value={goalAmount()}
+                                        onInput={(e,) => {
+                                            setGoalAmount((e.target as HTMLInputElement).value,);
+                                            markDirty();
+                                        }}
+                                        placeholder="10000"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                    <small class="form-help">Leave empty for an open/unlimited fund</small>
+                                </div>
+                            </Show>
+
+                            <div class="form-group">
+                                <label for="featuredImage">Featured Image URL</label>
+                                <input
+                                    type="url"
+                                    id="featuredImage"
+                                    value={featuredImage()}
+                                    onInput={(e,) => {
+                                        setFeaturedImage((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                    placeholder="https://..."
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-columns__side">
+                            <div class="form-group">
+                                <label for="startDate">Start Date</label>
+                                <input
+                                    type="datetime-local"
+                                    id="startDate"
+                                    value={startDate()}
+                                    onInput={(e,) => {
+                                        setStartDate((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                />
+                                <small class="form-help">When the campaign starts accepting donations (optional)</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="endDate">End Date</label>
+                                <input
+                                    type="datetime-local"
+                                    id="endDate"
+                                    value={endDate()}
+                                    onInput={(e,) => {
+                                        setEndDate((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                />
+                                <small class="form-help">When the campaign stops accepting donations (optional)</small>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-actions">

@@ -109,6 +109,29 @@
 
 
 
+// Two-column section layout: a wider main content column on the left and
+// a narrower controls/meta column on the right. Collapses to a single
+// stacked column on narrow viewports. Pair with `.form-section` to get a
+// bordered, spaced group. Column children (`.form-group`) stack vertically.
+.form-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: $spacing-xl;
+  align-items: start;
+
+  @media (max-width: #{$breakpoint-md - 1px}) {
+    grid-template-columns: 1fr;
+    gap: $spacing-lg;
+  }
+
+  &__main,
+  &__side {
+    min-width: 0;
+  }
+}
+
+
+
 .form-help {
   display: block;
   margin-top: $spacing-xs;
