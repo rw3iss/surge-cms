@@ -172,7 +172,8 @@ const CampaignEditor: Component = () => {
 
             <Show when={isNew() || campaign()} fallback={<div>Loading...</div>}>
                 <form onSubmit={handleSubmit} class="admin-form">
-                    {/* Section 1 — content on the left, publishing controls on the right */}
+                    {/* Single two-column layout: content + fundraising goal on
+                        the left, publishing controls + schedule on the right */}
                     <div class="form-section form-columns">
                         <div class="form-columns__main">
                             <div class="form-group">
@@ -232,6 +233,47 @@ const CampaignEditor: Component = () => {
                                     rows={6}
                                 />
                             </div>
+
+                            <div class="form-group">
+                                <label for="featuredImage">Featured Image URL</label>
+                                <input
+                                    type="url"
+                                    id="featuredImage"
+                                    value={featuredImage()}
+                                    onInput={(e,) => {
+                                        setFeaturedImage((e.target as HTMLInputElement).value,);
+                                        markDirty();
+                                    }}
+                                    placeholder="https://..."
+                                />
+                            </div>
+
+                            <div class="form-group">
+                                <Toggle
+                                    checked={hasGoal()}
+                                    onChange={(next,) => { setHasGoal(next,); markDirty(); }}
+                                    label="Set a fundraising goal"
+                                />
+                            </div>
+
+                            <Show when={hasGoal()}>
+                                <div class="form-group">
+                                    <label for="goalAmount">Goal Amount ($)</label>
+                                    <input
+                                        type="number"
+                                        id="goalAmount"
+                                        value={goalAmount()}
+                                        onInput={(e,) => {
+                                            setGoalAmount((e.target as HTMLInputElement).value,);
+                                            markDirty();
+                                        }}
+                                        placeholder="10000"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                    <small class="form-help">Leave empty for an open/unlimited fund</small>
+                                </div>
+                            </Show>
                         </div>
 
                         <div class="form-columns__side">
@@ -259,55 +301,7 @@ const CampaignEditor: Component = () => {
                                     <option value="cancelled">Cancelled</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Section 2 — goal + featured image on the left, schedule on the right */}
-                    <div class="form-section form-columns">
-                        <div class="form-columns__main">
-                            <div class="form-group">
-                                <Toggle
-                                    checked={hasGoal()}
-                                    onChange={(next,) => { setHasGoal(next,); markDirty(); }}
-                                    label="Set a fundraising goal"
-                                />
-                            </div>
-
-                            <Show when={hasGoal()}>
-                                <div class="form-group">
-                                    <label for="goalAmount">Goal Amount ($)</label>
-                                    <input
-                                        type="number"
-                                        id="goalAmount"
-                                        value={goalAmount()}
-                                        onInput={(e,) => {
-                                            setGoalAmount((e.target as HTMLInputElement).value,);
-                                            markDirty();
-                                        }}
-                                        placeholder="10000"
-                                        min="0"
-                                        step="0.01"
-                                    />
-                                    <small class="form-help">Leave empty for an open/unlimited fund</small>
-                                </div>
-                            </Show>
-
-                            <div class="form-group">
-                                <label for="featuredImage">Featured Image URL</label>
-                                <input
-                                    type="url"
-                                    id="featuredImage"
-                                    value={featuredImage()}
-                                    onInput={(e,) => {
-                                        setFeaturedImage((e.target as HTMLInputElement).value,);
-                                        markDirty();
-                                    }}
-                                    placeholder="https://..."
-                                />
-                            </div>
-                        </div>
-
-                        <div class="form-columns__side">
                             <div class="form-group">
                                 <label for="startDate">Start Date</label>
                                 <input
