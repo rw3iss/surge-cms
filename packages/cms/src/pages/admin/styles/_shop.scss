@@ -184,6 +184,16 @@
 
 // ── Product editor ─────────────────────────────────────────────────────
 
+// Shop settings — the settings-card packs its field rows flush (the form
+// fields carry no vertical margin), so give the card a comfortable row gap.
+.shop-settings {
+    .settings-card {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-lg;
+    }
+}
+
 .shop-product-editor {
     &__grid {
         display: flex;
