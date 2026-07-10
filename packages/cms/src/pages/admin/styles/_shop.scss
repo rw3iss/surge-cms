@@ -33,10 +33,81 @@
         gap: $spacing-xs;
     }
 
-    &__quick-links {
+    // Two-column dashboard: a thin section-nav on the left, everything
+    // else (stats, recent orders, highlights) on the right. Collapses to
+    // a single stacked column on narrow viewports.
+    &__layout {
+        display: grid;
+        grid-template-columns: minmax(200px, 1fr) 3fr;
+        gap: $spacing-lg;
+        align-items: start;
+
+        @media (max-width: #{$breakpoint-md - 1px}) {
+            grid-template-columns: 1fr;
+            gap: $spacing-md;
+        }
+    }
+
+    &__nav {
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 2px;
+        padding: $spacing-xs;
+        border: 1px solid var(--admin-border, $border-color);
+        border-radius: $border-radius-md;
+        background: var(--admin-bg-subtle, $background-dark);
+        position: sticky;
+        top: $spacing-lg;
+    }
+
+    &__nav-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: $spacing-sm;
+        padding: $spacing-sm $spacing-md;
+        border-radius: $border-radius-sm;
+        color: var(--admin-text, $text-color);
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color $transition-fast, color $transition-fast;
+
+        &:hover {
+            background: var(--admin-input-bg, #fff);
+        }
+
+        &.active {
+            background: var(--site-primary, $primary-color);
+            color: #fff;
+
+            .shop-admin__nav-count {
+                background: rgba(255, 255, 255, 0.25);
+                border-color: transparent;
+                color: #fff;
+            }
+        }
+    }
+
+    &__nav-count {
+        flex-shrink: 0;
+        min-width: 1.5rem;
+        padding: 0 $spacing-xs;
+        text-align: center;
+        border-radius: 999px;
+        background: var(--admin-input-bg, #fff);
+        border: 1px solid var(--admin-border, $border-color);
+        color: var(--admin-text-muted, $text-light);
+        font-size: $font-size-xs;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    &__main {
+        min-width: 0;
+
+        .shop-admin__section:first-child {
+            margin-top: 0;
+        }
     }
 
     &__section {
