@@ -19,7 +19,17 @@ const ShopCheckoutInner: Component = () => {
     let stripeInstance: Stripe | null = null;
 
     const [email, setEmail,] = createSignal(auth.user?.email || '',);
-    const [name, setName,] = createSignal(auth.user?.displayName || '',);
+    // Split the display name into first/last for a familiar checkout form and
+    // browser autofill (given-name / family-name).
+    const initialName = (auth.user?.displayName || '').trim();
+    const initialSpace = initialName.indexOf(' ',);
+    const [firstName, setFirstName,] = createSignal(
+        initialSpace > 0 ? initialName.slice(0, initialSpace,) : initialName,
+    );
+    const [lastName, setLastName,] = createSignal(
+        initialSpace > 0 ? initialName.slice(initialSpace + 1,) : '',
+    );
+    const fullName = () => [firstName().trim(), lastName().trim(),].filter(Boolean,).join(' ',);
     const [line1, setLine1,] = createSignal('',);
     const [line2, setLine2,] = createSignal('',);
     const [city, setCity,] = createSignal('',);
@@ -37,7 +47,7 @@ const ShopCheckoutInner: Component = () => {
     const lines = () => cartItems().map((l,) => ({ variantId: l.variantId, qty: l.qty, }));
 
     const shippingAddress = (): ShopAddress => ({
-        name: name() || undefined,
+        name: fullName() || undefined,
         line1: line1() || undefined,
         line2: line2() || undefined,
         city: city() || undefined,
@@ -114,7 +124,7 @@ const ShopCheckoutInner: Component = () => {
             const { clientSecret, orderNumber, } = await cms.shop.checkout.create({
                 items: lines(),
                 customerEmail: email(),
-                customerName: name() || undefined,
+                customerName: fullName() || undefined,
                 shippingAddress: shippingAddress(),
                 billingAddress: shippingAddress(),
             },);
@@ -128,7 +138,7 @@ const ShopCheckoutInner: Component = () => {
             const result = await stripeInstance.confirmCardPayment(clientSecret, {
                 payment_method: {
                     card: cardElement,
-                    billing_details: { name: name() || undefined, email: email(), },
+                    billing_details: { name: fullName() || undefined, email: email(), },
                 },
             },);
 
@@ -164,38 +174,117 @@ const ShopCheckoutInner: Component = () => {
                 <form class="shop-checkout__layout" onSubmit={placeOrder}>
                     <div class="shop-checkout__form">
                         <h2>Contact</h2>
-                        <label>Email</label>
-                        <input type="email" required value={email()} onInput={(e,) => setEmail(e.currentTarget.value,)} />
+                        <label for="checkout-email">Email</label>
+                        <input
+                            id="checkout-email"
+                            name="email"
+                            type="email"
+                            autocomplete="email"
+                            required
+                            value={email()}
+                            onInput={(e,) => setEmail(e.currentTarget.value,)}
+                        />
 
                         <h2>Shipping address</h2>
-                        <label>Full name</label>
-                        <input type="text" value={name()} onInput={(e,) => { setName(e.currentTarget.value,); schedulePreview(); }} />
-                        <label>Address line 1</label>
-                        <input type="text" value={line1()} onInput={(e,) => { setLine1(e.currentTarget.value,); schedulePreview(); }} />
-                        <label>Address line 2</label>
-                        <input type="text" value={line2()} onInput={(e,) => { setLine2(e.currentTarget.value,); schedulePreview(); }} />
                         <div class="shop-checkout__row">
                             <div>
-                                <label>City</label>
-                                <input type="text" value={city()} onInput={(e,) => { setCity(e.currentTarget.value,); schedulePreview(); }} />
+                                <label for="checkout-first-name">First name</label>
+                                <input
+                                    id="checkout-first-name"
+                                    name="given-name"
+                                    type="text"
+                                    autocomplete="given-name"
+                                    value={firstName()}
+                                    onInput={(e,) => { setFirstName(e.currentTarget.value,); schedulePreview(); }}
+                                />
                             </div>
                             <div>
-                                <label>State / Region</label>
-                                <input type="text" value={stateRegion()} onInput={(e,) => { setStateRegion(e.currentTarget.value,); schedulePreview(); }} />
+                                <label for="checkout-last-name">Last name</label>
+                                <input
+                                    id="checkout-last-name"
+                                    name="family-name"
+                                    type="text"
+                                    autocomplete="family-name"
+                                    value={lastName()}
+                                    onInput={(e,) => { setLastName(e.currentTarget.value,); schedulePreview(); }}
+                                />
+                            </div>
+                        </div>
+                        <label for="checkout-address1">Address line 1</label>
+                        <input
+                            id="checkout-address1"
+                            name="address-line1"
+                            type="text"
+                            autocomplete="address-line1"
+                            value={line1()}
+                            onInput={(e,) => { setLine1(e.currentTarget.value,); schedulePreview(); }}
+                        />
+                        <label for="checkout-address2">Address line 2</label>
+                        <input
+                            id="checkout-address2"
+                            name="address-line2"
+                            type="text"
+                            autocomplete="address-line2"
+                            value={line2()}
+                            onInput={(e,) => { setLine2(e.currentTarget.value,); schedulePreview(); }}
+                        />
+                        <div class="shop-checkout__row">
+                            <div>
+                                <label for="checkout-city">City</label>
+                                <input
+                                    id="checkout-city"
+                                    name="address-level2"
+                                    type="text"
+                                    autocomplete="address-level2"
+                                    value={city()}
+                                    onInput={(e,) => { setCity(e.currentTarget.value,); schedulePreview(); }}
+                                />
+                            </div>
+                            <div>
+                                <label for="checkout-state">State / Region</label>
+                                <input
+                                    id="checkout-state"
+                                    name="address-level1"
+                                    type="text"
+                                    autocomplete="address-level1"
+                                    value={stateRegion()}
+                                    onInput={(e,) => { setStateRegion(e.currentTarget.value,); schedulePreview(); }}
+                                />
                             </div>
                         </div>
                         <div class="shop-checkout__row">
                             <div>
-                                <label>Postal code</label>
-                                <input type="text" value={postalCode()} onInput={(e,) => { setPostalCode(e.currentTarget.value,); schedulePreview(); }} />
+                                <label for="checkout-postal">Postal code</label>
+                                <input
+                                    id="checkout-postal"
+                                    name="postal-code"
+                                    type="text"
+                                    autocomplete="postal-code"
+                                    value={postalCode()}
+                                    onInput={(e,) => { setPostalCode(e.currentTarget.value,); schedulePreview(); }}
+                                />
                             </div>
                             <div>
-                                <label>Country</label>
-                                <input type="text" value={country()} onInput={(e,) => { setCountry(e.currentTarget.value,); schedulePreview(); }} />
+                                <label for="checkout-country">Country</label>
+                                <input
+                                    id="checkout-country"
+                                    name="country"
+                                    type="text"
+                                    autocomplete="country"
+                                    value={country()}
+                                    onInput={(e,) => { setCountry(e.currentTarget.value,); schedulePreview(); }}
+                                />
                             </div>
                         </div>
-                        <label>Phone (optional)</label>
-                        <input type="tel" value={phone()} onInput={(e,) => setPhone(e.currentTarget.value,)} />
+                        <label for="checkout-phone">Phone (optional)</label>
+                        <input
+                            id="checkout-phone"
+                            name="tel"
+                            type="tel"
+                            autocomplete="tel"
+                            value={phone()}
+                            onInput={(e,) => setPhone(e.currentTarget.value,)}
+                        />
 
                         <h2>Payment</h2>
                         <label>Card details</label>

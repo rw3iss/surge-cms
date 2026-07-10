@@ -526,10 +526,17 @@
 }
 
 // ── Checkout ───────────────────────────────────────────────────────
+// Checkout is much wider than the rest of the storefront so the form + order
+// summary have room to breathe. Override the .shop-store max-width (compound
+// selector to win) and let the site gutter provide the horizontal padding.
+.shop-store.shop-checkout {
+    max-width: 2600px;
+}
+
 .shop-checkout {
     &__layout {
         display: grid;
-        grid-template-columns: 1fr 360px;
+        grid-template-columns: 1fr 420px;
         gap: $spacing-2xl;
         align-items: start;
 
