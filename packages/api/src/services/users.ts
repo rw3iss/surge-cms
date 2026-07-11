@@ -11,7 +11,7 @@
 import type { PatreonMembership, User, } from '@rw/cms-shared';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
-import { nanoid, } from 'nanoid';
+import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import sharp from 'sharp';
 import { config, } from '../config';

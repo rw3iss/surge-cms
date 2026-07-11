@@ -28,7 +28,7 @@ describe('shopProducts.repo list rows carry fromPriceCents + primaryImageUrl', (
         queryMock.mockReset();
         // 1st call = COUNT, 2nd call = data page.
         queryMock
-            .mockResolvedValueOnce({ rows: [{ count: '1', },], },)
+            .mockResolvedValueOnce({ rows: [{ count: '1', },], })
             .mockResolvedValueOnce({ rows: [PRODUCT_ROW,], },);
     },);
 

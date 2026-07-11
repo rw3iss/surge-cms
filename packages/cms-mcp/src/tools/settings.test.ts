@@ -15,7 +15,7 @@ function mockCtx() {
         update: vi.fn().mockImplementation(async (body: unknown,) => ({ message: 'ok', echoed: body, }),),
         setKey: vi.fn(),
         deleteKey: vi.fn(),
-        uninstallFeature: vi.fn().mockResolvedValue({ message: 'gone', droppedTables: ['x',], },),
+        uninstallFeature: vi.fn().mockResolvedValue({ message: 'gone', droppedTables: ['x',], }),
     };
     const ctx = {
         cms: { settings, },

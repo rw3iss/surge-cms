@@ -20,7 +20,7 @@ import {
     sendOrderStatusEmail,
 } from './orderEmails';
 
-function order(overrides: Partial<OrderDetail> = {},): OrderDetail {
+function order(overrides: Partial<OrderDetail> = {}): OrderDetail {
     return {
         id: 'o1',
         orderNumber: 'SS-1001',
@@ -122,7 +122,7 @@ describe('orderEmails — send helpers', () => {
         const recipients = sendEmailMock.mock.calls.map((c,) => (c[0] as { to: string; }).to);
         expect(recipients,).toContain('buyer@example.com',);
         expect(recipients,).toContain('owner@acme.com',);
-    },);
+    });
 
     it('sendOrderPlacedEmails sends only the buyer email when no contactEmail is set', async () => {
         getPublicSettingsMock.mockResolvedValue({ contactEmail: '', },);

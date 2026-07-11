@@ -4,7 +4,7 @@ const queryMock = vi.fn().mockResolvedValue({ rows: [], },);
 const txClientQueryMock = vi.fn().mockResolvedValue({ rows: [], },);
 vi.mock('../db', () => ({
     query: (...args: unknown[]) => queryMock(...args),
-    transaction: async (cb: (client: { query: typeof txClientQueryMock; },) => unknown,) =>
+    transaction: async (cb: (client: { query: typeof txClientQueryMock; }) => unknown,) =>
         cb({ query: txClientQueryMock, },),
 }),);
 
@@ -26,7 +26,7 @@ describe('connections.upsert actor handling', () => {
         );
         expect(insertCall,).toBeDefined();
         const params = insertCall![1] as unknown[];
-        expect(params[params.length - 1],).toBeNull();
+        expect(params[params.length - 1]).toBeNull();
     },);
 
     it('passes a real UUID actor through to connected_by', async () => {

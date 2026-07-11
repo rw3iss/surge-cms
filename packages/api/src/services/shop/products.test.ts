@@ -18,7 +18,7 @@ vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 // transaction(cb) runs the callback with a fake client that records SQL.
 const txnQueries: { sql: string; params?: unknown[]; }[] = [];
 const fakeClient = {
-    query: vi.fn(async (sql: string, params?: unknown[],) => {
+    query: vi.fn(async (sql: string, params?: unknown[]) => {
         txnQueries.push({ sql, params, },);
         return { rows: [{ id: 'opt-1', },], };
     }),
@@ -27,7 +27,7 @@ vi.mock('../../db', () => ({
     transaction: async (cb: (c: unknown,) => Promise<unknown>,) => cb(fakeClient,),
 }),);
 
-const findPublicProductsMock = vi.fn().mockResolvedValue({ data: [], total: 0, },);
+const findPublicProductsMock = vi.fn().mockResolvedValue({ data: [], total: 0, });
 const findAllProductsMock = vi.fn().mockResolvedValue({ data: [], total: 0, },);
 const createProductMock = vi.fn().mockResolvedValue({ id: 'p1', title: 'Shirt', },);
 const findProductDetailByIdMock = vi.fn().mockResolvedValue({ id: 'p1', title: 'Shirt', variants: [], },);
@@ -65,7 +65,7 @@ describe('shop products service', () => {
         findPublicProductsMock.mockClear();
         findAllProductsMock.mockClear();
         createProductMock.mockClear();
-    },);
+    });
 
     it('public list resolves active-only via the public repo (never the admin repo)', async () => {
         getMock.mockResolvedValue(null,);

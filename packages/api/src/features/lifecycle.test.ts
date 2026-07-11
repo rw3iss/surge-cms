@@ -17,7 +17,7 @@ describe('installFeatureStep', () => {
         const applied = await installFeatureStep('__test' as never, client,);
         expect(applyMock,).toHaveBeenCalledWith('__test', client,);
         expect(hook,).toHaveBeenCalledWith(client, '__test',);
-        expect(applied,).toEqual(['039_x.sql',],);
+        expect(applied,).toEqual(['039_x.sql',]);
         delete (FEATURE_REGISTRY as Record<string, unknown>).__test;
     },);
 },);

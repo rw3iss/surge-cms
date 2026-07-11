@@ -15,7 +15,7 @@ describe('apiKeys helpers', () => {
         expect(scopeSatisfies(['write',], 'admin',),).toBe(false,);
         expect(scopeSatisfies(['admin',], 'write',),).toBe(true,);
         expect(scopeSatisfies([], 'read',),).toBe(false,);
-    },);
+    });
 
     it('maps methods to required scopes', () => {
         expect(requiredScopeFor('GET',),).toBe('read',);

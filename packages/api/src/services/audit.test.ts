@@ -12,7 +12,7 @@ describe('logAudit actor handling', () => {
         await logAudit({
             userId: '11111111-2222-3333-4444-555555555555',
             action: 'create', entityType: 'post',
-        },);
+        });
         const params = queryMock.mock.calls[0][1] as unknown[];
         expect(params[0],).toBe('11111111-2222-3333-4444-555555555555',);
     },);

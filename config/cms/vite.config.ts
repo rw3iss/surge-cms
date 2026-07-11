@@ -132,13 +132,10 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'esnext',
     sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['solid-js', '@solidjs/router'],
-        },
-      },
-    },
+    // vite 8 bundles with rolldown, which rejects the object form of
+    // `manualChunks`. Rolldown's automatic chunking already splits vendor
+    // code sensibly, so we let it handle chunking rather than porting to the
+    // `advancedChunks` API.
   },
   css: {
     preprocessorOptions: {

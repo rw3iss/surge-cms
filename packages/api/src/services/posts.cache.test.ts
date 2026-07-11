@@ -9,7 +9,7 @@ vi.mock('./cache', () => ({
     },
 }),);
 
-const findPublicPostsMock = vi.fn().mockResolvedValue({ data: [], total: 0, },);
+const findPublicPostsMock = vi.fn().mockResolvedValue({ data: [], total: 0, });
 vi.mock('../repositories/posts.repo', () => ({
     findPublicPosts: (...a: unknown[]) => findPublicPostsMock(...a),
 }),);
@@ -24,7 +24,7 @@ describe('listPublicCached cache gating', () => {
         getMock.mockReset();
         setMock.mockReset();
         findPublicPostsMock.mockClear();
-    },);
+    });
 
     it('never reads or writes the public cache for admin-shaped results', async () => {
         await listPublicCached({

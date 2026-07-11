@@ -9,7 +9,7 @@ vi.mock('./orderEmails', () => ({
 }),);
 vi.mock('../../config', () => ({ config: { stripe: { secretKey: undefined, }, frontendUrl: '', }, }),);
 
-const findOrdersMock = vi.fn().mockResolvedValue({ data: [], total: 0, },);
+const findOrdersMock = vi.fn().mockResolvedValue({ data: [], total: 0, });
 const findOrderByIdMock = vi.fn();
 const updateOrderMock = vi.fn();
 vi.mock('../../repositories/shop/shopOrders.repo', () => ({
@@ -30,7 +30,7 @@ describe('shop orders service — role-shaped reads', () => {
         updateOrderMock.mockReset();
         sendBuyerReceiptMock.mockClear();
         sendOrderStatusEmailMock.mockClear();
-    },);
+    });
 
     it('admin list passes NO user/email filter (sees all orders)', async () => {
         await orders.list({}, { isAdmin: true, userId: 'admin1', email: 'admin@x.com', },);

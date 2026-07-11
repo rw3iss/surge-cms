@@ -10,7 +10,7 @@ import { requireFeature, } from './requireFeature';
 function app(on: boolean,) {
     enabledMock.mockResolvedValue(on,);
     const a = express();
-    a.get('/x', requireFeature('shop' as never,), (_req, res,) => res.json({ success: true, data: 'ok', },),);
+    a.get('/x', requireFeature('shop' as never,), (_req, res,) => res.json({ success: true, data: 'ok', }),);
     return a;
 }
 

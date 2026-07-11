@@ -30,7 +30,7 @@ beforeEach(() => {
     cacheDelMock.mockReset();
     invalidateSettingsMock.mockReset();
     logAuditMock.mockReset();
-    queryMock.mockReset().mockResolvedValue({ rows: [], },);
+    queryMock.mockReset().mockResolvedValue({ rows: [], });
 },);
 
 describe('shop settings service', () => {
@@ -136,7 +136,7 @@ describe('shop settings service', () => {
         expect(cacheDelMock,).toHaveBeenCalledWith('shop:settings:public',);
         expect(invalidateSettingsMock,).toHaveBeenCalled();
         expect(logAuditMock,).toHaveBeenCalledWith(
-            expect.objectContaining({ entityType: 'shop-settings', },),
+            expect.objectContaining({ entityType: 'shop-settings', }),
         );
     },);
 

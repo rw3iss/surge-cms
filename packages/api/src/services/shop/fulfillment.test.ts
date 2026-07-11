@@ -12,7 +12,7 @@ vi.mock('../../db', () => ({
 
 const markOrderPaidMock = vi.fn();
 const findOrderItemsForFulfillmentMock = vi.fn();
-const decrementInventoryMock = vi.fn().mockResolvedValue({ ok: true, },);
+const decrementInventoryMock = vi.fn().mockResolvedValue({ ok: true, });
 const setDownloadTokenMock = vi.fn().mockResolvedValue(undefined,);
 const findOrderByIdMock = vi.fn().mockResolvedValue({ id: 'o1', items: [], customerEmail: 'a@b.com', },);
 vi.mock('../../repositories/shop/shopOrders.repo', () => ({
@@ -25,7 +25,7 @@ vi.mock('../../repositories/shop/shopOrders.repo', () => ({
 
 import { fulfillShopOrder, } from './fulfillment';
 
-function pi(overrides: Record<string, unknown> = {},) {
+function pi(overrides: Record<string, unknown> = {}) {
     return {
         id: 'pi_1', latest_charge: 'ch_1',
         metadata: { orderType: 'shop', orderId: 'o1', orderNumber: 'SS-1', },

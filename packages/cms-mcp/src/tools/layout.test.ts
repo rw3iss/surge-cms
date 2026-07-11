@@ -39,7 +39,7 @@ describe('update_site_header', () => {
         await call(tool('update_site_header',), { header, }, ctx,);
         const [body,] = settings.siteHeader.mock.calls[0];
         expect(body,).toEqual(header,);
-    },);
+    });
 },);
 
 describe('update_site_footer', () => {

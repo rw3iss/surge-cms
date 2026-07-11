@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import multer from 'multer';
-import { nanoid, } from 'nanoid';
+import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { z, } from 'zod';
 import type {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi, } from 'vitest';
 const queryMock = vi.fn();
 vi.mock('../db', () => ({
     query: (...args: unknown[]) => queryMock(...args),
-    transaction: async (cb: (client: { query: typeof queryMock; },) => unknown,) => cb({ query: queryMock, },),
+    transaction: async (cb: (client: { query: typeof queryMock; }) => unknown,) => cb({ query: queryMock, },),
 }),);
 
 const logAuditMock = vi.fn().mockResolvedValue(undefined,);
@@ -18,7 +18,7 @@ describe('registerMember', () => {
     beforeEach(() => {
         queryMock.mockReset();
         logAuditMock.mockClear();
-    },);
+    });
 
     it('creates a member-role email account and returns { userId, email }', async () => {
         queryMock

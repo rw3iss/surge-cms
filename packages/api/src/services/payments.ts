@@ -579,7 +579,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
             // Shop orders route here too — delegate to the shop fulfillment
             // handler and stop (donations never carry orderType='shop').
             if (paymentIntent.metadata?.orderType === 'shop') {
-                const { fulfillShopOrder, } = await import('./shop/fulfillment');
+                const { fulfillShopOrder, } = await import('./shop/fulfillment.js');
                 await fulfillShopOrder(paymentIntent,);
                 break;
             }

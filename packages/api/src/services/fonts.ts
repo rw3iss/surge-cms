@@ -12,7 +12,7 @@
  * (or auto-allocated) `customId`. Deletion removes both.
  */
 import fs from 'fs/promises';
-import { nanoid, } from 'nanoid';
+import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { config, } from '../config';
 import { cache, } from './cache';

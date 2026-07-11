@@ -18,11 +18,11 @@ function appWithAdminRoutes() {
     app.use(buildRouter([
         defineRoute({
             method: 'get', path: '/things', auth: 'admin', summary: 't',
-            handler: ({ apiKey, },) => ({ via: apiKey ? 'key' : 'jwt', },),
+            handler: ({ apiKey, },) => ({ via: apiKey ? 'key' : 'jwt', }),
         },),
         defineRoute({
             method: 'post', path: '/things', auth: 'admin', summary: 't',
-            handler: () => ({ ok: true, },),
+            handler: () => ({ ok: true, }),
         },),
     ],),);
     app.use(errorHandler,);
@@ -39,7 +39,7 @@ function appWithOptionalRoute() {
                 via: apiKey ? 'key' : (user ? 'jwt' : 'anon'),
                 hasKey: Boolean(apiKey,),
                 hasUser: Boolean(user,),
-            },),
+            }),
         },),
     ],),);
     app.use(errorHandler,);

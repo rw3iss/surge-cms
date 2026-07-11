@@ -36,7 +36,7 @@ const call = (t: ToolDef, args: any, ctx: ToolContext,) => t.handler(args, ctx,)
 
 afterEach(() => {
     vi.restoreAllMocks();
-},);
+});
 
 describe('update_appearance', () => {
     it('passes the fields straight through to settings.appearance', async () => {

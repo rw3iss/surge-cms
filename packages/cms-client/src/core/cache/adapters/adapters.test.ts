@@ -9,7 +9,7 @@ const entry = <T>(value: T,): CacheEntry<T> => ({ value, storedAt: 1, expiresAt:
 function contract(name: string, make: () => CacheAdapter,) {
     describe(name, () => {
         let a: CacheAdapter;
-        beforeEach(() => { a = make(); },);
+        beforeEach(() => { a = make(); });
         it('set/get round-trips', async () => {
             await a.set('cms:posts:list:1', entry({ id: 'p', },),);
             expect((await a.get('cms:posts:list:1',))?.value,).toEqual({ id: 'p', },);

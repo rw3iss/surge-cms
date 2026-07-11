@@ -9,7 +9,7 @@ export class RedisTester implements ConnectionTester<RedisTesterInput, { pong: s
     async test(input: RedisTesterInput,): Promise<TestResult<{ pong: string; }>> {
         const timeoutMs = input.timeoutMs ?? 3_000;
         try {
-            const { default: Redis, } = await import('ioredis');
+            const { Redis, } = await import('ioredis');
             const client = new Redis(input.url, {
                 lazyConnect: true,
                 maxRetriesPerRequest: 1,

@@ -1,7 +1,7 @@
 import type { AuthResponse, User, UserRole, } from '@rw/cms-shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { nanoid, } from 'nanoid';
+import { nanoid, } from '../utils/nanoid';
 import { config, } from '../config';
 import { ConflictError, } from '../core/errors';
 import { query, transaction, } from '../db';

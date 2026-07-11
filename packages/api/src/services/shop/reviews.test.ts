@@ -16,7 +16,7 @@ vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 // transaction(cb) runs the callback with a fake client that records SQL.
 const txnQueries: { sql: string; params?: unknown[]; }[] = [];
 const fakeClient = {
-    query: vi.fn(async (sql: string, params?: unknown[],) => {
+    query: vi.fn(async (sql: string, params?: unknown[]) => {
         txnQueries.push({ sql, params, },);
         // updateReviewStatus RETURNING * → hand back a review row.
         return { rows: [{ id: 'r1', product_id: 'p1', status: 'approved', }], };
@@ -29,7 +29,7 @@ vi.mock('../../db', () => ({
     transaction: async (cb: (c: unknown,) => Promise<unknown>,) => cb(fakeClient,),
 }),);
 
-const createReviewMock = vi.fn().mockResolvedValue({ id: 'r1', productId: 'p1', status: 'pending', },);
+const createReviewMock = vi.fn().mockResolvedValue({ id: 'r1', productId: 'p1', status: 'pending', });
 const findReviewByIdMock = vi.fn();
 const updateReviewStatusMock = vi.fn().mockResolvedValue({ id: 'r1', productId: 'p1', status: 'approved', },);
 const recomputeProductRatingMock = vi.fn().mockResolvedValue(undefined,);
@@ -42,7 +42,7 @@ vi.mock('../../repositories/shop/shopReviews.repo', () => ({
     recomputeProductRating: (...a: unknown[]) => recomputeProductRatingMock(...a),
     deleteReview: (...a: unknown[]) => deleteReviewMock(...a),
     incrementHelpful: vi.fn().mockResolvedValue(1,),
-    findPublicReviews: vi.fn().mockResolvedValue({ data: [], total: 0, },),
+    findPublicReviews: vi.fn().mockResolvedValue({ data: [], total: 0, }),
     findAllReviews: vi.fn().mockResolvedValue({ data: [], total: 0, },),
 }),);
 

@@ -9,7 +9,7 @@ vi.mock('../../config', () => ({ config: { stripe: { secretKey: undefined, }, fr
 
 const createPaymentIntentMock = vi.fn().mockResolvedValue({
     id: 'pi_123', clientSecret: 'cs_123', status: 'requires_payment_method',
-},);
+});
 vi.mock('../payment', () => ({
     getPaymentProvider: () => ({ createPaymentIntent: (...a: unknown[]) => createPaymentIntentMock(...a), }),
 }),);
@@ -18,7 +18,7 @@ vi.mock('../payment', () => ({
 const queryMock = vi.fn();
 const txnQueries: { sql: string; params?: unknown[]; }[] = [];
 const fakeClient = {
-    query: vi.fn(async (sql: string, params?: unknown[],) => {
+    query: vi.fn(async (sql: string, params?: unknown[]) => {
         txnQueries.push({ sql, params, },);
         return { rows: [], };
     }),
@@ -28,7 +28,7 @@ vi.mock('../../db', () => ({
     transaction: async (cb: (c: unknown,) => Promise<unknown>,) => cb(fakeClient,),
 }),);
 
-const createOrderMock = vi.fn().mockResolvedValue({ id: 'o1', orderNumber: 'SS-TEST', },);
+const createOrderMock = vi.fn().mockResolvedValue({ id: 'o1', orderNumber: 'SS-TEST', });
 const createOrderItemsMock = vi.fn().mockResolvedValue([],);
 vi.mock('../../repositories/shop/shopOrders.repo', () => ({
     createOrder: (...a: unknown[]) => createOrderMock(...a),
@@ -41,7 +41,7 @@ vi.mock('../../repositories/shop/shopOrders.repo', () => ({
 vi.mock('./settings', () => ({
     getShopSettings: vi.fn().mockResolvedValue({
         currency: 'usd', taxEnabled: false, businessName: '', storeEnabled: true,
-    },),
+    }),
 }),);
 
 import * as checkout from './checkout';

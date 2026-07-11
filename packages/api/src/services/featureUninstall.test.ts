@@ -15,7 +15,7 @@ import { uninstallFeature, UninstallError, } from './featureUninstall';
 const ctx = { userId: 'u', ipAddress: '', userAgent: '', };
 
 describe('uninstallFeature', () => {
-    beforeEach(() => { queries.length = 0; client.query.mockClear(); },);
+    beforeEach(() => { queries.length = 0; client.query.mockClear(); });
 
     it('rejects a feature with no owned tables', async () => {
         await expect(uninstallFeature('posts' as never, ctx,),).rejects.toBeInstanceOf(UninstallError,);

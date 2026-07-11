@@ -10,7 +10,7 @@ const tokens = (a: string,): AuthTokens => ({ accessToken: a, refreshToken: `r-$
 
 describe('AuthManager', () => {
     it('auto-loads tokens from the store on construction (bearer)', async () => {
-        const mgr = new AuthManager({ mode: 'bearer', store: memStore(tokens('A',),), apiBase: 'http://x/api/v1', fetchImpl: vi.fn(), },);
+        const mgr = new AuthManager({ mode: 'bearer', store: memStore(tokens('A',),), apiBase: 'http://x/api/v1', fetchImpl: vi.fn(), });
         await mgr.ready;
         expect((await mgr.authHeaders('GET',))['Authorization'],).toBe('Bearer A',);
     },);

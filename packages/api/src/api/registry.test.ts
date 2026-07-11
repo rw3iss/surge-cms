@@ -20,7 +20,7 @@ describe('route framework', () => {
         const app = appFor([defineRoute({
             method: 'get', path: '/hello', auth: 'public', summary: 't',
             handler: () => ({ hi: true, }),
-        },),],);
+        }),],);
         const res = await request(app,).get('/hello',);
         expect(res.status,).toBe(200,);
         expect(res.body,).toEqual({ success: true, data: { hi: true, }, },);
@@ -65,7 +65,7 @@ describe('route framework', () => {
         const app = appFor([defineRoute({
             method: 'get', path: '/list', auth: 'public', summary: 't',
             input: { query: z.object({ page: z.coerce.number().int().default(1,), },), },
-            handler: ({ query, },) => ({ page: query.page, },),
+            handler: ({ query, },) => ({ page: query.page, }),
         },),],);
         const res = await request(app,).get('/list?page=3',);
         expect(res.body.data.page,).toBe(3,);
@@ -140,7 +140,7 @@ describe('route framework', () => {
         const app = appFor([defineRoute({
             method: 'get', path: '/items/:id', auth: 'public', summary: 't',
             input: { params: z.object({ id: z.coerce.number().int(), },), },
-            handler: ({ params, },) => ({ id: params.id, },),
+            handler: ({ params, },) => ({ id: params.id, }),
         },),],);
         const res = await request(app,).get('/items/42',);
         expect(res.body.data.id,).toBe(42,);
@@ -188,7 +188,7 @@ describe('route framework', () => {
             method: 'get', path: '/pre', auth: 'public', summary: 't',
             pre: [(req, _res, next,) => { (req as any).preRan = true; next(); },],
             handler: (ctx,) => ({ preRan: (ctx.req as any).preRan === true, }),
-        },),],);
+        }),],);
         const res = await request(app,).get('/pre',);
         expect(res.status,).toBe(200,);
         expect(res.body.data.preRan,).toBe(true,);

@@ -77,7 +77,7 @@ async function bootRunningMode(): Promise<void> {
     // crash. Idempotent — already-sent recipients are skipped because
     // the worker only pulls `pending`.
     try {
-        const { resumeRunningJobs, } = await import('./services/mail/sendWorker');
+        const { resumeRunningJobs, } = await import('./services/mail/sendWorker.js');
         void resumeRunningJobs();
     } catch (err) {
         logger.warn('Could not start send-job resumer', { error: err, },);

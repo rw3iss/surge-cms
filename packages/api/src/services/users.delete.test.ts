@@ -26,7 +26,7 @@ describe('users.remove', () => {
         findUserByIdMock.mockClear();
         invalidateUserCacheMock.mockClear();
         logAuditMock.mockClear();
-    },);
+    });
 
     it('deletes the row, busts the cache, and audit-logs a delete with the old snapshot', async () => {
         await remove('u1', { userId: 'admin-1', ipAddress: '1.2.3.4', userAgent: 'test', },);

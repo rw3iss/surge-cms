@@ -63,7 +63,7 @@ async function probeRedis(): Promise<boolean> {
     const cfg = getConfig();
     if (!cfg.redis.url) return false;
     try {
-        const { default: Redis, } = await import('ioredis');
+        const { Redis, } = await import('ioredis');
         const client = new Redis(cfg.redis.url, { lazyConnect: true, maxRetriesPerRequest: 1, },);
         try {
             await client.connect();

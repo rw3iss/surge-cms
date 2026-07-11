@@ -157,7 +157,7 @@ export async function invalidateSettingsCache(): Promise<void> {
     await delPattern('ssr:html:*',);
     // In-process site meta cache used by SSR route resolver
     try {
-        const { invalidateSiteMetaCache, } = await import('./ssr/routes');
+        const { invalidateSiteMetaCache, } = await import('./ssr/routes.js');
         invalidateSiteMetaCache();
     } catch {
         /* module may not be loaded yet */
