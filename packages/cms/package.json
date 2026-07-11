@@ -17,7 +17,7 @@
     "@rw/cms-shared": "file:../shared",
     "@solidjs/meta": "^0.29.2",
     "@solidjs/router": "^0.16.1",
-    "@stripe/stripe-js": "^2.4.0",
+    "@stripe/stripe-js": "^9.9.0",
     "codemirror": "^6.0.2",
     "plyr": "^3.8.4",
     "solid-js": "^1.8.11"
