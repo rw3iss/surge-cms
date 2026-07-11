@@ -33,7 +33,7 @@
 		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true"
 	},
 	"devDependencies": {
-		"concurrently": "^8.2.2",
+		"concurrently": "^10.0.3",
 		"oxlint": "^1.58.0",
 		"typescript": "^7.0.2"
 	},
