@@ -1,5 +1,14 @@
 packages:
   - packages/*
+
+# Flat, npm-like node_modules so build-tool configs that live outside a package
+# (config/<pkg>/*.ts importing tsup / vite / vitest / plugins) resolve their
+# tools from the hoisted root node_modules. pnpm's default isolated linker keeps
+# those devDeps inside each package only, which breaks the cross-directory
+# config imports (e.g. `Cannot find package 'tsup'`).
+nodeLinker: hoisted
+strictPeerDependencies: false
+
 allowBuilds:
   '@parcel/watcher': true
   core-js: true

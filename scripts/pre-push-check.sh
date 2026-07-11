@@ -22,14 +22,14 @@ if command -v npx &> /dev/null; then
   }
 fi
 
-# Type-check and build
+# Type-check and build (pnpm, topological — builds shared first)
 echo "--- build shared ---"
-npm run build -w packages/shared
+pnpm --filter ./packages/shared run build
 
 echo "--- build backend ---"
-npm run build -w packages/api
+pnpm --filter ./packages/api run build
 
 echo "--- build frontend ---"
-npm run build -w packages/cms
+pnpm --filter ./packages/cms run build
 
 echo "=== Pre-push checks passed ==="

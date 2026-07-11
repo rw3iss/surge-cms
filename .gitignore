@@ -7,7 +7,18 @@ _*.md
 
 dist/
 
-pnpm-lock.yml
+# pnpm is the package manager (pnpm-lock.yaml is committed). Ignore npm's lock
+# so an accidental `npm install` doesn't reintroduce it.
+package-lock.json
+
+# Local tooling / editor state — not part of the project
+.pageloop/
+pageloop.json
+.continue/
+.agents/
+skills/
+skills-lock.json
+.claude/skills/
 
 # Runtime artifacts
 packages/api/cache/
