@@ -549,9 +549,15 @@ export const Header: Component<HeaderProps> = (props,) => {
                             <Show
                                 when={auth.isAuthenticated}
                                 fallback={
-                                    <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
-                                        Sign In
-                                    </A>
+                                    // Only surface the public Sign In when the users/members
+                                    // feature is on — a members-less site (e.g. a pure news
+                                    // site) shouldn't show it, and it would otherwise collide
+                                    // with a custom header's own CTA.
+                                    <Show when={isFeatureEnabled('users',)}>
+                                        <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
+                                            Sign In
+                                        </A>
+                                    </Show>
                                 }
                             >
                                 <div class="header__user">
@@ -692,9 +698,15 @@ export const Header: Component<HeaderProps> = (props,) => {
                             <Show
                                 when={auth.isAuthenticated}
                                 fallback={
-                                    <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
-                                        Sign In
-                                    </A>
+                                    // Only surface the public Sign In when the users/members
+                                    // feature is on — a members-less site (e.g. a pure news
+                                    // site) shouldn't show it, and it would otherwise collide
+                                    // with a custom header's own CTA.
+                                    <Show when={isFeatureEnabled('users',)}>
+                                        <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
+                                            Sign In
+                                        </A>
+                                    </Show>
                                 }
                             >
                                 <div class="header__user">
