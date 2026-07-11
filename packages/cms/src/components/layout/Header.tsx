@@ -1,6 +1,6 @@
 import { A, useLocation, } from '@solidjs/router';
 import { isAdminRole, type NavigationItem, } from '@rw/cms-shared';
-import { Component, createEffect, createSignal, For, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, type JSX, onCleanup, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
@@ -31,6 +31,8 @@ interface SiteHeaderItem {
     margin?: string;
     padding?: string;
     order: number;
+    /** Sub-items for a `menu` item — rendered as a hover/focus dropdown. */
+    children?: SiteHeaderItem[];
 }
 
 export interface SiteHeaderSettings {
@@ -59,6 +61,46 @@ interface HeaderProps {
     logo?: string;
     headerSettings?: SiteHeaderSettings | null;
     gutterWidth?: string;
+}
+
+// ─── Internal/external link helper (shared by nav items + menu dropdowns) ───
+
+function HeaderLink(props: {
+    item: SiteHeaderItem;
+    class?: string;
+    style?: Record<string, string>;
+    onClick?: () => void;
+    children?: JSX.Element;
+},) {
+    const item = () => props.item;
+    const isInternal = () => !item().openInNewTab && !!item().url && !item().url!.startsWith('http',);
+    const label = () => props.children ?? item().text;
+    return (
+        <Show
+            when={isInternal()}
+            fallback={
+                <a
+                    href={item().url || '#'}
+                    target={item().openInNewTab ? '_blank' : undefined}
+                    rel={item().openInNewTab ? 'noopener noreferrer' : undefined}
+                    class={props.class}
+                    style={props.style}
+                    onClick={props.onClick}
+                >
+                    {label()}
+                </a>
+            }
+        >
+            <A href={item().url || '/'} class={props.class} style={props.style} onClick={props.onClick}>
+                {label()}
+            </A>
+        </Show>
+    );
+}
+
+// Sub-items of a menu, ordered.
+function menuChildren(item: SiteHeaderItem,): SiteHeaderItem[] {
+    return (item.children ?? []).slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0),);
 }
 
 // ─── Render a single header item ───
@@ -184,31 +226,45 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
                 </a>
             );
 
-        case 'menu':
+        case 'menu': {
+            const kids = () => menuChildren(item(),);
+            // A menu with no children behaves like a plain text link.
             return (
                 <Show
-                    when={!item().openInNewTab && item().url && !item().url!.startsWith('http',)}
+                    when={kids().length > 0}
                     fallback={
-                        <a
-                            href={item().url || '#'}
-                            target={linkTarget()}
-                            rel={linkRel()}
-                            class="header__custom-text-link"
-                            style={baseStyle()}
-                        >
-                            {item().text}
-                        </a>
+                        <HeaderLink item={item()} class="header__custom-text-link" style={baseStyle()} />
                     }
                 >
-                    <A
-                        href={item().url || '/'}
-                        class="header__custom-text-link"
-                        style={baseStyle()}
-                    >
-                        {item().text}
-                    </A>
+                    <div class="header__menu">
+                        <HeaderLink item={item()} class="header__menu-trigger" style={baseStyle()}>
+                            <span>{item().text}</span>
+                            <svg
+                                class="header__menu-caret"
+                                viewBox="0 0 12 12"
+                                width="10"
+                                height="10"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2 4l4 4 4-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.6"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                        </HeaderLink>
+                        <div class="header__menu-dropdown" role="menu">
+                            <For each={kids()}>
+                                {(child,) => <HeaderLink item={child} class="header__menu-link" />}
+                            </For>
+                        </div>
+                    </div>
                 </Show>
             );
+        }
 
         case 'gap':
             return (
@@ -238,31 +294,36 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
 
 function MobileNavItem(props: { item: SiteHeaderItem; onClose: () => void; },) {
     const item = () => props.item;
-    const isInternal = () =>
-        !item().openInNewTab && !!item().url && !item().url!.startsWith('http',);
 
     if (item().type === 'text') {
         return <span class="header__mobile-flyout-label">{item().text}</span>;
     }
 
+    // Menu with sub-items → parent link followed by indented children.
+    const kids = () => menuChildren(item(),);
     return (
         <Show
-            when={isInternal()}
-            fallback={
-                <a
-                    href={item().url || '#'}
-                    target={item().openInNewTab ? '_blank' : undefined}
-                    rel={item().openInNewTab ? 'noopener noreferrer' : undefined}
-                    class="header__nav-link"
-                    onClick={props.onClose}
-                >
-                    {item().text}
-                </a>
-            }
+            when={item().type === 'menu' && kids().length > 0}
+            fallback={<HeaderLink item={item()} class="header__nav-link" onClick={props.onClose} />}
         >
-            <A href={item().url || '/'} class="header__nav-link" onClick={props.onClose}>
-                {item().text}
-            </A>
+            <div class="header__mobile-menu">
+                <HeaderLink
+                    item={item()}
+                    class="header__nav-link header__mobile-menu-parent"
+                    onClick={props.onClose}
+                />
+                <div class="header__mobile-submenu">
+                    <For each={kids()}>
+                        {(child,) => (
+                            <HeaderLink
+                                item={child}
+                                class="header__nav-link header__mobile-sublink"
+                                onClick={props.onClose}
+                            />
+                        )}
+                    </For>
+                </div>
+            </div>
         </Show>
     );
 }
