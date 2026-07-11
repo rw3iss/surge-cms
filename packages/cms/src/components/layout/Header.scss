@@ -73,14 +73,17 @@
       display: flex;
     }
 
-    // In custom header mode, pull the nav out of flow so it doesn't
-    // push the custom-items layout.
+    // In custom-header mode the nav actions (cart / admin link / user menu)
+    // flow inline at the end of the header row with a comfortable gap, instead
+    // of being absolutely positioned on top of the custom items (which caused
+    // Cart/Admin/user to overlap the operator's links once those features were
+    // enabled).
     .header--custom & {
-      position: absolute;
-      right: 0;
-      top: 0;
-      height: 100%;
-      padding-right: inherit;
+      position: static;
+      height: auto;
+      gap: $spacing-sm;
+      margin-left: $spacing-md;
+      flex-shrink: 0;
     }
   }
 
@@ -225,11 +228,14 @@
     flex-direction: column;
     justify-content: center;
     gap: 5px;
-    width: 32px;
-    height: 32px;
-    padding: $spacing-xs;
+    width: 46px;
+    height: 46px;
+    padding: 11px;
+    margin-right: -8px; // hug the header's right corner (bigger tap target)
     background: none;
     border: none;
+    color: inherit; // bars use currentColor — inherit the header text color so
+    // they aren't invisible (black-on-black) on a dark custom header
     cursor: pointer;
     flex-shrink: 0;
 

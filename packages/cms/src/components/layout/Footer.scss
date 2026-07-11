@@ -142,4 +142,27 @@
         font-size: $font-size-sm;
         margin: 0;
     }
+
+    // ─── Mobile: the settings-driven footer packs its columns into one flex
+    // row (inline styles). On small screens that's too cramped, so wrap the
+    // columns into a 2-up grid with the brand/blurb column full-width on top.
+    // Inline styles win over classes, so these overrides use !important.
+    @media (max-width: 640px) {
+        &__row-inner {
+            flex-wrap: wrap !important;
+            gap: 30px 18px !important;
+        }
+
+        &__column {
+            flex: 1 1 calc(50% - 9px) !important;
+            max-width: calc(50% - 9px);
+        }
+
+        // First column in each row spans full width: the brand + blurb on the
+        // content row, and the single copyright column on the bottom row.
+        &__row-inner > &__column:first-child {
+            flex-basis: 100% !important;
+            max-width: 100%;
+        }
+    }
 }
