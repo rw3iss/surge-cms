@@ -154,7 +154,12 @@
         }
 
         &__column {
-            flex: 1 1 calc(50% - 9px) !important;
+            // Longhands, not the `flex` shorthand: the CSS minifier mangles
+            // `flex: 1 1 calc(50% - 9px)` into an invalid `flex: calc(...)`
+            // (works in dev/unminified, breaks in the production build).
+            flex-grow: 1 !important;
+            flex-shrink: 1 !important;
+            flex-basis: calc(50% - 9px) !important;
             max-width: calc(50% - 9px);
         }
 
