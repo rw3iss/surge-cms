@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T04:58:56.095Z",
+  "generatedAt": "2026-07-11T19:53:26.341Z",
   "totalModules": 30,
   "totalRoutes": 237,
   "modules": [
@@ -210,8 +210,8 @@
           "method": "GET",
           "path": "/:id",
           "absolutePath": "/api/v1/campaigns/:id",
-          "auth": "admin",
-          "summary": "Fetch a campaign by id (any status)."
+          "auth": "optional",
+          "summary": "Fetch a campaign by id. Admins see any status; anonymous callers see published campaigns only."
         },
         {
           "method": "POST",
@@ -421,8 +421,8 @@
           "method": "GET",
           "path": "/:id",
           "absolutePath": "/api/v1/forms/:id",
-          "auth": "admin",
-          "summary": "Fetch a form by id (with questions)."
+          "auth": "optional",
+          "summary": "Fetch a form by id (with questions). Admins see any status; anonymous callers see published forms only."
         },
         {
           "method": "GET",
