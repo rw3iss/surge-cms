@@ -9,7 +9,7 @@ its own repo, move `deploy/` there.
 | Piece      | Where |
 |------------|-------|
 | Code       | `/opt/surge` (rsynced source, built on the server) |
-| Runtime    | `systemd` unit `surge.service` → `tsx src/index.ts` in `packages/api`, on **:3003** |
+| Runtime    | `systemd` unit `surge.service` → `node dist/index.js` in `packages/api`, on **:3003** |
 | Env        | `/opt/surge/packages/api/.env` (prod values; not in git) |
 | Database   | Postgres 18, db `surge`, role `surge` (localhost only, scram) |
 | Cache      | Valkey/Redis on `:6379` db `3` |
@@ -35,8 +35,7 @@ Overrides via env: `SURGE_SSH`, `SURGE_REMOTE`, `SURGE_HOST`, `SURGE_LOCAL_DB`, 
   dumps the remote DB to `/opt/surge/backups/` first. It does not merge — prod-only
   data (e.g. live form submissions) is not preserved. Fine for a demo where local
   is authoritative.
-- The service runs via `tsx` (not `node dist`) because `@sitesurge/types`'s build
-  uses bundler-style directory imports that raw Node ESM can't resolve. A future
-  improvement is making the shared package emit Node-resolvable output so prod can
-  run `node dist/index.js`.
+- The service runs via `node dist/index.js` — `@sitesurge/types` now emits
+  Node-resolvable CommonJS (packaging spec Phase 3), so the old `tsx`-in-prod
+  workaround is gone.
 - Logs: `ssh <server> 'journalctl -u surge -n 100 --no-pager -f'`.

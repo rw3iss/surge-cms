@@ -79,12 +79,9 @@ Create a **granular** token (the only type now) with **Read and write** on the
 
 - [ ] **Confirm the license.** The libraries declare `MIT` — change it (and add
       `LICENSE` files) before the first publish if that's not what you want.
-- [ ] **Node-resolvable `@sitesurge/types` build** (packaging spec Phase 3): today
-      the types build uses bundler-style directory imports, so the packages work
-      for **bundler-based** consumers (Vite/webpack/tsup/Next) but not raw `node`.
-      Do the first publish only after Phase 3 if you need raw-Node support (the
-      SDK's own consumers are almost always bundler-based, so a `0.x` preview is
-      fine before then).
+- [x] **Node-resolvable `@sitesurge/types` build** (Phase 3 — ✅ done): types now
+      emit CommonJS with an `exports` map, so the packages work for raw `node` as
+      well as bundlers. (This also lets the api server run `node dist`.)
 - [ ] npm org/scope `@sitesurge` created; after the first manual publish,
       **trusted publishers** configured for each lib (OIDC) — or a Bypass-2FA
       granular `NPM_TOKEN` secret for the token-based fallback.
