@@ -21,8 +21,8 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 
-# Drop dev dependencies so the runtime layer is lean.
-RUN pnpm -r prune --prod || pnpm prune --prod || true
+# (Dev deps are left in place — pnpm's `prune` mangles the workspace symlinks the
+# server resolves at runtime. Trimming the image is a follow-up; correctness first.)
 
 # ---- runtime ----------------------------------------------------------------
 FROM node:22-bookworm-slim AS runtime
