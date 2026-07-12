@@ -1,0 +1,37 @@
+{
+  "name": "@sitesurge/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SiteSurge CLI — interactive/non-interactive setup, migrate, seed, doctor, and start for a SiteSurge instance.",
+  "bin": {
+    "sitesurge": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rw3iss/surge-cms.git",
+    "directory": "packages/cli"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sitesurge/server": "workspace:*",
+    "commander": "^12.1.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
+  }
+}

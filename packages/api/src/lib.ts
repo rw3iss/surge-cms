@@ -32,11 +32,18 @@ import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
 import { assertNoCycles, } from './features/registry';
 
-// ─── Re-exported surface for embedders / tooling ──────────────────
+// ─── Re-exported surface for embedders / tooling (e.g. @sitesurge/cli) ─────
 export { createApp, type AppMode, } from './app';
-export { runMigrations, } from './db/migrator';
-export { runInstallation, } from './services/setup/installer';
 export { loadConfig, getConfig, config, } from './config';
+export { initPool, closePool, getPool, } from './db/client';
+export { runMigrations, } from './db/migrator';
+export { runSeed, } from './db/seeder';
+export { getInstallationState, } from './services/installation';
+export { runInstallation, } from './services/setup/installer';
+export { generateJwtSecret, } from './services/setup/orchestrator';
+export { postgresTester, } from './services/setup/testers/postgresTester';
+export { redisTester, } from './services/setup/testers/redisTester';
+export type { InstallInput, } from './services/setup/types';
 
 /**
  * Warm up DB/Redis/crons and apply pending migrations. Called by
