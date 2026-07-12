@@ -1,4 +1,4 @@
-import type { SiteSettings, } from '@rw/cms-shared';
+import type { SiteSettings, } from '@sitesurge/types';
 import { createSignal, } from 'solid-js';
 import { cms, } from '../services/cmsClient';
 import { FEATURES, FeatureConfig, FeatureKey, getDependents as registryDependents, getFeature, } from '../config/features';

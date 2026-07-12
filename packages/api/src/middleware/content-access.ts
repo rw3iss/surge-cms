@@ -1,4 +1,4 @@
-import type { User, } from '@rw/cms-shared';
+import type { User, } from '@sitesurge/types';
 import { query, } from '../db';
 
 export type ContentAccessLevel = 'public' | 'member' | 'patron';

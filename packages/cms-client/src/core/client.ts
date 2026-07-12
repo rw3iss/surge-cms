@@ -1,5 +1,5 @@
 import type { CmsClientConfig, MutationOptions, QueryOptions, ResolvedConfig, } from './types';
-import type { AuthResponse, LoginCredentials, Paginated, } from '@rw/cms-shared';
+import type { AuthResponse, LoginCredentials, Paginated, } from '@sitesurge/types';
 import { resolveConfig, } from './config';
 import { AuthManager, type AuthRuntime, } from './auth/authManager';
 import { createDefaultTokenStore, } from './auth/tokenStore';

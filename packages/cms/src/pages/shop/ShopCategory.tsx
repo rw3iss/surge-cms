@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import type { ShopAppearance, ShopCategory, ShopProduct, ShopPublicSettings, } from '@rw/cms-shared';
+import type { ShopAppearance, ShopCategory, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';

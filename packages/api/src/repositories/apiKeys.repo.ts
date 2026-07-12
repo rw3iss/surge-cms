@@ -2,7 +2,7 @@
  * api_keys data access. Plaintext keys never reach this layer —
  * callers pass the sha256 hash.
  */
-import type { ApiKeyScope, } from '@rw/cms-shared';
+import type { ApiKeyScope, } from '@sitesurge/types';
 import { query, } from '../db';
 import { mapRow, } from '../utils/mapRow';
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure into a `packages/` monorepo (`api`, `cms`, `shared`, `cms-client`) with all configuration in `./config`; audit the API for client-missing functionality; give every module strongly-typed request/response DTOs in `@rw/cms-shared`; scaffold (NOT implement) `@rw/cms-client`; sync all docs.
+**Goal:** Restructure into a `packages/` monorepo (`api`, `cms`, `shared`, `cms-client`) with all configuration in `./config`; audit the API for client-missing functionality; give every module strongly-typed request/response DTOs in `@sitesurge/types`; scaffold (NOT implement) `@sitesurge/client`; sync all docs.
 
-**Spec:** `docs/superpowers/specs/2026-06-07-monorepo-dto-design.md` (decisions: package names @rw/cms-api / @rw/cms-web / @rw/cms-shared / @rw/cms-client; root ./config with per-pkg subdirs; pre-flight SCSS commit; restructure→DTOs order).
+**Spec:** `docs/superpowers/specs/2026-06-07-monorepo-dto-design.md` (decisions: package names @sitesurge/server / @sitesurge/admin / @sitesurge/types / @sitesurge/client; root ./config with per-pkg subdirs; pre-flight SCSS commit; restructure→DTOs order).
 
 **Survey findings (2026-06-07, plan-time ground truth):**
 - Root: `docker-compose.yml`, `Dockerfile`, `dprint.json`, `rw.ryanweiss.net.nginx.conf`, `.oxlintrc.json`, `.editorconfig`, `.dockerignore`, `.github/`, `pnpm-workspace.yaml` (+BOTH lockfiles — npm AND pnpm declarations must be updated), `scripts/{deploy.sh,pre-push-check.sh}`, root `config/` dir EXISTS and is EMPTY, `_info.md`/`TODO-plan.md` (leave).
@@ -30,22 +30,22 @@
 - [ ] Locate the SSR dist resolution in backend src (search `frontend/dist` / `dist` path joins), the docs generator paths, migrations/seed cwd assumptions, multer upload dirs, data dir.
 - [ ] Output: a checklist file at `docs/superpowers/plans/2026-06-07-move-fixlist.md` enumerating every file:line → required new value. Commit it (`docs: path-reference fix-list for monorepo move`).
 
-### Task T2: Move shared → packages/shared (@rw/cms-shared)
+### Task T2: Move shared → packages/shared (@sitesurge/types)
 
 - [ ] `mkdir -p packages && git mv shared packages/shared`.
-- [ ] packages/shared/package.json: name → `@rw/cms-shared`.
+- [ ] packages/shared/package.json: name → `@sitesurge/types`.
 - [ ] Root package.json: workspaces → `["packages/shared", "frontend", "backend"]` (transitional); pnpm-workspace.yaml packages list likewise.
-- [ ] backend/package.json + frontend/package.json deps: `"@rw/shared": "file:../shared"` → `"@rw/cms-shared": "file:../packages/shared"`.
-- [ ] Import sweep: `grep -rl "@rw/shared" backend frontend packages/shared | xargs sed -i "s|@rw/shared|@rw/cms-shared|g"` then verify zero hits remain repo-wide (incl. docs? code only — docs in T8).
-- [ ] `npm install` → relinks. Full builds + tests + frontend tsc. Commit: `refactor: shared → packages/shared as @rw/cms-shared`.
+- [ ] backend/package.json + frontend/package.json deps: `"@rw/shared": "file:../shared"` → `"@sitesurge/types": "file:../packages/shared"`.
+- [ ] Import sweep: `grep -rl "@rw/shared" backend frontend packages/shared | xargs sed -i "s|@rw/shared|@sitesurge/types|g"` then verify zero hits remain repo-wide (incl. docs? code only — docs in T8).
+- [ ] `npm install` → relinks. Full builds + tests + frontend tsc. Commit: `refactor: shared → packages/shared as @sitesurge/types`.
 
-### Task T3: Move backend → packages/api (@rw/cms-api) AND frontend → packages/cms (@rw/cms-web) — ONE commit (they cross-reference)
+### Task T3: Move backend → packages/api (@sitesurge/server) AND frontend → packages/cms (@sitesurge/admin) — ONE commit (they cross-reference)
 
 - [ ] `git mv backend packages/api && git mv frontend packages/cms`.
-- [ ] package.json names: `@rw/cms-api`, `@rw/cms-web`. file: dep paths inside them: `file:../shared` (now siblings under packages/ — verify relative correctness).
-- [ ] Root package.json workspaces → `["packages/*"]`; ALL root scripts to `-w packages/api` / `-w packages/cms` style (or `--workspace=@rw/cms-api` — pick folder-path form for grep-ability); lint paths → `packages/*/src`; pnpm-workspace.yaml → `packages/*`.
+- [ ] package.json names: `@sitesurge/server`, `@sitesurge/admin`. file: dep paths inside them: `file:../shared` (now siblings under packages/ — verify relative correctness).
+- [ ] Root package.json workspaces → `["packages/*"]`; ALL root scripts to `-w packages/api` / `-w packages/cms` style (or `--workspace=@sitesurge/server` — pick folder-path form for grep-ability); lint paths → `packages/*/src`; pnpm-workspace.yaml → `packages/*`.
 - [ ] Apply the T1 fix-list: SSR dist path → `packages/cms/dist`; deploy.sh; pre-push-check.sh; .github workflows; docker-compose.yml volumes/contexts; Dockerfile COPY paths; vite proxy target untouched (localhost:3001); docs generator; any data/upload dirs.
-- [ ] `npm install`; full builds + tests + tsc; `npm run docs:api` regenerates (commit the timestamp churn or discard — REGENERATE in T6 instead, discard here). Commit: `refactor: backend → packages/api (@rw/cms-api), frontend → packages/cms (@rw/cms-web)`.
+- [ ] `npm install`; full builds + tests + tsc; `npm run docs:api` regenerates (commit the timestamp churn or discard — REGENERATE in T6 instead, discard here). Commit: `refactor: backend → packages/api (@sitesurge/server), frontend → packages/cms (@sitesurge/admin)`.
 
 ### Task T4: Config relocation → ./config
 
@@ -56,8 +56,8 @@
 
 ### Task T5: cms-client skeleton
 
-- [ ] `packages/cms-client/`: package.json (`@rw/cms-client`, `"@rw/cms-shared": "file:../shared"`, scripts build/test stubs), tsconfig stub → `config/cms-client/tsconfig.json`, `src/index.ts` (exports nothing yet; header comment = goal statement), `src/core/.gitkeep` + `src/modules/.gitkeep` (or placeholder ts files matching the charter layout), `README.md` (goal: the headless client for ANY hosted CMS backend incl. our own cms web package; points to docs/client-sdk-plan.md; NOT IMPLEMENTED banner).
-- [ ] Root workspaces already `packages/*` — `npm install`, builds green (empty package builds). Commit: `feat: scaffold @rw/cms-client package (structure + charter pointer, no implementation)`.
+- [ ] `packages/cms-client/`: package.json (`@sitesurge/client`, `"@sitesurge/types": "file:../shared"`, scripts build/test stubs), tsconfig stub → `config/cms-client/tsconfig.json`, `src/index.ts` (exports nothing yet; header comment = goal statement), `src/core/.gitkeep` + `src/modules/.gitkeep` (or placeholder ts files matching the charter layout), `README.md` (goal: the headless client for ANY hosted CMS backend incl. our own cms web package; points to docs/client-sdk-plan.md; NOT IMPLEMENTED banner).
+- [ ] Root workspaces already `packages/*` — `npm install`, builds green (empty package builds). Commit: `feat: scaffold @sitesurge/client package (structure + charter pointer, no implementation)`.
 
 ### Task T6: Post-move verification + regen
 
@@ -78,8 +78,8 @@
 
 ### Task T8: Documentation
 
-- [ ] README: package table (folder ↔ npm name ↔ purpose), ./config convention + stub gotcha + exceptions list, updated commands, cmsClient doctrine (ALL client-side requests via @rw/cms-client once built, incl. our own cms package; direct api calls interim), docs:api.
-- [ ] CLAUDE.md: new tree, paths, commands, gotchas (config stubs, .env exception, @rw/cms-shared import scope, lint/format config flags), DTO convention + "every module has request/response DTOs in shared/src/api/routes/".
+- [ ] README: package table (folder ↔ npm name ↔ purpose), ./config convention + stub gotcha + exceptions list, updated commands, cmsClient doctrine (ALL client-side requests via @sitesurge/client once built, incl. our own cms package; direct api calls interim), docs:api.
+- [ ] CLAUDE.md: new tree, paths, commands, gotchas (config stubs, .env exception, @sitesurge/types import scope, lint/format config flags), DTO convention + "every module has request/response DTOs in shared/src/api/routes/".
 - [ ] docs/client-sdk-plan.md: paths → packages/*; DTO-prerequisite section marked COMPLETE; skeleton location noted.
 - [ ] Commit: `docs: monorepo structure, config conventions, DTO coverage, cms-client doctrine`.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@rw/cms-web",
+  "name": "@sitesurge/admin",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -13,8 +13,8 @@
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.41.1",
-    "@rw/cms-client": "file:../cms-client",
-    "@rw/cms-shared": "file:../shared",
+    "@sitesurge/client": "file:../cms-client",
+    "@sitesurge/types": "file:../shared",
     "@solidjs/meta": "^0.29.2",
     "@solidjs/router": "^0.16.1",
     "@stripe/stripe-js": "^9.9.0",

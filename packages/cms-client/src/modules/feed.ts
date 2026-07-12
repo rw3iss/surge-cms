@@ -1,4 +1,4 @@
-import type { FeedXmlResponse, } from '@rw/cms-shared';
+import type { FeedXmlResponse, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

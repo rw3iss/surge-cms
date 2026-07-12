@@ -1,16 +1,16 @@
-# SiteSurge CMS — MCP Server (`@rw/cms-mcp`)
+# SiteSurge CMS — MCP Server (`@sitesurge/mcp`)
 
 Operator + developer reference for the CMS Model Context Protocol server.
 
 ## 1. Overview
 
-`@rw/cms-mcp` is a stdio MCP server that exposes the **entire SiteSurge authoring
+`@sitesurge/mcp` is a stdio MCP server that exposes the **entire SiteSurge authoring
 surface** — pages, posts, every content-block type, block styles, appearance
 (colors/swatches/fonts/layout), the site header + footer, navigation, media, and
 settings/features — as **66 curated MCP tools** an AI agent can call to design and
 build a whole site.
 
-It is a thin, intelligent wrapper over the `@rw/cms-client` SDK. Every tool routes
+It is a thin, intelligent wrapper over the `@sitesurge/client` SDK. Every tool routes
 through the typed client using **apiKey auth** (a scoped `ssk_…` key), over
 **stdio** (the standard transport for a locally-spawned MCP server). The three
 things it adds over the raw SDK:

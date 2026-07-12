@@ -1,5 +1,5 @@
 {
-    "name": "@rw/cms-mcp",
+    "name": "@sitesurge/mcp",
     "version": "0.1.0",
     "private": true,
     "type": "module",
@@ -20,8 +20,8 @@
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
-        "@rw/cms-client": "file:../cms-client",
-        "@rw/cms-shared": "file:../shared",
+        "@sitesurge/client": "file:../cms-client",
+        "@sitesurge/types": "file:../shared",
         "zod": "^4.4.3"
     },
     "devDependencies": {

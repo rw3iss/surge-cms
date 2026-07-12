@@ -1,4 +1,4 @@
-import type { SocialPlatform, } from '@rw/cms-shared';
+import type { SocialPlatform, } from '@sitesurge/types';
 import { Component, Match, Show, Switch, } from 'solid-js';
 import './SocialEmbed.scss';
 

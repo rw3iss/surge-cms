@@ -1,8 +1,8 @@
 # MCP / SDK Deficiency Audit
 
 Date: 2026-07-09
-Context: while designing `@rw/cms-mcp` (the CMS MCP server) I audited the
-`@rw/cms-client` SDK + API surface for gaps that would block an agent from
+Context: while designing `@sitesurge/mcp` (the CMS MCP server) I audited the
+`@sitesurge/client` SDK + API surface for gaps that would block an agent from
 building an entire site. This records every finding, the decision, and where it
 is addressed. Per the directive, genuine missing pieces are implemented **before**
 the MCP tools that depend on them.
@@ -23,7 +23,7 @@ uses the nested `HeroCarouselSettings` shape.
   authoritative per-type field schemas, defaults, container (settings vs content),
   page-only flags, and wiring notes; exposed via `describe_block_types`. Derived
   from `packages/cms/src/components/admin/blocks/types/*` + `shared/src/types/*`.
-- Not put in `@rw/cms-shared` on purpose: it is agent-facing documentation, not a
+- Not put in `@sitesurge/types` on purpose: it is agent-facing documentation, not a
   runtime contract; keeping it MCP-local avoids coupling the shared package to
   editor UX. (Candidate to promote later if the admin wants to consume it.)
 
@@ -122,7 +122,7 @@ Should any real API blocker surface mid-implementation, it will be fixed in the
 SDK first and appended here as **FIX-SDK** with the commit.
 
 ## Follow-ups (optional, not blocking)
-- Promote `BLOCK_TYPE_CATALOG` into `@rw/cms-shared` if the admin editor or docs
+- Promote `BLOCK_TYPE_CATALOG` into `@sitesurge/types` if the admin editor or docs
   site later want a single source of block-type truth.
 - Consider `cms.media.uploadFromUrl()` in the SDK if non-MCP consumers ask for it.
 - Consider granular post-block endpoints only if a real concurrent-editing need

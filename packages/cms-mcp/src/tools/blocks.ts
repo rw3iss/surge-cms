@@ -6,7 +6,7 @@
  *           carries title + content + settings + style together.
  */
 import { z, } from 'zod';
-import type { PageBlockBody, } from '@rw/cms-shared';
+import type { PageBlockBody, } from '@sitesurge/types';
 import { defaultBlockData, getBlockSpec, } from '../catalog/blockTypes';
 import { newBlockId, } from '../util/ids';
 

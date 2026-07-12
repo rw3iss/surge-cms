@@ -1,4 +1,4 @@
-# @rw/cms-client
+# @sitesurge/client
 
 The headless, typed TypeScript client for any SiteSurge CMS backend — one
 `cms.*` namespace surface over HTTP, with token lifecycle, an SWR cache, typed
@@ -6,14 +6,14 @@ errors, and optional SolidJS bindings. Zero runtime dependencies; works in
 Node ≥ 18 and modern browsers.
 
 **Doctrine:** all client-side API requests for SiteSurge route through this
-package — `@rw/cms-web`, external apps, and Node/agent scripts alike.
+package — `@sitesurge/admin`, external apps, and Node/agent scripts alike.
 
 ## Install
 
 In-repo it is already wired as a workspace dependency:
 
 ```jsonc
-{ "dependencies": { "@rw/cms-client": "workspace:*" } }
+{ "dependencies": { "@sitesurge/client": "workspace:*" } }
 ```
 
 Publish-ready (ESM + CJS + `.d.ts`, `exports` map with `.` and `./solid`); no
@@ -22,7 +22,7 @@ npm publish yet.
 ## 30-second example
 
 ```ts
-import { createClient } from '@rw/cms-client';
+import { createClient } from '@sitesurge/client';
 
 const cms = createClient({ baseUrl: 'https://cms.example.com', auth: { apiKey: 'ssk_…' } });
 const posts = await cms.posts.list({ status: 'all' });   // typed, paginated, cached
@@ -87,4 +87,4 @@ allowlisted in `src/modules/coverage.ts`).
 - **Full client reference:** [docs/Overview.md](docs/Overview.md)
 - **Charter & design decisions:** [docs/client-sdk-plan.md](../../docs/client-sdk-plan.md)
 - **Machine-readable manifest:** [docs/api-manifest.json](../../docs/api-manifest.json)
-- **Shared types & DTOs:** `@rw/cms-shared` ([packages/shared](../shared))
+- **Shared types & DTOs:** `@sitesurge/types` ([packages/shared](../shared))

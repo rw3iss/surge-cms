@@ -1,4 +1,4 @@
-import type { HealthBasicResponse, HealthLiveResponse, } from '@rw/cms-shared';
+import type { HealthBasicResponse, HealthLiveResponse, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import * as health from '../services/health';
 import { logger, } from '../utils/logger';

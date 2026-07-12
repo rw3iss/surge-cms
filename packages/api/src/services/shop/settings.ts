@@ -18,7 +18,7 @@
  * nature). Stripe secret keys live in env/config — never in these rows —
  * so they cannot leak through any of these reads.
  */
-import type { ShopAppearance, ShopPublicSettings, ShopSettings, } from '@rw/cms-shared';
+import type { ShopAppearance, ShopPublicSettings, ShopSettings, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { ValidationError, } from '../../core/errors';
 import { logAudit, } from '../audit';

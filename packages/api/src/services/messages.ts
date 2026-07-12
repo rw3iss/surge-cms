@@ -7,7 +7,7 @@
  * The `sdk/messages.ts` shim re-exports it so `cms.messages` keeps
  * working for scripts and plugins.
  */
-import type { ContactMessage, MessageStatus, } from '@rw/cms-shared';
+import type { ContactMessage, MessageStatus, } from '@sitesurge/types';
 import { config, } from '../config';
 import * as repo from '../repositories/messages.repo';
 import { performBulkAction, } from '../utils/bulkActions';

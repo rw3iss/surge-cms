@@ -18,7 +18,7 @@ import { createSignal, } from 'solid-js';
 
 export interface EntityCacheOptions<TItem> {
     /** Typed fetcher returning a paginated `{ data }` envelope (the
-     *  `@rw/cms-client` list-method shape). Only `data` is read. */
+     *  `@sitesurge/client` list-method shape). Only `data` is read. */
     fetch: () => Promise<{ data: unknown[]; }>;
     /** Map the raw API row to the cached shape. Defaults to identity. */
     parse?: (raw: unknown,) => TItem;

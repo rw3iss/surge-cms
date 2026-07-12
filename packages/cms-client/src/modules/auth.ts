@@ -2,7 +2,7 @@ import type {
     AuthResponse, LoginCredentials, AuthPatreonResponse,
     AuthLogoutAllResponse, AuthMeResponse, AuthPatreonSyncResponse, AuthAutologinResponse,
     AuthRegisterBody, AuthRegisterResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import type { CmsClientCore, } from '../core/client';
 import type { AuthRuntime, } from '../core/auth/authManager';
 import type { AuthTokens, } from '../core/types';

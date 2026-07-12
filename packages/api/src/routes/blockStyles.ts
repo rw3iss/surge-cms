@@ -1,5 +1,5 @@
 import { z, } from 'zod';
-import type { BlockStyleCreateBody, } from '@rw/cms-shared';
+import type { BlockStyleCreateBody, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as blockStyles from '../services/blockStyles';
 

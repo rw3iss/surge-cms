@@ -10,7 +10,7 @@ import type {
     UserListQuery,
     UserPasswordBody,
     UserUpdateBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, } from '../core/errors';
 import * as users from '../services/users';

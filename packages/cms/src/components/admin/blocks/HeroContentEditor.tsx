@@ -5,8 +5,8 @@ import type {
     HeroCarouselSettings,
     HeroItem,
     HeroTextConfig,
-} from '@rw/cms-shared';
-import type { AppearanceSettings, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { AppearanceSettings, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import HeroCarousel from '../../blocks/HeroCarousel';

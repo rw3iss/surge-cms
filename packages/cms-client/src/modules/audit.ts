@@ -1,4 +1,4 @@
-import type { AuditListQuery, AuditListResponse, Paginated, } from '@rw/cms-shared';
+import type { AuditListQuery, AuditListResponse, Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /audit namespace (admin) — read-only audit-log view. */

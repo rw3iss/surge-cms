@@ -35,7 +35,7 @@ Overrides via env: `SURGE_SSH`, `SURGE_REMOTE`, `SURGE_HOST`, `SURGE_LOCAL_DB`, 
   dumps the remote DB to `/opt/surge/backups/` first. It does not merge — prod-only
   data (e.g. live form submissions) is not preserved. Fine for a demo where local
   is authoritative.
-- The service runs via `tsx` (not `node dist`) because `@rw/cms-shared`'s build
+- The service runs via `tsx` (not `node dist`) because `@sitesurge/types`'s build
   uses bundler-style directory imports that raw Node ESM can't resolve. A future
   improvement is making the shared package emit Node-resolvable output so prod can
   run `node dist/index.js`.

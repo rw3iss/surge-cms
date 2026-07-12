@@ -1,6 +1,6 @@
 import type {
     SearchQuery, SearchResponse, AdminSearchQuery, AdminSearchResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /search namespace — grouped full-text search (keyed-map responses). */

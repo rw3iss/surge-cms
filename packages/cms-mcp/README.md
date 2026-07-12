@@ -1,10 +1,10 @@
-# @rw/cms-mcp
+# @sitesurge/mcp
 
 A stdio **Model Context Protocol** server that exposes the entire SiteSurge CMS
 authoring surface — pages, posts, every content-block type, block styles,
 appearance (colors/swatches/fonts/layout), the site header + footer, navigation,
 media, and settings/features — as **66 curated tools** an AI agent can call to
-design and build a whole site. It is a thin wrapper over the `@rw/cms-client` SDK
+design and build a whole site. It is a thin wrapper over the `@sitesurge/client` SDK
 using a scoped `ssk_…` API key, and adds authoritative block schemas
 (`describe_block_types`) plus workflow ergonomics (group nesting,
 single-post-block edits, media-from-path-or-URL, style templates).

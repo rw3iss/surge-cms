@@ -13,7 +13,7 @@ import {
     Component, createMemo, createSignal, For, onMount, Show,
 } from 'solid-js';
 import { createStore, } from 'solid-js/store';
-import type { MailingList, MailTemplate, } from '@rw/cms-shared';
+import type { MailingList, MailTemplate, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';

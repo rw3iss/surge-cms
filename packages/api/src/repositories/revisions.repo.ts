@@ -1,7 +1,7 @@
 /**
  * Revisions repository — snapshot history for content entities.
  */
-import type { Revision as SharedRevision, RevisionEntityType, } from '@rw/cms-shared';
+import type { Revision as SharedRevision, RevisionEntityType, } from '@sitesurge/types';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';

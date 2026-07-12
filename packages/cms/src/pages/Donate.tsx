@@ -1,5 +1,5 @@
 import { A, } from '@solidjs/router';
-import type { Campaign, } from '@rw/cms-shared';
+import type { Campaign, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';

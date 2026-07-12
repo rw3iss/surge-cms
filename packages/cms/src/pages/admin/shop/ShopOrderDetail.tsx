@@ -6,7 +6,7 @@ import type {
     ShopFulfillmentStatus,
     ShopOrderDetail as OrderDetail,
     ShopOrderStatus,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';

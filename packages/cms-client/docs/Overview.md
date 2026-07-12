@@ -1,14 +1,14 @@
-# @rw/cms-client — Overview
+# @sitesurge/client — Overview
 
-`@rw/cms-client` is the **headless TypeScript client** for any SiteSurge /
+`@sitesurge/client` is the **headless TypeScript client** for any SiteSurge /
 hosted CMS backend. It mirrors the backend's in-process `cms.*` service
 aggregate over HTTP through per-module namespaces (`cms.posts`, `cms.pages`,
-`cms.settings`, …), typed end-to-end against the DTOs in `@rw/cms-shared`.
+`cms.settings`, …), typed end-to-end against the DTOs in `@sitesurge/types`.
 
 **Why it exists.** There is exactly one client all consumers route through:
 
-- **`@rw/cms-web`** — our own SolidJS SPA (an optional `./solid` adapter ships
-  reactive resources for it). **Used in production by `@rw/cms-web` (cookie
+- **`@sitesurge/admin`** — our own SolidJS SPA (an optional `./solid` adapter ships
+  reactive resources for it). **Used in production by `@sitesurge/admin` (cookie
   mode)** — the SPA routes every backend call through this client.
 - **External apps** — any browser or server app that talks to a SiteSurge
   instance gets the same typed surface.
@@ -31,14 +31,14 @@ In-repo (workspace link — already wired):
 
 ```jsonc
 // package.json
-{ "dependencies": { "@rw/cms-client": "workspace:*" } }
+{ "dependencies": { "@sitesurge/client": "workspace:*" } }
 ```
 
 Future npm (the package is publish-ready — ESM + CJS + `.d.ts`, `exports` map
 with `.` and `./solid`; no actual publish yet):
 
 ```bash
-npm install @rw/cms-client
+npm install @sitesurge/client
 ```
 
 ---
@@ -46,7 +46,7 @@ npm install @rw/cms-client
 ## 60-second quickstart
 
 ```ts
-import { createClient } from '@rw/cms-client';
+import { createClient } from '@sitesurge/client';
 
 // 1. API-key client (server/agent). Presence of apiKey selects apiKey mode.
 const cms = createClient({
@@ -262,7 +262,7 @@ try {
 
 ---
 
-## SolidJS adapter (`@rw/cms-client/solid`)
+## SolidJS adapter (`@sitesurge/client/solid`)
 
 Optional reactive bindings — imported only by Solid consumers; the core never
 imports `solid-js`.
@@ -274,7 +274,7 @@ imports `solid-js`.
   inside a Solid tracking scope; auto-unsubscribed on cleanup.
 
 ```ts
-import { createCmsResource, bindCmsErrors } from '@rw/cms-client/solid';
+import { createCmsResource, bindCmsErrors } from '@sitesurge/client/solid';
 
 const [posts, { refetch }] = createCmsResource(
     cms,            // the CmsClient (a CmsClientCore)
@@ -312,7 +312,7 @@ keys silently never update.
 Each `<details>` lists every public method with its signature
 (params → return DTO), the HTTP method + path, the auth tier from
 `docs/api-manifest.json`, and cache behavior (`cached GET` / `mutation` /
-`raw`). All DTO names are exported from `@rw/cms-shared`.
+`raw`). All DTO names are exported from `@sitesurge/types`.
 
 Auth tiers: **public** (no auth) · **optional** (anon allowed; auth enriches) ·
 **user** (any authenticated user) · **admin** (admin role / `admin` API-key scope).
@@ -321,7 +321,7 @@ Auth tiers: **public** (no auth) · **optional** (anon allowed; auth enriches) �
 
 List methods whose backend route replies with page meta return
 `Paginated<T> = { data: T[]; meta: PageMeta }` (both exported from
-`@rw/cms-shared`; `PageMeta = { page?, limit?, total?, totalPages? }` — all
+`@sitesurge/types`; `PageMeta = { page?, limit?, total?, totalPages? }` — all
 optional, matching the envelope). Destructure the result:
 
 ```ts

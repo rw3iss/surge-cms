@@ -4,8 +4,8 @@ import type {
     MessageDeleteResponse, MessageBulkBody, MessageBulkResponse,
     MessageBulkStatusBody, MessageBulkStatusResponse,
     MessageBulkDeleteBody, MessageBulkDeleteResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /messages namespace — public contact-form submit + admin inbox. */

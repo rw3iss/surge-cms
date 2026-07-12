@@ -1,4 +1,4 @@
-import type { AuthResponse, LoginCredentials, } from '@rw/cms-shared';
+import type { AuthResponse, LoginCredentials, } from '@sitesurge/types';
 import type { AuthMode, AuthTokens, TokenStore, } from '../types';
 import { Emitter, } from '../events';
 import { performRequest, } from '../request';

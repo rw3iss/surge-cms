@@ -4,8 +4,8 @@ import type {
     UserPasswordBody, UserPasswordResponse, UserBanBody, UserBanResponse,
     UserUnbanResponse, UserDeleteResponse, UserBanListQuery, UserBanListResponse,
     UserBanIpBody, UserBanIpResponse, UserBanDeleteResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /users namespace (all admin) — user CRUD, avatar upload, bans. */

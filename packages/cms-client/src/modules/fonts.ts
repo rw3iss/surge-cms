@@ -1,6 +1,6 @@
 import type {
     FontListResponse, FontUploadBody, FontUploadResponse, FontDeleteResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /fonts namespace — list (public) + multipart upload + delete (admin). */

@@ -1,5 +1,5 @@
 import { z, } from 'zod';
-import type { DevCronGetResponse, DevCronListResponse, } from '@rw/cms-shared';
+import type { DevCronGetResponse, DevCronListResponse, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import * as dev from '../services/dev';
 

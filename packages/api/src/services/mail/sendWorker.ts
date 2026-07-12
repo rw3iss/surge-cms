@@ -20,7 +20,7 @@ import { getProvider, } from './providers/factory';
 import { buildVariableContext, substituteVariables, } from './variables';
 import { isFeatureEnabledServer, } from '../settings';
 import { generateUnsubscribeToken, } from './unsubscribe';
-import type { MailingListSubscriber, } from '@rw/cms-shared';
+import type { MailingListSubscriber, } from '@sitesurge/types';
 
 const sleep = (ms: number,): Promise<void> => new Promise((r,) => setTimeout(r, ms,),);
 

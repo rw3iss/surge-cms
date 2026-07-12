@@ -1,4 +1,4 @@
-import type { Campaign, Donation, DonationSummary, } from '@rw/cms-shared';
+import type { Campaign, Donation, DonationSummary, } from '@sitesurge/types';
 import { query, } from '../db';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';

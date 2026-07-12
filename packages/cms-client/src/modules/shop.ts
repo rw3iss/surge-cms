@@ -53,7 +53,7 @@ import type {
     ShopSettingsUpdateResponse,
     ShopStripeStatusResponse,
     ShopTagListResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

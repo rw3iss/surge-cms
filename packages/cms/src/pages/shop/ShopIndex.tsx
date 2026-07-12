@@ -1,4 +1,4 @@
-import type { ShopAppearance, ShopProduct, ShopPublicSettings, } from '@rw/cms-shared';
+import type { ShopAppearance, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';

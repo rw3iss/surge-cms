@@ -1,4 +1,4 @@
-import { buildBlockTree, type Page, } from '@rw/cms-shared';
+import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import SeoHead from '../components/common/seo/SeoHead';

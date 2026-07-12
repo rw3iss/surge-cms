@@ -1,5 +1,5 @@
 /**
- * @rw/cms-mcp — MCP server exposing the SiteSurge CMS authoring surface.
+ * @sitesurge/mcp — MCP server exposing the SiteSurge CMS authoring surface.
  *
  * Run (stdio): CMS_BASE_URL=… CMS_API_KEY=ssk_… cms-mcp
  * See docs/MCP.md for the full tool reference.

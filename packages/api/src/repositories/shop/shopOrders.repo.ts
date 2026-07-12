@@ -8,7 +8,7 @@
  * at the service layer (admin all / user own). Follows the shopProducts.repo
  * style: base.repo helpers + mapRow + uuidOrNull.
  */
-import type { ShopAddress, ShopOrder, ShopOrderItem, } from '@rw/cms-shared';
+import type { ShopAddress, ShopOrder, ShopOrderItem, } from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { query, } from '../../db';
 import { mapRow, mapRows, } from '../../utils/mapRow';

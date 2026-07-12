@@ -1,5 +1,5 @@
 import { A, } from '@solidjs/router';
-import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, } from '@rw/cms-shared';
+import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import './Footer.scss';

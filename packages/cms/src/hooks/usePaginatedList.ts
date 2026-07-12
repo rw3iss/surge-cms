@@ -1,5 +1,5 @@
 import { createResource, createSignal, } from 'solid-js';
-import type { Paginated, } from '@rw/cms-shared';
+import type { Paginated, } from '@sitesurge/types';
 
 export interface UsePaginatedListOptions<T,> {
     /**

@@ -33,7 +33,7 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.975.0
         version: 3.1085.0
-      '@rw/cms-shared':
+      '@sitesurge/types':
         specifier: file:../shared
         version: link:../shared
       bcryptjs:
@@ -160,10 +160,10 @@ importers:
       '@codemirror/view':
         specifier: ^6.41.1
         version: 6.43.6
-      '@rw/cms-client':
+      '@sitesurge/client':
         specifier: file:../cms-client
         version: link:../cms-client
-      '@rw/cms-shared':
+      '@sitesurge/types':
         specifier: file:../shared
         version: link:../shared
       '@solidjs/meta':
@@ -218,7 +218,7 @@ importers:
 
   packages/cms-client:
     dependencies:
-      '@rw/cms-shared':
+      '@sitesurge/types':
         specifier: file:../shared
         version: link:../shared
     devDependencies:
@@ -243,10 +243,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      '@rw/cms-client':
+      '@sitesurge/client':
         specifier: file:../cms-client
         version: link:../cms-client
-      '@rw/cms-shared':
+      '@sitesurge/types':
         specifier: file:../shared
         version: link:../shared
       zod:

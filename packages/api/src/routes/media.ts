@@ -19,7 +19,7 @@ import multer from 'multer';
 import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { z, } from 'zod';
-import type { AssertCompatible, MediaListQuery, MediaUpdateBody, } from '@rw/cms-shared';
+import type { AssertCompatible, MediaListQuery, MediaUpdateBody, } from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as media from '../services/media';

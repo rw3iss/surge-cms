@@ -6,7 +6,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import type { MailSendJob, } from '@rw/cms-shared';
+import type { MailSendJob, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 
 type JobWithListName = MailSendJob & { listName: string | null; };

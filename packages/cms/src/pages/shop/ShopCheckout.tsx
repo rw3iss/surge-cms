@@ -1,6 +1,6 @@
 import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { useNavigate, } from '@solidjs/router';
-import type { ShopAddress, ShopCheckoutTotals, } from '@rw/cms-shared';
+import type { ShopAddress, ShopCheckoutTotals, } from '@sitesurge/types';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';

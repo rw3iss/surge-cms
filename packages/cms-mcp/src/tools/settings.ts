@@ -13,7 +13,7 @@
  * flip can't ride along with a name change.
  */
 import { z, } from 'zod';
-import type { SettingsUpdateBody, } from '@rw/cms-shared';
+import type { SettingsUpdateBody, } from '@sitesurge/types';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 
 /** The site-config (non-feature) fields as an optional zod fragment. */

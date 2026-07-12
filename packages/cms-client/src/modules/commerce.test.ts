@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 import type {
     MailingListListResponse, ListSubscribeResponse, PaymentsDonateResponse,
     MailSendResponse, MailTemplatePreviewResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { createClient, } from '../index';
 
 function jsonResponse(data: unknown, status = 200,): Response {

@@ -4,8 +4,8 @@ import type {
     CampaignDonationSummaryResponse, CampaignAllDonationsQuery, CampaignAllDonationsResponse,
     CampaignByIdResponse, CampaignCreateBody, CampaignCreateResponse, CampaignUpdateBody,
     CampaignUpdateResponse, CampaignDeleteResponse, CampaignBulkBody, CampaignBulkResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /campaigns namespace — public bare-array list + admin all-statuses list, donations. */

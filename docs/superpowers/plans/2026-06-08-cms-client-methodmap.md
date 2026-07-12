@@ -84,7 +84,7 @@
 | `create(body)` | POST `/api-keys` | `ApiKeyCreateBody` | `ApiKeyCreateResponse` | mutation; invalidates: list |
 | `revoke(id)` | DELETE `/api-keys/:id` | — (Params: `id`) | `ApiKey` | mutation; invalidates: list |
 
-**DTOs**: All from `@rw/cms-shared` (routes/apiKeys.ts)  
+**DTOs**: All from `@sitesurge/types` (routes/apiKeys.ts)  
 **Special Handling**: 
 - Create returns plaintext key **once only** in response
 - No standard list endpoint name; use `list()` → maps to GET /:
@@ -832,7 +832,7 @@ These routes are intentionally excluded from the SDK surface (raw HTML/redirects
 
 ## Summary
 
-The **@rw/cms-client** build will generate **151 typed client methods** across **28 modules**:
+The **@sitesurge/client** build will generate **151 typed client methods** across **28 modules**:
 
 - **29 GET** methods (cacheable, read-only)
 - **73 POST** methods (mutations, creates, custom actions)

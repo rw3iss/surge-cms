@@ -10,9 +10,9 @@ import JobManagementPanel from '../../components/admin/panels/JobManagementPanel
 import SitemapPanel from '../../components/admin/panels/SitemapPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { cms, } from '../../services/cmsClient';
-import { FeatureCascadeError, } from '@rw/cms-client';
+import { FeatureCascadeError, } from '@sitesurge/client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
-import type { SiteSwatch, } from '@rw/cms-shared';
+import type { SiteSwatch, } from '@sitesurge/types';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';

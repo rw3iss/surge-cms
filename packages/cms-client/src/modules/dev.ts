@@ -1,4 +1,4 @@
-import type { DevCronListResponse, DevCronGetResponse, } from '@rw/cms-shared';
+import type { DevCronListResponse, DevCronGetResponse, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /dev namespace (admin) — developer tools: cron registry inspection. */

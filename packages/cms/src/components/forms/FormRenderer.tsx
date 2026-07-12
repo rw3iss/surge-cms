@@ -7,7 +7,7 @@ import type {
     NumberSummary,
     QuestionResult,
     TextSummary,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import './FormRenderer.scss';

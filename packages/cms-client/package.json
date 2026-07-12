@@ -1,5 +1,5 @@
 {
-    "name": "@rw/cms-client",
+    "name": "@sitesurge/client",
     "version": "0.2.0",
     "private": true,
     "type": "module",
@@ -31,7 +31,7 @@
         "check:drift": "tsx scripts/check-drift.ts"
     },
     "dependencies": {
-        "@rw/cms-shared": "file:../shared"
+        "@sitesurge/types": "file:../shared"
     },
     "peerDependencies": {
         "solid-js": ">=1.8.0"

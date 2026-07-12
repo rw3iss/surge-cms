@@ -2,7 +2,7 @@ import type {
     MailSendBody, MailSendResponse, MailJobsListQuery, MailJobsListResponse,
     MailJobGetResponse, MailJobRecipientsQuery, MailJobRecipientsResponse,
     MailJobRetryResponse, MailJobPatchResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

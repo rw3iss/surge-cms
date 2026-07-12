@@ -1,4 +1,4 @@
-import type { ContentAccessLevel, } from '@rw/cms-shared';
+import type { ContentAccessLevel, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 
 interface ContentGateProps {

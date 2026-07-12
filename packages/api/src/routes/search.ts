@@ -1,5 +1,5 @@
 import { z, } from 'zod';
-import type { AdminSearchQuery, AssertCompatible, SearchQuery, } from '@rw/cms-shared';
+import type { AdminSearchQuery, AssertCompatible, SearchQuery, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as search from '../services/search';
 

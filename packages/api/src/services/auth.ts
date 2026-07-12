@@ -1,4 +1,4 @@
-import type { AuthResponse, User, UserRole, } from '@rw/cms-shared';
+import type { AuthResponse, User, UserRole, } from '@sitesurge/types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid, } from '../utils/nanoid';

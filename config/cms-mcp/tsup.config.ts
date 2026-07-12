@@ -15,5 +15,5 @@ export default defineConfig({
     clean: true,
     // The MCP entry is a runnable CLI; keep the shebang + mark deps external.
     banner: { js: '#!/usr/bin/env node', },
-    external: ['@rw/cms-shared', '@rw/cms-client', '@modelcontextprotocol/sdk', 'zod',],
+    external: ['@sitesurge/types', '@sitesurge/client', '@modelcontextprotocol/sdk', 'zod',],
 },);

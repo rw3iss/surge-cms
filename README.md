@@ -218,7 +218,7 @@ Site name, tagline, contact email, analytics ID, maintenance mode, branding, hea
 
 - **Frontend**: SolidJS + Vite, SCSS, `@solidjs/router`, `@solidjs/meta`, PWA (workbox).
 - **Backend**: Node 20+, Express, TypeScript, raw `pg` (no ORM), Redis cache, JWT auth, multer + sharp, nodemailer, Stripe.
-- **Shared**: `@rw/cms-shared` workspace — types, API request/response DTOs, and validation/format utils consumed by every package.
+- **Shared**: `@sitesurge/types` workspace — types, API request/response DTOs, and validation/format utils consumed by every package.
 - **Monorepo**: npm workspaces under `packages/*`; `npm run dev` starts the API + web app.
 </details>
 
@@ -229,10 +229,10 @@ Four npm-workspace packages under `packages/*`, all configuration under `config/
 
 | Folder | npm name | Purpose |
 |---|---|---|
-| `packages/api` | `@rw/cms-api` | Express REST API — `/api/v1/*`, SSR, migrations, the backend SDK. |
-| `packages/cms` | `@rw/cms-web` | SolidJS app — public site, admin portal, setup wizard. |
-| `packages/shared` | `@rw/cms-shared` | TypeScript types, per-module request/response **DTOs**, and format/validation utils consumed by every other package. |
-| `packages/cms-client` | `@rw/cms-client` | Headless TypeScript HTTP client (**scaffold only — next project**; see [Headless Mode](#headless-mode)). |
+| `packages/api` | `@sitesurge/server` | Express REST API — `/api/v1/*`, SSR, migrations, the backend SDK. |
+| `packages/cms` | `@sitesurge/admin` | SolidJS app — public site, admin portal, setup wizard. |
+| `packages/shared` | `@sitesurge/types` | TypeScript types, per-module request/response **DTOs**, and format/validation utils consumed by every other package. |
+| `packages/cms-client` | `@sitesurge/client` | Headless TypeScript HTTP client (**scaffold only — next project**; see [Headless Mode](#headless-mode)). |
 
 ```
 packages/
@@ -246,8 +246,8 @@ packages/
       middleware/    auth, content-access, error, setupGate
       db/            schema.sql, migrations/, seed.ts
   cms/    SolidJS SPA — public site, admin portal, setup wizard
-  shared/ @rw/cms-shared — types + src/api/routes/ DTOs + format/validation utils
-  cms-client/  @rw/cms-client — headless HTTP client (scaffold)
+  shared/ @sitesurge/types — types + src/api/routes/ DTOs + format/validation utils
+  cms-client/  @sitesurge/client — headless HTTP client (scaffold)
 config/   all build/tool config (see below)
 docs/     API.md, api-manifest.json, client-sdk-plan.md, plans/specs
 ```
@@ -388,7 +388,7 @@ npm run docker:up
 npm run docker:down
 ```
 
-`npm run build` is dependency-ordered so `@rw/cms-shared` compiles before the packages that import it. The web app produces a static bundle suitable for any CDN (CloudFront, Netlify, Vercel). The API needs Node 20+, PostgreSQL, and Redis.
+`npm run build` is dependency-ordered so `@sitesurge/types` compiles before the packages that import it. The web app produces a static bundle suitable for any CDN (CloudFront, Netlify, Vercel). The API needs Node 20+, PostgreSQL, and Redis.
 </details>
 
 <details>
@@ -396,8 +396,8 @@ npm run docker:down
 
 ```bash
 npm run dev               # api + web app concurrently
-npm run dev:frontend      # @rw/cms-web only (port 3000)
-npm run dev:backend       # @rw/cms-api only (port 3001)
+npm run dev:frontend      # @sitesurge/admin only (port 3000)
+npm run dev:backend       # @sitesurge/server only (port 3001)
 npm run build             # all workspaces, dependency-ordered
 npm run db:migrate        # run pending migrations (→ packages/api)
 npm run db:seed           # seed defaults (--demo for sample content)
@@ -427,16 +427,16 @@ envelope:
 { "success": false, "error": { "code": "NOT_FOUND", "message": "…" } }
 ```
 
-`error.code` is one of a fixed `ErrorCode` set (exported from `@rw/cms-shared`);
+`error.code` is one of a fixed `ErrorCode` set (exported from `@sitesurge/types`);
 clients switch on it. The full machine-readable route list lives in
 [`docs/api-manifest.json`](docs/api-manifest.json) and the human reference in
 [`docs/API.md`](docs/API.md) — both regenerated from the live route manifest
 with `npm run docs:api`.
 
-### Typed client (`@rw/cms-client`)
+### Typed client (`@sitesurge/client`)
 
 **Doctrine:** once built, ALL client-side API requests SHOULD flow through the
-`@rw/cms-client` package — **including our own `@rw/cms-web` app**. The direct
+`@sitesurge/client` package — **including our own `@sitesurge/admin` app**. The direct
 `api.get()` / `api.post()` calls in `packages/cms` today are the **interim
 pattern** until the client lands. The client wraps the documented REST surface
 ([`docs/API.md`](docs/API.md) + [`docs/api-manifest.json`](docs/api-manifest.json))
@@ -448,7 +448,7 @@ token auto-load, a typed error bus, and an optional SolidJS adapter. See
 [`packages/cms-client/docs/Overview.md`](packages/cms-client/docs/Overview.md).
 
 **Shared DTOs:** every module's request and response types live in
-`@rw/cms-shared` under [`packages/shared/src/api/routes/`](packages/shared/src/api/routes/).
+`@sitesurge/types` under [`packages/shared/src/api/routes/`](packages/shared/src/api/routes/).
 The backend binds its zod schemas to these same definitions, so the client and
 the server share **one** definition per shape — drift is a compile error, not a
 runtime surprise.
@@ -504,9 +504,9 @@ curl -s -X POST https://yoursite.com/api/v1/posts \
 curl -s 'https://yoursite.com/api/v1/posts'
 ```
 
-### MCP server (`@rw/cms-mcp`) — build the site with an AI agent
+### MCP server (`@sitesurge/mcp`) — build the site with an AI agent
 
-`@rw/cms-mcp` (`packages/cms-mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io)
+`@sitesurge/mcp` (`packages/cms-mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io)
 server that exposes the **entire authoring surface** — pages, posts, every
 content-block type (and the content inside them), block styles + shared style
 templates, appearance (colors/swatches/fonts/layout), the site header, the site

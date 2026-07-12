@@ -4,8 +4,8 @@ import type {
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
     PostBulkBody, PostBulkResponse, PostRevisionListResponse, PostRevisionResponse,
     PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /posts namespace — blog posts with content blocks, revisions, reorder. */

@@ -1,4 +1,4 @@
-import type { BlockStyle, } from '@rw/cms-shared';
+import type { BlockStyle, } from '@sitesurge/types';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';

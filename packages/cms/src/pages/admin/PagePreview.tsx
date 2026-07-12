@@ -1,5 +1,5 @@
 import { useNavigate, useParams, } from '@solidjs/router';
-import { buildBlockTree, } from '@rw/cms-shared';
+import { buildBlockTree, } from '@sitesurge/types';
 import { Component, createMemo, For, Show, } from 'solid-js';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';

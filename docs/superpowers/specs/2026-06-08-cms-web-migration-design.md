@@ -1,12 +1,12 @@
-# cms-web → @rw/cms-client Full Typed Migration — Design
+# cms-web → @sitesurge/client Full Typed Migration — Design
 
 Date: 2026-06-08
 Status: Approved
 
 ## Goal
 
-Migrate the `@rw/cms-web` SolidJS app (`packages/cms`) to consume
-`@rw/cms-client` for ALL backend communication. Delete `services/api.ts`
+Migrate the `@sitesurge/admin` SolidJS app (`packages/cms`) to consume
+`@sitesurge/client` for ALL backend communication. Delete `services/api.ts`
 and its envelope; every call site uses the typed client singleton
 (`cms.<module>.<method>()`), with try/catch error handling and the
 client's error bus for cross-cutting 401/503 behavior. Cookie auth mode
@@ -30,7 +30,7 @@ useBulkActions). Mapping table in the survey (api.ts → cms.*).
 3. **api.ts:** DELETED. Named helpers + namespaced API objects + the
    ApiService class all go away; call sites use `cms.*` directly.
 
-## Phase A — client: paginated meta (prerequisite, in @rw/cms-client)
+## Phase A — client: paginated meta (prerequisite, in @sitesurge/client)
 
 - `packages/shared/src/api/contract.ts`: export `PageMeta` (alias of the
   meta shape) and `Paginated<T> = { data: T[]; meta: PageMeta }`.
@@ -66,7 +66,7 @@ useBulkActions). Mapping table in the survey (api.ts → cms.*).
 
 ## Phase B — cms-web foundation
 
-- Add `@rw/cms-client` dep to `packages/cms/package.json`
+- Add `@sitesurge/client` dep to `packages/cms/package.json`
   (`file:../cms-client`); `npm install`.
 - `packages/cms/src/services/cmsClient.ts`: the singleton —
   `createClient({ baseUrl: window.location.origin, auth: { mode: 'cookie' },
@@ -80,7 +80,7 @@ useBulkActions). Mapping table in the survey (api.ts → cms.*).
   login/auth 401s must NOT trigger the session-expired modal (filter by
   error.requestId/path or handle in the auth store's own try/catch).
 - Decide SolidJS adapter usage: where a page wants reactive SWR updates,
-  use `createCmsResource` from `@rw/cms-client/solid`; otherwise plain
+  use `createCmsResource` from `@sitesurge/client/solid`; otherwise plain
   `createResource(() => cms.x.y())` is fine. Not mandatory everywhere.
 
 ## Phase C — hooks + auth store
@@ -136,7 +136,7 @@ bus for non-critical reads), read `{data, meta}` for lists. tsc --noEmit
 - Docs: update CLAUDE.md (cms-web now consumes the client; api.ts gone;
   the cmsClient singleton is the one networking path; hook signatures).
   Update client Overview.md pagination. Update client-sdk-plan.md
-  (@rw/cms-web migrated).
+  (@sitesurge/admin migrated).
 
 ## Risks / mitigations
 

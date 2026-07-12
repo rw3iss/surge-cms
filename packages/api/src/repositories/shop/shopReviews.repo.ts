@@ -9,7 +9,7 @@
  * affects the approved set. Follows the shopProducts.repo style:
  * base.repo helpers + mapRow + uuidOrNull for the nullable FKs.
  */
-import type { ShopReview, ShopReviewStatus, } from '@rw/cms-shared';
+import type { ShopReview, ShopReviewStatus, } from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { query, } from '../../db';
 import { mapRow, } from '../../utils/mapRow';

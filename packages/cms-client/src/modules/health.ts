@@ -1,6 +1,6 @@
 import type {
     HealthBasicResponse, HealthDetailedResponse, HealthReadyResponse, HealthLiveResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

@@ -1,6 +1,6 @@
 import { Title, } from '@solidjs/meta';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
-import type { ShopCategory, ShopCategoryCreateBody, } from '@rw/cms-shared';
+import type { ShopCategory, ShopCategoryCreateBody, } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';

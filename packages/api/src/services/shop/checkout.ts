@@ -9,7 +9,7 @@
  * Guest checkout is allowed: `ctx.userId` may be null → `uuidOrNull` on the
  * order's user_id FK. Orders are never cached.
  */
-import type { ShopAddress, ShopSettings, } from '@rw/cms-shared';
+import type { ShopAddress, ShopSettings, } from '@sitesurge/types';
 import Stripe from 'stripe';
 import { config, } from '../../config';
 import { query, transaction, } from '../../db';

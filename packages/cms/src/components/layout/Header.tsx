@@ -1,5 +1,5 @@
 import { A, useLocation, } from '@solidjs/router';
-import { isAdminRole, type NavigationItem, } from '@rw/cms-shared';
+import { isAdminRole, type NavigationItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, onCleanup, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';

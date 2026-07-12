@@ -1,5 +1,5 @@
 /**
- * API drift check — the COMPLETENESS GUARANTEE for @rw/cms-client.
+ * API drift check — the COMPLETENESS GUARANTEE for @sitesurge/client.
  *
  * Compares the wire truth (`docs/api-manifest.json`) against the client's
  * declared route coverage (`src/modules/coverage.ts`) in BOTH directions:
@@ -88,7 +88,7 @@ function main(): void {
 
     const sortLines = (xs: string[],) => [...xs,].sort().map((x,) => `  - ${x}`,).join('\n',);
 
-    console.log('@rw/cms-client API drift check',);
+    console.log('@sitesurge/client API drift check',);
     console.log(`  manifest:       ${manifest.totalRoutes} routes / ${manifest.totalModules} modules (flattened ${manifestSet.size})`,);
     console.log(`  ROUTE_COVERAGE: ${ROUTE_COVERAGE.length} entries (${covered.size} unique)`,);
     console.log(`  allowlisted:    ${allowlisted.size} entries`,);

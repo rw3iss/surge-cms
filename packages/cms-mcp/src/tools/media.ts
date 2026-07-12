@@ -10,7 +10,7 @@
 import { readFile, } from 'node:fs/promises';
 import { basename, } from 'node:path';
 import { z, } from 'zod';
-import type { MediaUpdateBody, MediaUploadFields, } from '@rw/cms-shared';
+import type { MediaUpdateBody, MediaUploadFields, } from '@sitesurge/types';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 
 const tools = [

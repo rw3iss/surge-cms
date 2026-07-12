@@ -2,8 +2,8 @@ import type {
     MediaUploadFields, MediaUploadResponse, MediaBlockUploadFields, MediaBlockUploadResponse,
     MediaBulkUploadResponse, MediaListQuery, MediaListResponse, MediaByIdResponse,
     MediaUpdateBody, MediaUpdateResponse, MediaDeleteResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** Append a Blob/File plus optional string fields onto a FormData. */

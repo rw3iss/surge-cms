@@ -8,7 +8,7 @@
  * Switching providers is `MAIL_PROVIDER=<name>` in `.env` — no
  * code change.
  */
-import type { OutboundMessage, } from '@rw/cms-shared';
+import type { OutboundMessage, } from '@sitesurge/types';
 
 export interface MailProvider {
     send(msg: OutboundMessage,): Promise<{ providerId?: string; }>;

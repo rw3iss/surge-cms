@@ -9,7 +9,7 @@
  * with an `enabled` master switch and per-row / per-column styling.
  */
 import { z, } from 'zod';
-import type { SiteFooterSettings, SiteHeaderSettings, } from '@rw/cms-shared';
+import type { SiteFooterSettings, SiteHeaderSettings, } from '@sitesurge/types';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 
 const ITEM_TYPES = ['image', 'image_link', 'text', 'text_link', 'button', 'menu', 'gap', 'flex_spacer',] as const;

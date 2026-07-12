@@ -6,7 +6,7 @@
  * a text result, and maps thrown SDK errors to structured tool errors.
  */
 import type { z, ZodRawShape, } from 'zod';
-import type { CmsClient, } from '@rw/cms-client';
+import type { CmsClient, } from '@sitesurge/client';
 
 /** Runtime passed to every tool handler. */
 export interface ToolContext {

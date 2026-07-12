@@ -1,7 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, For, Show, } from 'solid-js';
-import type { ShopOrder, ShopProduct, } from '@rw/cms-shared';
+import type { ShopOrder, ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
 import ShopGuard from './ShopGuard';

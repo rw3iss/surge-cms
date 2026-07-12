@@ -1,5 +1,5 @@
-import { UnauthorizedError, } from '@rw/cms-client';
-import { isAdminRole, type User, } from '@rw/cms-shared';
+import { UnauthorizedError, } from '@sitesurge/client';
+import { isAdminRole, type User, } from '@sitesurge/types';
 import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
 import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
 

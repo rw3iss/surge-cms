@@ -1,4 +1,4 @@
-import { formatCurrency, } from '@rw/cms-shared';
+import { formatCurrency, } from '@sitesurge/types';
 
 /** Format a cents amount as currency (defaults USD). Thin re-export so shop
  *  pages import money formatting from one place. */

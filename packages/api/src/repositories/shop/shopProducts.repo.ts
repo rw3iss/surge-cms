@@ -13,7 +13,7 @@ import type {
     ShopProductMediaDetail,
     ShopProductOptionDetail,
     ShopVariant,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { query, transaction, } from '../../db';
 import { mapRow, mapRows, } from '../../utils/mapRow';

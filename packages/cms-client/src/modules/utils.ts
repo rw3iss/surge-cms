@@ -1,4 +1,4 @@
-import type { UtilsUrlPreviewBody, UtilsUrlPreviewResponse, } from '@rw/cms-shared';
+import type { UtilsUrlPreviewBody, UtilsUrlPreviewResponse, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /utils namespace — admin editor helper endpoints. */

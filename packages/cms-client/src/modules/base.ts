@@ -1,6 +1,6 @@
 import type { CmsClientCore, InternalRequest, } from '../core/client';
 import type { MutationOptions, QueryOptions, } from '../core/types';
-import type { Paginated, } from '@rw/cms-shared';
+import type { Paginated, } from '@sitesurge/types';
 import { interpolatePath, } from '../core/url';
 
 /** Base every module namespace extends. Provides typed helpers that build

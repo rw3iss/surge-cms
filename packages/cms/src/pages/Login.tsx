@@ -1,4 +1,4 @@
-import { isAdminRole, } from '@rw/cms-shared';
+import { isAdminRole, } from '@sitesurge/types';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';

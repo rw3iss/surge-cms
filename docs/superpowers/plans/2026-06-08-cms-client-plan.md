@@ -1,19 +1,19 @@
-# @rw/cms-client Implementation Plan
+# @sitesurge/client Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `@rw/cms-client` in full — a typed, zero-runtime-dependency, framework-agnostic headless client exposing every SiteSurge API ability through per-module namespaces, with token lifecycle + auto-load, an SWR client cache over a pluggable adapter, standardized errors with a consumer error bus, an optional SolidJS adapter, full docs, and tests.
+**Goal:** Build `@sitesurge/client` in full — a typed, zero-runtime-dependency, framework-agnostic headless client exposing every SiteSurge API ability through per-module namespaces, with token lifecycle + auto-load, an SWR client cache over a pluggable adapter, standardized errors with a consumer error bus, an optional SolidJS adapter, full docs, and tests.
 
-**Architecture:** Three layers — `core/` (request funnel, auth, cache, errors, events; framework-free), `modules/` (thin typed namespaces over `ModuleBase`), `adapters/solid.ts` (opt-in). DTOs come from `@rw/cms-shared`; the method surface is fixed by `docs/superpowers/plans/2026-06-08-cms-client-methodmap.md` and `docs/api-manifest.json`.
+**Architecture:** Three layers — `core/` (request funnel, auth, cache, errors, events; framework-free), `modules/` (thin typed namespaces over `ModuleBase`), `adapters/solid.ts` (opt-in). DTOs come from `@sitesurge/types`; the method surface is fixed by `docs/superpowers/plans/2026-06-08-cms-client-methodmap.md` and `docs/api-manifest.json`.
 
 **Tech Stack:** TypeScript (strict), tsup (dual ESM+CJS+.d.ts build, devDep), vitest (mocked fetch). No runtime deps.
 
 **Spec:** `docs/superpowers/specs/2026-06-08-cms-client-design.md`. **Method-map (authoritative surface):** `docs/superpowers/plans/2026-06-08-cms-client-methodmap.md`. **Drift allowlist** (never exposed): payments/webhook, OAuth callbacks (`auth/patreon/callback`, `connections/:provider/oauth/callback`), unsubscribe HTML (`/u/:token*`, `/lists/:slug/confirm/:token`) — feed/sitemap exposed as raw string helpers.
 
-**Conventions:** 4-space indent, trailing commas (NOT after rest params) — matches the repo. The package's tsconfig stub already extends `config/cms-client/tsconfig.json`. Tests live beside source as `*.test.ts`. Build verified per task with `npm run build -w packages/cms-client` and `npm test -w packages/cms-client -- --run`. Path-scoped commits; no Co-Authored-By; commits direct to `main`. The shared package is `@rw/cms-shared` (already a workspace dep).
+**Conventions:** 4-space indent, trailing commas (NOT after rest params) — matches the repo. The package's tsconfig stub already extends `config/cms-client/tsconfig.json`. Tests live beside source as `*.test.ts`. Build verified per task with `npm run build -w packages/cms-client` and `npm test -w packages/cms-client -- --run`. Path-scoped commits; no Co-Authored-By; commits direct to `main`. The shared package is `@sitesurge/types` (already a workspace dep).
 
 **Key facts from the survey:**
-- `@rw/cms-shared` exports: `ApiResponse<T>`, `ApiError`, `ApiMeta`, `ErrorCode` (members: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, BAD_REQUEST, INTERNAL_ERROR, SERVICE_UNAVAILABLE, CSRF_ERROR, CONTENT_LOCKED, SERVICE_NOT_CONFIGURED, ALREADY_INSTALLED, DUPLICATE, REFERENCE_ERROR, NO_FILE, NETWORK_ERROR, UPLOAD_ERROR, TIMEOUT, UNKNOWN_ERROR), `AuthTier`, `ApiKeyScope`, `ContentLockedDetails`, `AuthResponse` (`{ user, accessToken, refreshToken, expiresAt }`), `LoginCredentials` (`{ email, password }`), `User`, and all `routes/<module>` DTOs.
+- `@sitesurge/types` exports: `ApiResponse<T>`, `ApiError`, `ApiMeta`, `ErrorCode` (members: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, BAD_REQUEST, INTERNAL_ERROR, SERVICE_UNAVAILABLE, CSRF_ERROR, CONTENT_LOCKED, SERVICE_NOT_CONFIGURED, ALREADY_INSTALLED, DUPLICATE, REFERENCE_ERROR, NO_FILE, NETWORK_ERROR, UPLOAD_ERROR, TIMEOUT, UNKNOWN_ERROR), `AuthTier`, `ApiKeyScope`, `ContentLockedDetails`, `AuthResponse` (`{ user, accessToken, refreshToken, expiresAt }`), `LoginCredentials` (`{ email, password }`), `User`, and all `routes/<module>` DTOs.
 - Backend supports Bearer tokens in the response body (login/refresh return `AuthResponse`) AND httpOnly cookies. The new client defaults to **Bearer mode with localStorage persistence** (the web app currently uses cookie mode — the client supersedes it).
 - Refresh: `POST /api/v1/auth/refresh` accepts `{ refreshToken }` in body; returns `AuthResponse`. 401 on expiry carries `error.code === 'UNAUTHORIZED'`, message `Token expired` / `Invalid token`.
 - API base path is `/api/v1`; raw routes (`/feed.xml`, `/sitemap.xml`, `/u/...`) sit at site root (no `/api/v1`).
@@ -33,7 +33,7 @@
 
 ```json
 {
-    "name": "@rw/cms-client",
+    "name": "@sitesurge/client",
     "version": "0.1.0",
     "private": true,
     "type": "module",
@@ -61,7 +61,7 @@
         "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts"
     },
     "dependencies": {
-        "@rw/cms-shared": "file:../shared"
+        "@sitesurge/types": "file:../shared"
     },
     "peerDependencies": {
         "solid-js": ">=1.8.0"
@@ -95,7 +95,7 @@ export default defineConfig({
     sourcemap: true,
     clean: true,
     treeshake: true,
-    external: ['@rw/cms-shared', 'solid-js',],
+    external: ['@sitesurge/types', 'solid-js',],
 },);
 ```
 
@@ -220,7 +220,7 @@ describe('errorFromEnvelope', () => {
 - [ ] **Step 3: Implement `errors.ts`**
 
 ```ts
-import type { ApiError, ContentLockedDetails, ErrorCode, } from '@rw/cms-shared';
+import type { ApiError, ContentLockedDetails, ErrorCode, } from '@sitesurge/types';
 
 /** Base class for every error the client throws. Carries the wire code,
  *  HTTP status, and raw details so callers can switch on `code` or
@@ -752,7 +752,7 @@ describe('performRequest', () => {
 - [ ] **Step 3: Implement `request.ts`**
 
 ```ts
-import type { ApiResponse, } from '@rw/cms-shared';
+import type { ApiResponse, } from '@sitesurge/types';
 import { AbortError, CmsError, errorFromEnvelope, NetworkError, TimeoutError, } from './errors';
 
 export interface RequestSpec {
@@ -1016,7 +1016,7 @@ describe('AuthManager', () => {
 - [ ] **Step 3: Implement `authManager.ts`**
 
 ```ts
-import type { AuthResponse, LoginCredentials, } from '@rw/cms-shared';
+import type { AuthResponse, LoginCredentials, } from '@sitesurge/types';
 import type { AuthMode, AuthTokens, TokenStore, } from '../types';
 import { Emitter, } from '../events';
 import { performRequest, } from '../request';
@@ -1522,7 +1522,7 @@ Wires config → auth → cache → request pipeline, exposes the error bus, and
 
 ```ts
 import type { CmsClientConfig, MutationOptions, QueryOptions, ResolvedConfig, } from './types';
-import type { AuthResponse, LoginCredentials, } from '@rw/cms-shared';
+import type { AuthResponse, LoginCredentials, } from '@sitesurge/types';
 import { resolveConfig, } from './config';
 import { AuthManager, } from './auth/authManager';
 import { createDefaultTokenStore, } from './auth/tokenStore';
@@ -1812,7 +1812,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
 
 ### Tasks 11–16: Module namespaces (batched)
 
-**Shared recipe (every module file):** create `packages/cms-client/src/modules/<module>.ts` exporting a class extending `ModuleBase` with `protected readonly module = '<module>'`, one method per the **method-map** (`docs/superpowers/plans/2026-06-08-cms-client-methodmap.md`) typed with `@rw/cms-shared` DTOs. GET methods call `this.get<RespDTO>(path, { params, query, options })`; mutations call `this.mutate<RespDTO>('POST'|…, path, { params, body, invalidates: ['<module>'], options })`; uploads call `this.upload`; raw call `this.rawGet(path, { rootMounted: true })`. Register the namespace in `modules/index.ts` (`CmsModules` interface gains `<module>: <Module>Module;` and `assembleModules` sets `core.<module> = new <Module>Module(core)`). After each batch: `npm run build -w packages/cms-client && npm test -w packages/cms-client -- --run`; add ONE focused test per batch covering 2-3 representative methods (URL built correctly + DTO type compiles) using a mocked fetch. One commit per batch.
+**Shared recipe (every module file):** create `packages/cms-client/src/modules/<module>.ts` exporting a class extending `ModuleBase` with `protected readonly module = '<module>'`, one method per the **method-map** (`docs/superpowers/plans/2026-06-08-cms-client-methodmap.md`) typed with `@sitesurge/types` DTOs. GET methods call `this.get<RespDTO>(path, { params, query, options })`; mutations call `this.mutate<RespDTO>('POST'|…, path, { params, body, invalidates: ['<module>'], options })`; uploads call `this.upload`; raw call `this.rawGet(path, { rootMounted: true })`. Register the namespace in `modules/index.ts` (`CmsModules` interface gains `<module>: <Module>Module;` and `assembleModules` sets `core.<module> = new <Module>Module(core)`). After each batch: `npm run build -w packages/cms-client && npm test -w packages/cms-client -- --run`; add ONE focused test per batch covering 2-3 representative methods (URL built correctly + DTO type compiles) using a mocked fetch. One commit per batch.
 
 **Worked example (do this exactly for posts in Task 11, copy the shape for the rest):**
 
@@ -1822,7 +1822,7 @@ import type {
     Post, PostListQuery, PostListResponse, PostBySlugResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostSearchQuery,
     PostSearchResponse, PostBulkBody, PostBulkResponse, PostByIdResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 export class PostsModule extends ModuleBase {

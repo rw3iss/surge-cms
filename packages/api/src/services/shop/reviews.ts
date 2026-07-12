@@ -9,7 +9,7 @@
  * product's `rating_avg`/`rating_count` and bust both the review cache and
  * the product caches (rating is denormalized onto the product row).
  */
-import type { ShopReview, ShopReviewStatus, } from '@rw/cms-shared';
+import type { ShopReview, ShopReviewStatus, } from '@sitesurge/types';
 import { query, transaction, } from '../../db';
 import * as repo from '../../repositories/shop/shopReviews.repo';
 import { logAudit, } from '../audit';

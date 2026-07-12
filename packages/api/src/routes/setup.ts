@@ -1,4 +1,4 @@
-import type { SetupGenerateJwtResponse, } from '@rw/cms-shared';
+import type { SetupGenerateJwtResponse, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import { getInstallationState, } from '../services/installation';
 import {

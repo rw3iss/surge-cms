@@ -2,7 +2,7 @@ import type {
     SetupStatusResponse, SetupTestDbBody, SetupTestDbResponse, SetupTestRedisBody,
     SetupTestRedisResponse, SetupTestSmtpBody, SetupTestSmtpResponse, SetupTestS3Body,
     SetupTestS3Response, SetupGenerateJwtResponse, SetupInstallBody, SetupInstallResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

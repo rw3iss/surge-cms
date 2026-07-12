@@ -1,4 +1,4 @@
-import type { OutboundMessage, } from '@rw/cms-shared';
+import type { OutboundMessage, } from '@sitesurge/types';
 import { MailProvider, NotImplementedError, } from './types';
 
 /**

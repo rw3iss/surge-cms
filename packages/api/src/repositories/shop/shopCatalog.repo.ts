@@ -3,7 +3,7 @@
  * membership), tags (distinct list), and the m2m assignment writes that a
  * product save uses. Follows the campaigns.repo style.
  */
-import type { ShopCategory, ShopCollection, ShopProduct, } from '@rw/cms-shared';
+import type { ShopCategory, ShopCollection, ShopProduct, } from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { query, } from '../../db';
 import { mapRow, mapRows, } from '../../utils/mapRow';

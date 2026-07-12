@@ -6,7 +6,7 @@ import type {
     MessageListQuery,
     MessageStatusUpdateBody,
     MessageSubmitBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as messages from '../services/messages';

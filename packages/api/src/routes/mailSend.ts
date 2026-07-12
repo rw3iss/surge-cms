@@ -18,7 +18,7 @@ import type {
     MailJobsListQuery,
     MailSendBody,
     MailTemplateBlockInput,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailSend from '../services/mailSend';
 

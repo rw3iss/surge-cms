@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 import type {
     PostListResponse, MediaUploadResponse, CampaignPublicListResponse,
     CampaignAdminListResponse, FormSubmissionsExportResponse, Paginated,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { createClient, } from '../index';
 
 function jsonResponse(data: unknown, status = 200,): Response {

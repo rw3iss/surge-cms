@@ -1,6 +1,6 @@
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
-import { buildBlockTree, isAdminRole, type ContentAccessLevel, type Page, } from '@rw/cms-shared';
-import { ContentLockedError, UnauthorizedError, } from '@rw/cms-client';
+import { buildBlockTree, isAdminRole, type ContentAccessLevel, type Page, } from '@sitesurge/types';
+import { ContentLockedError, UnauthorizedError, } from '@sitesurge/client';
 import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';

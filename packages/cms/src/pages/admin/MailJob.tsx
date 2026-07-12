@@ -8,7 +8,7 @@ import { A, useParams, } from '@solidjs/router';
 import {
     Component, createResource, createSignal, For, onCleanup, onMount, Show,
 } from 'solid-js';
-import type { MailSendJob, MailSendRecipient, } from '@rw/cms-shared';
+import type { MailSendJob, MailSendRecipient, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 
 type StatusFilter = 'all' | 'pending' | 'sent' | 'failed';

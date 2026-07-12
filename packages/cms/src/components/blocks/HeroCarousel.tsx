@@ -1,4 +1,4 @@
-import type { HeroCarouselOptions, HeroItem, } from '@rw/cms-shared';
+import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Match, on, onCleanup, Show, Switch, } from 'solid-js';
 import './HeroCarousel.scss';
 

@@ -7,7 +7,7 @@ import type {
     MailingListSubscriberDeleteResponse, MailingListSubscribersBulkDeleteBody,
     MailingListSubscribersBulkDeleteResponse, MailingListSubscriberForceConfirmResponse,
     ListSubscribeBody, ListSubscribeResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

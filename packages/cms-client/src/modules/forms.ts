@@ -5,8 +5,8 @@ import type {
     FormUpdateBody, FormUpdateResponse, FormDeleteResponse, FormBulkBody, FormBulkResponse,
     FormQuestionCreateBody, FormQuestionCreateResponse, FormQuestionUpdateBody,
     FormQuestionUpdateResponse, FormQuestionDeleteResponse, FormSubmissionsExportResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /forms namespace — public list/submit + admin CRUD, questions, CSV export. */

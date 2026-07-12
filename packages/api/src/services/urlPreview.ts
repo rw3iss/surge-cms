@@ -24,7 +24,7 @@
  */
 import dns from 'node:dns';
 import { promisify, } from 'node:util';
-import type { UtilsUrlPreviewResponse, } from '@rw/cms-shared';
+import type { UtilsUrlPreviewResponse, } from '@sitesurge/types';
 import { ValidationError, } from '../core/errors';
 import { logger, } from '../utils/logger';
 

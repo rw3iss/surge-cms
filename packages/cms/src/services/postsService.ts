@@ -12,8 +12,8 @@
  * massaging — except for the `daysAgo` → ISO conversion, which lives
  * here so block consumers don't have to repeat the math.
  */
-import type { Post, } from '@rw/cms-shared';
-import type { PostListQuery, } from '@rw/cms-shared';
+import type { Post, } from '@sitesurge/types';
+import type { PostListQuery, } from '@sitesurge/types';
 import { cms, } from './cmsClient';
 import { cached, invalidateNamespace, } from './requestCache';
 

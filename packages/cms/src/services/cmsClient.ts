@@ -3,10 +3,10 @@ import {
     UnauthorizedError,
     type CmsClient,
     type CmsError,
-} from '@rw/cms-client';
+} from '@sitesurge/client';
 
 /**
- * The one networking path for @rw/cms-web.
+ * The one networking path for @sitesurge/admin.
  *
  * Cookie auth mode preserves the SPA's historical httpOnly + CSRF session:
  * the client ensures a `csrf-token` cookie, echoes it as `x-csrf-token` on
@@ -18,7 +18,7 @@ import {
  * so same-origin works without CORS. (`api.ts` used a relative `/api/v1`,
  * which is equivalent for an SPA always loaded from the API's own origin.)
  *
- * SSR safety: @rw/cms-web is a pure client-rendered SPA (`src/index.tsx`
+ * SSR safety: @sitesurge/admin is a pure client-rendered SPA (`src/index.tsx`
  * calls `render()` against `document.getElementById('root')`; there is no
  * `renderToString`/`hydrate` entry and no Node import of app modules). This
  * module is therefore only ever evaluated in the browser, where `window`

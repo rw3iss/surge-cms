@@ -3,8 +3,8 @@ import type {
     SocialPlatformFeedResponse, SocialHomepageResponse, SocialHomepageSetBody,
     SocialHomepageSetResponse, SocialSyncBody, SocialSyncResponse,
     SocialPostDeleteResponse, SocialPlatformPostsQuery, SocialPlatformPostsResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /social namespace — stored posts + live feeds + sync + homepage selection. */

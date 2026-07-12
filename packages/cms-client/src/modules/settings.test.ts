@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 import type {
     SettingsPublicResponse, SettingsUpdateResponse, SettingsFeatureCascadeResult,
     SitemapRegenerateResponse, SettingsFeatureUninstallResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { createClient, } from '../index';
 import { FeatureCascadeError, } from '../core/errors';
 

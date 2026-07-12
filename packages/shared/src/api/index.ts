@@ -21,7 +21,7 @@
  *   subset/extension that only existed in the API package (e.g.
  *   `PostWithBlocks`), the wire shape is DEFINED here so all consumers
  *   share one definition. Shared depends on nothing — never import from
- *   `@rw/cms-api`.
+ *   `@sitesurge/server`.
  * - **Wire timestamps:** entities that carry `Date` on the server appear as
  *   ISO `string` on the wire; DTOs defined here for API-internal types use
  *   `string` accordingly.

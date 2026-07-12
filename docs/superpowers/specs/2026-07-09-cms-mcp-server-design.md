@@ -5,14 +5,14 @@ Status: Approved (design) → In implementation
 
 ## Goal
 
-Ship `@rw/cms-mcp` — a Model Context Protocol server that exposes the **entire**
+Ship `@sitesurge/mcp` — a Model Context Protocol server that exposes the **entire**
 SiteSurge CMS authoring surface as MCP tools, so an AI agent (Claude) can design
 and build a complete site: pages, posts, every content-block type (and the
 content inside them), block styles + shared style templates, appearance
 (colors/swatches/fonts/layout), the site header, the site footer, navigation,
 media, and every settings/feature option.
 
-It is a thin, intelligent wrapper over the already-complete `@rw/cms-client`
+It is a thin, intelligent wrapper over the already-complete `@sitesurge/client`
 SDK (236 routes, apiKey mode). The MCP server adds three things the raw SDK
 cannot: **(1)** authoritative, machine-readable **block-type schemas** so the
 agent knows the exact shape of every block; **(2)** **workflow ergonomics** for
@@ -33,7 +33,7 @@ applying style templates); and **(3)** a curated, well-described, domain-grouped
 ## 1. Architecture
 
 ```
-packages/cms-mcp/                    @rw/cms-mcp
+packages/cms-mcp/                    @sitesurge/mcp
 ├── src/
 │   ├── index.ts                     # entry: read env → createClient → start stdio server
 │   ├── server.ts                    # MCP server, tool registry, dispatch, error mapping
@@ -58,7 +58,7 @@ packages/cms-mcp/                    @rw/cms-mcp
 │       └── ids.ts                   # UUID generation (client-supplied block ids)
 ├── docs/
 │   └── (none — the operator-facing README lives at docs/MCP.md)
-├── package.json                     # deps: @rw/cms-client, @rw/cms-shared, @modelcontextprotocol/sdk
+├── package.json                     # deps: @sitesurge/client, @sitesurge/types, @modelcontextprotocol/sdk
 ├── tsconfig.json                    # stub → config/cms-mcp/tsconfig.json
 └── README.md                        # package-level pointer to docs/MCP.md
 ```

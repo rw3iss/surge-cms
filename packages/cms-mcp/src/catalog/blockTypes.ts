@@ -14,7 +14,7 @@
  *  - 'settings' → the fields go in the block's `settings` object (pages) / `data`
  *                 bag (posts). The MCP maps to the right wire shape per target.
  */
-import type { BlockType, } from '@rw/cms-shared';
+import type { BlockType, } from '@sitesurge/types';
 
 export interface BlockFieldSpec {
     name: string;

@@ -1,6 +1,6 @@
 import { Title, } from '@solidjs/meta';
 import { Component, createEffect, For, Show, } from 'solid-js';
-import type { ShopReview, } from '@rw/cms-shared';
+import type { ShopReview, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../../hooks/useSearchFilter';

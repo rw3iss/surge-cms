@@ -1,6 +1,6 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, type ContentAccessLevel, type Post, } from '@rw/cms-shared';
-import { ContentLockedError, } from '@rw/cms-client';
+import { isAdminRole, type ContentAccessLevel, type Post, } from '@sitesurge/types';
+import { ContentLockedError, } from '@sitesurge/client';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';

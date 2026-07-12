@@ -20,7 +20,7 @@
  * `sort_order`. read→write conversion happens in `readToWriteBlocks`.
  */
 import { z, } from 'zod';
-import type { PostContentBlock, PostCreateBody, PostCreateContentBlock, PostWithBlocks, } from '@rw/cms-shared';
+import type { PostContentBlock, PostCreateBody, PostCreateContentBlock, PostWithBlocks, } from '@sitesurge/types';
 import { newBlockId, } from '../util/ids';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 import {

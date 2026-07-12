@@ -11,7 +11,7 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createSignal, For, onMount, Show,
 } from 'solid-js';
-import type { MailTemplate, VariableDescriptor, } from '@rw/cms-shared';
+import type { MailTemplate, VariableDescriptor, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import { FormField, FormSection, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';

@@ -5,8 +5,8 @@ import type {
     PageRevisionListResponse, PageRevisionResponse, PageRevisionRestoreResponse,
     PageBlockBody, PageBlockCreateResponse, PageBlockUpdateBody, PageBlockUpdateResponse,
     PageBlockDeleteResponse, PageReorderBlocksBody, PageReorderBlocksResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /pages namespace — CMS pages with embedded blocks, revisions, block CRUD. */

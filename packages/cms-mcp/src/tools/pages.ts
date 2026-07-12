@@ -7,7 +7,7 @@
  * the agent can fill each slot with a child block via `parentBlockId`.
  */
 import { z, } from 'zod';
-import type { PageBlockBody, PageCreateBody, } from '@rw/cms-shared';
+import type { PageBlockBody, PageCreateBody, } from '@sitesurge/types';
 import { defaultBlockData, } from '../catalog/blockTypes';
 import { newBlockId, } from '../util/ids';
 import { defineTool, type ToolDef, type ToolContext, } from '../tool';

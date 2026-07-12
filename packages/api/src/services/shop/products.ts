@@ -9,7 +9,7 @@
  * and slug caches are safe to populate for anonymous readers — mirrors the
  * campaigns module. The admin list handler never touches these caches.
  */
-import type { ShopProduct, ShopProductDetail, } from '@rw/cms-shared';
+import type { ShopProduct, ShopProductDetail, } from '@sitesurge/types';
 import { transaction, } from '../../db';
 import * as catalog from '../../repositories/shop/shopCatalog.repo';
 import * as repo from '../../repositories/shop/shopProducts.repo';

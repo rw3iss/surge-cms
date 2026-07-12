@@ -3,7 +3,7 @@
  * created at job time, status flips from pending → sent | failed as
  * the worker walks through them.
  */
-import type { MailRecipientStatus, MailSendRecipient, } from '@rw/cms-shared';
+import type { MailRecipientStatus, MailSendRecipient, } from '@sitesurge/types';
 import { query, getPool, } from '../db';
 
 interface DbRow {

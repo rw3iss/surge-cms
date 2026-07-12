@@ -1,4 +1,4 @@
-import type { Post, } from '@rw/cms-shared';
+import type { Post, } from '@sitesurge/types';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';

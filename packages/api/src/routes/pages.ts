@@ -5,7 +5,7 @@ import type {
     PageCreateBody,
     PageListQuery,
     PageReorderBlocksBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';

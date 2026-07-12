@@ -10,7 +10,7 @@
  * admin auth — it is never publicly served, so there is no
  * cache-poisoning vector and it caches unconditionally.
  */
-import type { BlockStyle, } from '@rw/cms-shared';
+import type { BlockStyle, } from '@sitesurge/types';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import * as repo from '../repositories/blockStyles.repo';

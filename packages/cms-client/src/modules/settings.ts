@@ -10,7 +10,7 @@ import type {
     SettingsAppearanceResponse, SettingsAppearanceBody,
     SettingsSiteColorsResponse, SettingsSiteColorsBody, SettingsSiteColorsReplaceResponse,
     SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 import { CmsError, FeatureCascadeError, isFeatureCascadeResult, } from '../core/errors';
 

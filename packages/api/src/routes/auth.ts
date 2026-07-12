@@ -18,7 +18,7 @@ import type {
     AuthLoginBody,
     AuthRefreshBody,
     AuthRegisterBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, } from '../api/defineRoute';
 import { AppError, ForbiddenError, UnauthorizedError, } from '../core/errors';

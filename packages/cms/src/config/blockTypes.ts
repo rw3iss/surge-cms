@@ -43,7 +43,7 @@ export type BlockType =
  */
 export type BlockCategory = 'text' | 'media' | 'blocks' | 'layout';
 
-/** Site-feature flag keys (mirror of SiteFeatures in @rw/cms-shared). When
+/** Site-feature flag keys (mirror of SiteFeatures in @sitesurge/types). When
  *  a block type sets `gating`, it's only shown in the AddBlockMenu when
  *  that feature is enabled in site settings. */
 export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon';

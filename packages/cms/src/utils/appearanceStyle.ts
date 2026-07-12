@@ -1,4 +1,4 @@
-import type { AppearanceSettings, } from '@rw/cms-shared';
+import type { AppearanceSettings, } from '@sitesurge/types';
 import { colorCssValue, } from '../services/colorResolver';
 
 /**

@@ -15,7 +15,7 @@
  * authenticated by an API key (synthetic `api-key:<name>` actor) lands a
  * NULL FK rather than violating the users(id) reference.
  */
-import type { SiteSettings, } from '@rw/cms-shared';
+import type { SiteSettings, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
 import { getPool, } from '../db/client';
@@ -134,7 +134,7 @@ export async function remove(key: string, ctx: AuditContext,): Promise<boolean> 
  */
 async function computePublicFeatures(
     settings: Record<string, unknown>,
-): Promise<import('@rw/cms-shared').SiteFeatures> {
+): Promise<import('@sitesurge/types').SiteFeatures> {
     // Module flags default to ON when the row is absent (existing
     // installs predating the feature shouldn't suddenly hide things).
     const moduleEnabled = (key: string,): boolean => settings[key] !== false;

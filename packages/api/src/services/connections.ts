@@ -10,7 +10,7 @@
  * leave the server; raw credentials never appear in an API response.
  */
 import crypto from 'crypto';
-import type { ConnectionRow, MaskedCredentials, } from '@rw/cms-shared';
+import type { ConnectionRow, MaskedCredentials, } from '@sitesurge/types';
 import { config, } from '../config';
 import { AppError, NotFoundError, } from '../core/errors';
 import { query, transaction, } from '../db';

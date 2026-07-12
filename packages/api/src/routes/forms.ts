@@ -6,7 +6,7 @@ import type {
     FormQuestionInput,
     FormSubmissionsQuery,
     FormSubmitBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';

@@ -15,7 +15,7 @@
 import { readFile, } from 'node:fs/promises';
 import { basename, } from 'node:path';
 import { z, } from 'zod';
-import type { AppearanceSettings, FontUploadBody, SiteSwatch, } from '@rw/cms-shared';
+import type { AppearanceSettings, FontUploadBody, SiteSwatch, } from '@sitesurge/types';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 
 /** The AppearanceSettings fields as an optional zod fragment. */

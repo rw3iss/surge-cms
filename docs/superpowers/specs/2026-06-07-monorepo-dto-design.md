@@ -15,10 +15,10 @@ implementation is the next project); (4) update README/CLAUDE.md.
 
 ## Decisions (settled with the user)
 
-1. **Package names:** `packages/api` = `@rw/cms-api` (was backend),
-   `packages/cms` = `@rw/cms-web` (was frontend), `packages/shared` =
-   `@rw/cms-shared` (was @rw/shared), `packages/cms-client` =
-   `@rw/cms-client` (new). The `@rw` scope persists until the future
+1. **Package names:** `packages/api` = `@sitesurge/server` (was backend),
+   `packages/cms` = `@sitesurge/admin` (was frontend), `packages/shared` =
+   `@sitesurge/types` (was @rw/shared), `packages/cms-client` =
+   `@sitesurge/client` (new). The `@rw` scope persists until the future
    SiteSurge rename.
 2. **Config layout:** root `./config` with per-package subdirs
    (`config/api/`, `config/cms/`, `config/shared/`, `config/cms-client/`);
@@ -59,9 +59,9 @@ rw-cms/
 
 - All moves via `git mv` (history preserved). One commit per logical step
   so any breakage bisects cleanly.
-- **Import sweep:** `@rw/shared` → `@rw/cms-shared` everywhere (sed +
+- **Import sweep:** `@rw/shared` → `@sitesurge/types` everywhere (sed +
   full builds). package.json `file:` deps updated
-  (`"@rw/cms-shared": "file:../shared"`).
+  (`"@sitesurge/types": "file:../shared"`).
 - **Scripts:** root scripts use `-w packages/<name>`; package scripts gain
   `--config`/`-p` flags pointing into `../../config/<pkg>/`.
 - **Deliberate exceptions** (stay at package roots): `packages/api/.env` +
@@ -71,8 +71,8 @@ rw-cms/
   (`frontend/dist` → `packages/cms/dist`), data dir, migrations runner,
   scripts/, docs generator, anything else a survey grep finds
   (`grep -rn 'frontend\|backend\|\.\./shared' --include='*.ts' …`).
-- **cms-client skeleton:** package.json (`@rw/cms-client`, dep on
-  `@rw/cms-shared`), tsconfig stub, `src/index.ts` placeholder,
+- **cms-client skeleton:** package.json (`@sitesurge/client`, dep on
+  `@sitesurge/types`), tsconfig stub, `src/index.ts` placeholder,
   `src/core/` + `src/modules/` dirs (matching the charter layout in
   docs/client-sdk-plan.md), README with the goal statement. NO
   implementation.
@@ -101,7 +101,7 @@ rw-cms/
   (coercions), bind the HANDLER ctx/return instead — pragmatic, reported
   per module.
 - **Shared-utility hoist:** survey for logic duplicated between api and
-  cms packages; hoist genuine duplicates into `@rw/cms-shared` utils
+  cms packages; hoist genuine duplicates into `@sitesurge/types` utils
   (organized by function). No speculative hoisting.
 - Regenerate docs/API.md + api-manifest.json at the end.
 
@@ -109,7 +109,7 @@ rw-cms/
 
 - README: four-package table, ./config convention + stub gotcha, dev
   commands, docs:api, and the cmsClient doctrine: ALL client-side
-  requests go through `@rw/cms-client` once built — including our own
+  requests go through `@sitesurge/client` once built — including our own
   `cms` web package; direct `api.get()` calls are the interim pattern.
 - CLAUDE.md: new structure, paths, gotchas (config stubs, .env exception,
   import scope rename), updated commands.

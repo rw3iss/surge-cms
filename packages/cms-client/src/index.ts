@@ -1,8 +1,8 @@
 /**
- * @rw/cms-client — headless TypeScript client for any hosted CMS backend.
+ * @sitesurge/client — headless TypeScript client for any hosted CMS backend.
  *
  * Goal: mirror the in-process `cms.*` service aggregate over HTTP so that
- * any consumer (our own @rw/cms-web SPA, external apps, Node scripts) routes
+ * any consumer (our own @sitesurge/admin SPA, external apps, Node scripts) routes
  * ALL client-side API calls through this package. Zero runtime dependencies;
  * fetch-based; works in Node ≥ 18 and modern browsers.
  */

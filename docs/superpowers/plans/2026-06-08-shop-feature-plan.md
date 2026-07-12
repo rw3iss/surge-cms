@@ -6,7 +6,7 @@
 
 **Goal:** Ship a toggle-able `shop` ecommerce feature (catalog with variants, media, reviews, cart, on-site Stripe checkout, orders, storefront) — preceded by hardening the feature-lifecycle system (idempotent install with status relay + a real uninstall that drops tables/data).
 
-**Architecture:** Phase 0 adds lifecycle infra (registry `tables`/`onEnable`/`onUninstall`, an uninstall service+route, a `requireFeature` route guard, client install/remove UX). Phases 1–8 build the `shop` feature on the manifest framework (routes→services→repositories), typed DTOs in `@rw/cms-shared`, a `cms.shop.*` SDK, admin `/admin/shop/*` pages, and storefront `/shop/*` pages. All shop routes 404 when disabled; nav + storefront routes render only when enabled.
+**Architecture:** Phase 0 adds lifecycle infra (registry `tables`/`onEnable`/`onUninstall`, an uninstall service+route, a `requireFeature` route guard, client install/remove UX). Phases 1–8 build the `shop` feature on the manifest framework (routes→services→repositories), typed DTOs in `@sitesurge/types`, a `cms.shop.*` SDK, admin `/admin/shop/*` pages, and storefront `/shop/*` pages. All shop routes 404 when disabled; nav + storefront routes render only when enabled.
 
 **Tech Stack:** Express 4, zod, pg, vitest+supertest (backend), SolidJS+Vite (cms), tsup+vitest (cms-client), Stripe (PaymentIntents + Stripe Tax).
 

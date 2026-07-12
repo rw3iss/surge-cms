@@ -1,7 +1,7 @@
 import type {
     BlockStyleListResponse, BlockStyleGetResponse, BlockStyleCreateBody, BlockStyleCreateResponse,
     BlockStyleUpdateBody, BlockStyleUpdateResponse, BlockStyleDeleteResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

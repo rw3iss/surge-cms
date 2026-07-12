@@ -10,7 +10,7 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createResource, createSignal, For, onMount, Show,
 } from 'solid-js';
-import type { MailingList, MailingListSubscriber, } from '@rw/cms-shared';
+import type { MailingList, MailingListSubscriber, } from '@sitesurge/types';
 import { FormField, FormSection, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
 import SubscriberFormModal from '../../components/admin/mailing-lists/SubscriberFormModal';

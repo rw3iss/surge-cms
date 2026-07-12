@@ -1,4 +1,4 @@
-import type { ContactMessage, MessageStatus, } from '@rw/cms-shared';
+import type { ContactMessage, MessageStatus, } from '@sitesurge/types';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';

@@ -19,7 +19,7 @@ import type {
     MailTemplateBlocksReplaceBody,
     MailTemplateCreateBody,
     MailTemplatePreviewBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailTemplates from '../services/mailTemplates';
 

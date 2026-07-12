@@ -16,7 +16,7 @@
 import { z, } from 'zod';
 import type {
     BlockStyleCreateBody, PostContentBlock, PostCreateContentBlock, PostWithBlocks,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineTool, type ToolContext, type ToolDef, } from '../tool';
 
 /** The visual BlockStyle fields, as an optional zod fragment (nullable to allow

@@ -19,7 +19,7 @@ import { sendEmail, } from '../email';
 import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
 import { logger, } from '../../utils/logger';
-import type { ShopAddress, } from '@rw/cms-shared';
+import type { ShopAddress, } from '@sitesurge/types';
 import type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
 
 /** Render context shared by every template. */

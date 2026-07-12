@@ -3,7 +3,7 @@
  * parallel count/stat queries across pages, posts, users, campaigns,
  * messages, donations, forms, and subscriptions.
  */
-import type { DashboardRecentPost, } from '@rw/cms-shared';
+import type { DashboardRecentPost, } from '@sitesurge/types';
 import { query, } from '../db';
 
 export interface DashboardSummary {

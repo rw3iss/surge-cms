@@ -4,11 +4,11 @@
 
 SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, feature-based, block-based general-purpose CMS. Pages, posts, campaigns, forms, users, media, social connections, plus a custom header/footer editor and a global appearance system (swatches, fonts, block-style templates).
 
-Monorepo with five workspaces under `packages/*`: `api` (`@rw/cms-api`, Express/Node), `cms` (`@rw/cms-web`, SolidJS), `shared` (`@rw/cms-shared`, types/DTOs/utils consumed by all), `cms-client` (`@rw/cms-client`, headless TS client — **fully implemented**), `cms-mcp` (`@rw/cms-mcp`, MCP server wrapping the client — **implemented**; see `docs/MCP.md`). All build/tool config lives in `./config`.
+Monorepo with five workspaces under `packages/*`: `api` (`@sitesurge/server`, Express/Node), `cms` (`@sitesurge/admin`, SolidJS), `shared` (`@sitesurge/types`, types/DTOs/utils consumed by all), `cms-client` (`@sitesurge/client`, headless TS client — **fully implemented**), `cms-mcp` (`@sitesurge/mcp`, MCP server wrapping the client — **implemented**; see `docs/MCP.md`). All build/tool config lives in `./config`.
 
 **Stack:** SolidJS + Vite | Express + PostgreSQL + Redis | Stripe | Patreon OAuth | S3/Local storage
 
-The repo directory and `@rw/cms-*` scope are historical and will be renamed to SiteSurge in a future cut. Treat them as opaque package names — the product is SiteSurge.
+Packages are scoped **`@sitesurge/*`** (`@sitesurge/types` = shared, `@sitesurge/server` = api, `@sitesurge/admin` = cms/web, `@sitesurge/client`, `@sitesurge/mcp`). Note the **package directory names still lag the package names** — `@sitesurge/server` lives in `packages/api`, `@sitesurge/admin` in `packages/cms`, `@sitesurge/types` in `packages/shared` (pnpm resolves by name, not path). Directory renames + npm publishing + a setup CLI/scaffolder are the deferred phases in `docs/superpowers/specs/2026-07-11-packaging-and-init-design.md`. The local repo dir (`rw-cms`) is cosmetic; the GitHub repo is `surge-cms`.
 
 ## Core Capabilities
 - **Block-based editor** — categorized AddBlockMenu (Text / Media / Blocks / Layout, collapsible per category, feature-flag gated). Blocks: Rich Text, Custom HTML, URL Link, Image (multi-image), Video, Document, Hero, Carousel, Posts, Campaign, Form, Social, Group, Spacer. Click-outside-to-deselect + Escape close the flyout. Per-block trash icon. Recent-items submenus on Campaign/Form/Posts pre-fill the new block's id.
@@ -56,21 +56,21 @@ The repo directory and `@rw/cms-*` scope are historical and will be renamed to S
 ```
 rw-cms/
 ├── packages/
-│   ├── api/         # @rw/cms-api  — Express REST API (port 3001), SSR, migrations
-│   ├── cms/         # @rw/cms-web  — SolidJS SPA (port 3000, proxies API to 3001)
-│   ├── shared/      # @rw/cms-shared — types, src/api/routes/ DTOs, format/validation utils
-│   └── cms-client/  # @rw/cms-client — headless HTTP client (implemented)
+│   ├── api/         # @sitesurge/server  — Express REST API (port 3001), SSR, migrations
+│   ├── cms/         # @sitesurge/admin  — SolidJS SPA (port 3000, proxies API to 3001)
+│   ├── shared/      # @sitesurge/types — types, src/api/routes/ DTOs, format/validation utils
+│   └── cms-client/  # @sitesurge/client — headless HTTP client (implemented)
 ├── config/          # all build/tool config (per-package subdirs + repo-wide)
 └── docs/            # API.md, api-manifest.json, client-sdk-plan.md, plans/specs
 ```
 
 ### Monorepo Setup
-- npm workspaces `packages/*`: `@rw/cms-api`, `@rw/cms-web`, `@rw/cms-shared`, `@rw/cms-client`
+- npm workspaces `packages/*`: `@sitesurge/server`, `@sitesurge/admin`, `@sitesurge/types`, `@sitesurge/client`
 - `npm run dev` runs api + web app via concurrently
 - `npm run build` is **dependency-ordered**: shared → api → cms → cms-client (shared compiles first)
 - `npm test` runs `--workspaces --if-present` (only api ships tests today)
 - Node >= 20.0.0 required
-- `@rw/cms-shared` (types + API DTOs + format/validation utils) is imported by all other packages; it imports from none of them
+- `@sitesurge/types` (types + API DTOs + format/validation utils) is imported by all other packages; it imports from none of them
 
 ## Backend
 
@@ -161,7 +161,7 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 - **Services own business logic** — `services/<module>.ts` is the canonical home; `routes/` are thin manifests (no inline SQL, no `res.json`, no try/catch); SQL lives in `repositories/` and `services/`; `sdk/` re-exports from `services/` (`cms.*` still works).
 - **API docs generated from the manifest** — `npm run docs:api` builds the running-mode app, reads `manifest()`, and writes `docs/API.md` + `docs/api-manifest.json` (do not hand-edit those two).
 - **Unified list endpoints** — converted modules drop `/public` suffixes: one `GET /<module>` with `optional` auth, role-shaped (anon → published only; admins passing `status`/`sort` get the all-statuses view). Gated content returns `error.code 'CONTENT_LOCKED'` with a preview in `error.details` (`ContentLockedDetails`). First instance: posts (`/posts/public` is gone).
-- **Shared request/response DTOs** — every module's wire types live in `@rw/cms-shared` at `packages/shared/src/api/routes/<module>.ts` (all 29 modules covered; conventions documented in the barrel header `packages/shared/src/api/index.ts` — module-prefixed names, list responses = element arrays with pagination on `meta`, entity types referenced never duplicated). The backend **binds** its zod schemas to these: `input` schemas use `satisfies z.ZodType<XBody>` where clean, else an `AssertCompatible<z.infer<typeof schema>, XQuery>` compile-time assertion (for query schemas whose coercion makes input ≠ output). **DTO drift is a compile error.** Clients and the backend share ONE definition per shape.
+- **Shared request/response DTOs** — every module's wire types live in `@sitesurge/types` at `packages/shared/src/api/routes/<module>.ts` (all 29 modules covered; conventions documented in the barrel header `packages/shared/src/api/index.ts` — module-prefixed names, list responses = element arrays with pagination on `meta`, entity types referenced never duplicated). The backend **binds** its zod schemas to these: `input` schemas use `satisfies z.ZodType<XBody>` where clean, else an `AssertCompatible<z.infer<typeof schema>, XQuery>` compile-time assertion (for query schemas whose coercion makes input ≠ output). **DTO drift is a compile error.** Clients and the backend share ONE definition per shape.
 
 ## Frontend
 
@@ -176,7 +176,7 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 - `createResource` for async data fetching
 
 ### API Client
-- **`@rw/cms-client` is the one networking path.** `services/api.ts` is DELETED — there is no envelope wrapper, no `fetch*` helpers, no `ApiService` class. Every backend call goes through the typed client singleton.
+- **`@sitesurge/client` is the one networking path.** `services/api.ts` is DELETED — there is no envelope wrapper, no `fetch*` helpers, no `ApiService` class. Every backend call goes through the typed client singleton.
 - `services/cmsClient.ts` exports `cms` — `createClient({ baseUrl: window.location.origin, auth: { mode: 'cookie' }, cache: { adapter: 'localstorage' } })`. Cookie mode preserves the httpOnly + CSRF session (no backend change). `cms.onError(...)` is the cross-cutting bus: a non-auth `UnauthorizedError` → session-expired handler; `ServiceUnavailableError`/`NEEDS_SETUP` → redirect to `/setup`. Auth-path 401s are filtered so login failures don't trip the session-expired modal.
 - Call sites use `cms.<module>.<method>()` with `try/catch`. Errors are typed (`UnauthorizedError`, `ContentLockedError`, `ServiceUnavailableError`, …). Paginated list methods return `{ data, meta }` (`PageMeta = { page, limit, total, totalPages }`); single-entity GETs return the entity directly.
 - Hooks take typed fetchers: `usePaginatedList({ fetch: (params) => cms.<module>.list(params), initialLimit?, params? })`; `useBulkActions({ entityType })` maps to `cms[entity].bulk({ ids, action, value })`. All entity `BulkBody` DTOs agree on `{ ids, action, value }`.
@@ -220,7 +220,7 @@ Dashboard, Pages, PageEditor, Posts, PostEditor, Campaigns, CampaignEditor, Form
 - Component-scoped `.scss` files
 - Primary color: #e63946, Secondary: #1d3557
 
-## Shared Package (@rw/cms-shared)
+## Shared Package (@sitesurge/types)
 
 ### Types (packages/shared/src/types/)
 - `api.ts` - ApiResponse, ApiError, ApiMeta, PaginationParams, SearchParams
@@ -242,8 +242,8 @@ Dashboard, Pages, PageEditor, Posts, PostEditor, Campaigns, CampaignEditor, Form
 
 ```bash
 npm run dev                  # api + web app concurrently
-npm run dev:frontend         # @rw/cms-web only (port 3000)
-npm run dev:backend          # @rw/cms-api only (port 3001)
+npm run dev:frontend         # @sitesurge/admin only (port 3000)
+npm run dev:backend          # @sitesurge/server only (port 3001)
 npm run build                # all workspaces, dependency-ordered (shared → api → cms → cms-client)
 npm run db:migrate           # run migrations (→ packages/api)
 npm run db:seed              # seed initial data
@@ -257,15 +257,15 @@ npm run docker:up            # docker compose -f config/docker-compose.yml up -d
 ## Gotchas
 - **Config stubs:** each package's root `tsconfig.json` is a one-line `extends` shim pointing at `config/<pkg>/tsconfig.json`. The real config (incl. vite/vitest) lives in `config/`; vite/vitest are invoked with `--config config/<pkg>/...` flags (those set `root`/`envDir` back to the package). Edit the file in `config/`, not the stub.
 - **.env exception:** `.env` / `.env.example` stay at `packages/api/` (dotenv default path), NOT in `./config`. Other documented exceptions kept at root: `.editorconfig`, `.dockerignore`, `pnpm-workspace.yaml` + lockfiles, `.github/`, `packages/cms/index.html`.
-- **Import scope:** the workspace scope is `@rw/cms-*` (was `@rw/shared`). Import shared types/DTOs/utils from `@rw/cms-shared`. `@rw/cms-shared` imports from no sibling package.
+- **Import scope:** the workspace scope is `@rw/cms-*` (was `@rw/shared`). Import shared types/DTOs/utils from `@sitesurge/types`. `@sitesurge/types` imports from no sibling package.
 - **dprint pre-existing drift:** ~250 files predate the formatter config, so `npm run format:check` currently FAILS (known/expected). Don't bulk-reformat as a side effect; format only files you touch.
 - **DTO convention + drift:** request/response DTOs for all 29 modules live in `packages/shared/src/api/routes/` — conventions in the barrel header (`packages/shared/src/api/index.ts`). Backend zod binds to them (`satisfies z.ZodType<X>` / `AssertCompatible`), so a DTO mismatch is a compile error.
-- **cms-client — IMPLEMENTED:** `packages/cms-client` (`@rw/cms-client`) is fully built: 27 module namespaces, all 234 API routes covered, SWR cache, token auto-load, typed error bus, SolidJS adapter. See `packages/cms-client/docs/Overview.md`.
-  - **Doctrine (realized):** All client-side requests route through `@rw/cms-client` (`createClient`). It exposes `cms.<module>.<method>()` for all routes, with SWR caching, token auto-load, and a typed error bus. **`@rw/cms-web` is fully migrated** — `services/api.ts` is deleted and the `cms` singleton (`packages/cms/src/services/cmsClient.ts`, cookie mode) is the sole networking path. (`POST /auth/register` and `GET /utils/url-preview` now exist and are exposed as `cms.auth.register` / `cms.utils.urlPreview`.)
+- **cms-client — IMPLEMENTED:** `packages/cms-client` (`@sitesurge/client`) is fully built: 27 module namespaces, all 234 API routes covered, SWR cache, token auto-load, typed error bus, SolidJS adapter. See `packages/cms-client/docs/Overview.md`.
+  - **Doctrine (realized):** All client-side requests route through `@sitesurge/client` (`createClient`). It exposes `cms.<module>.<method>()` for all routes, with SWR caching, token auto-load, and a typed error bus. **`@sitesurge/admin` is fully migrated** — `services/api.ts` is deleted and the `cms` singleton (`packages/cms/src/services/cmsClient.ts`, cookie mode) is the sole networking path. (`POST /auth/register` and `GET /utils/url-preview` now exist and are exposed as `cms.auth.register` / `cms.utils.urlPreview`.)
   - Usage: `const cms = createClient({ baseUrl: 'https://cms.example.com', auth: { apiKey: 'ssk_…' } }); const posts = await cms.posts.list();`
   - `npm run check:drift -w packages/cms-client` — guards client↔API coverage against `docs/api-manifest.json`.
   - `npm run test:integration -w packages/cms-client` — manual live-API smoke test (requires `SMOKE_API_KEY` env + running server).
-- **cms-mcp — IMPLEMENTED:** `packages/cms-mcp` (`@rw/cms-mcp`) is an MCP server (stdio) wrapping `@rw/cms-client` in apiKey mode, exposing the whole authoring surface (pages/posts/blocks/every block type/block styles/appearance/swatches/fonts/header/footer/settings/features/media/nav/reference) as **66 tools** so an AI agent can build a site. Config via env (`CMS_BASE_URL`, `CMS_API_KEY`, `CMS_MCP_READONLY`). Adds the block-type catalog (`describe_block_types`), group-nesting + single-post-block ergonomics, and media-from-path/URL. Full reference: `docs/MCP.md`. Design + deficiency audit: `docs/superpowers/specs/2026-07-09-cms-mcp-server-design.md`, `docs/mcp-sdk-deficiencies.md`.
+- **cms-mcp — IMPLEMENTED:** `packages/cms-mcp` (`@sitesurge/mcp`) is an MCP server (stdio) wrapping `@sitesurge/client` in apiKey mode, exposing the whole authoring surface (pages/posts/blocks/every block type/block styles/appearance/swatches/fonts/header/footer/settings/features/media/nav/reference) as **66 tools** so an AI agent can build a site. Config via env (`CMS_BASE_URL`, `CMS_API_KEY`, `CMS_MCP_READONLY`). Adds the block-type catalog (`describe_block_types`), group-nesting + single-post-block ergonomics, and media-from-path/URL. Full reference: `docs/MCP.md`. Design + deficiency audit: `docs/superpowers/specs/2026-07-09-cms-mcp-server-design.md`, `docs/mcp-sdk-deficiencies.md`.
 
 ## External Services
 - **PostgreSQL** - Primary database

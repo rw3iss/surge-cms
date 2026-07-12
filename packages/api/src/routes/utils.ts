@@ -7,7 +7,7 @@
  * SSRF guard + bounded fetch live in `services/urlPreview.ts`.
  */
 import { z, } from 'zod';
-import type { UtilsUrlPreviewBody, } from '@rw/cms-shared';
+import type { UtilsUrlPreviewBody, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import { fetchUrlPreview, } from '../services/urlPreview';
 

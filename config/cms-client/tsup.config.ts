@@ -14,5 +14,5 @@ export default defineConfig({
     sourcemap: true,
     clean: true,
     treeshake: true,
-    external: ['@rw/cms-shared', 'solid-js',],
+    external: ['@sitesurge/types', 'solid-js',],
 },);

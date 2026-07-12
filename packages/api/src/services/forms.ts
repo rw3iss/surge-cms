@@ -12,7 +12,7 @@
  * data — published-only (and the slug cache is only populated for forms
  * that do NOT require auth). No admin shaping touches these caches.
  */
-import type { Form, FormQuestion, FormResults, FormSubmission, QuestionResult, } from '@rw/cms-shared';
+import type { Form, FormQuestion, FormResults, FormSubmission, QuestionResult, } from '@sitesurge/types';
 import { ValidationError, } from '../core/errors';
 import * as repo from '../repositories/forms.repo';
 import { performBulkAction, } from '../utils/bulkActions';

@@ -1,5 +1,5 @@
 import { Meta, Title, } from '@solidjs/meta';
-import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@rw/cms-shared';
+import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@sitesurge/types';
 import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { swatchCssVars, } from '../../services/colorResolver';

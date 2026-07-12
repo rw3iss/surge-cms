@@ -1,4 +1,4 @@
-import type { SitemapXmlResponse, SitemapRegenerateResponse, } from '@rw/cms-shared';
+import type { SitemapXmlResponse, SitemapRegenerateResponse, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

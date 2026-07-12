@@ -30,7 +30,7 @@ import type {
     PaymentsPlanCreateBody,
     PaymentsSubscribeBody,
     PaymentsTransactionsQuery,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as payments from '../services/payments';
 

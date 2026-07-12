@@ -12,7 +12,7 @@ import type {
     ConnectionProviderParams,
     ConnectionReorderBody,
     ConnectionUpsertBody,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, } from '../api/defineRoute';
 import * as connections from '../services/connections';

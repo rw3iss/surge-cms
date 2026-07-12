@@ -1,4 +1,4 @@
-import type { SocialPlatform, SocialPost, } from '@rw/cms-shared';
+import type { SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
 import { cache, } from './cache';

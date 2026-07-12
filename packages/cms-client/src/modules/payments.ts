@@ -7,8 +7,8 @@ import type {
     PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
     PaymentsAdminTransactionsQuery, PaymentsAdminTransactionsResponse,
     PaymentsAdminUserTransactionsResponse,
-} from '@rw/cms-shared';
-import type { Paginated, } from '@rw/cms-shared';
+} from '@sitesurge/types';
+import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

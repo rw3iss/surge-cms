@@ -1,4 +1,4 @@
-import type { DashboardSummaryResponse, } from '@rw/cms-shared';
+import type { DashboardSummaryResponse, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /dashboard namespace (admin) — aggregated stats + recent activity. */

@@ -1,5 +1,5 @@
 import { z, } from 'zod';
-import type { AssertCompatible, AuditListQuery, } from '@rw/cms-shared';
+import type { AssertCompatible, AuditListQuery, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as audit from '../services/audit';
 

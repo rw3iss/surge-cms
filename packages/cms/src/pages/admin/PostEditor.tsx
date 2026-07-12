@@ -17,7 +17,7 @@ import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import type { AppearanceSettings, } from '@rw/cms-shared';
+import type { AppearanceSettings, } from '@sitesurge/types';
 import { invalidatePostsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import { BlockStyleService, } from '../../services/blockStyles';

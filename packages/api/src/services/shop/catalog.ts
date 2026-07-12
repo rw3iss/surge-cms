@@ -3,7 +3,7 @@
  * tags. Public reads are unrestricted-shape (categories) or published-only
  * (collections) → cache-safe; admin writes are audited + cache-invalidated.
  */
-import type { ShopCategory, ShopCollection, ShopProduct, } from '@rw/cms-shared';
+import type { ShopCategory, ShopCollection, ShopProduct, } from '@sitesurge/types';
 import * as repo from '../../repositories/shop/shopCatalog.repo';
 import { logAudit, } from '../audit';
 import { cache, } from '../cache';

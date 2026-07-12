@@ -1,6 +1,6 @@
 import type {
     ApiError, ContentLockedDetails, ErrorCode, SettingsFeatureCascadeResult,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 
 /** Base class for every error the client throws. Carries the wire code,
  *  HTTP status, and raw details so callers can switch on `code` or

@@ -5,7 +5,7 @@ import type {
     SocialPlatform,
     SocialPlatformPostsQuery,
     SocialPostsQuery,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, NotFoundError, } from '../core/errors';

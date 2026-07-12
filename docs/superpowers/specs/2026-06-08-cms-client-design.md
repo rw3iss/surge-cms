@@ -1,21 +1,21 @@
-# @rw/cms-client — Production Headless CMS Client Design
+# @sitesurge/client — Production Headless CMS Client Design
 
 Date: 2026-06-08
 Status: Approved
 
 ## Goal
 
-Implement `@rw/cms-client` in full: a typed, framework-agnostic, zero-runtime-
+Implement `@sitesurge/client` in full: a typed, framework-agnostic, zero-runtime-
 dependency TypeScript client that exposes EVERY API ability of the SiteSurge
 backend through per-module namespaces, with production features — token
 lifecycle with auto-load on refresh, an SWR client-side cache over a pluggable
 storage adapter, standardized request/error handling, and consumer error
 bindings (toast/form/custom). It is the single client all consumers route
-through — our own `@rw/cms-web` SPA, external apps, and Node/agent scripts.
+through — our own `@sitesurge/admin` SPA, external apps, and Node/agent scripts.
 
 Reference charter: `docs/client-sdk-plan.md`. Wire surface: `docs/API.md` +
 `docs/api-manifest.json` (28 modules / 198 routes). DTOs already exist in
-`@rw/cms-shared` (`packages/shared/src/api/routes/<module>.ts`).
+`@sitesurge/types` (`packages/shared/src/api/routes/<module>.ts`).
 
 ## Settled decisions (kickoff brainstorm)
 
@@ -193,7 +193,7 @@ createClient({
 
 ## Out of scope (YAGNI / follow-ups)
 
-- Migrating `@rw/cms-web` to consume the client (separate project).
+- Migrating `@sitesurge/admin` to consume the client (separate project).
 - Building `POST /auth/register` / `POST /utils/url-preview` clients (deferred
   backend features — charter notes).
 - Real npm publish (package is publish-READY only).

@@ -1,4 +1,4 @@
-import type { ApiResponse, } from '@rw/cms-shared';
+import type { ApiResponse, } from '@sitesurge/types';
 import { createSignal, } from 'solid-js';
 
 /**

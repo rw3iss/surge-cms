@@ -5,7 +5,7 @@
  * don't hammer Stripe. Never exposes the secret key — only derived booleans +
  * public account metadata (display name, country, currency).
  */
-import type { ShopStripeStatusResponse, } from '@rw/cms-shared';
+import type { ShopStripeStatusResponse, } from '@sitesurge/types';
 import { config, } from '../../config';
 import * as cache from '../cache';
 import { getStripeClient, } from '../payment/stripe';

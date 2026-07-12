@@ -1,4 +1,4 @@
-import type { DashboardSummaryResponse, } from '@rw/cms-shared';
+import type { DashboardSummaryResponse, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import * as dashboard from '../services/dashboard';
 

@@ -7,7 +7,7 @@
  * selects the admin view; the user tier is scoped to their own orders by
  * user_id OR customer_email.
  */
-import type { ShopOrder, } from '@rw/cms-shared';
+import type { ShopOrder, } from '@sitesurge/types';
 import Stripe from 'stripe';
 import { config, } from '../../config';
 import { ForbiddenError, NotFoundError, ValidationError, } from '../../core/errors';

@@ -6,7 +6,7 @@
  *   CMS_MCP_READONLY (optional)  "true" → only read tools are registered
  *   CMS_MCP_TIMEOUT_MS (optional) request timeout override (ms)
  */
-import { createClient, } from '@rw/cms-client';
+import { createClient, } from '@sitesurge/client';
 import type { ToolContext, } from './tool';
 
 export interface McpEnvConfig {

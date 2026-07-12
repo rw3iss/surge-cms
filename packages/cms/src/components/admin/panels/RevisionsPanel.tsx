@@ -1,4 +1,4 @@
-import type { Revision, RevisionEntityType, } from '@rw/cms-shared';
+import type { Revision, RevisionEntityType, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 

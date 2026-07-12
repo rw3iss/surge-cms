@@ -2,7 +2,7 @@ import type {
     ConnectionListResponse, ConnectionGetResponse, ConnectionUpsertBody, ConnectionUpsertResponse,
     ConnectionUpdateBody, ConnectionUpdateResponse, ConnectionDeleteResponse,
     ConnectionReorderBody, ConnectionReorderResponse, ConnectionOAuthAuthorizeResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**

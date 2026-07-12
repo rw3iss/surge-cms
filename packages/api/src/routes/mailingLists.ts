@@ -31,7 +31,7 @@ import type {
     MailingListSubscriberCreateBody,
     MailingListSubscribersBulkDeleteBody,
     MailingListSubscribersQuery,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailingLists from '../services/mailingLists';
 

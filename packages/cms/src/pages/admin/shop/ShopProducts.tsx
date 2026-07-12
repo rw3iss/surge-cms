@@ -1,7 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
-import type { ShopProduct, } from '@rw/cms-shared';
+import type { ShopProduct, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../../hooks/useSearchFilter';

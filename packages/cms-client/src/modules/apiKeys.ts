@@ -1,6 +1,6 @@
 import type {
     ApiKeyListResponse, ApiKeyCreateBody, ApiKeyCreateResponse, ApiKeyDeleteResponse,
-} from '@rw/cms-shared';
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /api-keys namespace (all admin) — list/create/revoke. */

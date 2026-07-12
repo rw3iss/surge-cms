@@ -8,7 +8,7 @@
  * exactly one place; the render orchestration delegates to
  * `services/mail/*`.
  */
-import type { MailTemplate, } from '@rw/cms-shared';
+import type { MailTemplate, } from '@sitesurge/types';
 import { NotFoundError, } from '../core/errors';
 import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';

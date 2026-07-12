@@ -1,4 +1,4 @@
-import type { ApiResponse, PageMeta, } from '@rw/cms-shared';
+import type { ApiResponse, PageMeta, } from '@sitesurge/types';
 import { AbortError, CmsError, errorFromEnvelope, NetworkError, TimeoutError, } from './errors';
 
 export interface RequestSpec {

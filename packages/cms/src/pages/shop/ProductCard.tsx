@@ -1,5 +1,5 @@
 import { A, } from '@solidjs/router';
-import type { ShopProduct, } from '@rw/cms-shared';
+import type { ShopProduct, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 import StarRating from './StarRating';
 import { money, } from './shopFormat';
