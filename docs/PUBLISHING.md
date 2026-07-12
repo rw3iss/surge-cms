@@ -26,27 +26,54 @@ git add .changeset && git commit
 Internal `workspace:*` deps are rewritten to the published version range at
 publish time — you don't hand-edit versions.
 
-## Releasing
+## Releasing — Trusted Publishing (OIDC)
 
-Automated (recommended): the **Release** GitHub Action (`.github/workflows/release.yml`)
-watches `main`.
-1. Merging PRs that contain changesets makes the action open/refresh a
-   **"Version Packages"** PR (bumps versions + writes changelogs).
-2. Merging that PR triggers the action to **build + publish** to npm.
+CI publishes **without any npm token**, using OIDC trusted publishing — npm's
+recommended path since 2025 (classic tokens were permanently removed Dec 2025;
+only short-lived granular tokens remain). OIDC also adds provenance automatically.
 
-**One-time setup:** add a repo secret **`NPM_TOKEN`** — an npm *automation* token
-with publish rights to the `@sitesurge` scope (create the org/scope on npm first).
+**One-time, per published package** (`@sitesurge/types`, `@sitesurge/client`,
+`@sitesurge/mcp`) — npmjs.com → the package → Settings → **Trusted Publisher →
+GitHub Actions**:
+- Repository: `rw3iss/surge-cms`
+- Workflow: `release.yml`
 
-Manual (local) equivalent:
+Trusted publishing can only be configured **after** a package's first version
+exists, so bootstrap the first publish manually (below), then add the publishers.
+
+**Ongoing flow** (`.github/workflows/release.yml`, on `main`):
+1. Merge PRs that contain a changeset → the action opens/refreshes a
+   **"Version Packages"** PR (bumps versions + changelogs).
+2. Merge that PR → the action builds and **publishes via OIDC** (with provenance).
+
+The workflow uses `id-token: write`, Node ≥ 22.14, and npm ≥ 11.5.1 (it upgrades
+npm) and sets **no** `NODE_AUTH_TOKEN` (its presence disables OIDC).
+
+### First publish (bootstrap — do once, at Phase 3)
+
+From your machine, after `npm login` (2FA prompts apply — `auth-and-writes`):
 
 ```bash
-pnpm changeset          # (once, if not already added)
-pnpm version-packages   # applies versions + changelogs
-pnpm release            # builds, then `changeset publish` → npm
+pnpm changeset          # mark the libs for their first 0.x release, if not yet
+pnpm version-packages   # apply versions + changelogs
+pnpm release            # build, then publish; enter your 2FA OTP when prompted
 ```
 
-`pnpm release` = `pnpm run build && changeset publish`; publish respects
-`private` + the `ignore` list, so only the three libraries go out.
+Then add the trusted publishers above so CI takes over token-free.
+
+> **pnpm `workspace:` protocol:** pnpm rewrites `workspace:*` to real version
+> ranges at publish time. Verify the first publish (the published `package.json`
+> deps should show real versions, not `workspace:*`). If `changeset publish`
+> doesn't rewrite them, switch the `release` script to
+> `pnpm -r publish --no-git-checks` after `changeset version`.
+
+### Token-based CI (fallback, only if OIDC won't work)
+
+Create a **granular** token (the only type now) with **Read and write** on the
+`@sitesurge` scope **and "Bypass 2FA" enabled** (required with account 2FA
+`auth-and-writes`), set it as the `NPM_TOKEN` repo secret, and add
+`NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` back to the workflow. Note the
+**90-day max** expiry → you'll rotate it. OIDC avoids all of this.
 
 ## Pre-publish checklist
 
@@ -58,7 +85,9 @@ pnpm release            # builds, then `changeset publish` → npm
       Do the first publish only after Phase 3 if you need raw-Node support (the
       SDK's own consumers are almost always bundler-based, so a `0.x` preview is
       fine before then).
-- [ ] `npm org` / scope `@sitesurge` created and `NPM_TOKEN` set.
+- [ ] npm org/scope `@sitesurge` created; after the first manual publish,
+      **trusted publishers** configured for each lib (OIDC) — or a Bypass-2FA
+      granular `NPM_TOKEN` secret for the token-based fallback.
 - [ ] `pnpm build && pnpm test` green (CI enforces).
 
 See the full plan: `docs/superpowers/specs/2026-07-11-packaging-and-init-design.md`.
