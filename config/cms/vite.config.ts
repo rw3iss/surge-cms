@@ -28,9 +28,9 @@ export default defineConfig(({ mode }) => {
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
       manifest: {
-        name: 'RW',
-        short_name: 'RW',
-        description: 'Independent journalism for the people',
+        name: 'SiteSurge',
+        short_name: 'SiteSurge',
+        description: 'A SiteSurge CMS site',
         theme_color: '#3498cf',
         background_color: '#ffffff',
         display: 'standalone',

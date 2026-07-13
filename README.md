@@ -282,24 +282,29 @@ Site name, tagline, contact email, analytics ID, maintenance mode, branding, hea
 - **Frontend**: SolidJS + Vite, SCSS, `@solidjs/router`, `@solidjs/meta`, PWA (workbox).
 - **Backend**: Node 20+, Express, TypeScript, raw `pg` (no ORM), Redis cache, JWT auth, multer + sharp, nodemailer, Stripe.
 - **Shared**: `@sitesurge/types` workspace — types, API request/response DTOs, and validation/format utils consumed by every package.
-- **Monorepo**: npm workspaces under `packages/*`; `npm run dev` starts the API + web app.
+- **Monorepo**: pnpm workspaces under `packages/*` (7 packages, all published to npm); `pnpm dev` starts the API + web app.
 </details>
 
 <details>
 <summary><strong>Project layout</strong></summary>
 
-Four npm-workspace packages under `packages/*`, all configuration under `config/`, and shared docs under `docs/`:
+Seven pnpm-workspace packages under `packages/*`, all published to npm under the **`@sitesurge`** scope (GPL-2.0-only). Config lives under `config/`, docs under `docs/`. **Package directory names lag their npm names** (pnpm resolves by name, not path).
 
 | Folder | npm name | Purpose |
 |---|---|---|
-| `packages/api` | `@sitesurge/server` | Express REST API — `/api/v1/*`, SSR, migrations, the backend SDK. |
-| `packages/cms` | `@sitesurge/admin` | SolidJS app — public site, admin portal, setup wizard. |
+| `packages/api` | `@sitesurge/server` | Express REST API (`/api/v1/*`), SSR, migrations, backend SDK. Serves the admin SPA. Run standalone, in Docker, or embed via `createApp()`/`startServer()`. |
+| `packages/cms` | `@sitesurge/admin` | SolidJS app — public site, admin portal, setup wizard. Published as **built static assets** + an `adminDistPath()` resolver that the server serves. |
 | `packages/shared` | `@sitesurge/types` | TypeScript types, per-module request/response **DTOs**, and format/validation utils consumed by every other package. |
-| `packages/cms-client` | `@sitesurge/client` | Headless TypeScript HTTP client (**scaffold only — next project**; see [Headless Mode](#headless-mode)). |
+| `packages/cms-client` | `@sitesurge/client` | Headless TypeScript HTTP client — `createClient()` → `cms.<module>.<method>()`, SWR cache, typed error bus, SolidJS adapter. **Fully implemented.** |
+| `packages/cms-mcp` | `@sitesurge/mcp` | Model Context Protocol server (`sitesurge-mcp` bin) wrapping the client — lets an AI agent author a whole site. |
+| `packages/cli` | `@sitesurge/cli` | `sitesurge` ops CLI — `setup / migrate / seed / doctor / status / start`. |
+| `packages/create-sitesurge` | `create-sitesurge` | `npm create sitesurge` scaffolder (Docker, `--node` thin-server repo, `--headless`). |
+
+Versioning: `server` + `admin` + `cli` are a Changesets **fixed group** (lockstep); `types`, `client`, `mcp`, `create-sitesurge` version independently. The server also ships as `ghcr.io/rw3iss/sitesurge-server`.
 
 ```
 packages/
-  api/    Express REST API — /api/v1/*
+  api/    Express REST API — /api/v1/* (@sitesurge/server)
     src/
       api/           defineRoute() + registry (mount + manifest), auth tiers
       routes/        thin route manifests (auth, validate, response shape)
@@ -307,12 +312,16 @@ packages/
       services/      domain logic, cache invalidation, audit
       repositories/  SQL + row mapping
       middleware/    auth, content-access, error, setupGate
-      db/            schema.sql, migrations/, seed.ts
-  cms/    SolidJS SPA — public site, admin portal, setup wizard
-  shared/ @sitesurge/types — types + src/api/routes/ DTOs + format/validation utils
-  cms-client/  @sitesurge/client — headless HTTP client (scaffold)
+      db/            schema.sql, migrations/, seed.ts  (SQL copied into dist on build)
+    scripts/copy-assets.mjs   ships db/*.sql into dist for `node dist`
+  cms/            @sitesurge/admin — SolidJS SPA + asset-entry/ (adminDistPath)
+  shared/         @sitesurge/types — types + src/api/routes/ DTOs + utils
+  cms-client/     @sitesurge/client — headless HTTP client (implemented)
+  cms-mcp/        @sitesurge/mcp — MCP server
+  cli/            @sitesurge/cli — sitesurge ops CLI
+  create-sitesurge/  create-sitesurge — npm create scaffolder
 config/   all build/tool config (see below)
-docs/     API.md, api-manifest.json, client-sdk-plan.md, plans/specs
+docs/     API.md, api-manifest.json, PUBLISHING.md, plans/specs
 ```
 
 Routes are thin manifest handlers; `services/` own domain logic, cache invalidation, and audit logging; `sdk/` re-exports `services/` as the `cms.*` surface for scripts and future plugins — see `packages/api/src/sdk/README.md`.
@@ -328,11 +337,13 @@ config/
   api/{tsconfig.json, vitest.config.ts}
   cms/{tsconfig.json, vite.config.ts}
   shared/tsconfig.json
-  cms-client/tsconfig.json
+  cms-client/{tsconfig.json, tsup.config.ts, vitest.config.ts}
+  cms-mcp/{tsconfig.json, tsup.config.ts, vitest.config.ts}
+  cli/tsconfig.json
+  create-sitesurge/tsconfig.json
   dprint.json                  # formatter
   .oxlintrc.json               # linter
   Dockerfile, docker-compose.yml
-  rw.ryanweiss.net.nginx.conf
 ```
 
 **Stub gotcha:** each package keeps a one-line `tsconfig.json` at its root that just `extends` the real config in `config/<pkg>/` — this satisfies editors/`tsc -p` discovery. Vite and Vitest are invoked with explicit `--config config/cms/vite.config.ts` / `--config config/api/vitest.config.ts` flags (those configs set `root`/`envDir` back to the package dir). Lint/format scripts pass `-c config/.oxlintrc.json` / `--config config/dprint.json`.
@@ -442,16 +453,16 @@ Web UI at <http://localhost:8025> — every send the app would make lands there 
 <summary><strong>Build & deploy</strong></summary>
 
 ```bash
-npm run build       # dependency-ordered: shared → api → cms → cms-client
-npm start           # production server (→ packages/api)
+pnpm build          # all workspaces (pnpm -r resolves dependency order)
+pnpm start          # production server (→ packages/api, node dist)
 
-# or via Docker (compose file lives in ./config)
-npm run docker:build
-npm run docker:up
-npm run docker:down
+# or via Docker (Dockerfile + compose live in ./config)
+pnpm docker:build
+pnpm docker:up
+pnpm docker:down
 ```
 
-`npm run build` is dependency-ordered so `@sitesurge/types` compiles before the packages that import it. The web app produces a static bundle suitable for any CDN (CloudFront, Netlify, Vercel). The API needs Node 20+, PostgreSQL, and Redis.
+`pnpm -r` builds in dependency order so `@sitesurge/types` compiles before the packages that import it; the server build also copies `db/*.sql` into `dist`. The admin produces a static bundle; the server (Node 20+, PostgreSQL, Redis-optional) serves it. **Consumers don't build from source** — see [Getting Started](#getting-started) for the Docker image / npm-server / headless paths.
 </details>
 
 <details>
@@ -498,16 +509,16 @@ with `npm run docs:api`.
 
 ### Typed client (`@sitesurge/client`)
 
-**Doctrine:** once built, ALL client-side API requests SHOULD flow through the
-`@sitesurge/client` package — **including our own `@sitesurge/admin` app**. The direct
-`api.get()` / `api.post()` calls in `packages/cms` today are the **interim
-pattern** until the client lands. The client wraps the documented REST surface
-([`docs/API.md`](docs/API.md) + [`docs/api-manifest.json`](docs/api-manifest.json))
-with the shared DTOs, so a single typed change propagates to every caller.
+All client-side API requests flow through `@sitesurge/client` — **including our
+own `@sitesurge/admin` app**, which is fully migrated to it (the `cms` singleton
+in `packages/cms/src/services/cmsClient.ts` is the sole networking path). The
+client wraps the documented REST surface ([`docs/API.md`](docs/API.md) +
+[`docs/api-manifest.json`](docs/api-manifest.json)) with the shared DTOs, so a
+single typed change propagates to every caller.
 
-`packages/cms-client` is **fully implemented** — `createClient({ baseUrl, auth })`
-exposes `cms.<module>.<method>()` for the entire route surface, with SWR caching,
-token auto-load, a typed error bus, and an optional SolidJS adapter. See
+`createClient({ baseUrl, auth })` exposes `cms.<module>.<method>()` for the entire
+route surface, with SWR caching, token auto-load, a typed error bus, and an
+optional SolidJS adapter. See
 [`packages/cms-client/docs/Overview.md`](packages/cms-client/docs/Overview.md).
 
 **Shared DTOs:** every module's request and response types live in
@@ -586,8 +597,8 @@ and structured errors.
 // MCP client config (e.g. Claude Desktop / Claude Code "mcpServers")
 {
   "cms": {
-    "command": "node",
-    "args": ["packages/cms-mcp/dist/index.js"],
+    "command": "npx",
+    "args": ["-y", "@sitesurge/mcp"],
     "env": {
       "CMS_BASE_URL": "https://yoursite.com",
       "CMS_API_KEY": "ssk_…"          // Settings → API Keys; write/admin scope to author
