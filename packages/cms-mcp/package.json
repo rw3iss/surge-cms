@@ -32,7 +32,7 @@
     },
     "sideEffects": false,
     "description": "Model Context Protocol server for authoring a SiteSurge CMS site with an AI agent.",
-    "license": "MIT",
+    "license": "GPL-2.0-only",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/rw3iss/surge-cms.git",

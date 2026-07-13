@@ -77,8 +77,8 @@ Create a **granular** token (the only type now) with **Read and write** on the
 
 ## Pre-publish checklist
 
-- [ ] **Confirm the license.** The libraries declare `MIT` — change it (and add
-      `LICENSE` files) before the first publish if that's not what you want.
+- [x] **Confirm the license.** The libraries declare `GPL-2.0-only` (GPLv2) with a
+      `LICENSE` file in each published package.
 - [x] **Node-resolvable `@sitesurge/types` build** (Phase 3 — ✅ done): types now
       emit CommonJS with an `exports` map, so the packages work for raw `node` as
       well as bundlers. (This also lets the api server run `node dist`.)

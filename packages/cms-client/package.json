@@ -48,7 +48,7 @@
         "vitest": "^4.1.10"
     },
     "description": "Typed headless HTTP client (SDK) for the SiteSurge CMS API.",
-    "license": "MIT",
+    "license": "GPL-2.0-only",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/rw3iss/surge-cms.git",

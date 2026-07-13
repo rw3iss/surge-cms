@@ -15,7 +15,7 @@
     "dist"
   ],
   "description": "Shared TypeScript types, API DTOs, and utilities for the SiteSurge CMS.",
-  "license": "MIT",
+  "license": "GPL-2.0-only",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rw3iss/surge-cms.git",

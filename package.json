@@ -3,6 +3,7 @@
 	"version": "1.0.0",
 	"description": "SiteSurge — self-hosted, block-based headless CMS (monorepo)",
 	"private": true,
+	"license": "GPL-2.0-only",
 	"packageManager": "pnpm@10.28.0",
 	"scripts": {
 		"dev": "concurrently \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
