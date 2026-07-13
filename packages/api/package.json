@@ -61,7 +61,6 @@
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
-  "private": true,
   "description": "SiteSurge CMS backend — Express API + SSR + admin UI. Run standalone (Docker/native) or embed via createApp/startServer.",
   "types": "dist/lib.d.ts",
   "files": [

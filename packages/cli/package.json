@@ -1,8 +1,8 @@
 {
   "name": "@sitesurge/cli",
   "version": "0.1.0",
-  "private": true,
   "description": "SiteSurge CLI — interactive/non-interactive setup, migrate, seed, doctor, and start for a SiteSurge instance.",
+  "license": "GPL-2.0-only",
   "bin": {
     "sitesurge": "dist/index.js"
   },
@@ -10,6 +10,11 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/rw3iss/surge-cms#readme",
+  "bugs": "https://github.com/rw3iss/surge-cms/issues",
   "engines": {
     "node": ">=20"
   },
