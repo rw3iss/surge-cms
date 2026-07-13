@@ -22,6 +22,16 @@ export default defineConfig(({ mode }) => {
   root: CMS_ROOT,
   envDir: CMS_ROOT,
   publicDir: resolve(CMS_ROOT, 'public'),
+  resolve: {
+    alias: {
+      // Resolve @sitesurge/types to its TS SOURCE (ESM) rather than the built
+      // CJS dist. The dist emits CommonJS (for Node-resolvable `node dist`),
+      // whose `__exportStar` re-exports Vite's dev-server ESM analysis can't
+      // see through (e.g. `import { isAdminRole }`). Source resolution gives
+      // real named exports + HMR on shared changes.
+      '@sitesurge/types': resolve(CMS_ROOT, '../shared/src/index.ts'),
+    },
+  },
   plugins: [
     solidPlugin(),
     VitePWA({
