@@ -8,7 +8,7 @@ import { Component, For, createResource, onCleanup, onMount } from 'solid-js';
 import type { PublicPlugin } from '@sitesurge/types';
 import { cms } from '../../services/cmsClient';
 import { useAuth, useIsAdmin } from '../../stores/auth';
-import { isFeatureEnabled, siteSettings } from '../../stores/siteSettings';
+import { siteSettings } from '../../stores/siteSettings';
 import { buildHost, loadPluginModule } from '../../plugins/host';
 
 const PluginWidgetMount: Component<{
@@ -53,22 +53,19 @@ const PluginWidgetHost: Component = () => {
     const auth = useAuth();
     const isAdmin = useIsAdmin();
 
-    // Reactive SOURCE = the plugins feature flag. On a hard refresh the public
-    // Layout loads settings asynchronously, so at mount the flag is still the
-    // pre-load default (false); a plain fetcher would return [] and never retry.
-    // Keying the resource on isFeatureEnabled('plugins') (which tracks the
-    // settings store) refetches automatically once settings resolve. When the
-    // flag is false, createResource skips the fetcher entirely.
-    const [plugins] = createResource(
-        () => isFeatureEnabled('plugins'),
-        async () => {
-            try {
-                return await cms.plugins.listEnabled();
-            } catch {
-                return [] as PublicPlugin[];
-            }
-        },
-    );
+    // Fetch enabled plugins directly — DON'T gate on the settings store. On a
+    // fresh/hard load the public Layout loads settings asynchronously and the
+    // client SWR-caches /settings/public in localStorage, so gating on
+    // isFeatureEnabled('plugins') could stay false (stale/not-yet-loaded) and
+    // never fire. GET /plugins/enabled is itself feature-gated server-side:
+    // returns the plugins when the feature is on, 404s (→ []) when off.
+    const [plugins] = createResource(async () => {
+        try {
+            return await cms.plugins.listEnabled();
+        } catch {
+            return [] as PublicPlugin[];
+        }
+    });
 
     const currentUser = (): { id: string; role: string } | null =>
         auth.user ? { id: auth.user.id, role: String(auth.user.role) } : null;
