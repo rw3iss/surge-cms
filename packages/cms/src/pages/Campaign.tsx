@@ -88,39 +88,43 @@ const CampaignPage: Component = () => {
 
                             {/* Progress Tracker */}
                             <div class="campaign-page__tracker">
-                                <div class="campaign-page__tracker-header">
-                                    <span class="campaign-page__tracker-raised">
-                                        {formatCurrency(c().currentAmountCents,)}
-                                    </span>
-                                    <Show when={c().goalAmountCents}>
-                                        <span class="campaign-page__tracker-goal">
-                                            raised of {formatCurrency(c().goalAmountCents,)} goal
+                                <Show when={c().showRaisedAmount !== false}>
+                                    <div class="campaign-page__tracker-header">
+                                        <span class="campaign-page__tracker-raised">
+                                            {formatCurrency(c().currentAmountCents,)}
                                         </span>
-                                    </Show>
-                                    <Show when={!c().goalAmountCents}>
-                                        <span class="campaign-page__tracker-goal">raised</span>
-                                    </Show>
-                                </div>
+                                        <Show when={c().goalAmountCents}>
+                                            <span class="campaign-page__tracker-goal">
+                                                raised of {formatCurrency(c().goalAmountCents,)} goal
+                                            </span>
+                                        </Show>
+                                        <Show when={!c().goalAmountCents}>
+                                            <span class="campaign-page__tracker-goal">raised</span>
+                                        </Show>
+                                    </div>
 
-                                <Show when={c().goalAmountCents}>
-                                    <div class="campaign-page__progress">
-                                        <div
-                                            class="campaign-page__progress-fill"
-                                            style={{ width: `${progress()}%`, }}
-                                        />
-                                    </div>
-                                    <div class="campaign-page__tracker-percent">
-                                        {Math.round(progress(),)}% funded
-                                    </div>
+                                    <Show when={c().goalAmountCents}>
+                                        <div class="campaign-page__progress">
+                                            <div
+                                                class="campaign-page__progress-fill"
+                                                style={{ width: `${progress()}%`, }}
+                                            />
+                                        </div>
+                                        <div class="campaign-page__tracker-percent">
+                                            {Math.round(progress(),)}% funded
+                                        </div>
+                                    </Show>
                                 </Show>
 
                                 <div class="campaign-page__tracker-stats">
-                                    <div class="campaign-page__stat">
-                                        <span class="campaign-page__stat-value">{c().donorCount || 0}</span>
-                                        <span class="campaign-page__stat-label">
-                                            {c().donorCount === 1 ? 'donor' : 'donors'}
-                                        </span>
-                                    </div>
+                                    <Show when={c().showRaisedAmount !== false}>
+                                        <div class="campaign-page__stat">
+                                            <span class="campaign-page__stat-value">{c().donorCount || 0}</span>
+                                            <span class="campaign-page__stat-label">
+                                                {c().donorCount === 1 ? 'donor' : 'donors'}
+                                            </span>
+                                        </div>
+                                    </Show>
                                     <Show when={(c() as any).startDate}>
                                         <div class="campaign-page__stat">
                                             <span class="campaign-page__stat-value">

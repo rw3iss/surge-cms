@@ -20,6 +20,7 @@ const campaignSchema = z.object({
     shortDescription: z.string().optional(),
     featuredImage: z.string().url().nullish(),
     goalAmountCents: z.number().int().positive().nullish(),
+    showRaisedAmount: z.boolean().optional(),
     status: z.enum(['draft', 'active', 'completed', 'cancelled',],).optional(),
     startDate: z.string().datetime().nullish(),
     endDate: z.string().datetime().nullish(),

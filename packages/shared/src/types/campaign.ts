@@ -8,6 +8,8 @@ export interface Campaign {
     shortDescription?: string;
     featuredImage?: string;
     goalAmountCents: number;
+    /** When false, public renderings hide all monetary info (raised + goal). */
+    showRaisedAmount: boolean;
     currentAmountCents: number;
     status: CampaignStatus;
     startDate?: Date;

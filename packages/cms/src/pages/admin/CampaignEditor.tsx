@@ -25,6 +25,7 @@ const CampaignEditor: Component = () => {
     const [shortDescription, setShortDescription,] = createSignal('',);
     const [goalAmount, setGoalAmount,] = createSignal<string>('',);
     const [hasGoal, setHasGoal,] = createSignal(true,);
+    const [showRaisedAmount, setShowRaisedAmount,] = createSignal(true,);
     const [status, setStatus,] = createSignal('draft',);
     const [isPublished, setIsPublished,] = createSignal(false,);
     const [startDate, setStartDate,] = createSignal('',);
@@ -53,6 +54,7 @@ const CampaignEditor: Component = () => {
                     setGoalAmount('',);
                     setHasGoal(false,);
                 }
+                setShowRaisedAmount(data.showRaisedAmount ?? true,);
                 setStatus(data.status || 'draft',);
                 setIsPublished(data.isPublished ?? false,);
                 if (data.startDate) {
@@ -94,6 +96,7 @@ const CampaignEditor: Component = () => {
             shortDescription: shortDescription(),
             goalAmount: goalAmount(),
             hasGoal: hasGoal(),
+            showRaisedAmount: showRaisedAmount(),
             status: status(),
             isPublished: isPublished(),
             startDate: startDate(),
@@ -113,6 +116,7 @@ const CampaignEditor: Component = () => {
                 description: description(),
                 shortDescription: shortDescription(),
                 goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : null,
+                showRaisedAmount: showRaisedAmount(),
                 status: status(),
                 isPublished: isPublished(),
                 startDate: startDate() ? new Date(startDate(),).toISOString() : null,
@@ -254,6 +258,18 @@ const CampaignEditor: Component = () => {
                                     onChange={(next,) => { setHasGoal(next,); markDirty(); }}
                                     label="Set a fundraising goal"
                                 />
+                            </div>
+
+                            <div class="form-group">
+                                <Toggle
+                                    checked={showRaisedAmount()}
+                                    onChange={(next,) => { setShowRaisedAmount(next,); markDirty(); }}
+                                    label="Show raised amount"
+                                />
+                                <small class="form-help">
+                                    When off, the public campaign shows no monetary information
+                                    at all — no amount raised, goal, or progress bar.
+                                </small>
                             </div>
 
                             <Show when={hasGoal()}>

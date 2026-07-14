@@ -298,6 +298,7 @@ CREATE TABLE campaigns (
     short_description TEXT,
     featured_image TEXT,
     goal_amount_cents INTEGER, -- NULL means open/unlimited fund
+    show_raised_amount BOOLEAN NOT NULL DEFAULT true,
     current_amount_cents INTEGER NOT NULL DEFAULT 0,
     status campaign_status NOT NULL DEFAULT 'draft',
     start_date TIMESTAMPTZ,

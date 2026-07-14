@@ -47,24 +47,33 @@ const DonatePage: Component = () => {
                                     <div class="donate-page__card-content">
                                         <h3>{campaign.title}</h3>
                                         <p>{campaign.shortDescription}</p>
-                                        <div class="donate-page__progress">
-                                            <div
-                                                class="donate-page__progress-bar"
-                                                style={{
-                                                    width: `${
-                                                        Math.min(
-                                                            (campaign.currentAmountCents / campaign.goalAmountCents) *
-                                                                100,
-                                                            100,
-                                                        )
-                                                    }%`,
-                                                }}
-                                            />
-                                        </div>
-                                        <span>
-                                            ${(campaign.currentAmountCents / 100).toLocaleString()}{' '}
-                                            raised of ${(campaign.goalAmountCents / 100).toLocaleString()}
-                                        </span>
+                                        <Show when={campaign.showRaisedAmount !== false}>
+                                            <Show when={campaign.goalAmountCents}>
+                                                <div class="donate-page__progress">
+                                                    <div
+                                                        class="donate-page__progress-bar"
+                                                        style={{
+                                                            width: `${
+                                                                Math.min(
+                                                                    (campaign.currentAmountCents / campaign.goalAmountCents) *
+                                                                        100,
+                                                                    100,
+                                                                )
+                                                            }%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                            </Show>
+                                            <span>
+                                                <Show
+                                                    when={campaign.goalAmountCents}
+                                                    fallback={<>${(campaign.currentAmountCents / 100).toLocaleString()} raised so far</>}
+                                                >
+                                                    ${(campaign.currentAmountCents / 100).toLocaleString()}{' '}
+                                                    raised of ${(campaign.goalAmountCents / 100).toLocaleString()}
+                                                </Show>
+                                            </span>
+                                        </Show>
                                     </div>
                                 </A>
                             )}
@@ -85,7 +94,9 @@ const DonatePage: Component = () => {
                                 >
                                     <h3>{campaign.title}</h3>
                                     <span>
-                                        Completed - ${(campaign.currentAmountCents / 100).toLocaleString()} raised
+                                        <Show when={campaign.showRaisedAmount !== false} fallback={<>Completed</>}>
+                                            Completed - ${(campaign.currentAmountCents / 100).toLocaleString()} raised
+                                        </Show>
                                     </span>
                                 </A>
                             )}

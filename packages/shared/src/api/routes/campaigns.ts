@@ -127,6 +127,7 @@ export interface CampaignCreateBody {
     shortDescription?: string;
     featuredImage?: string | null;
     goalAmountCents?: number | null;
+    showRaisedAmount?: boolean;
     status?: CampaignStatus;
     /** ISO date-time */
     startDate?: string | null;

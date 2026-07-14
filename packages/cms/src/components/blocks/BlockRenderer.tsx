@@ -458,29 +458,46 @@ const FormBlock: Component<{ block: Block; }> = (props,) => {
 
 const ALL_CAMPAIGNS_ID = '__all-campaigns__';
 
-const CampaignCard: Component<{ campaign: Campaign; }> = (props,) => (
-    <A href={`/campaigns/${props.campaign.slug}`} class="campaign-block" style={{ 'text-decoration': 'none', color: 'inherit', display: 'block', }}>
-        <h2 class="campaign-block__title">{props.campaign.title}</h2>
-        <p class="campaign-block__desc">{props.campaign.shortDescription}</p>
-        <div class="campaign-block__progress">
-            <div
-                class="campaign-block__progress-bar"
-                style={{
-                    width: `${
-                        Math.min(
-                            (props.campaign.currentAmountCents / props.campaign.goalAmountCents) * 100,
-                            100,
-                        )
-                    }%`,
-                }}
-            />
-        </div>
-        <p class="campaign-block__stats">
-            ${(props.campaign.currentAmountCents / 100).toLocaleString()}{' '}
-            of ${(props.campaign.goalAmountCents / 100).toLocaleString()}
-        </p>
-    </A>
-);
+const CampaignCard: Component<{ campaign: Campaign; }> = (props,) => {
+    // Whether to surface any monetary info at all (operator toggle).
+    const showAmount = () => props.campaign.showRaisedAmount !== false;
+    // A goal is set only when goalAmountCents is a positive number; a
+    // null/0 goal is an open/unlimited fund (no goal, no progress bar).
+    const hasGoal = () => !!props.campaign.goalAmountCents && props.campaign.goalAmountCents > 0;
+    const raised = () => `$${(props.campaign.currentAmountCents / 100).toLocaleString()}`;
+
+    return (
+        <A href={`/campaigns/${props.campaign.slug}`} class="campaign-block" style={{ 'text-decoration': 'none', color: 'inherit', display: 'block', }}>
+            <h2 class="campaign-block__title">{props.campaign.title}</h2>
+            <p class="campaign-block__desc">{props.campaign.shortDescription}</p>
+            <Show when={showAmount()}>
+                <Show when={hasGoal()}>
+                    <div class="campaign-block__progress">
+                        <div
+                            class="campaign-block__progress-bar"
+                            style={{
+                                width: `${
+                                    Math.min(
+                                        (props.campaign.currentAmountCents / props.campaign.goalAmountCents) * 100,
+                                        100,
+                                    )
+                                }%`,
+                            }}
+                        />
+                    </div>
+                </Show>
+                <p class="campaign-block__stats">
+                    <Show
+                        when={hasGoal()}
+                        fallback={<>{raised()} raised so far</>}
+                    >
+                        {raised()} of ${(props.campaign.goalAmountCents / 100).toLocaleString()}
+                    </Show>
+                </p>
+            </Show>
+        </A>
+    );
+};
 
 const CampaignBlock: Component<{ block: Block; }> = (props,) => {
     const campaignId = () => props.block.settings.campaignId as string;

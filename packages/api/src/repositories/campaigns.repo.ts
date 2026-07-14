@@ -105,8 +105,8 @@ export async function findAllCampaigns(
 export async function createCampaign(data: Record<string, unknown>, userId: string,): Promise<Campaign> {
     const result = await query(
         `INSERT INTO campaigns (title, slug, description, short_description, featured_image,
-                            goal_amount_cents, status, start_date, end_date, is_published, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                            goal_amount_cents, show_raised_amount, status, start_date, end_date, is_published, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
         [
             data.title,
@@ -115,6 +115,7 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
             data.shortDescription,
             data.featuredImage,
             data.goalAmountCents,
+            data.showRaisedAmount ?? true,
             data.status || 'draft',
             data.startDate,
             data.endDate,
