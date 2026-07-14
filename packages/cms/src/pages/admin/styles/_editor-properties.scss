@@ -432,3 +432,31 @@
     span { color: $text-light; font-size: 0.75rem; }
   }
 }
+
+
+// ─── Banner image field (Post properties) ───
+// Media-library picker for a post's featured/banner image: a preview
+// thumbnail above a row of Select / Upload / Remove actions.
+
+.post-banner-field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  align-items: flex-start;
+
+  &__preview {
+    display: block;
+    max-width: 100%;
+    max-height: 160px;
+    object-fit: cover;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: $background-dark;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+}

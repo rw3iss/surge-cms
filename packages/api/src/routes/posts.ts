@@ -28,7 +28,9 @@ const postSchema = z.object({
     title: z.string().min(1,).max(255,),
     excerpt: z.string().optional(),
     content: z.string().optional().default('',),
-    featuredImage: z.string().url().optional(),
+    // Accepts a relative media path (/uploads/…) or an absolute URL; the
+    // media library serves relative paths, so `.url()` would wrongly reject.
+    featuredImage: z.string().max(2048,).nullish(),
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
     publishAt: z.string().datetime().nullable().optional(),
     isPrivate: z.boolean().optional(),

@@ -122,7 +122,8 @@ export interface PostCreateBody {
     title: string;
     excerpt?: string;
     content?: string;
-    featuredImage?: string;
+    /** Banner/featured image URL. `null` clears it. */
+    featuredImage?: string | null;
     status?: 'draft' | 'published' | 'scheduled' | 'archived' | 'deleted';
     publishAt?: string | null;
     isPrivate?: boolean;

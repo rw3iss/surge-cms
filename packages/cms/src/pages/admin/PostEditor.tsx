@@ -9,6 +9,8 @@ import { BlockData, } from '../../components/admin/blocks/ContentBlock';
 import { deriveStyleRefFromStyle, } from '../../services/blockStyleRef';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
+import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
+import MediaUploadModal from '../../components/admin/media/MediaUploadModal';
 import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import { Layout, } from '../../components/layout/Layout';
 import PostContentBlock from '../../components/blocks/posts/PostContentBlock';
@@ -65,6 +67,9 @@ const AdminPostEditor: Component = () => {
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [tags, setTags,] = createSignal('',);
+    const [featuredImage, setFeaturedImage,] = createSignal('',);
+    const [showImageSelect, setShowImageSelect,] = createSignal(false,);
+    const [showImageUpload, setShowImageUpload,] = createSignal(false,);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
@@ -90,6 +95,7 @@ const AdminPostEditor: Component = () => {
             status: status(),
             accessLevel: accessLevel(),
             tags: tags(),
+            featuredImage: featuredImage(),
             publishAt: publishAt(),
             blocks: blocks(),
         }),
@@ -108,6 +114,7 @@ const AdminPostEditor: Component = () => {
             setStatus(d.status || 'draft',);
             setAccessLevel(d.accessLevel || 'public',);
             setTags(d.tags || '',);
+            setFeaturedImage(d.featuredImage || '',);
             setPublishAt(d.publishAt || '',);
             setBlocks(d.blocks || [],);
         }
@@ -122,6 +129,7 @@ const AdminPostEditor: Component = () => {
             setStatus(p.status || 'draft',);
             setAccessLevel(p.accessLevel || 'public',);
             setTags((p.tags || []).join(', ',),);
+            setFeaturedImage(p.featuredImage || '',);
             if (p.publishAt) {
                 setPublishAt(new Date(p.publishAt,).toISOString().slice(0, 16,),);
             } else {
@@ -167,6 +175,7 @@ const AdminPostEditor: Component = () => {
             status: status(),
             accessLevel: accessLevel(),
             tags: tagList,
+            featuredImage: featuredImage() || null,
             publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
             contentBlocks: blocks().map((b, i,) => ({
                 id: b.id.startsWith('block-',) ? undefined : b.id,
@@ -297,6 +306,47 @@ const AdminPostEditor: Component = () => {
                                 placeholder="tag1, tag2, tag3"
                             />
                             <small class="form-help">Comma-separated</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Banner Image</label>
+                            <div class="post-banner-field">
+                                <Show when={featuredImage()}>
+                                    <img
+                                        class="post-banner-field__preview"
+                                        src={featuredImage()}
+                                        alt="Banner preview"
+                                    />
+                                </Show>
+                                <div class="post-banner-field__actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn--small btn--secondary"
+                                        onClick={() => setShowImageSelect(true,)}
+                                    >
+                                        Select Media
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn--small btn--outline"
+                                        onClick={() => setShowImageUpload(true,)}
+                                    >
+                                        Upload New
+                                    </button>
+                                    <Show when={featuredImage()}>
+                                        <button
+                                            type="button"
+                                            class="btn btn--small btn--danger"
+                                            onClick={() => { setFeaturedImage('',); markDirty(); }}
+                                            title="Remove banner image"
+                                        >
+                                            Remove
+                                        </button>
+                                    </Show>
+                                </div>
+                            </div>
+                            <small class="form-help">
+                                Used as the top &ldquo;banner image&rdquo; on the post.
+                            </small>
                         </div>
                     </div>
                     <div class="editor-properties__sidebar">
@@ -459,6 +509,29 @@ const AdminPostEditor: Component = () => {
                         </div>
                     </Layout>
                 </PreviewOverlay>
+            </Show>
+
+            <Show when={showImageSelect()}>
+                <MediaSelectModal
+                    types={['image',]}
+                    onSelect={(media,) => {
+                        setFeaturedImage(media.url,);
+                        markDirty();
+                        setShowImageSelect(false,);
+                    }}
+                    onClose={() => setShowImageSelect(false,)}
+                />
+            </Show>
+            <Show when={showImageUpload()}>
+                <MediaUploadModal
+                    acceptTypes="image/*"
+                    onUploaded={(media,) => {
+                        setFeaturedImage(media.url,);
+                        markDirty();
+                        setShowImageUpload(false,);
+                    }}
+                    onClose={() => setShowImageUpload(false,)}
+                />
             </Show>
         </div>
     );
