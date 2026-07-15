@@ -212,7 +212,7 @@ const AdminPostEditor: Component = () => {
     return (
         <div>
             <Title>{isNew() ? 'New Post' : `Edit Post: ${title() || 'Untitled'}`} - Admin - RW</Title>
-            <div class="admin-header">
+            <div class="admin-header admin-header--sticky">
                 <h1>{isNew() ? 'New Post' : `Edit Post: ${title() || 'Untitled'}`}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />

@@ -3,6 +3,11 @@
   width: 100%;
   overflow: hidden;
   background: var(--site-bg, #000);
+  // Establish a query container so heading font-sizes (cqi units in
+  // HeroCarousel.tsx) scale with the carousel's own width — titles fit the
+  // post/slide area in a narrow block or on small screens, not just the
+  // viewport.
+  container-type: inline-size;
 
   &__empty {
     display: flex;

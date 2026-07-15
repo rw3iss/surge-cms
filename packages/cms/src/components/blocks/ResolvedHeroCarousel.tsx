@@ -57,7 +57,7 @@ function postToSlide(cfg: HeroPostsConfig, post: PostWithBlocks, order: number, 
         mediaUrl: hasImage ? post.featuredImage! : undefined,
         mediaThumbnailUrl: hasImage ? post.featuredImage! : undefined,
         objectFit: 'cover',
-        header: { text: post.title, size: 'h1', color: '#ffffff', },
+        header: { text: post.title, size: 'h2', color: '#ffffff', },
         postMeta: buildPostMeta(cfg, post,),
         action: post.slug
             ? { label: 'Read More', url: `/posts/${post.slug}`, openInNewTab: false, size: 'small', }

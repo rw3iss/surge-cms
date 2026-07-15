@@ -19,23 +19,27 @@ function formatMetaDate(iso: string,): string {
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', },);
 }
 
-/** Map heading size to a CSS custom property value (rem) so we control sizing directly */
+// Heading sizes are CONTAINER-responsive: `cqi` = 1% of the carousel's
+// inline (width) size (the `.hero-carousel` sets container-type:inline-size),
+// so titles scale with the actual slide/post area — shrinking in a narrow
+// block or on small screens — clamped to a sensible min/max. This keeps a
+// long post title from overflowing the slide.
 const HEADER_SIZES: Record<string, string> = {
-    h1: '5.5rem', // 88px
-    h2: '4.875rem', // 78px
-    h3: '4.25rem', // 68px
-    h4: '3.625rem', // 58px
-    h5: '3rem', // 48px
-    h6: '2.375rem', // 38px
+    h1: 'clamp(1.6rem, 7cqi, 4rem)',
+    h2: 'clamp(1.5rem, 6.2cqi, 3.5rem)',
+    h3: 'clamp(1.4rem, 5.4cqi, 3rem)',
+    h4: 'clamp(1.3rem, 4.8cqi, 2.6rem)',
+    h5: 'clamp(1.2rem, 4.2cqi, 2.2rem)',
+    h6: 'clamp(1.05rem, 3.6cqi, 1.9rem)',
 };
 
 const SUBHEADER_SIZES: Record<string, string> = {
-    h1: '3.25rem', // 52px
-    h2: '2.875rem', // 46px
-    h3: '2.5rem', // 40px
-    h4: '2.125rem', // 34px
-    h5: '1.75rem', // 28px
-    h6: '1.375rem', // 22px
+    h1: 'clamp(1.1rem, 4cqi, 2.4rem)',
+    h2: 'clamp(1.05rem, 3.6cqi, 2.1rem)',
+    h3: 'clamp(1rem, 3.2cqi, 1.9rem)',
+    h4: 'clamp(0.95rem, 2.8cqi, 1.7rem)',
+    h5: 'clamp(0.9rem, 2.4cqi, 1.5rem)',
+    h6: 'clamp(0.85rem, 2cqi, 1.3rem)',
 };
 
 /** Renders text with the configured heading size applied via inline font-size */

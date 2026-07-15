@@ -483,14 +483,21 @@
 // Admin common styles
 .admin-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-end;
+  gap: $spacing-sm $spacing-lg;
   margin-bottom: $spacing-xl;
   padding-bottom: $spacing-md;
   border-bottom: 1px solid $border-color;
 
   h1 {
     margin: 0;
+    // Grow to fill, but shrinkable (min-width:0) so a long title wraps
+    // within its own space instead of squashing the action buttons.
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: $font-size-3xl;
     font-weight: 700;
     line-height: 1.1;
@@ -505,8 +512,28 @@
 
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: $spacing-md;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    // Never let the buttons get squashed by a long title.
+    flex-shrink: 0;
+
+    // Button labels stay on one line — no mid-word wrapping.
+    .btn, a.btn { white-space: nowrap; }
+  }
+
+  // Sticky editor header: stays pinned while the long block editor scrolls.
+  // The admin content scroll is the window, so top:0 pins to the viewport.
+  &--sticky {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    // Solid page-bg so scrolled content passes cleanly underneath, and a
+    // little top padding so it doesn't sit flush against the viewport edge.
+    background: var(--admin-page-bg, #{$background-dark});
+    padding-top: $spacing-md;
+    margin-bottom: $spacing-lg;
   }
 }
 

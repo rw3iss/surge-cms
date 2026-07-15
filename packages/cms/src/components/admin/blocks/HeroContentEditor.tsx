@@ -522,28 +522,32 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
             </Show>
 
             <Show when={!loading()}>
-                {/* ─── Preview ─── */}
-                <div class="hero-preview">
-                    <h3 class="hero-preview__title">Preview</h3>
-                    <Show
-                        when={items().length > 0}
-                        fallback={
-                            <div class="hero-preview__empty">
-                                Add hero items below to see a preview
+                {/* ─── Preview ─── (only in the standalone homepage-hero editor;
+                    inside a Carousel content block the block itself is the
+                    preview, so hideHeader suppresses this) */}
+                <Show when={!props.hideHeader}>
+                    <div class="hero-preview">
+                        <h3 class="hero-preview__title">Preview</h3>
+                        <Show
+                            when={items().length > 0}
+                            fallback={
+                                <div class="hero-preview__empty">
+                                    Add hero items below to see a preview
+                                </div>
+                            }
+                        >
+                            <div class="hero-preview__container">
+                                <ResolvedHeroCarousel
+                                    items={items()}
+                                    options={options()}
+                                    previewMode={true}
+                                    height={scaledHeight()}
+                                    gutterWidth={gutterWidth()}
+                                />
                             </div>
-                        }
-                    >
-                        <div class="hero-preview__container">
-                            <ResolvedHeroCarousel
-                                items={items()}
-                                options={options()}
-                                previewMode={true}
-                                height={scaledHeight()}
-                                gutterWidth={gutterWidth()}
-                            />
-                        </div>
-                    </Show>
-                </div>
+                        </Show>
+                    </div>
+                </Show>
 
                 {/* ─── Carousel Options ─── */}
                 <div class="hero-options">

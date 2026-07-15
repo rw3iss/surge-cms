@@ -293,7 +293,7 @@ const AdminPageEditor: Component = () => {
         <div class="page-editor">
             <Title>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`} - Admin - RW</Title>
 
-            <div class="admin-header">
+            <div class="admin-header admin-header--sticky">
                 <h1>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
