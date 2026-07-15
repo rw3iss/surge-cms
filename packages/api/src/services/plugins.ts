@@ -11,6 +11,7 @@ import AdmZip from 'adm-zip';
 import type {
     MarketplacePlugin,
     Plugin,
+    PluginManifest,
     PluginUpdateResult,
     PublicPlugin,
 } from '@sitesurge/types';
@@ -21,6 +22,7 @@ import { AppError, NotFoundError, ValidationError } from '../middleware/error';
 import { logger } from '../utils/logger';
 import {
     buildContext,
+    discoverCatalog,
     discoverOnDisk,
     getServerModule,
     pluginsRootDir,
@@ -349,30 +351,62 @@ export async function installFromZip(buffer: Buffer, ctx: AuditContext): Promise
     }
 }
 
-// ── marketplace (stub) ──────────────────────────────────────────────────────────
+// ── marketplace (first-party bundled catalog) ────────────────────────────────────
+// The catalog is the set of first-party plugins bundled inside
+// @sitesurge/server (dist/plugins-catalog). marketplaceInstall copies the
+// chosen plugin into the consumer's PLUGINS_DIR and runs the normal
+// install lifecycle — no external registry / network fetch of the plugin
+// itself (a plugin's own install() may still fetch its vendor bundle).
 export async function marketplaceSearch(q?: string): Promise<MarketplacePlugin[]> {
     const installed = new Set((await repo.listPlugins()).map((p) => p.name));
-    const catalog: MarketplacePlugin[] = [
-        {
-            id: 'pageloop', name: 'pageloop', label: 'PageLoop Comments',
-            description: 'Drop-in commenting / annotation layer for your site.',
-            version: '0.1.0', author: 'SiteSurge', homepage: 'https://pageloop.dev',
-            installed: installed.has('pageloop'),
-        },
-    ];
+    const catalog: MarketplacePlugin[] = discoverCatalog().map((d) => {
+        const m = d.manifest as PluginManifest & { description?: string; author?: string; homepage?: string; };
+        return {
+            id: d.name,
+            name: d.name,
+            label: m.label ?? d.name,
+            description: m.description ?? '',
+            version: m.version,
+            author: m.author,
+            homepage: m.homepage,
+            installed: installed.has(d.name),
+        };
+    });
     const needle = (q ?? '').trim().toLowerCase();
     return needle
         ? catalog.filter((c) => `${c.name} ${c.label} ${c.description}`.toLowerCase().includes(needle))
         : catalog;
 }
 
-export async function marketplaceInstall(_id: string, _ctx: AuditContext): Promise<Plugin> {
-    // v1 stub: no live registry yet. Upload a .zip or drop the folder into
-    // PLUGINS_DIR and rescan instead.
-    throw new AppError(
-        501, 'NOT_IMPLEMENTED',
-        'Marketplace install is not yet available. Upload a .zip or add the plugin to the plugins folder, then rescan.',
-    );
+export async function marketplaceInstall(id: string, ctx: AuditContext): Promise<Plugin> {
+    const entry = discoverCatalog().find((d) => d.name === id);
+    if (!entry) throw new NotFoundError(`Marketplace plugin "${id}"`);
+
+    const root = pluginsRootDir();
+    fs.mkdirSync(root, { recursive: true });
+    const dest = path.join(root, entry.name);
+    if (fs.existsSync(dest)) {
+        throw new ValidationError(`Plugin "${entry.name}" is already present — uninstall it first`);
+    }
+    // Copy the bundled plugin into the consumer's PLUGINS_DIR. The vendor
+    // bundle (client/) isn't bundled; the plugin's install() fetches it.
+    fs.cpSync(entry.dir, dest, { recursive: true });
+
+    // Register as discovered, then run the standard install lifecycle
+    // (migrations + install() hook) so it lands installed + ready to enable.
+    const existing = await repo.getByName(entry.name);
+    if (!existing) {
+        await repo.insertDiscovered({
+            name: entry.name, label: entry.manifest.label, version: entry.manifest.version,
+            source: 'marketplace', location: entry.name, manifest: entry.manifest,
+        });
+    } else {
+        await repo.reconcileManifest(entry.name, {
+            version: entry.manifest.version, label: entry.manifest.label, manifest: entry.manifest,
+        });
+    }
+    await audit('plugin.marketplace-install', entry.name, ctx);
+    return install(entry.name, ctx);
 }
 
 // ── boot ────────────────────────────────────────────────────────────────────────

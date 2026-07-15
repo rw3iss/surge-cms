@@ -60,9 +60,8 @@ export function readManifestAt(dir: string): PluginManifest {
     return m;
 }
 
-/** Scan PLUGINS_DIR for folders containing a valid plugin.json. */
-export function discoverOnDisk(): DiscoveredPlugin[] {
-    const root = pluginsRootDir();
+/** Scan a directory for immediate subfolders containing a valid plugin.json. */
+function discoverInDir(root: string): DiscoveredPlugin[] {
     if (!fs.existsSync(root)) return [];
     const out: DiscoveredPlugin[] = [];
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -76,6 +75,32 @@ export function discoverOnDisk(): DiscoveredPlugin[] {
         }
     }
     return out;
+}
+
+/** Scan PLUGINS_DIR (the consumer's installed plugins). */
+export function discoverOnDisk(): DiscoveredPlugin[] {
+    return discoverInDir(pluginsRootDir());
+}
+
+/**
+ * Absolute path to the first-party plugin catalog bundled INSIDE
+ * @sitesurge/server. The build's copy-assets step copies `plugins/*`
+ * (minus vendor bundles) into `dist/plugins-catalog/`; in dev (tsx from
+ * `src/`) it falls back to the repo's `packages/api/plugins/`. Returns
+ * '' if neither exists.
+ */
+export function bundledCatalogDir(): string {
+    const candidates = [
+        path.join(__dirname, '..', 'plugins-catalog'), // built: dist/plugins/ → dist/plugins-catalog
+        path.join(__dirname, '..', '..', 'plugins'), //     dev: src/plugins/ → packages/api/plugins
+    ];
+    return candidates.find((c) => fs.existsSync(c)) ?? '';
+}
+
+/** Discover the bundled first-party plugin catalog (installable via the marketplace). */
+export function discoverCatalog(): DiscoveredPlugin[] {
+    const root = bundledCatalogDir();
+    return root ? discoverInDir(root) : [];
 }
 
 /** Load a plugin's server module (CommonJS). `reload` busts the require cache. */

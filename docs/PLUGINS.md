@@ -82,11 +82,31 @@ restored after a hard refresh on either side. Because there is exactly one host
 never be mounted twice; plugins that inject global DOM (e.g. a floating toolbar)
 should still guard against a duplicate `init()` defensively.
 
+## Packaging a plugin
+
+A plugin is a **folder**, not a repo clone: `plugin.json` (the manifest — the
+required structure) + `server.js` + `client.js` (+ optional `README.md`). No
+build step. The vendor bundle in `client/` is optional — a plugin's `install()`
+hook can fetch it. Build an uploadable zip with:
+
+```bash
+npm run plugin:pack <plugin-dir>     # e.g. plugin:pack plugins/pageloop → pageloop-<v>.zip
+```
+
+The zip has `plugin.json` at its root (the installer also accepts it one level
+down) and includes `client/` when present (self-contained).
+
 ## Install paths
 
-- **Manual:** drop a folder into `plugins/`, then Admin → Plugins → **Rescan**.
+- **Manual:** drop a folder into `PLUGINS_DIR`, then Admin → Plugins → **Rescan**
+  (or restart — boot rescans).
 - **Upload:** Admin → Plugins → **Upload .zip** (path-traversal guarded; registered disabled).
-- **Marketplace:** stubbed search in v1; install throws a clear "not yet available".
+- **Marketplace:** lists the **first-party catalog bundled inside `@sitesurge/server`**
+  (`dist/plugins-catalog/`, produced by the build from `plugins/*` minus vendor
+  bundles). **Install** copies the plugin into the consumer's `PLUGINS_DIR` and
+  runs the normal install lifecycle — one click, no plugin source needed in the
+  consumer repo. (An open third-party registry can later extend
+  `marketplaceInstall` to fetch a `downloadUrl` zip through the same path.)
 
 ## API + SDK + MCP
 
