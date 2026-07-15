@@ -1,5 +1,11 @@
 # @sitesurge/cli
 
+## 0.1.9
+
+### Patch Changes
+
+- @sitesurge/server@0.1.9
+
 ## 0.1.8
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @sitesurge/admin
 
+## 0.1.9
+
+### Patch Changes
+
+- Admin editor polish: sticky Post/Page editor header that never squashes the action buttons on long titles; carousel titles use container-query sizing (smaller + responsive, shrink to fit the slide/post area); removed the redundant Preview from the Carousel block editor; standardized text inputs across block-edit panels.
+
 ## 0.1.8
 
 ## 0.1.7

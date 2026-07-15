@@ -1,6 +1,6 @@
 {
   "name": "@sitesurge/admin",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "description": "SiteSurge CMS admin + public SPA — built static assets, served by @sitesurge/server.",
   "license": "GPL-2.0-only",
