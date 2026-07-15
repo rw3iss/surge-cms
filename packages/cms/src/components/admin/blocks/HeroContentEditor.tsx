@@ -4,20 +4,32 @@ import type {
     HeroCarouselOptions,
     HeroCarouselSettings,
     HeroItem,
+    HeroPostsConfig,
     HeroTextConfig,
 } from '@sitesurge/types';
 import type { AppearanceSettings, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
-import HeroCarousel from '../../blocks/HeroCarousel';
+import ResolvedHeroCarousel from '../../blocks/ResolvedHeroCarousel';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
 import MediaSelectModal from '../media/MediaSelectModal';
 import MediaUploadModal from '../media/MediaUploadModal';
+import PostQueryEditor from './PostQueryEditor';
 import Tooltip from '../common/Tooltip';
 import './HeroContentEditor.scss';
 
 const genId = () => 'hero-' + Date.now() + '-' + Math.random().toString(36,).slice(2, 7,);
+
+/** One-line summary of a Posts item's query, for its card preview. */
+function postsSummary(item: HeroItem,): string {
+    const cfg = item.posts ?? {};
+    const parts: string[] = [];
+    const pinned = cfg.pinnedPostIds?.length ?? 0;
+    if (pinned > 0) parts.push(`${pinned} specific`,);
+    if (cfg.queryEnabled !== false) parts.push(`query · ${cfg.count ?? 5}`,);
+    return parts.length ? parts.join(' + ',) : 'No posts configured';
+}
 
 const isValidHeight = (v: string,) => /^\d+(px|vw|vh|%)$/.test(v,);
 
@@ -183,6 +195,27 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
         };
         setItems(prev => [...prev, newItem,]);
         markDirty();
+    };
+
+    const addPostsItem = () => {
+        const newItem: HeroItem = {
+            id: genId(),
+            type: 'posts',
+            posts: { queryEnabled: true, count: 5, showEmptyMessage: true, pinnedPostIds: [], },
+            order: items().length,
+        };
+        setItems(prev => [...prev, newItem,]);
+        // Open its settings immediately so the query options are visible.
+        setOpenSettings(prev => {
+            const next = new Set(prev,);
+            next.add(newItem.id,);
+            return next;
+        },);
+        markDirty();
+    };
+
+    const updatePosts = (id: string, patch: Partial<HeroPostsConfig>,) => {
+        updateItem(id, it => ({ ...it, posts: { ...(it.posts ?? {}), ...patch, }, }),);
     };
 
     // ─── Options update ───
@@ -501,7 +534,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                         }
                     >
                         <div class="hero-preview__container">
-                            <HeroCarousel
+                            <ResolvedHeroCarousel
                                 items={items()}
                                 options={options()}
                                 previewMode={true}
@@ -640,28 +673,42 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 <div
                                     class={`hero-item-card ${draggingId() === item.id ? 'hero-item-card--dragging' : ''}`}
                                 >
-                                    {/* Media preview */}
-                                    <div class="hero-item-card__preview">
-                                        <Show
-                                            when={item.mediaType === 'video'}
-                                            fallback={
-                                                <img
-                                                    src={item.mediaThumbnailUrl || item.mediaUrl}
-                                                    alt=""
-                                                    style={{ 'object-fit': item.objectFit || 'cover', }}
-                                                />
-                                            }
-                                        >
-                                            <video
-                                                src={item.mediaUrl}
-                                                poster={item.mediaThumbnailUrl}
-                                                controls
-                                                muted
-                                                playsinline
-                                                style={{ 'object-fit': item.objectFit || 'cover', }}
-                                            />
-                                        </Show>
-                                    </div>
+                                    {/* Preview — media thumbnail, or a labelled
+                                        card for a Posts item (which expands into
+                                        one slide per resolved post at render). */}
+                                    <Show
+                                        when={item.type === 'posts'}
+                                        fallback={
+                                            <div class="hero-item-card__preview">
+                                                <Show
+                                                    when={item.mediaType === 'video'}
+                                                    fallback={
+                                                        <img
+                                                            src={item.mediaThumbnailUrl || item.mediaUrl}
+                                                            alt=""
+                                                            style={{ 'object-fit': item.objectFit || 'cover', }}
+                                                        />
+                                                    }
+                                                >
+                                                    <video
+                                                        src={item.mediaUrl}
+                                                        poster={item.mediaThumbnailUrl}
+                                                        controls
+                                                        muted
+                                                        playsinline
+                                                        style={{ 'object-fit': item.objectFit || 'cover', }}
+                                                    />
+                                                </Show>
+                                            </div>
+                                        }
+                                    >
+                                        <div class="hero-item-card__preview hero-item-card__preview--posts">
+                                            <span class="hero-item-card__posts-badge">Posts</span>
+                                            <span class="hero-item-card__posts-summary">
+                                                {postsSummary(item,)}
+                                            </span>
+                                        </div>
+                                    </Show>
 
                                     {/* Collapsible Settings */}
                                     <button
@@ -676,50 +723,64 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
                                     <Show when={isSettingsOpen(item.id,)}>
                                         <div class="hero-item-card__body">
-                                            {/* Object fit */}
-                                            <div class="hero-item-card__field">
-                                                <label class="hero-item-card__field-label">Object Fit</label>
-                                                <select
-                                                    class="input input--sm input--select"
-                                                    value={item.objectFit || 'cover'}
-                                                    onChange={(e,) => {
-                                                        updateItem(item.id, it => ({
-                                                            ...it,
-                                                            objectFit: e.currentTarget.value as HeroItem['objectFit'],
-                                                        }),);
-                                                    }}
-                                                >
-                                                    <For each={OBJECT_FIT_OPTIONS}>
-                                                        {(opt,) => <option value={opt}>{opt}</option>}
-                                                    </For>
-                                                </select>
-                                            </div>
+                                            <Show
+                                                when={item.type === 'posts'}
+                                                fallback={
+                                                    <>
+                                                        {/* Object fit */}
+                                                        <div class="hero-item-card__field">
+                                                            <label class="hero-item-card__field-label">Object Fit</label>
+                                                            <select
+                                                                class="input input--sm input--select"
+                                                                value={item.objectFit || 'cover'}
+                                                                onChange={(e,) => {
+                                                                    updateItem(item.id, it => ({
+                                                                        ...it,
+                                                                        objectFit: e.currentTarget.value as HeroItem['objectFit'],
+                                                                    }),);
+                                                                }}
+                                                            >
+                                                                <For each={OBJECT_FIT_OPTIONS}>
+                                                                    {(opt,) => <option value={opt}>{opt}</option>}
+                                                                </For>
+                                                            </select>
+                                                        </div>
 
-                                            {/* Autoplay (video only) */}
-                                            <Show when={item.mediaType === 'video'}>
-                                                <label class="hero-item-card__toggle">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={item.autoplay ?? true}
-                                                        onChange={(e,) => {
-                                                            updateItem(item.id, it => ({
-                                                                ...it,
-                                                                autoplay: e.currentTarget.checked,
-                                                            }),);
-                                                        }}
-                                                    />
-                                                    <span>Autoplay</span>
-                                                </label>
+                                                        {/* Autoplay (video only) */}
+                                                        <Show when={item.mediaType === 'video'}>
+                                                            <label class="hero-item-card__toggle">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={item.autoplay ?? true}
+                                                                    onChange={(e,) => {
+                                                                        updateItem(item.id, it => ({
+                                                                            ...it,
+                                                                            autoplay: e.currentTarget.checked,
+                                                                        }),);
+                                                                    }}
+                                                                />
+                                                                <span>Autoplay</span>
+                                                            </label>
+                                                        </Show>
+
+                                                        {/* Header */}
+                                                        {renderTextSection(item, 'header', 'Header',)}
+
+                                                        {/* Subheader */}
+                                                        {renderTextSection(item, 'subheader', 'Subheader',)}
+
+                                                        {/* Action */}
+                                                        {renderActionSection(item,)}
+                                                    </>
+                                                }
+                                            >
+                                                {/* Posts item: query settings. Each
+                                                    resolved post renders as its own slide. */}
+                                                <PostQueryEditor
+                                                    value={item.posts ?? {}}
+                                                    onChange={(patch,) => updatePosts(item.id, patch,)}
+                                                />
                                             </Show>
-
-                                            {/* Header */}
-                                            {renderTextSection(item, 'header', 'Header',)}
-
-                                            {/* Subheader */}
-                                            {renderTextSection(item, 'subheader', 'Subheader',)}
-
-                                            {/* Action */}
-                                            {renderActionSection(item,)}
                                         </div>
                                     </Show>
 
@@ -788,6 +849,12 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 onClick={() => setShowMediaUpload(true,)}
                             >
                                 Upload New Media
+                            </button>
+                            <button
+                                class="btn btn--sm btn--outline"
+                                onClick={addPostsItem}
+                            >
+                                Select Posts
                             </button>
                         </div>
                     </div>

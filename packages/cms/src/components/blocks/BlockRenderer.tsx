@@ -5,7 +5,7 @@ import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import FormRenderer from '../forms/FormRenderer';
-import HeroCarousel from './HeroCarousel';
+import ResolvedHeroCarousel from './ResolvedHeroCarousel';
 import PostListRenderer, { type PostListSettings, } from './posts/PostListRenderer';
 import SocialEmbed from './social/SocialEmbed';
 import './BlockRenderer.scss';
@@ -753,7 +753,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
 
     return (
         <Show when={items().length > 0} fallback={<div style={{ padding: '2rem', color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', }}>No carousel items</div>}>
-            <HeroCarousel
+            <ResolvedHeroCarousel
                 items={items()}
                 options={options()}
                 gutterWidth={appearance()?.gutterWidth}

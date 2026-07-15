@@ -112,6 +112,40 @@
     }
   }
 
+  // Posts item: no media thumbnail — a labelled placeholder card. Uses
+  // the same 16:9 box (padding-top on &__preview) with an absolutely
+  // positioned centered stack.
+  &__preview--posts {
+    background: linear-gradient(135deg, #2a2a4a, #1a1a2e);
+    display: block;
+
+    .hero-item-card__posts-badge,
+    .hero-item-card__posts-summary {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+    }
+  }
+
+  &__posts-badge {
+    top: 50%;
+    transform: translateY(-100%);
+    font-size: $font-size-sm;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  &__posts-summary {
+    top: 50%;
+    margin-top: 4px;
+    font-size: $font-size-xs;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0 $spacing-sm;
+  }
+
   // Collapsible settings toggle
   &__settings-toggle {
     display: flex;
