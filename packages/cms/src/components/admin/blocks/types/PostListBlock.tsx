@@ -14,7 +14,7 @@
  */
 import { Component, For, JSX, Show, } from 'solid-js';
 import { FormCheck, FormField, FormSection, } from '../../forms';
-import { PostQuerySection, SpecificPostsField, } from '../PostQueryControls';
+import { PostFieldsSection, PostQuerySection, SpecificPostsField, } from '../PostQueryControls';
 import './PostListBlock.scss';
 
 interface PostListBlockProps {
@@ -102,32 +102,11 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
                 />
             </Show>
 
-            <FormSection title="Show fields" tight padded inlineItems>
-                <FormCheck
-                    label="Description / Excerpt"
-                    plain
-                    checked={get('showExcerpt', true,) === true}
-                    onChange={(next,) => patch({ showExcerpt: next, },)}
-                />
-                <FormCheck
-                    label="Date created"
-                    plain
-                    checked={get('showDateCreated', true,) === true}
-                    onChange={(next,) => patch({ showDateCreated: next, },)}
-                />
-                <FormCheck
-                    label="Date updated"
-                    plain
-                    checked={get('showDateUpdated', false,) === true}
-                    onChange={(next,) => patch({ showDateUpdated: next, },)}
-                />
-                <FormCheck
-                    label="Tags"
-                    plain
-                    checked={get('showTags', true,) === true}
-                    onChange={(next,) => patch({ showTags: next, },)}
-                />
-            </FormSection>
+            <PostFieldsSection
+                value={props.data}
+                onChange={(p,) => patch(p,)}
+                defaults={{ showExcerpt: true, showDateCreated: true, showDateUpdated: false, showTags: true, }}
+            />
 
             {/* ─── Posts query (shared) ─── */}
             <PostQuerySection

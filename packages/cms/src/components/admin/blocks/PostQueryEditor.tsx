@@ -7,7 +7,7 @@
  */
 import type { HeroPostsConfig, } from '@sitesurge/types';
 import { Component, } from 'solid-js';
-import { PostQuerySection, SpecificPostsField, } from './PostQueryControls';
+import { PostFieldsSection, PostQuerySection, SpecificPostsField, } from './PostQueryControls';
 
 interface PostQueryEditorProps {
     value: HeroPostsConfig;
@@ -21,6 +21,10 @@ const PostQueryEditor: Component<PostQueryEditorProps> = (props,) => {
                 value={props.value.pinnedPostIds ?? []}
                 onChange={(ids,) => props.onChange({ pinnedPostIds: ids, },)}
                 tooltip="Hand-pick posts to render first, in the order shown. Drag to reorder, click × to remove. Specific posts render before any query results below."
+            />
+            <PostFieldsSection
+                value={props.value}
+                onChange={props.onChange}
             />
             <PostQuerySection
                 value={props.value}

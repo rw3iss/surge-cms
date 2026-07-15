@@ -77,6 +77,43 @@
     line-height: $line-height-tight;
   }
 
+  // ─── Posts-derived show-fields (excerpt / dates / tags) ───
+  &__excerpt {
+    margin: clamp(8px, 2vh, 20px) 0 0;
+    max-width: 60ch;
+    color: #fff;
+    font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+    line-height: $line-height-base;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-xs $spacing-md;
+    margin-top: $spacing-sm;
+    font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  &__meta-date--updated {
+    opacity: 0.8;
+    font-style: italic;
+  }
+
+  &__tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+
+  &__tag {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
   // ─── Action button sizes (editable) ───
   // Small (default/current)
   &__action-btn {

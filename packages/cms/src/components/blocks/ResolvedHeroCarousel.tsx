@@ -17,7 +17,7 @@
  * Media items pass through untouched. When a carousel has NO posts
  * items, resolution is skipped entirely (no async, no flicker).
  */
-import type { HeroCarouselOptions, HeroItem, HeroPostsConfig, } from '@sitesurge/types';
+import type { HeroCarouselOptions, HeroItem, HeroPostMeta, HeroPostsConfig, } from '@sitesurge/types';
 import { Component, createMemo, createResource, } from 'solid-js';
 import { fetchPostList, type PostWithBlocks, } from '../../services/postsService';
 import HeroCarousel from './HeroCarousel';
@@ -30,8 +30,21 @@ export interface ResolvedHeroCarouselProps {
     gutterWidth?: string;
 }
 
+/** Build the show-fields overlay metadata for a slide (only the fields
+ *  the operator enabled; `undefined` when none apply). */
+function buildPostMeta(cfg: HeroPostsConfig, post: PostWithBlocks,): HeroPostMeta | undefined {
+    const meta: HeroPostMeta = {};
+    if (cfg.showExcerpt && post.excerpt) meta.excerpt = post.excerpt;
+    if (cfg.showDateCreated && (post.publishedAt || post.createdAt)) {
+        meta.dateCreated = String(post.publishedAt || post.createdAt,);
+    }
+    if (cfg.showDateUpdated && post.updatedAt) meta.dateUpdated = String(post.updatedAt,);
+    if (cfg.showTags && post.tags?.length) meta.tags = post.tags;
+    return (meta.excerpt || meta.dateCreated || meta.dateUpdated || meta.tags) ? meta : undefined;
+}
+
 /** Map a resolved post to a media-style hero slide. */
-function postToSlide(carouselItemId: string, post: PostWithBlocks, order: number,): HeroItem {
+function postToSlide(cfg: HeroPostsConfig, post: PostWithBlocks, order: number, carouselItemId: string,): HeroItem {
     const hasImage = !!post.featuredImage;
     return {
         id: `${carouselItemId}:${(post as any).id}`,
@@ -44,6 +57,7 @@ function postToSlide(carouselItemId: string, post: PostWithBlocks, order: number
         mediaThumbnailUrl: hasImage ? post.featuredImage! : undefined,
         objectFit: 'cover',
         header: { text: post.title, size: 'h1', color: '#ffffff', },
+        postMeta: buildPostMeta(cfg, post,),
         action: post.slug
             ? { label: 'Read More', url: `/posts/${post.slug}`, openInNewTab: false, size: 'small', }
             : undefined,
@@ -83,7 +97,7 @@ async function resolvePostsItem(item: HeroItem,): Promise<HeroItem[]> {
     const combined = [...pinned, ...query.filter(p => !seen.has((p as any).id as string,)),];
 
     if (combined.length === 0) return showEmpty ? [emptySlide(item.id,),] : [];
-    return combined.map((p, i,) => postToSlide(item.id, p, i,));
+    return combined.map((p, i,) => postToSlide(cfg, p, i, item.id,));
 }
 
 const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {

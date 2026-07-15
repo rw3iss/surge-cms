@@ -26,14 +26,29 @@ export interface HeroItem {
     header?: HeroTextConfig;
     subheader?: HeroTextConfig;
     action?: HeroActionConfig;
+    /** Resolved post metadata to render on a posts-derived slide
+     *  (excerpt / date(s) / tags), gated by the item's show-field flags. */
+    postMeta?: HeroPostMeta;
     order: number;
+}
+
+/** Post fields rendered under the title on a posts-carousel slide. Only
+ *  the fields enabled via HeroPostsConfig are populated. */
+export interface HeroPostMeta {
+    excerpt?: string;
+    /** ISO date string (published/created). */
+    dateCreated?: string;
+    /** ISO date string (last updated). */
+    dateUpdated?: string;
+    tags?: string[];
 }
 
 /**
  * Query spec for a 'posts' carousel item. Mirrors the subset of the
- * `post_list` block settings relevant to a carousel (no brevity /
- * field toggles — a carousel slide just uses the post's banner image
- * and title). Specific posts render first, then query results.
+ * `post_list` block settings relevant to a carousel. Specific posts
+ * render first, then query results; each resolved post becomes a slide
+ * whose backdrop is the post's banner image and whose overlay shows the
+ * title plus any enabled show-fields (excerpt / dates / tags).
  */
 export interface HeroPostsConfig {
     /** Hand-picked post IDs, rendered first, in order. */
@@ -51,6 +66,11 @@ export interface HeroPostsConfig {
     /** When true (default), render a single "no posts" slide if the
      *  item resolves to zero posts; when false, render nothing. */
     showEmptyMessage?: boolean;
+    // ─── Show fields on each slide (all default off — title only) ───
+    showExcerpt?: boolean;
+    showDateCreated?: boolean;
+    showDateUpdated?: boolean;
+    showTags?: boolean;
 }
 
 export interface HeroTextConfig {

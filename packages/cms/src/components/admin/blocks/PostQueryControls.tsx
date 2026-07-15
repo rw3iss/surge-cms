@@ -279,6 +279,59 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
     );
 };
 
+// ─── Show-fields section (which post fields render) ────────────────
+
+export interface PostFieldsValue {
+    showExcerpt?: boolean;
+    showDateCreated?: boolean;
+    showDateUpdated?: boolean;
+    showTags?: boolean;
+}
+
+export interface PostFieldsSectionProps {
+    value: PostFieldsValue;
+    onChange: (patch: Partial<PostFieldsValue>,) => void;
+    /** Per-field default when the value is unset. Consumers differ:
+     *  the post_list block defaults most on; the carousel defaults all
+     *  off (title-only slides). */
+    defaults?: PostFieldsValue;
+}
+
+export const PostFieldsSection: Component<PostFieldsSectionProps> = (props,) => {
+    const checked = (key: keyof PostFieldsValue,) => {
+        const v = props.value[key];
+        return (v ?? props.defaults?.[key] ?? false) === true;
+    };
+    return (
+        <FormSection title="Show fields" tight padded inlineItems>
+            <FormCheck
+                label="Description / Excerpt"
+                plain
+                checked={checked('showExcerpt',)}
+                onChange={(next,) => props.onChange({ showExcerpt: next, },)}
+            />
+            <FormCheck
+                label="Date created"
+                plain
+                checked={checked('showDateCreated',)}
+                onChange={(next,) => props.onChange({ showDateCreated: next, },)}
+            />
+            <FormCheck
+                label="Date updated"
+                plain
+                checked={checked('showDateUpdated',)}
+                onChange={(next,) => props.onChange({ showDateUpdated: next, },)}
+            />
+            <FormCheck
+                label="Tags"
+                plain
+                checked={checked('showTags',)}
+                onChange={(next,) => props.onChange({ showTags: next, },)}
+            />
+        </FormSection>
+    );
+};
+
 // ─── Query section (Enable toggle + dynamic query fields) ──────────
 
 export interface PostQueryValue {

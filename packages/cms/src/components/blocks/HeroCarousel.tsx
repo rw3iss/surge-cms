@@ -12,6 +12,13 @@ export interface HeroCarouselProps {
 
 const DEFAULT_HEIGHT = '50vh';
 
+/** Format a post's ISO date for the slide meta row. */
+function formatMetaDate(iso: string,): string {
+    const d = new Date(iso,);
+    if (Number.isNaN(d.getTime(),)) return '';
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', },);
+}
+
 /** Map heading size to a CSS custom property value (rem) so we control sizing directly */
 const HEADER_SIZES: Record<string, string> = {
     h1: '5.5rem', // 88px
@@ -235,6 +242,36 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                             >
                                                 {item.subheader!.text}
                                             </HeadingText>
+                                        </Show>
+                                        {/* Posts-derived show-fields: excerpt, then a
+                                            smaller meta row (dates + tags). */}
+                                        <Show when={item.postMeta?.excerpt}>
+                                            <p class="hero-carousel__excerpt">{item.postMeta!.excerpt}</p>
+                                        </Show>
+                                        <Show
+                                            when={item.postMeta?.dateCreated
+                                                || item.postMeta?.dateUpdated
+                                                || item.postMeta?.tags?.length}
+                                        >
+                                            <div class="hero-carousel__meta">
+                                                <Show when={item.postMeta!.dateCreated}>
+                                                    <span class="hero-carousel__meta-date">
+                                                        {formatMetaDate(item.postMeta!.dateCreated!,)}
+                                                    </span>
+                                                </Show>
+                                                <Show when={item.postMeta!.dateUpdated}>
+                                                    <span class="hero-carousel__meta-date hero-carousel__meta-date--updated">
+                                                        Updated {formatMetaDate(item.postMeta!.dateUpdated!,)}
+                                                    </span>
+                                                </Show>
+                                                <Show when={item.postMeta!.tags?.length}>
+                                                    <span class="hero-carousel__tags">
+                                                        <For each={item.postMeta!.tags}>
+                                                            {(t,) => <span class="hero-carousel__tag">#{t}</span>}
+                                                        </For>
+                                                    </span>
+                                                </Show>
+                                            </div>
                                         </Show>
                                         <Show when={item.action?.label}>
                                             <a
