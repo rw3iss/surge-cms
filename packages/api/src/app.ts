@@ -56,6 +56,14 @@ export function createApp(mode: AppMode = 'running',): Express {
     app.use(
         helmet({
             crossOriginResourcePolicy: { policy: 'cross-origin', },
+            // Helmet defaults COOP to `same-origin`, which severs `window.opener`
+            // for any cross-origin popup the page opens. That breaks OAuth-popup
+            // sign-in flows for embedded third-party widgets (e.g. the PageLoop
+            // plugin): its cross-origin callback page can't postMessage the token
+            // back to the opener, so the popup closes and the host never signs in.
+            // `same-origin-allow-popups` keeps the opener reference alive for
+            // popups this page opens while still isolating us as a popup victim.
+            crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups', },
             // CSP is handled separately (pluginAwareCsp) so enabled plugins can
             // extend connect-src/etc. with the origins their widgets need.
             contentSecurityPolicy: false,

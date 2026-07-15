@@ -1,5 +1,12 @@
 # @sitesurge/server
 
+## 0.1.11
+
+### Patch Changes
+
+- Set COOP to `same-origin-allow-popups` so cross-origin OAuth-popup sign-in flows for embedded third-party widgets (e.g. the PageLoop plugin) can postMessage the session token back to the opener. Helmet's default `same-origin` severed `window.opener`, silently breaking popup sign-in.
+  - @sitesurge/admin@0.1.11
+
 ## 0.1.10
 
 ### Patch Changes
