@@ -1,6 +1,6 @@
 {
   "name": "@sitesurge/server",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "license": "GPL-2.0-only",
   "main": "dist/lib.js",
   "scripts": {

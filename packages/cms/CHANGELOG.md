@@ -1,5 +1,11 @@
 # @sitesurge/admin
 
+## 0.1.6
+
+### Patch Changes
+
+- PWA: serve the SPA shell NetworkFirst instead of from the precache navigation fallback, so server response headers (notably a plugin-extended CSP) always reach the browser. Fixes plugin widgets staying CSP-blocked on cached clients.
+
 ## 0.1.5
 
 ## 0.1.4
