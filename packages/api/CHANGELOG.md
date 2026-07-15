@@ -1,5 +1,12 @@
 # @sitesurge/server
 
+## 0.1.8
+
+### Patch Changes
+
+- Serve the HTML shell with Cache-Control: no-store so the per-plugin CSP header is never served stale from cache (a plugin widget could otherwise stay blocked on repeat visits). Hashed JS/CSS assets remain cacheable.
+  - @sitesurge/admin@0.1.8
+
 ## 0.1.7
 
 ### Patch Changes

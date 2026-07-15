@@ -1,6 +1,6 @@
 {
   "name": "@sitesurge/cli",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "SiteSurge CLI — interactive/non-interactive setup, migrate, seed, doctor, and start for a SiteSurge instance.",
   "license": "GPL-2.0-only",
   "bin": {
