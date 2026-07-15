@@ -35,6 +35,7 @@ export interface HeroItem {
 /** Post fields rendered under the title on a posts-carousel slide. Only
  *  the fields enabled via HeroPostsConfig are populated. */
 export interface HeroPostMeta {
+    author?: string;
     excerpt?: string;
     /** ISO date string (published/created). */
     dateCreated?: string;
@@ -67,6 +68,7 @@ export interface HeroPostsConfig {
      *  item resolves to zero posts; when false, render nothing. */
     showEmptyMessage?: boolean;
     // ─── Show fields on each slide (all default off — title only) ───
+    showAuthor?: boolean;
     showExcerpt?: boolean;
     showDateCreated?: boolean;
     showDateUpdated?: boolean;

@@ -34,13 +34,14 @@ export interface ResolvedHeroCarouselProps {
  *  the operator enabled; `undefined` when none apply). */
 function buildPostMeta(cfg: HeroPostsConfig, post: PostWithBlocks,): HeroPostMeta | undefined {
     const meta: HeroPostMeta = {};
+    if (cfg.showAuthor && post.author) meta.author = post.author;
     if (cfg.showExcerpt && post.excerpt) meta.excerpt = post.excerpt;
     if (cfg.showDateCreated && (post.publishedAt || post.createdAt)) {
         meta.dateCreated = String(post.publishedAt || post.createdAt,);
     }
     if (cfg.showDateUpdated && post.updatedAt) meta.dateUpdated = String(post.updatedAt,);
     if (cfg.showTags && post.tags?.length) meta.tags = post.tags;
-    return (meta.excerpt || meta.dateCreated || meta.dateUpdated || meta.tags) ? meta : undefined;
+    return (meta.author || meta.excerpt || meta.dateCreated || meta.dateUpdated || meta.tags) ? meta : undefined;
 }
 
 /** Map a resolved post to a media-style hero slide. */

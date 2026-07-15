@@ -61,6 +61,7 @@ export interface PostListSettings {
     shortMaxHeight?: string;
     allowExpand?: boolean;
     showExcerpt?: boolean;
+    showAuthor?: boolean;
     showDateCreated?: boolean;
     showDateUpdated?: boolean;
     showTags?: boolean;
@@ -82,6 +83,7 @@ interface ResolvedSettings {
     shortMaxHeight: string;
     allowExpand: boolean;
     showExcerpt: boolean;
+    showAuthor: boolean;
     showDateCreated: boolean;
     showDateUpdated: boolean;
     showTags: boolean;
@@ -103,6 +105,7 @@ function withDefaults(s: PostListSettings,): ResolvedSettings {
         shortMaxHeight: s.shortMaxHeight ?? '400px',
         allowExpand: s.allowExpand ?? true,
         showExcerpt: s.showExcerpt ?? true,
+        showAuthor: s.showAuthor ?? false,
         showDateCreated: s.showDateCreated ?? true,
         showDateUpdated: s.showDateUpdated ?? false,
         showTags: s.showTags ?? true,
@@ -326,9 +329,15 @@ const PostListItem: Component<PostListItemProps> = (props,) => {
                     class={`post-list-item__body ${isClipped() ? 'post-list-item__body--clipped' : ''}`}
                     style={{ '--post-short-max-height': maxHeight(), }}
                 >
-                    {/* ─── Meta row: date(s) + tags ─── */}
-                    <Show when={props.settings.showDateCreated || props.settings.showDateUpdated || (props.settings.showTags && props.post.tags?.length)}>
+                    {/* ─── Meta row: author + date(s), below the title,
+                        above the excerpt ─── */}
+                    <Show when={(props.settings.showAuthor && props.post.author) || props.settings.showDateCreated || props.settings.showDateUpdated}>
                         <div class="post-list-item__meta">
+                            <Show when={props.settings.showAuthor && props.post.author}>
+                                <span class="post-list-item__author" title="Author">
+                                    {props.post.author}
+                                </span>
+                            </Show>
                             <Show when={props.settings.showDateCreated}>
                                 <span class="post-list-item__date" title="Published">
                                     {formatDate(props.post.publishedAt || props.post.createdAt,)}
@@ -337,13 +346,6 @@ const PostListItem: Component<PostListItemProps> = (props,) => {
                             <Show when={props.settings.showDateUpdated && props.post.updatedAt}>
                                 <span class="post-list-item__date post-list-item__date--updated" title="Last updated">
                                     Updated {formatDate(props.post.updatedAt,)}
-                                </span>
-                            </Show>
-                            <Show when={props.settings.showTags && props.post.tags?.length}>
-                                <span class="post-list-item__tags">
-                                    <For each={props.post.tags}>
-                                        {(t,) => <span class="post-list-item__tag">#{t}</span>}
-                                    </For>
                                 </span>
                             </Show>
                         </div>
@@ -390,6 +392,15 @@ const PostListItem: Component<PostListItemProps> = (props,) => {
                                     }}
                                 </For>
                             </Show>
+                        </div>
+                    </Show>
+
+                    {/* ─── Tags (below the content, smaller) ─── */}
+                    <Show when={props.settings.showTags && props.post.tags?.length}>
+                        <div class="post-list-item__tags">
+                            <For each={props.post.tags}>
+                                {(t,) => <span class="post-list-item__tag">#{t}</span>}
+                            </For>
                         </div>
                     </Show>
                 </div>

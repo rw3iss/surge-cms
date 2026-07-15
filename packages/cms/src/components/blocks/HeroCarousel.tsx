@@ -243,17 +243,18 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                                 {item.subheader!.text}
                                             </HeadingText>
                                         </Show>
-                                        {/* Posts-derived show-fields: excerpt, then a
-                                            smaller meta row (dates + tags). */}
-                                        <Show when={item.postMeta?.excerpt}>
-                                            <p class="hero-carousel__excerpt">{item.postMeta!.excerpt}</p>
-                                        </Show>
+                                        {/* Posts show-fields. Meta line (author +
+                                            date(s)) sits directly below the title,
+                                            above the excerpt; tags go below, smaller. */}
                                         <Show
-                                            when={item.postMeta?.dateCreated
-                                                || item.postMeta?.dateUpdated
-                                                || item.postMeta?.tags?.length}
+                                            when={item.postMeta?.author
+                                                || item.postMeta?.dateCreated
+                                                || item.postMeta?.dateUpdated}
                                         >
                                             <div class="hero-carousel__meta">
+                                                <Show when={item.postMeta!.author}>
+                                                    <span class="hero-carousel__meta-author">{item.postMeta!.author}</span>
+                                                </Show>
                                                 <Show when={item.postMeta!.dateCreated}>
                                                     <span class="hero-carousel__meta-date">
                                                         {formatMetaDate(item.postMeta!.dateCreated!,)}
@@ -264,13 +265,16 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                                         Updated {formatMetaDate(item.postMeta!.dateUpdated!,)}
                                                     </span>
                                                 </Show>
-                                                <Show when={item.postMeta!.tags?.length}>
-                                                    <span class="hero-carousel__tags">
-                                                        <For each={item.postMeta!.tags}>
-                                                            {(t,) => <span class="hero-carousel__tag">#{t}</span>}
-                                                        </For>
-                                                    </span>
-                                                </Show>
+                                            </div>
+                                        </Show>
+                                        <Show when={item.postMeta?.excerpt}>
+                                            <p class="hero-carousel__excerpt">{item.postMeta!.excerpt}</p>
+                                        </Show>
+                                        <Show when={item.postMeta?.tags?.length}>
+                                            <div class="hero-carousel__tags">
+                                                <For each={item.postMeta!.tags}>
+                                                    {(t,) => <span class="hero-carousel__tag">#{t}</span>}
+                                                </For>
                                             </div>
                                         </Show>
                                         <Show when={item.action?.label}>

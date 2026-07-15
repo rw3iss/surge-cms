@@ -77,16 +77,8 @@
     line-height: $line-height-tight;
   }
 
-  // ─── Posts-derived show-fields (excerpt / dates / tags) ───
-  &__excerpt {
-    margin: clamp(8px, 2vh, 20px) 0 0;
-    max-width: 60ch;
-    color: #fff;
-    font-size: clamp(0.95rem, 1.8vw, 1.25rem);
-    line-height: $line-height-base;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
-  }
-
+  // ─── Posts-derived show-fields (meta / excerpt / tags) ───
+  // Meta line (author + date(s)) sits directly below the title.
   &__meta {
     display: flex;
     flex-wrap: wrap;
@@ -99,19 +91,48 @@
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   }
 
+  &__meta-author {
+    font-weight: 600;
+    color: #fff;
+  }
+
   &__meta-date--updated {
     opacity: 0.8;
     font-style: italic;
   }
 
+  &__excerpt {
+    margin: clamp(8px, 2vh, 20px) 0 0;
+    max-width: 60ch;
+    color: #fff;
+    font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+    line-height: $line-height-base;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+    // Reliable multi-line abbreviation: clamp to N lines with an
+    // ellipsis so a long excerpt can't overrun the slide. A precise
+    // "fit the exact carousel height" is font/wrap-dependent and not
+    // reliable across screens; a line cap is the robust approach. The
+    // line count is tunable per carousel via --hero-excerpt-lines.
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--hero-excerpt-lines, 4);
+    line-clamp: var(--hero-excerpt-lines, 4);
+    overflow: hidden;
+  }
+
+  // Tags: a separate, smaller row below the excerpt.
   &__tags {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: $spacing-xs;
+    margin-top: $spacing-sm;
+    font-size: clamp(0.7rem, 1.1vw, 0.8rem);
   }
 
   &__tag {
     color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   }
 
   // ─── Action button sizes (editable) ───

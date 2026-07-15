@@ -283,6 +283,7 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
 
 export interface PostFieldsValue {
     showExcerpt?: boolean;
+    showAuthor?: boolean;
     showDateCreated?: boolean;
     showDateUpdated?: boolean;
     showTags?: boolean;
@@ -309,6 +310,12 @@ export const PostFieldsSection: Component<PostFieldsSectionProps> = (props,) => 
                 plain
                 checked={checked('showExcerpt',)}
                 onChange={(next,) => props.onChange({ showExcerpt: next, },)}
+            />
+            <FormCheck
+                label="Author"
+                plain
+                checked={checked('showAuthor',)}
+                onChange={(next,) => props.onChange({ showAuthor: next, },)}
             />
             <FormCheck
                 label="Date created"

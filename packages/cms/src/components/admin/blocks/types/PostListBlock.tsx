@@ -105,7 +105,7 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
             <PostFieldsSection
                 value={props.data}
                 onChange={(p,) => patch(p,)}
-                defaults={{ showExcerpt: true, showDateCreated: true, showDateUpdated: false, showTags: true, }}
+                defaults={{ showExcerpt: true, showAuthor: false, showDateCreated: true, showDateUpdated: false, showTags: true, }}
             />
 
             {/* ─── Posts query (shared) ─── */}

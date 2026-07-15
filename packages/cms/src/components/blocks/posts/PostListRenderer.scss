@@ -55,14 +55,22 @@
     color: $text-light;
   }
 
+  &__author {
+    font-weight: 600;
+    color: $text-color;
+  }
+
   &__date--updated {
     opacity: 0.8;
   }
 
+  // Tags now render below the content (a separate row), not inline
+  // with the date meta above the excerpt.
   &__tags {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    margin-top: $spacing-sm;
   }
 
   &__tag {
