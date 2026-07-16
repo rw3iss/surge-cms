@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { type BlockType, getBlockLabel, } from '../../../config/blockTypes';
 import AddBlockMenu from './AddBlockMenu';
 import BlockPreview from './BlockPreview';
@@ -49,6 +49,8 @@ interface ContentBlockProps {
     onMoveDown: (id: string,) => void;
     onMoveToTop?: (id: string,) => void;
     onMoveToBottom?: (id: string,) => void;
+    /** Insert a new empty block immediately before this one (same parent). */
+    onInsertBefore?: (id: string,) => void;
     onDragStart: (e: PointerEvent, id: string,) => void;
     onToggleCollapse?: (id: string,) => void;
     /** Add a child block to a parent (group / group_item). Used by the
@@ -73,6 +75,41 @@ interface ContentBlockProps {
 const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const [showRemoveConfirm, setShowRemoveConfirm,] = createSignal(false,);
     const [showOptionsMenu, setShowOptionsMenu,] = createSignal(false,);
+
+    // Options ('…') menu dismissal:
+    //  1. Click anywhere outside the options-wrap closes it.
+    //  2. Hovering off the menu for >500ms closes it; moving back on
+    //     (which re-enters the wrap) cancels the pending close.
+    let optionsWrapRef: HTMLDivElement | undefined;
+    let hoverCloseTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const cancelHoverClose = () => {
+        if (hoverCloseTimer) {
+            clearTimeout(hoverCloseTimer,);
+            hoverCloseTimer = undefined;
+        }
+    };
+    const scheduleHoverClose = () => {
+        cancelHoverClose();
+        hoverCloseTimer = setTimeout(() => setShowOptionsMenu(false,), 500,);
+    };
+
+    createEffect(() => {
+        if (!showOptionsMenu()) {
+            cancelHoverClose();
+            return;
+        }
+        const onDocPointerDown = (e: PointerEvent,) => {
+            if (optionsWrapRef && !optionsWrapRef.contains(e.target as Node,)) {
+                setShowOptionsMenu(false,);
+            }
+        };
+        // Defer so the click that opened the menu doesn't immediately close it.
+        document.addEventListener('pointerdown', onDocPointerDown,);
+        onCleanup(() => document.removeEventListener('pointerdown', onDocPointerDown,),);
+    },);
+
+    onCleanup(cancelHoverClose,);
 
     // BlockEditor's reconcile-backed store keeps each block's identity
     // stable across data updates. `<For>` therefore preserves this row
@@ -139,7 +176,12 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 >
                     &#9660;
                 </button>
-                <div class="content-block__options-wrap">
+                <div
+                    class="content-block__options-wrap"
+                    ref={optionsWrapRef}
+                    onMouseEnter={cancelHoverClose}
+                    onMouseLeave={() => { if (showOptionsMenu()) scheduleHoverClose(); }}
+                >
                     <button
                         class="content-block__hover-btn content-block__hover-btn--options"
                         onClick={() => setShowOptionsMenu(!showOptionsMenu(),)}
@@ -175,6 +217,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                                     Move to Bottom
                                 </button>
                             </Show>
+                            <button onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                Insert Block Before
+                            </button>
                             <button
                                 class="content-block__options-danger"
                                 onClick={() => { setShowRemoveConfirm(true,); setShowOptionsMenu(false,); }}
@@ -291,6 +336,7 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                         onMoveDown={props.ownProps.onMoveDown}
                         onMoveToTop={props.ownProps.onMoveToTop}
                         onMoveToBottom={props.ownProps.onMoveToBottom}
+                        onInsertBefore={props.ownProps.onInsertBefore}
                         onDragStart={props.ownProps.onDragStart}
                         onAddChildBlock={props.ownProps.onAddChildBlock}
                         blockTypes={props.ownProps.blockTypes}

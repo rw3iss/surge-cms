@@ -452,6 +452,30 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         props.onBlocksChange(flattenTree(tree,),);
     };
 
+    /** Insert a new empty block immediately before the given one, in the
+     *  same parent list. A blank `rich_text` block is the neutral starting
+     *  point — the operator can edit it or switch its type. */
+    const insertBlockBefore = (id: string,) => {
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found) return;
+        const newBlock: BlockNode = {
+            id: generateBlockId(),
+            type: 'rich_text',
+            parentBlockId: found.node.parentBlockId ?? null,
+            sort_order: 0,
+            data: { ...createBlockDefaultData('rich_text',), },
+            children: [],
+        };
+        found.parent.splice(found.idx, 0, newBlock,);
+        props.onBlocksChange(flattenTree(tree,),);
+        setSelectedBlockId(newBlock.id,);
+        requestAnimationFrame(() => {
+            const el = document.getElementById(newBlock.id,);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
+        },);
+    };
+
     const handleDragStart = (e: PointerEvent, id: string,) => {
         const blockEl = (e.target as HTMLElement).closest('.content-block',) as HTMLElement;
         if (!blockEl) return;
@@ -731,6 +755,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                         onMoveDown={moveBlockDown}
                                         onMoveToTop={moveBlockToTop}
                                         onMoveToBottom={moveBlockToBottom}
+                                        onInsertBefore={insertBlockBefore}
                                         onDragStart={handleDragStart}
                                         onAddChildBlock={addChildBlock}
                                         blockTypes={blockTypes()}
