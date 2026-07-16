@@ -32,6 +32,10 @@ export interface Page {
     /** When true (default), the page renderer applies the site gutter
      *  (left/right padding) to this page. */
     applySiteGutter?: boolean;
+    /** Which Site Header color style this page renders the header in:
+     *  `default` (regular header bg/text) or `alt` (the alternate colors).
+     *  Empty/undefined → `default`. */
+    headerStyle?: 'default' | 'alt';
     createdBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -122,6 +126,10 @@ export interface Post {
     /** When true (default), the post renderer applies the site gutter
      *  (left/right padding) to this post. */
     applySiteGutter?: boolean;
+    /** Which Site Header color style this post renders the header in:
+     *  `default` | `alt`. Empty/undefined → inherit the site's
+     *  `defaultPostHeaderStyle`. */
+    headerStyle?: 'default' | 'alt';
     createdAt: Date;
     updatedAt: Date;
 }

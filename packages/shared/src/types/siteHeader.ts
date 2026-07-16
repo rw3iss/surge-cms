@@ -15,6 +15,10 @@ export interface SiteHeaderItem {
     fontFamily?: string;
     fontSize?: string;
     textColor?: string;
+    /** Text color used when the page/post selects the header's "alt" style.
+     *  Falls back to `textColor` when empty. Only meaningful for
+     *  text-rendering items (text / text_link / button / menu). */
+    textColorAlt?: string;
     width?: string;
     alignment?: string; // 'left' | 'center' | 'right'
     margin?: string;
@@ -27,6 +31,15 @@ export interface SiteHeaderSettings {
     items: SiteHeaderItem[];
     backgroundColor?: string;
     textColor?: string;
+    /** Alternate ("alt"/dark) background used when a page/post selects the
+     *  header's alt style. Falls back to `backgroundColor` when empty. */
+    backgroundColorAlt?: string;
+    /** Alternate ("alt"/dark) text color used when a page/post selects the
+     *  header's alt style. Falls back to `textColor` when empty. */
+    textColorAlt?: string;
+    /** Default header style for post pages (`default` | `alt`). A post can
+     *  override it via its own `headerStyle`. */
+    defaultPostHeaderStyle?: 'default' | 'alt';
     padding?: string;
     margin?: string;
     itemSpacing?: string;

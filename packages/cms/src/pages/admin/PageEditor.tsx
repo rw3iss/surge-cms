@@ -81,6 +81,8 @@ const AdminPageEditor: Component = () => {
      *  and/or the site gutter (left/right). Both default on. */
     const [applyPagePadding, setApplyPagePadding,] = createSignal(true,);
     const [applySiteGutter, setApplySiteGutter,] = createSignal(true,);
+    /** Header color style for this page ('' → 'default'). */
+    const [headerStyle, setHeaderStyle,] = createSignal('',);
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     // Whether this page is the site's homepage. The slug stays a normal
@@ -164,6 +166,7 @@ const AdminPageEditor: Component = () => {
             showTitle: showTitle(),
             applyPagePadding: applyPagePadding(),
             applySiteGutter: applySiteGutter(),
+            headerStyle: headerStyle(),
         }),
         validate: () => {
             if (!title()) return 'Title is required';
@@ -181,6 +184,7 @@ const AdminPageEditor: Component = () => {
                 showTitle: showTitle(),
                 applyPagePadding: applyPagePadding(),
                 applySiteGutter: applySiteGutter(),
+                headerStyle: headerStyle() || undefined,
             };
             let pageId = ctx.id;
             if (ctx.isNew) {
@@ -218,6 +222,7 @@ const AdminPageEditor: Component = () => {
         setShowTitle((p as any).showTitle !== false,);
         setApplyPagePadding((p as any).applyPagePadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
+        setHeaderStyle((p as any).headerStyle || '',);
         setIsHomepage(Boolean((p as any).isHomepage,),);
         const blockList = (p as any).blocks as any[] | undefined;
         if (blockList?.length) {
@@ -342,6 +347,22 @@ const AdminPageEditor: Component = () => {
                                 header="Apply Site Gutter"
                                 content="Apply the site's Gutter (left/right padding) to this page's content. Turn off for a full-bleed page."
                             />
+                        </div>
+                        <div class="form-group">
+                            <label>Header Style</label>
+                            <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', }}>
+                                <select
+                                    value={headerStyle() || 'default'}
+                                    onChange={(e,) => { setHeaderStyle(e.currentTarget.value,); editor.markDirty(); }}
+                                >
+                                    <option value="default">Default</option>
+                                    <option value="alt">Alt</option>
+                                </select>
+                                <Tooltip
+                                    header="Header Style"
+                                    content="Which Site Header colors this page renders. 'Default' uses the regular Site Header background and text color; 'Alt' uses the alternative (alt) styles — handy when the page has its own background behind a floating header."
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

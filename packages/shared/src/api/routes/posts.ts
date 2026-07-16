@@ -138,6 +138,7 @@ export interface PostCreateBody {
     publishedAt?: string;
     applyPostPadding?: boolean;
     applySiteGutter?: boolean;
+    headerStyle?: 'default' | 'alt';
     contentBlocks?: PostCreateContentBlock[];
 }
 

@@ -45,6 +45,7 @@ const postSchema = z.object({
     publishedAt: z.string().datetime().optional(),
     applyPostPadding: z.boolean().optional(),
     applySiteGutter: z.boolean().optional(),
+    headerStyle: z.enum(['default', 'alt',],).optional(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
 },);
 

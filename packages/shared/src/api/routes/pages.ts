@@ -182,6 +182,7 @@ export interface PageCreateBody {
     showTitle?: boolean;
     applyPagePadding?: boolean;
     applySiteGutter?: boolean;
+    headerStyle?: 'default' | 'alt';
     showInNav?: boolean;
     navOrder?: number;
     isPrivate?: boolean;

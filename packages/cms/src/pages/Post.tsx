@@ -1,12 +1,13 @@
 import { useParams, } from '@solidjs/router';
 import { isAdminRole, type ContentAccessLevel, type Post, } from '@sitesurge/types';
 import { ContentLockedError, } from '@sitesurge/client';
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { contentPaddingStyle, } from '../utils/appearanceStyle';
+import { setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
 import { siteLogo, siteName, } from '../stores/siteSettings';
 import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
@@ -61,6 +62,25 @@ const PostPage: Component = () => {
             }
         },
     );
+
+    // Header style for posts: the post's own choice, else the site's
+    // `defaultPostHeaderStyle`. Publish it to the Header via the global signal.
+    const [headerCfg,] = createResource(async () => {
+        try {
+            return await cms.settings.getSiteHeader() as { defaultPostHeaderStyle?: 'default' | 'alt'; } | null;
+        } catch {
+            return null;
+        }
+    },);
+    createEffect(() => {
+        const p = post() as (Post & { headerStyle?: 'default' | 'alt'; }) | null | undefined;
+        const explicit = p?.headerStyle;
+        const fallback = headerCfg()?.defaultPostHeaderStyle === 'alt' ? 'alt' : 'default';
+        setActiveHeaderStyle(
+            explicit === 'alt' ? 'alt' : explicit === 'default' ? 'default' : fallback,
+        );
+    },);
+    onCleanup(() => setActiveHeaderStyle('default',),);
 
     // Left/right gutter + top/bottom post-padding are each opt-in per post
     // (defaults on). Falls back to on/on while the post loads or 404s.

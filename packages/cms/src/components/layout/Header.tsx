@@ -3,6 +3,7 @@ import { isAdminRole, type NavigationItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, onCleanup, onMount, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
+import { activeHeaderStyle, } from '../../stores/headerStyle';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { cartCount, } from '../../stores/shopCart';
@@ -28,6 +29,9 @@ interface SiteHeaderItem {
     /** Font `customId` from the Font manager. Empty/undefined → header default. */
     fontFamily?: string;
     textColor?: string;
+    /** Text color when the active header style is 'alt'. Falls back to
+     *  `textColor`. */
+    textColorAlt?: string;
     width?: string;
     alignment?: string;
     verticalAlignment?: string;
@@ -42,6 +46,12 @@ export interface SiteHeaderSettings {
     items: SiteHeaderItem[];
     backgroundColor?: string;
     textColor?: string;
+    /** Alternate background/text used when a page/post selects the 'alt'
+     *  header style. Each falls back to the regular value when empty. */
+    backgroundColorAlt?: string;
+    textColorAlt?: string;
+    /** Default header style for post pages ('default' | 'alt'). */
+    defaultPostHeaderStyle?: 'default' | 'alt';
     /** Font `customId` applied to the whole header's text. Empty → site font. */
     defaultFont?: string;
     /** Default text size for the whole header (CSS length). Items override it. */
@@ -135,7 +145,12 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
         // container) which in turn beats the site font.
         const ff = fontStack(item().fontFamily,);
         if (ff) s['font-family'] = ff;
-        const tc = colorCssValue(item().textColor, '',);
+        // In the 'alt' header style, prefer the item's alt text color
+        // (falling back to its regular text color when unset).
+        const textColorValue = activeHeaderStyle() === 'alt'
+            ? (item().textColorAlt || item().textColor)
+            : item().textColor;
+        const tc = colorCssValue(textColorValue, '',);
         if (tc) s['color'] = tc;
         if (item().width) s['width'] = item().width!;
         if (item().margin) s['margin'] = item().margin!;
@@ -554,12 +569,21 @@ export const Header: Component<HeaderProps> = (props,) => {
         return cls.join(' ',);
     };
 
+    // Resolve the header's bg/text for the active style — 'alt' uses the
+    // alternate colors (each falling back to the regular one when unset).
+    const resolvedBg = () => activeHeaderStyle() === 'alt'
+        ? (props.headerSettings?.backgroundColorAlt || props.headerSettings?.backgroundColor)
+        : props.headerSettings?.backgroundColor;
+    const resolvedText = () => activeHeaderStyle() === 'alt'
+        ? (props.headerSettings?.textColorAlt || props.headerSettings?.textColor)
+        : props.headerSettings?.textColor;
+
     const headerStyle = () => {
         if (!hasCustomHeader()) return {};
         const s: Record<string, string> = {};
-        const bg = colorCssValue(props.headerSettings?.backgroundColor, '',);
+        const bg = colorCssValue(resolvedBg(), '',);
         if (bg) s['background'] = bg;
-        const tc = colorCssValue(props.headerSettings?.textColor, '',);
+        const tc = colorCssValue(resolvedText(), '',);
         if (tc) s['color'] = tc;
         // Header default font — applies to the whole header's text; per-item
         // `fontFamily` overrides it via the item's own inline style.
@@ -599,9 +623,9 @@ export const Header: Component<HeaderProps> = (props,) => {
     // Background/color for mobile flyout matches the header's configured background
     const flyoutStyle = () => {
         const s: Record<string, string> = {};
-        const bg = colorCssValue(props.headerSettings?.backgroundColor, '',);
+        const bg = colorCssValue(resolvedBg(), '',);
         if (bg) s['background'] = bg;
-        const tc = colorCssValue(props.headerSettings?.textColor, '',);
+        const tc = colorCssValue(resolvedText(), '',);
         if (tc) s['color'] = tc;
         const ff = fontStack(props.headerSettings?.defaultFont,);
         if (ff) s['font-family'] = ff;

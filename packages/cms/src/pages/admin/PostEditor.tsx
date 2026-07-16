@@ -31,7 +31,20 @@ const AdminPostEditor: Component = () => {
      *  and/or the site gutter (left/right). Both default on. */
     const [applyPostPadding, setApplyPostPadding,] = createSignal(true,);
     const [applySiteGutter, setApplySiteGutter,] = createSignal(true,);
+    /** Header color style for this post ('' → inherit the site default). */
+    const [headerStyle, setHeaderStyle,] = createSignal('',);
     const [showImageSelect, setShowImageSelect,] = createSignal(false,);
+
+    // Site default post header style — used as the displayed fallback in the
+    // Header Style dropdown when this post hasn't picked one explicitly.
+    const [siteDefaultPostHeaderStyle,] = createResource(async () => {
+        try {
+            const h = await cms.settings.getSiteHeader() as { defaultPostHeaderStyle?: 'default' | 'alt'; } | null;
+            return h?.defaultPostHeaderStyle === 'alt' ? 'alt' : 'default';
+        } catch {
+            return 'default';
+        }
+    },);
     const [showImageUpload, setShowImageUpload,] = createSignal(false,);
 
     // Staff users (admin / sysadmin / editor) for the Author dropdown.
@@ -60,6 +73,7 @@ const AdminPostEditor: Component = () => {
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
             applySiteGutter: applySiteGutter(),
+            headerStyle: headerStyle(),
         }),
         validate: () => {
             if (!title()) return 'Title is required';
@@ -80,6 +94,7 @@ const AdminPostEditor: Component = () => {
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
                 applySiteGutter: applySiteGutter(),
+                headerStyle: headerStyle() || undefined,
                 contentBlocks: ctx.blocks.map((b, i,) => {
                     // Persist the block's style. The backend reads it from
                     // `data.__styleRef`; resolve the active ref (an explicit
@@ -137,6 +152,7 @@ const AdminPostEditor: Component = () => {
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
             setApplySiteGutter(d.applySiteGutter !== false,);
+            setHeaderStyle(d.headerStyle || '',);
             editor.setBlocks(d.blocks || [],);
         }
     },);
@@ -155,6 +171,7 @@ const AdminPostEditor: Component = () => {
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
+        setHeaderStyle((p as any).headerStyle || '',);
         setPublishAt(p.publishAt ? new Date(p.publishAt,).toISOString().slice(0, 16,) : '',);
         const blockList = (p as any).contentBlocks as any[] | undefined;
         if (blockList?.length) {
@@ -276,6 +293,46 @@ const AdminPostEditor: Component = () => {
                             Used as the top &ldquo;banner image&rdquo; on the post.
                         </small>
                     </div>
+                    <div class="form-group">
+                        <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', }}>
+                            <Toggle
+                                checked={applyPostPadding()}
+                                onChange={(next,) => { setApplyPostPadding(next,); editor.markDirty(); }}
+                                label="Apply Post Padding"
+                            />
+                            <Tooltip
+                                header="Apply Post Padding"
+                                content="Apply the site's Post Padding (Settings → Appearance → Layout) to this post — primarily top/bottom. Default 0 until you set a value there."
+                            />
+                        </div>
+                        <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', 'margin-top': '8px', }}>
+                            <Toggle
+                                checked={applySiteGutter()}
+                                onChange={(next,) => { setApplySiteGutter(next,); editor.markDirty(); }}
+                                label="Apply Site Gutter"
+                            />
+                            <Tooltip
+                                header="Apply Site Gutter"
+                                content="Apply the site's Gutter (left/right padding) to this post's content. Turn off for a full-bleed post."
+                            />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Header Style</label>
+                        <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', }}>
+                            <select
+                                value={headerStyle() || (siteDefaultPostHeaderStyle() ?? 'default')}
+                                onChange={(e,) => { setHeaderStyle(e.currentTarget.value,); editor.markDirty(); }}
+                            >
+                                <option value="default">Default</option>
+                                <option value="alt">Alt</option>
+                            </select>
+                            <Tooltip
+                                header="Header Style"
+                                content="Which Site Header colors this post renders. 'Default' uses the regular Site Header background and text color; 'Alt' uses the alternative (alt) styles. Leave as-is to follow the site's Default Post Header Style."
+                            />
+                        </div>
+                    </div>
                 </div>
                 <div class="editor-properties__sidebar">
                     <div class="form-group">
@@ -323,30 +380,6 @@ const AdminPostEditor: Component = () => {
                             </For>
                         </select>
                         <small class="form-help">Staff user credited as the post's author.</small>
-                    </div>
-                    <div class="form-group">
-                        <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', }}>
-                            <Toggle
-                                checked={applyPostPadding()}
-                                onChange={(next,) => { setApplyPostPadding(next,); editor.markDirty(); }}
-                                label="Apply Post Padding"
-                            />
-                            <Tooltip
-                                header="Apply Post Padding"
-                                content="Apply the site's Post Padding (Settings → Appearance → Layout) to this post — primarily top/bottom. Default 0 until you set a value there."
-                            />
-                        </div>
-                        <div class="u-flex-row" style={{ 'align-items': 'center', gap: '8px', 'margin-top': '8px', }}>
-                            <Toggle
-                                checked={applySiteGutter()}
-                                onChange={(next,) => { setApplySiteGutter(next,); editor.markDirty(); }}
-                                label="Apply Site Gutter"
-                            />
-                            <Tooltip
-                                header="Apply Site Gutter"
-                                content="Apply the site's Gutter (left/right padding) to this post's content. Turn off for a full-bleed post."
-                            />
-                        </div>
                     </div>
                 </div>
             </div>

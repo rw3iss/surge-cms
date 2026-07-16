@@ -1,12 +1,13 @@
 import { useLocation, useNavigate, useParams, } from '@solidjs/router';
 import { buildBlockTree, isAdminRole, type ContentAccessLevel, type Page, } from '@sitesurge/types';
 import { ContentLockedError, UnauthorizedError, } from '@sitesurge/client';
-import { Component, createResource, createSignal, For, lazy, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, lazy, onCleanup, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { contentPaddingStyle, } from '../utils/appearanceStyle';
+import { setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
@@ -62,6 +63,14 @@ const DynamicPage: Component = () => {
             }
         },
     );
+
+    // Publish this page's chosen header style to the global signal the
+    // Layout's Header reads. Reset to 'default' when leaving the route.
+    createEffect(() => {
+        const p = page() as (Page & { headerStyle?: 'default' | 'alt'; }) | null | undefined;
+        setActiveHeaderStyle(p?.headerStyle === 'alt' ? 'alt' : 'default',);
+    },);
+    onCleanup(() => setActiveHeaderStyle('default',),);
 
     // Left/right gutter + top/bottom page-padding are each opt-in per page
     // (defaults on). Falls back to on/on while the page loads or 404s.

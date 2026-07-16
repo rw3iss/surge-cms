@@ -29,6 +29,9 @@ interface SiteHeaderItem {
     /** Font `customId` from the Font manager. Empty/undefined → header default. */
     fontFamily?: string;
     textColor?: string;
+    /** Text color used when the page/post renders the header in its 'alt'
+     *  style. Falls back to `textColor`. */
+    textColorAlt?: string;
     width?: string;
     alignment?: string;
     verticalAlignment?: string;
@@ -118,6 +121,10 @@ const SiteHeaderEditor: Component = () => {
     const [items, setItems,] = createSignal<SiteHeaderItem[]>([],);
     const [bgColor, setBgColor,] = createSignal('#ffffff',);
     const [textColor, setTextColor,] = createSignal('#000000',);
+    // Alternate ("alt"/dark) colors used when a page/post selects the alt style.
+    const [bgColorAlt, setBgColorAlt,] = createSignal('',);
+    const [textColorAlt, setTextColorAlt,] = createSignal('',);
+    const [defaultPostHeaderStyle, setDefaultPostHeaderStyle,] = createSignal<'default' | 'alt'>('default',);
     const [defaultFont, setDefaultFont,] = createSignal('',);
     const [textSize, setTextSize,] = createSignal('',);
     const [headerPadding, setHeaderPadding,] = createSignal('0px',);
@@ -168,6 +175,9 @@ const SiteHeaderEditor: Component = () => {
                 }
                 if (data.backgroundColor) setBgColor(data.backgroundColor,);
                 if (data.textColor) setTextColor(data.textColor,);
+                if (data.backgroundColorAlt) setBgColorAlt(data.backgroundColorAlt,);
+                if (data.textColorAlt) setTextColorAlt(data.textColorAlt,);
+                if (data.defaultPostHeaderStyle === 'alt') setDefaultPostHeaderStyle('alt',);
                 if (data.defaultFont) setDefaultFont(data.defaultFont,);
                 if (data.defaultFontSize) setTextSize(data.defaultFontSize,);
                 if (data.padding) setHeaderPadding(data.padding,);
@@ -271,6 +281,9 @@ const SiteHeaderEditor: Component = () => {
                 items: items().map((item, i,) => ({ ...item, order: i, })),
                 backgroundColor: bgColor(),
                 textColor: textColor(),
+                backgroundColorAlt: bgColorAlt() || undefined,
+                textColorAlt: textColorAlt() || undefined,
+                defaultPostHeaderStyle: defaultPostHeaderStyle(),
                 defaultFont: defaultFont(),
                 defaultFontSize: textSize() || undefined,
                 padding: headerPadding(),
@@ -622,6 +635,27 @@ const SiteHeaderEditor: Component = () => {
                             />
                         </div>
                         <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Background (alt)</label>
+                            <div class="site-header-editor__inline-field">
+                                <ColorPicker
+                                    value={bgColorAlt()}
+                                    onChange={(hex,) => {
+                                        setBgColorAlt(hex,);
+                                        markDirty();
+                                    }}
+                                    clearable
+                                    onClear={() => {
+                                        setBgColorAlt('',);
+                                        markDirty();
+                                    }}
+                                />
+                                <Tooltip
+                                    header="Background (alt)"
+                                    content="Alternate header background used when a page or post selects the 'Alt' header style. Leave empty to fall back to the regular Background."
+                                />
+                            </div>
+                        </div>
+                        <div class="site-header-editor__field">
                             <label class="site-header-editor__label">Text Color</label>
                             <ColorPicker
                                 value={textColor()}
@@ -635,6 +669,27 @@ const SiteHeaderEditor: Component = () => {
                                     markDirty();
                                 }}
                             />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Text Color (alt)</label>
+                            <div class="site-header-editor__inline-field">
+                                <ColorPicker
+                                    value={textColorAlt()}
+                                    onChange={(hex,) => {
+                                        setTextColorAlt(hex,);
+                                        markDirty();
+                                    }}
+                                    clearable
+                                    onClear={() => {
+                                        setTextColorAlt('',);
+                                        markDirty();
+                                    }}
+                                />
+                                <Tooltip
+                                    header="Text Color (alt)"
+                                    content="Alternate header text color used when a page or post selects the 'Alt' header style. Leave empty to fall back to the regular Text Color."
+                                />
+                            </div>
                         </div>
                         <div class="site-header-editor__field">
                             <label class="site-header-editor__label">Text Size</label>
@@ -850,6 +905,26 @@ const SiteHeaderEditor: Component = () => {
                                 <Tooltip
                                     header="Logged-in user format"
                                     content="How the account controls (Admin link, user name, logout) show for a logged-in visitor on desktop. 'Inline' lays them out in a row as usual. 'Menu' collapses them into a gear icon that opens a dropdown — it closes when you click away or move off it. On mobile they always show inline in the menu, regardless of this setting."
+                                />
+                            </div>
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Default Post Header Style</label>
+                            <div class="site-header-editor__inline-field">
+                                <select
+                                    class="site-header-editor__select"
+                                    value={defaultPostHeaderStyle()}
+                                    onChange={(e,) => {
+                                        setDefaultPostHeaderStyle(e.currentTarget.value === 'alt' ? 'alt' : 'default',);
+                                        markDirty();
+                                    }}
+                                >
+                                    <option value="default">Default</option>
+                                    <option value="alt">Alt</option>
+                                </select>
+                                <Tooltip
+                                    header="Default Post Header Style"
+                                    content="Which header style post pages use by default — 'Default' (regular header colors) or 'Alt' (the alternate colors above). An individual post can override this via its own Header Style setting."
                                 />
                             </div>
                         </div>
@@ -1140,6 +1215,23 @@ const SiteHeaderEditor: Component = () => {
                                                 value={item().textColor || '#000000'}
                                                 onChange={(hex,) => updateEditField('textColor', hex,)}
                                             />
+                                        </div>
+
+                                        {/* Text Color (alt) */}
+                                        <div class="site-header-edit-panel__field">
+                                            <label class="site-header-edit-panel__label">Text Color (alt)</label>
+                                            <div class="site-header-editor__inline-field">
+                                                <ColorPicker
+                                                    value={item().textColorAlt || ''}
+                                                    clearable
+                                                    onChange={(hex,) => updateEditField('textColorAlt', hex,)}
+                                                    onClear={() => updateEditField('textColorAlt', undefined,)}
+                                                />
+                                                <Tooltip
+                                                    header="Text Color (alt)"
+                                                    content="Text color for this item when the page/post renders the header in its 'Alt' style. Leave empty to fall back to the regular Text Color."
+                                                />
+                                            </div>
                                         </div>
                                     </Show>
 
