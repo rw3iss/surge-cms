@@ -1,4 +1,4 @@
-import { batch, Component, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { batch, Component, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
 import Toggle from '../common/Toggle';
 import type { BlockData, BlockType, } from './ContentBlock';
@@ -147,52 +147,13 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
         }
     };
 
-    /** Persist the current inline 'custom' style to the block's
-     *  `__styleRef.custom`. Reads `currentStyle()` at call time so coalesced
-     *  edits use the latest value. */
-    const persistCustomStyle = () => {
-        const style = currentStyle();
-        if (style.id) return; // template-backed styles persist via Save/Set-default
-        const { id: _id, name: _name, isDefault: _d, ...customProps } = style;
-        delete (customProps as any).createdAt;
-        delete (customProps as any).updatedAt;
-        props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: customProps, }, },);
-    };
-
-    // Debounce the live-persist: keystrokes update the local `currentStyle`
-    // (so the editor stays responsive), but the block is only re-written after
-    // a short pause. Persisting on every keystroke re-rendered the block
-    // preview mid-type, which stole input focus and jumped the scroll on
-    // heavier blocks (e.g. carousels).
-    let stylePersistTimer: ReturnType<typeof setTimeout> | undefined;
-    const flushStylePersist = () => {
-        if (stylePersistTimer) {
-            clearTimeout(stylePersistTimer,);
-            stylePersistTimer = undefined;
-        }
-    };
-    onCleanup(flushStylePersist,);
-
-    /**
-     * BlockStyleEditor onChange. Updates the local `currentStyle` immediately
-     * and, for an inline 'custom' style, live-persists it to the block
-     * (debounced) so the admin preview reflects padding/margin/etc shortly
-     * after the operator stops typing — without re-rendering on every
-     * keystroke. Template-backed styles (with an id) are left alone.
-     */
-    const handleStyleEditorChange = (style: BlockStyleData,) => {
-        setCurrentStyle(style,);
-        if (editingStyle() && !style.id) {
-            flushStylePersist();
-            stylePersistTimer = setTimeout(() => {
-                stylePersistTimer = undefined;
-                persistCustomStyle();
-            }, 400,);
-        }
-    };
+    // Style edits update only the local `currentStyle` while editing — the
+    // block (and thus its preview + saved output) is NOT touched until the
+    // operator clicks Save in the style panel (`handleSaveStyle`). This keeps
+    // the inputs from re-rendering the preview mid-edit, which stole focus /
+    // scrolled the page.
 
     const handleSaveStyle = () => {
-        flushStylePersist(); // this handler persists synchronously below
         const style = currentStyle();
         if (style.id) {
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { templateId: style.id, }, },);
@@ -360,7 +321,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 fallback={
                     <BlockStyleEditor
                         style={currentStyle()}
-                        onChange={handleStyleEditorChange}
+                        onChange={setCurrentStyle}
                         allowSaveTemplate={true}
                         onSaveTemplate={handleSaveTemplate}
                         onCopyTemplate={currentStyle().id ? (() => {
