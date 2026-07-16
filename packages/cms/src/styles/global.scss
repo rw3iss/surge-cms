@@ -150,6 +150,41 @@ html:not([data-active-outlines='show']) {
   @include flex-between;
 }
 
+// ─── Flex utility classes ───
+// Token-gap flex containers that replace ad-hoc inline `display:flex`
+// objects with drifting pixel gaps. Default gap = $spacing-sm (8px);
+// compose a `.u-gap-*` modifier for other tokens.
+.u-flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.u-flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.u-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+}
+
+// Gap-size modifiers (compose with a .u-flex-* container)
+.u-gap-xs { gap: $spacing-xs; }  // 4px
+.u-gap-sm { gap: $spacing-sm; }  // 8px
+.u-gap-md { gap: $spacing-md; }  // 16px
+.u-gap-lg { gap: $spacing-lg; }  // 24px
+
+// Alignment / wrap modifiers
+.u-flex-wrap     { flex-wrap: wrap; }
+.u-items-start   { align-items: flex-start; }
+.u-items-baseline{ align-items: baseline; }
+
 .truncate {
   @include truncate;
 }
@@ -202,7 +237,7 @@ html:not([data-active-outlines='show']) {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 9999;
+  z-index: $z-index-overlay;
   @include flex-center;
   background: rgba($background, 0.9);
   backdrop-filter: blur(4px);
@@ -472,12 +507,24 @@ html:not([data-active-outlines='show']) {
 // across multiple block editors and preview components. Centralised
 // here so future palette / spacing changes stay in lockstep.
 
-/** Centered "nothing to show" message used by editor previews. */
-.preview-empty-message {
-  padding: $spacing-2xl $spacing-lg;
+/** Shared empty / "nothing to show" state. Card variant (default) for
+ *  list pages; `--plain` (no card) for editor previews & inline blocks.
+ *  App-wide (imported at App.tsx root) so admin AND public reuse it. */
+.empty-state {
   text-align: center;
+  padding: $spacing-xl;
   color: $text-light;
-  font-size: $font-size-sm;
+  background: $background-dark;
+  border-radius: $border-radius-md;
+
+  // Preview / inline variant — no card chrome (replaces
+  // the retired .preview-empty-message).
+  &--plain {
+    padding: $spacing-2xl $spacing-lg;
+    background: none;
+    border-radius: 0;
+    font-size: $font-size-sm;
+  }
 }
 
 /** Muted helper text under form fields. Replaces inline

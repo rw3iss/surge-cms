@@ -124,7 +124,7 @@ const FormSubmissions: Component = () => {
                                         <div style={{ 'margin-top': '0.5rem', }}>
                                             <For each={q.options}>
                                                 {(opt: any,) => (
-                                                    <div style={{ display: 'flex', 'align-items': 'center', gap: '8px', 'margin-bottom': '4px', }}>
+                                                    <div class="u-flex-row" style={{ 'margin-bottom': '4px', }}>
                                                         <span style={{ 'min-width': '100px', 'font-size': '0.85rem', }}>{opt.value}</span>
                                                         <div style={{ flex: '1', height: '18px', background: 'var(--admin-bg-subtle, #f0f0f0)', 'border-radius': '4px', overflow: 'hidden', }}>
                                                             <div style={{ width: `${opt.percentage}%`, height: '100%', background: 'var(--site-primary, #3498cf)', 'border-radius': '4px', transition: 'width 0.3s', }} />
@@ -137,7 +137,7 @@ const FormSubmissions: Component = () => {
                                     </Show>
 
                                     <Show when={q.type === 'number'}>
-                                        <div style={{ display: 'flex', gap: '1rem', 'margin-top': '0.5rem', 'flex-wrap': 'wrap', }}>
+                                        <div class="u-flex-row u-gap-md u-flex-wrap" style={{ 'margin-top': '0.5rem', }}>
                                             <For each={[{ label: 'Min', value: q.min, }, { label: 'Max', value: q.max, }, { label: 'Avg', value: q.avg, }, { label: 'Median', value: q.median, },]}>
                                                 {(stat,) => (
                                                     <div style={STAT_TILE_STYLE}>

@@ -90,14 +90,18 @@ $transition-fast: 150ms ease;
 $transition-base: 200ms ease;
 $transition-slow: 300ms ease;
 
-// Z-index
-$z-index-dropdown: 1000;
-$z-index-sticky: 1020;
-$z-index-fixed: 1030;
-$z-index-modal-backdrop: 1040;
-$z-index-modal: 1050;
-$z-index-popover: 1060;
-$z-index-tooltip: 1070;
+// Z-index — GLOBAL cross-component layering scale. Component-internal
+// stacking (values < 100, e.g. hover bars, drag handles) does NOT belong
+// here and is intentionally left alone.
+$z-index-dropdown: 1000;        // anchored menus/popovers (color picker, user menu, entity-search)
+$z-index-sticky: 1020;          // sticky public site header
+$z-index-fixed: 1030;           // fixed app chrome (admin sidebar + hamburger + mobile scrim)
+$z-index-overlay: 1035;         // full-screen takeover surfaces: preview overlay, page-loading
+$z-index-modal-backdrop: 1040;  // modal dimmer
+$z-index-modal: 1050;           // modal panels + fullscreen modal-like takeovers (confirm, media lightbox, command palette, mobile flyout)
+$z-index-popover: 1060;         // popovers/menus that must sit ABOVE a modal
+$z-index-tooltip: 1070;         // tooltips
+$z-index-toast: 1080;           // transient toasts — top of the stack
 
 // Mixins
 @mixin container {

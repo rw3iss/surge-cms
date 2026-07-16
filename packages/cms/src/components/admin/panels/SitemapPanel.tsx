@@ -46,7 +46,7 @@ const SitemapPanel: Component = () => {
                 Use the button to force a rebuild now (drops the Redis cache
                 and re-queries the database).
             </p>
-            <div style={{ display: 'flex', 'align-items': 'center', gap: '12px', 'flex-wrap': 'wrap', }}>
+            <div class="u-flex-row u-flex-wrap">
                 <button
                     class="btn btn--secondary"
                     onClick={regenerate}

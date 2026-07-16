@@ -1,14 +1,3 @@
-.media-select-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--modal-overlay-bg, #{$modal-overlay-bg});
-  z-index: $z-index-modal-backdrop;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-md;
-}
-
 .media-select-modal {
   background: $background;
   border-radius: $border-radius-lg;
@@ -104,8 +93,7 @@
     padding: $spacing-md $spacing-lg;
   }
 
-  &__loading,
-  &__empty {
+  &__loading {
     display: flex;
     align-items: center;
     justify-content: center;

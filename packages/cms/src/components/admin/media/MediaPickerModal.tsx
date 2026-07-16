@@ -1,5 +1,6 @@
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import ModalShell from '../common/ModalShell';
 
 export interface MediaItem {
     id: string;
@@ -47,13 +48,7 @@ const MediaPickerModal: Component<MediaPickerModalProps> = (props,) => {
     };
 
     return (
-        <div
-            class="media-picker-overlay"
-            onClick={(e,) => {
-                if (e.target === e.currentTarget) props.onClose();
-            }}
-        >
-            <div class="media-picker">
+        <ModalShell open={true} onClose={props.onClose} size="lg" class="media-picker" ariaLabel="Select media">
                 <div class="media-picker__header">
                     <h2>
                         Select Existing{' '}
@@ -66,7 +61,7 @@ const MediaPickerModal: Component<MediaPickerModalProps> = (props,) => {
                         <Show
                             when={(media() || []).length > 0}
                             fallback={
-                                <div class="media-picker__empty">No {props.type} files found. Upload some first.</div>
+                                <div class="empty-state">No {props.type} files found. Upload some first.</div>
                             }
                         >
                             <div class={`media-picker__grid media-picker__grid--${props.type}`}>
@@ -114,8 +109,7 @@ const MediaPickerModal: Component<MediaPickerModalProps> = (props,) => {
                         Select
                     </button>
                 </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };
 

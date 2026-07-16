@@ -124,7 +124,7 @@ const AdminMessageView: Component = () => {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.5rem', }}>
+                            <div class="u-flex-row">
                                 <Show when={m().status !== 'replied'}>
                                     <button class="btn btn--primary" onClick={() => handleStatusChange('replied',)}>
                                         Mark as Replied

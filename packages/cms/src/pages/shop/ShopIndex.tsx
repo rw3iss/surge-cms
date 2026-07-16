@@ -93,7 +93,7 @@ const ShopIndexInner: Component = () => {
             <Show when={!loading()} fallback={<div class="shop-store__loading">Loading products…</div>}>
                 <Show
                     when={products().length > 0}
-                    fallback={<div class="shop-store__empty">No products found.</div>}
+                    fallback={<div class="empty-state">No products found.</div>}
                 >
                     <div class="shop-grid" style={gridStyle()}>
                         <For each={products()}>

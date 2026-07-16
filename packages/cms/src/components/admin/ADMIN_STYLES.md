@@ -10,7 +10,8 @@ frontend/src/styles/
   variables.scss          ← design tokens used everywhere
   global.scss             ← public site base + shared utilities
   shared/                 ← partials used by admin AND main site
-    _modals.scss          ← .confirm-modal, .confirm-modal-overlay
+    _modals.scss          ← .confirm-modal, .confirm-modal-overlay,
+                            .modal-shell* (ModalShell primitive)
     (add new files here when truly shared)
 
 frontend/src/pages/admin/
@@ -22,7 +23,7 @@ frontend/src/pages/admin/
     _buttons-badges.scss   ← .btn / .badge / .alert / .table-link
     _forms.scss            ← .form-section / .form-group / .form-row
                             / .form-help / .checkbox-label / .form-actions
-                            / .empty-state / .questions-list / .question-card
+                            / .questions-list / .question-card
                             / .options-section / .options-list / .option-row
     _collapsible-panel.scss
     _editor-properties.scss ← .editor-brief / .editor-pill / .editor-properties
@@ -61,7 +62,8 @@ frontend/src/pages/admin/
    `frontend/src/styles/shared/` (or, for tiny presentation helpers,
    `frontend/src/styles/global.scss`). Examples already there:
    - `.confirm-modal-overlay`, `.confirm-modal` — shared modal scaffold.
-   - `.preview-empty-message` — centered "nothing to show" message.
+   - `.empty-state` / `.empty-state--plain` — shared "nothing to show"
+     state (card default; `--plain` for editor previews & inline blocks).
    - `.form-help-muted` — muted helper text under form inputs.
    When you add to `shared/`, also wire it into `AdminLayout.scss` via
    `@use '../../styles/shared/yourpartial'` and into `global.scss` (or
@@ -99,7 +101,7 @@ need a shade that doesn't exist yet, add it to `variables.scss` first.
 
 The admin extends the same token foundation as the public site
 (`variables.scss`) plus base utilities from `global.scss`
-(`.preview-empty-message`, `.form-help-muted`, `.page-wrapper`,
+(`.empty-state`, `.form-help-muted`, `.page-wrapper`,
 `.rich-text`, etc.). Where a piece of UI logically applies to both
 audiences (modals, form-help text, empty states), put it in
 `styles/shared/` or `global.scss` and reuse — don't duplicate.
@@ -122,8 +124,10 @@ mile-long file. Two-pass `@use` keeps compile cost flat.
 
 | Need | Use |
 |---|---|
-| Confirm modal | `.confirm-modal-overlay` + `.confirm-modal` (shared) |
-| Empty preview state | `.preview-empty-message` (global.scss) |
+| Confirm modal | `<ModalShell>` (components/admin/common) + `.confirm-modal` inner |
+| Centered overlay modal | `<ModalShell size onClose showClose>` (`.modal-shell*` in shared/_modals.scss) |
+| Empty list state | `.empty-state` (global.scss) |
+| Empty preview state | `.empty-state--plain` (global.scss) |
 | Muted helper text | `.form-help-muted` (global.scss) |
 | Admin button | `.btn .btn--primary / --secondary / --ghost / --small` |
 | Status badge | `.badge .badge--success / --warning / --info` |

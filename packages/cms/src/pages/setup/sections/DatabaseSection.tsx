@@ -244,7 +244,7 @@ export const DatabaseSection: Component<DatabaseSectionProps> = (props,) => {
                 </FormField>
             </Show>
 
-            <div style={{ display: 'flex', gap: '12px', 'align-items': 'center', 'margin-top': '8px', }}>
+            <div class="u-flex-row" style={{ 'margin-top': '8px', }}>
                 <Button variant="secondary" onClick={test} loading={testing()} type="button">
                     Test connection
                 </Button>

@@ -375,7 +375,7 @@
     visibility: hidden;
     transform: translateY(6px);
     transition: opacity $transition-fast, transform $transition-fast, visibility $transition-fast;
-    z-index: 1200;
+    z-index: $z-index-dropdown;
   }
 
   &__menu:hover &__menu-dropdown,

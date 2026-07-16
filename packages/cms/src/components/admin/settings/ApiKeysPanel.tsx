@@ -89,7 +89,7 @@ const ApiKeysPanel: Component = () => {
                 <Show when={createdKey()}>
                     <div class="alert alert--success">
                         <strong>Copy this key now — it will not be shown again.</strong>
-                        <div style={{ display: 'flex', gap: '8px', 'align-items': 'center', 'margin-top': '8px', }}>
+                        <div class="u-flex-row" style={{ 'margin-top': '8px', }}>
                             <code style={{ 'word-break': 'break-all', flex: '1', }}>{createdKey()}</code>
                             <button
                                 type="button"

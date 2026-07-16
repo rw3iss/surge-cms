@@ -16,7 +16,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2000;
+    z-index: $z-index-modal;
 }
 
 
@@ -67,5 +67,40 @@
         outline: 2px solid var(--site-primary, #{$primary-color});
         outline-offset: 2px;
         border-radius: $border-radius-sm;
+    }
+}
+
+
+// ─── ModalShell — generic centered-backdrop overlay primitive ───
+.modal-shell-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--modal-overlay-bg, #{$modal-overlay-bg});
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-lg;
+    z-index: $z-index-modal;
+}
+
+.modal-shell {
+    position: relative;
+    background: $background;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-xl;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+
+    &--sm  { max-width: 440px; }
+    &--md  { max-width: 640px; }
+    &--lg  { max-width: 880px; }
+    &--full{ max-width: 90vw; max-height: 90vh; }
+
+    // Top-right close button slot (uses the shared .modal-close styles).
+    > .modal-close {
+        position: absolute;
+        top: $spacing-sm;
+        right: $spacing-sm;
     }
 }

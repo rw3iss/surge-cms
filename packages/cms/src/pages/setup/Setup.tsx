@@ -193,7 +193,7 @@ const SetupPage: Component = () => {
                                 <span class="setup-page__footer__hint">
                                     Required sections: General, Database, Storage, Security
                                 </span>
-                                <div style={{ display: 'flex', gap: '12px', }}>
+                                <div class="u-flex-row">
                                     <Button variant="ghost" type="button" onClick={() => refetchStatus()}>
                                         Re-detect
                                     </Button>

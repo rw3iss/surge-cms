@@ -38,14 +38,14 @@ const PostPreview: Component = () => {
                                 {data().excerpt ? ` — ${data().excerpt}` : ''}
                             </div>
                             <Show when={data().blocks?.length}>
-                                <div style={{ display: 'flex', 'flex-direction': 'column', gap: '1rem', }}>
+                                <div class="u-flex-col u-gap-md">
                                     <For each={data().blocks}>
                                         {(block: any,) => <PostContentBlock block={block} />}
                                     </For>
                                 </div>
                             </Show>
                             <Show when={!data().blocks?.length}>
-                                <div class="preview-empty-message">No content blocks to preview</div>
+                                <div class="empty-state empty-state--plain">No content blocks to preview</div>
                             </Show>
                         </article>
                         </div>

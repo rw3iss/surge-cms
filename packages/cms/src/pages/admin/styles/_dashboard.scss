@@ -419,7 +419,7 @@
   position: fixed;
   inset: 0;
   background: var(--modal-overlay-bg, #{$modal-overlay-bg});
-  z-index: 10000;
+  z-index: $z-index-modal;
   display: flex;
   align-items: flex-start;
   justify-content: center;

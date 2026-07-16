@@ -1,5 +1,6 @@
-import { Component, createSignal, Show, } from 'solid-js';
+import { createSignal, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import ModalShell from '../common/ModalShell';
 import './MediaUploadModal.scss';
 
 interface MediaItem {
@@ -74,13 +75,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
     };
 
     return (
-        <div
-            class="media-upload-overlay"
-            onClick={(e,) => {
-                if (e.target === e.currentTarget) props.onClose();
-            }}
-        >
-            <div class="media-upload-modal">
+        <ModalShell open={true} onClose={props.onClose} size="md" class="media-upload-modal" ariaLabel="Upload Media">
                 <div class="media-upload-modal__header">
                     <h2>Upload Media</h2>
                     <button type="button" class="media-upload-modal__close" onClick={props.onClose}>&times;</button>
@@ -164,7 +159,6 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                         </button>
                     </Show>
                 </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 }

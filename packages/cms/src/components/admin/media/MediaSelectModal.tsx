@@ -1,5 +1,6 @@
 import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import ModalShell from '../common/ModalShell';
 import './MediaSelectModal.scss';
 
 const ITEMS_PER_PAGE = 10;
@@ -109,13 +110,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
     },);
 
     return (
-        <div
-            class="media-select-overlay"
-            onClick={(e,) => {
-                if (e.target === e.currentTarget) props.onClose();
-            }}
-        >
-            <div class="media-select-modal">
+        <ModalShell open={true} onClose={props.onClose} size="lg" class="media-select-modal" ariaLabel="Select Media">
                 <div class="media-select-modal__header">
                     <h2>Select Media</h2>
                     <button class="media-select-modal__close" onClick={props.onClose}>&times;</button>
@@ -147,7 +142,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                     <Show when={!loading()} fallback={<div class="media-select-modal__loading">Loading...</div>}>
                         <Show
                             when={items().length > 0}
-                            fallback={<div class="media-select-modal__empty">No media found</div>}
+                            fallback={<div class="empty-state">No media found</div>}
                         >
                             <div class="media-select-modal__grid">
                                 <For each={items()}>
@@ -246,8 +241,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                         </button>
                     </div>
                 </Show>
-            </div>
-        </div>
+        </ModalShell>
     );
 };
 

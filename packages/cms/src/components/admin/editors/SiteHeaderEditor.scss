@@ -213,7 +213,7 @@
     }
 
     &__ghost {
-        z-index: 9999;
+        z-index: $z-index-modal;
         pointer-events: none;
         background: rgba($primary-color, 0.12);
         border: 2px solid var(--site-primary, #{$primary-color});

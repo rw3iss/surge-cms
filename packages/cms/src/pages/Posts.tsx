@@ -83,7 +83,7 @@ const PostsPage: Component = () => {
                 },)}
             />
 
-            <div class="page-header" style={{ display: 'flex', 'align-items': 'baseline', gap: '12px', }}>
+            <div class="page-header u-flex-row u-items-baseline">
                 <h1>Latest Posts</h1>
                 <Show when={total() > 0}>
                     <span style={{ 'font-size': '0.85rem', color: 'var(--site-text-muted, #6b7280)', 'font-weight': '400', }}>{total()} {total() === 1 ? 'post' : 'posts'}</span>

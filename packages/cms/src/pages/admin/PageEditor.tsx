@@ -343,7 +343,7 @@ const AdminPageEditor: Component = () => {
                     <div class="editor-properties__main">
                         <div class="form-group">
                             <label>Title</label>
-                            <div style={{ display: 'flex', gap: '8px', 'align-items': 'center', }}>
+                            <div class="u-flex-row">
                                 <input
                                     type="text"
                                     value={title()}
@@ -551,7 +551,7 @@ const AdminPageEditor: Component = () => {
                             {(block,) => <BlockRenderer block={block} />}
                         </For>
                         <Show when={!blocks().length}>
-                            <div class="preview-empty-message">No content blocks to preview</div>
+                            <div class="empty-state empty-state--plain">No content blocks to preview</div>
                         </Show>
                         </div>
                     </Layout>

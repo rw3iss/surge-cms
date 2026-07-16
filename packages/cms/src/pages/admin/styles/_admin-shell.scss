@@ -55,7 +55,7 @@
     position: fixed;
     top: $spacing-md;
     left: $spacing-md;
-    z-index: 1002;
+    z-index: $z-index-fixed + 2;
     background: $secondary-color;
     border: none;
     border-radius: $border-radius-md;
@@ -96,7 +96,7 @@
     position: fixed;
     inset: 0;
     background: var(--modal-overlay-bg, #{$modal-overlay-bg});
-    z-index: 999;
+    z-index: $z-index-fixed;
   }
 
   &__sidebar {
@@ -111,7 +111,7 @@
     height: 100vh;
     left: 0;
     top: 0;
-    z-index: 1000;
+    z-index: $z-index-fixed + 1;
     transition: width 0.2s ease;
     overflow: hidden;
   }

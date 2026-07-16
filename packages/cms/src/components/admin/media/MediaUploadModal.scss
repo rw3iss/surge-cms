@@ -1,14 +1,3 @@
-.media-upload-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--modal-overlay-bg, #{$modal-overlay-bg});
-  z-index: $z-index-modal;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-lg;
-}
-
 .media-upload-modal {
   background: white;
   border-radius: $border-radius-lg;

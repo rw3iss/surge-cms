@@ -150,7 +150,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: $z-index-modal;
   padding: $spacing-lg;
 
   &__container {
@@ -296,19 +296,6 @@
 
 
 // Media Picker Modal
-.media-picker-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--modal-overlay-bg, #{$modal-overlay-bg});
-  z-index: $z-index-modal;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-lg;
-}
-
-
-
 .media-picker {
   background: $background;
   border-radius: $border-radius-lg;
@@ -352,8 +339,7 @@
     padding: $spacing-lg;
   }
 
-  &__loading,
-  &__empty {
+  &__loading {
     text-align: center;
     color: $text-light;
     padding: $spacing-2xl;

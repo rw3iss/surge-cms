@@ -13,7 +13,7 @@
  * order.
  */
 import { Component, For, } from 'solid-js';
-import { Portal, } from 'solid-js/web';
+import ModalShell from '../common/ModalShell';
 import { FeatureKey, getFeature, } from '../../../config/features';
 
 interface Props {
@@ -31,31 +31,33 @@ const FeatureDependencyModal: Component<Props> = (p,) => {
     const allLabels = () => [...chainLabels(), targetLabel(),];
 
     return (
-        <Portal>
-            <div class="confirm-modal-overlay" onClick={p.onCancel}>
-                <div class="feature-dep-modal" onClick={(e,) => e.stopPropagation()}>
-                    <h3>{verbCap()} {targetLabel()}?</h3>
-                    <p>
-                        {p.mode === 'enable'
-                            ? `${targetLabel()} requires the following ${p.chain.length === 1 ? 'feature' : 'features'}. They will also be enabled:`
-                            : `These ${p.chain.length === 1 ? 'feature depends' : 'features depend'} on ${targetLabel()} and will also be disabled:`}
-                    </p>
-                    <ul>
-                        <For each={chainLabels()}>{(l,) => <li>{l}</li>}</For>
-                    </ul>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn--secondary" onClick={p.onCancel}>Cancel</button>
-                        <button
-                            type="button"
-                            class={`btn ${p.mode === 'enable' ? 'btn--primary' : 'btn--danger'}`}
-                            onClick={p.onConfirm}
-                        >
-                            {verbCap()} {allLabels().join(' + ',)}
-                        </button>
-                    </div>
-                </div>
+        <ModalShell
+            open={true}
+            onClose={p.onCancel}
+            size="sm"
+            class="feature-dep-modal"
+            ariaLabel={`${verbCap()} ${targetLabel()}`}
+        >
+            <h3>{verbCap()} {targetLabel()}?</h3>
+            <p>
+                {p.mode === 'enable'
+                    ? `${targetLabel()} requires the following ${p.chain.length === 1 ? 'feature' : 'features'}. They will also be enabled:`
+                    : `These ${p.chain.length === 1 ? 'feature depends' : 'features depend'} on ${targetLabel()} and will also be disabled:`}
+            </p>
+            <ul>
+                <For each={chainLabels()}>{(l,) => <li>{l}</li>}</For>
+            </ul>
+            <div class="modal-actions">
+                <button type="button" class="btn btn--secondary" onClick={p.onCancel}>Cancel</button>
+                <button
+                    type="button"
+                    class={`btn ${p.mode === 'enable' ? 'btn--primary' : 'btn--danger'}`}
+                    onClick={p.onConfirm}
+                >
+                    {verbCap()} {allLabels().join(' + ',)}
+                </button>
             </div>
-        </Portal>
+        </ModalShell>
     );
 };
 

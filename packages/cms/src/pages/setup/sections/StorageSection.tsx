@@ -108,7 +108,7 @@ export const StorageSection: Component<StorageSectionProps> = (props,) => {
                         />
                     </FormField>
 
-                    <div style={{ display: 'flex', gap: '12px', 'align-items': 'center', }}>
+                    <div class="u-flex-row">
                         <Button variant="secondary" onClick={test} loading={testing()} type="button">
                             Test bucket access
                         </Button>

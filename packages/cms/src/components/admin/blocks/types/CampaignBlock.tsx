@@ -149,7 +149,7 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                             </Show>
 
                             <Show when={filtered().length === 0 && search()}>
-                                <div class="block-campaign__empty">No campaigns found</div>
+                                <div class="empty-state">No campaigns found</div>
                             </Show>
                         </div>
                     </Show>

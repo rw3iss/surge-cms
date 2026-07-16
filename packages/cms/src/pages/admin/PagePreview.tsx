@@ -51,7 +51,7 @@ const PagePreview: Component = () => {
                                 {(block,) => <BlockRenderer block={block} />}
                             </For>
                             <Show when={!data().blocks?.length}>
-                                <div class="preview-empty-message">No content blocks to preview</div>
+                                <div class="empty-state empty-state--plain">No content blocks to preview</div>
                             </Show>
                         </div>
                     </Layout>

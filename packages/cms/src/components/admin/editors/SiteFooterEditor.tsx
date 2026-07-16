@@ -603,7 +603,7 @@ const SiteFooterEditor: Component = () => {
                                         <button type="button" onClick={addRow}>+ Add row</button>
                                     </div>
                                     <Show when={settings().rows.length === 0}>
-                                        <p class="footer-editor__empty">No rows yet. Click "Add row" to begin.</p>
+                                        <p class="empty-state empty-state--plain">No rows yet. Click "Add row" to begin.</p>
                                     </Show>
                                     <For each={settings().rows}>
                                         {(row, rowIdx,) => (

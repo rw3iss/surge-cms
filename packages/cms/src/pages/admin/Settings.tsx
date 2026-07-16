@@ -369,7 +369,7 @@ function ConnectionsPanel() {
                                             </Show>
                                         </div>
                                     </Show>
-                                    <div class="form-actions" style={{ 'margin-top': '1rem', gap: '0.5rem', display: 'flex', }}>
+                                    <div class="form-actions u-flex-row" style={{ 'margin-top': '1rem', }}>
                                         <button class="btn btn--primary btn--small" onClick={handleSaveConnection}>
                                             Save
                                         </button>
@@ -956,7 +956,7 @@ function AppearancePanel() {
                         sublabel="Root rem unit (px)"
                         tooltip="The base font size in pixels. All rem-based sizing throughout the site scales from this value. Default: 16px."
                     >
-                        <div style={{ display: 'flex', 'align-items': 'center', gap: '0.5rem', }}>
+                        <div class="u-flex-row">
                             <button class="btn btn--secondary btn--small" onClick={() => { setFontSize(Math.max(10, fontSize() - 1,),); markDirty(); }}>-</button>
                             <span style={{ 'min-width': '40px', 'text-align': 'center', 'font-weight': '600', 'font-size': '0.875rem', }}>
                                 {fontSize()}px
@@ -1101,7 +1101,7 @@ function BrandingMediaField(props: {
     return (
         <div class="form-group">
             <label>{props.label}</label>
-            <div style={{ display: 'flex', 'align-items': 'center', gap: '0.75rem', 'flex-wrap': 'wrap', }}>
+            <div class="u-flex-row u-flex-wrap">
                 <Show when={props.value.url}>
                     <img
                         src={props.value.url}

@@ -522,7 +522,7 @@ const AdminPostEditor: Component = () => {
                                 {excerpt() ? ` — ${excerpt()}` : ''}
                             </div>
                             <Show when={blocks().length}>
-                                <div style={{ display: 'flex', 'flex-direction': 'column', gap: '1rem', }}>
+                                <div class="u-flex-col u-gap-md">
                                     <For each={blocks()}>
                                         {(block,) => {
                                             // Resolve style for preview
@@ -544,7 +544,7 @@ const AdminPostEditor: Component = () => {
                                 </div>
                             </Show>
                             <Show when={!blocks().length}>
-                                <div class="preview-empty-message">No content blocks to preview</div>
+                                <div class="empty-state empty-state--plain">No content blocks to preview</div>
                             </Show>
                         </article>
                         </div>

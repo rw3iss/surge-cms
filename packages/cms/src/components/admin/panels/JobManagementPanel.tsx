@@ -51,7 +51,7 @@ const JobManagementPanel: Component = () => {
 
     return (
         <div class="settings-card">
-            <div style={{ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between', 'margin-bottom': '8px', }}>
+            <div class="u-flex-between" style={{ 'margin-bottom': '8px', }}>
                 <div class="settings-card__title" style={{ margin: 0, }}>Scheduled Jobs</div>
                 <button class="btn btn--small btn--secondary" onClick={() => refetch()}>
                     Refresh
