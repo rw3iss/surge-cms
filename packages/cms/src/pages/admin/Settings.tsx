@@ -6,6 +6,7 @@ import MediaUploadModal from '../../components/admin/media/MediaUploadModal';
 import ColorPicker from '../../components/admin/appearance/ColorPicker';
 import ColorWheel from '../../components/admin/appearance/ColorWheel';
 import FontManagerPanel from '../../components/admin/appearance/FontManagerPanel';
+import FontSelect from '../../components/admin/common/FontSelect';
 import JobManagementPanel from '../../components/admin/panels/JobManagementPanel';
 import SitemapPanel from '../../components/admin/panels/SitemapPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
@@ -923,32 +924,30 @@ function AppearancePanel() {
                 <div class="theme-section__fields">
                     <ThemeField
                         label="Body Font Family"
-                        sublabel="CSS font-family stack"
-                        tooltip="Default font for paragraph and body text. Use a CSS font-family stack like 'Inter, sans-serif' or 'Georgia, serif'."
+                        sublabel="Site-wide default font"
+                        tooltip="Default font for paragraph and body text across the whole site. Pick an uploaded font (managed below); anything that sets its own font overrides this."
                     >
-                        <input
-                            type="text"
-                            value={fontFamily()}
-                            onInput={(e,) => { setFontFamily(e.currentTarget.value,); markDirty(); }}
-                            placeholder="Inter, sans-serif"
-                            style={{ width: '320px', }}
-                            class="theme-field__input"
-                        />
+                        <div style={{ width: '320px', }}>
+                            <FontSelect
+                                value={fontFamily()}
+                                onChange={(v,) => { setFontFamily(v,); markDirty(); }}
+                                noneLabel="Default (theme font)"
+                            />
+                        </div>
                     </ThemeField>
 
                     <ThemeField
                         label="Heading Font Family"
                         sublabel="Font for H1–H6"
-                        tooltip="Font stack used specifically for headings. Defaults to the body font family if not set."
+                        tooltip="Font used specifically for headings across the site. Falls back to the body font when unset."
                     >
-                        <input
-                            type="text"
-                            value={headingFontFamily()}
-                            onInput={(e,) => { setHeadingFontFamily(e.currentTarget.value,); markDirty(); }}
-                            placeholder="Inter, sans-serif"
-                            style={{ width: '320px', }}
-                            class="theme-field__input"
-                        />
+                        <div style={{ width: '320px', }}>
+                            <FontSelect
+                                value={headingFontFamily()}
+                                onChange={(v,) => { setHeadingFontFamily(v,); markDirty(); }}
+                                noneLabel="Default (body font)"
+                            />
+                        </div>
                     </ThemeField>
 
                     <ThemeField

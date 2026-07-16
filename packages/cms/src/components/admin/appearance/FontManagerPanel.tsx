@@ -216,9 +216,14 @@ const FontManagerPanel: Component = () => {
                     {(font,) => (
                         <div class="font-manager__row">
                             <div class="font-manager__row-meta">
-                                <span class="font-manager__row-id">{font.customId}</span>
                                 <span class="font-manager__row-family">
                                     {font.familyName || font.originalName}
+                                </span>
+                                <span
+                                    class="font-manager__row-id"
+                                    title="Font ID — select this font by its ID in editors (header/footer/block styles/appearance)"
+                                >
+                                    ID: <code>{font.customId}</code>
                                 </span>
                                 <span class="font-manager__row-detail">
                                     {font.format.toUpperCase()} · {Math.round(font.sizeBytes / 1024,)} KB

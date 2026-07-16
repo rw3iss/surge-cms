@@ -2,6 +2,7 @@ import { A, } from '@solidjs/router';
 import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
+import { fontStack, } from '../../utils/appearanceStyle';
 import './Footer.scss';
 
 /**
@@ -53,13 +54,16 @@ const socialIcons: Record<string, string> = {
 // styling that wouldn't carry over cleanly. If a third surface ever
 // needs the same item set, this is the candidate to extract.
 
-function FooterItem(props: { item: SiteLayoutItem; },) {
+function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },) {
     const item = () => props.item;
 
     const baseStyle = () => {
         const s: Record<string, string> = {};
         if (item().fontSize) s['font-size'] = item().fontSize!;
         if (item().fontWeight) s['font-weight'] = item().fontWeight!;
+        // Per-item font overrides the footer default (set on the container).
+        const ff = fontStack(item().fontFamily,);
+        if (ff) s['font-family'] = ff;
         const tc = colorCssValue(item().textColor, '',);
         if (tc) s['color'] = tc;
         if (item().width) s['width'] = item().width!;
@@ -68,6 +72,14 @@ function FooterItem(props: { item: SiteLayoutItem; },) {
         if (item().alignment) s['text-align'] = item().alignment!;
         return s;
     };
+
+    // Button text color: item's own color wins, else the footer default,
+    // else white. (Regular text inherits the container color, so only the
+    // button — which sets its own color explicitly — needs the fallback.)
+    const buttonTextColor = () =>
+        colorCssValue(item().textColor, '',)
+        || colorCssValue(props.footerTextColor, '',)
+        || '#fff';
 
     const linkTarget = () => item().openInNewTab ? '_blank' : undefined;
     const linkRel = () => item().openInNewTab ? 'noopener noreferrer' : undefined;
@@ -120,7 +132,7 @@ function FooterItem(props: { item: SiteLayoutItem; },) {
                     style={{
                         ...baseStyle(),
                         'background-color': colorCssValue(item().buttonColor, '#3498cf',),
-                        color: colorCssValue(item().textColor, '#fff',),
+                        color: buttonTextColor(),
                     }}
                 >
                     {item().text}
@@ -143,7 +155,7 @@ function FooterItem(props: { item: SiteLayoutItem; },) {
 
 // ─── Column renderer ──────────────────────────────────────────────
 
-function FooterColumnRenderer(props: { column: SiteFooterColumn; },) {
+function FooterColumnRenderer(props: { column: SiteFooterColumn; footerTextColor?: string; },) {
     const c = () => props.column;
     const direction = () => c().direction === 'row' ? 'row' : 'column';
     const justify = () => c().alignment ?? 'start';
@@ -171,7 +183,7 @@ function FooterColumnRenderer(props: { column: SiteFooterColumn; },) {
     return (
         <div class="footer__column" style={style()}>
             <For each={items()}>
-                {(item,) => <FooterItem item={item} />}
+                {(item,) => <FooterItem item={item} footerTextColor={props.footerTextColor} />}
             </For>
         </div>
     );
@@ -179,7 +191,7 @@ function FooterColumnRenderer(props: { column: SiteFooterColumn; },) {
 
 // ─── Row renderer ─────────────────────────────────────────────────
 
-function FooterRowRenderer(props: { row: SiteFooterRow; gutterWidth?: string; },) {
+function FooterRowRenderer(props: { row: SiteFooterRow; gutterWidth?: string; footerTextColor?: string; },) {
     const r = () => props.row;
 
     const outerStyle = () => {
@@ -222,7 +234,7 @@ function FooterRowRenderer(props: { row: SiteFooterRow; gutterWidth?: string; },
         <div class="footer__row" style={outerStyle()}>
             <div class="footer__row-inner" style={innerStyle()}>
                 <For each={r().columns}>
-                    {(column,) => <FooterColumnRenderer column={column} />}
+                    {(column,) => <FooterColumnRenderer column={column} footerTextColor={props.footerTextColor} />}
                 </For>
             </div>
         </div>
@@ -290,6 +302,12 @@ export const Footer: Component<FooterProps> = (props,) => {
         const s: Record<string, string> = {};
         const bg = colorCssValue(props.footer?.backgroundColor, '',);
         if (bg) s['background-color'] = bg;
+        // Footer default text color + font apply to the whole footer;
+        // individual items override via their own styles.
+        const tc = colorCssValue(props.footer?.textColor, '',);
+        if (tc) s['color'] = tc;
+        const ff = fontStack(props.footer?.defaultFont,);
+        if (ff) s['font-family'] = ff;
         if (props.footer?.padding) s['padding'] = props.footer.padding;
         if (props.footer?.margin) s['margin'] = props.footer.margin;
         return s;
@@ -310,7 +328,13 @@ export const Footer: Component<FooterProps> = (props,) => {
                     }
                 >
                     <For each={rows()}>
-                        {(row,) => <FooterRowRenderer row={row} gutterWidth={props.gutterWidth} />}
+                        {(row,) => (
+                            <FooterRowRenderer
+                                row={row}
+                                gutterWidth={props.gutterWidth}
+                                footerTextColor={props.footer?.textColor}
+                            />
+                        )}
                     </For>
                 </Show>
             </footer>

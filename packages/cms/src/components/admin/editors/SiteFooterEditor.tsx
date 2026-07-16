@@ -2,7 +2,9 @@ import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutIte
 import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
+import { fontStack, } from '../../../utils/appearanceStyle';
 import ColorPicker from '../appearance/ColorPicker';
+import FontSelect from '../common/FontSelect';
 import Tooltip from '../common/Tooltip';
 import { useToast, } from '../../common/toast';
 import './SiteFooterEditor.scss';
@@ -554,9 +556,13 @@ const SiteFooterEditor: Component = () => {
                     <Show when={showSettings()}>
                         <FooterGeneralSettings
                             background={settings().backgroundColor ?? ''}
+                            textColor={settings().textColor ?? ''}
+                            defaultFont={settings().defaultFont ?? ''}
                             padding={settings().padding ?? ''}
                             margin={settings().margin ?? ''}
                             onBackgroundChange={(v,) => update((s,) => { s.backgroundColor = v || undefined; return s; },)}
+                            onTextColorChange={(v,) => update((s,) => { s.textColor = v || undefined; return s; },)}
+                            onDefaultFontChange={(v,) => update((s,) => { s.defaultFont = v || undefined; return s; },)}
                             onPaddingChange={(v,) => update((s,) => { s.padding = v || undefined; return s; },)}
                             onMarginChange={(v,) => update((s,) => { s.margin = v || undefined; return s; },)}
                         />
@@ -717,6 +723,11 @@ function PreviewBlock(props: {
         const s: Record<string, string> = {};
         const bg = colorCssValue(props.settings.backgroundColor, '',);
         if (bg) s['background-color'] = bg;
+        // Footer default text color + font, mirroring the public renderer.
+        const tc = colorCssValue(props.settings.textColor, '',);
+        if (tc) s['color'] = tc;
+        const ff = fontStack(props.settings.defaultFont,);
+        if (ff) s['font-family'] = ff;
         if (props.settings.padding) s['padding'] = props.settings.padding;
         if (props.settings.margin) s['margin'] = props.settings.margin;
         return s;
@@ -737,6 +748,7 @@ function PreviewBlock(props: {
                         {(row,) => (
                             <EditableRow
                                 row={row}
+                                footerTextColor={props.settings.textColor}
                                 selection={props.selection}
                                 onSelect={props.onSelect}
                             />
@@ -750,6 +762,7 @@ function PreviewBlock(props: {
 
 function EditableRow(props: {
     row: SiteFooterRow;
+    footerTextColor?: string;
     selection: Selection;
     onSelect: (s: Selection,) => void;
 },) {
@@ -795,6 +808,7 @@ function EditableRow(props: {
                         <EditableColumn
                             row={r()}
                             column={column}
+                            footerTextColor={props.footerTextColor}
                             selection={props.selection}
                             onSelect={props.onSelect}
                         />
@@ -808,6 +822,7 @@ function EditableRow(props: {
 function EditableColumn(props: {
     row: SiteFooterRow;
     column: SiteFooterColumn;
+    footerTextColor?: string;
     selection: Selection;
     onSelect: (s: Selection,) => void;
 },) {
@@ -860,6 +875,7 @@ function EditableColumn(props: {
                         row={props.row}
                         column={c()}
                         item={item}
+                        footerTextColor={props.footerTextColor}
                         selection={props.selection}
                         onSelect={props.onSelect}
                     />
@@ -873,6 +889,7 @@ function EditableItem(props: {
     row: SiteFooterRow;
     column: SiteFooterColumn;
     item: SiteLayoutItem;
+    footerTextColor?: string;
     selection: Selection;
     onSelect: (s: Selection,) => void;
 },) {
@@ -887,6 +904,8 @@ function EditableItem(props: {
         const s: Record<string, string> = {};
         if (it().fontSize) s['font-size'] = it().fontSize!;
         if (it().fontWeight) s['font-weight'] = it().fontWeight!;
+        const ff = fontStack(it().fontFamily,);
+        if (ff) s['font-family'] = ff;
         const tc = colorCssValue(it().textColor, '',);
         if (tc) s['color'] = tc;
         if (it().width) s['width'] = it().width!;
@@ -895,6 +914,11 @@ function EditableItem(props: {
         if (it().alignment) s['text-align'] = it().alignment!;
         return s;
     };
+
+    const buttonTextColor = () =>
+        colorCssValue(it().textColor, '',)
+        || colorCssValue(props.footerTextColor, '',)
+        || '#fff';
 
     // Render the actual item content. We use real anchors / images / text
     // so it visually matches the public output, but with `pointer-events:
@@ -919,7 +943,7 @@ function EditableItem(props: {
                         style={{
                             ...baseStyle(),
                             'background-color': colorCssValue(it().buttonColor, '#3498cf',),
-                            color: colorCssValue(it().textColor, '#fff',),
+                            color: buttonTextColor(),
                         }}
                         class="footer__item-button"
                     >
@@ -1233,14 +1257,35 @@ function ItemTreeItem(props: {
  */
 function FooterGeneralSettings(props: {
     background: string;
+    textColor: string;
+    defaultFont: string;
     padding: string;
     margin: string;
     onBackgroundChange: (value: string,) => void;
+    onTextColorChange: (value: string,) => void;
+    onDefaultFontChange: (value: string,) => void;
     onPaddingChange: (value: string,) => void;
     onMarginChange: (value: string,) => void;
 },) {
     return (
         <div class="footer-editor__general-settings">
+            <div class="footer-editor__general-field">
+                <label class="footer-editor__general-label">Default font</label>
+                <FontSelect
+                    value={props.defaultFont}
+                    onChange={(v,) => props.onDefaultFontChange(v,)}
+                    noneLabel="Default (site font)"
+                />
+            </div>
+            <div class="footer-editor__general-field">
+                <label class="footer-editor__general-label">Text Color</label>
+                <ColorPicker
+                    value={props.textColor}
+                    onChange={(hex,) => props.onTextColorChange(hex,)}
+                    clearable
+                    onClear={() => props.onTextColorChange('',)}
+                />
+            </div>
             <div class="footer-editor__general-field">
                 <label class="footer-editor__general-label">Background</label>
                 <ColorPicker
@@ -1481,6 +1526,14 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
             </Show>
 
             <Show when={supportsTypography()}>
+                <label class="footer-editor__field">
+                    <span>Font</span>
+                    <FontSelect
+                        value={props.item.fontFamily ?? ''}
+                        onChange={(v,) => props.onChange({ fontFamily: v || undefined, },)}
+                        noneLabel="Default (footer font)"
+                    />
+                </label>
                 <label class="footer-editor__field">
                     <span>Font size</span>
                     <input

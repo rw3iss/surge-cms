@@ -138,14 +138,27 @@
   }
 
   &__row-id {
-    font-family: var(--admin-font-mono, monospace);
-    font-weight: 600;
-    font-size: $font-size-sm;
-    color: var(--site-primary, #{$primary-color});
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    align-self: flex-start;
+    font-size: $font-size-xs;
+    color: $text-light;
+
+    code {
+      font-family: var(--admin-font-mono, monospace);
+      font-weight: 600;
+      font-size: $font-size-sm;
+      color: var(--site-primary, #{$primary-color});
+      background: rgba($primary-color, 0.08);
+      padding: 1px 6px;
+      border-radius: $border-radius-sm;
+    }
   }
 
   &__row-family {
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
+    font-weight: 600;
     color: var(--admin-page-text, #{$text-color});
     overflow: hidden;
     text-overflow: ellipsis;

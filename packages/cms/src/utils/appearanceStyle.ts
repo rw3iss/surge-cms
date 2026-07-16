@@ -2,6 +2,18 @@ import type { AppearanceSettings, } from '@sitesurge/types';
 import { colorCssValue, } from '../services/colorResolver';
 
 /**
+ * Resolve a font value to a CSS `font-family` string. Values are usually a
+ * font `customId` from the Font manager (a bare token → gets quoted with a
+ * system fallback so a missing font degrades gracefully); a legacy CSS stack
+ * (contains a comma) passes through untouched. Empty → `undefined`.
+ */
+export function fontStack(value: string | null | undefined,): string | undefined {
+    const v = (value || '').trim();
+    if (!v) return undefined;
+    return v.includes(',') ? v : `'${v}', system-ui, sans-serif`;
+}
+
+/**
  * Translate an `AppearanceSettings` snapshot into the inline-style
  * object that drives the `--site-*` CSS custom properties.
  *
@@ -40,7 +52,8 @@ export function appearanceCssVars(
     setColor('--site-link', a.linkColor,);
     setColor('--site-heading', a.headingColor,);
     setColor('--site-border', a.borderColor,);
-    if (a.headingFontFamily) s['--site-heading-font'] = a.headingFontFamily;
+    const headingFont = fontStack(a.headingFontFamily,);
+    if (headingFont) s['--site-heading-font'] = headingFont;
     if (a.headingWeight) s['--site-heading-weight'] = a.headingWeight;
     if (a.borderRadius) s['--site-radius'] = a.borderRadius;
     if (a.gutterWidth) s['--site-gutter'] = a.gutterWidth;
@@ -67,9 +80,10 @@ export function appearanceCssVars(
             if (mode === 'public') s['color'] = css;
         }
     }
-    if (a.fontFamily) {
-        s['--site-font'] = a.fontFamily;
-        if (mode === 'public') s['font-family'] = a.fontFamily;
+    const ff = fontStack(a.fontFamily,);
+    if (ff) {
+        s['--site-font'] = ff;
+        if (mode === 'public') s['font-family'] = ff;
     }
     if (a.lineHeight) {
         s['--site-line-height'] = a.lineHeight;

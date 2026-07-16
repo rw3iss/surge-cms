@@ -80,3 +80,48 @@ export async function deleteFont(id: string,): Promise<void> {
     await cms.fonts.remove(id,);
     await reloadFonts();
 }
+
+// ─── @font-face injection (shared by admin surfaces) ───
+
+/** Map a stored font format to a CSS `format()` hint. */
+export function fontFormatHint(fmt: string,): string {
+    switch (fmt) {
+        case 'woff2': return 'woff2';
+        case 'woff': return 'woff';
+        case 'ttf': return 'truetype';
+        case 'otf': return 'opentype';
+        case 'eot': return 'embedded-opentype';
+        default: return fmt;
+    }
+}
+
+/** Build the @font-face CSS for a font list; each family is the font's
+ *  `customId`, so anywhere can use `font-family: '<customId>'`. */
+export function fontFaceCss(list: Font[],): string {
+    return list.map(f =>
+        `@font-face { font-family: '${f.customId}'; src: url('${f.url}') format('${fontFormatHint(f.format,)}'); font-display: swap; }`
+    ,).join('\n',);
+}
+
+/** Inject (idempotent, single <style> tag) @font-face rules for the given
+ *  fonts so the admin can render text in the real uploaded fonts. */
+export function injectFontFaces(list: Font[],): void {
+    if (typeof document === 'undefined') return;
+    const tagId = 'sitesurge-font-faces';
+    let tag = document.getElementById(tagId,) as HTMLStyleElement | null;
+    if (!tag) {
+        tag = document.createElement('style',);
+        tag.id = tagId;
+        document.head.appendChild(tag,);
+    }
+    tag.textContent = fontFaceCss(list,);
+}
+
+/** Load the font list and ensure its @font-face declarations are present in
+ *  <head>. Call from any admin surface that previews fonts (FontSelect,
+ *  AdminLayout). */
+export async function ensureFontFaces(): Promise<Font[]> {
+    const list = await loadFonts();
+    injectFontFaces(list,);
+    return list;
+}

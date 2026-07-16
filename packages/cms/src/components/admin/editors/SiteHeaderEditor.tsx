@@ -4,6 +4,7 @@ import { colorCssValue, } from '../../../services/colorResolver';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
+import FontSelect from '../common/FontSelect';
 import MediaSelectModal from '../media/MediaSelectModal';
 import MediaUploadModal from '../media/MediaUploadModal';
 import Tooltip from '../common/Tooltip';
@@ -25,6 +26,8 @@ interface SiteHeaderItem {
     fontSize?: string;
     /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
     fontWeight?: string;
+    /** Font `customId` from the Font manager. Empty/undefined → header default. */
+    fontFamily?: string;
     textColor?: string;
     width?: string;
     alignment?: string;
@@ -115,6 +118,7 @@ const SiteHeaderEditor: Component = () => {
     const [items, setItems,] = createSignal<SiteHeaderItem[]>([],);
     const [bgColor, setBgColor,] = createSignal('#ffffff',);
     const [textColor, setTextColor,] = createSignal('#000000',);
+    const [defaultFont, setDefaultFont,] = createSignal('',);
     const [headerPadding, setHeaderPadding,] = createSignal('0px',);
     const [headerMargin, setHeaderMargin,] = createSignal('0px',);
     const [itemSpacing, setItemSpacing,] = createSignal('',);
@@ -163,6 +167,7 @@ const SiteHeaderEditor: Component = () => {
                 }
                 if (data.backgroundColor) setBgColor(data.backgroundColor,);
                 if (data.textColor) setTextColor(data.textColor,);
+                if (data.defaultFont) setDefaultFont(data.defaultFont,);
                 if (data.padding) setHeaderPadding(data.padding,);
                 if (data.margin) setHeaderMargin(data.margin,);
                 if (data.itemSpacing) setItemSpacing(data.itemSpacing,);
@@ -264,6 +269,7 @@ const SiteHeaderEditor: Component = () => {
                 items: items().map((item, i,) => ({ ...item, order: i, })),
                 backgroundColor: bgColor(),
                 textColor: textColor(),
+                defaultFont: defaultFont(),
                 padding: headerPadding(),
                 margin: headerMargin(),
                 itemSpacing: itemSpacing() || undefined,
@@ -624,6 +630,17 @@ const SiteHeaderEditor: Component = () => {
                                     setTextColor('',);
                                     markDirty();
                                 }}
+                            />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Default font</label>
+                            <FontSelect
+                                value={defaultFont()}
+                                onChange={(v,) => {
+                                    setDefaultFont(v,);
+                                    markDirty();
+                                }}
+                                noneLabel="Default (site font)"
                             />
                         </div>
                         <div class="site-header-editor__field">
@@ -1051,42 +1068,56 @@ const SiteHeaderEditor: Component = () => {
 
                                 {/* Common style fields */}
                                 <Show when={needsCommonStyles(currentType(),)}>
-                                    {/* Font Size */}
-                                    <div class="site-header-edit-panel__field">
-                                        <label class="site-header-edit-panel__label">Font Size</label>
-                                        <select
-                                            class="site-header-edit-panel__select"
-                                            value={item().fontSize || '16px'}
-                                            onChange={(e,) => updateEditField('fontSize', e.currentTarget.value,)}
-                                        >
-                                            <For each={FONT_SIZE_OPTIONS}>
-                                                {(size,) => <option value={size}>{size}</option>}
-                                            </For>
-                                        </select>
-                                    </div>
+                                    {/* Text-only style fields — font, size, weight, color
+                                        don't apply to image / image_link items. */}
+                                    <Show when={needsText(currentType(),)}>
+                                        {/* Font */}
+                                        <div class="site-header-edit-panel__field">
+                                            <label class="site-header-edit-panel__label">Font</label>
+                                            <FontSelect
+                                                value={item().fontFamily || ''}
+                                                onChange={(v,) => updateEditField('fontFamily', v,)}
+                                                noneLabel="Default (header font)"
+                                            />
+                                        </div>
 
-                                    {/* Font Weight */}
-                                    <div class="site-header-edit-panel__field">
-                                        <label class="site-header-edit-panel__label">Font Weight</label>
-                                        <select
-                                            class="site-header-edit-panel__select"
-                                            value={item().fontWeight || ''}
-                                            onChange={(e,) => updateEditField('fontWeight', e.currentTarget.value,)}
-                                        >
-                                            <For each={FONT_WEIGHT_OPTIONS}>
-                                                {(opt,) => <option value={opt.value}>{opt.label}</option>}
-                                            </For>
-                                        </select>
-                                    </div>
+                                        {/* Font Size */}
+                                        <div class="site-header-edit-panel__field">
+                                            <label class="site-header-edit-panel__label">Font Size</label>
+                                            <select
+                                                class="site-header-edit-panel__select"
+                                                value={item().fontSize || '16px'}
+                                                onChange={(e,) => updateEditField('fontSize', e.currentTarget.value,)}
+                                            >
+                                                <For each={FONT_SIZE_OPTIONS}>
+                                                    {(size,) => <option value={size}>{size}</option>}
+                                                </For>
+                                            </select>
+                                        </div>
 
-                                    {/* Text Color */}
-                                    <div class="site-header-edit-panel__field">
-                                        <label class="site-header-edit-panel__label">Text Color</label>
-                                        <ColorPicker
-                                            value={item().textColor || '#000000'}
-                                            onChange={(hex,) => updateEditField('textColor', hex,)}
-                                        />
-                                    </div>
+                                        {/* Font Weight */}
+                                        <div class="site-header-edit-panel__field">
+                                            <label class="site-header-edit-panel__label">Font Weight</label>
+                                            <select
+                                                class="site-header-edit-panel__select"
+                                                value={item().fontWeight || ''}
+                                                onChange={(e,) => updateEditField('fontWeight', e.currentTarget.value,)}
+                                            >
+                                                <For each={FONT_WEIGHT_OPTIONS}>
+                                                    {(opt,) => <option value={opt.value}>{opt.label}</option>}
+                                                </For>
+                                            </select>
+                                        </div>
+
+                                        {/* Text Color */}
+                                        <div class="site-header-edit-panel__field">
+                                            <label class="site-header-edit-panel__label">Text Color</label>
+                                            <ColorPicker
+                                                value={item().textColor || '#000000'}
+                                                onChange={(hex,) => updateEditField('textColor', hex,)}
+                                            />
+                                        </div>
+                                    </Show>
 
                                     {/* Horizontal Alignment */}
                                     <div class="site-header-edit-panel__field">

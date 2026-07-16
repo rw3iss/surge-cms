@@ -291,6 +291,10 @@ export interface SiteLayoutItem {
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
+    /** Font for this item — a font `customId` from the Font manager. Empty
+     *  inherits the header/footer default (or the site font). Only meaningful
+     *  for text-rendering items (text / text_link / button / menu). */
+    fontFamily?: string;
     fontSize?: string;
     /** CSS font-weight value: numeric strings ('100'..'900') or named
      *  keywords ('normal', 'bold'). Optional — falls through to the
@@ -346,6 +350,11 @@ export interface SiteFooterSettings {
     rows: SiteFooterRow[];
     /** Optional global background applied to the outer footer element. */
     backgroundColor?: string;
+    /** Default text color for the whole footer. Individual items override it. */
+    textColor?: string;
+    /** Default font for the whole footer — a font `customId` from the Font
+     *  manager. Individual items override it. */
+    defaultFont?: string;
     padding?: string;
     margin?: string;
 }

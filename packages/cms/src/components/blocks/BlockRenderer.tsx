@@ -4,6 +4,7 @@ import { Component, createEffect, createResource, createSignal, For, Match, onCl
 import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
+import { fontStack, } from '../../utils/appearanceStyle';
 import { groupContainerStyle, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
 import ResolvedHeroCarousel from './ResolvedHeroCarousel';
@@ -45,6 +46,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     'flex-end' :
                     undefined,
                 'font-size': s().fontSize || undefined,
+                'font-family': fontStack(s().fontFamily,),
                 width: s().width || undefined,
                 height: s().height || undefined,
                 padding: isCarousel() ? undefined : (

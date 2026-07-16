@@ -2,6 +2,7 @@ import { A, useLocation, } from '@solidjs/router';
 import { isAdminRole, type NavigationItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, onCleanup, onMount, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
+import { fontStack, } from '../../utils/appearanceStyle';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { cartCount, } from '../../stores/shopCart';
@@ -24,6 +25,8 @@ interface SiteHeaderItem {
     fontSize?: string;
     /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
     fontWeight?: string;
+    /** Font `customId` from the Font manager. Empty/undefined → header default. */
+    fontFamily?: string;
     textColor?: string;
     width?: string;
     alignment?: string;
@@ -39,6 +42,8 @@ export interface SiteHeaderSettings {
     items: SiteHeaderItem[];
     backgroundColor?: string;
     textColor?: string;
+    /** Font `customId` applied to the whole header's text. Empty → site font. */
+    defaultFont?: string;
     padding?: string;
     margin?: string;
     /** When true (the default), the header pins to the viewport top
@@ -124,6 +129,10 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
         const s: Record<string, string> = {};
         if (item().fontSize) s['font-size'] = item().fontSize!;
         if (item().fontWeight) s['font-weight'] = item().fontWeight!;
+        // Per-item font override — beats the header default (set on the header
+        // container) which in turn beats the site font.
+        const ff = fontStack(item().fontFamily,);
+        if (ff) s['font-family'] = ff;
         const tc = colorCssValue(item().textColor, '',);
         if (tc) s['color'] = tc;
         if (item().width) s['width'] = item().width!;
@@ -550,6 +559,10 @@ export const Header: Component<HeaderProps> = (props,) => {
         if (bg) s['background'] = bg;
         const tc = colorCssValue(props.headerSettings?.textColor, '',);
         if (tc) s['color'] = tc;
+        // Header default font — applies to the whole header's text; per-item
+        // `fontFamily` overrides it via the item's own inline style.
+        const ff = fontStack(props.headerSettings?.defaultFont,);
+        if (ff) s['font-family'] = ff;
         if (props.headerSettings?.margin) s['margin'] = props.headerSettings.margin;
         return s;
     };
@@ -586,6 +599,8 @@ export const Header: Component<HeaderProps> = (props,) => {
         if (bg) s['background'] = bg;
         const tc = colorCssValue(props.headerSettings?.textColor, '',);
         if (tc) s['color'] = tc;
+        const ff = fontStack(props.headerSettings?.defaultFont,);
+        if (ff) s['font-family'] = ff;
         return s;
     };
 

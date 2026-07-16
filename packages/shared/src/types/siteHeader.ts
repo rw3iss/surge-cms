@@ -9,6 +9,10 @@ export interface SiteHeaderItem {
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
+    /** Font for this item — a font `customId` from the Font manager. Empty
+     *  inherits the header default (or the site font). Only meaningful for
+     *  text-rendering items (text / text_link / button / menu). */
+    fontFamily?: string;
     fontSize?: string;
     textColor?: string;
     width?: string;
@@ -27,6 +31,9 @@ export interface SiteHeaderSettings {
     margin?: string;
     itemSpacing?: string;
     applyGutter?: boolean;
+    /** Default font for the whole header — a font `customId` from the Font
+     *  manager. Individual items override it. */
+    defaultFont?: string;
     /** Pin the header to the viewport top (position: sticky). Default true. */
     sticky?: boolean;
     /** Slide the header out of view on downward scroll, back in on up. */

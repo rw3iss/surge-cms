@@ -10,6 +10,7 @@ import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteCo
 import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '../../stores/adminAppearance';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
+import { ensureFontFaces, } from '../../services/fonts';
 import { appearanceCssVars, } from '../../utils/appearanceStyle';
 import './AdminLayout.scss';
 
@@ -164,6 +165,10 @@ const AdminLayout: ParentComponent = (props,) => {
     // because users can deep-link straight into /admin without ever
     // touching the public layout.
     void loadSiteSettings();
+    // Inject uploaded fonts' @font-face rules so font previews (FontSelect
+    // dropdowns, block/header/footer previews) render in the real typefaces
+    // anywhere in the admin.
+    void ensureFontFaces();
 
     const isActive = (path: string, end?: boolean,) =>
         end ? location.pathname === path : (location.pathname === path || location.pathname.startsWith(`${path}/`,));

@@ -2,6 +2,7 @@ import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { BLOCK_STYLE_DEFAULTS, BlockStyleData, } from '../../../../services/blockStyles';
 import { useToast, } from '../../../common/toast/Toast';
 import ColorPicker from '../../appearance/ColorPicker';
+import FontSelect from '../../common/FontSelect';
 import ConfirmModal from '../../common/ConfirmModal';
 import Tooltip from '../../common/Tooltip';
 import './BlockStyleEditor.scss';
@@ -205,6 +206,16 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             {(size,) => <option value={size}>{size}</option>}
                         </For>
                     </select>
+                </div>
+
+                {/* Font */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">Font</label>
+                    <FontSelect
+                        value={props.style.fontFamily || ''}
+                        onChange={(v,) => update('fontFamily', v,)}
+                        noneLabel="Default (site font)"
+                    />
                 </div>
 
                 {/* Width */}

@@ -9,6 +9,9 @@ export interface BlockStyleData {
     textColor?: string;
     textAlign?: string;
     verticalAlign?: string;
+    /** Font — a font `customId` from the Font manager. Empty inherits the
+     *  site font. */
+    fontFamily?: string;
     fontSize?: string;
     width?: string;
     height?: string;
@@ -26,13 +29,14 @@ export interface BlockStyleData {
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontSize' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
+        'backgroundColor' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontFamily' | 'fontSize' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
     >
 > = {
     backgroundColor: '',
     textColor: '',
     textAlign: 'left',
     verticalAlign: 'top',
+    fontFamily: '',
     fontSize: '',
     width: '100%',
     height: '',
