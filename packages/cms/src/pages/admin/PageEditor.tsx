@@ -1,28 +1,15 @@
-import { Title, } from '@solidjs/meta';
-import { A, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
-import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
-import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
-import ConfirmModal from '../../components/admin/common/ConfirmModal';
-import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import Toggle from '../../components/admin/common/Toggle';
-import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
-import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import Tooltip from '../../components/admin/common/Tooltip';
+import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
 import { Layout, } from '../../components/layout/Layout';
 import { blockDataToRenderBlock, } from '../../utils/blockData';
-import { useToast, } from '../../components/common/toast';
-import { useAutoSave, } from '../../hooks/useAutoSave';
-import { useEditorState, } from '../../hooks/useEditorState';
-import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
-import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import { buildBlockTree, } from '@sitesurge/types';
+import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
+import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
-import { BlockStyleService, } from '../../services/blockStyles';
-import { appearanceCssVars, } from '../../utils/appearanceStyle';
-import { useAppearance, } from '../../hooks/useAppearance';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 // Block IDs are real UUIDs from creation (see utils/blockId) so a group child
@@ -76,38 +63,13 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
 }
 
 const ALIGNMENTS = [
-    { value: 'left', icon: '\u2261', title: 'Left', },
-    { value: 'center', icon: '\u2261', title: 'Center', },
-    { value: 'right', icon: '\u2261', title: 'Right', },
+    { value: 'left', icon: '≡', title: 'Left', },
+    { value: 'center', icon: '≡', title: 'Center', },
+    { value: 'right', icon: '≡', title: 'Right', },
 ];
 
 const AdminPageEditor: Component = () => {
-    const params = useParams<{ id: string, }>();
-    const navigate = useNavigate();
-    const toast = useToast();
-    const isNew = () => !params.id || params.id === 'new';
-    const { isDirty, markDirty, markClean, } = useUnsavedChanges();
-
-    const [page,] = createResource(() => isNew() ? null : params.id, async (id,) => {
-        if (!id) return null;
-        try {
-            return await cms.pages.getById(id,);
-        } catch {
-            return null;
-        }
-    },);
-
-    // Load site appearance settings for the preview container
-    const appearance = useAppearance();
-
-    /**
-     * Build inline styles that mirror what Layout.tsx applies to the
-     * public site. The block preview container uses 'public' mode so
-     * the WYSIWYG matches the live site (admin chrome around it gets
-     * its own vars from AdminLayout).
-     */
-    const siteContainerStyle = () => appearanceCssVars(appearance(), 'public',);
-
+    // ─── Page property signals (still owned here) ───
     const [title, setTitle,] = createSignal('',);
     const [titleAlignment, setTitleAlignment,] = createSignal('left',);
     const [slug, setSlug,] = createSignal('',);
@@ -123,48 +85,16 @@ const AdminPageEditor: Component = () => {
     // be the homepage at a time; the backend clears the flag on others
     // when this page saves with isHomepage=true.
     const [isHomepage, setIsHomepage,] = createSignal(false,);
-    const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
-    const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
-    const [originalBlockIds, setOriginalBlockIds,] = createSignal<Set<string>>(new Set(),);
-    const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
-    const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
-    const [showRestoreConfirm, setShowRestoreConfirm,] = createSignal(false,);
-    const [showPreview, setShowPreview,] = createSignal(false,);
-    const [restoring, setRestoring,] = createSignal(false,);
-    const isDeleted = () => status() === 'deleted';
-    const [deleting, setDeleting,] = createSignal(false,);
-    // Full-bleed mode: driven by the block editor's full-width toggle;
-    // adds `.admin-full-bleed` to remove the centered 1400px content cap.
-    const [fullBleed, setFullBleed,] = createSignal(false,);
 
-    createEffect(() => {
-        const p = page();
-        if (p) {
-            setTitle(p.title || '',);
-            setTitleAlignment(p.titleAlignment || 'left',);
-            setSlug(p.slug || '',);
-            setStatus(p.status || 'draft',);
-            setAccessLevel(p.accessLevel || 'public',);
-            // Default true preserves prior behavior for legacy rows
-            // saved before this column existed (mapRow returns
-            // `undefined` for missing columns).
-            setShowTitle(p.showTitle !== false,);
-            setIsHomepage(Boolean(p.isHomepage,),);
-            if (p.blocks?.length) {
-                const converted = p.blocks.map((b: any,) => pageBlockToBlockData(b,));
-                setBlocks(converted,);
-                setSavedBlocks(structuredClone(converted,),);
-                setOriginalBlockIds(new Set<string>(p.blocks.map((b: any,) => String(b.id,)),),);
-            }
-        }
-    },);
-
-    const syncBlocks = async (pageId: string,) => {
-        const currentBlocks = blocks();
-        const origIds = originalBlockIds();
+    // Per-block create/update/delete/reorder sync (page-specific; posts
+    // embed their blocks in the save payload instead).
+    const syncBlocks = async (
+        pageId: string,
+        currentBlocks: BlockData[],
+        origIds: Set<string>,
+    ) => {
         const currentIds = new Set(currentBlocks.map(b => b.id),);
         const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
-
         for (const id of deletedIds) {
             await cms.pages.deleteBlock(pageId, id,);
         }
@@ -215,10 +145,12 @@ const AdminPageEditor: Component = () => {
         }
     };
 
-    // Auto-save draft to localStorage
-    const autoSave = useAutoSave({
-        key: `page-draft-${params.id || 'new'}`,
-        state: () => ({
+    const editor = useEntityEditor<Page>({
+        entityKind: 'page',
+        listPath: '/admin/pages',
+        load: (id,) => cms.pages.getById(id,) as Promise<Page>,
+        status,
+        autoSaveState: () => ({
             title: title(),
             titleAlignment: titleAlignment(),
             slug: slug(),
@@ -226,16 +158,13 @@ const AdminPageEditor: Component = () => {
             accessLevel: accessLevel(),
             isHomepage: isHomepage(),
             showTitle: showTitle(),
-            blocks: blocks(),
         }),
-    },);
-
-    const handleSave = async () => {
-        if (!title()) { setError('Title is required',); return; }
-        if (!slug()) { setError('Slug is required',); return; }
-
-        beginSave();
-        try {
+        validate: () => {
+            if (!title()) return 'Title is required';
+            if (!slug()) return 'Slug is required';
+            return null;
+        },
+        save: async (ctx: EntitySaveContext,) => {
             const data = {
                 title: title(),
                 titleAlignment: titleAlignment(),
@@ -245,319 +174,239 @@ const AdminPageEditor: Component = () => {
                 isHomepage: isHomepage(),
                 showTitle: showTitle(),
             };
-
-            let pageId = params.id;
-            if (isNew()) {
+            let pageId = ctx.id;
+            if (ctx.isNew) {
                 const created = await cms.pages.create(data as any,);
                 pageId = (created as any).id;
             } else {
-                await cms.pages.update(params.id, data as any,);
+                await cms.pages.update(ctx.id, data as any,);
             }
+            if (pageId) await syncBlocks(pageId, ctx.blocks, ctx.originalBlockIds,);
+            return pageId;
+        },
+        softDelete: (id,) => cms.pages.update(id, { status: 'deleted', } as any,) as any,
+        restore: (id,) => cms.pages.update(id, { status: 'draft', } as any,) as any,
+        onRestored: () => setStatus('draft',),
+        messages: {
+            saved: () => `Page '${title()}' saved`,
+            saveError: 'Failed to save page',
+            deleteError: 'Failed to delete page',
+            restoreError: 'Failed to restore page',
+        },
+    },);
 
-            if (pageId) await syncBlocks(pageId,);
-            setSavedBlocks(structuredClone(blocks(),),);
-            autoSave.clear();
-            markClean();
-            toast.success(`Page '${title()}' saved`,);
-            // For brand-new pages we still need to navigate so the URL
-            // reflects the persisted id (otherwise subsequent saves
-            // re-POST instead of PUT). Existing pages stay put.
-            if (isNew() && pageId) {
-                navigate(`/admin/pages/${pageId}`, { replace: true, },);
-            }
-        } catch (err: any) {
-            showError(err, 'Failed to save page',);
-        } finally {
-            endSave();
+    // ─── Hydrate signals from the loaded page ───
+    createEffect(() => {
+        const p = editor.entity();
+        if (!p) return;
+        setTitle(p.title || '',);
+        setTitleAlignment((p as any).titleAlignment || 'left',);
+        setSlug(p.slug || '',);
+        setStatus(p.status || 'draft',);
+        setAccessLevel(p.accessLevel || 'public',);
+        // Default true preserves prior behavior for legacy rows saved
+        // before this column existed (mapRow returns `undefined` for
+        // missing columns).
+        setShowTitle((p as any).showTitle !== false,);
+        setIsHomepage(Boolean((p as any).isHomepage,),);
+        const blockList = (p as any).blocks as any[] | undefined;
+        if (blockList?.length) {
+            const converted = blockList.map((b,) => pageBlockToBlockData(b,));
+            editor.setBlocks(converted,);
+            editor.setSavedBlocks(structuredClone(converted,),);
+            editor.setOriginalBlockIds(new Set<string>(blockList.map((b,) => String(b.id,)),),);
         }
-    };
+    },);
 
-    useKeyboardShortcuts([
-        { key: 's', ctrl: true, handler: () => handleSave(), },
-    ],);
-
-    return (
-        <div class={`page-editor ${fullBleed() ? 'admin-full-bleed' : ''}`}>
-            <Title>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`} - Admin - RW</Title>
-
-            <div class="admin-header admin-header--sticky">
-                <h1>{isNew() ? 'New Page' : `Edit Page: ${title() || 'Untitled'}`}</h1>
-                <div class="admin-header__actions">
-                    <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
-                    <Show when={!isNew() && page()}>
-                        <Show when={isDeleted()}>
-                            <button
-                                class="btn btn--secondary btn--small"
-                                onClick={() => setShowRestoreConfirm(true,)}
-                                disabled={restoring()}
-                            >
-                                {restoring() ? 'Restoring...' : 'Restore'}
-                            </button>
-                        </Show>
-                        <Show when={!isDeleted() && (isDirty() || status() === 'draft')}>
-                            <button class="btn btn--ghost btn--small" onClick={() => setShowPreview(true,)}>
-                                Preview
-                            </button>
-                        </Show>
-                        <Show when={status() === 'published'}>
-                            <a href={`/${page()?.slug}`} target="_blank" class="btn btn--secondary btn--small">
-                                View &nearr;
-                            </a>
-                        </Show>
-                    </Show>
-                    <button class="btn btn--primary btn--small" onClick={handleSave} disabled={saving()}>
-                        {saving() ? 'Saving...' : 'Save Page'}
-                    </button>
-                </div>
-            </div>
-
-            <Show when={error()}>
-                <div class="alert alert--error">{error()}</div>
-            </Show>
-
-            {/* ─── Properties (open by default; brief view in header when collapsed) ─── */}
-            <CollapsiblePanel
-                title="Page Properties"
-                defaultOpen
-                headerContent={
-                    <span class="editor-brief">
-                        <span class={`editor-brief__title ${!title() ? 'editor-brief__title--placeholder' : ''}`}>
-                            {title() || 'Untitled page'}
-                        </span>
-                        <Show when={slug()}>
-                            <span class="editor-brief__slug">/{slug()}</span>
-                        </Show>
+    const properties = (
+        <CollapsiblePanel
+            title="Page Properties"
+            defaultOpen
+            headerContent={
+                <span class="editor-brief">
+                    <span class={`editor-brief__title ${!title() ? 'editor-brief__title--placeholder' : ''}`}>
+                        {title() || 'Untitled page'}
                     </span>
-                }
-                headerExtra={
-                    <>
-                        <Show when={isHomepage()}>
-                            <span class="editor-pill editor-pill--homepage">Homepage</span>
-                        </Show>
-                        <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
-                        <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
-                    </>
-                }
-            >
-                <div class="editor-properties">
-                    <div class="editor-properties__main">
-                        <div class="form-group">
-                            <label>Title</label>
-                            <div class="u-flex-row">
-                                <input
-                                    type="text"
-                                    value={title()}
-                                    onInput={(e,) => { setTitle(e.currentTarget.value,); markDirty(); }}
-                                    placeholder="Page title"
-                                    style={{ flex: '1', }}
-                                />
-                                <div class="page-editor__align-buttons">
-                                    <For each={ALIGNMENTS}>
-                                        {(a,) => (
-                                            <button
-                                                class={`page-editor__align-btn ${titleAlignment() === a.value ? 'page-editor__align-btn--active' : ''}`}
-                                                onClick={() => { setTitleAlignment(a.value,); markDirty(); }}
-                                                title={a.title}
-                                            >
-                                                <svg viewBox="0 0 16 16" width="14" height="14">
-                                                    <Show when={a.value === 'left'}>
-                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                        <rect x="1" y="7" width="10" height="2" fill="currentColor" />
-                                                        <rect x="1" y="12" width="12" height="2" fill="currentColor" />
-                                                    </Show>
-                                                    <Show when={a.value === 'center'}>
-                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                        <rect x="3" y="7" width="10" height="2" fill="currentColor" />
-                                                        <rect x="2" y="12" width="12" height="2" fill="currentColor" />
-                                                    </Show>
-                                                    <Show when={a.value === 'right'}>
-                                                        <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                        <rect x="5" y="7" width="10" height="2" fill="currentColor" />
-                                                        <rect x="3" y="12" width="12" height="2" fill="currentColor" />
-                                                    </Show>
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </For>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Slug</label>
+                    <Show when={slug()}>
+                        <span class="editor-brief__slug">/{slug()}</span>
+                    </Show>
+                </span>
+            }
+            headerExtra={
+                <>
+                    <Show when={isHomepage()}>
+                        <span class="editor-pill editor-pill--homepage">Homepage</span>
+                    </Show>
+                    <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
+                    <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
+                </>
+            }
+        >
+            <div class="editor-properties">
+                <div class="editor-properties__main">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <div class="u-flex-row">
                             <input
                                 type="text"
-                                value={slug()}
-                                onInput={(e,) => { setSlug(e.currentTarget.value,); markDirty(); }}
-                                placeholder="page-slug"
+                                value={title()}
+                                onInput={(e,) => { setTitle(e.currentTarget.value,); editor.markDirty(); }}
+                                placeholder="Page title"
+                                style={{ flex: '1', }}
                             />
-                            <small class="form-help">URL: /{slug()}</small>
-                        </div>
-                        {/* "Show title on page" toggle — sits in the
-                            same single-line layout as the homepage
-                            toggle in the sidebar; reuses those classes
-                            so spacing / typography stay consistent. */}
-                        <div class="form-group page-editor__homepage-section">
-                            <div class="page-editor__homepage-toggle">
-                                <Toggle
-                                    checked={showTitle()}
-                                    onChange={(next,) => { setShowTitle(next,); markDirty(); }}
-                                    label="Show title on page"
-                                />
-                                <Tooltip
-                                    header="Show title on page"
-                                    content="When on, the page renderer prints this page's title as a heading above the content blocks. Turn it off when your first block (e.g. a hero or carousel) already provides the visual headline and you don't want a duplicate."
-                                />
+                            <div class="page-editor__align-buttons">
+                                <For each={ALIGNMENTS}>
+                                    {(a,) => (
+                                        <button
+                                            class={`page-editor__align-btn ${titleAlignment() === a.value ? 'page-editor__align-btn--active' : ''}`}
+                                            onClick={() => { setTitleAlignment(a.value,); editor.markDirty(); }}
+                                            title={a.title}
+                                        >
+                                            <svg viewBox="0 0 16 16" width="14" height="14">
+                                                <Show when={a.value === 'left'}>
+                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                    <rect x="1" y="7" width="10" height="2" fill="currentColor" />
+                                                    <rect x="1" y="12" width="12" height="2" fill="currentColor" />
+                                                </Show>
+                                                <Show when={a.value === 'center'}>
+                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                    <rect x="3" y="7" width="10" height="2" fill="currentColor" />
+                                                    <rect x="2" y="12" width="12" height="2" fill="currentColor" />
+                                                </Show>
+                                                <Show when={a.value === 'right'}>
+                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
+                                                    <rect x="5" y="7" width="10" height="2" fill="currentColor" />
+                                                    <rect x="3" y="12" width="12" height="2" fill="currentColor" />
+                                                </Show>
+                                            </svg>
+                                        </button>
+                                    )}
+                                </For>
                             </div>
                         </div>
                     </div>
-                    <div class="editor-properties__sidebar">
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select
-                                value={status()}
-                                onChange={(e,) => { setStatus(e.currentTarget.value,); markDirty(); }}
-                            >
-                                <option value="draft">Draft</option>
-                                <option value="published">Published</option>
-                                <option value="archived">Archived</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Access</label>
-                            <select
-                                value={accessLevel()}
-                                onChange={(e,) => { setAccessLevel(e.currentTarget.value,); markDirty(); }}
-                            >
-                                <option value="public">Public</option>
-                                <option value="member">Members Only</option>
-                                <option value="patron">Patrons Only</option>
-                            </select>
-                        </div>
-                        <div class="form-group page-editor__homepage-section">
+                    <div class="form-group">
+                        <label>Slug</label>
+                        <input
+                            type="text"
+                            value={slug()}
+                            onInput={(e,) => { setSlug(e.currentTarget.value,); editor.markDirty(); }}
+                            placeholder="page-slug"
+                        />
+                        <small class="form-help">URL: /{slug()}</small>
+                    </div>
+                    {/* "Show title on page" toggle — sits in the
+                        same single-line layout as the homepage
+                        toggle in the sidebar; reuses those classes
+                        so spacing / typography stay consistent. */}
+                    <div class="form-group page-editor__homepage-section">
+                        <div class="page-editor__homepage-toggle">
                             <Toggle
-                                checked={isHomepage()}
-                                onChange={(next,) => { setIsHomepage(next,); markDirty(); }}
-                                label="Use as homepage"
+                                checked={showTitle()}
+                                onChange={(next,) => { setShowTitle(next,); editor.markDirty(); }}
+                                label="Show title on page"
                             />
-                            <small class="form-help page-editor__homepage-help">
-                                Show this page at <code>/</code>. The page is still reachable at <code>/{slug() || 'slug'}</code>.
-                                Must be <strong>published</strong> to appear on the public site. Only one page can be the homepage at a time.
-                            </small>
+                            <Tooltip
+                                header="Show title on page"
+                                content="When on, the page renderer prints this page's title as a heading above the content blocks. Turn it off when your first block (e.g. a hero or carousel) already provides the visual headline and you don't want a duplicate."
+                            />
                         </div>
                     </div>
                 </div>
-            </CollapsiblePanel>
+                <div class="editor-properties__sidebar">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select
+                            value={status()}
+                            onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
+                        >
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Access</label>
+                        <select
+                            value={accessLevel()}
+                            onChange={(e,) => { setAccessLevel(e.currentTarget.value,); editor.markDirty(); }}
+                        >
+                            <option value="public">Public</option>
+                            <option value="member">Members Only</option>
+                            <option value="patron">Patrons Only</option>
+                        </select>
+                    </div>
+                    <div class="form-group page-editor__homepage-section">
+                        <Toggle
+                            checked={isHomepage()}
+                            onChange={(next,) => { setIsHomepage(next,); editor.markDirty(); }}
+                            label="Use as homepage"
+                        />
+                        <small class="form-help page-editor__homepage-help">
+                            Show this page at <code>/</code>. The page is still reachable at <code>/{slug() || 'slug'}</code>.
+                            Must be <strong>published</strong> to appear on the public site. Only one page can be the homepage at a time.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </CollapsiblePanel>
+    );
 
-            {/* ─── Block Editor ─── */}
-            <BlockEditor
-                title="Page Content"
-                blocks={blocks()}
-                savedBlocks={savedBlocks()}
-                onBlocksChange={(newBlocks,) => { setBlocks(newBlocks,); markDirty(); }}
-                onFullWidthChange={setFullBleed}
-                containerStyle={siteContainerStyle()}
-                containerClass="site-preview-container"
-            />
+    const previewBody = (
+        // Wrap in the public <Layout> so the preview renders the
+        // configured site header, footer, navigation, appearance vars,
+        // swatches, and fonts — the same chrome a real visitor sees.
+        <Layout>
+            {/* Wrap in the same `.dynamic-page page-wrapper` div the
+                public DynamicPage uses, so styles scoped to that
+                selector apply identically in preview. */}
+            <div class="dynamic-page page-wrapper">
+                <Show when={title() && showTitle()}>
+                    <h1
+                        class="dynamic-page__title"
+                        style={{ 'text-align': (titleAlignment() || 'left') as any, }}
+                    >
+                        {title()}
+                    </h1>
+                </Show>
+                <For each={buildBlockTree(editor.blocks().map((b,) => blockDataToRenderBlock(b, editor.params.id,),),)}>
+                    {(block,) => <BlockRenderer block={block} />}
+                </For>
+                <Show when={!editor.blocks().length}>
+                    <div class="empty-state empty-state--plain">No content blocks to preview</div>
+                </Show>
+            </div>
+        </Layout>
+    );
 
-            {/* ─── Bottom save bar ─── */}
-            <EditorSaveBar
-                onSave={handleSave}
-                onCancel={() => navigate('/admin/pages',)}
-                onDelete={() => setShowDeleteConfirm(true,)}
-                saving={saving()}
-                deleting={deleting()}
-                showDelete={!isNew() && !isDeleted()}
-                saveLabel="Save Page"
-                deleteLabel="Delete Page"
-            />
-
-            <Show when={!isNew()}>
-                <RevisionsPanel
-                    entityType="page"
-                    entityId={params.id}
-                    onRestored={() => window.location.reload()}
-                />
-            </Show>
-
-            <ConfirmModal
-                open={showDeleteConfirm()}
-                title="Delete Page"
-                message="Are you sure you want to delete this page? It will be moved to the trash and can be restored later."
-                confirmLabel="Delete"
-                onConfirm={async () => {
-                    setShowDeleteConfirm(false,);
-                    setDeleting(true,);
-                    try {
-                        await cms.pages.update(params.id, { status: 'deleted', } as any,);
-                        markClean();
-                        navigate('/admin/pages',);
-                    } catch (err: any) {
-                        // Modal hides the form's error banner — surface via toast.
-                        toast.error(err?.message || 'Failed to delete page',);
-                    } finally {
-                        setDeleting(false,);
-                    }
-                }}
-                onCancel={() => setShowDeleteConfirm(false,)}
-                danger={true}
-            />
-            <ConfirmModal
-                open={showRestoreConfirm()}
-                title="Restore Page"
-                message="Are you sure you want to restore this page? It will be changed back to draft status."
-                confirmLabel="Restore"
-                onConfirm={async () => {
-                    setShowRestoreConfirm(false,);
-                    setRestoring(true,);
-                    try {
-                        await cms.pages.update(params.id, { status: 'draft', } as any,);
-                        setStatus('draft',);
-                        markClean();
-                    } catch (err: any) {
-                        toast.error(err?.message || 'Failed to restore page',);
-                    } finally {
-                        setRestoring(false,);
-                    }
-                }}
-                onCancel={() => setShowRestoreConfirm(false,)}
-            />
-
-            <Show when={showPreview()}>
-                <PreviewOverlay
-                    backUrl=""
-                    onClose={() => setShowPreview(false,)}
-                    title={title() || 'Untitled page'}
-                    status={status() === 'published' ? 'Published' : 'Draft'}
-                >
-                    {/* Wrap in the public <Layout> so the preview renders
-                        the configured site header, footer, navigation,
-                        appearance vars, swatches, and fonts — the same
-                        chrome a real visitor sees. */}
-                    <Layout>
-                        {/* Wrap in the same `.dynamic-page page-wrapper`
-                            div the public DynamicPage uses, so styles
-                            scoped to that selector apply identically in
-                            preview. */}
-                        <div class="dynamic-page page-wrapper">
-                        <Show when={title() && showTitle()}>
-                            <h1
-                                class="dynamic-page__title"
-                                style={{ 'text-align': (titleAlignment() || 'left') as any, }}
-                            >
-                                {title()}
-                            </h1>
-                        </Show>
-                        <For each={buildBlockTree(blocks().map((b,) => blockDataToRenderBlock(b, params.id,),),)}>
-                            {(block,) => <BlockRenderer block={block} />}
-                        </For>
-                        <Show when={!blocks().length}>
-                            <div class="empty-state empty-state--plain">No content blocks to preview</div>
-                        </Show>
-                        </div>
-                    </Layout>
-                </PreviewOverlay>
-            </Show>
-        </div>
+    return (
+        <EntityEditorShell
+            editor={editor}
+            revisionsEntityType="page"
+            title={title}
+            status={status}
+            publicUrl={() => `/${(editor.entity() as any)?.slug || slug()}`}
+            previewStatus={() => status() === 'published' ? 'Published' : 'Draft'}
+            rootClass={(full,) => `page-editor ${full ? 'admin-full-bleed' : ''}`}
+            labels={{
+                newHeading: 'New Page',
+                editHeading: (t,) => `Edit Page: ${t || 'Untitled'}`,
+                blockEditorTitle: 'Page Content',
+                saveLabel: 'Save Page',
+                deleteLabel: 'Delete Page',
+                previewLabel: 'Preview',
+                restoreLabel: 'Restore',
+                viewLabel: 'View ↗',
+                deleteModalTitle: 'Delete Page',
+                deleteModalMessage:
+                    'Are you sure you want to delete this page? It will be moved to the trash and can be restored later.',
+                restoreModalTitle: 'Restore Page',
+                restoreModalMessage:
+                    'Are you sure you want to restore this page? It will be changed back to draft status.',
+            }}
+            properties={properties}
+            previewBody={previewBody}
+        />
     );
 };
 
