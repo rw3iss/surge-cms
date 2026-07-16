@@ -5,6 +5,8 @@ import ColorPicker from '../../appearance/ColorPicker';
 import FontSelect from '../../common/FontSelect';
 import ConfirmModal from '../../common/ConfirmModal';
 import Tooltip from '../../common/Tooltip';
+import MediaSelectModal from '../../media/MediaSelectModal';
+import MediaUploadModal from '../../media/MediaUploadModal';
 import './BlockStyleEditor.scss';
 
 interface BlockStyleEditorProps {
@@ -57,6 +59,8 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
     const [saving, setSaving,] = createSignal(false,);
     const [showDefaultConfirm, setShowDefaultConfirm,] = createSignal(false,);
     const [settingDefault, setSettingDefault,] = createSignal(false,);
+    const [showBgSelect, setShowBgSelect,] = createSignal(false,);
+    const [showBgUpload, setShowBgUpload,] = createSignal(false,);
     let lastStyleId = props.style.id;
 
     // Only sync template name when the style identity changes (different template loaded, or became custom)
@@ -106,6 +110,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
             name: props.style.name,
             isDefault: props.style.isDefault,
             backgroundColor: undefined,
+            backgroundImage: undefined,
             textColor: undefined,
             fontSize: undefined,
             padding: undefined,
@@ -162,6 +167,63 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             onChange={(hex,) => update('textColor', hex,)}
                         />
                     </div>
+                </div>
+
+                {/* Background Image */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">
+                        Background Image
+                        <Tooltip
+                            header="Background Image"
+                            content="A full-bleed background for this block. It covers the block's whole box and is NOT clipped by the padding, so content still sits above it with the padding applied (the margin does inset it). When a background color is also set, the image wins."
+                        />
+                    </label>
+                    <Show
+                        when={props.style.backgroundImage}
+                        fallback={
+                            <div class="block-style-editor__bg-row">
+                                <span class="block-style-editor__bg-none">None</span>
+                                <button
+                                    class="btn btn--small btn--secondary"
+                                    onClick={() => setShowBgSelect(true,)}
+                                >
+                                    Select Media
+                                </button>
+                                <button
+                                    class="btn btn--small btn--outline"
+                                    onClick={() => setShowBgUpload(true,)}
+                                >
+                                    Upload Image
+                                </button>
+                            </div>
+                        }
+                    >
+                        <div class="block-style-editor__bg-row">
+                            <img
+                                class="block-style-editor__bg-thumb"
+                                src={props.style.backgroundImage}
+                                alt="Background preview"
+                            />
+                            <button
+                                class="btn btn--small btn--secondary"
+                                onClick={() => setShowBgSelect(true,)}
+                            >
+                                Change
+                            </button>
+                            <button
+                                class="btn btn--small btn--outline"
+                                onClick={() => setShowBgUpload(true,)}
+                            >
+                                Upload
+                            </button>
+                            <button
+                                class="btn btn--small btn--danger"
+                                onClick={() => update('backgroundImage', '',)}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </Show>
                 </div>
 
                 {/* Text Alignment */}
@@ -488,6 +550,21 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                 }}
                 onCancel={() => setShowDefaultConfirm(false,)}
             />
+
+            <Show when={showBgSelect()}>
+                <MediaSelectModal
+                    types={['image',]}
+                    onSelect={(media,) => { update('backgroundImage', media.url,); setShowBgSelect(false,); }}
+                    onClose={() => setShowBgSelect(false,)}
+                />
+            </Show>
+            <Show when={showBgUpload()}>
+                <MediaUploadModal
+                    acceptTypes="image/*"
+                    onUploaded={(media,) => { update('backgroundImage', media.url,); setShowBgUpload(false,); }}
+                    onClose={() => setShowBgUpload(false,)}
+                />
+            </Show>
         </div>
     );
 };

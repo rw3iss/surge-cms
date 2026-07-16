@@ -6,6 +6,9 @@ export interface BlockStyleData {
     name?: string;
     isDefault?: boolean;
     backgroundColor?: string;
+    /** Background image URL. Renders over the background color and covers the
+     *  block's full box; content is inset by `padding`, the image is not. */
+    backgroundImage?: string;
     textColor?: string;
     textAlign?: string;
     verticalAlign?: string;
@@ -29,10 +32,11 @@ export interface BlockStyleData {
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontFamily' | 'fontSize' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
+        'backgroundColor' | 'backgroundImage' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontFamily' | 'fontSize' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
     >
 > = {
     backgroundColor: '',
+    backgroundImage: '',
     textColor: '',
     textAlign: 'left',
     verticalAlign: 'top',
@@ -137,6 +141,7 @@ export const BlockStyleService = {
         return {
             ...style,
             backgroundColor: style.backgroundColor || BLOCK_STYLE_DEFAULTS.backgroundColor,
+            backgroundImage: style.backgroundImage || BLOCK_STYLE_DEFAULTS.backgroundImage,
             textColor: style.textColor || BLOCK_STYLE_DEFAULTS.textColor,
             textAlign: style.textAlign || BLOCK_STYLE_DEFAULTS.textAlign,
             verticalAlign: style.verticalAlign || BLOCK_STYLE_DEFAULTS.verticalAlign,

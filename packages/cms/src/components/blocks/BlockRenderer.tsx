@@ -36,6 +36,18 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             class={`block block--${props.block.type}`}
             style={{
                 'background-color': color(s().backgroundColor || (props.block.settings.backgroundColor as string),),
+                // Background image sits over the color and covers the block's
+                // whole box. Padding does NOT clip it (default border-box
+                // clip), so a full-bleed image shows behind padded content;
+                // margin still insets it.
+                ...(s().backgroundImage
+                    ? {
+                        'background-image': `url("${s().backgroundImage}")`,
+                        'background-size': 'cover',
+                        'background-position': 'center',
+                        'background-repeat': 'no-repeat',
+                    }
+                    : {}),
                 color: color(s().textColor || (props.block.settings.textColor as string),),
                 'text-align': s().textAlign || undefined,
                 display: s().verticalAlign && s().verticalAlign !== 'top' ? 'flex' : undefined,

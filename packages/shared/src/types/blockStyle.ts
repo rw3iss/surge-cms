@@ -3,6 +3,10 @@ export interface BlockStyle {
     name?: string; // Template name, undefined for inline
     isDefault?: boolean; // Only one can be default
     backgroundColor?: string; // hex color
+    /** Background image URL. When set, it renders over the background color
+     *  (the image wins visually) and covers the block's full box — content
+     *  is inset by `padding`, the image is not clipped by it. */
+    backgroundImage?: string;
     textColor?: string; // hex color
     textAlign?: string; // 'left' | 'center' | 'right' | 'justify'
     verticalAlign?: string; // 'top' | 'center' | 'bottom'

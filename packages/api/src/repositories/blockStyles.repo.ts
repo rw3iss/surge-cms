@@ -23,15 +23,16 @@ export async function findDefault(): Promise<BlockStyle | null> {
 
 export async function create(data: Partial<BlockStyle>,): Promise<BlockStyle> {
     const result = await query(
-        `INSERT INTO block_styles (name, is_default, background_color, text_color, text_align,
+        `INSERT INTO block_styles (name, is_default, background_color, background_image, text_color, text_align,
                                    vertical_align, font_size, width, height, padding, margin, gap,
                                    overflow_x, overflow_y)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
         [
             data.name,
             data.isDefault || false,
             data.backgroundColor,
+            data.backgroundImage,
             data.textColor,
             data.textAlign,
             data.verticalAlign,
@@ -57,6 +58,7 @@ export async function update(id: string, data: Partial<BlockStyle>,): Promise<Bl
         name: 'name',
         isDefault: 'is_default',
         backgroundColor: 'background_color',
+        backgroundImage: 'background_image',
         textColor: 'text_color',
         textAlign: 'text_align',
         verticalAlign: 'vertical_align',

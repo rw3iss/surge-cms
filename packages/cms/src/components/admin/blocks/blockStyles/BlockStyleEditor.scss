@@ -54,6 +54,28 @@
         gap: $spacing-xs;
     }
 
+    &__bg-row {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        flex-wrap: wrap;
+    }
+
+    &__bg-none {
+        font-size: 13px;
+        color: $text-light;
+        font-style: italic;
+    }
+
+    &__bg-thumb {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: $border-radius-sm;
+        border: 1px solid $border-color;
+        flex-shrink: 0;
+    }
+
     &__select {
         padding: 5px 8px;
         border: 1px solid $border-color;
