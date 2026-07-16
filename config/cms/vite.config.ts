@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
   publicDir: resolve(CMS_ROOT, 'public'),
   resolve: {
     alias: {
+      // `@/` → packages/cms/src. Replaces fragile deep `../../../../` chains
+      // (the ui barrel already documents this import style). Mirror any change
+      // in config/cms/tsconfig.json `paths` so tsc/IDE resolve it too.
+      '@': resolve(CMS_ROOT, 'src'),
       // Resolve @sitesurge/types to its TS SOURCE (ESM) rather than the built
       // CJS dist. The dist emits CommonJS (for Node-resolvable `node dist`),
       // whose `__exportStar` re-exports Vite's dev-server ESM analysis can't

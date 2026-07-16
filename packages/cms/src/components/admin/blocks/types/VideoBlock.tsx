@@ -1,7 +1,7 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
-import { cms, } from '../../../../services/cmsClient';
+import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 
 interface VideoBlockProps {

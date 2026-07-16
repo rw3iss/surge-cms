@@ -8,7 +8,7 @@
  * SocialPostSelectModal for advanced search / pagination.
  */
 import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Show, } from 'solid-js';
-import { cms, } from '../../../../services/cmsClient';
+import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 

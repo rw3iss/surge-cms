@@ -1,6 +1,6 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
-import { cms, } from '../../../../services/cmsClient';
+import { cms, } from '@/services/cmsClient';
 
 interface DocumentBlockProps {
     data: Record<string, any>;

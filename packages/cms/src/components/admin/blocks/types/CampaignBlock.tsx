@@ -1,5 +1,5 @@
 import { Component, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
-import { getCampaigns, } from '../../../../services/adminData';
+import { getCampaigns, } from '@/services/adminData';
 
 const ALL_CAMPAIGNS_ID = '__all-campaigns__';
 

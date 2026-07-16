@@ -1,5 +1,5 @@
 import { Component, Show, } from 'solid-js';
-import { getForms, } from '../../../../services/adminData';
+import { getForms, } from '@/services/adminData';
 import EntitySearchSelect from '../../common/EntitySearchSelect';
 
 interface FormBlockProps {

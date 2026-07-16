@@ -1,5 +1,4 @@
 import ModalShell from './ModalShell';
-import './ConfirmModal.scss';
 
 interface ConfirmModalProps {
     open: boolean;

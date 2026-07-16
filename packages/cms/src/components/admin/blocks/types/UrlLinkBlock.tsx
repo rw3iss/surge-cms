@@ -1,5 +1,5 @@
 import { Component, createSignal, Show, } from 'solid-js';
-import { cms, } from '../../../../services/cmsClient';
+import { cms, } from '@/services/cmsClient';
 
 interface UrlLinkBlockProps {
     data: Record<string, any>;
