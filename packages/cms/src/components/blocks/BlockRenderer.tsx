@@ -830,7 +830,15 @@ const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
         height: (data().height as string) || undefined,
         'min-height': (data().minHeight as string) || undefined,
         'max-height': (data().maxHeight as string) || undefined,
-        'align-self': flexAlign(data().alignSelf as string,),
+        // align-self passes CSS values through (auto/stretch/center/…), only
+        // normalizing the start/end shorthands — matches the former local helper.
+        'align-self': (() => {
+            const v = data().alignSelf as string | undefined;
+            if (!v) return undefined;
+            if (v === 'start') return 'flex-start';
+            if (v === 'end') return 'flex-end';
+            return v;
+        })(),
     });
     // Empty group_items render nothing on the public site (placeholder
     // picker is admin-only, in the editor BlockPreview).
