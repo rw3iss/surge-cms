@@ -15,26 +15,8 @@
  */
 
 import { sanitize, } from '../../utils/sanitize';
-
-function escapeHtml(s: unknown,): string {
-    if (s === null || s === undefined) return '';
-    return String(s,)
-        .replace(/&/g, '&amp;',)
-        .replace(/</g, '&lt;',)
-        .replace(/>/g, '&gt;',)
-        .replace(/"/g, '&quot;',)
-        .replace(/'/g, '&#39;',);
-}
-
-function isoToReadable(iso: string | null | undefined,): string {
-    if (!iso) return '';
-    try {
-        const d = new Date(iso,);
-        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', },);
-    } catch {
-        return '';
-    }
-}
+import { renderBlockForSeo, } from './blocks';
+import { escapeHtml, isoToReadable, } from './blocks/_util';
 
 // ─── Post detail ────────────────────────────────────────────────
 
@@ -136,76 +118,6 @@ export function buildPageBody(p: PageBody,): string {
     }
     parts.push('</article>',);
     return parts.join('\n',);
-}
-
-/**
- * Server-side block renderer for SSR — emits the minimal HTML a bot
- * needs to read each block's text content. Only handles types that
- * carry static, indexable text. Dynamic types fall through (return
- * empty string).
- */
-function renderBlockForSeo(block: {
-    type: string;
-    title?: string | null;
-    content?: string | null;
-    settings?: Record<string, unknown> | null;
-},): string {
-    const settings = (block.settings || {}) as Record<string, any>;
-
-    switch (block.type) {
-        case 'rich_text':
-        case 'text':
-        case 'html': {
-            const html = block.content || (settings.content as string) || '';
-            if (!html) return '';
-            return `<div class="ssr-block ssr-block--${block.type}">${
-                block.type === 'html' ? html : sanitize(html,)
-            }</div>`;
-        }
-        case 'hero': {
-            const heroBits: string[] = [];
-            const t = block.title || (settings.title as string) || '';
-            const subtitle = (settings.subtitle as string) || '';
-            const content = block.content || (settings.content as string) || '';
-            if (t) heroBits.push(`<h2>${escapeHtml(t,)}</h2>`,);
-            if (subtitle) heroBits.push(`<p>${escapeHtml(subtitle,)}</p>`,);
-            if (content) heroBits.push(sanitize(content,),);
-            if (heroBits.length === 0) return '';
-            return `<section class="ssr-block ssr-block--hero">${heroBits.join('',)}</section>`;
-        }
-        case 'image': {
-            const url = block.content || (settings.url as string) || '';
-            const alt = (settings.alt as string) || block.title || '';
-            if (!url) return '';
-            return `<img class="ssr-block ssr-block--image" src="${escapeHtml(url,)}" alt="${escapeHtml(alt,)}" />`;
-        }
-        case 'document': {
-            const url = (settings.url as string) || '';
-            const name = (settings.fileName as string) || block.title || 'Download';
-            if (!url) return '';
-            return `<a class="ssr-block ssr-block--document" href="${escapeHtml(url,)}">${escapeHtml(name,)}</a>`;
-        }
-        case 'url_link': {
-            const url = (settings.url as string) || '';
-            const t = block.title || (settings.title as string) || url;
-            if (!url) return '';
-            return `<a class="ssr-block ssr-block--url-link" href="${escapeHtml(url,)}">${escapeHtml(t,)}</a>`;
-        }
-        // Dynamic blocks — bots can't index runtime feeds anyway.
-        // Including their type as a comment so we know what's there
-        // when debugging the SSR output.
-        case 'form':
-        case 'social':
-        case 'post_list':
-        case 'carousel':
-        case 'gallery':
-        case 'campaign':
-        case 'post':
-        case 'spacer':
-            return `<!-- ${block.type} block (not server-rendered) -->`;
-        default:
-            return '';
-    }
 }
 
 // ─── Post listing ───────────────────────────────────────────────

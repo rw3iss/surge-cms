@@ -26,6 +26,7 @@ import { renderPostList, } from './postList';
 import { renderCarousel, } from './carousel';
 import { renderDocument, } from './document';
 import { cellStyleFromBlock, inlineStyle, } from './_util';
+import type { BlockType, } from '@sitesurge/types';
 
 export interface EmailBlockNode {
     id: string;
@@ -62,7 +63,7 @@ export type BlockEmailRenderer = (
     ctx: EmailRenderCtx,
 ) => BlockEmailRendererOut;
 
-export const RENDERERS: Record<string, BlockEmailRenderer> = {
+export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     rich_text: renderRichText,
     text: renderRichText,
     image: renderImage,
@@ -96,7 +97,7 @@ function toResult(out: BlockEmailRendererOut,): BlockEmailRenderResult {
  * height) overrides defaults.
  */
 export function renderNode(node: EmailBlockNode, ctx: EmailRenderCtx,): string {
-    const fn = RENDERERS[node.blockType];
+    const fn = RENDERERS[node.blockType as BlockType];
     if (!fn) return '';
     const out = toResult(fn(node, ctx,),);
     if (out.rawRow !== undefined) return out.rawRow;
