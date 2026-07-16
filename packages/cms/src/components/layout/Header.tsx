@@ -514,11 +514,18 @@ export const Header: Component<HeaderProps> = (props,) => {
     const isFloatHeader = () => props.headerSettings?.floatHeader === true;
     const isFloatRightContent = () => props.headerSettings?.floatRightContent === true;
 
-    // Cart shows only when the shop feature is on AND the operator hasn't
-    // turned it off (default true — preserves prior always-on behavior).
-    const showCart = () => isFeatureEnabled('shop',) && props.headerSettings?.showCart !== false;
+    // Cart shows only when: the shop feature is on, the operator has the
+    // 'Show cart link' setting enabled (default true), AND the visitor has at
+    // least one item in their cart. An empty cart shows no icon at all.
+    const showCart = () =>
+        isFeatureEnabled('shop',)
+        && props.headerSettings?.showCart !== false
+        && cartCount() > 0;
     // Desktop account-controls layout; defaults to the historic inline row.
     const loggedInFormat = () => props.headerSettings?.loggedInFormat === 'menu' ? 'menu' : 'inline';
+    // Header 'Item Spacing' setting — also applied to the right-side container
+    // (cart / account controls), mirroring the main custom-items row.
+    const itemSpacing = () => (props.headerSettings as { itemSpacing?: string; } | null | undefined)?.itemSpacing || undefined;
 
     const headerClass = () => {
         const base = `header${hasCustomHeader() ? ' header--custom' : ''}`;
@@ -614,7 +621,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                     <Show when={hasCustomHeader()}>
                         <div
                             class="header__custom-items"
-                            style={{ gap: (props.headerSettings as any)?.itemSpacing || undefined, }}
+                            style={{ gap: itemSpacing(), }}
                         >
                             <For each={props.headerSettings!.items}>
                                 {(item,) => <HeaderItem item={item} />}
@@ -622,8 +629,10 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </div>
                     </Show>
 
-                    {/* Desktop nav */}
-                    <nav class="header__nav">
+                    {/* Desktop nav (right-side container: cart / account controls).
+                        Honors the header's Item Spacing setting, like the main
+                        items row; falls back to the SCSS gap when unset. */}
+                    <nav class="header__nav" style={{ gap: itemSpacing(), }}>
                         <Show when={!hasCustomHeader()}>
                             <ul class="header__nav-list">
                                 <For each={props.navigation}>
