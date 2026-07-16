@@ -290,6 +290,13 @@
         min-width: 120px;
     }
 
+    // Label control + adjacent tooltip on one row.
+    &__inline-field {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+    }
+
     &__toggle {
         display: flex;
         align-items: center;

@@ -13,7 +13,7 @@ import path from 'path';
 import { cache, } from '../cache';
 import { logger, } from '../../utils/logger';
 import { buildMetaHtml, } from './metaBuilder';
-import { isPublicRoute, resolveRouteMeta, } from './routes';
+import { getSiteFavicon, isPublicRoute, resolveRouteMeta, } from './routes';
 
 const CACHE_TTL = 300; // 5 minutes
 
@@ -131,6 +131,15 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
     }
 
     if (!meta) return template;
+
+    // 4a. Attach the site favicon (global, same for every route) so the head
+    //     builder can emit a <link rel="icon"> for the operator's icon. Set
+    //     once here rather than in every per-route meta object.
+    try {
+        meta.favicon = await getSiteFavicon();
+    } catch {
+        // Non-fatal — fall back to the template's default favicon.
+    }
 
     // 5. Build and inject meta tags — protect against a malformed meta object
     //    (e.g. unexpected non-string value) so a single bad page can't break SSR

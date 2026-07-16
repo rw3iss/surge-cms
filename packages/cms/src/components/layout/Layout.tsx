@@ -1,6 +1,6 @@
-import { Meta, Title, } from '@solidjs/meta';
+import { Link, Meta, Title, } from '@solidjs/meta';
 import type { AppearanceSettings, NavigationItem, SiteFooterSettings, } from '@sitesurge/types';
-import { createEffect, createMemo, createResource, ParentComponent, } from 'solid-js';
+import { createEffect, createMemo, createResource, ParentComponent, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { swatchCssVars, } from '../../services/colorResolver';
 import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
@@ -148,6 +148,11 @@ export const Layout: ParentComponent = (props,) => {
             <Title>{dynamicSiteName()}</Title>
             <Meta property="og:site_name" content={dynamicSiteName()} />
             <Meta property="og:locale" content="en_US" />
+            {/* Operator-configured favicon — overrides the static default in
+                index.html so the site shows the branding favicon. */}
+            <Show when={settings()?.favicon}>
+                <Link rel="icon" href={settings()!.favicon} />
+            </Show>
 
             <Header
                 navigation={navigation() || []}

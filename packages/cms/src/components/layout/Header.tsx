@@ -1,6 +1,6 @@
 import { A, useLocation, } from '@solidjs/router';
 import { isAdminRole, type NavigationItem, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, type JSX, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, type JSX, onCleanup, onMount, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
@@ -53,6 +53,18 @@ export interface SiteHeaderSettings {
     /** When true, horizontal padding follows the site gutter width
      *  instead of the header's own `padding`. */
     applyGutter?: boolean;
+    /** Float the header absolutely on top of the page content (a transparent
+     *  overlay) instead of sitting in flow above it. */
+    floatHeader?: boolean;
+    /** Absolutely position the right-side content (cart / admin / user /
+     *  logout) so it doesn't push the main header content left. */
+    floatRightContent?: boolean;
+    /** Show the shopping-cart link (only when the `shop` feature is on).
+     *  Default true. */
+    showCart?: boolean;
+    /** Desktop account-controls layout: `inline` (default) or `menu` (gear
+     *  dropdown). Mobile always renders inline. */
+    loggedInFormat?: 'inline' | 'menu';
 }
 
 interface HeaderProps {
@@ -328,6 +340,114 @@ function MobileNavItem(props: { item: SiteHeaderItem; onClose: () => void; },) {
     );
 }
 
+// ─── Logout button (shared by inline actions + the account menu) ───
+
+function LogoutButton(props: { onLogout: () => void; class?: string; },) {
+    return (
+        <button
+            class={props.class ?? 'header__logout-btn'}
+            onClick={props.onLogout}
+            title="Sign Out"
+            aria-label="Sign Out"
+        >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+        </button>
+    );
+}
+
+// ─── Account menu (loggedInFormat = 'menu') ───
+//
+// A gear icon that opens a dropdown with the Admin link (admins only),
+// the user identity, and Sign Out — one per column. Closes on outside
+// click, or 500ms after the pointer leaves (re-entering cancels the
+// timer). Desktop-only: it lives inside `.header__nav`, which is hidden
+// on mobile (the mobile flyout renders these controls inline instead).
+
+function AccountMenu(props: { onLogout: () => void; },) {
+    const auth = useAuth();
+    const [open, setOpen,] = createSignal(false,);
+    let rootEl: HTMLDivElement | undefined;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const clearCloseTimer = () => {
+        if (closeTimer) {
+            clearTimeout(closeTimer,);
+            closeTimer = undefined;
+        }
+    };
+    // Hover-off grace period before auto-closing.
+    const scheduleClose = () => {
+        clearCloseTimer();
+        closeTimer = setTimeout(() => setOpen(false,), 500,);
+    };
+
+    const onDocClick = (e: MouseEvent,) => {
+        if (open() && rootEl && !rootEl.contains(e.target as Node,)) setOpen(false,);
+    };
+    onMount(() => document.addEventListener('click', onDocClick,),);
+    onCleanup(() => {
+        document.removeEventListener('click', onDocClick,);
+        clearCloseTimer();
+    },);
+
+    return (
+        <div
+            class="header__account-menu"
+            ref={(el,) => { rootEl = el; }}
+            onMouseEnter={clearCloseTimer}
+            onMouseLeave={scheduleClose}
+        >
+            <button
+                type="button"
+                class={`header__account-trigger ${open() ? 'header__account-trigger--open' : ''}`}
+                aria-label="Account menu"
+                aria-haspopup="true"
+                aria-expanded={open()}
+                onClick={(e,) => { e.stopPropagation(); setOpen(!open(),); }}
+            >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
+            </button>
+            <Show when={open()}>
+                <div class="header__account-dropdown" role="menu">
+                    <Show when={isAdminRole(auth.user?.role,)}>
+                        <A href="/admin" class="header__account-item" role="menuitem" onClick={() => setOpen(false,)}>
+                            Admin
+                        </A>
+                    </Show>
+                    <div class="header__account-item header__account-user">
+                        <Show when={auth.user?.avatarUrl}>
+                            <img src={auth.user?.avatarUrl} alt={auth.user?.displayName} class="header__user-avatar" />
+                        </Show>
+                        <span class="header__user-name">{auth.user?.displayName}</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="header__account-item header__account-logout"
+                        role="menuitem"
+                        onClick={() => { setOpen(false,); props.onLogout(); }}
+                    >
+                        Sign Out
+                    </button>
+                </div>
+            </Show>
+        </div>
+    );
+}
+
 // ─── Header Component ───
 
 export const Header: Component<HeaderProps> = (props,) => {
@@ -391,6 +511,15 @@ export const Header: Component<HeaderProps> = (props,) => {
         onCleanup(() => window.removeEventListener('scroll', onScroll,),);
     },);
 
+    const isFloatHeader = () => props.headerSettings?.floatHeader === true;
+    const isFloatRightContent = () => props.headerSettings?.floatRightContent === true;
+
+    // Cart shows only when the shop feature is on AND the operator hasn't
+    // turned it off (default true — preserves prior always-on behavior).
+    const showCart = () => isFeatureEnabled('shop',) && props.headerSettings?.showCart !== false;
+    // Desktop account-controls layout; defaults to the historic inline row.
+    const loggedInFormat = () => props.headerSettings?.loggedInFormat === 'menu' ? 'menu' : 'inline';
+
     const headerClass = () => {
         const base = `header${hasCustomHeader() ? ' header--custom' : ''}`;
         const cls = [base,];
@@ -399,6 +528,11 @@ export const Header: Component<HeaderProps> = (props,) => {
             cls.push('header--auto-hide',);
             if (hidden()) cls.push('header--auto-hidden',);
         }
+        // Float the header as a transparent overlay on top of the content.
+        if (isFloatHeader()) cls.push('header--float',);
+        // Absolutely position the right-side content so it doesn't push the
+        // main header content left.
+        if (isFloatRightContent()) cls.push('header--float-right',);
         return cls.join(' ',);
     };
 
@@ -432,6 +566,9 @@ export const Header: Component<HeaderProps> = (props,) => {
             s['padding-left'] = props.gutterWidth;
             s['padding-right'] = props.gutterWidth;
         }
+        // Expose the resolved right padding so the float-right nav can inset
+        // itself to the same gutter/padding as the in-flow content.
+        s['--header-pad-right'] = s['padding-right'] || '0';
         return s;
     };
 
@@ -523,77 +660,71 @@ export const Header: Component<HeaderProps> = (props,) => {
                             </ul>
                         </Show>
 
-                        <Show when={auth.isAuthenticated && isAdminRole(auth.user?.role,)}>
-                            <ul class="header__nav-list">
-                                <li class="header__nav-item">
-                                    <A
-                                        href="/admin"
-                                        class={`header__nav-link ${isActive('admin',) ? 'header__nav-link--active' : ''}`}
-                                        onClick={closeMobileMenu}
-                                    >
-                                        Admin
-                                    </A>
-                                </li>
-                            </ul>
+                        {/* Cart — rendered BEFORE the admin/account controls,
+                            gated by the shop feature + the showCart setting. */}
+                        <Show when={showCart()}>
+                            <A href="/shop/cart" class="header__cart" aria-label="Cart" onClick={closeMobileMenu}>
+                                <span class="header__cart-icon" aria-hidden="true">🛒</span>
+                                <Show when={cartCount() > 0}>
+                                    <span class="header__cart-badge">{cartCount()}</span>
+                                </Show>
+                            </A>
                         </Show>
 
-                        <div class="header__actions">
-                            <Show when={isFeatureEnabled('shop',)}>
-                                <A href="/shop/cart" class="header__cart" aria-label="Cart" onClick={closeMobileMenu}>
-                                    <span class="header__cart-icon" aria-hidden="true">🛒</span>
-                                    <Show when={cartCount() > 0}>
-                                        <span class="header__cart-badge">{cartCount()}</span>
-                                    </Show>
-                                </A>
-                            </Show>
+                        {/* Account controls — inline (Admin + user + logout) or a
+                            gear dropdown, per the loggedInFormat setting. */}
+                        <Show
+                            when={auth.isAuthenticated}
+                            fallback={
+                                // Only surface the public Sign In when the users/members
+                                // feature is on — a members-less site (e.g. a pure news
+                                // site) shouldn't show it, and it would otherwise collide
+                                // with a custom header's own CTA.
+                                <Show when={isFeatureEnabled('users',)}>
+                                    <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
+                                        Sign In
+                                    </A>
+                                </Show>
+                            }
+                        >
                             <Show
-                                when={auth.isAuthenticated}
+                                when={loggedInFormat() === 'menu'}
                                 fallback={
-                                    // Only surface the public Sign In when the users/members
-                                    // feature is on — a members-less site (e.g. a pure news
-                                    // site) shouldn't show it, and it would otherwise collide
-                                    // with a custom header's own CTA.
-                                    <Show when={isFeatureEnabled('users',)}>
-                                        <A href="/login" class="header__btn header__btn--primary" onClick={closeMobileMenu}>
-                                            Sign In
-                                        </A>
-                                    </Show>
+                                    <>
+                                        <Show when={isAdminRole(auth.user?.role,)}>
+                                            <ul class="header__nav-list">
+                                                <li class="header__nav-item">
+                                                    <A
+                                                        href="/admin"
+                                                        class={`header__nav-link ${
+                                                            isActive('admin',) ? 'header__nav-link--active' : ''
+                                                        }`}
+                                                        onClick={closeMobileMenu}
+                                                    >
+                                                        Admin
+                                                    </A>
+                                                </li>
+                                            </ul>
+                                        </Show>
+                                        <div class="header__actions">
+                                            <div class="header__user">
+                                                <Show when={auth.user?.avatarUrl}>
+                                                    <img
+                                                        src={auth.user?.avatarUrl}
+                                                        alt={auth.user?.displayName}
+                                                        class="header__user-avatar"
+                                                    />
+                                                </Show>
+                                                <span class="header__user-name">{auth.user?.displayName}</span>
+                                                <LogoutButton onLogout={() => { auth.logout(); closeMobileMenu(); }} />
+                                            </div>
+                                        </div>
+                                    </>
                                 }
                             >
-                                <div class="header__user">
-                                    <Show when={auth.user?.avatarUrl}>
-                                        <img
-                                            src={auth.user?.avatarUrl}
-                                            alt={auth.user?.displayName}
-                                            class="header__user-avatar"
-                                        />
-                                    </Show>
-                                    <span class="header__user-name">{auth.user?.displayName}</span>
-                                    <button
-                                        class="header__logout-btn"
-                                        onClick={() => {
-                                            auth.logout();
-                                            closeMobileMenu();
-                                        }}
-                                        title="Sign Out"
-                                        aria-label="Sign Out"
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                                            <polyline points="16 17 21 12 16 7" />
-                                            <line x1="21" y1="12" x2="9" y2="12" />
-                                        </svg>
-                                    </button>
-                                </div>
+                                <AccountMenu onLogout={() => { auth.logout(); closeMobileMenu(); }} />
                             </Show>
-                        </div>
+                        </Show>
                     </nav>
 
                     {/* Hamburger — visible on mobile only */}

@@ -30,6 +30,7 @@ interface SiteMeta {
     name: string;
     description: string;
     logo?: string;
+    favicon?: string;
 }
 
 let siteMetaCache: SiteMeta | null = null;
@@ -43,14 +44,20 @@ async function getSiteMeta(): Promise<SiteMeta> {
     }
     try {
         const res = await query(
-            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo')`,
+            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo', 'favicon', 'site_branding')`,
         );
         const map: Record<string, unknown> = {};
         for (const row of res.rows) map[row.key] = row.value;
+        // Favicon lives inside the `site_branding` JSON (favicon.url); the
+        // legacy top-level `favicon` key is a fallback. Mirrors the resolution
+        // in services/settings.ts getPublicSettings().
+        const branding = map.site_branding as { favicon?: { url?: string; }; } | undefined;
+        const favicon = branding?.favicon?.url || (map.favicon as string | undefined) || undefined;
         siteMetaCache = {
             name: (map.site_name as string) || FALLBACK_SITE_NAME,
             description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
             logo: (map.logo as string) || undefined,
+            favicon,
         };
     } catch {
         siteMetaCache = {
@@ -60,6 +67,12 @@ async function getSiteMeta(): Promise<SiteMeta> {
     }
     siteMetaCacheAt = now;
     return siteMetaCache;
+}
+
+/** The configured site favicon URL (or undefined). Used by the SSR head
+ *  injector so the operator's favicon renders on first paint / for bots. */
+export async function getSiteFavicon(): Promise<string | undefined> {
+    return (await getSiteMeta()).favicon;
 }
 
 /** Manually clear the site meta cache — call from settings update handlers. */

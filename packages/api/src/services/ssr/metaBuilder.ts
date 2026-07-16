@@ -21,6 +21,9 @@ export interface MetaTags {
     nofollow?: boolean;
     siteName?: string;
     locale?: string;
+    /** Operator-configured favicon URL. Emitted as `<link rel="icon">` so the
+     *  site's favicon renders instead of the static default. */
+    favicon?: string;
     aeoSummary?: string;
     aeoEntityType?: string;
     jsonLd?: Record<string, unknown> | Record<string, unknown>[];
@@ -81,6 +84,12 @@ export function buildMetaHtml(meta: MetaTags,): string {
     const lines: string[] = [];
 
     lines.push(`<title>${escapeHtml(title,)}</title>`,);
+
+    // Favicon — emitted after the static template's default so the operator's
+    // configured icon wins (later same-rel <link> takes precedence).
+    if (meta.favicon) {
+        lines.push(`<link rel="icon" href="${escapeHtml(meta.favicon,)}" />`,);
+    }
 
     if (meta.description) {
         lines.push(`<meta name="description" content="${escapeHtml(meta.description,)}" />`,);

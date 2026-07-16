@@ -1,6 +1,7 @@
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
+import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
 import MediaSelectModal from '../media/MediaSelectModal';
@@ -122,6 +123,11 @@ const SiteHeaderEditor: Component = () => {
      *  existing sites; new toggles save the explicit value. */
     const [sticky, setSticky,] = createSignal(true,);
     const [autoHide, setAutoHide,] = createSignal(false,);
+    const [floatHeader, setFloatHeader,] = createSignal(false,);
+    const [floatRightContent, setFloatRightContent,] = createSignal(false,);
+    /** Default true preserves the historic always-show cart behavior. */
+    const [showCart, setShowCart,] = createSignal(true,);
+    const [loggedInFormat, setLoggedInFormat,] = createSignal<'inline' | 'menu'>('inline',);
     const [selectedItemId, setSelectedItemId,] = createSignal<string | null>(null,);
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
@@ -165,6 +171,10 @@ const SiteHeaderEditor: Component = () => {
                 // behavior) when the field is missing on legacy rows.
                 setSticky(data.sticky !== false,);
                 setAutoHide(data.autoHide === true,);
+                setFloatHeader(data.floatHeader === true,);
+                setFloatRightContent(data.floatRightContent === true,);
+                setShowCart(data.showCart !== false,);
+                setLoggedInFormat(data.loggedInFormat === 'menu' ? 'menu' : 'inline',);
             }
         } catch (e) {
             console.error('Failed to load site header settings:', e,);
@@ -260,6 +270,10 @@ const SiteHeaderEditor: Component = () => {
                 applyGutter: applyGutter(),
                 sticky: sticky(),
                 autoHide: autoHide(),
+                floatHeader: floatHeader(),
+                floatRightContent: floatRightContent(),
+                showCart: showCart(),
+                loggedInFormat: loggedInFormat(),
             };
             await cms.settings.siteHeader(payload as any,);
             setIsDirty(false,);
@@ -724,6 +738,79 @@ const SiteHeaderEditor: Component = () => {
                                 header="Auto-hide"
                                 content="Slides the header up out of view when the visitor scrolls down, and slides it back into place when they scroll up. Combine with 'Make header sticky' for the typical content-priority pattern; without sticky the header is already in flow so this is a no-op."
                             />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={floatHeader()}
+                                    onChange={(e,) => {
+                                        setFloatHeader(e.currentTarget.checked,);
+                                        markDirty();
+                                    }}
+                                />
+                                <span>Float header above content</span>
+                            </label>
+                            <Tooltip
+                                header="Float header above content"
+                                content="Renders the page content starting at the very top and floats the header on top of it (absolutely positioned) instead of sitting in the flow above it. Use it for a transparent header with no background that overlays whatever content blocks render below — e.g. a hero image showing through the header."
+                            />
+                        </div>
+                        <div class="site-header-editor__field">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={floatRightContent()}
+                                    onChange={(e,) => {
+                                        setFloatRightContent(e.currentTarget.checked,);
+                                        markDirty();
+                                    }}
+                                />
+                                <span>Float right-side header content</span>
+                            </label>
+                            <Tooltip
+                                header="Float right-side content"
+                                content="Absolutely positions the right-side content (cart, admin link, logged-in user & logout) so it 'floats' on the right of the header instead of taking up layout space. This prevents it from pushing the main header content left — useful when you center your header content and don't want the right-side items to knock it off-center. Off by default (renders in flow as usual)."
+                            />
+                        </div>
+                        <Show when={isFeatureEnabled('shop',)}>
+                            <div class="site-header-editor__field">
+                                <label class="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        checked={showCart()}
+                                        onChange={(e,) => {
+                                            setShowCart(e.currentTarget.checked,);
+                                            markDirty();
+                                        }}
+                                    />
+                                    <span>Show cart link in header</span>
+                                </label>
+                                <Tooltip
+                                    header="Show cart"
+                                    content="Shows the shopping-cart icon in the header. Turn it off to hide it entirely — you can then link to the cart yourself from anywhere in your header or content. When shown, the cart appears right after your header content, before the Admin and logged-in-user controls."
+                                />
+                            </div>
+                        </Show>
+                        <div class="site-header-editor__field">
+                            <label class="site-header-editor__label">Logged-in user format</label>
+                            <div class="site-header-editor__inline-field">
+                                <select
+                                    class="site-header-editor__select"
+                                    value={loggedInFormat()}
+                                    onChange={(e,) => {
+                                        setLoggedInFormat(e.currentTarget.value === 'menu' ? 'menu' : 'inline',);
+                                        markDirty();
+                                    }}
+                                >
+                                    <option value="inline">Inline</option>
+                                    <option value="menu">Menu (gear dropdown)</option>
+                                </select>
+                                <Tooltip
+                                    header="Logged-in user format"
+                                    content="How the account controls (Admin link, user name, logout) show for a logged-in visitor on desktop. 'Inline' lays them out in a row as usual. 'Menu' collapses them into a gear icon that opens a dropdown — it closes when you click away or move off it. On mobile they always show inline in the menu, regardless of this setting."
+                                />
+                            </div>
                         </div>
                         <div class="site-header-editor__settings-actions">
                             <button

@@ -21,6 +21,40 @@
     transform: translateY(-100%);
   }
 
+  // ─── Float header: transparent overlay on top of the content ──────
+  // Absolutely positioned so page content flows underneath it (e.g. a
+  // hero shows through a background-less header). An operator-set
+  // background still applies via the inline style; unset → transparent.
+  &--float {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: none;
+    border-bottom: none;
+    z-index: $z-index-sticky;
+  }
+
+  // ─── Float right-side content ─────────────────────────────────────
+  // The right-side controls (cart / admin / user / logout) are pulled
+  // out of flow and pinned to the header's right edge so they don't push
+  // the main header content left — keeps centered content centered. The
+  // right inset follows the container's own right padding via a CSS var.
+  &--float-right {
+    .header__container {
+      position: relative;
+    }
+
+    .header__nav {
+      position: absolute;
+      right: var(--header-pad-right, 0);
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 0;
+      z-index: 2;
+    }
+  }
+
   // When custom header settings provide their own styles
   &--custom {
     background: none;
@@ -220,6 +254,79 @@
       border-color: $error-color;
       background: rgba($error-color, 0.06);
     }
+  }
+
+  // ─── Account menu (loggedInFormat = 'menu') ───────────────────────
+  &__account-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &__account-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    svg { width: 18px; height: 18px; }
+
+    &:hover,
+    &--open {
+      color: var(--site-primary, #{$primary-color});
+      border-color: var(--site-primary, #{$primary-color});
+    }
+  }
+
+  &__account-dropdown {
+    position: absolute;
+    top: calc(100% + #{$spacing-xs});
+    right: 0;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    background: $background;
+    color: $text-color;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    padding: $spacing-xs;
+    z-index: $z-index-dropdown;
+  }
+
+  &__account-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: none;
+    border-radius: $border-radius-sm;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover { background: $background-dark; }
+
+    .header__user-name { display: block; }
+  }
+
+  &__account-logout:hover {
+    color: $error-color;
+    background: rgba($error-color, 0.06);
   }
 
   // Hamburger button — mobile only
