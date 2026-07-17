@@ -5,6 +5,7 @@ import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
 import ColorPicker from '../appearance/ColorPicker';
 import FontSelect from '../common/FontSelect';
+import Toggle from '../common/Toggle';
 import Tooltip from '../common/Tooltip';
 import { useToast, } from '../../common/toast';
 import './SiteFooterEditor.scss';
@@ -513,14 +514,13 @@ const SiteFooterEditor: Component = () => {
             <Show when={loaded()} fallback={<p>Loading…</p>}>
                 {/* Top bar: enable toggle + save */}
                 <div class="footer-editor__topbar">
-                    <label class="footer-editor__enable">
-                        <input
-                            type="checkbox"
+                    <div class="footer-editor__enable">
+                        <Toggle
                             checked={settings().enabled}
-                            onChange={(e,) => update((s,) => { s.enabled = e.currentTarget.checked; return s; },)}
+                            onChange={(next,) => update((s,) => { s.enabled = next; return s; },)}
+                            label={<span class="footer-editor__enable-label">Enable site footer</span>}
                         />
-                        <span class="footer-editor__enable-label">Enable site footer</span>
-                    </label>
+                    </div>
                     <div class="footer-editor__topbar-spacer" />
                     <Show when={dirty()}>
                         <span class="footer-editor__dirty">Unsaved changes</span>
@@ -1345,14 +1345,14 @@ function RowPanel(props: { row: SiteFooterRow; onChange: (p: Partial<SiteFooterR
     return (
         <div class="footer-editor__form">
             <h3>Row settings</h3>
-            <label class="footer-editor__field">
+            <div class="footer-editor__field">
                 <span>Inherit site gutter (constrains row to container width)</span>
-                <input
-                    type="checkbox"
+                <Toggle
                     checked={Boolean(props.row.useGutter,)}
-                    onChange={(e,) => props.onChange({ useGutter: e.currentTarget.checked, },)}
+                    onChange={(next,) => props.onChange({ useGutter: next, },)}
+                    ariaLabel="Inherit site gutter"
                 />
-            </label>
+            </div>
             <label class="footer-editor__field">
                 <span>Gap between columns</span>
                 <input
@@ -1507,14 +1507,13 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                         onInput={(e,) => props.onChange({ url: e.currentTarget.value, },)}
                     />
                 </label>
-                <label class="footer-editor__field footer-editor__field--inline">
-                    <input
-                        type="checkbox"
+                <div class="footer-editor__field footer-editor__field--inline">
+                    <Toggle
                         checked={Boolean(props.item.openInNewTab,)}
-                        onChange={(e,) => props.onChange({ openInNewTab: e.currentTarget.checked, },)}
+                        onChange={(next,) => props.onChange({ openInNewTab: next, },)}
+                        label="Open in new tab"
                     />
-                    <span>Open in new tab</span>
-                </label>
+                </div>
             </Show>
 
             <Show when={supportsImage()}>

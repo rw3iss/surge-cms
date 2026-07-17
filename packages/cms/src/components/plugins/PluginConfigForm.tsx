@@ -1,6 +1,7 @@
 /** Host-rendered declarative config form, driven by a plugin's manifest configSchema. */
 import { Component, createSignal, For, Show, } from 'solid-js';
 import type { Plugin, PluginConfigField, } from '@sitesurge/types';
+import Toggle from '../admin/common/Toggle';
 
 const PluginConfigForm: Component<{
     plugin: Plugin;
@@ -35,7 +36,7 @@ const PluginConfigForm: Component<{
                             <label>{f.label}{f.required ? ' *' : ''}</label>
                             <Show when={f.help}><div class="form-help-muted">{f.help}</div></Show>
                             {f.type === 'boolean'
-                                ? <input type="checkbox" checked={values()[f.key] === true} onChange={(e,) => set(f.key, e.currentTarget.checked,)} />
+                                ? <Toggle checked={values()[f.key] === true} onChange={(next,) => set(f.key, next,)} />
                                 : f.type === 'select'
                                 ? (
                                     <select class="input" value={String(values()[f.key] ?? '',)} onChange={(e,) => set(f.key, e.currentTarget.value,)}>

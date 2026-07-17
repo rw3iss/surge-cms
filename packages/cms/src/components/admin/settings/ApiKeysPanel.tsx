@@ -7,6 +7,7 @@
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import Toggle from '../common/Toggle';
 
 interface ApiKeyRow {
     id: string;
@@ -125,14 +126,13 @@ const ApiKeysPanel: Component = () => {
                         <label>Scopes</label>
                         <For each={SCOPES}>
                             {(s,) => (
-                                <label class="checkbox-label">
-                                    <input
-                                        type="checkbox"
+                                <div class="checkbox-label">
+                                    <Toggle
                                         checked={scopes().includes(s,)}
                                         onChange={() => toggleScope(s,)}
+                                        label={s}
                                     />
-                                    {' '}{s}
-                                </label>
+                                </div>
                             )}
                         </For>
                         <p class="form-help-muted">

@@ -1062,15 +1062,11 @@ const SiteHeaderEditor: Component = () => {
                                         />
                                     </div>
                                     <div class="site-header-edit-panel__field">
-                                        <label class="site-header-edit-panel__toggle">
-                                            <input
-                                                type="checkbox"
-                                                checked={item().openInNewTab || false}
-                                                onChange={(e,) =>
-                                                    updateEditField('openInNewTab', e.currentTarget.checked,)}
-                                            />
-                                            <span>Open in new tab</span>
-                                        </label>
+                                        <Toggle
+                                            checked={item().openInNewTab || false}
+                                            onChange={(next,) => updateEditField('openInNewTab', next,)}
+                                            label="Open in new tab"
+                                        />
                                     </div>
                                 </Show>
 
@@ -1099,14 +1095,13 @@ const SiteHeaderEditor: Component = () => {
                                                             onInput={(e,) => updateChild(idx(), { url: e.currentTarget.value, },)}
                                                             placeholder="/path"
                                                         />
-                                                        <label class="site-header-submenu__newtab" title="Open in new tab">
-                                                            <input
-                                                                type="checkbox"
+                                                        <div class="site-header-submenu__newtab" title="Open in new tab">
+                                                            <Toggle
                                                                 checked={child.openInNewTab || false}
-                                                                onChange={(e,) => updateChild(idx(), { openInNewTab: e.currentTarget.checked, },)}
+                                                                onChange={(next,) => updateChild(idx(), { openInNewTab: next, },)}
+                                                                label="New tab"
                                                             />
-                                                            <span>New tab</span>
-                                                        </label>
+                                                        </div>
                                                         <div class="site-header-submenu__actions">
                                                             <button
                                                                 class="btn btn--outline btn--small"

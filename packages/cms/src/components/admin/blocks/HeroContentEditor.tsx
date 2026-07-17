@@ -17,6 +17,7 @@ import MediaSelectModal from '../media/MediaSelectModal';
 import MediaUploadModal from '../media/MediaUploadModal';
 import PostQueryEditor from './PostQueryEditor';
 import Tooltip from '../common/Tooltip';
+import Toggle from '../common/Toggle';
 import './HeroContentEditor.scss';
 
 const genId = () => 'hero-' + Date.now() + '-' + Math.random().toString(36,).slice(2, 7,);
@@ -495,19 +496,18 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             <option value="large">Large</option>
                         </select>
                     </div>
-                    <label class="hero-item-card__toggle">
-                        <input
-                            type="checkbox"
+                    <div class="hero-item-card__toggle">
+                        <Toggle
                             checked={action?.openInNewTab || false}
-                            onChange={(e,) => {
+                            onChange={(next,) => {
                                 updateItem(item.id, it => ({
                                     ...it,
-                                    action: { ...it.action!, openInNewTab: e.currentTarget.checked, },
+                                    action: { ...it.action!, openInNewTab: next, },
                                 }),);
                             }}
+                            label="Open in new tab"
                         />
-                        <span>Open in new tab</span>
-                    </label>
+                    </div>
                 </Show>
             </div>
         );
@@ -564,15 +564,12 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                         </Show>
                         {/* Auto-scroll */}
                         <div class="hero-options__group">
-                            <label class="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={options().autoScroll}
-                                    disabled={items().length <= 1}
-                                    onChange={(e,) => updateOptions({ autoScroll: e.currentTarget.checked, },)}
-                                />
-                                <span class="toggle-switch__slider" />
-                            </label>
+                            <Toggle
+                                checked={options().autoScroll}
+                                disabled={items().length <= 1}
+                                onChange={(next,) => updateOptions({ autoScroll: next, },)}
+                                ariaLabel="Auto-scroll"
+                            />
                             <span class="hero-options__label">Auto-scroll</span>
                             <Show when={options().autoScroll}>
                                 <input
@@ -594,28 +591,22 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
                         {/* Repeat */}
                         <div class="hero-options__group">
-                            <label class="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={options().repeat}
-                                    disabled={items().length <= 1}
-                                    onChange={(e,) => updateOptions({ repeat: e.currentTarget.checked, },)}
-                                />
-                                <span class="toggle-switch__slider" />
-                            </label>
+                            <Toggle
+                                checked={options().repeat}
+                                disabled={items().length <= 1}
+                                onChange={(next,) => updateOptions({ repeat: next, },)}
+                                ariaLabel="Repeat"
+                            />
                             <span class="hero-options__label">Repeat</span>
                         </div>
 
                         {/* Custom height */}
                         <div class="hero-options__group">
-                            <label class="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={options().customHeight}
-                                    onChange={(e,) => updateOptions({ customHeight: e.currentTarget.checked, },)}
-                                />
-                                <span class="toggle-switch__slider" />
-                            </label>
+                            <Toggle
+                                checked={options().customHeight}
+                                onChange={(next,) => updateOptions({ customHeight: next, },)}
+                                ariaLabel="Custom height"
+                            />
                             <span class="hero-options__label">Custom height</span>
                             <Show when={options().customHeight}>
                                 <input
@@ -656,14 +647,11 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
                         {/* Apply gutter */}
                         <div class="hero-options__group">
-                            <label class="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={options().applyGutter || false}
-                                    onChange={(e,) => updateOptions({ applyGutter: e.currentTarget.checked, },)}
-                                />
-                                <span class="toggle-switch__slider" />
-                            </label>
+                            <Toggle
+                                checked={options().applyGutter || false}
+                                onChange={(next,) => updateOptions({ applyGutter: next, },)}
+                                ariaLabel="Apply Site Gutter"
+                            />
                             <span class="hero-options__label">Apply Site Gutter</span>
                         </div>
                     </div>
@@ -752,19 +740,18 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
                                                         {/* Autoplay (video only) */}
                                                         <Show when={item.mediaType === 'video'}>
-                                                            <label class="hero-item-card__toggle">
-                                                                <input
-                                                                    type="checkbox"
+                                                            <div class="hero-item-card__toggle">
+                                                                <Toggle
                                                                     checked={item.autoplay ?? true}
-                                                                    onChange={(e,) => {
+                                                                    onChange={(next,) => {
                                                                         updateItem(item.id, it => ({
                                                                             ...it,
-                                                                            autoplay: e.currentTarget.checked,
+                                                                            autoplay: next,
                                                                         }),);
                                                                     }}
+                                                                    label="Autoplay"
                                                                 />
-                                                                <span>Autoplay</span>
-                                                            </label>
+                                                            </div>
                                                         </Show>
 
                                                         {/* Header */}
