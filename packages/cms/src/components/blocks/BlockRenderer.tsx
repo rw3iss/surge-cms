@@ -21,9 +21,18 @@ function color(value: string | undefined,): string | undefined {
 
 interface BlockRendererProps {
     block: Block;
+    /** In the admin block-editor preview, disabled blocks still render (greyed
+     *  out by the surrounding editor) so operators can see them. On the public
+     *  site (default), a disabled block is skipped entirely. */
+    preview?: boolean;
 }
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
+    // A disabled block keeps its content in the DB but never renders on the
+    // public site (editors can toggle it back on). The flag lives in the
+    // block's settings JSON. In preview mode it still renders (greyed).
+    const isHidden = () => !props.preview
+        && Boolean((props.block.settings as Record<string, unknown> | undefined)?.disabled);
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
     const s = () => blockStyle() || {};
     // Carousel routes its padding to the slide *content* (see
@@ -32,8 +41,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     const isCarousel = () => props.block.type === 'carousel';
 
     return (
+        <Show when={!isHidden()}>
         <div
-            class={`block block--${props.block.type}`}
+            class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}`}
             style={{
                 'background-color': color(s().backgroundColor || (props.block.settings.backgroundColor as string),),
                 // Background image sits over the color and covers the block's
@@ -154,6 +164,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 </Switch>
             </div>
         </div>
+        </Show>
     );
 };
 

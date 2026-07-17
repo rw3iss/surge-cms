@@ -1,6 +1,7 @@
 import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
+import MediaUploadModal from './MediaUploadModal';
 import './MediaSelectModal.scss';
 
 const ITEMS_PER_PAGE = 10;
@@ -31,6 +32,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
     const [sort, setSort,] = createSignal('date_desc',);
     const [page, setPage,] = createSignal(1,);
     const [playingVideo, setPlayingVideo,] = createSignal<string | null>(null,);
+    const [showUpload, setShowUpload,] = createSignal(false,);
 
     let searchTimer: ReturnType<typeof setTimeout>;
 
@@ -52,6 +54,16 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
             console.error('Failed to fetch media:', e,);
         }
         setLoading(false,);
+    };
+
+    /** After uploading from within this modal, close the uploader, jump to
+     *  the newest-first view and refresh so the new item shows up. */
+    const handleUploaded = () => {
+        setShowUpload(false,);
+        setSearchText('',);
+        setSort('date_desc',);
+        setPage(1,);
+        fetchMedia();
     };
 
     const handleSearchInput = (value: string,) => {
@@ -140,11 +152,25 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
 
                 <div class="media-select-modal__body">
                     <Show when={!loading()} fallback={<div class="media-select-modal__loading">Loading...</div>}>
-                        <Show
-                            when={items().length > 0}
-                            fallback={<div class="empty-state">No media found</div>}
-                        >
-                            <div class="media-select-modal__grid">
+                        <div class="media-select-modal__grid">
+                            {/* Upload New — always the first tile; opens the
+                                uploader, then refreshes this grid on success. */}
+                            <div
+                                class="media-select-modal__card media-select-modal__card--upload"
+                                role="button"
+                                tabindex="0"
+                                onClick={() => setShowUpload(true,)}
+                                onKeyDown={(e,) => { if (e.key === 'Enter' || e.key === ' ') setShowUpload(true,); }}
+                            >
+                                <div class="media-select-modal__upload-tile">
+                                    <span class="media-select-modal__upload-icon">+</span>
+                                    <span class="media-select-modal__upload-label">Upload New</span>
+                                </div>
+                            </div>
+                            <Show when={items().length === 0}>
+                                <div class="media-select-modal__empty-inline">No media found</div>
+                            </Show>
+                            <div style={{ display: 'contents', }}>
                                 <For each={items()}>
                                     {(item,) => (
                                         <div class="media-select-modal__card">
@@ -216,7 +242,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                                     )}
                                 </For>
                             </div>
-                        </Show>
+                        </div>
                     </Show>
                 </div>
 
@@ -240,6 +266,14 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                             Next
                         </button>
                     </div>
+                </Show>
+
+                <Show when={showUpload()}>
+                    <MediaUploadModal
+                        acceptTypes={props.types?.length ? props.types.map(t => `${t}/*`).join(',',) : undefined}
+                        onUploaded={handleUploaded}
+                        onClose={() => setShowUpload(false,)}
+                    />
                 </Show>
         </ModalShell>
     );

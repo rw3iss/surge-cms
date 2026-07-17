@@ -115,7 +115,8 @@
 
   &__excerpt {
     margin: clamp(8px, 2vh, 20px) 0 0;
-    max-width: 60ch;
+    // No width cap of its own — wrap to the slide content container width
+    // (the same 90% the title uses) instead of a narrow measure.
     color: #fff;
     font-size: clamp(0.95rem, 1.8vw, 1.25rem);
     line-height: $line-height-base;

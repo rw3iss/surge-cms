@@ -412,6 +412,33 @@
   }
 }
 
+// Disabled block — kept but greyed out; a badge on the hover bar marks it.
+// (It won't render at all on the public site.)
+.content-block--disabled {
+  .content-block__preview-body {
+    opacity: 0.45;
+    filter: grayscale(1);
+    pointer-events: none;
+  }
+
+  .content-block__hover-label::after {
+    content: ' (disabled)';
+    color: $text-light;
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+
+// Collapsed block — the header bar stays, the body is removed from flow.
+.content-block--collapsed {
+  .content-block__hover-label::after {
+    content: ' (collapsed)';
+    color: $text-light;
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+
 
 
 // Site preview container — mirrors the public site's appearance settings

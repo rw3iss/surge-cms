@@ -73,7 +73,7 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
                 </div>
             }
         >
-            <BlockRenderer block={renderBlock() as any} />
+            <BlockRenderer block={renderBlock() as any} preview={true} />
         </Show>
     );
 };

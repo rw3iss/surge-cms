@@ -483,9 +483,11 @@
 // Admin common styles
 .admin-header {
   display: flex;
-  flex-wrap: wrap;
+  // Keep the title + actions on one row: a long title truncates rather than
+  // pushing the buttons onto a second line (see h1 + __actions below).
+  flex-wrap: nowrap;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: $spacing-sm $spacing-lg;
   margin-bottom: $spacing-xl;
   padding-bottom: $spacing-md;
@@ -493,15 +495,29 @@
 
   h1 {
     margin: 0;
-    // Grow to fill, but shrinkable (min-width:0) so a long title wraps
-    // within its own space instead of squashing the action buttons.
+    // Grow to fill, but shrinkable (min-width:0) so a long title truncates
+    // with an ellipsis instead of squashing / wrapping the action buttons.
     flex: 1 1 auto;
     min-width: 0;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: $font-size-3xl;
     font-weight: 700;
     line-height: 1.1;
     color: var(--admin-page-text, #{$text-color});
+  }
+
+  // On phones the header stacks: title wraps, actions drop below it.
+  @include mobile-only {
+    flex-wrap: wrap;
+    align-items: flex-start;
+
+    h1 {
+      flex-basis: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 
   &__subtitle {
@@ -512,15 +528,20 @@
 
   &__actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: $spacing-sm;
-    // Never let the buttons get squashed by a long title.
+    // Never let the buttons get squashed or wrapped by a long title — they
+    // keep their intrinsic width and stay pinned to the right.
     flex-shrink: 0;
 
     // Button labels stay on one line — no mid-word wrapping.
     .btn, a.btn { white-space: nowrap; }
+
+    @include mobile-only {
+      flex-wrap: wrap;
+    }
   }
 
   // Sticky editor header: stays pinned while the long block editor scrolls.

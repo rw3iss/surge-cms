@@ -75,6 +75,16 @@ interface ContentBlockProps {
 const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const [showRemoveConfirm, setShowRemoveConfirm,] = createSignal(false,);
     const [showOptionsMenu, setShowOptionsMenu,] = createSignal(false,);
+    // Collapse/minimize the block's preview body (local UI state).
+    const [isCollapsed, setIsCollapsed,] = createSignal(false,);
+
+    /** A disabled block keeps its content but renders greyed-out in the editor
+     *  and not at all on the public site (see BlockRenderer). Stored on the
+     *  block's data so it round-trips through save/load. */
+    const isDisabled = () => Boolean(props.block.data?.disabled);
+    const toggleDisabled = () => {
+        props.onUpdate(props.block.id, { ...props.block.data, disabled: !isDisabled(), },);
+    };
 
     // Options ('…') menu dismissal:
     //  1. Click anywhere outside the options-wrap closes it.
@@ -127,7 +137,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             data-parent-id={props.block.parentBlockId ?? ''}
             class={`content-block content-block--preview content-block--${props.block.type} ${
                 props.isSelected ? 'content-block--selected' : ''
-            } ${props.isDragging ? 'content-block--dragging' : ''}`}
+            } ${props.isDragging ? 'content-block--dragging' : ''} ${
+                isDisabled() ? 'content-block--disabled' : ''
+            } ${isCollapsed() ? 'content-block--collapsed' : ''}`}
             onClick={(e,) => {
                 const tgt = e.target as HTMLElement;
                 if (tgt.closest('button, .content-block__hover-drag, .content-block__options-menu, .add-block-dropdown',)) return;
@@ -160,6 +172,14 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 <span class="content-block__hover-label">
                     {getBlockLabel(props.block.type,)}
                 </span>
+                <button
+                    class="content-block__hover-btn content-block__hover-btn--collapse"
+                    onClick={() => setIsCollapsed(!isCollapsed(),)}
+                    title={isCollapsed() ? 'Expand block' : 'Collapse block'}
+                    aria-label={isCollapsed() ? 'Expand block' : 'Collapse block'}
+                >
+                    {isCollapsed() ? '+' : '–'}
+                </button>
                 <button
                     class="content-block__hover-btn"
                     onClick={() => props.onMoveUp(props.block.id,)}
@@ -220,6 +240,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                             <button onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Insert Block Before
                             </button>
+                            <button onClick={() => { toggleDisabled(); setShowOptionsMenu(false,); }}>
+                                {isDisabled() ? 'Enable' : 'Disable'}
+                            </button>
                             <button
                                 class="content-block__options-danger"
                                 onClick={() => { setShowRemoveConfirm(true,); setShowOptionsMenu(false,); }}
@@ -231,7 +254,8 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 </div>
             </div>
 
-            {/* Block preview */}
+            {/* Block preview — hidden when collapsed. */}
+            <Show when={!isCollapsed()}>
             <div class="content-block__preview-body">
                 <Switch>
                     <Match when={props.block.type === 'group'}>
@@ -277,6 +301,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     </Match>
                 </Switch>
             </div>
+            </Show>
 
             <ConfirmModal
                 open={showRemoveConfirm()}

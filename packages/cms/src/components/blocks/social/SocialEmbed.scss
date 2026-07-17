@@ -281,3 +281,45 @@
     color: $text-light;
   }
 }
+
+// ─── Height-constrained social block ───────────────────────────────────
+// When the block style sets a height, the social block fills it and its
+// posts container scrolls within — so an operator can pick a fixed height
+// and the feed scrolls inside instead of expanding the page. Applies in the
+// public renderer AND the admin preview (both go through BlockRenderer).
+.block.block--social.block--has-height {
+  display: flex;
+  flex-direction: column;
+
+  > .block__inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .social-block {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  // The scrollable posts container fills the remaining height and scrolls.
+  .social-block__grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+
+    // The row layout keeps its horizontal scroll; it still fills the height.
+    &--row {
+      overflow-y: hidden;
+    }
+  }
+
+  // Grid / column posts stretch to fill their cell so each post's height
+  // flexes with the container. Row cards already fill via --social-row-height.
+  .social-block__grid:not(.social-block__grid--row) .social-embed {
+    height: 100%;
+  }
+}
