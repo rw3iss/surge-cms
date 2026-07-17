@@ -174,6 +174,12 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 </span>
                 <span class="content-block__hover-label">
                     {getBlockLabel(props.block.type,)}
+                    <Show when={isCollapsed()}>
+                        <span class="content-block__hover-tag"> (Collapsed)</span>
+                    </Show>
+                    <Show when={isDisabled()}>
+                        <span class="content-block__hover-tag"> (Disabled)</span>
+                    </Show>
                 </span>
                 <button
                     class="content-block__hover-btn content-block__hover-btn--collapse"

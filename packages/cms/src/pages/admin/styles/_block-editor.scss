@@ -420,23 +420,17 @@
     filter: grayscale(1);
     pointer-events: none;
   }
-
-  .content-block__hover-label::after {
-    content: ' (disabled)';
-    color: $text-light;
-    font-style: italic;
-    font-weight: 400;
-  }
 }
 
 // Collapsed block — the header bar stays, the body is removed from flow.
-.content-block--collapsed {
-  .content-block__hover-label::after {
-    content: ' (collapsed)';
-    color: $text-light;
-    font-style: italic;
-    font-weight: 400;
-  }
+
+// State badges on the hover label — real spans (not a single ::after) so a
+// block that is both collapsed AND disabled shows "(Collapsed) (Disabled)"
+// rather than one badge clobbering the other.
+.content-block__hover-tag {
+  color: $text-light;
+  font-style: italic;
+  font-weight: 400;
 }
 
 
