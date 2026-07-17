@@ -394,7 +394,7 @@ const AdminPostEditor: Component = () => {
             {/* Match the public Post page wrapper so scoped styles apply
                 identically in preview. */}
             <div class="post-page page-wrapper">
-                <article style={{ 'max-width': '800px', margin: '0 auto', padding: '2rem 1rem', }}>
+                <article style={{ 'max-width': 'var(--site-max-width, 800px)', margin: '0 auto', padding: '2rem 1rem', }}>
                     <h1 style={{ 'margin-bottom': '0.5rem', }}>{title() || 'Untitled Post'}</h1>
                     <div style={{ color: 'var(--admin-text-muted, #6b7280)', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
                         {status() === 'draft' ? 'Draft' : 'Preview'}

@@ -2,7 +2,10 @@
   padding: $spacing-xl var(--site-gutter, #{$container-padding});
 
   &__article {
-    max-width: 800px;
+    // Constrain to the site's Max Content Width (Appearance → Layout);
+    // 'none' unconstrains it. The wrapper's inline padding already applies
+    // the site gutter on the left/right when the post opts in.
+    max-width: var(--site-max-width, 800px);
     margin: 0 auto;
   }
 
