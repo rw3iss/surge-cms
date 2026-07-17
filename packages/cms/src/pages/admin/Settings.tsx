@@ -935,7 +935,8 @@ function AppearancePanel() {
             </div>
             </div>
 
-            {/* ─── Typography ─── */}
+            {/* ─── Typography + Layout (two columns) ─── */}
+            <div class="theme-columns">
             <div class="theme-section">
                 <h4 class="theme-section__title">Typography</h4>
                 <div class="theme-section__fields">
@@ -1112,6 +1113,7 @@ function AppearancePanel() {
                         />
                     </ThemeField>
                 </div>
+            </div>
             </div>
 
             {/* ─── Font manager ─── */}

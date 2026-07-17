@@ -6,14 +6,13 @@
     }
 
     &__settings {
+        // No chrome of its own — the individual 'Styles' / 'Default Options'
+        // sections each carry their own border/padding, so wrapping them in
+        // another bordered box read as a redundant nested container.
         display: flex;
         flex-direction: column;
         gap: $spacing-md;
         margin-top: $spacing-sm;
-        padding: $spacing-md;
-        border: 1px solid $border-color;
-        border-radius: $border-radius-md;
-        background: $background-dark;
     }
 
     &__settings-actions {
