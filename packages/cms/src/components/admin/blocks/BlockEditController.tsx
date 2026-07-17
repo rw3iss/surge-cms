@@ -313,6 +313,20 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 />
             </div>
 
+            {/* ─── Disable toggle (mirrors the block header menu) ─── */}
+            <div class="bec-field">
+                <Toggle
+                    checked={Boolean(props.block.data.disabled)}
+                    onChange={(next,) => {
+                        handleUpdate({
+                            ...props.block.data,
+                            disabled: next,
+                        },);
+                    }}
+                    label="Disable block"
+                />
+            </div>
+
             <div class="bec-divider" />
 
             {/* ─── Style editor or block form ─── */}
