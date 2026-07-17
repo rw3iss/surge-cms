@@ -1,10 +1,76 @@
+import crypto from 'crypto';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import type { SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
 import { cache, } from './cache';
+import { getStorageProvider, } from './storage';
 import { logger, } from '../utils/logger';
 
 const FEED_CACHE_TTL = 900; // 15 minutes
+
+// Instagram / Facebook serve media from signed CDN URLs (scontent*.cdninstagram.com,
+// *.fbcdn.net) whose `oe=` query param is a hex Unix expiry — the signature lapses
+// after a few days, after which the URL 403s ("URL signature expired"). Storing that
+// raw URL means a synced post's image dies once the signature expires. We instead
+// MIRROR the bytes into our own storage at sync time and persist that permanent URL.
+const EPHEMERAL_MEDIA_HOSTS = /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net)(?::|\/|$)|scontent/i;
+
+function mediaExtFromContentType(ct: string | null,): string {
+    if (!ct) return 'jpg';
+    if (ct.includes('png',)) return 'png';
+    if (ct.includes('webp',)) return 'webp';
+    if (ct.includes('gif',)) return 'gif';
+    if (ct.includes('mp4',)) return 'mp4';
+    return 'jpg';
+}
+
+/**
+ * Download an ephemeral social-CDN media URL into our own storage and return the
+ * permanent public URL. Stable URLs (YouTube thumbnails, permalinks) and non-http
+ * values pass through untouched. The filename is deterministic per (platform,
+ * externalId) so a re-sync overwrites the same object in place when the source
+ * rotates its media. On any failure the original URL is returned so we degrade to
+ * the prior (possibly short-lived) behavior rather than dropping the image.
+ */
+export async function mirrorRemoteMedia(
+    url: string | undefined,
+    platform: SocialPlatform,
+    externalId: string,
+): Promise<string | undefined> {
+    if (!url || !/^https?:\/\//i.test(url,)) return url;
+    if (!EPHEMERAL_MEDIA_HOSTS.test(url,)) return url;
+
+    let tmpPath: string | undefined;
+    try {
+        const res = await fetch(url,);
+        if (!res.ok) {
+            logger.warn('Failed to fetch social media for mirroring', { platform, externalId, status: res.status, },);
+            return url;
+        }
+        const buf = Buffer.from(await res.arrayBuffer(),);
+        const contentType = res.headers.get('content-type',);
+        const ext = mediaExtFromContentType(contentType,);
+        const safeId = externalId.replace(/[^a-zA-Z0-9_-]/g, '',).slice(0, 64,) || 'post';
+        const filename = `social_${platform}_${safeId}.${ext}`;
+
+        tmpPath = path.join(os.tmpdir(), `${crypto.randomUUID()}-${filename}`,);
+        await fs.writeFile(tmpPath, buf,);
+
+        return await getStorageProvider().upload(tmpPath, {
+            filename,
+            mimeType: contentType || 'image/jpeg',
+            originalName: filename,
+        },);
+    } catch (error) {
+        logger.warn('Failed to mirror social media', { platform, externalId, error, },);
+        return url;
+    } finally {
+        if (tmpPath) await fs.unlink(tmpPath,).catch(() => {});
+    }
+}
 
 interface FetchedPost {
     id: string;
@@ -153,7 +219,11 @@ export async function fetchInstagramPosts(maxResults = 10,): Promise<FetchedPost
         );
 
         if (!response.ok) {
-            throw new Error(`Instagram API error: ${response.statusText}`,);
+            // Surface the Graph API error body — a bare statusText hides the real
+            // cause (e.g. code 190 expired token, code 100/subcode 33 deauthorized),
+            // which is the usual reason a previously-working Instagram feed stops.
+            const body = await response.text().catch(() => '',);
+            throw new Error(`Instagram API error ${response.status}: ${body.slice(0, 400,)}`,);
         }
 
         const data = await response.json() as any;
@@ -169,7 +239,9 @@ export async function fetchInstagramPosts(maxResults = 10,): Promise<FetchedPost
             rawData: post,
         }));
     } catch (error) {
-        logger.error('Error fetching Instagram posts', { error, },);
+        logger.error('Error fetching Instagram posts', {
+            error: error instanceof Error ? error.message : error,
+        },);
         return [];
     }
 }
@@ -285,6 +357,11 @@ export async function syncSocialPosts(platform: SocialPlatform, force = false,):
 
     for (const post of posts) {
         try {
+            // Mirror ephemeral CDN media (Instagram/Facebook) into our own storage so
+            // the persisted thumbnail_url doesn't 403 once the CDN signature expires.
+            post.thumbnailUrl = await mirrorRemoteMedia(post.thumbnailUrl, platform, post.id,);
+            post.authorAvatar = await mirrorRemoteMedia(post.authorAvatar, platform, `${post.id}_avatar`,);
+
             await query(
                 `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url,
                                    author_name, author_avatar, likes, comments, shares,
