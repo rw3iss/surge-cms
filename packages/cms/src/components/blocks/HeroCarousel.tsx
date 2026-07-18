@@ -1,5 +1,5 @@
 import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, Match, on, onCleanup, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createSignal, For, on, onCleanup, Show, } from 'solid-js';
 import { TEXT_ALIGN, toFlexAlign, } from '../../utils/cssAlign';
 import './HeroCarousel.scss';
 
@@ -19,6 +19,17 @@ export interface HeroCarouselProps {
     contentPadding?: string;
     /** Margin from the block style, applied to the slide *content*. */
     contentMargin?: string;
+    /** Background color/gradient from the carousel block style, applied per
+     *  slide: a slide WITH a media backdrop gets it as a readability overlay on
+     *  top of the media; a slide with NO backdrop gets it as its own container
+     *  background. (Mirrors the regular block color/image/overlay rules.) */
+    itemBackground?: string;
+}
+
+/** A slide has a visual backdrop when it carries an image or video media URL —
+ *  in that case the item background renders as an overlay on top of it. */
+function hasBackdrop(item: HeroItem,): boolean {
+    return Boolean(item.mediaUrl) && (item.mediaType === 'image' || item.mediaType === 'video');
 }
 
 const DEFAULT_HEIGHT = '50vh';
@@ -235,7 +246,14 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                 >
                     <For each={props.items}>
                         {(item, index,) => (
-                            <div class="hero-carousel__slide">
+                            <div
+                                class="hero-carousel__slide"
+                                // No backdrop → the block-style color fills the
+                                // slide container directly.
+                                style={props.itemBackground && !hasBackdrop(item)
+                                    ? { background: props.itemBackground, }
+                                    : undefined}
+                            >
                                 {/* Background media */}
                                 <div class="hero-carousel__media">
                                     <Show when={item.mediaType === 'image'}>
@@ -259,6 +277,17 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                         />
                                     </Show>
                                 </div>
+
+                                {/* Block-style color as a readability overlay on
+                                    top of the media backdrop (only when both a
+                                    backdrop and a color are present). */}
+                                <Show when={props.itemBackground && hasBackdrop(item)}>
+                                    <div
+                                        class="hero-carousel__bg-overlay"
+                                        style={{ background: props.itemBackground, }}
+                                        aria-hidden="true"
+                                    />
+                                </Show>
 
                                 {/* Text overlay */}
                                 <div class="hero-carousel__overlay">

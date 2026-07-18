@@ -847,6 +847,11 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
         || (s().useDefaultPadding === false ? undefined : 'var(--site-block-padding, 0)');
     const contentMargin = () => (style().margin as string) || undefined;
 
+    // Block-style background color/gradient (swatch-resolved) is applied to each
+    // slide by HeroCarousel: as a readability overlay over a media backdrop, or
+    // as the slide's own background when the slide has no media.
+    const itemBackground = () => color(style().backgroundColor || (s().backgroundColor as string),);
+
     // Use onMount instead of createResource to avoid Suspense jumps
     const [appearance, setAppearance,] = createSignal<any>(null,);
     onMount(async () => {
@@ -865,6 +870,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
                 valign={style().verticalAlign}
                 contentPadding={contentPadding()}
                 contentMargin={contentMargin()}
+                itemBackground={itemBackground()}
             />
         </Show>
     );

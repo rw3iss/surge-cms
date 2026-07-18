@@ -44,6 +44,15 @@
     display: block;
   }
 
+  // Block-style color/gradient overlay painted on top of the media backdrop
+  // (sits between the media and the text overlay so it tints the image for
+  // readability without covering the text).
+  &__bg-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
   // ─── Text overlay ───
 
   // Alignment vars (set from the block style in HeroCarousel.tsx) drive the
