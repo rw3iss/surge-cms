@@ -26,6 +26,12 @@ interface ColorPickerProps {
     showHexInput?: boolean;
     /** Hex used to render previews when the value is empty or unresolvable. */
     defaultColor?: string;
+    /** When true, the text inputs accept ANY CSS value (hex, rgb/rgba, hsl,
+     *  `linear-gradient(...)`, etc.) instead of validating for hex only. The
+     *  raw string is passed through to `onChange` and applied verbatim by the
+     *  consumer (e.g. the header uses it as `background`). Swatch links still
+     *  work; typing a literal value unlinks. Default false. */
+    allowCustomValue?: boolean;
 }
 
 const HEX_RE = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
@@ -88,6 +94,25 @@ export default function ColorPicker(props: ColorPickerProps,) {
         // shows its own "invalid" styling until the user finishes.
     };
 
+    /** Custom-value mode: pass the raw string through untouched (no `#`
+     *  prefixing, no hex validation) so gradients / rgba / hsl reach the
+     *  consumer as-is. Empty clears. */
+    const handleCustomChange = (val: string,) => {
+        const v = val.trim();
+        if (v === '') {
+            if (props.clearable && props.onClear) props.onClear();
+            else props.onChange('',);
+            return;
+        }
+        props.onChange(v,);
+    };
+
+    /** Route text-input changes to the right handler based on mode. */
+    const handleTextInput = (val: string,) => {
+        if (props.allowCustomValue) handleCustomChange(val,);
+        else handleHexChange(val,);
+    };
+
     const selectSwatch = (s: SiteSwatch,) => {
         // Preset clicks emit a swatch REFERENCE, not the raw hex.
         // That's the whole point of this system — references track
@@ -134,14 +159,22 @@ export default function ColorPicker(props: ColorPickerProps,) {
                 <input
                     type="text"
                     class={`color-picker__hex-input ${
-                        !isCleared() && !isRef() && !isValidHex(hexInputValue(),) ?
+                        props.allowCustomValue ? 'color-picker__hex-input--wide' : ''
+                    } ${
+                        !props.allowCustomValue && !isCleared() && !isRef() && !isValidHex(hexInputValue(),) ?
                             'color-picker__hex-input--invalid' : ''
                     }`}
                     value={hexInputValue()}
-                    onInput={(e,) => handleHexChange(e.currentTarget.value,)}
-                    placeholder={isRef() ? `swatch:${refId()}` : (props.clearable ? 'None' : '#ffffff')}
-                    maxLength={7}
-                    title={isRef() ? `Linked to swatch '${refId()}' — type a hex value to unlink` : undefined}
+                    onInput={(e,) => handleTextInput(e.currentTarget.value,)}
+                    placeholder={isRef()
+                        ? `swatch:${refId()}`
+                        : props.allowCustomValue
+                        ? '#hex, rgba(), gradient…'
+                        : (props.clearable ? 'None' : '#ffffff')}
+                    maxLength={props.allowCustomValue ? undefined : 7}
+                    title={isRef()
+                        ? `Linked to swatch '${refId()}' — type a ${props.allowCustomValue ? 'value' : 'hex'} to unlink`
+                        : undefined}
                 />
             </Show>
             <button
@@ -210,14 +243,19 @@ export default function ColorPicker(props: ColorPickerProps,) {
                         </For>
                     </div>
                     <div class="color-picker__custom">
-                        <label>Custom hex:</label>
+                        <label>{props.allowCustomValue ? 'Custom value:' : 'Custom hex:'}</label>
                         <input
                             type="text"
                             value={isRef() || isCleared() ? '' : (props.value || '')}
-                            onInput={(e,) => handleHexChange(e.currentTarget.value,)}
-                            placeholder="#000000"
-                            maxLength={7}
+                            onInput={(e,) => handleTextInput(e.currentTarget.value,)}
+                            placeholder={props.allowCustomValue ? 'linear-gradient(…), rgba(…), #hex' : '#000000'}
+                            maxLength={props.allowCustomValue ? undefined : 7}
                         />
+                        <Show when={props.allowCustomValue}>
+                            <small class="color-picker__custom-hint">
+                                Any CSS background: hex, rgb/rgba, hsl, or linear/radial-gradient.
+                            </small>
+                        </Show>
                     </div>
                 </div>
             </Show>

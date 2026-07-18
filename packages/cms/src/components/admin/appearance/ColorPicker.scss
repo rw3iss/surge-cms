@@ -12,6 +12,11 @@
     font-size: $font-size-sm;
     font-family: var(--admin-font-mono, monospace);
 
+    // Custom-value mode holds gradients / rgba(), which need more room.
+    &--wide {
+      width: 180px;
+    }
+
     &--invalid {
       border-color: $error-color;
     }
@@ -161,6 +166,7 @@
   &__custom {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     border-top: 1px solid $border-color;
     padding-top: 10px;
@@ -173,11 +179,19 @@
 
     input {
       flex: 1;
+      min-width: 0;
       padding: 4px 8px;
       border: 1px solid $border-color;
       border-radius: $border-radius-sm;
       font-size: $font-size-sm;
       font-family: var(--admin-font-mono, monospace);
     }
+  }
+
+  &__custom-hint {
+    flex-basis: 100%;
+    font-size: $font-size-xs;
+    color: $text-light;
+    line-height: 1.35;
   }
 }

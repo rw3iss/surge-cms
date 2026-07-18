@@ -640,10 +640,11 @@ const SiteHeaderEditor: Component = () => {
                             <label class="site-header-editor__label">Background</label>
                             <ColorPicker
                                 value={bgColor()}
-                                onChange={(hex,) => {
-                                    setBgColor(hex,);
+                                onChange={(val,) => {
+                                    setBgColor(val,);
                                     markDirty();
                                 }}
+                                allowCustomValue
                                 clearable
                                 onClear={() => {
                                     setBgColor('',);
@@ -656,10 +657,11 @@ const SiteHeaderEditor: Component = () => {
                             <div class="site-header-editor__inline-field">
                                 <ColorPicker
                                     value={bgColorAlt()}
-                                    onChange={(hex,) => {
-                                        setBgColorAlt(hex,);
+                                    onChange={(val,) => {
+                                        setBgColorAlt(val,);
                                         markDirty();
                                     }}
+                                    allowCustomValue
                                     clearable
                                     onClear={() => {
                                         setBgColorAlt('',);
