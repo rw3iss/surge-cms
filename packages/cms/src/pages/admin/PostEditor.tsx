@@ -504,7 +504,7 @@ const AdminPostEditor: Component = () => {
             publicUrl={() => `/posts/${(editor.entity() as any)?.slug || slug()}`}
             previewStatus={() =>
                 status() === 'published' ? 'Published' : status() === 'archived' ? 'Archived' : 'Draft'}
-            rootClass={(full,) => full ? 'admin-full-bleed' : ''}
+            rootClass={() => 'admin-full-bleed'}
             labels={{
                 newHeading: 'New Post',
                 editHeading: (t,) => `Edit Post: ${t || 'Untitled'}`,

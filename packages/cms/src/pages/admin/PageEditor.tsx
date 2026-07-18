@@ -465,7 +465,7 @@ const AdminPageEditor: Component = () => {
             status={status}
             publicUrl={() => `/${(editor.entity() as any)?.slug || slug()}`}
             previewStatus={() => status() === 'published' ? 'Published' : 'Draft'}
-            rootClass={(full,) => `page-editor ${full ? 'admin-full-bleed' : ''}`}
+            rootClass={() => 'page-editor admin-full-bleed'}
             labels={{
                 newHeading: 'New Page',
                 editHeading: (t,) => `Edit Page: ${t || 'Untitled'}`,
