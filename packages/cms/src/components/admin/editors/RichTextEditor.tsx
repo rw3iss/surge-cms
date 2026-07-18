@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show, } from 'solid-js';
+import { createEffect, createSignal, Show, } from 'solid-js';
 import './RichTextEditor.scss';
 
 interface RichTextEditorProps {
@@ -13,22 +13,33 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
     const [showLinkDialog, setShowLinkDialog,] = createSignal(false,);
     const [linkUrl, setLinkUrl,] = createSignal('',);
 
-    onMount(() => {
-        if (editorRef && props.value) {
-            editorRef.innerHTML = props.value;
+    /**
+     * Lift the editor's HTML up to the parent — but ONLY when we actually need
+     * it (blur, Ctrl/Cmd+S), NOT on every keystroke. Propagating per keystroke
+     * pushed a fresh block object into the store on each character, remounting
+     * the row and stealing caret focus. The contentEditable div is the source of
+     * truth while typing, so deferring the sync loses nothing.
+     */
+    const flush = () => {
+        if (editorRef && editorRef.innerHTML !== props.value) {
+            props.onChange(editorRef.innerHTML,);
+        }
+    };
+
+    // Seed on mount + sync external content changes (e.g. Revert) into the
+    // editable div, without echoing them back through onChange. While the user
+    // types we never call onChange, so props.value stays put and this effect
+    // doesn't fire — the caret is safe.
+    createEffect(() => {
+        const next = props.value || '';
+        if (editorRef && editorRef.innerHTML !== next) {
+            editorRef.innerHTML = next;
         }
     },);
 
     const execCommand = (command: string, value?: string,) => {
         document.execCommand(command, false, value,);
         editorRef?.focus();
-        handleInput();
-    };
-
-    const handleInput = () => {
-        if (editorRef) {
-            props.onChange(editorRef.innerHTML,);
-        }
     };
 
     const handleKeyDown = (e: KeyboardEvent,) => {
@@ -37,6 +48,9 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
             e.preventDefault();
             execCommand('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;',);
         }
+        // Ctrl/Cmd+S: flush before the global Save shortcut fires so a save
+        // while the editor is focused captures the freshest content.
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) flush();
     };
 
     const insertLink = () => {
@@ -154,7 +168,7 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                 ref={editorRef}
                 class="rte-content"
                 contentEditable
-                onInput={handleInput}
+                onBlur={flush}
                 onKeyDown={handleKeyDown}
                 data-placeholder={props.placeholder || 'Start typing...'}
             />
