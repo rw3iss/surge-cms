@@ -14,18 +14,10 @@ interface BlockPreviewProps {
  */
 const BlockPreview: Component<BlockPreviewProps> = (props,) => {
     const renderBlock = () => {
-        const { title, content, __styleRef, ...rest } = props.block.data || {};
+        const { title, content, __styleRef: _drop, ...rest } = props.block.data || {};
 
-        // Resolve style from styleRef or data.__styleRef
-        const ref = (__styleRef as any) || props.block.styleRef;
-        let resolvedStyle: any = undefined;
-        if (ref?.custom) {
-            resolvedStyle = ref.custom;
-        } else if (ref?.templateId) {
-            const allStyles = BlockStyleService.getCached();
-            const tmpl = allStyles.find((s: any,) => s.id === ref.templateId);
-            resolvedStyle = tmpl || { id: ref.templateId, };
-        }
+        // Resolve style from styleRef or data.__styleRef (shared resolver).
+        const resolvedStyle = BlockStyleService.resolve(props.block,);
 
         return {
             id: props.block.id,

@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, type JSX, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { type BlockType, getBlockLabel, } from '../../../config/blockTypes';
 import AddBlockMenu from './AddBlockMenu';
 import BlockPreview from './BlockPreview';
@@ -6,6 +6,9 @@ import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
 import { groupContainerStyle, } from '../../../utils/groupStyle';
+import { BlockStyleService, } from '../../../services/blockStyles';
+import { colorCssValue, } from '../../../services/colorResolver';
+import { fontStack, } from '../../../utils/appearanceStyle';
 
 // Re-export so existing imports `{ BlockType } from './ContentBlock'`
 // keep working without churn — but this file no longer owns the union.
@@ -132,6 +135,33 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const childBlocks = () =>
         props.allBlocks.filter(b => b.parentBlockId === props.block.id)
             .sort((a, b,) => a.sort_order - b.sort_order,);
+
+    /** Resolved block style projected onto the inline Rich-Text editing area
+     *  so the admin preview matches the public output (background, color,
+     *  font, alignment, padding). Reactive on the block's styleRef, so it
+     *  updates once a style is saved; it never touches the editable content,
+     *  so applying it can't disturb the caret. */
+    const rteContentStyle = createMemo<JSX.CSSProperties | undefined>(() => {
+        const st = BlockStyleService.resolve(props.block,);
+        if (!st) return undefined;
+        const out: JSX.CSSProperties = {};
+        const bg = colorCssValue(st.backgroundColor, '',);
+        if (bg) out['background-color'] = bg;
+        if (st.backgroundImage) {
+            out['background-image'] = `url("${st.backgroundImage}")`;
+            out['background-size'] = 'cover';
+            out['background-position'] = 'center';
+            out['background-repeat'] = 'no-repeat';
+        }
+        const fg = colorCssValue(st.textColor, '',);
+        if (fg) out.color = fg;
+        if (st.textAlign) out['text-align'] = st.textAlign as JSX.CSSProperties['text-align'];
+        if (st.fontSize) out['font-size'] = st.fontSize;
+        const ff = fontStack(st.fontFamily,);
+        if (ff) out['font-family'] = ff;
+        if (st.padding) out.padding = st.padding;
+        return Object.keys(out,).length ? out : undefined;
+    },);
 
     return (
         <div
@@ -301,6 +331,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                                     ...props.block.data,
                                     content: next,
                                 },)}
+                                contentStyle={rteContentStyle()}
                                 placeholder="Type your content here…"
                             />
                         </div>

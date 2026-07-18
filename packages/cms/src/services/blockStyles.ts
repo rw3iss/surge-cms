@@ -131,6 +131,26 @@ export const BlockStyleService = {
         }
     },
 
+    /** Resolve a block's effective style from its styleRef — either the
+     *  inline `custom` object or a referenced template (looked up in the
+     *  reactive cache). Returns undefined when the block has no style ref.
+     *  Reading `getCached()` for template refs subscribes the caller to
+     *  cache changes so templates resolve once preload finishes. */
+    resolve(block: {
+        styleRef?: { templateId?: string; custom?: Record<string, any>; };
+        data?: Record<string, any>;
+    },): BlockStyleData | undefined {
+        const ref = (block.data?.__styleRef as { templateId?: string; custom?: Record<string, any>; } | undefined)
+            || block.styleRef;
+        if (!ref) return undefined;
+        if (ref.custom) return ref.custom as BlockStyleData;
+        if (ref.templateId) {
+            const tmpl = this.getCached().find((s,) => s.id === ref.templateId);
+            return tmpl || { id: ref.templateId, };
+        }
+        return undefined;
+    },
+
     /** Returns a fresh copy of the default style values */
     getDefault(): BlockStyleData {
         return { ...BLOCK_STYLE_DEFAULTS, };

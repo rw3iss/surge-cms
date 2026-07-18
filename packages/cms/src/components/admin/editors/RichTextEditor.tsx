@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Show, } from 'solid-js';
+import { createEffect, createSignal, type JSX, Show, } from 'solid-js';
 import './RichTextEditor.scss';
 
 interface RichTextEditorProps {
@@ -6,6 +6,9 @@ interface RichTextEditorProps {
     onChange: (html: string,) => void;
     placeholder?: string;
     onImageUpload?: (file: File,) => Promise<string>; // Returns URL
+    /** Applied to the editable content area so the admin editor previews the
+     *  block's resolved style (background, color, font, alignment, padding). */
+    contentStyle?: JSX.CSSProperties;
 }
 
 export default function RichTextEditor(props: RichTextEditorProps,) {
@@ -120,6 +123,20 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                     </button>
                 </div>
                 <div class="rte-toolbar__group">
+                    <button type="button" onClick={() => execCommand('justifyLeft',)} title="Align Left">
+                        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                    </button>
+                    <button type="button" onClick={() => execCommand('justifyCenter',)} title="Align Center">
+                        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                    </button>
+                    <button type="button" onClick={() => execCommand('justifyRight',)} title="Align Right">
+                        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                    </button>
+                    <button type="button" onClick={() => execCommand('justifyFull',)} title="Justify">
+                        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div class="rte-toolbar__group">
                     <button type="button" onClick={() => execCommand('insertUnorderedList',)} title="Bullet List">
                         <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="3" cy="4" r="1.5" fill="currentColor"/><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="3" cy="12" r="1.5" fill="currentColor"/><path d="M6 3.5h8M6 7.5h8M6 11.5h8" stroke="currentColor" stroke-width="1.2"/></svg>
                     </button>
@@ -170,6 +187,7 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                 contentEditable
                 onBlur={flush}
                 onKeyDown={handleKeyDown}
+                style={props.contentStyle}
                 data-placeholder={props.placeholder || 'Start typing...'}
             />
         </div>
