@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { JSX, Show, } from 'solid-js';
+import { JSX, onCleanup, onMount, Show, } from 'solid-js';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import BlockEditor from '../blocks/BlockEditor';
 import ConfirmModal from '../common/ConfirmModal';
@@ -61,11 +61,37 @@ export function EntityEditorShell<TEntity,>(
     const e = props.editor;
     const heading = () => e.isNew() ? props.labels.newHeading : props.labels.editHeading(props.title(),);
 
+    let rootEl: HTMLDivElement | undefined;
+    let headerEl: HTMLDivElement | undefined;
+
+    // Pin the inline edit flyout just below the sticky editor header: publish
+    // the header's live height as `--editor-sticky-top` so the flyout's sticky
+    // `top` meets the header's BOTTOM edge, not the action buttons. Recompute
+    // when the header height changes (title wrap, buttons showing/hiding).
+    const syncStickyTop = () => {
+        if (rootEl && headerEl) {
+            rootEl.style.setProperty('--editor-sticky-top', `${headerEl.offsetHeight}px`,);
+        }
+    };
+    onMount(() => {
+        syncStickyTop();
+        let ro: ResizeObserver | undefined;
+        if (typeof ResizeObserver !== 'undefined' && headerEl) {
+            ro = new ResizeObserver(() => syncStickyTop(),);
+            ro.observe(headerEl,);
+        }
+        window.addEventListener('resize', syncStickyTop,);
+        onCleanup(() => {
+            ro?.disconnect();
+            window.removeEventListener('resize', syncStickyTop,);
+        },);
+    },);
+
     return (
-        <div class={`entity-editor ${props.rootClass(e.fullBleed(),)}`}>
+        <div class={`entity-editor ${props.rootClass(e.fullBleed(),)}`} ref={rootEl}>
             <Title>{heading()} - Admin - RW</Title>
 
-            <div class="admin-header admin-header--sticky">
+            <div class="admin-header admin-header--sticky" ref={headerEl}>
                 <h1>{heading()}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={e.autoSave.status()} lastSavedAt={e.autoSave.lastSavedAt()} />

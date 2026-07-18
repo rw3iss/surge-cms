@@ -151,6 +151,24 @@ export function useEntityEditor<TEntity,>(
     },);
 
     const handleSave = async () => {
+        // Rich Text / HTML blocks flush their edits to the block store on BLUR,
+        // not per keystroke (keeps caret focus while typing). If the operator
+        // clicks Save (or hits Ctrl+S) while a block is still focused, blur it
+        // first and yield a frame so that pending flush lands in `blocks()`
+        // before we snapshot it below — otherwise the save captures stale
+        // content and the block keeps its UNSAVED CHANGES badge until a second
+        // click. One press now saves everything.
+        if (typeof document !== 'undefined') {
+            const active = document.activeElement as HTMLElement | null;
+            if (active && active !== document.body && typeof active.blur === 'function') {
+                active.blur();
+                await new Promise<void>((resolve,) => {
+                    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve(),);
+                    else setTimeout(resolve, 0,);
+                },);
+            }
+        }
+
         const validationError = config.validate();
         if (validationError) { setError(validationError,); return; }
 
