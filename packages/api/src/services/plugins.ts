@@ -521,7 +521,15 @@ export async function refreshPluginCsp(): Promise<void> {
         for (const f of p.manifest.configSchema ?? []) {
             if (f.type === 'url') {
                 const o = toOrigin(p.config[f.key]);
-                if (o) origins.connectSrc.push(o);
+                if (o) {
+                    origins.connectSrc.push(o);
+                    // A widget that reaches its backend over http(s) often also opens
+                    // a WebSocket to the same host (e.g. PageLoop's wss://…/ws). A
+                    // connect-src http(s) origin does NOT cover the ws(s) scheme, so
+                    // add the ws(s) twin explicitly.
+                    const ws = o.replace(/^http(s?):\/\//, 'ws$1://');
+                    if (ws !== o) origins.connectSrc.push(ws);
+                }
             }
         }
         const csp = p.manifest.csp;
