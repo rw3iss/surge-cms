@@ -1,5 +1,6 @@
 import { Component, createResource, For, Show, } from 'solid-js';
-import { hasTemplateSyntax, type OutputNode, renderTemplate, } from '../../services/template';
+import { Portal, } from 'solid-js/web';
+import { hasTemplateSyntax, renderTemplate, } from '../../services/template';
 import { buildRuntime, type RuntimeOptions, } from '../../services/template/runtime';
 import { useUser, } from '../../stores/auth';
 import { siteSettings, } from '../../stores/siteSettings';
@@ -15,6 +16,9 @@ interface TemplatedContentProps {
     class?: string;
 }
 
+interface EntitySeg { index: number; kind: string; data: Record<string, unknown> | null; }
+interface Resolved { html: string; entities: EntitySeg[]; }
+
 /** Strip `{{ … }}` tags — used for the loading fallback so raw braces never
  *  flash before the template resolves. */
 function stripTags(html: string): string {
@@ -22,19 +26,23 @@ function stripTags(html: string): string {
 }
 
 /**
- * Renders block content, resolving any `{{ … }}` template syntax against the
- * CMS runtime (variables, entity functions, if/for). Content with no template
- * syntax renders identically to a plain `innerHTML` div — zero overhead. When
- * whole-entity refs are present, HTML chunks and entity components are
- * interleaved (HTML chunks use `display:contents` so block markup isn't broken).
+ * Renders block content, resolving any `{{ … }}` template syntax against the CMS
+ * runtime (variables, entity functions, if/for). Content with no template syntax
+ * renders identically to a plain `innerHTML` div — zero overhead.
+ *
+ * Whole-entity refs (`{{form(id)}}`) render IN PLACE: the full resolved HTML is
+ * injected once (so surrounding markup structure is preserved, not split at the
+ * ref), leaving an empty `display:contents` placeholder at each ref position;
+ * each entity component is then `Portal`-mounted into its placeholder — so it
+ * lands exactly where the `{{ … }}` was, inside whatever element contains it.
  */
 const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
     const auth = useUser();
 
-    const [nodes] = createResource(
+    const [resolved] = createResource(
         () => ({ html: props.html ?? '', entities: props.entities, uid: auth.user?.id ?? null }),
-        async (src): Promise<OutputNode[]> => {
-            if (!hasTemplateSyntax(src.html)) return [{ type: 'html', html: src.html }];
+        async (src): Promise<Resolved> => {
+            if (!hasTemplateSyntax(src.html)) return { html: src.html, entities: [], };
             const u = auth.user;
             const rt = buildRuntime({
                 entities: src.entities,
@@ -43,35 +51,53 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
                     : null,
                 site: (siteSettings() ?? null) as Record<string, unknown> | null,
             },);
-            return renderTemplate(src.html, rt,);
+            const nodes = await renderTemplate(src.html, rt,);
+            // Flatten to ONE HTML string, replacing each whole-entity segment with
+            // a `display:contents` placeholder we Portal the component into.
+            const entities: EntitySeg[] = [];
+            let out = '';
+            for (const n of nodes) {
+                if (n.type === 'html') {
+                    out += n.html;
+                } else {
+                    const index = entities.length;
+                    entities.push({ index, kind: n.kind, data: n.data, },);
+                    out += `<div style="display:contents" data-tpl-entity="${index}"></div>`;
+                }
+            }
+            return { html: out, entities, };
         },
     );
 
-    // Common case: no template syntax (or a single resolved HTML chunk) → render
-    // exactly like the prior `innerHTML` div, no extra wrappers.
-    const single = () => {
-        const n = nodes();
-        return n && n.length === 1 && n[0].type === 'html' ? n[0].html : null;
-    };
-
     return (
         <Show
-            when={nodes()}
+            when={resolved()}
+            keyed
             fallback={<div class={props.class} innerHTML={stripTags(props.html ?? '',)} />}
         >
-            <Show
-                when={single() === null}
-                fallback={<div class={props.class} innerHTML={single()!} />}
-            >
-                <div class={props.class}>
-                    <For each={nodes()}>
-                        {(n,) =>
-                            n.type === 'html'
-                                ? <div style={{ display: 'contents', }} innerHTML={n.html} />
-                                : <TemplateEntity kind={n.kind} data={n.data} />}
-                    </For>
-                </div>
-            </Show>
+            {(r) => {
+                // The container's innerHTML is applied when this element is
+                // created (before the <For> below runs), so the placeholders
+                // exist by the time we query for them.
+                let container: HTMLDivElement | undefined;
+                return (
+                    <>
+                        <div class={props.class} innerHTML={r.html} ref={container} />
+                        <For each={r.entities}>
+                            {(e) => {
+                                const target = container?.querySelector(`[data-tpl-entity="${e.index}"]`,) as HTMLElement | null;
+                                return (
+                                    <Show when={target}>
+                                        <Portal mount={target!}>
+                                            <TemplateEntity kind={e.kind} data={e.data} />
+                                        </Portal>
+                                    </Show>
+                                );
+                            }}
+                        </For>
+                    </>
+                );
+            }}
         </Show>
     );
 };
