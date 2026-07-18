@@ -25,6 +25,10 @@ const AdminPostEditor: Component = () => {
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [tags, setTags,] = createSignal('',);
     const [featuredImage, setFeaturedImage,] = createSignal('',);
+    /** How the banner image + title/meta header renders: standalone (default),
+     *  hero (image full-width with title/meta over it), or thumbnail (small
+     *  image beside the title/meta). Only meaningful when a banner is set. */
+    const [bannerLayout, setBannerLayout,] = createSignal<'hero' | 'standalone' | 'thumbnail'>('standalone',);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [authorId, setAuthorId,] = createSignal('',);
     /** Whether the post renderer applies the site's Post Padding (top/bottom)
@@ -60,6 +64,7 @@ const AdminPostEditor: Component = () => {
             accessLevel: accessLevel(),
             tags: tags(),
             featuredImage: featuredImage(),
+            bannerLayout: bannerLayout(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -82,6 +87,7 @@ const AdminPostEditor: Component = () => {
                 accessLevel: accessLevel(),
                 tags: tagList,
                 featuredImage: featuredImage() || null,
+                bannerLayout: bannerLayout(),
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -141,6 +147,7 @@ const AdminPostEditor: Component = () => {
             setAccessLevel(d.accessLevel || 'public',);
             setTags(d.tags || '',);
             setFeaturedImage(d.featuredImage || '',);
+            setBannerLayout(d.bannerLayout || 'standalone',);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -162,6 +169,7 @@ const AdminPostEditor: Component = () => {
         setAccessLevel(p.accessLevel || 'public',);
         setTags((p.tags || []).join(', ',),);
         setFeaturedImage(p.featuredImage || '',);
+        setBannerLayout(((p as any).bannerLayout as 'hero' | 'standalone' | 'thumbnail') || 'standalone',);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
@@ -248,7 +256,30 @@ const AdminPostEditor: Component = () => {
                         <small class="form-help">Comma-separated</small>
                     </div>
                     <div class="form-group">
-                        <label>Banner Image</label>
+                        <div class="u-flex-row" style={{ 'align-items': 'center', 'justify-content': 'space-between', gap: '8px', }}>
+                            <label style={{ 'margin-bottom': 0, }}>Banner Image</label>
+                            {/* Image layout selector — only meaningful with a banner set. */}
+                            <Show when={featuredImage()}>
+                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                    <label style={{ 'margin-bottom': 0, 'font-size': '11px', }}>Image Layout</label>
+                                    <select
+                                        value={bannerLayout()}
+                                        onChange={(e,) => {
+                                            setBannerLayout(e.currentTarget.value as 'hero' | 'standalone' | 'thumbnail',);
+                                            editor.markDirty();
+                                        }}
+                                    >
+                                        <option value="hero">Hero</option>
+                                        <option value="standalone">Standalone</option>
+                                        <option value="thumbnail">Thumbnail</option>
+                                    </select>
+                                    <Tooltip
+                                        header="Image Layout"
+                                        content="How the banner image + title/meta render at the top of the post. Hero: full-width image with the title & meta over it (white text). Standalone: title & meta on top, image full-width below. Thumbnail: a small image beside the title & meta in a single row. The post content renders below either way."
+                                    />
+                                </div>
+                            </Show>
+                        </div>
                         <div class="post-banner-field">
                             <Show when={featuredImage()}>
                                 <img

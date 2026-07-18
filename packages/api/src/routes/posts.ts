@@ -47,6 +47,7 @@ const postSchema = z.object({
     applySiteGutter: z.boolean().optional(),
     headerStyle: z.enum(['default', 'alt',],).optional(),
     headerPosition: z.enum(['static', 'float',],).optional(),
+    bannerLayout: z.enum(['hero', 'standalone', 'thumbnail',],).optional(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
 },);
 

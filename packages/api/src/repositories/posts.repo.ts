@@ -324,8 +324,8 @@ export async function createPost(data: Record<string, unknown>, authorId: string
         `INSERT INTO posts (slug, title, excerpt, content, featured_image, author_id,
                         status, is_private, access_level, tags, categories, meta_title,
                         meta_description, published_at, publish_at,
-                        apply_post_padding, apply_site_gutter, header_style, header_position)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                        apply_post_padding, apply_site_gutter, header_style, header_position, banner_layout)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING *`,
         [
             data.slug,
@@ -354,6 +354,8 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             (data.headerStyle as string) || null,
             // Header position: null → inherit the site headerPosition.
             (data.headerPosition as string) || null,
+            // Banner image layout: default 'standalone' (prior behavior).
+            (data.bannerLayout as string) || 'standalone',
         ],
     );
 
@@ -393,6 +395,7 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
         applySiteGutter: 'apply_site_gutter',
         headerStyle: 'header_style',
         headerPosition: 'header_position',
+        bannerLayout: 'banner_layout',
     };
 
     for (const [camelKey, dbKey,] of Object.entries(fields,)) {

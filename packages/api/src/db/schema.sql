@@ -162,6 +162,8 @@ CREATE TABLE posts (
     apply_site_gutter BOOLEAN NOT NULL DEFAULT true,
     header_style VARCHAR(16),
     header_position VARCHAR(16),
+    -- Banner image layout: 'standalone' (default) | 'hero' | 'thumbnail'.
+    banner_layout VARCHAR(16) NOT NULL DEFAULT 'standalone',
     tags TEXT[] DEFAULT '{}',
     categories TEXT[] DEFAULT '{}',
     meta_title VARCHAR(255),

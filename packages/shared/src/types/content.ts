@@ -136,6 +136,11 @@ export interface Post {
     /** Header position for this post: `static` | `float`. Empty/undefined →
      *  inherit the site's `headerPosition`. */
     headerPosition?: 'static' | 'float';
+    /** How the banner/featured image + title/meta header renders on the post
+     *  page: `standalone` (default — image below the title), `hero` (full-width
+     *  image with the title/meta overlaid), or `thumbnail` (small image beside
+     *  the title/meta). Only meaningful when `featuredImage` is set. */
+    bannerLayout?: 'hero' | 'standalone' | 'thumbnail';
     createdAt: Date;
     updatedAt: Date;
 }

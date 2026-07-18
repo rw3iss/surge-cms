@@ -31,6 +31,79 @@
     margin-bottom: $spacing-xl;
   }
 
+  // ─── Banner layout: Hero ───
+  // Full-width banner image with the title + meta overlaid. Text is inverted
+  // to white (over a legibility gradient) regardless of the site theme.
+  &__hero {
+    position: relative;
+    width: 100%;
+    min-height: 340px;
+    display: flex;
+    align-items: flex-end;
+    background-size: cover;
+    background-position: center;
+    border-radius: $border-radius-lg;
+    overflow: hidden;
+    margin-bottom: $spacing-xl;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.65) 100%);
+    }
+  }
+
+  &__hero-overlay {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    padding: $spacing-xl;
+    color: #fff;
+
+    h1 {
+      color: #fff;
+      margin-bottom: $spacing-sm;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    // Invert the meta text to white for the hero header (over the image).
+    .post-page__meta {
+      color: rgba(255, 255, 255, 0.92);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  // ─── Banner layout: Thumbnail ───
+  // Small image on the left, title + meta to its right in a single-row header
+  // (no background). `header.` out-specifies the base `.page-header` display.
+  header#{&}__header--thumb {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    margin-bottom: $spacing-xl;
+
+    @include mobile-only {
+      gap: $spacing-md;
+    }
+  }
+
+  &__thumb {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: $border-radius-md;
+    flex-shrink: 0;
+  }
+
+  &__header-text {
+    min-width: 0;
+
+    h1 {
+      margin-bottom: $spacing-xs;
+    }
+  }
+
   &__blocks {
     display: flex;
     flex-direction: column;

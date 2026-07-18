@@ -1,7 +1,7 @@
 import { useParams, } from '@solidjs/router';
 import { isAdminRole, type ContentAccessLevel, type Post, } from '@sitesurge/types';
 import { ContentLockedError, } from '@sitesurge/client';
-import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -158,6 +158,23 @@ const PostPage: Component = () => {
                             },),
                         ];
 
+                        // Banner layout: how the featured image + title/meta
+                        // header renders. Only meaningful with a banner image.
+                        const bannerLayout = () =>
+                            ((postData() as any).bannerLayout as 'hero' | 'standalone' | 'thumbnail') || 'standalone';
+                        const hasBanner = () => !!postData().featuredImage;
+                        const heading = () => (
+                            <>
+                                <h1>{postData().title}</h1>
+                                <div class="post-page__meta">
+                                    <span>By {postData().author}</span>
+                                    <Show when={postData().publishedAt}>
+                                        <span>{new Date(postData().publishedAt!,).toLocaleDateString()}</span>
+                                    </Show>
+                                </div>
+                            </>
+                        );
+
                         return (
                         <>
                             <SeoHead
@@ -178,24 +195,46 @@ const PostPage: Component = () => {
                                 jsonLd={jsonLd()}
                             />
 
-                            <article class="post-page__article">
-                                <header class="page-header">
-                                    <h1>{postData().title}</h1>
-                                    <div class="post-page__meta">
-                                        <span>By {postData().author}</span>
-                                        <Show when={postData().publishedAt}>
-                                            <span>{new Date(postData().publishedAt!,).toLocaleDateString()}</span>
+                            <article class={`post-page__article post-page__article--${bannerLayout()}`}>
+                                <Switch>
+                                    {/* Hero: full-width banner with title/meta overlaid (white text). */}
+                                    <Match when={hasBanner() && bannerLayout() === 'hero'}>
+                                        <header
+                                            class="post-page__hero"
+                                            style={{ 'background-image': `url("${postData().featuredImage}")`, }}
+                                        >
+                                            <div class="post-page__hero-overlay">
+                                                {heading()}
+                                            </div>
+                                        </header>
+                                    </Match>
+                                    {/* Thumbnail: small image beside the title/meta, single-row header. */}
+                                    <Match when={hasBanner() && bannerLayout() === 'thumbnail'}>
+                                        <header class="page-header post-page__header--thumb">
+                                            <img
+                                                src={postData().featuredImage}
+                                                alt={postData().title}
+                                                class="post-page__thumb"
+                                            />
+                                            <div class="post-page__header-text">
+                                                {heading()}
+                                            </div>
+                                        </header>
+                                    </Match>
+                                    {/* Standalone (default) + no-banner: title/meta on top, image below. */}
+                                    <Match when={true}>
+                                        <header class="page-header">
+                                            {heading()}
+                                        </header>
+                                        <Show when={hasBanner()}>
+                                            <img
+                                                src={postData().featuredImage}
+                                                alt={postData().title}
+                                                class="post-page__image"
+                                            />
                                         </Show>
-                                    </div>
-                                </header>
-
-                                <Show when={postData().featuredImage}>
-                                    <img
-                                        src={postData().featuredImage}
-                                        alt={postData().title}
-                                        class="post-page__image"
-                                    />
-                                </Show>
+                                    </Match>
+                                </Switch>
 
                                 {/* Render content blocks if present */}
                                 <Show when={(postData() as any).contentBlocks?.length}>

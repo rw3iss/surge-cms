@@ -140,6 +140,7 @@ export interface PostCreateBody {
     applySiteGutter?: boolean;
     headerStyle?: 'default' | 'alt';
     headerPosition?: 'static' | 'float';
+    bannerLayout?: 'hero' | 'standalone' | 'thumbnail';
     contentBlocks?: PostCreateContentBlock[];
 }
 
