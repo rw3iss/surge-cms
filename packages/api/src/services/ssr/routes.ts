@@ -12,6 +12,7 @@ import {
     buildPostListBody,
 } from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
+import { resolveContentForSsr, } from './templateRuntime';
 import {
     buildArticleSchema,
     buildBreadcrumbSchema,
@@ -182,8 +183,11 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
         const row = res?.rows[0];
         if (!row) return null;
         const post = mapRow(row,) as any;
+        // Resolve any {{ … }} template syntax in the post body (the post itself
+        // is exposed as `post` to the templates).
+        const resolvedContent = await resolveContentForSsr(post.content, { post, },);
         const description = post.metaDescription || post.excerpt ||
-            truncateText(stripHtml(post.content || '',), 200,) ||
+            truncateText(stripHtml(resolvedContent || '',), 200,) ||
             `${post.title} — published by ${SITE_NAME}`;
         const section = Array.isArray(post.categories,) ? post.categories[0] : undefined;
         const image = post.featuredImage || logo;
@@ -227,7 +231,7 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
             body: buildPostBody({
                 title: post.title,
                 excerpt: post.excerpt,
-                content: post.content,
+                content: resolvedContent,
                 author: post.author,
                 publishedAt: post.publishedAt,
                 tags: post.tags,
@@ -384,6 +388,13 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
                 );
                 blocks = blocksRes.rows;
             } catch { /* ignore — fall through to title-only body */ }
+
+            // Resolve any {{ … }} template syntax in block content so crawlers
+            // see real content (the `page` entity is exposed to the templates).
+            blocks = await Promise.all(blocks.map(async (b,) => ({
+                ...b,
+                content: await resolveContentForSsr(b.content, { page, },),
+            }),),);
 
             return {
                 title,
