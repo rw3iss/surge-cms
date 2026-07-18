@@ -165,7 +165,7 @@ export default function ColorPicker(props: ColorPickerProps,) {
                             'color-picker__hex-input--invalid' : ''
                     }`}
                     value={hexInputValue()}
-                    onInput={(e,) => handleTextInput(e.currentTarget.value,)}
+                    onChange={(e,) => handleTextInput(e.currentTarget.value,)}
                     placeholder={isRef()
                         ? `swatch:${refId()}`
                         : props.allowCustomValue
@@ -247,7 +247,7 @@ export default function ColorPicker(props: ColorPickerProps,) {
                         <input
                             type="text"
                             value={isRef() || isCleared() ? '' : (props.value || '')}
-                            onInput={(e,) => handleTextInput(e.currentTarget.value,)}
+                            onChange={(e,) => handleTextInput(e.currentTarget.value,)}
                             placeholder={props.allowCustomValue ? 'linear-gradient(…), rgba(…), #hex' : '#000000'}
                             maxLength={props.allowCustomValue ? undefined : 7}
                         />

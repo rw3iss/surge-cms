@@ -124,7 +124,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                             min="1"
                             max="50"
                             value={count()}
-                            onInput={(e,) => setCount(Number(e.currentTarget.value,) || 1,)}
+                            onChange={(e,) => setCount(Number(e.currentTarget.value,) || 1,)}
                         />
                         <small class="form-help">Leave slots empty to auto-fill from recent posts; pick specific posts to pin.</small>
                     </div>

@@ -383,7 +383,7 @@ export const PostQuerySection: Component<PostQuerySectionProps> = (props,) => {
                             min="1"
                             max="100"
                             value={props.value.count ?? 5}
-                            onInput={(e,) => props.onChange({ count: Number(e.currentTarget.value,) || undefined, },)}
+                            onChange={(e,) => props.onChange({ count: Number(e.currentTarget.value,) || undefined, },)}
                         />
                     </FormField>
 
@@ -397,7 +397,7 @@ export const PostQuerySection: Component<PostQuerySectionProps> = (props,) => {
                                 min="0"
                                 value={props.value.afterDaysAgo ?? ''}
                                 placeholder="leave blank for no limit"
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     const v = e.currentTarget.value;
                                     props.onChange({ afterDaysAgo: v === '' ? undefined : Number(v,), },);
                                 }}
@@ -412,7 +412,7 @@ export const PostQuerySection: Component<PostQuerySectionProps> = (props,) => {
                                 min="0"
                                 value={props.value.beforeDaysAgo ?? ''}
                                 placeholder="leave blank for no limit"
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     const v = e.currentTarget.value;
                                     props.onChange({ beforeDaysAgo: v === '' ? undefined : Number(v,), },);
                                 }}
@@ -428,7 +428,7 @@ export const PostQuerySection: Component<PostQuerySectionProps> = (props,) => {
                             type="text"
                             value={props.value.query ?? ''}
                             placeholder="e.g. interview, election, …"
-                            onInput={(e,) => props.onChange({ query: e.currentTarget.value || undefined, },)}
+                            onChange={(e,) => props.onChange({ query: e.currentTarget.value || undefined, },)}
                         />
                     </FormField>
 

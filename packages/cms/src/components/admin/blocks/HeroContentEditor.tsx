@@ -578,7 +578,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                     min={500}
                                     step={500}
                                     value={options().autoScrollInterval}
-                                    onInput={(e,) => {
+                                    onChange={(e,) => {
                                         const val = parseInt(e.currentTarget.value,);
                                         if (!isNaN(val,) && val >= 500) {
                                             updateOptions({ autoScrollInterval: val, },);
@@ -616,7 +616,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                     }`}
                                     placeholder="50vh"
                                     value={options().height || ''}
-                                    onInput={(e,) => updateOptions({ height: e.currentTarget.value, },)}
+                                    onChange={(e,) => updateOptions({ height: e.currentTarget.value, },)}
                                 />
                             </Show>
                             <Tooltip

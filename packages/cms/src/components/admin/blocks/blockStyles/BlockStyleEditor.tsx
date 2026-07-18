@@ -293,7 +293,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                         type="text"
                                         class="block-style-editor__custom-input"
                                         value={props.style.width || ''}
-                                        onInput={(e,) => update('width', e.currentTarget.value,)}
+                                        onChange={(e,) => update('width', e.currentTarget.value,)}
                                         placeholder="e.g. 50%, 300px"
                                     />
                                     <Tooltip
@@ -336,7 +336,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 type="text"
                                 class="block-style-editor__custom-input"
                                 value={props.style.height || ''}
-                                onInput={(e,) => update('height', e.currentTarget.value,)}
+                                onChange={(e,) => update('height', e.currentTarget.value,)}
                                 placeholder="e.g. 300px, 50vh"
                             />
                         </div>
@@ -355,7 +355,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                         type="text"
                                         class="block-style-editor__custom-input"
                                         value={props.style.padding || ''}
-                                        onInput={(e,) => update('padding', e.currentTarget.value,)}
+                                        onChange={(e,) => update('padding', e.currentTarget.value,)}
                                         placeholder="e.g. 10px 20px"
                                     />
                                     <Tooltip
@@ -402,7 +402,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                         type="text"
                                         class="block-style-editor__custom-input"
                                         value={props.style.margin || ''}
-                                        onInput={(e,) => update('margin', e.currentTarget.value,)}
+                                        onChange={(e,) => update('margin', e.currentTarget.value,)}
                                         placeholder="e.g. 10px 0"
                                     />
                                     <Tooltip
@@ -446,7 +446,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 type="text"
                                 class="block-style-editor__custom-input"
                                 value={props.style.gap || ''}
-                                onInput={(e,) => update('gap', e.currentTarget.value,)}
+                                onChange={(e,) => update('gap', e.currentTarget.value,)}
                                 placeholder="e.g. 1rem, 16px"
                             />
                             <Tooltip
