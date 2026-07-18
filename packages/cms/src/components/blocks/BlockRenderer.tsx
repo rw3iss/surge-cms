@@ -50,24 +50,38 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // hence the outer wrapper skips block-style padding for this type.
     const isCarousel = () => props.block.type === 'carousel';
 
+    // Background resolution. A block style may carry a color/gradient (any CSS
+    // value, resolved through the swatch helper) and/or an image:
+    //   - color only        → the color/gradient is the background.
+    //   - image only         → the image is the background.
+    //   - both color + image → the image is the backdrop and the color/gradient
+    //     renders as an absolutely-positioned overlay ON TOP of it (use a
+    //     translucent color/gradient to tint the image for readability).
+    const bgColorValue = () => color(s().backgroundColor || (props.block.settings.backgroundColor as string),);
+    const bgImageValue = () => (s().backgroundImage as string | undefined) || undefined;
+    const hasBgOverlay = () => Boolean(bgColorValue() && bgImageValue());
+
     return (
         <Show when={!isHidden()}>
         <div
-            class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}`}
+            class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}${
+                hasBgOverlay() ? ' block--has-bg-overlay' : ''
+            }`}
             style={{
-                'background-color': color(s().backgroundColor || (props.block.settings.backgroundColor as string),),
-                // Background image sits over the color and covers the block's
-                // whole box. Padding does NOT clip it (default border-box
-                // clip), so a full-bleed image shows behind padded content;
-                // margin still insets it.
-                ...(s().backgroundImage
+                // Background image covers the block's whole box; padding does
+                // NOT clip it (default border-box), so a full-bleed image shows
+                // behind padded content (margin still insets it). When both a
+                // color and image are set the color moves to `.block__bg-overlay`
+                // below; with only a color we use the `background` shorthand so
+                // gradients work as well as flat colors.
+                ...(bgImageValue()
                     ? {
-                        'background-image': `url("${s().backgroundImage}")`,
+                        'background-image': `url("${bgImageValue()}")`,
                         'background-size': 'cover',
                         'background-position': 'center',
                         'background-repeat': 'no-repeat',
                     }
-                    : {}),
+                    : (bgColorValue() ? { background: bgColorValue(), } : {})),
                 color: color(s().textColor || (props.block.settings.textColor as string),),
                 'text-align': s().textAlign || undefined,
                 display: s().verticalAlign && s().verticalAlign !== 'top' ? 'flex' : undefined,
@@ -95,6 +109,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 'overflow-y': s().overflowY || undefined,
             }}
         >
+            {/* Color/gradient overlay painted on top of the background image
+                (only when BOTH are set). Sits behind the content via CSS. */}
+            <Show when={hasBgOverlay()}>
+                <div class="block__bg-overlay" style={{ background: bgColorValue(), }} aria-hidden="true" />
+            </Show>
             <div
                 class={`block__inner block__inner--${
                     props.block.settings.layout ||

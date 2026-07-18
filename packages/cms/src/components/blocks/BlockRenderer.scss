@@ -18,6 +18,26 @@
     }
   }
 
+  // Block with BOTH a background image and a background color/gradient: the
+  // image is the block's own background (full-bleed) and the color renders as
+  // an overlay on top of it. The block becomes a positioning + stacking
+  // context so the overlay sits above the image and the content above both.
+  &--has-bg-overlay {
+    position: relative;
+
+    > .block__bg-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    > .block__inner {
+      position: relative;
+      z-index: 1;
+    }
+  }
+
   // Center media / embed block types horizontally within their container
   &--image,
   &--video,

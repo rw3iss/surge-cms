@@ -101,10 +101,18 @@
 // stacked fields.
 .page-editor__header-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  // Each field caps at 200px instead of stretching across the whole row.
+  grid-template-columns: repeat(2, minmax(0, 200px));
+  justify-content: start;
   gap: $spacing-sm;
 
-  .form-group { min-width: 0; }
+  .form-group {
+    min-width: 0;
+    max-width: 200px;
+  }
+
+  // The select fills its capped section so it doesn't sit oddly narrow.
+  select { width: 100%; }
 }
 
 

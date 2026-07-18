@@ -151,7 +151,8 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <div class="block-style-editor__color-row">
                         <ColorPicker
                             value={props.style.backgroundColor || ''}
-                            onChange={(hex,) => update('backgroundColor', hex,)}
+                            onChange={(val,) => update('backgroundColor', val,)}
+                            allowCustomValue
                             clearable
                             onClear={() => update('backgroundColor', '',)}
                         />
@@ -175,7 +176,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         Background Image
                         <Tooltip
                             header="Background Image"
-                            content="A full-bleed background for this block. It covers the block's whole box and is NOT clipped by the padding, so content still sits above it with the padding applied (the margin does inset it). When a background color is also set, the image wins."
+                            content="A full-bleed background for this block. It covers the block's whole box and is NOT clipped by the padding, so content still sits above it with the padding applied (the margin does inset it). When a background color is ALSO set, the image is the backdrop and the color/gradient renders as an overlay on top of it — use a translucent color or gradient to tint the image for readability."
                         />
                     </label>
                     <Show
