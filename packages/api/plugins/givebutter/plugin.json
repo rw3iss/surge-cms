@@ -1,16 +1,17 @@
 {
   "name": "givebutter",
   "label": "GiveButter Donations",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 1,
   "server": "server.js",
   "client": "client.js",
   "capabilities": ["config-page"],
   "adminOnlyToggle": true,
   "csp": {
-    "scriptSrc": ["https://widgets.givebutter.com"],
-    "connectSrc": ["https://api.givebutter.com", "https://widgets.givebutter.com"],
-    "frameSrc": ["https://givebutter.com", "https://widgets.givebutter.com"],
+    "scriptSrc": ["https://widgets.givebutter.com", "https://givebutter.com", "https://js.stripe.com"],
+    "connectSrc": ["https://api.givebutter.com", "https://widgets.givebutter.com", "https://givebutter.com", "https://*.givebutter.com", "https://api.stripe.com", "https://*.stripe.com", "https://maps.googleapis.com"],
+    "frameSrc": ["https://givebutter.com", "https://*.givebutter.com", "https://widgets.givebutter.com", "https://js.stripe.com", "https://hooks.stripe.com", "https://*.stripe.com"],
+    "styleSrc": ["https://widgets.givebutter.com", "https://givebutter.com"],
     "imgSrc": ["https://givebutter.com", "https://*.givebutter.com"]
   },
   "configSchema": [
