@@ -172,6 +172,14 @@ export function useEntityEditor<TEntity,>(
         const validationError = config.validate();
         if (validationError) { setError(validationError,); return; }
 
+        // A real Save takes over from the background draft autosave. Abort any
+        // pending/in-progress draft write (it's a debounced localStorage-only
+        // backup, never sent to the server) so it can't fire a competing write
+        // or leave a stale draft behind. The server save below persists the
+        // CURRENT viewed version and is the single source of truth — the user
+        // never has to wait for the draft or click Save twice.
+        autoSave.cancel();
+
         beginSave();
         try {
             const id = await config.save({

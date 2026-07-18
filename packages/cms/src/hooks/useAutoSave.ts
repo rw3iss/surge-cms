@@ -37,6 +37,13 @@ export function useAutoSave<T,>(opts: UseAutoSaveOptions<T>,) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let isFirst = true;
 
+    const clearTimer = () => {
+        if (timer) {
+            clearTimeout(timer,);
+            timer = null;
+        }
+    };
+
     const persist = () => {
         try {
             const payload: AutoSaveDraft<T> = {
@@ -63,9 +70,7 @@ export function useAutoSave<T,>(opts: UseAutoSaveOptions<T>,) {
         timer = setTimeout(persist, delay,);
     }, { defer: true, },),);
 
-    onCleanup(() => {
-        if (timer) clearTimeout(timer,);
-    },);
+    onCleanup(clearTimer,);
 
     /** Read the persisted draft (if any) */
     const getDraft = (): AutoSaveDraft<T> | null => {
@@ -81,8 +86,10 @@ export function useAutoSave<T,>(opts: UseAutoSaveOptions<T>,) {
     /** True if a draft exists in storage */
     const hasDraft = (): boolean => !!getDraft();
 
-    /** Remove the persisted draft */
+    /** Remove the persisted draft. Also cancels any pending debounced write so
+     *  it can't re-create the draft right after (e.g. after a real save). */
     const clear = () => {
+        clearTimer();
         try {
             localStorage.removeItem(storageKey(),);
             setLastSavedAt(null,);
@@ -92,12 +99,18 @@ export function useAutoSave<T,>(opts: UseAutoSaveOptions<T>,) {
         }
     };
 
+    /** Abort a pending debounced draft write WITHOUT touching the stored draft.
+     *  Used when a real Save takes over: the server save becomes the single
+     *  source of truth, so the in-flight draft debounce must not fire a
+     *  competing localStorage write. */
+    const cancel = () => {
+        clearTimer();
+        setStatus('idle',);
+    };
+
     /** Force-save immediately (flush pending debounced write) */
     const flush = () => {
-        if (timer) {
-            clearTimeout(timer,);
-            timer = null;
-        }
+        clearTimer();
         persist();
     };
 
@@ -107,6 +120,7 @@ export function useAutoSave<T,>(opts: UseAutoSaveOptions<T>,) {
         getDraft,
         hasDraft,
         clear,
+        cancel,
         flush,
     };
 }
