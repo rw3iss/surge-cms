@@ -190,6 +190,10 @@ export async function invalidateFormCache(formId?: string,): Promise<void> {
     if (formId) {
         await del(`form:${formId}`,);
     }
+    // `forms:*` (published list) does NOT match the per-slug key `form:slug:*`
+    // (the cache that holds a form's questions/fields), so bust it explicitly —
+    // otherwise field edits stay stale for the 300s TTL.
+    await delPattern('form:slug:*',);
     await delPattern('forms:*',);
     await invalidateSitemapCache();
 }
