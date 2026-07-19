@@ -27,6 +27,7 @@ interface FormQuestion {
     order: number;
     width?: 'full' | 'half';
     placeholder?: string;
+    questionAsPlaceholder?: boolean;
     rows?: number;
     allowResize?: boolean;
     maxHeight?: string;
@@ -139,6 +140,7 @@ const FormEditor: Component = () => {
                         order: q.order ?? index,
                         width: q.width || 'full',
                         placeholder: q.placeholder || '',
+                        questionAsPlaceholder: q.questionAsPlaceholder ?? false,
                         rows: q.rows ?? 4,
                         allowResize: q.allowResize ?? true,
                         maxHeight: q.maxHeight || '',
@@ -178,6 +180,7 @@ const FormEditor: Component = () => {
             order: questions().length,
             width: 'full',
             placeholder: '',
+            questionAsPlaceholder: false,
             rows: 4,
             allowResize: true,
             maxHeight: '',
@@ -307,7 +310,10 @@ const FormEditor: Component = () => {
                     isRequired: q.isRequired,
                     order: index,
                     width: q.width || 'full',
-                    placeholder: isTextInputType(q.type,) ? (q.placeholder || undefined) : undefined,
+                    questionAsPlaceholder: isTextInputType(q.type,) ? (q.questionAsPlaceholder ?? false) : undefined,
+                    placeholder: isTextInputType(q.type,) && !q.questionAsPlaceholder
+                        ? (q.placeholder || undefined)
+                        : undefined,
                     rows: q.type === 'textarea' ? (q.rows ?? 4) : undefined,
                     allowResize: q.type === 'textarea' ? (q.allowResize ?? true) : undefined,
                     maxHeight: q.type === 'textarea' && q.allowResize ? (q.maxHeight || undefined) : undefined,
@@ -759,17 +765,36 @@ const FormEditor: Component = () => {
 
                                             <Show when={isTextInputType(question.type,)}>
                                                 <div class="form-group">
-                                                    <label>Placeholder Text (Optional)</label>
-                                                    <input
-                                                        type="text"
-                                                        value={question.placeholder || ''}
-                                                        onChange={(e,) =>
-                                                            updateQuestion(index(), {
-                                                                placeholder: (e.target as HTMLInputElement).value,
-                                                            },)}
-                                                        placeholder="Shown inside the empty field…"
+                                                    <Toggle
+                                                        checked={question.questionAsPlaceholder ?? false}
+                                                        onChange={(next,) =>
+                                                            updateQuestion(index(), { questionAsPlaceholder: next, },)}
+                                                        size="sm"
+                                                        label={
+                                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                                                Use Question Text as placeholder
+                                                                <Tooltip
+                                                                    header="Use Question Text as placeholder"
+                                                                    content="Hides the field's label and shows the question text inside the input as its placeholder instead. The separate Placeholder Text option is ignored while this is on."
+                                                                />
+                                                            </span>
+                                                        }
                                                     />
                                                 </div>
+                                                <Show when={!question.questionAsPlaceholder}>
+                                                    <div class="form-group">
+                                                        <label>Placeholder Text (Optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={question.placeholder || ''}
+                                                            onChange={(e,) =>
+                                                                updateQuestion(index(), {
+                                                                    placeholder: (e.target as HTMLInputElement).value,
+                                                                },)}
+                                                            placeholder="Shown inside the empty field…"
+                                                        />
+                                                    </div>
+                                                </Show>
                                             </Show>
 
                                             <Show when={question.type === 'textarea'}>

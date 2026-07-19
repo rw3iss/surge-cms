@@ -397,6 +397,7 @@ CREATE TABLE form_questions (
     validation JSONB,
     width VARCHAR(8) NOT NULL DEFAULT 'full',
     placeholder VARCHAR(255),
+    question_as_placeholder BOOLEAN NOT NULL DEFAULT false,
     "rows" INTEGER,
     allow_resize BOOLEAN NOT NULL DEFAULT true,
     max_height VARCHAR(20),

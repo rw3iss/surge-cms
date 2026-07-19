@@ -33,6 +33,7 @@ export interface FormQuestionInput {
     validation?: QuestionValidation;
     width?: QuestionWidth;
     placeholder?: string;
+    questionAsPlaceholder?: boolean;
     rows?: number;
     allowResize?: boolean;
     maxHeight?: string;

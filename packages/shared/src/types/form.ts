@@ -28,6 +28,9 @@ export interface FormQuestion {
     width?: QuestionWidth;
     /** Placeholder for text-type inputs (text/textarea/email/number). */
     placeholder?: string;
+    /** Text-type inputs: use the question text as the placeholder and hide the
+     *  visible label (overrides `placeholder`). */
+    questionAsPlaceholder?: boolean;
     /** Textarea visible rows (default 4). */
     rows?: number;
     /** Textarea user-resizable (default true). */

@@ -188,8 +188,8 @@ export async function createQuestion(formId: string, data: Record<string, unknow
     const result = await query(
         `INSERT INTO form_questions (form_id, type, question, description, options,
                                  is_required, "order", validation, width,
-                                 placeholder, "rows", allow_resize, max_height)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING *`,
         [
             formId,
@@ -202,6 +202,7 @@ export async function createQuestion(formId: string, data: Record<string, unknow
             data.validation ? JSON.stringify(data.validation,) : null,
             data.width ?? 'full',
             (data.placeholder as string | undefined) || null,
+            data.questionAsPlaceholder ?? false,
             (data.rows as number | undefined) ?? null,
             data.allowResize ?? true,
             (data.maxHeight as string | undefined) || null,
@@ -228,6 +229,7 @@ export async function updateQuestion(
         order: '"order"',
         width: 'width',
         placeholder: 'placeholder',
+        questionAsPlaceholder: 'question_as_placeholder',
         rows: '"rows"',
         allowResize: 'allow_resize',
         maxHeight: 'max_height',
@@ -302,6 +304,7 @@ export async function syncQuestions(
             const validation = raw.validation ? JSON.stringify(raw.validation,) : null;
             const width = (raw.width as string | undefined) ?? 'full';
             const placeholder = (raw.placeholder as string | undefined) || null;
+            const questionAsPlaceholder = (raw.questionAsPlaceholder as boolean | undefined) ?? false;
             const rows = (raw.rows as number | undefined) ?? null;
             const allowResize = (raw.allowResize as boolean | undefined) ?? true;
             const maxHeight = (raw.maxHeight as string | undefined) || null;
@@ -311,24 +314,24 @@ export async function syncQuestions(
                     `UPDATE form_questions
                      SET type = $1, question = $2, description = $3, options = $4,
                          is_required = $5, "order" = $6, validation = $7, width = $8,
-                         placeholder = $9, "rows" = $10, allow_resize = $11, max_height = $12,
-                         updated_at = NOW()
-                     WHERE id = $13 AND form_id = $14`,
+                         placeholder = $9, question_as_placeholder = $10, "rows" = $11,
+                         allow_resize = $12, max_height = $13, updated_at = NOW()
+                     WHERE id = $14 AND form_id = $15`,
                     [raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, rows, allowResize, maxHeight, qid, formId,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, qid, formId,],
                 );
                 kept.push(qid,);
             } else {
                 const ins = await client.query<{ id: string; }>(
                     `INSERT INTO form_questions (form_id, type, question, description, options,
                                                  is_required, "order", validation, width,
-                                                 placeholder, "rows", allow_resize, max_height)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                      RETURNING id`,
                     [formId, raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, rows, allowResize, maxHeight,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight,],
                 );
                 kept.push(ins.rows[0].id,);
             }

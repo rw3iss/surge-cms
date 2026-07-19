@@ -172,12 +172,14 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         'form-renderer__field--half': q.width === 'half',
                                     }}
                                 >
-                                    <label class="form-renderer__label">
-                                        {q.question}
-                                        <Show when={q.isRequired}>
-                                            <span class="form-renderer__required">*</span>
-                                        </Show>
-                                    </label>
+                                    <Show when={!q.questionAsPlaceholder}>
+                                        <label class="form-renderer__label">
+                                            {q.question}
+                                            <Show when={q.isRequired}>
+                                                <span class="form-renderer__required">*</span>
+                                            </Show>
+                                        </label>
+                                    </Show>
                                     <Show when={q.description}>
                                         <p class="form-renderer__description">{q.description}</p>
                                     </Show>
@@ -192,7 +194,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                                 maxLength={q.validation?.maxLength}
                                                 pattern={q.validation?.pattern}
                                                 title={q.validation?.patternMessage}
-                                                placeholder={q.placeholder || ''}
+                                                placeholder={q.questionAsPlaceholder ? q.question : (q.placeholder || '')}
                                                 onInput={(e,) => updateAnswer(q.id, e.currentTarget.value,)}
                                             />
                                         </Match>
@@ -204,7 +206,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                                 required={q.isRequired}
                                                 minLength={q.validation?.minLength}
                                                 maxLength={q.validation?.maxLength}
-                                                placeholder={q.placeholder || ''}
+                                                placeholder={q.questionAsPlaceholder ? q.question : (q.placeholder || '')}
                                                 style={{
                                                     resize: (q.allowResize ?? true) ? 'vertical' : 'none',
                                                     ...(q.maxHeight ? { 'max-height': q.maxHeight, } : {}),
@@ -221,7 +223,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                                 inputmode="numeric"
                                                 min={q.validation?.min}
                                                 max={q.validation?.max}
-                                                placeholder={q.placeholder || ''}
+                                                placeholder={q.questionAsPlaceholder ? q.question : (q.placeholder || '')}
                                                 onInput={(e,) => updateAnswer(q.id, Number(e.currentTarget.value,),)}
                                             />
                                         </Match>
@@ -234,7 +236,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                                 inputmode="email"
                                                 autocomplete="email"
                                                 maxLength={q.validation?.maxLength}
-                                                placeholder={q.placeholder || ''}
+                                                placeholder={q.questionAsPlaceholder ? q.question : (q.placeholder || '')}
                                                 onInput={(e,) => updateAnswer(q.id, e.currentTarget.value,)}
                                             />
                                         </Match>

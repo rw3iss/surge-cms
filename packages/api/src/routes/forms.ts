@@ -25,6 +25,7 @@ const questionSchema = z.object({
     order: z.number().int().optional(),
     width: z.enum(['full', 'half',],).optional(),
     placeholder: z.string().max(255,).optional(),
+    questionAsPlaceholder: z.boolean().optional(),
     rows: z.number().int().min(1,).max(50,).optional(),
     allowResize: z.boolean().optional(),
     maxHeight: z.string().max(20,).optional(),
