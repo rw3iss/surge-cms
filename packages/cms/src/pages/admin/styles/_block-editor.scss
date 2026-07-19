@@ -708,6 +708,19 @@
 
 
 
+// Slot wrapper = the group's flex/grid ITEM (mirrors public `.block--group_item`).
+// The inline style carries the slot's flex/width; this makes the child block
+// stretch to fill the sized wrapper.
+.content-block__group-slot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  > .content-block {
+    width: 100%;
+  }
+}
+
 .content-block__group-item {
   display: flex;
   flex-direction: column;

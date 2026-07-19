@@ -5,7 +5,7 @@ import BlockPreview from './BlockPreview';
 import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
-import { groupColumns, groupContainerStyle, } from '../../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../../utils/groupStyle';
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
@@ -384,33 +384,38 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
         >
             <For each={props.childBlocks}>
                 {(child, idx,) => (
-                    <ContentBlock
-                        block={child}
-                        index={idx()}
-                        total={props.childBlocks.length}
-                        allBlocks={props.allBlocks}
-                        isSelected={props.ownProps.selectedBlockId === child.id}
-                        isDirty={props.ownProps.dirtyBlockIds?.has(child.id,) ?? false}
-                        isEditing={false}
-                        isDragging={props.ownProps.draggingId === child.id}
-                        collapsed={false}
-                        selectedBlockId={props.ownProps.selectedBlockId}
-                        dirtyBlockIds={props.ownProps.dirtyBlockIds}
-                        draggingId={props.ownProps.draggingId}
-                        onToggleEdit={props.ownProps.onToggleEdit}
-                        onCancel={props.ownProps.onCancel}
-                        onUpdate={props.ownProps.onUpdate}
-                        onRemove={props.ownProps.onRemove}
-                        onMoveUp={props.ownProps.onMoveUp}
-                        onMoveDown={props.ownProps.onMoveDown}
-                        onMoveToTop={props.ownProps.onMoveToTop}
-                        onMoveToBottom={props.ownProps.onMoveToBottom}
-                        onInsertBefore={props.ownProps.onInsertBefore}
-                        onDragStart={props.ownProps.onDragStart}
-                        onAddChildBlock={props.ownProps.onAddChildBlock}
-                        blockTypes={props.ownProps.blockTypes}
-                        onChangeType={props.ownProps.onChangeType}
-                    />
+                    // The slot wrapper is the flex/grid ITEM (mirrors the public
+                    // `.block--group_item`), so the group's justify/align applies
+                    // to properly-sized items instead of full-bleed ContentBlocks.
+                    <div class="content-block__group-slot" style={groupSlotItemStyle(child.data ?? {}, data(),)}>
+                        <ContentBlock
+                            block={child}
+                            index={idx()}
+                            total={props.childBlocks.length}
+                            allBlocks={props.allBlocks}
+                            isSelected={props.ownProps.selectedBlockId === child.id}
+                            isDirty={props.ownProps.dirtyBlockIds?.has(child.id,) ?? false}
+                            isEditing={false}
+                            isDragging={props.ownProps.draggingId === child.id}
+                            collapsed={false}
+                            selectedBlockId={props.ownProps.selectedBlockId}
+                            dirtyBlockIds={props.ownProps.dirtyBlockIds}
+                            draggingId={props.ownProps.draggingId}
+                            onToggleEdit={props.ownProps.onToggleEdit}
+                            onCancel={props.ownProps.onCancel}
+                            onUpdate={props.ownProps.onUpdate}
+                            onRemove={props.ownProps.onRemove}
+                            onMoveUp={props.ownProps.onMoveUp}
+                            onMoveDown={props.ownProps.onMoveDown}
+                            onMoveToTop={props.ownProps.onMoveToTop}
+                            onMoveToBottom={props.ownProps.onMoveToBottom}
+                            onInsertBefore={props.ownProps.onInsertBefore}
+                            onDragStart={props.ownProps.onDragStart}
+                            onAddChildBlock={props.ownProps.onAddChildBlock}
+                            blockTypes={props.ownProps.blockTypes}
+                            onChangeType={props.ownProps.onChangeType}
+                        />
+                    </div>
                 )}
             </For>
         </div>

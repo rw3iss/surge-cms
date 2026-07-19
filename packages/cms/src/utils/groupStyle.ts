@@ -29,6 +29,39 @@ export function groupColumns(data: Record<string, unknown>,): number | null {
     return Math.min(16, cols,);
 }
 
+/**
+ * Flex/grid-item CSS for a single group_item slot. The public renderer applies
+ * this to the `.block--group_item` element (the flex/grid item); the admin
+ * preview must apply the SAME sizing to its slot wrapper so items lay out (and
+ * respect the group's justify/align) identically — otherwise admin items fill
+ * the container and justify-content has nothing to distribute. `parent` supplies
+ * the group's item-size defaults (itemMinWidth, …).
+ */
+export function groupSlotItemStyle(
+    item: Record<string, unknown>,
+    parent: Record<string, unknown> = {},
+): Record<string, string | undefined> {
+    const width = (item.width as string) || undefined;
+    const alignSelf = (() => {
+        const v = item.alignSelf as string | undefined;
+        if (!v) return undefined;
+        if (v === 'start') return 'flex-start';
+        if (v === 'end') return 'flex-end';
+        return v;
+    })();
+    return {
+        // A slot with an explicit width sizes to it; otherwise it shares the row.
+        flex: width ? '0 0 auto' : '1 1 0',
+        width,
+        'min-width': (item.minWidth as string) || (parent.itemMinWidth as string) || undefined,
+        'max-width': (item.maxWidth as string) || (parent.itemMaxWidth as string) || undefined,
+        'min-height': (item.minHeight as string) || (parent.itemMinHeight as string) || undefined,
+        'max-height': (item.maxHeight as string) || (parent.itemMaxHeight as string) || undefined,
+        height: (item.height as string) || undefined,
+        'align-self': alignSelf,
+    };
+}
+
 export function groupContainerStyle(
     data: Record<string, unknown>,
     options: GroupStyleOptions = {},
