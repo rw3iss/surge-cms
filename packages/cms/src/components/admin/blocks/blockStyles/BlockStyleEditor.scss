@@ -21,6 +21,12 @@
         min-width: 0;
     }
 
+    // Span both grid columns (e.g. Background Image), so the following fields
+    // wrap to a fresh row beneath it.
+    &__field--full {
+        grid-column: 1 / -1;
+    }
+
     &__label {
         font-size: 10px;
         font-weight: 700;

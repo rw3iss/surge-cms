@@ -157,6 +157,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         if (fg) out.color = fg;
         if (st.textAlign) out['text-align'] = st.textAlign as JSX.CSSProperties['text-align'];
         if (st.fontSize) out['font-size'] = st.fontSize;
+        if (st.lineHeight) out['line-height'] = st.lineHeight;
         const ff = fontStack(st.fontFamily,);
         if (ff) out['font-family'] = ff;
         if (st.padding) out.padding = st.padding;

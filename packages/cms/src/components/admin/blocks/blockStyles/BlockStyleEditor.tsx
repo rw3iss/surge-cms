@@ -34,6 +34,7 @@ const FONT_SIZE_OPTIONS = [
     '32px',
 ];
 
+const LINE_HEIGHT_OPTIONS = ['1', '1.15', '1.25', '1.4', '1.5', '1.6', '1.75', '2', '2.5',];
 const WIDTH_OPTIONS = ['100%', '66.666%', '50%', '33.333%', '25%', '20%',];
 const PADDING_OPTIONS = ['15px', '30px', '45px', '60px',];
 const MARGIN_OPTIONS = ['auto', '15px', '30px', '45px', '60px',];
@@ -113,6 +114,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
             backgroundImage: undefined,
             textColor: undefined,
             fontSize: undefined,
+            lineHeight: undefined,
             padding: undefined,
             verticalAlign: undefined,
             width: undefined,
@@ -170,8 +172,8 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </div>
                 </div>
 
-                {/* Background Image */}
-                <div class="block-style-editor__field">
+                {/* Background Image (full width; alignment + line height go on the row below) */}
+                <div class="block-style-editor__field block-style-editor__field--full">
                     <label class="block-style-editor__label">
                         Background Image
                         <Tooltip
@@ -239,6 +241,21 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         <option value="center">Center</option>
                         <option value="right">Right</option>
                         <option value="justify">Justify</option>
+                    </select>
+                </div>
+
+                {/* Line Height */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">Line Height</label>
+                    <select
+                        class="block-style-editor__select"
+                        value={props.style.lineHeight || BLOCK_STYLE_DEFAULTS.lineHeight}
+                        onChange={(e,) => update('lineHeight', e.currentTarget.value,)}
+                    >
+                        <option value={BLOCK_STYLE_DEFAULTS.lineHeight}>Default</option>
+                        <For each={LINE_HEIGHT_OPTIONS}>
+                            {(lh,) => <option value={lh}>{lh}</option>}
+                        </For>
                     </select>
                 </div>
 

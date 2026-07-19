@@ -92,6 +92,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     'flex-end' :
                     undefined,
                 'font-size': s().fontSize || undefined,
+                'line-height': s().lineHeight || undefined,
                 'font-family': fontStack(s().fontFamily,),
                 width: s().width || undefined,
                 height: s().height || undefined,

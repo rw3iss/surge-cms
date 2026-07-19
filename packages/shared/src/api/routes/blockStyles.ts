@@ -31,6 +31,7 @@ export interface BlockStyleCreateBody {
     textAlign?: string | null;
     verticalAlign?: string | null;
     fontSize?: string | null;
+    lineHeight?: string | null;
     width?: string | null;
     height?: string | null;
     padding?: string | null;

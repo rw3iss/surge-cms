@@ -16,6 +16,7 @@ export interface BlockStyleData {
      *  site font. */
     fontFamily?: string;
     fontSize?: string;
+    lineHeight?: string;
     width?: string;
     height?: string;
     padding?: string;
@@ -32,7 +33,7 @@ export interface BlockStyleData {
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'backgroundImage' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontFamily' | 'fontSize' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
+        'backgroundColor' | 'backgroundImage' | 'textColor' | 'textAlign' | 'verticalAlign' | 'fontFamily' | 'fontSize' | 'lineHeight' | 'width' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
     >
 > = {
     backgroundColor: '',
@@ -42,6 +43,7 @@ export const BLOCK_STYLE_DEFAULTS: Required<
     verticalAlign: 'top',
     fontFamily: '',
     fontSize: '',
+    lineHeight: '',
     width: '100%',
     height: '',
     padding: '',

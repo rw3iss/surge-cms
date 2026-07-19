@@ -12,6 +12,7 @@ const blockStyleSchema = z.object({
     textAlign: z.string().nullable().optional(),
     verticalAlign: z.string().nullable().optional(),
     fontSize: z.string().nullable().optional(),
+    lineHeight: z.string().nullable().optional(),
     width: z.string().nullable().optional(),
     height: z.string().nullable().optional(),
     padding: z.string().nullable().optional(),

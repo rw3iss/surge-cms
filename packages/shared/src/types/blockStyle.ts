@@ -11,6 +11,7 @@ export interface BlockStyle {
     textAlign?: string; // 'left' | 'center' | 'right' | 'justify'
     verticalAlign?: string; // 'top' | 'center' | 'bottom'
     fontSize?: string; // e.g. '16px'
+    lineHeight?: string; // e.g. '1.5' (unitless) or '24px'
     width?: string; // CSS width value
     height?: string; // CSS height value
     padding?: string; // CSS padding value
