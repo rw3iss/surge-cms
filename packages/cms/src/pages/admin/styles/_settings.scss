@@ -382,9 +382,13 @@
 
 // Server Logs panel — near full-height, read-only, monospace log viewer.
 .server-logs {
-  &__textarea {
+  // Two-class selector (`.server-logs .server-logs__textarea`) outranks the
+  // admin shell's `…__main textarea { max-width: $admin-form-max-width }`, so
+  // the log fills the full content column instead of the form-width cap.
+  & &__textarea {
     display: block;
     width: 100%;
+    max-width: none;
     height: 70vh;
     min-height: 320px;
     resize: vertical;
