@@ -144,6 +144,9 @@ export interface Post {
      *  image beside the title/meta). Only meaningful when `featuredImage` is
      *  set. */
     bannerLayout?: 'hero' | 'hero-full' | 'standalone' | 'thumbnail';
+    /** Vertical anchor of the banner image (background-position / object-position):
+     *  `start` (top), `center` (default), or `end` (bottom). */
+    bannerImagePosition?: 'start' | 'center' | 'end';
     createdAt: Date;
     updatedAt: Date;
 }

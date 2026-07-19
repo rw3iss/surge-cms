@@ -165,6 +165,12 @@ const PostPage: Component = () => {
                             ((postData() as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail')
                             || 'standalone';
                         const hasBanner = () => !!postData().featuredImage;
+                        // Vertical anchor of the banner image (start=top, end=bottom).
+                        // Applied as background-position (hero) / object-position (img).
+                        const bannerPos = () => {
+                            const p = (postData() as any).bannerImagePosition as 'start' | 'center' | 'end' | undefined;
+                            return p === 'start' ? 'center top' : p === 'end' ? 'center bottom' : 'center center';
+                        };
                         // Expose the current post to `{{post.*}}` in its blocks.
                         const postCtx = () => ({
                             post: { kind: 'post', data: postData() as unknown as Record<string, unknown>, id: postData().id },
@@ -210,7 +216,10 @@ const PostPage: Component = () => {
                                     <Match when={hasBanner() && bannerLayout() === 'hero'}>
                                         <header
                                             class="post-page__hero"
-                                            style={{ 'background-image': `url("${postData().featuredImage}")`, }}
+                                            style={{
+                                                'background-image': `url("${postData().featuredImage}")`,
+                                                'background-position': bannerPos(),
+                                            }}
                                         >
                                             <div class="post-page__hero-overlay">
                                                 {heading()}
@@ -223,7 +232,10 @@ const PostPage: Component = () => {
                                     <Match when={hasBanner() && bannerLayout() === 'hero-full'}>
                                         <header
                                             class="post-page__hero post-page__hero--full"
-                                            style={{ 'background-image': `url("${postData().featuredImage}")`, }}
+                                            style={{
+                                                'background-image': `url("${postData().featuredImage}")`,
+                                                'background-position': bannerPos(),
+                                            }}
                                         >
                                             <div class="post-page__hero-overlay post-page__hero-overlay--full">
                                                 {heading()}
@@ -237,6 +249,7 @@ const PostPage: Component = () => {
                                                 src={postData().featuredImage}
                                                 alt={postData().title}
                                                 class="post-page__thumb"
+                                                style={{ 'object-position': bannerPos(), }}
                                             />
                                             <div class="post-page__header-text">
                                                 {heading()}
@@ -253,6 +266,7 @@ const PostPage: Component = () => {
                                                 src={postData().featuredImage}
                                                 alt={postData().title}
                                                 class="post-page__image"
+                                                style={{ 'object-position': bannerPos(), }}
                                             />
                                         </Show>
                                     </Match>

@@ -48,6 +48,7 @@ const postSchema = z.object({
     headerStyle: z.enum(['default', 'alt',],).optional(),
     headerPosition: z.enum(['static', 'float',],).optional(),
     bannerLayout: z.enum(['hero', 'hero-full', 'standalone', 'thumbnail',],).optional(),
+    bannerImagePosition: z.enum(['start', 'center', 'end',],).optional(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
 },);
 

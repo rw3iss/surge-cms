@@ -141,6 +141,7 @@ export interface PostCreateBody {
     headerStyle?: 'default' | 'alt';
     headerPosition?: 'static' | 'float';
     bannerLayout?: 'hero' | 'hero-full' | 'standalone' | 'thumbnail';
+    bannerImagePosition?: 'start' | 'center' | 'end';
     contentBlocks?: PostCreateContentBlock[];
 }
 

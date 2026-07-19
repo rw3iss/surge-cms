@@ -169,6 +169,7 @@ CREATE TABLE posts (
     header_position VARCHAR(16),
     -- Banner image layout: 'standalone' (default) | 'hero' | 'thumbnail'.
     banner_layout VARCHAR(16) NOT NULL DEFAULT 'standalone',
+    banner_image_position VARCHAR(8) NOT NULL DEFAULT 'center',
     tags TEXT[] DEFAULT '{}',
     categories TEXT[] DEFAULT '{}',
     meta_title VARCHAR(255),

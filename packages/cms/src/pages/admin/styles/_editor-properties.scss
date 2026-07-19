@@ -178,6 +178,24 @@
     display: flex;
     flex-direction: column;
     gap: $spacing-xs;
+
+    // The main property fields (Title, Slug, Excerpt, Tags, …) render as
+    // FormField primitives. Stretch them across the column up to a readable
+    // width instead of collapsing to the control's content width (which left
+    // a lot of trailing whitespace).
+    .admin-form-field {
+      width: 100%;
+      max-width: 46rem;
+
+      .admin-form-field__control { width: 100%; }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        max-width: 100%;
+      }
+    }
   }
 
   &__sidebar {

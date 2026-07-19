@@ -31,6 +31,7 @@ const AdminPostEditor: Component = () => {
      *  hero (image full-width with title/meta over it), or thumbnail (small
      *  image beside the title/meta). Only meaningful when a banner is set. */
     const [bannerLayout, setBannerLayout,] = createSignal<'hero' | 'hero-full' | 'standalone' | 'thumbnail'>('standalone',);
+    const [bannerImagePosition, setBannerImagePosition,] = createSignal<'start' | 'center' | 'end'>('center',);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [authorId, setAuthorId,] = createSignal('',);
     /** Whether the post renderer applies the site's Post Padding (top/bottom)
@@ -64,6 +65,7 @@ const AdminPostEditor: Component = () => {
             tags: tags(),
             featuredImage: featuredImage(),
             bannerLayout: bannerLayout(),
+            bannerImagePosition: bannerImagePosition(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -87,6 +89,7 @@ const AdminPostEditor: Component = () => {
                 tags: tagList,
                 featuredImage: featuredImage() || null,
                 bannerLayout: bannerLayout(),
+                bannerImagePosition: bannerImagePosition(),
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -147,6 +150,7 @@ const AdminPostEditor: Component = () => {
             setTags(d.tags || '',);
             setFeaturedImage(d.featuredImage || '',);
             setBannerLayout(d.bannerLayout || 'standalone',);
+            setBannerImagePosition((d.bannerImagePosition as 'start' | 'center' | 'end') || 'center',);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -169,6 +173,7 @@ const AdminPostEditor: Component = () => {
         setTags((p.tags || []).join(', ',),);
         setFeaturedImage(p.featuredImage || '',);
         setBannerLayout(((p as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail') || 'standalone',);
+        setBannerImagePosition(((p as any).bannerImagePosition as 'start' | 'center' | 'end') || 'center',);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
@@ -271,6 +276,22 @@ const AdminPostEditor: Component = () => {
                                     <Tooltip
                                         header="Image Layout"
                                         content="How the banner image + title/meta render at the top of the post. Hero: full-width image with the title & meta over it (white text). Hero Full: same as Hero, but the banner background spans the ENTIRE page width edge-to-edge (no left/right gap) while the title & meta stay within the centered content column. Standalone: title & meta on top, image full-width below. Thumbnail: a small image beside the title & meta in a single row. The post content renders below either way."
+                                    />
+                                    <label style={{ 'margin-bottom': 0, 'font-size': '11px', 'margin-left': '8px', }}>Vertical Position</label>
+                                    <select
+                                        value={bannerImagePosition()}
+                                        onChange={(e,) => {
+                                            setBannerImagePosition(e.currentTarget.value as 'start' | 'center' | 'end',);
+                                            editor.markDirty();
+                                        }}
+                                    >
+                                        <option value="start">Start (top)</option>
+                                        <option value="center">Center</option>
+                                        <option value="end">End (bottom)</option>
+                                    </select>
+                                    <Tooltip
+                                        header="Vertical Position"
+                                        content="Where a large banner image is anchored when it's cropped. Start shows the TOP of the image, End shows the BOTTOM, Center (default) shows the middle. Useful when centering cuts off the top of the subject."
                                     />
                                 </div>
                             </Show>
