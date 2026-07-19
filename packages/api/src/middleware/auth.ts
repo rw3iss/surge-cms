@@ -40,6 +40,7 @@ export function authenticate(required = true,) {
             const result = await query(
                 `SELECT id, email, display_name, avatar_url, role, auth_provider,
                 patreon_id, patreon_tier, is_active, is_banned,
+                first_name, last_name, bio, location_city, location_state,
                 last_login_at, created_at, updated_at
          FROM users WHERE id = $1`,
                 [decoded.userId,],
