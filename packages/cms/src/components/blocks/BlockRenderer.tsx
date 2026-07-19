@@ -35,6 +35,10 @@ interface BlockRendererProps {
     /** Page-entity variables (e.g. `{ post: {kind,data,id} }`) exposed to this
      *  block's `{{ … }}` template resolution — the containing post/campaign/page. */
     templateContext?: TplCtx;
+    /** Set by group containers on their children so nested blocks don't each
+     *  re-apply the site's default block padding (which cascades level-by-level
+     *  through a group tree). Explicit style/settings padding still applies. */
+    noDefaultPadding?: boolean;
 }
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
@@ -99,7 +103,19 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 height: s().height || undefined,
                 padding: isCarousel() ? undefined : (
                     s().padding || (props.block.settings.padding as string) ||
-                    (props.block.settings.useDefaultPadding === false ? undefined : 'var(--site-block-padding, 0)')
+                    // Only apply the site default padding when it isn't
+                    // suppressed: group containers (`group`/`group_item`) and
+                    // any block nested inside one never stamp it (avoids the
+                    // level-by-level cascade), nor does a block that turned the
+                    // default off. Explicit style/settings padding still wins above.
+                    (
+                        props.noDefaultPadding
+                        || props.block.type === 'group'
+                        || props.block.type === 'group_item'
+                        || props.block.settings.useDefaultPadding === false
+                            ? undefined
+                            : 'var(--site-block-padding, 0)'
+                    )
                 ),
                 margin: (() => {
                     const m = s().margin;
@@ -917,7 +933,7 @@ const GroupBlock: Component<{ block: Block; }> = (props,) => {
             <For each={children()}>
                 {(child,) => (
                     <Show when={child.isVisible !== false}>
-                        <BlockRenderer block={withSlotDefaults(child, data(),)} />
+                        <BlockRenderer block={withSlotDefaults(child, data(),)} noDefaultPadding />
                     </Show>
                 )}
             </For>
@@ -970,7 +986,7 @@ const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
                 <For each={children()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
-                            <BlockRenderer block={child} />
+                            <BlockRenderer block={child} noDefaultPadding />
                         </Show>
                     )}
                 </For>
