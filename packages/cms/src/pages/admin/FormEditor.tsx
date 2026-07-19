@@ -637,7 +637,7 @@ const FormEditor: Component = () => {
                                                     <input
                                                         type="text"
                                                         value={question.question}
-                                                        onInput={(e,) =>
+                                                        onChange={(e,) =>
                                                             updateQuestion(index(), {
                                                                 question: (e.target as HTMLInputElement).value,
                                                             },)}
@@ -690,7 +690,7 @@ const FormEditor: Component = () => {
                                                 <input
                                                     type="text"
                                                     value={question.description || ''}
-                                                    onInput={(e,) =>
+                                                    onChange={(e,) =>
                                                         updateQuestion(index(), {
                                                             description: (e.target as HTMLInputElement).value,
                                                         },)}
@@ -712,7 +712,7 @@ const FormEditor: Component = () => {
                                                                     <input
                                                                         type="text"
                                                                         value={option}
-                                                                        onInput={(e,) =>
+                                                                        onChange={(e,) =>
                                                                             updateOption(
                                                                                 index(),
                                                                                 optIndex(),
