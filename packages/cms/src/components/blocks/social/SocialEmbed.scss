@@ -289,6 +289,10 @@
 // preview (both go through BlockRenderer).
 .social-block__grid:not(.social-block__grid--row) {
   align-items: stretch;
+  // Horizontal distribution of the cards. Defaults to center; the block style's
+  // Horizontal Alignment sets --block-h-align on the block wrapper (inherited).
+  // Only visible when the cards don't fill the row (e.g. a fixed item width).
+  justify-content: var(--block-h-align, center);
 
   // Fill the grid cell exactly (the base card centers via margin auto, which
   // otherwise shrinks cards to their content width → ragged/"random" widths).

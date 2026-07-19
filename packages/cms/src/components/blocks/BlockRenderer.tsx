@@ -5,6 +5,7 @@ import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
+import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
 import GiveButterWidget from './GiveButterWidget';
@@ -113,7 +114,13 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 // each slot to a full row.
                 width: isGroupItem() ? undefined : (s().width || undefined),
                 'max-width': isGroupItem() ? undefined : (s().maxWidth || undefined),
+                'min-height': s().minHeight || undefined,
                 height: isGroupItem() ? undefined : (s().height || undefined),
+                // Horizontal alignment → a CSS var read by the block's item
+                // row/grid (e.g. the social grid) as its justify-content.
+                ...(s().horizontalAlign
+                    ? { '--block-h-align': toFlexAlign(s().horizontalAlign, 'flex-start',), }
+                    : {}),
                 padding: isCarousel() ? undefined : (
                     s().padding || (props.block.settings.padding as string) ||
                     // Only apply the site default padding when it isn't
@@ -780,12 +787,10 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         ...(itemHeight() ? { '--social-item-height': itemHeight(), } : {}),
                         ...(itemWidth() && layout() !== 'row'
                             // auto-fit collapses empty trailing tracks so the
-                            // filled ones can be centered (auto-fill would pad
-                            // the row and left-pack the cards).
-                            ? {
-                                'grid-template-columns': `repeat(auto-fit, min(${itemWidth()}, 100%))`,
-                                'justify-content': 'center',
-                            }
+                            // filled ones can be aligned (auto-fill would pad the
+                            // row and left-pack the cards). The actual alignment
+                            // comes from --block-h-align (default center) in SCSS.
+                            ? { 'grid-template-columns': `repeat(auto-fit, min(${itemWidth()}, 100%))`, }
                             : {}),
                     }}
                 >

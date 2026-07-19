@@ -120,8 +120,11 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
             lineHeight: undefined,
             padding: undefined,
             verticalAlign: undefined,
+            horizontalAlign: undefined,
             width: undefined,
             maxWidth: undefined,
+            minHeight: undefined,
+            height: undefined,
             margin: undefined,
             overflowX: undefined,
             overflowY: undefined,
@@ -358,6 +361,28 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </div>
                 </div>
 
+                {/* Min Height (before Height) */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">
+                        Min Height
+                        <Tooltip
+                            header="CSS Min Height"
+                            content="Minimum height the block won't shrink below. Any CSS length: px, vh, rem, em, % or calc()."
+                        />
+                    </label>
+                    <div class="block-style-editor__field-right">
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="text"
+                                class="block-style-editor__custom-input"
+                                value={props.style.minHeight || ''}
+                                onChange={(e,) => update('minHeight', e.currentTarget.value,)}
+                                placeholder="e.g. 200px, 40vh"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* Height */}
                 <div class="block-style-editor__field">
                     <label class="block-style-editor__label">Height</label>
@@ -385,6 +410,31 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         <option value="top">Top</option>
                         <option value="center">Center</option>
                         <option value="bottom">Bottom</option>
+                    </select>
+                </div>
+
+                {/* Horizontal Alignment (after Vertical Alignment) */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">
+                        Horizontal Alignment
+                        <Tooltip
+                            header="Horizontal Alignment"
+                            content="How the block's items are distributed horizontally (justify-content) — most visible on multi-item blocks like Social or a multi-image block."
+                        />
+                    </label>
+                    <select
+                        class="block-style-editor__select"
+                        value={props.style.horizontalAlign || ''}
+                        onChange={(e,) => update('horizontalAlign', e.currentTarget.value || undefined,)}
+                    >
+                        <option value="">Default</option>
+                        <option value="start">Start</option>
+                        <option value="center">Center</option>
+                        <option value="end">End</option>
+                        <option value="space-between">Space between</option>
+                        <option value="space-around">Space around</option>
+                        <option value="space-evenly">Space evenly</option>
+                        <option value="stretch">Stretch</option>
                     </select>
                 </div>
 

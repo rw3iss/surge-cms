@@ -30,10 +30,12 @@ export interface BlockStyleCreateBody {
     textColor?: string | null;
     textAlign?: string | null;
     verticalAlign?: string | null;
+    horizontalAlign?: string | null;
     fontSize?: string | null;
     lineHeight?: string | null;
     width?: string | null;
     maxWidth?: string | null;
+    minHeight?: string | null;
     height?: string | null;
     padding?: string | null;
     margin?: string | null;

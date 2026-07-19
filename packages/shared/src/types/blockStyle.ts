@@ -10,10 +10,14 @@ export interface BlockStyle {
     textColor?: string; // hex color
     textAlign?: string; // 'left' | 'center' | 'right' | 'justify'
     verticalAlign?: string; // 'top' | 'center' | 'bottom'
+    /** Horizontal alignment of the block's item row (justify-content):
+     *  'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly' | 'stretch'. */
+    horizontalAlign?: string;
     fontSize?: string; // e.g. '16px'
     lineHeight?: string; // e.g. '1.5' (unitless) or '24px'
     width?: string; // CSS width value
     maxWidth?: string; // CSS max-width value (same value space as width)
+    minHeight?: string; // CSS min-height value
     height?: string; // CSS height value
     padding?: string; // CSS padding value
     margin?: string; // CSS margin value
