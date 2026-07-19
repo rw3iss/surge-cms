@@ -277,6 +277,7 @@ const FormEditor: Component = () => {
                     options: q.options.filter(o => o.trim()),
                     isRequired: q.isRequired,
                     order: index,
+                    width: q.width || 'full',
                 })),
             };
 
