@@ -97,6 +97,17 @@ directly related.
   toggle), F4 (per-field inline errors), A2 (shared `renderTemplateToString`),
   A3 (typed editor — dropped `any`), A4 (shared `formatAnswerValue`), **A7**
   (question-persistence bug fix). Build + 118 API tests green.
-- **Phase C (plan separately):** A6 (app-wide FormField migration — the question
-  cards and other admin editors still use raw `.form-group`); wrapping
-  `syncQuestions` in a DB transaction.
+- **Phase C:**
+  - ✅ **Transaction** — `syncQuestions` moved into a single transactional repo
+    function (`forms.repo.syncQuestions`, mirroring `mailTemplateBlocks.repo.save`);
+    the reconcile is now all-or-nothing.
+  - ✅ **FormEditor → FormField (completed)** — Form-Details + the On-Submit
+    action section now use the shared `FormField` (its `tooltip`/`hint` replaces
+    the manual `<label> + <Tooltip>` / `<small>` boilerplate).
+  - ⏸ **App-wide FormField sweep (deferred, awaiting decision)** — ~100 remaining
+    `.form-group` instances across CampaignEditor (16), PostEditor (12),
+    Settings (12), PageEditor (6), ConnectionEditor (5), and the block-type
+    editors. `.form-group label` already renders **identically** to
+    `.admin-form-field__label` by design, so this is a code-consistency sweep,
+    not a visual fix — high blast radius, low per-file reward. Recommend a
+    dedicated, reviewed pass rather than folding it into this one.

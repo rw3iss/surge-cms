@@ -6,7 +6,6 @@ import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import RichTextEditor from '../../components/admin/editors/RichTextEditor';
 import Toggle from '../../components/admin/common/Toggle';
-import Tooltip from '../../components/admin/common/Tooltip';
 import { FormField, } from '../../components/admin/forms';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
@@ -442,39 +441,29 @@ const FormEditor: Component = () => {
                             />
                         </div>
 
-                        <div class="form-group">
-                            <label for="maxSubmissions">
-                                Max submissions
-                                <Tooltip
-                                    header="Max submissions"
-                                    content="Stop accepting submissions after this many. Leave blank for unlimited. (An accidental double-submit from the same page load is always de-duplicated automatically.)"
-                                />
-                            </label>
+                        <FormField
+                            label="Max submissions"
+                            tooltip="Stop accepting submissions after this many. Leave blank for unlimited. (An accidental double-submit from the same page load is always de-duplicated automatically.)"
+                        >
                             <input
                                 type="number"
-                                id="maxSubmissions"
                                 min="0"
                                 value={maxSubmissions()}
                                 onInput={(e,) => { setMaxSubmissions(e.currentTarget.value,); markDirty(); }}
                                 placeholder="Unlimited"
                                 style={{ 'max-width': '200px', }}
                             />
-                        </div>
+                        </FormField>
                     </section>
 
                     {/* On-submit action */}
                     <section class="form-section">
                         <h2>On Submit</h2>
-                        <div class="form-group">
-                            <label for="action">
-                                Action
-                                <Tooltip
-                                    header="On-submit action"
-                                    content="What happens when someone submits this form. Every submission is always saved so you can view responses; Subscribe and Email run in addition to saving."
-                                />
-                            </label>
+                        <FormField
+                            label="Action"
+                            tooltip="What happens when someone submits this form. Every submission is always saved so you can view responses; Subscribe and Email run in addition to saving."
+                        >
                             <select
-                                id="action"
                                 value={action()}
                                 onChange={(e,) => { setAction(e.currentTarget.value as FormActionType,); markDirty(); }}
                                 style={{ 'max-width': '320px', }}
@@ -483,15 +472,13 @@ const FormEditor: Component = () => {
                                 <option value="subscribe">Subscribe to a mailing list</option>
                                 <option value="email">Send an email</option>
                             </select>
-                        </div>
+                        </FormField>
 
                         {/* Subscribe settings */}
                         <Show when={action() === 'subscribe'}>
                             <div class="form-subaction">
-                                <div class="form-group">
-                                    <label for="mailingList">Mailing list</label>
+                                <FormField label="Mailing list">
                                     <select
-                                        id="mailingList"
                                         value={mailingListId()}
                                         onChange={(e,) => { setMailingListId(e.currentTarget.value,); markDirty(); }}
                                         style={{ 'max-width': '320px', }}
@@ -512,41 +499,36 @@ const FormEditor: Component = () => {
                                         The submitter is added to this list using their <strong>Email</strong> field
                                         (add an Email question below). The list's double opt-in setting is respected.
                                     </small>
-                                </div>
+                                </FormField>
                             </div>
                         </Show>
 
                         {/* Email settings */}
                         <Show when={action() === 'email'}>
                             <div class="form-subaction">
-                                <div class="form-group">
-                                    <label for="emailTo">Send to</label>
+                                <FormField label="Send to">
                                     <input
                                         type="text"
-                                        id="emailTo"
                                         value={emailTo()}
                                         onInput={(e,) => { setEmailTo(e.currentTarget.value,); markDirty(); }}
                                         placeholder="admin@example.com  (or a variable like {{email}})"
                                     />
-                                </div>
-                                <div class="form-group">
-                                    <label for="emailSubject">Subject</label>
+                                </FormField>
+                                <FormField label="Subject">
                                     <input
                                         type="text"
-                                        id="emailSubject"
                                         value={emailSubject()}
                                         onInput={(e,) => { setEmailSubject(e.currentTarget.value,); markDirty(); }}
                                         placeholder="New submission for {{form_title}}"
                                     />
-                                </div>
-                                <div class="form-group">
-                                    <label>Email body</label>
+                                </FormField>
+                                <FormField label="Email body">
                                     <RichTextEditor
                                         value={emailBody()}
                                         onChange={(html,) => { setEmailBody(html,); markDirty(); }}
                                         placeholder="Compose the email. Insert form values with {{ variables }} — see the reference below."
                                     />
-                                </div>
+                                </FormField>
 
                                 {/* Variables help */}
                                 <div class="form-vars">

@@ -345,45 +345,15 @@ export async function create(data: Record<string, unknown>, ctx: AuditContext,):
     return form;
 }
 
-/**
- * Reconcile a form's questions against the editor's submitted list: update
- * existing rows (matched by id), create new ones (no id), and delete any that
- * were removed. Order is taken from array position. Returns the fresh list.
- */
-async function syncQuestions(
-    formId: string,
-    incoming: Array<Record<string, unknown>>,
-): Promise<FormQuestion[]> {
-    const existing = await repo.findQuestionsByFormId(formId,);
-    const existingIds = new Set(existing.map((q,) => q.id),);
-    const kept = new Set<string>();
-
-    for (let i = 0; i < incoming.length; i++) {
-        const raw = incoming[i];
-        const qid = raw.id as string | undefined;
-        const data = { ...raw, order: (raw.order as number | undefined) ?? i, };
-        if (qid && existingIds.has(qid,)) {
-            await repo.updateQuestion(formId, qid, data,);
-            kept.add(qid,);
-        } else {
-            const created = await repo.createQuestion(formId, data,);
-            kept.add(created.id,);
-        }
-    }
-    for (const q of existing) {
-        if (!kept.has(q.id,)) await repo.deleteQuestion(formId, q.id,);
-    }
-    return repo.findQuestionsByFormId(formId,);
-}
-
 export async function update(id: string, patch: Record<string, unknown>, ctx: AuditContext,): Promise<Form> {
     // Questions are a separate table — pull them out of the form column patch
     // and reconcile them explicitly (previously they were silently dropped on
-    // update, so question edits to an existing form never persisted).
+    // update, so question edits to an existing form never persisted). The
+    // reconcile is transactional (repo.syncQuestions).
     const { questions, ...formPatch } = patch;
     const form = await repo.updateForm(id, formPatch,);
     if (Array.isArray(questions,)) {
-        form.questions = await syncQuestions(id, questions as Array<Record<string, unknown>>,);
+        form.questions = await repo.syncQuestions(id, questions as Array<Record<string, unknown>>,);
     }
     await cache.invalidateFormCache(id,);
     await logAudit({

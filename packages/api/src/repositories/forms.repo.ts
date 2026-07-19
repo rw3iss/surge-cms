@@ -1,5 +1,5 @@
 import type { Form, FormQuestion, FormSubmission, } from '@sitesurge/types';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
@@ -259,6 +259,74 @@ export async function deleteQuestion(formId: string, questionId: string,): Promi
     if (result.rows.length === 0) {
         throw new NotFoundError('Question',);
     }
+}
+
+/**
+ * Reconcile a form's questions against the editor's submitted list in ONE
+ * transaction: update existing rows (matched by id), insert new ones (no id),
+ * and delete any that were removed — all-or-nothing so a mid-save failure can't
+ * leave the form with a half-applied question set. Order is the array position.
+ * Returns the fresh list.
+ */
+export async function syncQuestions(
+    formId: string,
+    incoming: Array<Record<string, unknown>>,
+): Promise<FormQuestion[]> {
+    await findByIdOrThrow('forms', formId, 'Form',);
+    return transaction(async (client,) => {
+        const existing = await client.query<{ id: string; }>(
+            'SELECT id FROM form_questions WHERE form_id = $1',
+            [formId,],
+        );
+        const existingIds = new Set(existing.rows.map((r,) => r.id),);
+        const kept: string[] = [];
+
+        for (let i = 0; i < incoming.length; i++) {
+            const raw = incoming[i];
+            const qid = raw.id as string | undefined;
+            const order = (raw.order as number | undefined) ?? i;
+            const options = (raw.options as string[] | undefined) ?? null;
+            const validation = raw.validation ? JSON.stringify(raw.validation,) : null;
+
+            if (qid && existingIds.has(qid,)) {
+                await client.query(
+                    `UPDATE form_questions
+                     SET type = $1, question = $2, description = $3, options = $4,
+                         is_required = $5, "order" = $6, validation = $7, updated_at = NOW()
+                     WHERE id = $8 AND form_id = $9`,
+                    [raw.type, raw.question, raw.description ?? null, options,
+                        raw.isRequired ?? false, order, validation, qid, formId,],
+                );
+                kept.push(qid,);
+            } else {
+                const ins = await client.query<{ id: string; }>(
+                    `INSERT INTO form_questions (form_id, type, question, description, options,
+                                                 is_required, "order", validation)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                     RETURNING id`,
+                    [formId, raw.type, raw.question, raw.description ?? null, options,
+                        raw.isRequired ?? false, order, validation,],
+                );
+                kept.push(ins.rows[0].id,);
+            }
+        }
+
+        // Drop any questions the editor removed.
+        if (kept.length > 0) {
+            await client.query(
+                `DELETE FROM form_questions WHERE form_id = $1 AND id <> ALL($2::uuid[])`,
+                [formId, kept,],
+            );
+        } else {
+            await client.query('DELETE FROM form_questions WHERE form_id = $1', [formId,],);
+        }
+
+        const fresh = await client.query(
+            'SELECT * FROM form_questions WHERE form_id = $1 ORDER BY "order" ASC',
+            [formId,],
+        );
+        return mapRows<FormQuestion>(fresh.rows,);
+    },);
 }
 
 // ─── Submissions ───
