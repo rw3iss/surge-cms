@@ -1,5 +1,6 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import { cms, } from '@/services/cmsClient';
+import { FormField, } from '../../forms';
 
 interface UrlLinkBlockProps {
     data: Record<string, any>;
@@ -77,24 +78,22 @@ const UrlLinkBlock: Component<UrlLinkBlockProps> = (props,) => {
                         </button>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Title</label>
+                <FormField label="Title">
                     <input
                         type="text"
                         value={props.data.title || ''}
                         onChange={(e,) => props.onUpdate({ ...props.data, title: e.currentTarget.value, },)}
                         placeholder="Link title"
                     />
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
+                </FormField>
+                <FormField label="Description">
                     <textarea
                         rows={3}
                         value={props.data.description || ''}
                         onChange={(e,) => props.onUpdate({ ...props.data, description: e.currentTarget.value, },)}
                         placeholder="Link description"
                     />
-                </div>
+                </FormField>
                 <div class="form-row">
                     <div class="form-group form-group--grow">
                         <label>Image URL</label>

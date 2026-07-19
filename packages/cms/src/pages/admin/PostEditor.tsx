@@ -3,6 +3,7 @@ import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { BlockData, } from '../../components/admin/blocks/ContentBlock';
+import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { deriveStyleRefFromStyle, resolveActiveStyleRef, styleRefToPersistedStyle, } from '../../services/blockStyleRef';
 import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
@@ -215,17 +216,15 @@ const AdminPostEditor: Component = () => {
         >
             <div class="editor-properties">
                 <div class="editor-properties__main">
-                    <div class="form-group">
-                        <label>Title</label>
+                    <FormField label="Title">
                         <input
                             type="text"
                             value={title()}
                             onInput={(e,) => { setTitle(e.currentTarget.value,); editor.markDirty(); }}
                             placeholder="Post title"
                         />
-                    </div>
-                    <div class="form-group">
-                        <label>Slug</label>
+                    </FormField>
+                    <FormField label="Slug">
                         <input
                             type="text"
                             value={slug()}
@@ -233,26 +232,23 @@ const AdminPostEditor: Component = () => {
                             placeholder="post-slug"
                         />
                         <small class="form-help">URL: /posts/{slug() || 'post-slug'}</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Excerpt</label>
+                    </FormField>
+                    <FormField label="Excerpt">
                         <textarea
                             rows={3}
                             value={excerpt()}
                             onInput={(e,) => { setExcerpt(e.currentTarget.value,); editor.markDirty(); }}
                             placeholder="Brief summary of the post..."
                         />
-                    </div>
-                    <div class="form-group">
-                        <label>Tags</label>
+                    </FormField>
+                    <FormField label="Tags" hint="Comma-separated">
                         <input
                             type="text"
                             value={tags()}
                             onInput={(e,) => { setTags(e.currentTarget.value,); editor.markDirty(); }}
                             placeholder="tag1, tag2, tag3"
                         />
-                        <small class="form-help">Comma-separated</small>
-                    </div>
+                    </FormField>
                     <div class="form-group">
                         <div class="u-flex-between">
                             <label style={{ 'margin-bottom': 0, }}>Banner Image</label>
@@ -380,8 +376,7 @@ const AdminPostEditor: Component = () => {
                     </div>
                 </div>
                 <div class="editor-properties__sidebar">
-                    <div class="form-group">
-                        <label>Status</label>
+                    <FormField label="Status">
                         <select
                             value={status()}
                             onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
@@ -391,19 +386,17 @@ const AdminPostEditor: Component = () => {
                             <option value="published">Published</option>
                             <option value="archived">Archived</option>
                         </select>
-                    </div>
+                    </FormField>
                     <Show when={status() === 'scheduled'}>
-                        <div class="form-group">
-                            <label>Publish At</label>
+                        <FormField label="Publish At">
                             <input
                                 type="datetime-local"
                                 value={publishAt()}
                                 onInput={(e,) => { setPublishAt(e.currentTarget.value,); editor.markDirty(); }}
                             />
-                        </div>
+                        </FormField>
                     </Show>
-                    <div class="form-group">
-                        <label>Access</label>
+                    <FormField label="Access">
                         <select
                             value={accessLevel()}
                             onChange={(e,) => { setAccessLevel(e.currentTarget.value,); editor.markDirty(); }}
@@ -412,9 +405,8 @@ const AdminPostEditor: Component = () => {
                             <option value="member">Members Only</option>
                             <option value="patron">Patrons Only</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Author</label>
+                    </FormField>
+                    <FormField label="Author" hint="Staff user credited as the post's author.">
                         <select
                             value={authorId()}
                             onChange={(e,) => { setAuthorId(e.currentTarget.value,); editor.markDirty(); }}
@@ -424,8 +416,7 @@ const AdminPostEditor: Component = () => {
                                 {(u,) => <option value={u.id}>{u.displayName}</option>}
                             </For>
                         </select>
-                        <small class="form-help">Staff user credited as the post's author.</small>
-                    </div>
+                    </FormField>
                 </div>
             </div>
         </CollapsiblePanel>

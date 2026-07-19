@@ -8,6 +8,7 @@
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
+import { FormField, } from '../forms';
 
 interface ApiKeyRow {
     id: string;
@@ -112,15 +113,14 @@ const ApiKeysPanel: Component = () => {
                 </Show>
 
                 <form onSubmit={handleCreate}>
-                    <div class="form-group">
-                        <label>Name</label>
+                    <FormField label="Name">
                         <input
                             type="text"
                             placeholder="e.g. deploy-bot"
                             value={name()}
                             onInput={(e,) => setName(e.currentTarget.value,)}
                         />
-                    </div>
+                    </FormField>
 
                     <div class="form-group">
                         <label>Scopes</label>

@@ -1,6 +1,7 @@
 import { createSignal, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
+import { FormField, } from '../forms';
 import './MediaUploadModal.scss';
 
 interface MediaItem {
@@ -115,24 +116,22 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                         </div>
 
                         <div class="media-upload-modal__fields">
-                            <div class="form-group">
-                                <label>Title (optional)</label>
+                            <FormField label="Title (optional)">
                                 <input
                                     type="text"
                                     value={title()}
                                     onInput={(e,) => setTitle(e.currentTarget.value,)}
                                     placeholder="Media title"
                                 />
-                            </div>
-                            <div class="form-group">
-                                <label>Description (optional)</label>
+                            </FormField>
+                            <FormField label="Description (optional)">
                                 <textarea
                                     rows={2}
                                     value={description()}
                                     onInput={(e,) => setDescription(e.currentTarget.value,)}
                                     placeholder="Brief description..."
                                 />
-                            </div>
+                            </FormField>
                         </div>
                     </Show>
                 </div>

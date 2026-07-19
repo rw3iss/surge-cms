@@ -3,6 +3,7 @@ import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
+import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
 import { Layout, } from '../../components/layout/Layout';
@@ -264,8 +265,7 @@ const AdminPageEditor: Component = () => {
         >
             <div class="editor-properties">
                 <div class="editor-properties__main">
-                    <div class="form-group">
-                        <label>Title</label>
+                    <FormField label="Title">
                         <div class="u-flex-row">
                             <input
                                 type="text"
@@ -304,9 +304,8 @@ const AdminPageEditor: Component = () => {
                                 </For>
                             </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Slug</label>
+                    </FormField>
+                    <FormField label="Slug">
                         <input
                             type="text"
                             value={slug()}
@@ -314,7 +313,7 @@ const AdminPageEditor: Component = () => {
                             placeholder="page-slug"
                         />
                         <small class="form-help">URL: /{slug()}</small>
-                    </div>
+                    </FormField>
                     {/* "Show title on page" toggle — sits in the
                         same single-line layout as the homepage
                         toggle in the sidebar; reuses those classes
@@ -392,8 +391,7 @@ const AdminPageEditor: Component = () => {
                     </div>
                 </div>
                 <div class="editor-properties__sidebar">
-                    <div class="form-group">
-                        <label>Status</label>
+                    <FormField label="Status">
                         <select
                             value={status()}
                             onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
@@ -402,9 +400,8 @@ const AdminPageEditor: Component = () => {
                             <option value="published">Published</option>
                             <option value="archived">Archived</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Access</label>
+                    </FormField>
+                    <FormField label="Access">
                         <select
                             value={accessLevel()}
                             onChange={(e,) => { setAccessLevel(e.currentTarget.value,); editor.markDirty(); }}
@@ -413,7 +410,7 @@ const AdminPageEditor: Component = () => {
                             <option value="member">Members Only</option>
                             <option value="patron">Patrons Only</option>
                         </select>
-                    </div>
+                    </FormField>
                     <div class="form-group page-editor__homepage-section">
                         <Toggle
                             checked={isHomepage()}

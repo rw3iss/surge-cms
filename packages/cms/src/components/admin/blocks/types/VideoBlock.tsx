@@ -3,6 +3,7 @@ import VideoPlayer from '../../../blocks/media/VideoPlayer';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
+import { FormField, } from '../../forms';
 
 interface VideoBlockProps {
     data: Record<string, any>;
@@ -104,18 +105,16 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                         </span>
                     </Show>
                 </div>
-                <div class="form-group">
-                    <label>URL (or paste a URL instead of uploading)</label>
+                <FormField label="URL (or paste a URL instead of uploading)">
                     <input
                         type="url"
                         value={props.data.url || ''}
                         onChange={(e,) => props.onUpdate({ ...props.data, url: e.currentTarget.value, },)}
                         placeholder="https://..."
                     />
-                </div>
+                </FormField>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Max Width (px)</label>
+                    <FormField label="Max Width (px)">
                         <input
                             type="number"
                             value={props.data.maxWidth || ''}
@@ -126,9 +125,8 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                                 },)}
                             placeholder="Auto"
                         />
-                    </div>
-                    <div class="form-group">
-                        <label>Max Height (px)</label>
+                    </FormField>
+                    <FormField label="Max Height (px)">
                         <input
                             type="number"
                             value={props.data.maxHeight || ''}
@@ -139,7 +137,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                                 },)}
                             placeholder="Auto"
                         />
-                    </div>
+                    </FormField>
                 </div>
                 <div class="form-row">
                     <div class="form-group">

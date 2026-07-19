@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
+import { FormField, } from '../../components/admin/forms';
 import { cms, } from '../../services/cmsClient';
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -90,8 +91,7 @@ const AdminConnectionEditor: Component = () => {
             <div class="admin-form">
                 <div class="form-section">
                     <h2>Credentials</h2>
-                    <div class="form-group">
-                        <label>Access Token</label>
+                    <FormField label="Access Token">
                         <input
                             type="password"
                             value={accessToken()}
@@ -99,16 +99,15 @@ const AdminConnectionEditor: Component = () => {
                             placeholder="Paste access token"
                         />
                         <span class="form-help">OAuth access token for {providerName()} API</span>
-                    </div>
-                    <div class="form-group">
-                        <label>API Key (optional)</label>
+                    </FormField>
+                    <FormField label="API Key (optional)">
                         <input
                             type="password"
                             value={apiKey()}
                             onInput={(e,) => setApiKey(e.currentTarget.value,)}
                             placeholder="API key if required"
                         />
-                    </div>
+                    </FormField>
                 </div>
                 <div class="form-section">
                     <h2>Settings</h2>

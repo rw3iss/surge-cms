@@ -104,10 +104,14 @@ directly related.
   - ✅ **FormEditor → FormField (completed)** — Form-Details + the On-Submit
     action section now use the shared `FormField` (its `tooltip`/`hint` replaces
     the manual `<label> + <Tooltip>` / `<small>` boilerplate).
-  - ⏸ **App-wide FormField sweep (deferred, awaiting decision)** — ~100 remaining
-    `.form-group` instances across CampaignEditor (16), PostEditor (12),
-    Settings (12), PageEditor (6), ConnectionEditor (5), and the block-type
-    editors. `.form-group label` already renders **identically** to
-    `.admin-form-field__label` by design, so this is a code-consistency sweep,
-    not a visual fix — high blast radius, low per-file reward. Recommend a
-    dedicated, reviewed pass rather than folding it into this one.
+  - ✅ **App-wide FormField sweep (completed)** — ~71 of 113 raw `.form-group`
+    label+input blocks across 15 admin editors migrated to the shared
+    `<FormField>` (CampaignEditor 12, PostEditor 8, Settings 8, MailSend 6,
+    BlockEditController 7, PageEditor 4, Users 4, VideoBlock/SocialBlock/
+    CampaignBlock 3 each, ConnectionEditor/UrlLinkBlock/DocumentBlock/
+    MediaUploadModal 2 each, SubscriberFormModal 3, ApiKeysPanel 1). The
+    remaining 42 are intentional skips — `.form-group` wrapping `<Toggle>`,
+    media/color pickers, custom search/dropdown controls, label-less filter
+    rows, and a few JSX-in-label cases that `FormField`'s string `label` can't
+    hold. Sizing modifiers (`form-group--grow/--full`) carried through
+    `FormField`'s `class` prop. cms typecheck + full build + 118 API tests green.

@@ -1,5 +1,6 @@
 import { Component, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { getCampaigns, } from '@/services/adminData';
+import { FormField, } from '../../forms';
 
 const ALL_CAMPAIGNS_ID = '__all-campaigns__';
 
@@ -157,8 +158,7 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
 
                 {/* Sort options — only shown for "All Campaigns" */}
                 <Show when={isAllSelected()}>
-                    <div class="form-group">
-                        <label>Sort By</label>
+                    <FormField label="Sort By">
                         <select
                             value={props.data.sortBy || 'created_at'}
                             onChange={(e,) => props.onUpdate({ ...props.data, sortBy: e.currentTarget.value, },)}
@@ -167,9 +167,8 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                                 {(opt,) => <option value={opt.value}>{opt.label}</option>}
                             </For>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Sort Direction</label>
+                    </FormField>
+                    <FormField label="Sort Direction">
                         <select
                             value={props.data.sortOrder || 'desc'}
                             onChange={(e,) => props.onUpdate({ ...props.data, sortOrder: e.currentTarget.value, },)}
@@ -177,9 +176,8 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                             <option value="desc">Descending (newest/highest first)</option>
                             <option value="asc">Ascending (oldest/lowest first)</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Layout Direction</label>
+                    </FormField>
+                    <FormField label="Layout Direction">
                         <select
                             value={props.data.direction || 'vertical'}
                             onChange={(e,) => props.onUpdate({ ...props.data, direction: e.currentTarget.value, },)}
@@ -187,7 +185,7 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                             <option value="vertical">Vertical (stacked)</option>
                             <option value="horizontal">Horizontal (side by side)</option>
                         </select>
-                    </div>
+                    </FormField>
                 </Show>
             </Show>
         </div>

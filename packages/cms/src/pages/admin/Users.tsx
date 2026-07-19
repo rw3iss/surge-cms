@@ -3,6 +3,7 @@ import { useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
+import { FormField, } from '../../components/admin/forms';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
@@ -110,29 +111,25 @@ const AdminUsers: Component = () => {
                         </Show>
                         <form onSubmit={handleAddUser}>
                             <div class="form-row">
-                                <div class="form-group form-group--grow">
-                                    <label>Email</label>
+                                <FormField label="Email" class="form-group--grow">
                                     <input type="email" value={formEmail()} onInput={(e,) => setFormEmail(e.currentTarget.value,)} placeholder="user@example.com" required />
-                                </div>
-                                <div class="form-group form-group--grow">
-                                    <label>Display Name</label>
+                                </FormField>
+                                <FormField label="Display Name" class="form-group--grow">
                                     <input type="text" value={formName()} onInput={(e,) => setFormName(e.currentTarget.value,)} placeholder="Full name" required />
-                                </div>
+                                </FormField>
                             </div>
                             <div class="form-row">
-                                <div class="form-group form-group--grow">
-                                    <label>Password</label>
+                                <FormField label="Password" class="form-group--grow">
                                     <input type="password" value={formPassword()} onInput={(e,) => setFormPassword(e.currentTarget.value,)} placeholder="At least 8 characters" required minLength={8} />
-                                </div>
-                                <div class="form-group">
-                                    <label>Role</label>
+                                </FormField>
+                                <FormField label="Role">
                                     <select value={formRole()} onChange={(e,) => setFormRole(e.currentTarget.value,)}>
                                         <option value="member">Member</option>
                                         <option value="editor">Editor</option>
                                         <option value="admin">Admin</option>
                                         <option value="sysadmin">System Admin</option>
                                     </select>
-                                </div>
+                                </FormField>
                             </div>
                             <div class="form-actions">
                                 <button type="submit" class="btn btn--primary" disabled={formSaving()}>

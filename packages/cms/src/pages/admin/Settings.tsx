@@ -18,6 +18,7 @@ import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';
 import Toggle from '../../components/admin/common/Toggle';
+import { FormField, } from '../../components/admin/forms';
 import { FEATURES, } from '../../config/features';
 
 // HeroContentEditor is now used via the 'carousel' block type, not in Settings.
@@ -273,8 +274,7 @@ function ConnectionsPanel() {
                                     {/* OAuth providers: App ID + Secret + Authorize button */}
                                     <Show when={provider.oauth} fallback={
                                         <>
-                                            <div class="form-group">
-                                                <label>Access Token</label>
+                                            <FormField label="Access Token">
                                                 <input
                                                     type="password"
                                                     value={accessToken()}
@@ -284,32 +284,26 @@ function ConnectionsPanel() {
                                                         'Paste access token'}
                                                 />
                                                 <span class="form-help">API access token for {provider.name}</span>
-                                            </div>
-                                            <div class="form-group">
-                                                <label>API Key (optional)</label>
+                                            </FormField>
+                                            <FormField label="API Key (optional)">
                                                 <input
                                                     type="password"
                                                     value={apiKey()}
                                                     onInput={(e,) => setApiKey(e.currentTarget.value,)}
                                                     placeholder="API key if required"
                                                 />
-                                            </div>
+                                            </FormField>
                                         </>
                                     }>
-                                        <div class="form-group">
-                                            <label>App ID</label>
+                                        <FormField label="App ID" hint="From your Meta Developer App at developers.facebook.com">
                                             <input
                                                 type="text"
                                                 value={appId()}
                                                 onInput={(e,) => setAppId(e.currentTarget.value,)}
                                                 placeholder="Meta App ID"
                                             />
-                                            <span class="form-help">
-                                                From your Meta Developer App at developers.facebook.com
-                                            </span>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>App Secret</label>
+                                        </FormField>
+                                        <FormField label="App Secret">
                                             <input
                                                 type="password"
                                                 value={appSecret()}
@@ -318,7 +312,7 @@ function ConnectionsPanel() {
                                                     'Secret saved (enter new to replace)' :
                                                     'Meta App Secret'}
                                             />
-                                        </div>
+                                        </FormField>
                                         <Show when={isConnected()}>
                                             <div class="alert alert--success" style={{ 'margin-bottom': '1rem', }}>
                                                 Connected as @{conn()?.displayName}.
@@ -1661,30 +1655,27 @@ const AdminSettings: Component = () => {
                         <div class="settings-grid">
                             <section class="settings-card">
                                 <h3 class="settings-card__title">Site identity</h3>
-                                <div class="form-group">
-                                    <label>Site Name</label>
+                                <FormField label="Site Name">
                                     <input
                                         type="text"
                                         value={siteName()}
                                         onInput={(e,) => setSiteName(e.currentTarget.value,)}
                                     />
-                                </div>
-                                <div class="form-group">
-                                    <label>Site Description</label>
+                                </FormField>
+                                <FormField label="Site Description">
                                     <input
                                         type="text"
                                         value={siteDescription()}
                                         onInput={(e,) => setSiteDescription(e.currentTarget.value,)}
                                     />
-                                </div>
-                                <div class="form-group">
-                                    <label>Contact Email</label>
+                                </FormField>
+                                <FormField label="Contact Email">
                                     <input
                                         type="email"
                                         value={contactEmail()}
                                         onInput={(e,) => setContactEmail(e.currentTarget.value,)}
                                     />
-                                </div>
+                                </FormField>
                             </section>
 
                             <section class="settings-card">
@@ -1774,15 +1765,13 @@ const AdminSettings: Component = () => {
                                 <p class="settings-card__lede">
                                     Third-party services that plug into the site.
                                 </p>
-                                <div class="form-group">
-                                    <label>Google Analytics ID</label>
+                                <FormField label="Google Analytics ID" hint="Measurement ID (e.g. G-XXXXXXX)">
                                     <input
                                         type="text"
                                         value={analyticsId()}
                                         onInput={(e,) => setAnalyticsId(e.currentTarget.value,)}
                                     />
-                                    <span class="form-help">Measurement ID (e.g. G-XXXXXXX)</span>
-                                </div>
+                                </FormField>
                             </section>
                         </div>
 

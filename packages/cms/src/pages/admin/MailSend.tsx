@@ -15,6 +15,7 @@ import {
 import { createStore, } from 'solid-js/store';
 import type { MailingList, MailTemplate, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
+import { FormField, } from '../../components/admin/forms';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { cms, } from '../../services/cmsClient';
@@ -167,8 +168,7 @@ const MailSend: Component = () => {
                 <section class="admin-section">
                     <header class="admin-section__header"><h2>Choose list + template</h2></header>
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label>Mailing list</label>
+                        <FormField label="Mailing list">
                             {/* The <select>'s value attr is set when
                                 the element first renders, but the <For>
                                 options arrive async from onMount — so
@@ -187,9 +187,8 @@ const MailSend: Component = () => {
                                     )}
                                 </For>
                             </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Template</label>
+                        </FormField>
+                        <FormField label="Template">
                             <select
                                 onChange={(e,) => { void loadTemplate(e.currentTarget.value,); }}
                             >
@@ -198,7 +197,7 @@ const MailSend: Component = () => {
                                     {(t,) => <option value={t.id} selected={t.id === draft.templateId}>{t.name}</option>}
                                 </For>
                             </select>
-                        </div>
+                        </FormField>
                     </div>
                 </section>
 
@@ -210,22 +209,18 @@ const MailSend: Component = () => {
                                 <label>Subject <small class="form-help-muted">(supports {`{{variables}}`})</small></label>
                                 <input type="text" value={draft.subject} onInput={(e,) => setDraft('subject', e.currentTarget.value,)} />
                             </div>
-                            <div class="form-group form-group--full">
-                                <label>Preheader</label>
+                            <FormField label="Preheader" class="form-group--full">
                                 <input type="text" value={draft.preheader} onInput={(e,) => setDraft('preheader', e.currentTarget.value,)} />
-                            </div>
-                            <div class="form-group">
-                                <label>From name</label>
+                            </FormField>
+                            <FormField label="From name">
                                 <input type="text" value={draft.fromName} onInput={(e,) => setDraft('fromName', e.currentTarget.value,)} />
-                            </div>
-                            <div class="form-group">
-                                <label>From email</label>
+                            </FormField>
+                            <FormField label="From email">
                                 <input type="email" value={draft.fromEmail} onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)} />
-                            </div>
-                            <div class="form-group form-group--full">
-                                <label>Reply-to</label>
+                            </FormField>
+                            <FormField label="Reply-to" class="form-group--full">
                                 <input type="email" value={draft.replyTo} onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)} />
-                            </div>
+                            </FormField>
                         </div>
                     </section>
 

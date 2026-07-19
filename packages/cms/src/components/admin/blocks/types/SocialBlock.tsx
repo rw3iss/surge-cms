@@ -10,6 +10,7 @@
 import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
+import { FormField, } from '../../forms';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 
 /** Editor for the unified Social block. Picks a provider, sets a count,
@@ -97,8 +98,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
         <div class="block-social-feed">
             <Show when={props.mode === 'edit'} fallback={<div />}>
                 {/* Provider */}
-                <div class="form-group">
-                    <label>Provider</label>
+                <FormField label="Provider">
                     <select
                         value={provider()}
                         onChange={(e,) => update({ provider: e.currentTarget.value, },)}
@@ -113,12 +113,11 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                             )}
                         </For>
                     </select>
-                </div>
+                </FormField>
 
                 <Show when={provider()}>
                     {/* Count */}
-                    <div class="form-group">
-                        <label>Number of posts</label>
+                    <FormField label="Number of posts" hint="Leave slots empty to auto-fill from recent posts; pick specific posts to pin.">
                         <input
                             type="number"
                             min="1"
@@ -126,12 +125,10 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                             value={count()}
                             onChange={(e,) => setCount(Number(e.currentTarget.value,) || 1,)}
                         />
-                        <small class="form-help">Leave slots empty to auto-fill from recent posts; pick specific posts to pin.</small>
-                    </div>
+                    </FormField>
 
                     {/* Layout (used when slots are empty / auto-feed) */}
-                    <div class="form-group">
-                        <label>Layout</label>
+                    <FormField label="Layout">
                         <select
                             value={props.data.layout || 'grid'}
                             onChange={(e,) => update({ layout: e.currentTarget.value, },)}
@@ -140,7 +137,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                                 {(o,) => <option value={o.value}>{o.label}</option>}
                             </For>
                         </select>
-                    </div>
+                    </FormField>
 
                     {/* Per-slot pickers */}
                     <div class="form-group">

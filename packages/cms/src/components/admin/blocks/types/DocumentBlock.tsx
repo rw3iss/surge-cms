@@ -1,6 +1,7 @@
 import { Component, createSignal, Show, } from 'solid-js';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
 import { cms, } from '@/services/cmsClient';
+import { FormField, } from '../../forms';
 
 interface DocumentBlockProps {
     data: Record<string, any>;
@@ -105,24 +106,22 @@ const DocumentBlock: Component<DocumentBlockProps> = (props,) => {
                         </span>
                     </Show>
                 </div>
-                <div class="form-group">
-                    <label>URL (or paste a URL instead of uploading)</label>
+                <FormField label="URL (or paste a URL instead of uploading)">
                     <input
                         type="url"
                         value={props.data.url || ''}
                         onChange={(e,) => props.onUpdate({ ...props.data, url: e.currentTarget.value, },)}
                         placeholder="https://..."
                     />
-                </div>
-                <div class="form-group">
-                    <label>File Name (display)</label>
+                </FormField>
+                <FormField label="File Name (display)">
                     <input
                         type="text"
                         value={props.data.fileName || ''}
                         onChange={(e,) => props.onUpdate({ ...props.data, fileName: e.currentTarget.value, },)}
                         placeholder="document.pdf"
                     />
-                </div>
+                </FormField>
                 <Show when={showPicker()}>
                     <MediaPickerModal
                         type="document"

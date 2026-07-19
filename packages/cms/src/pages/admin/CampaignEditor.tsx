@@ -3,6 +3,7 @@ import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import Toggle from '../../components/admin/common/Toggle';
+import { FormField, } from '../../components/admin/forms';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
@@ -251,10 +252,8 @@ const CampaignEditor: Component = () => {
                                     GiveButter is managing donations for this campaign.
                                 </div>
                             </Show>
-                            <div class="form-group">
-                                <label for="donationProvider">Donation provider</label>
+                            <FormField label="Donation provider" hint="Choose which platform collects donations for this campaign.">
                                 <select
-                                    id="donationProvider"
                                     value={donationProvider()}
                                     onChange={(e,) => {
                                         setDonationProvider((e.currentTarget.value as 'internal' | 'givebutter'),);
@@ -264,16 +263,11 @@ const CampaignEditor: Component = () => {
                                     <option value="internal">Internal (Stripe)</option>
                                     <option value="givebutter">GiveButter</option>
                                 </select>
-                                <small class="form-help">
-                                    Choose which platform collects donations for this campaign.
-                                </small>
-                            </div>
+                            </FormField>
 
                             <Show when={donationProvider() === 'givebutter'}>
-                                <div class="form-group">
-                                    <label for="gbMode">GiveButter campaign</label>
+                                <FormField label="GiveButter campaign">
                                     <select
-                                        id="gbMode"
                                         value={gbMode()}
                                         onChange={(e,) => {
                                             setGbMode((e.currentTarget.value as 'link' | 'create'),);
@@ -283,7 +277,7 @@ const CampaignEditor: Component = () => {
                                         <option value="link">Link an existing GiveButter campaign</option>
                                         <option value="create">Create a new GiveButter campaign on save</option>
                                     </select>
-                                </div>
+                                </FormField>
 
                                 <Show when={gbMode() === 'link'}>
                                     <div class="form-group">
@@ -311,20 +305,15 @@ const CampaignEditor: Component = () => {
                                             </select>
                                         </Show>
                                     </div>
-                                    <div class="form-group">
-                                        <label for="gbCode">…or enter a campaign code</label>
+                                    <FormField label="…or enter a campaign code" hint="The 6-character code near the campaign title in your GiveButter dashboard.">
                                         <input
                                             type="text"
-                                            id="gbCode"
                                             value={gbCampaignCode()}
                                             onInput={(e,) => { setGbCampaignCode((e.target as HTMLInputElement).value,); markDirty(); }}
                                             placeholder="6-character GiveButter code"
                                             maxLength={16}
                                         />
-                                        <small class="form-help">
-                                            The 6-character code near the campaign title in your GiveButter dashboard.
-                                        </small>
-                                    </div>
+                                    </FormField>
                                 </Show>
 
                                 <Show when={gbMode() === 'create'}>
@@ -352,23 +341,19 @@ const CampaignEditor: Component = () => {
                         the left, publishing controls + schedule on the right */}
                     <div class="form-section form-columns">
                         <div class="form-columns__main">
-                            <div class="form-group">
-                                <label for="title">Title *</label>
+                            <FormField label="Title *">
                                 <input
                                     type="text"
-                                    id="title"
                                     value={title()}
                                     onInput={handleTitleChange}
                                     required
                                     placeholder="Campaign title"
                                 />
-                            </div>
+                            </FormField>
 
-                            <div class="form-group">
-                                <label for="slug">URL Slug *</label>
+                            <FormField label="URL Slug *">
                                 <input
                                     type="text"
-                                    id="slug"
                                     value={slug()}
                                     onInput={(e,) => {
                                         setSlug((e.target as HTMLInputElement).value,);
@@ -378,13 +363,11 @@ const CampaignEditor: Component = () => {
                                     placeholder="campaign-url-slug"
                                 />
                                 <small class="form-help">Used in the URL: /campaigns/{slug() || 'slug'}</small>
-                            </div>
+                            </FormField>
 
-                            <div class="form-group">
-                                <label for="shortDescription">Short Description</label>
+                            <FormField label="Short Description">
                                 <input
                                     type="text"
-                                    id="shortDescription"
                                     value={shortDescription()}
                                     onInput={(e,) => {
                                         setShortDescription((e.target as HTMLInputElement).value,);
@@ -393,12 +376,10 @@ const CampaignEditor: Component = () => {
                                     placeholder="Brief description for listings"
                                     maxLength={200}
                                 />
-                            </div>
+                            </FormField>
 
-                            <div class="form-group">
-                                <label for="description">Full Description *</label>
+                            <FormField label="Full Description *">
                                 <textarea
-                                    id="description"
                                     value={description()}
                                     onInput={(e,) => {
                                         setDescription((e.target as HTMLTextAreaElement).value,);
@@ -408,13 +389,11 @@ const CampaignEditor: Component = () => {
                                     placeholder="Detailed description of the campaign..."
                                     rows={6}
                                 />
-                            </div>
+                            </FormField>
 
-                            <div class="form-group">
-                                <label for="featuredImage">Featured Image URL</label>
+                            <FormField label="Featured Image URL">
                                 <input
                                     type="url"
-                                    id="featuredImage"
                                     value={featuredImage()}
                                     onInput={(e,) => {
                                         setFeaturedImage((e.target as HTMLInputElement).value,);
@@ -422,7 +401,7 @@ const CampaignEditor: Component = () => {
                                     }}
                                     placeholder="https://..."
                                 />
-                            </div>
+                            </FormField>
 
                             <div class="form-group">
                                 <Toggle
@@ -445,11 +424,9 @@ const CampaignEditor: Component = () => {
                             </div>
 
                             <Show when={hasGoal()}>
-                                <div class="form-group">
-                                    <label for="goalAmount">Goal Amount ($)</label>
+                                <FormField label="Goal Amount ($)" hint="Leave empty for an open/unlimited fund">
                                     <input
                                         type="number"
-                                        id="goalAmount"
                                         value={goalAmount()}
                                         onInput={(e,) => {
                                             setGoalAmount((e.target as HTMLInputElement).value,);
@@ -459,8 +436,7 @@ const CampaignEditor: Component = () => {
                                         min="0"
                                         step="0.01"
                                     />
-                                    <small class="form-help">Leave empty for an open/unlimited fund</small>
-                                </div>
+                                </FormField>
                             </Show>
                         </div>
 
@@ -473,10 +449,8 @@ const CampaignEditor: Component = () => {
                                 />
                             </div>
 
-                            <div class="form-group">
-                                <label for="status">Status</label>
+                            <FormField label="Status">
                                 <select
-                                    id="status"
                                     value={status()}
                                     onChange={(e,) => {
                                         setStatus((e.target as HTMLSelectElement).value,);
@@ -488,34 +462,28 @@ const CampaignEditor: Component = () => {
                                     <option value="completed">Completed</option>
                                     <option value="cancelled">Cancelled</option>
                                 </select>
-                            </div>
+                            </FormField>
 
-                            <div class="form-group">
-                                <label for="startDate">Start Date</label>
+                            <FormField label="Start Date" hint="When the campaign starts accepting donations (optional)">
                                 <input
                                     type="datetime-local"
-                                    id="startDate"
                                     value={startDate()}
                                     onInput={(e,) => {
                                         setStartDate((e.target as HTMLInputElement).value,);
                                         markDirty();
                                     }}
                                 />
-                                <small class="form-help">When the campaign starts accepting donations (optional)</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="endDate">End Date</label>
+                            </FormField>
+                            <FormField label="End Date" hint="When the campaign stops accepting donations (optional)">
                                 <input
                                     type="datetime-local"
-                                    id="endDate"
                                     value={endDate()}
                                     onInput={(e,) => {
                                         setEndDate((e.target as HTMLInputElement).value,);
                                         markDirty();
                                     }}
                                 />
-                                <small class="form-help">When the campaign stops accepting donations (optional)</small>
-                            </div>
+                            </FormField>
                         </div>
                     </div>
 

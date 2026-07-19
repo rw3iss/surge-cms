@@ -8,6 +8,7 @@ import { Component, createSignal, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import type { MailingListSubscriber, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
+import { FormField, } from '../forms';
 
 interface SubscriberFormModalProps {
     listId: string;
@@ -63,31 +64,28 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
                     <Show when={error()}>
                         <div class="alert alert--error">{error()}</div>
                     </Show>
-                    <div class="form-group">
-                        <label>Email</label>
+                    <FormField label="Email">
                         <input
                             type="email"
                             value={email()}
                             onInput={(e,) => setEmail(e.currentTarget.value,)}
                             disabled={isEditing()}
                         />
-                    </div>
-                    <div class="form-group">
-                        <label>Name</label>
+                    </FormField>
+                    <FormField label="Name">
                         <input
                             type="text"
                             value={name()}
                             onInput={(e,) => setName(e.currentTarget.value,)}
                         />
-                    </div>
-                    <div class="form-group">
-                        <label>Phone</label>
+                    </FormField>
+                    <FormField label="Phone">
                         <input
                             type="tel"
                             value={phone()}
                             onInput={(e,) => setPhone(e.currentTarget.value,)}
                         />
-                    </div>
+                    </FormField>
                     <Show when={isEditing() && p.subscriber?.status === 'pending_confirmation'}>
                         <button type="button" class="btn btn--small btn--secondary" onClick={handleForceConfirm}>
                             Force Confirm
