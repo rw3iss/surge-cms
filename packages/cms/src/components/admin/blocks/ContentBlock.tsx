@@ -5,7 +5,7 @@ import BlockPreview from './BlockPreview';
 import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
-import { groupContainerStyle, } from '../../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, } from '../../../utils/groupStyle';
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
@@ -377,7 +377,11 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
     const containerStyle = () => groupContainerStyle(data(), { defaultGap: '12px', minHeight: '60px', },);
 
     return (
-        <div class="content-block__group" style={containerStyle()}>
+        <div
+            class="content-block__group"
+            classList={{ 'content-block__group--cols': groupColumns(data(),) != null, }}
+            style={containerStyle()}
+        >
             <For each={props.childBlocks}>
                 {(child, idx,) => (
                     <ContentBlock

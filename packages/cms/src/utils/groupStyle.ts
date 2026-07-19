@@ -18,16 +18,46 @@ export interface GroupStyleOptions {
  * (admin); both carry the same keys. Editor-only affordances (default gap,
  * min-height) are opt-in via `options`.
  */
+/** The forced column count for a horizontal group, or `null` when the group
+ *  shouldn't force columns (vertical direction, or no valid columns value).
+ *  Callers add the `--cols` modifier class + set `--group-cols` when non-null. */
+export function groupColumns(data: Record<string, unknown>,): number | null {
+    const direction = (data.direction as string) || 'horizontal';
+    if (direction !== 'horizontal') return null;
+    const cols = Math.trunc(Number(data.columns,),);
+    if (!Number.isFinite(cols,) || cols < 1) return null;
+    return Math.min(16, cols,);
+}
+
 export function groupContainerStyle(
     data: Record<string, unknown>,
     options: GroupStyleOptions = {},
 ): Record<string, string | undefined> {
     const direction = (data.direction as string) || 'horizontal';
+    const gap = (data.gap as string) || options.defaultGap;
+    const cols = groupColumns(data,);
+
+    // Columns force an exact N-column grid (each child = 100/N of the row, no
+    // wrapping) — flex let children keep their own width and stack. The
+    // `--group-cols` var drives `grid-template-columns` in CSS (so a mobile
+    // media query can collapse to one column). Vertical / no-columns groups
+    // stay flex.
+    if (cols) {
+        return {
+            display: 'grid',
+            '--group-cols': String(cols,),
+            gap,
+            'align-items': toFlexAlign(data.align as string, 'stretch',),
+            'justify-items': 'stretch',
+            ...(options.minHeight ? { 'min-height': options.minHeight, } : {}),
+        };
+    }
+
     return {
         display: 'flex',
         'flex-direction': direction === 'vertical' ? 'column' : 'row',
         'flex-wrap': (data.wrap as string) || 'wrap',
-        gap: (data.gap as string) || options.defaultGap,
+        gap,
         // Flex defaults (stretch / flex-start) match the browser's, so the
         // public renderer's previously-unset values are unchanged; the admin
         // preview now maps `start`/`end` the same way instead of leaking raw

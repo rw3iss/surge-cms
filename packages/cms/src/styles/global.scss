@@ -475,6 +475,23 @@ html:not([data-active-outlines='show']) {
   }
 }
 
+// ─── Group block: forced columns ───
+//
+// When a group sets a column count, `groupContainerStyle` switches the
+// container to `display: grid` and exposes the count as `--group-cols`. The
+// grid forces exactly N equal columns (each child fills its cell regardless of
+// its own width), so columns can't collapse into stacked rows. Applies to both
+// the public renderer (`.block--group`) and the admin preview
+// (`.content-block__group`). Mobile stacks to a single column for now.
+.content-block__group--cols,
+.block--group--cols {
+  grid-template-columns: repeat(var(--group-cols, 1), minmax(0, 1fr));
+
+  @include mobile-only {
+    grid-template-columns: 1fr;
+  }
+}
+
 // ─── Shared page layout ───
 
 .page-wrapper {

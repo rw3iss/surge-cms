@@ -5,7 +5,7 @@ import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
-import { groupContainerStyle, } from '../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
 import GiveButterWidget from './GiveButterWidget';
 import ResolvedHeroCarousel from './ResolvedHeroCarousel';
@@ -899,7 +899,11 @@ const GroupBlock: Component<{ block: Block; }> = (props,) => {
     const containerStyle = () => groupContainerStyle(data(),);
 
     return (
-        <div class="block--group" style={containerStyle()}>
+        <div
+            class="block--group"
+            classList={{ 'block--group--cols': groupColumns(data(),) != null, }}
+            style={containerStyle()}
+        >
             <For each={children()}>
                 {(child,) => (
                     <Show when={child.isVisible !== false}>
