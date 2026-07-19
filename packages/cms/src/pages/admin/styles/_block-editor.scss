@@ -1442,27 +1442,10 @@
   input:not([type]),
   select,
   textarea {
-    box-sizing: border-box;
-    padding: 6px 10px;
-    border: 1px solid $border-color;
-    border-radius: $border-radius-sm;
-    font-size: $font-size-sm;
-    font-family: inherit;
-    line-height: $line-height-base;
-    background: var(--admin-input-bg, #{$background});
-    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
-    transition: border-color $transition-fast;
-
-    &::placeholder {
-      color: $text-light;
-      opacity: 0.6;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--site-primary, #{$primary-color});
-      box-shadow: 0 0 0 2px rgba($primary-color, 0.08);
-    }
+    // Canonical admin input styling — see `admin-input` mixin in variables.scss.
+    // No `width` set here (intentional: size classes like .input--inline-number
+    // and per-field widths still win).
+    @include admin-input;
   }
 
   textarea {
@@ -1471,7 +1454,7 @@
   }
 
   select {
-    appearance: auto;
+    @include admin-select-arrow;
     cursor: pointer;
   }
 }

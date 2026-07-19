@@ -166,3 +166,43 @@ $z-index-toast: 1080;           // transient toasts — top of the stack
     @content;
   }
 }
+
+// ─── Admin form inputs ───────────────────────────────────────────────
+// The single canonical style for every text input / select / textarea in
+// the admin. Applied by the global admin rule, `.form-group`, the
+// `FormField` primitive, and the block-editor flyout so they all look
+// identical and re-theme together. Does NOT set `width` — callers add
+// `width: 100%` (or a size class wins) so compact/inline inputs keep their
+// own width.
+@mixin admin-input {
+  box-sizing: border-box;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  font-size: $font-size-sm;
+  font-family: inherit;
+  line-height: $line-height-base;
+  background-color: var(--admin-input-bg, #fff);
+  color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+  transition: border-color $transition-fast, background-color $transition-fast, color $transition-fast;
+
+  &::placeholder {
+    color: var(--admin-input-text, #{$text-light});
+    opacity: 0.5;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--site-primary, #{$primary-color});
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+  }
+}
+
+// Custom dropdown caret for admin `select`s (paired with `@include admin-input`).
+@mixin admin-select-arrow {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right $spacing-md center;
+  padding-right: $spacing-xl;
+}

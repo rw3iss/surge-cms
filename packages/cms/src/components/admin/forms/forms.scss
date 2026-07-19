@@ -51,34 +51,25 @@
     flex-direction: column;
     gap: 4px;
 
-    // Default input styling that matches the existing `.form-group`
-    // inputs. Kept in sync intentionally so a mixed page using both
-    // primitives looks uniform.
+    // Canonical admin input styling (shared with `.form-group`, the global
+    // admin rule, and the block-editor flyout via the `admin-input` mixin) so
+    // every field across the admin looks identical.
     > input[type='text'],
     > input[type='email'],
     > input[type='url'],
     > input[type='number'],
     > input[type='password'],
+    > input[type='date'],
+    > input[type='search'],
+    > input[type='tel'],
     > textarea,
     > select {
+      @include admin-input;
       width: 100%;
-      padding: 6px 10px;
-      border: 1px solid $border-color;
-      border-radius: $border-radius-sm;
-      font-size: $font-size-sm;
-      background-color: var(--admin-input-bg, #fff);
-      color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
-      transition: border-color $transition-fast;
+    }
 
-      &::placeholder {
-        color: var(--admin-input-text, #{$text-light});
-        opacity: 0.5;
-      }
-
-      &:focus {
-        outline: none;
-        border-color: var(--site-primary, #{$primary-color});
-      }
+    > select {
+      @include admin-select-arrow;
     }
   }
 

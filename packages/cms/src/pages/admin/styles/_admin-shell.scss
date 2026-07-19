@@ -27,10 +27,11 @@
   h2 { font-weight: 700; letter-spacing: -0.018em; }
   h3 { font-weight: 600; }
 
-  // Global input/select/textarea defaults so inputs OUTSIDE
-  // `.form-group` (e.g. inline editor controls) also pick up the
-  // configured admin input theme. Specific component classes can
-  // still override.
+  // Global input/select/textarea baseline so EVERY admin input — including
+  // ones outside `.form-group` / `FormField` — gets the one canonical clean
+  // style (see `admin-input` mixin in variables.scss). Specific component
+  // classes with higher specificity can still override. No `width` is set, so
+  // inputs keep their natural/context width.
   input[type="text"],
   input[type="email"],
   input[type="url"],
@@ -43,8 +44,11 @@
   input[type="datetime-local"],
   textarea,
   select {
-    background-color: var(--admin-input-bg, #fff);
-    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
+    @include admin-input;
+  }
+
+  select {
+    @include admin-select-arrow;
   }
 
   display: flex;

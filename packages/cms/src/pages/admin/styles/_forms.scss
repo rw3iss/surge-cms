@@ -53,32 +53,14 @@
   input[type="url"],
   input[type="number"],
   input[type="password"],
+  input[type="date"],
+  input[type="search"],
+  input[type="tel"],
   textarea,
   select {
+    // Canonical admin input styling — see `admin-input` mixin in variables.scss.
+    @include admin-input;
     width: 100%;
-    padding: $spacing-sm $spacing-md;
-    border: 1px solid $border-color;
-    border-radius: $border-radius-md;
-    font-size: $font-size-base;
-    // Input bg/text are themable globally via Settings → Admin →
-    // Inputs. Falling back to white + page-text → static text-color
-    // keeps the default neutral.
-    background-color: var(--admin-input-bg, #fff);
-    color: var(--admin-input-text, var(--admin-page-text, #{$text-color}));
-    transition: border-color $transition-fast, background-color $transition-fast, color $transition-fast;
-
-    &::placeholder {
-      // Placeholder uses the input text token at lower alpha so it
-      // visibly differentiates from real input but still respects the
-      // operator's chosen color family.
-      color: var(--admin-input-text, #{$text-light});
-      opacity: 0.5;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--site-primary, #{$primary-color});
-    }
   }
 
   textarea {
@@ -87,11 +69,7 @@
   }
 
   select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right $spacing-md center;
-    padding-right: $spacing-xl;
+    @include admin-select-arrow;
   }
 }
 
