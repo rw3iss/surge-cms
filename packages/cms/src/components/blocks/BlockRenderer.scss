@@ -4,7 +4,12 @@
 
   &__inner {
     &--contained {
-      @include container;
+      // Center to the content column, but DON'T add horizontal padding: the
+      // page wrapper already supplies the outer gutter, and nested blocks (e.g.
+      // inside a group) would otherwise each re-add it, cascading. Blocks opt
+      // into their own padding via style / the 'use default padding' toggle.
+      max-width: $container-max-width;
+      margin: 0 auto;
     }
 
     &--wide {
