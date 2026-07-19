@@ -18,6 +18,9 @@ export interface EntitySaveContext {
     /** The current route id (`params.id`); may be `'new'` when `isNew`. */
     id: string;
     blocks: BlockData[];
+    /** Last-saved snapshot of each block (from load, refreshed after each save).
+     *  Lets a module skip re-saving blocks whose data + order are unchanged. */
+    savedBlocks: BlockData[];
     originalBlockIds: Set<string>;
 }
 
@@ -186,6 +189,7 @@ export function useEntityEditor<TEntity,>(
                 isNew: isNew(),
                 id: params.id,
                 blocks: blocks(),
+                savedBlocks: savedBlocks(),
                 originalBlockIds: originalBlockIds(),
             },);
             setSavedBlocks(structuredClone(blocks(),),);
