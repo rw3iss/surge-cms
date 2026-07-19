@@ -139,6 +139,24 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </select>
                     </FormField>
 
+                    <FormField label="Item width" hint="Optional. Any CSS width (e.g. 300px, 20rem). Sizes every post evenly across the grid.">
+                        <input
+                            type="text"
+                            value={props.data.itemWidth || ''}
+                            onChange={(e,) => update({ itemWidth: e.currentTarget.value || undefined, },)}
+                            placeholder="e.g. 300px"
+                        />
+                    </FormField>
+
+                    <FormField label="Item height" hint="Optional. Any CSS height (e.g. 320px). Makes every post the same height.">
+                        <input
+                            type="text"
+                            value={props.data.itemHeight || ''}
+                            onChange={(e,) => update({ itemHeight: e.currentTarget.value || undefined, },)}
+                            placeholder="e.g. 320px"
+                        />
+                    </FormField>
+
                     {/* Per-slot pickers */}
                     <div class="form-group">
                         <label>Posts</label>

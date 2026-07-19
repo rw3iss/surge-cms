@@ -699,6 +699,8 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const layout = () => (settings().layout as string) || 'grid';
     const snapScroll = () => settings().snapScroll as boolean ?? false;
     const rowHeight = () => (settings().rowHeight as string) || undefined;
+    const itemWidth = () => (settings().itemWidth as string) || undefined;
+    const itemHeight = () => (settings().itemHeight as string) || undefined;
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
     // Auto-feed only fires when no slots are pinned. If the operator
@@ -733,13 +735,20 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                 <div
                     class={`${FEED_LAYOUT_CLASS[layout()] || FEED_LAYOUT_CLASS.grid}${
                         !snapScroll() ? ' social-block__grid--no-snap' : ''
-                    }`}
+                    }${itemHeight() ? ' social-block__grid--fixed-height' : ''}`}
                     style={{
                         ...(blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {}),
                         ...(blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {}),
                         // rowHeight only constrains card height in the row layout;
                         // the outer block dimensions are left to the block style system.
                         ...(layout() === 'row' && rowHeight() ? { '--social-row-height': rowHeight(), } : {}),
+                        // Even per-post sizing. itemWidth drives the grid track width
+                        // (auto-fill keeps columns even); itemHeight fixes card height.
+                        ...(itemWidth() ? { '--social-item-width': itemWidth(), } : {}),
+                        ...(itemHeight() ? { '--social-item-height': itemHeight(), } : {}),
+                        ...(itemWidth() && layout() !== 'row'
+                            ? { 'grid-template-columns': `repeat(auto-fill, minmax(min(${itemWidth()}, 100%), 1fr))`, }
+                            : {}),
                     }}
                 >
                     <Show

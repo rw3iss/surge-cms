@@ -197,15 +197,15 @@
       width: 100%;
 
       > * {
-        flex: 0 0 280px;
+        flex: 0 0 var(--social-item-width, 280px);
         min-width: 0;
         scroll-snap-align: start;
         // --social-row-height is set inline when the operator configures a row
         // height. Falls back to auto so cards size naturally when unset.
-        height: var(--social-row-height, auto);
+        height: var(--social-item-height, var(--social-row-height, auto));
 
         @include sm {
-          flex-basis: 320px;
+          flex-basis: var(--social-item-width, 320px);
         }
       }
 
@@ -280,6 +280,67 @@
     padding: $spacing-xl;
     color: $text-light;
   }
+}
+
+// ─── Even post sizing (grid / column layouts) ──────────────────────────
+// Uniform media + equal-height cards so a social grid reads as an even grid
+// rather than ragged cards of differing heights. The row (horizontal-scroll)
+// layout keeps its own sizing. Applies to the public renderer AND the admin
+// preview (both go through BlockRenderer).
+.social-block__grid:not(.social-block__grid--row) {
+  align-items: stretch;
+
+  .social-embed {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .social-embed__content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .social-embed__card {
+    flex: 1;
+    min-height: 0;
+  }
+
+  // Uniform square media so every thumbnail is the same size.
+  .social-embed__card-image,
+  .social-embed__card-placeholder {
+    flex: 0 0 auto;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    max-height: none;
+    object-fit: cover;
+  }
+
+  // Body grows to fill the stretched card so short captions don't leave a gap.
+  .social-embed__card-body {
+    flex: 1 0 auto;
+  }
+}
+
+// Fixed per-post height (Item height): each card is exactly --social-item-height
+// and the media flexes to fill the space above the caption.
+.social-block__grid--fixed-height:not(.social-block__grid--row) {
+  grid-auto-rows: var(--social-item-height);
+
+  .social-embed { height: var(--social-item-height); }
+
+  .social-embed__card-image,
+  .social-embed__card-placeholder {
+    flex: 1 1 0;
+    min-height: 0;
+    aspect-ratio: auto;
+    height: auto;
+  }
+
+  .social-embed__card-body { flex: 0 0 auto; }
 }
 
 // ─── Height-constrained social block ───────────────────────────────────
