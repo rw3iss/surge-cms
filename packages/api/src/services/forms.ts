@@ -233,24 +233,30 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
         }
     }
 
-    const inserted = await repo.createSubmission(
-        form.id,
-        input.userId,
-        input.ipAddress,
-        input.userAgent,
-        input.answers,
-        input.nonce ?? null,
-    );
-    // Idempotent re-submit of the same render (nonce already used): acknowledge
-    // without saving again or re-firing the action.
-    if (!inserted) {
-        return { ok: true, message: form.successMessage || 'Form submitted successfully', };
+    // `submit` always stores. Subscribe/email only store when the operator
+    // opted in via `saveSubmission` — otherwise they run the action without
+    // persisting a submission row.
+    const shouldSave = form.action === 'submit' || form.actionConfig?.saveSubmission === true;
+
+    if (shouldSave) {
+        const inserted = await repo.createSubmission(
+            form.id,
+            input.userId,
+            input.ipAddress,
+            input.userAgent,
+            input.answers,
+            input.nonce ?? null,
+        );
+        // Idempotent re-submit of the same render (nonce already used):
+        // acknowledge without saving again or re-firing the action.
+        if (!inserted) {
+            return { ok: true, message: form.successMessage || 'Form submitted successfully', };
+        }
+        await cache.invalidateFormCache(form.id,);
     }
 
-    await cache.invalidateFormCache(form.id,);
-
-    // Run the form's configured action (subscribe / email). Best-effort — the
-    // submission is already saved and a failure here never fails the response.
+    // Run the form's configured action (subscribe / email). Best-effort — a
+    // failure here never fails the response.
     await dispatchFormAction(form, questions, input.answers, {
         userId: input.userId ?? undefined,
         userEmail: input.userEmail,

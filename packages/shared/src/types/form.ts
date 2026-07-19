@@ -61,6 +61,9 @@ export interface FormActionConfig {
     emailSubject?: string;
     /** `email`: HTML body (rich text). Templated; submitted values are escaped. */
     emailBody?: string;
+    /** For `subscribe`/`email`: also store the submission (default false — the
+     *  action runs without saving unless enabled). `submit` always saves. */
+    saveSubmission?: boolean;
 }
 
 export interface Form {

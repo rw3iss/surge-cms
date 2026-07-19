@@ -6,6 +6,7 @@ import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import RichTextEditor from '../../components/admin/editors/RichTextEditor';
 import Toggle from '../../components/admin/common/Toggle';
+import Tooltip from '../../components/admin/common/Tooltip';
 import { FormField, } from '../../components/admin/forms';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
@@ -60,6 +61,8 @@ const FormEditor: Component = () => {
     const [emailTo, setEmailTo,] = createSignal('',);
     const [emailSubject, setEmailSubject,] = createSignal('',);
     const [emailBody, setEmailBody,] = createSignal('',);
+    // subscribe/email: also store the submission (default off).
+    const [saveSubmission, setSaveSubmission,] = createSignal(false,);
     const [showVars, setShowVars,] = createSignal(false,);
 
     // Questions
@@ -122,6 +125,7 @@ const FormEditor: Component = () => {
                 setEmailTo(ac.emailTo || '',);
                 setEmailSubject(ac.emailSubject || '',);
                 setEmailBody(ac.emailBody || '',);
+                setSaveSubmission(ac.saveSubmission ?? false,);
 
                 // Load questions
                 if (data.questions && Array.isArray(data.questions,)) {
@@ -242,6 +246,7 @@ const FormEditor: Component = () => {
             emailTo: emailTo(),
             emailSubject: emailSubject(),
             emailBody: emailBody(),
+            saveSubmission: saveSubmission(),
             questions: questions(),
         }),
     },);
@@ -288,6 +293,10 @@ const FormEditor: Component = () => {
                     emailTo: emailTo() || undefined,
                     emailSubject: emailSubject() || undefined,
                     emailBody: emailBody() || undefined,
+                    // Only meaningful for subscribe/email; submit always saves.
+                    saveSubmission: (action() === 'subscribe' || action() === 'email')
+                        ? saveSubmission()
+                        : undefined,
                 },
                 questions: questions().map((q, index,) => ({
                     id: q.id,
@@ -501,17 +510,43 @@ const FormEditor: Component = () => {
                         <h2>On Submit</h2>
                         <FormField
                             label="Action"
-                            tooltip="What happens when someone submits this form. Every submission is always saved so you can view responses; Subscribe and Email run in addition to saving."
+                            tooltip="What happens when someone submits this form. Subscribe and Email perform their action; by default the submission is NOT stored for those — enable 'Save submission' to also keep the response."
                         >
-                            <select
-                                value={action()}
-                                onChange={(e,) => { setAction(e.currentTarget.value as FormActionType,); markDirty(); }}
-                                style={{ 'max-width': '320px', }}
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    'align-items': 'center',
+                                    gap: '1.25rem',
+                                    'flex-wrap': 'wrap',
+                                }}
                             >
-                                <option value="submit">Save submission (default)</option>
-                                <option value="subscribe">Subscribe to a mailing list</option>
-                                <option value="email">Send an email</option>
-                            </select>
+                                <select
+                                    value={action()}
+                                    onChange={(e,) => { setAction(e.currentTarget.value as FormActionType,); markDirty(); }}
+                                    style={{ 'max-width': '320px', }}
+                                >
+                                    <option value="submit">Save submission (default)</option>
+                                    <option value="subscribe">Subscribe to a mailing list</option>
+                                    <option value="email">Send an email</option>
+                                </select>
+
+                                <Show when={action() === 'subscribe' || action() === 'email'}>
+                                    <Toggle
+                                        checked={saveSubmission()}
+                                        onChange={(next,) => { setSaveSubmission(next,); markDirty(); }}
+                                        size="sm"
+                                        label={
+                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                                Save submission
+                                                <Tooltip
+                                                    header="Save submission"
+                                                    content="When enabled, the form performs the action above AND stores the submission in the database (viewable under Submissions). When off, only the action runs and no submission is saved."
+                                                />
+                                            </span>
+                                        }
+                                    />
+                                </Show>
+                            </div>
                         </FormField>
 
                         {/* Subscribe settings */}
