@@ -54,9 +54,6 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
     const [customWidth, setCustomWidth,] = createSignal(
         isCustomValue(props.style.width, WIDTH_OPTIONS, BLOCK_STYLE_DEFAULTS.width,),
     );
-    const [customMaxWidth, setCustomMaxWidth,] = createSignal(
-        isCustomValue(props.style.maxWidth, WIDTH_OPTIONS, BLOCK_STYLE_DEFAULTS.maxWidth,),
-    );
     const [customPadding, setCustomPadding,] = createSignal(
         isCustomValue(props.style.padding, PADDING_OPTIONS, BLOCK_STYLE_DEFAULTS.padding,),
     );
@@ -130,7 +127,6 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
             overflowY: undefined,
         },);
         setCustomWidth(false,);
-        setCustomMaxWidth(false,);
         setCustomPadding(false,);
         setCustomMargin(false,);
         toast.info('Style reset to defaults',);
@@ -139,11 +135,6 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
     const handleCancelCustomWidth = () => {
         update('width', undefined,);
         setCustomWidth(false,);
-    };
-
-    const handleCancelCustomMaxWidth = () => {
-        update('maxWidth', undefined,);
-        setCustomMaxWidth(false,);
     };
 
     const handleCancelCustomPadding = () => {
@@ -299,7 +290,13 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
 
                 {/* Width */}
                 <div class="block-style-editor__field">
-                    <label class="block-style-editor__label">Width</label>
+                    <label class="block-style-editor__label">
+                        Width
+                        <Tooltip
+                            header="CSS Width"
+                            content="Any CSS length: %, px, vw, rem, em, auto, max-content, min-content, or calc() expressions."
+                        />
+                    </label>
                     <div class="block-style-editor__field-right">
                         <Show
                             when={!customWidth()}
@@ -311,10 +308,6 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                         value={props.style.width || ''}
                                         onChange={(e,) => update('width', e.currentTarget.value,)}
                                         placeholder="e.g. 50%, 300px"
-                                    />
-                                    <Tooltip
-                                        content="Valid values: %, px, vw, rem, em, auto, max-content, min-content, or calc() expressions"
-                                        header="CSS Width"
                                     />
                                     <button class="btn btn--small btn--ghost" onClick={handleCancelCustomWidth}>
                                         Cancel
@@ -345,48 +338,23 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
 
                 {/* Max Width */}
                 <div class="block-style-editor__field">
-                    <label class="block-style-editor__label">Max Width</label>
+                    <label class="block-style-editor__label">
+                        Max Width
+                        <Tooltip
+                            header="CSS Max Width"
+                            content="Caps how wide the block can grow. Any CSS length: %, px, vw, rem, em, none, max-content, min-content, or calc()."
+                        />
+                    </label>
                     <div class="block-style-editor__field-right">
-                        <Show
-                            when={!customMaxWidth()}
-                            fallback={
-                                <div class="block-style-editor__custom-input-row">
-                                    <input
-                                        type="text"
-                                        class="block-style-editor__custom-input"
-                                        value={props.style.maxWidth || ''}
-                                        onChange={(e,) => update('maxWidth', e.currentTarget.value,)}
-                                        placeholder="e.g. 640px, 80%"
-                                    />
-                                    <Tooltip
-                                        content="Valid values: %, px, vw, rem, em, none, max-content, min-content, or calc() expressions"
-                                        header="CSS Max Width"
-                                    />
-                                    <button class="btn btn--small btn--ghost" onClick={handleCancelCustomMaxWidth}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            }
-                        >
-                            <div class="block-style-editor__preset-row">
-                                <select
-                                    class="block-style-editor__select"
-                                    value={props.style.maxWidth || ''}
-                                    onChange={(e,) => update('maxWidth', e.currentTarget.value || undefined,)}
-                                >
-                                    <option value="">None</option>
-                                    <option value="100%">Full</option>
-                                    <option value="66.666%">2/3</option>
-                                    <option value="50%">Half</option>
-                                    <option value="33.333%">1/3</option>
-                                    <option value="25%">1/4</option>
-                                    <option value="20%">1/5</option>
-                                </select>
-                                <button class="btn btn--small btn--link" onClick={() => setCustomMaxWidth(true,)}>
-                                    Custom
-                                </button>
-                            </div>
-                        </Show>
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="text"
+                                class="block-style-editor__custom-input"
+                                value={props.style.maxWidth || ''}
+                                onChange={(e,) => update('maxWidth', e.currentTarget.value,)}
+                                placeholder="e.g. 640px, 80%"
+                            />
+                        </div>
                     </div>
                 </div>
 
