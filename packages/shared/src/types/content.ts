@@ -174,6 +174,14 @@ export interface SocialPost {
     publishedAt: Date;
     fetchedAt: Date;
     rawData: Record<string, unknown>;
+    /** How the row entered the cache. Defaults to 'sync' for provider pulls. */
+    source?: 'sync' | 'manual' | 'posse';
+    /** Canonical permalink (e.g. the X tweet URL) for re-hydrate / oEmbed. */
+    postUrl?: string | null;
+    /** Admin-hidden from the public feed without deleting. */
+    isHidden?: boolean;
+    /** Manual ordering within a platform's feed (lower = earlier). */
+    sortOrder?: number;
 }
 
 export interface Media {

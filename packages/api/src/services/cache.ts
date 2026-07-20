@@ -26,6 +26,7 @@ export const CACHE_KEYS = {
     socialPlatform: (platform: string, page: number, limit: number, sort: string, sortDir: string,) =>
         `social:${platform}:${page}:${limit}:${sort}:${sortDir}`,
     socialLiveFeed: (platform: string, limit: number,) => `social:feed:${platform}:${limit}`,
+    socialEmbed: (id: string,) => `social:embed:${id}`,
 
     // ── Block styles ──
     blockStylesAll: 'block_styles:all',
@@ -242,6 +243,11 @@ export async function invalidateSocialHomepageCache(): Promise<void> {
     await del(CACHE_KEYS.socialHomepage,);
 }
 
+/** Bust one post's resolved-embed cache (card / oEmbed HTML). */
+export async function invalidateSocialEmbed(id: string,): Promise<void> {
+    await del(CACHE_KEYS.socialEmbed(id,),);
+}
+
 export async function invalidateBlockStylesCache(): Promise<void> {
     await del(CACHE_KEYS.blockStylesAll,);
 }
@@ -365,6 +371,7 @@ export const cache = {
     invalidateSitemapCache,
     invalidateSocialCache,
     invalidateSocialHomepageCache,
+    invalidateSocialEmbed,
     invalidateBlockStylesCache,
     invalidateFontsCache,
     invalidateSwatchesCache,

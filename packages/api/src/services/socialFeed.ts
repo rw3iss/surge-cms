@@ -20,12 +20,16 @@ import { mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 import { cache, } from './cache';
 import {
+    addManualPost as addManualPostCore,
     getLiveFeed,
     getLiveFeeds,
     getSocialPosts,
+    reorderPost as reorderPostCore,
+    setPostVisibility as setPostVisibilityCore,
     syncAllPlatforms,
     syncSocialPosts,
 } from './social';
+import { resolveEmbed, type ResolvedEmbed, } from './social/embed';
 
 export const VALID_PLATFORMS: SocialPlatform[] = [
     'patreon', 'youtube', 'instagram', 'facebook', 'twitter', 'tiktok',
@@ -76,13 +80,16 @@ export async function listPlatformPosts(opts: {
     search?: string;
     sort?: string;
     sortDir?: string;
+    /** Admin listings pass true to include hidden posts (for curation). */
+    includeHidden?: boolean;
 },): Promise<SocialListResult> {
-    const { platform, page, limit, search, sort = 'date', sortDir = 'desc', } = opts;
+    const { platform, page, limit, search, sort = 'date', sortDir = 'desc', includeHidden = false, } = opts;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = ['platform = $1',];
     const params: unknown[] = [platform,];
 
+    if (!includeHidden) conditions.push('is_hidden = false',);
     if (search && search.trim()) {
         params.push(`%${search.trim()}%`,);
         conditions.push(`(content ILIKE $${params.length} OR author_name ILIKE $${params.length})`,);
@@ -98,8 +105,11 @@ export async function listPlatformPosts(opts: {
         default: orderBy = `published_at ${dir} NULLS LAST`; break;
     }
 
-    // Skip cache when search is active (results are query-specific).
-    const cacheKey = search ? null : cache.CACHE_KEYS.socialPlatform(platform, page, limit, sort, sortDir,);
+    // Skip cache when search is active or hidden posts are included (both are
+    // query-/caller-specific and must not populate the public post cache).
+    const cacheKey = (search || includeHidden)
+        ? null
+        : cache.CACHE_KEYS.socialPlatform(platform, page, limit, sort, sortDir,);
     if (cacheKey) {
         const cached = await cache.get<SocialListResult>(cacheKey,);
         if (cached) return cached;
@@ -206,6 +216,41 @@ export async function deletePost(id: string,): Promise<boolean> {
         [id,],
     );
     if (result.rows.length === 0) return false;
+    await cache.invalidateSocialEmbed(id,);
     await cache.invalidateSocialCache();
     return true;
+}
+
+/** Capture a post by pasting its URL (X-only today). Invalidates feed caches. */
+export async function addManualPost(url: string, createdBy?: string | null,): Promise<SocialPost> {
+    const post = await addManualPostCore(url, createdBy,);
+    await cache.invalidateSocialCache();
+    return post;
+}
+
+/** Curate a stored post: hide/show and/or reorder. Returns false if missing. */
+export async function patchPost(
+    id: string,
+    patch: { isHidden?: boolean; sortOrder?: number; },
+): Promise<boolean> {
+    let found = false;
+    if (patch.isHidden !== undefined) {
+        found = await setPostVisibilityCore(id, patch.isHidden,) || found;
+    }
+    if (patch.sortOrder !== undefined) {
+        found = await reorderPostCore(id, patch.sortOrder,) || found;
+    }
+    if (found) {
+        await cache.invalidateSocialEmbed(id,);
+        await cache.invalidateSocialCache();
+    }
+    return found;
+}
+
+/** Resolve a stored post to a renderable card or oEmbed HTML. */
+export async function getEmbed(id: string,): Promise<ResolvedEmbed | null> {
+    const result = await query('SELECT * FROM social_posts WHERE id = $1', [id,],);
+    if (result.rows.length === 0) return null;
+    const post = mapRows<SocialPost>(result.rows,)[0];
+    return resolveEmbed(post,);
 }

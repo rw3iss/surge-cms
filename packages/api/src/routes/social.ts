@@ -2,8 +2,10 @@ import type {
     AssertCompatible,
     SocialFeedQuery,
     SocialHomepageSetBody,
+    SocialManualPostBody,
     SocialPlatform,
     SocialPlatformPostsQuery,
+    SocialPostPatchBody,
     SocialPostsQuery,
 } from '@sitesurge/types';
 import { z, } from 'zod';
@@ -34,6 +36,15 @@ const feedQuery = z.object({
 const homepageSetBody = z.object({
     postIds: z.array(z.string().uuid(),),
 },) satisfies z.ZodType<SocialHomepageSetBody>;
+
+const manualPostBody = z.object({
+    url: z.string().min(1,),
+},) satisfies z.ZodType<SocialManualPostBody>;
+
+const postPatchBody = z.object({
+    isHidden: z.boolean().optional(),
+    sortOrder: z.number().int().optional(),
+},) satisfies z.ZodType<SocialPostPatchBody>;
 
 // platform is a free string at the schema level; the handler narrows it
 // to SocialPlatform (invalid values are ignored / treated as "all").
@@ -133,6 +144,38 @@ export const socialRoutes = [
             const deleted = await social.deletePost(params.id,);
             if (!deleted) throw new NotFoundError('Social post',);
             return { message: 'Post deleted', };
+        },
+    },),
+
+    // Capture a post by pasting its URL (admin). Free-path Option B.
+    defineRoute({
+        method: 'post', path: '/posts/manual', auth: 'admin',
+        summary: 'Add a stored post by pasting its permalink (X/Twitter).',
+        input: { body: manualPostBody, },
+        handler: ({ body, userId, },) => social.addManualPost(body.url, userId,),
+    },),
+
+    // Curate a stored post: hide/show and/or reorder (admin).
+    defineRoute({
+        method: 'patch', path: '/posts/:id', auth: 'admin',
+        summary: 'Hide/show or reorder a stored social post.',
+        input: { params: z.object({ id: z.string(), },), body: postPatchBody, },
+        handler: async ({ params, body, },) => {
+            const found = await social.patchPost(params.id, body,);
+            if (!found) throw new NotFoundError('Social post',);
+            return { message: 'Post updated', };
+        },
+    },),
+
+    // Resolve a stored post to a renderable card or oEmbed HTML (public).
+    defineRoute({
+        method: 'get', path: '/posts/:id/embed', auth: 'public',
+        summary: 'Resolve a stored post to a card or sanitized oEmbed HTML.',
+        input: { params: z.object({ id: z.string(), },), },
+        handler: async ({ params, },) => {
+            const embed = await social.getEmbed(params.id,);
+            if (!embed) throw new NotFoundError('Social post',);
+            return embed;
         },
     },),
 

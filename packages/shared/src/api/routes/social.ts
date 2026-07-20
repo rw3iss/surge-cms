@@ -82,6 +82,48 @@ export interface SocialPostDeleteResponse {
     message: string;
 }
 
+// ─── POST /social/posts/manual ────────────────────────────────────
+
+/** Body for POST /social/posts/manual — capture a post by pasting its URL. */
+export interface SocialManualPostBody {
+    url: string;
+}
+
+/** POST /social/posts/manual — the stored post. */
+export type SocialManualPostResponse = SocialPost;
+
+// ─── PATCH /social/posts/:id ──────────────────────────────────────
+
+/** Params for PATCH /social/posts/:id. */
+export interface SocialPostPatchParams {
+    id: string;
+}
+
+/** Body for PATCH /social/posts/:id — curate a stored post. */
+export interface SocialPostPatchBody {
+    isHidden?: boolean;
+    sortOrder?: number;
+}
+
+/** PATCH /social/posts/:id — confirmation message. */
+export interface SocialPostPatchResponse {
+    message: string;
+}
+
+// ─── GET /social/posts/:id/embed ──────────────────────────────────
+
+/** Params for GET /social/posts/:id/embed. */
+export interface SocialEmbedParams {
+    id: string;
+}
+
+/** GET /social/posts/:id/embed — a renderable card or sanitized oEmbed HTML. */
+export interface SocialEmbedResponse {
+    mode: 'card' | 'oembed';
+    html?: string;
+    card?: SocialPost;
+}
+
 // ─── GET /social/posts/:platform ──────────────────────────────────
 
 /** Query accepted by GET /social/posts/:platform. */

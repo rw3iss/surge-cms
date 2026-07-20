@@ -3,6 +3,8 @@ import type {
     SocialPlatformFeedResponse, SocialHomepageResponse, SocialHomepageSetBody,
     SocialHomepageSetResponse, SocialSyncBody, SocialSyncResponse,
     SocialPostDeleteResponse, SocialPlatformPostsQuery, SocialPlatformPostsResponse,
+    SocialManualPostBody, SocialManualPostResponse, SocialPostPatchBody,
+    SocialPostPatchResponse, SocialEmbedResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -49,5 +51,20 @@ export class SocialModule extends ModuleBase {
     /** DELETE /social/posts/:id — remove a stored post. */
     deletePost(id: string,): Promise<SocialPostDeleteResponse> {
         return this.mutate<SocialPostDeleteResponse>('DELETE', '/social/posts/:id', { params: { id, }, invalidates: ['social',], },);
+    }
+
+    /** POST /social/posts/manual — capture a post by pasting its URL. */
+    addManualPost(body: SocialManualPostBody,): Promise<SocialManualPostResponse> {
+        return this.mutate<SocialManualPostResponse>('POST', '/social/posts/manual', { body, invalidates: ['social',], },);
+    }
+
+    /** PATCH /social/posts/:id — hide/show or reorder a stored post. */
+    patchPost(id: string, body: SocialPostPatchBody,): Promise<SocialPostPatchResponse> {
+        return this.mutate<SocialPostPatchResponse>('PATCH', '/social/posts/:id', { params: { id, }, body, invalidates: ['social',], },);
+    }
+
+    /** GET /social/posts/:id/embed — resolve a stored post to card / oEmbed. */
+    getEmbed(id: string,): Promise<SocialEmbedResponse> {
+        return this.get<SocialEmbedResponse>('/social/posts/:id/embed', { params: { id, }, },);
     }
 }

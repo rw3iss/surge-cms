@@ -5,9 +5,12 @@ import path from 'path';
 import type { SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
+import { ValidationError, } from '../core/errors';
 import { cache, } from './cache';
 import { getStorageProvider, } from './storage';
 import { logger, } from '../utils/logger';
+import type { FetchedPost, } from './social/types';
+import { fetchTweetById, parseTweetUrl, } from './social/twitterHydrate';
 
 const FEED_CACHE_TTL = 900; // 15 minutes
 
@@ -72,19 +75,7 @@ export async function mirrorRemoteMedia(
     }
 }
 
-interface FetchedPost {
-    id: string;
-    content?: string;
-    mediaUrl?: string;
-    thumbnailUrl?: string;
-    authorName?: string;
-    authorAvatar?: string;
-    likes?: number;
-    comments?: number;
-    shares?: number;
-    publishedAt: Date;
-    rawData: Record<string, unknown>;
-}
+export type { FetchedPost, } from './social/types';
 
 export async function fetchYouTubeVideos(maxResults = 10,): Promise<FetchedPost[]> {
     if (!config.social.youtube.apiKey || !config.social.youtube.channelId) {
@@ -323,6 +314,102 @@ async function getConnectionSettings(platform: SocialPlatform,): Promise<Connect
     };
 }
 
+interface UpsertOpts {
+    source?: 'sync' | 'manual' | 'posse';
+    postUrl?: string | null;
+    createdBy?: string | null;
+}
+
+/**
+ * Upsert one fetched post into `social_posts`, mirroring ephemeral CDN media
+ * first. Shared by the read-sync loop, manual capture, and POSSE publish.
+ * `source`/`post_url`/`created_by` are only written on INSERT (a re-sync of a
+ * synced post must not clobber a manual/posse provenance).
+ */
+export async function upsertSocialPost(
+    platform: SocialPlatform,
+    post: FetchedPost,
+    opts: UpsertOpts = {},
+): Promise<void> {
+    const { source = 'sync', postUrl = null, createdBy = null, } = opts;
+
+    // Mirror ephemeral CDN media (Instagram/Facebook) into our own storage so
+    // the persisted thumbnail_url doesn't 403 once the CDN signature expires.
+    // Stable hosts (pbs.twimg.com, YouTube) pass through untouched.
+    post.thumbnailUrl = await mirrorRemoteMedia(post.thumbnailUrl, platform, post.id,);
+    post.authorAvatar = await mirrorRemoteMedia(post.authorAvatar, platform, `${post.id}_avatar`,);
+
+    await query(
+        `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url,
+                           author_name, author_avatar, likes, comments, shares,
+                           published_at, fetched_at, raw_data, source, post_url, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15)
+     ON CONFLICT (platform, external_id) DO UPDATE SET
+       content = EXCLUDED.content,
+       media_url = EXCLUDED.media_url,
+       thumbnail_url = EXCLUDED.thumbnail_url,
+       likes = EXCLUDED.likes,
+       comments = EXCLUDED.comments,
+       shares = EXCLUDED.shares,
+       fetched_at = NOW(),
+       raw_data = EXCLUDED.raw_data`,
+        [
+            platform,
+            post.id,
+            post.content,
+            post.mediaUrl,
+            post.thumbnailUrl,
+            post.authorName,
+            post.authorAvatar,
+            post.likes,
+            post.comments,
+            post.shares,
+            post.publishedAt,
+            JSON.stringify(post.rawData,),
+            source,
+            postUrl,
+            createdBy,
+        ],
+    );
+}
+
+/**
+ * Add a post to the local cache by pasting its permalink (capture Option B).
+ * Currently X-only. Hydrates via the syndication endpoint when possible; if
+ * hydration fails the paste is still stored (minimal row) so it isn't lost —
+ * rendering will retry hydration / fall back to oEmbed.
+ */
+export async function addManualPost(
+    url: string,
+    createdBy?: string | null,
+): Promise<SocialPost> {
+    const parsed = parseTweetUrl(url,);
+    if (!parsed) {
+        throw new ValidationError('Unrecognized post URL. Paste a full X/Twitter status URL, e.g. https://x.com/user/status/123',);
+    }
+
+    const hydrated = await fetchTweetById(parsed.id,);
+    const post: FetchedPost = hydrated ?? {
+        id: parsed.id,
+        content: undefined,
+        mediaUrl: parsed.url,
+        publishedAt: new Date(0,),
+        rawData: { pendingHydration: true, },
+    };
+
+    await upsertSocialPost('twitter', post, {
+        source: 'manual',
+        postUrl: parsed.url,
+        createdBy: createdBy ?? null,
+    },);
+
+    const row = await query(
+        `SELECT * FROM social_posts WHERE platform = 'twitter' AND external_id = $1`,
+        [parsed.id,],
+    );
+    return mapSocialRow(row.rows[0],);
+}
+
 /**
  * Sync posts from a platform.
  * If `force` is true (manual admin trigger), syncs regardless of auto_publish setting.
@@ -357,40 +444,7 @@ export async function syncSocialPosts(platform: SocialPlatform, force = false,):
 
     for (const post of posts) {
         try {
-            // Mirror ephemeral CDN media (Instagram/Facebook) into our own storage so
-            // the persisted thumbnail_url doesn't 403 once the CDN signature expires.
-            post.thumbnailUrl = await mirrorRemoteMedia(post.thumbnailUrl, platform, post.id,);
-            post.authorAvatar = await mirrorRemoteMedia(post.authorAvatar, platform, `${post.id}_avatar`,);
-
-            await query(
-                `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url,
-                                   author_name, author_avatar, likes, comments, shares,
-                                   published_at, fetched_at, raw_data)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12)
-         ON CONFLICT (platform, external_id) DO UPDATE SET
-           content = EXCLUDED.content,
-           media_url = EXCLUDED.media_url,
-           thumbnail_url = EXCLUDED.thumbnail_url,
-           likes = EXCLUDED.likes,
-           comments = EXCLUDED.comments,
-           shares = EXCLUDED.shares,
-           fetched_at = NOW(),
-           raw_data = EXCLUDED.raw_data`,
-                [
-                    platform,
-                    post.id,
-                    post.content,
-                    post.mediaUrl,
-                    post.thumbnailUrl,
-                    post.authorName,
-                    post.authorAvatar,
-                    post.likes,
-                    post.comments,
-                    post.shares,
-                    post.publishedAt,
-                    JSON.stringify(post.rawData,),
-                ],
-            );
+            await upsertSocialPost(platform, post, { source: 'sync', },);
             synced++;
         } catch (error) {
             logger.error('Error syncing social post', { platform, postId: post.id, error, },);
@@ -425,28 +479,9 @@ export async function syncAllPlatforms(force = false,): Promise<Record<SocialPla
     return results as Record<SocialPlatform, number>;
 }
 
-export async function getSocialPosts(
-    platform?: SocialPlatform,
-    limit = 20,
-    offset = 0,
-): Promise<SocialPost[]> {
-    let whereClause = '';
-    const params: unknown[] = [];
-
-    if (platform) {
-        params.push(platform,);
-        whereClause = `WHERE platform = $${params.length}`;
-    }
-
-    params.push(limit, offset,);
-    const result = await query(
-        `SELECT * FROM social_posts ${whereClause}
-     ORDER BY published_at DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-        params,
-    );
-
-    return result.rows.map((row,) => ({
+/** Map a `social_posts` row (snake_case) to the `SocialPost` DTO. */
+export function mapSocialRow(row: Record<string, any>,): SocialPost {
+    return {
         id: row.id,
         platform: row.platform,
         externalId: row.external_id,
@@ -461,7 +496,56 @@ export async function getSocialPosts(
         publishedAt: row.published_at,
         fetchedAt: row.fetched_at,
         rawData: row.raw_data,
-    }));
+        source: row.source,
+        postUrl: row.post_url,
+        isHidden: row.is_hidden,
+        sortOrder: row.sort_order,
+    };
+}
+
+export async function getSocialPosts(
+    platform?: SocialPlatform,
+    limit = 20,
+    offset = 0,
+    includeHidden = false,
+): Promise<SocialPost[]> {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (platform) {
+        params.push(platform,);
+        conditions.push(`platform = $${params.length}`,);
+    }
+    if (!includeHidden) conditions.push('is_hidden = false',);
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ',)}` : '';
+
+    params.push(limit, offset,);
+    const result = await query(
+        `SELECT * FROM social_posts ${whereClause}
+     ORDER BY sort_order ASC, published_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
+    );
+
+    return result.rows.map(mapSocialRow,);
+}
+
+/** Hide / unhide a stored post from the public feed. Returns false if missing. */
+export async function setPostVisibility(id: string, isHidden: boolean,): Promise<boolean> {
+    const result = await query(
+        'UPDATE social_posts SET is_hidden = $2 WHERE id = $1 RETURNING id',
+        [id, isHidden,],
+    );
+    return result.rows.length > 0;
+}
+
+/** Set a post's manual sort order. Returns false if missing. */
+export async function reorderPost(id: string, sortOrder: number,): Promise<boolean> {
+    const result = await query(
+        'UPDATE social_posts SET sort_order = $2 WHERE id = $1 RETURNING id',
+        [id, sortOrder,],
+    );
+    return result.rows.length > 0;
 }
 
 // ─── Live Feed (API → Redis cache, no DB storage) ───

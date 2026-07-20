@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-19T17:18:45.685Z",
+  "generatedAt": "2026-07-20T05:10:35.602Z",
   "totalModules": 31,
-  "totalRoutes": 257,
+  "totalRoutes": 260,
   "modules": [
     {
       "module": "api-keys",
@@ -1841,6 +1841,27 @@
           "absolutePath": "/api/v1/social/posts/:id",
           "auth": "admin",
           "summary": "Delete a stored social post by id."
+        },
+        {
+          "method": "POST",
+          "path": "/posts/manual",
+          "absolutePath": "/api/v1/social/posts/manual",
+          "auth": "admin",
+          "summary": "Add a stored post by pasting its permalink (X/Twitter)."
+        },
+        {
+          "method": "PATCH",
+          "path": "/posts/:id",
+          "absolutePath": "/api/v1/social/posts/:id",
+          "auth": "admin",
+          "summary": "Hide/show or reorder a stored social post."
+        },
+        {
+          "method": "GET",
+          "path": "/posts/:id/embed",
+          "absolutePath": "/api/v1/social/posts/:id/embed",
+          "auth": "public",
+          "summary": "Resolve a stored post to a card or sanitized oEmbed HTML."
         },
         {
           "method": "GET",
