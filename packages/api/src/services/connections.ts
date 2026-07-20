@@ -53,6 +53,15 @@ export function sanitizeCredentials(
         sanitized.refreshToken = '••••••••';
         sanitized.hasRefreshToken = true;
     }
+    // X OAuth 1.0a secrets — mask both (apiKey/consumer key stays visible, like appId).
+    if (sanitized.apiSecret) {
+        sanitized.apiSecret = '••••••••';
+        sanitized.hasApiSecret = true;
+    }
+    if (sanitized.accessSecret) {
+        sanitized.accessSecret = '••••••••';
+        sanitized.hasAccessSecret = true;
+    }
     return sanitized;
 }
 

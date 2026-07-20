@@ -9,6 +9,12 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    // Switch-first everywhere: the switch reads before its label across the
+    // whole admin. The label is DOM-first (for accessible reading order), so
+    // row-reverse puts the switch visually first. The `--switch-first`
+    // modifier (in _forms.scss) is now redundant but harmless.
+    flex-direction: row-reverse;
+    justify-content: flex-end;
 
     &__label {
         font-size: 0.875rem;

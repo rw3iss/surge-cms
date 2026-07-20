@@ -36,6 +36,14 @@ export interface MaskedCredentials {
     /** masked to `••••••••` when a refresh token is stored */
     refreshToken?: string;
     hasRefreshToken?: boolean;
+    /** non-secret consumer/API key (passes through unmasked, like appId) */
+    apiKey?: string;
+    /** masked to `••••••••` when a consumer/API key secret is stored (X OAuth 1.0a) */
+    apiSecret?: string;
+    hasApiSecret?: boolean;
+    /** masked to `••••••••` when an access token secret is stored (X OAuth 1.0a) */
+    accessSecret?: string;
+    hasAccessSecret?: boolean;
     [key: string]: unknown;
 }
 

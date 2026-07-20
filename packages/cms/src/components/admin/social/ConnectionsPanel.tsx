@@ -2,6 +2,7 @@ import { useSearchParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
+import Tooltip from '../common/Tooltip';
 import { FormField, } from '../forms';
 
 /**
@@ -35,7 +36,9 @@ const ConnectionsPanel: Component = () => {
     const [autoPublishCount, setAutoPublishCount,] = createSignal<number | null>(null,);
     const [publishAll, setPublishAll,] = createSignal(false,);
     const [accessToken, setAccessToken,] = createSignal('',);
+    const [accessSecret, setAccessSecret,] = createSignal('',);
     const [apiKey, setApiKey,] = createSignal('',);
+    const [apiSecret, setApiSecret,] = createSignal('',);
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
     const [twitterMode, setTwitterMode,] = createSignal<'free' | 'api'>('free',);
@@ -67,7 +70,9 @@ const ConnectionsPanel: Component = () => {
         setAutoPublishCount(conn?.autoPublishCount || null,);
         setPublishAll(!conn?.autoPublishCount,);
         setAccessToken('',);
+        setAccessSecret('',);
         setApiKey(conn?.credentials?.apiKey || '',);
+        setApiSecret('',);
         setAppId(conn?.credentials?.appId || '',);
         setAppSecret('',);
         setTwitterMode(conn?.settings?.twitterMode === 'api' ? 'api' : 'free',);
@@ -91,7 +96,9 @@ const ConnectionsPanel: Component = () => {
             if (appSecret()) credentials.appSecret = appSecret();
         } else {
             if (accessToken()) credentials.accessToken = accessToken();
+            if (accessSecret()) credentials.accessSecret = accessSecret();
             if (apiKey()) credentials.apiKey = apiKey();
+            if (apiSecret()) credentials.apiSecret = apiSecret();
         }
 
         const data: Record<string, unknown> = {
@@ -273,7 +280,27 @@ const ConnectionsPanel: Component = () => {
                                                     </select>
                                                 </FormField>
                                             </Show>
-                                            <FormField label="Access Token">
+                                            <FormField
+                                                label="Access Token"
+                                                tooltip={provider.id === 'twitter' ?
+                                                    (
+                                                        <span>
+                                                            Your X app's user Access Token. Create a free app at{' '}
+                                                            <a
+                                                                href="https://developer.x.com"
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                            >
+                                                                developer.x.com
+                                                            </a>{' '}
+                                                            → set the app to <strong>Read and Write</strong> → the
+                                                            <strong>Keys &amp; tokens</strong> tab. Posting needs all
+                                                            four: API Key, API Key Secret, Access Token, and Access
+                                                            Token Secret.
+                                                        </span>
+                                                    ) :
+                                                    undefined}
+                                            >
                                                 <input
                                                     type="password"
                                                     value={accessToken()}
@@ -284,14 +311,39 @@ const ConnectionsPanel: Component = () => {
                                                 />
                                                 <span class="form-help">API access token for {provider.name}</span>
                                             </FormField>
-                                            <FormField label="API Key (optional)">
+                                            <FormField label={provider.id === 'twitter' ? 'API Key' : 'API Key (optional)'}>
                                                 <input
                                                     type="password"
                                                     value={apiKey()}
                                                     onInput={(e,) => setApiKey(e.currentTarget.value,)}
-                                                    placeholder="API key if required"
+                                                    placeholder={provider.id === 'twitter' ?
+                                                        'Consumer / API Key' :
+                                                        'API key if required'}
                                                 />
                                             </FormField>
+                                            {/* X/Twitter posting uses OAuth 1.0a — it needs both secrets too. */}
+                                            <Show when={provider.id === 'twitter'}>
+                                                <FormField label="API Key Secret">
+                                                    <input
+                                                        type="password"
+                                                        value={apiSecret()}
+                                                        onInput={(e,) => setApiSecret(e.currentTarget.value,)}
+                                                        placeholder={conn()?.credentials?.hasApiSecret ?
+                                                            'Saved (enter new to replace)' :
+                                                            'Consumer / API Key Secret'}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Access Token Secret">
+                                                    <input
+                                                        type="password"
+                                                        value={accessSecret()}
+                                                        onInput={(e,) => setAccessSecret(e.currentTarget.value,)}
+                                                        placeholder={conn()?.credentials?.hasAccessSecret ?
+                                                            'Saved (enter new to replace)' :
+                                                            'Access Token Secret'}
+                                                    />
+                                                </FormField>
+                                            </Show>
                                         </>
                                     }>
                                         <FormField label="App ID" hint="From your Meta Developer App at developers.facebook.com">
@@ -333,7 +385,13 @@ const ConnectionsPanel: Component = () => {
                                         <Toggle checked={enabled()} onChange={setEnabled} label="Enabled" />
                                     </div>
                                     <div class="form-group">
-                                        <Toggle checked={autoPublish()} onChange={setAutoPublish} label="Auto-publish posts" />
+                                        <span class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                            <Toggle checked={autoPublish()} onChange={setAutoPublish} label="Auto-publish posts" />
+                                            <Tooltip
+                                                header="Auto-publish posts"
+                                                content="Automatically pull this provider's recent posts into the feed via its read API (up to the count below). Leave off to curate the feed yourself by composing or adding posts manually. Note: X in Free mode ignores this — use Compose / manual capture."
+                                            />
+                                        </span>
                                     </div>
                                     <Show when={autoPublish()}>
                                         <div class="form-group" style={{ 'padding-left': '1.5rem', }}>
