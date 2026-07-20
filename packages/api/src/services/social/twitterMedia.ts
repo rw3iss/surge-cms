@@ -9,6 +9,9 @@
  * canonical OAuth-1.0a media flow. If X fully retires it in favour of
  * `/2/media/upload`, switch UPLOAD_URL below — the command flow is equivalent.
  */
+import fs from 'fs/promises';
+import path from 'path';
+import { config, } from '../../config';
 import { logger, } from '../../utils/logger';
 import { buildAuthHeader, type TwitterUserCreds, } from './twitterOAuth';
 
@@ -38,8 +41,41 @@ export function chunkCount(size: number, chunk: number = CHUNK_SIZE,): number {
 
 const sleep = (ms: number,): Promise<void> => new Promise((r,) => setTimeout(r, ms,));
 
-/** Fetch a media asset's bytes + MIME from its (CMS) URL. */
+/** Best-effort MIME from a filename extension (for local reads). */
+function mimeFromExt(filename: string,): string {
+    switch (path.extname(filename,).toLowerCase()) {
+        case '.png': return 'image/png';
+        case '.gif': return 'image/gif';
+        case '.webp': return 'image/webp';
+        case '.mp4': return 'video/mp4';
+        case '.mov': return 'video/quicktime';
+        case '.webm': return 'video/webm';
+        case '.jpg':
+        case '.jpeg': return 'image/jpeg';
+        default: return 'application/octet-stream';
+    }
+}
+
+/**
+ * Read a media asset's bytes + MIME from its CMS URL. Local storage serves
+ * relative `/uploads/<file>` URLs, which Node `fetch` can't parse — those are
+ * read straight from the upload dir on disk. Absolute http(s) URLs (S3 /
+ * external) are fetched. We upload these bytes to X ourselves, so the media
+ * host never needs to be publicly reachable (localhost is fine).
+ */
 export async function fetchMediaBytes(url: string,): Promise<{ bytes: Buffer; mime: string; }> {
+    if (!/^https?:\/\//i.test(url,)) {
+        // Relative /uploads/<file> (optionally with a query) → read from disk.
+        const filename = path.basename(url.split('?',)[0],);
+        const filePath = path.join(config.upload.dir, filename,);
+        try {
+            const bytes = await fs.readFile(filePath,);
+            return { bytes, mime: mimeFromExt(filename,), };
+        } catch (error) {
+            throw new Error(`Could not read local media ${filePath}: ${error instanceof Error ? error.message : error}`,);
+        }
+    }
+
     const res = await fetch(url,);
     if (!res.ok) throw new Error(`Could not fetch media (${res.status}) from ${url}`,);
     const mime = res.headers.get('content-type',)?.split(';',)[0]?.trim() || 'application/octet-stream';
