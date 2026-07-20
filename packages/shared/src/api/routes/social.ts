@@ -133,6 +133,8 @@ export interface SocialPlatformPostsQuery {
     search?: string;
     sort?: string;
     sortDir?: string;
+    /** Admin-only: include hidden posts (for curation). Ignored for anon. */
+    includeHidden?: boolean;
 }
 
 /** GET /social/posts/:platform — stored posts for one platform. Page

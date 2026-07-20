@@ -48,6 +48,10 @@ const AdminFormEditor = lazy(() => import('./pages/admin/FormEditor'));
 const AdminFormSubmissions = lazy(() => import('./pages/admin/FormSubmissions'));
 const AdminMessages = lazy(() => import('./pages/admin/Messages'));
 const AdminMessageView = lazy(() => import('./pages/admin/MessageView'));
+const AdminSocialHub = lazy(() => import('./pages/admin/social/SocialHub'));
+const AdminSocialPosts = lazy(() => import('./pages/admin/social/SocialPostsPanel'));
+const AdminSocialCompose = lazy(() => import('./pages/admin/social/SocialComposePanel'));
+const AdminSocialConfiguration = lazy(() => import('./pages/admin/social/SocialConfigurationPanel'));
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
 const AdminMailTemplateEdit = lazy(() => import('./pages/admin/MailTemplateEdit'));
@@ -141,6 +145,11 @@ const App: Component = () => {
 										<Route path="/forms/:id" component={AdminFormEditor} />
 										<Route path="/messages" component={AdminMessages} />
 										<Route path="/messages/:id" component={AdminMessageView} />
+										<Route path="/social" component={AdminSocialHub}>
+											<Route path="/" component={AdminSocialPosts} />
+											<Route path="/compose" component={AdminSocialCompose} />
+											<Route path="/configuration" component={AdminSocialConfiguration} />
+										</Route>
 										<Route path="/mailing-lists" component={AdminMailingLists} />
 										<Route path="/mailing-lists/:id" component={AdminMailingListEdit} />
 										<Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />

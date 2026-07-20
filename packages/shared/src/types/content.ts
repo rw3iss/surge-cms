@@ -292,6 +292,12 @@ export interface SiteFeatures {
     forms: { enabled: boolean; };
     messages: { enabled: boolean; };
     /**
+     * Social feed hub. When enabled, the admin sidebar exposes the Social
+     * area (Posts capture, Compose/cross-post, provider Connections config).
+     * Module flag, enabled by default.
+     */
+    social: { enabled: boolean; };
+    /**
      * Custom user registration & login. When enabled, the public
      * login page shows its sign-in form expanded by default and a
      * register/join link, the public /join page accepts new

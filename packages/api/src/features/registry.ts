@@ -11,7 +11,7 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -65,6 +65,14 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         key: 'messages',
         label: 'Messages',
         description: 'Public contact form inbox.',
+        defaultEnabled: true,
+    },
+    social: {
+        key: 'social',
+        label: 'Social',
+        description: 'Social feed hub: capture/compose posts, cross-post, provider connections.',
+        // Core-ish module (social_connections / social_posts are base tables),
+        // so it defaults ON and is not uninstallable.
         defaultEnabled: true,
     },
     users: {

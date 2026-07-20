@@ -8,7 +8,7 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -24,6 +24,7 @@ export const FEATURES: FeatureConfig[] = [
     { key: 'campaigns',     label: 'Campaigns',     description: 'Fundraising campaigns + donations.', },
     { key: 'forms',         label: 'Forms',         description: 'Custom forms, surveys, polls.', },
     { key: 'messages',      label: 'Messages',      description: 'Public contact form inbox.', },
+    { key: 'social',        label: 'Social',        description: 'Social feed hub: capture, compose, cross-post, connections.', },
     { key: 'mailing_lists', label: 'Mailing Lists', description: 'Subscriber lists + mail templates.', requires: ['users',], },
     { key: 'shop',          label: 'Shop',          description: 'Products, cart, orders, and Stripe checkout.', requires: ['users',], },
     { key: 'plugins',       label: 'Plugins',       description: 'Install and manage external plugins & extensions.', },

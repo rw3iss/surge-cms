@@ -162,6 +162,9 @@ async function computePublicFeatures(
         campaigns: { enabled: moduleEnabled('campaigns_enabled',), },
         forms: { enabled: moduleEnabled('forms_enabled',), },
         messages: { enabled: moduleEnabled('messages_enabled',), },
+        // Social hub (feed capture / compose / connections). Module flag,
+        // default ON — the social_connections + social_posts tables are base.
+        social: { enabled: moduleEnabled('social_enabled',), },
         // `users` is opt-in (admin-only by default). Public registration
         // / "join" flows and the admin Users sidebar key off this flag.
         users: { enabled: settings.users_enabled === true, },

@@ -27,6 +27,7 @@ const platformPostsQuery = z.object({
     search: z.string().optional(),
     sort: z.string().optional(),
     sortDir: z.string().optional(),
+    includeHidden: z.coerce.boolean().optional(),
 },);
 
 const feedQuery = z.object({
@@ -181,10 +182,10 @@ export const socialRoutes = [
 
     // Stored posts for one platform with search/sort (public).
     defineRoute({
-        method: 'get', path: '/posts/:platform', auth: 'public',
+        method: 'get', path: '/posts/:platform', auth: 'optional',
         summary: 'List stored posts for one platform with search/sort.',
         input: { params: platformParams, query: platformPostsQuery, },
-        handler: async ({ params, query, },) => {
+        handler: async ({ params, query, userId, },) => {
             const platform = assertPlatform(params.platform,);
             const result = await social.listPlatformPosts({
                 platform,
@@ -193,6 +194,9 @@ export const socialRoutes = [
                 search: query.search,
                 sort: query.sort,
                 sortDir: query.sortDir,
+                // Hidden posts are only visible to an authenticated admin (for
+                // curation); anonymous callers always get the public view.
+                includeHidden: Boolean(query.includeHidden && userId,),
             },);
             return reply(result.data, { meta: result.meta, },);
         },

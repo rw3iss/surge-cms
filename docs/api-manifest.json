@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-20T05:10:35.602Z",
+  "generatedAt": "2026-07-20T05:19:25.030Z",
   "totalModules": 31,
   "totalRoutes": 260,
   "modules": [
@@ -1867,7 +1867,7 @@
           "method": "GET",
           "path": "/posts/:platform",
           "absolutePath": "/api/v1/social/posts/:platform",
-          "auth": "public",
+          "auth": "optional",
           "summary": "List stored posts for one platform with search/sort."
         }
       ]
