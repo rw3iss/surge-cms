@@ -87,55 +87,58 @@ const ShopOrderConfirmationInner: Component = () => {
                                 </For>
                             </div>
 
-                            <div class="shop-order__totals">
-                                <div class="shop-order__total-row">
-                                    <span>Subtotal</span>
-                                    <span>{money(o().subtotalCents, o().currency,)}</span>
-                                </div>
-                                <div class="shop-order__total-row">
-                                    <span>Shipping</span>
-                                    <span>{money(o().shippingCents, o().currency,)}</span>
-                                </div>
-                                <Show when={shipBd(o(),)}>
-                                    {(bd,) => (
-                                        <>
-                                            <div class="shop-order__total-row shop-order__total-sub">
-                                                <span>First item shipping</span>
-                                                <span>1 × {money(bd().firstItemCents, o().currency,)} = {money(bd().firstItemCents, o().currency,)}</span>
-                                            </div>
-                                            <div class="shop-order__total-row shop-order__total-sub">
-                                                <span>Additional items shipping</span>
-                                                <span>{bd().additionalUnits} × {money(bd().additionalItemCents, o().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, o().currency,)}</span>
-                                            </div>
-                                        </>
+                            {/* Shipping address (left) + totals (right) on one row. */}
+                            <div class="shop-order__summary-row">
+                                <Show when={o().shippingAddress}>
+                                    {(addr,) => (
+                                        <div class="shop-order__address">
+                                            <h2>Shipping to</h2>
+                                            <p>
+                                                <Show when={addr().name}>{addr().name}<br /></Show>
+                                                <Show when={addr().line1}>{addr().line1}<br /></Show>
+                                                <Show when={addr().line2}>{addr().line2}<br /></Show>
+                                                <Show when={addr().city || addr().state || addr().postalCode}>
+                                                    {[addr().city, addr().state, addr().postalCode,].filter(Boolean,).join(', ',)}<br />
+                                                </Show>
+                                                <Show when={addr().country}>{addr().country}</Show>
+                                            </p>
+                                        </div>
                                     )}
                                 </Show>
-                                <div class="shop-order__total-row">
-                                    <span>Tax</span>
-                                    <span>{money(o().taxCents, o().currency,)}</span>
-                                </div>
-                                <div class="shop-order__total-row shop-order__total-row--grand">
-                                    <span>Total</span>
-                                    <strong>{money(o().totalCents, o().currency,)}</strong>
+
+                                <div class="shop-order__totals">
+                                    <div class="shop-order__total-row">
+                                        <span>Subtotal</span>
+                                        <span>{money(o().subtotalCents, o().currency,)}</span>
+                                    </div>
+                                    <div class="shop-order__total-row">
+                                        <span>Shipping</span>
+                                        <span>{money(o().shippingCents, o().currency,)}</span>
+                                    </div>
+                                    <Show when={shipBd(o(),)}>
+                                        {(bd,) => (
+                                            <>
+                                                <div class="shop-order__total-row shop-order__total-sub">
+                                                    <span>First item shipping</span>
+                                                    <span>1 × {money(bd().firstItemCents, o().currency,)} = {money(bd().firstItemCents, o().currency,)}</span>
+                                                </div>
+                                                <div class="shop-order__total-row shop-order__total-sub">
+                                                    <span>Additional items shipping</span>
+                                                    <span>{bd().additionalUnits} × {money(bd().additionalItemCents, o().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, o().currency,)}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </Show>
+                                    <div class="shop-order__total-row">
+                                        <span>Tax</span>
+                                        <span>{money(o().taxCents, o().currency,)}</span>
+                                    </div>
+                                    <div class="shop-order__total-row shop-order__total-row--grand">
+                                        <span>Total</span>
+                                        <strong>{money(o().totalCents, o().currency,)}</strong>
+                                    </div>
                                 </div>
                             </div>
-
-                            <Show when={o().shippingAddress}>
-                                {(addr,) => (
-                                    <div class="shop-order__address">
-                                        <h2>Shipping to</h2>
-                                        <p>
-                                            <Show when={addr().name}>{addr().name}<br /></Show>
-                                            <Show when={addr().line1}>{addr().line1}<br /></Show>
-                                            <Show when={addr().line2}>{addr().line2}<br /></Show>
-                                            <Show when={addr().city || addr().state || addr().postalCode}>
-                                                {[addr().city, addr().state, addr().postalCode,].filter(Boolean,).join(', ',)}<br />
-                                            </Show>
-                                            <Show when={addr().country}>{addr().country}</Show>
-                                        </p>
-                                    </div>
-                                )}
-                            </Show>
 
                             <A href="/shop" class="btn btn--secondary">Continue shopping</A>
                         </>
