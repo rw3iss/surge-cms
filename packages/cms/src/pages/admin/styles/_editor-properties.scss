@@ -505,15 +505,23 @@
 
 // ─── GiveButter donation-provider panel (Campaign editor, plugin-gated) ───
 .gb-panel {
+  // Stack fields with one tidy rhythm — the panel owns the gap (per-field
+  // margins are zeroed by the shared cosmetics in _forms.scss) so the
+  // donation fields read like the campaign fields in the section below.
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
   &__title {
-    margin: 0 0 $spacing-sm;
+    margin: 0;
     font-size: $font-size-base;
     font-weight: 600;
   }
 
   &__badge {
     display: inline-block;
-    margin-bottom: $spacing-md;
+    align-self: flex-start;
+    margin-bottom: 0;
     padding: 4px 10px;
     border-radius: $border-radius-full;
     background: rgba($primary-color, 0.1);

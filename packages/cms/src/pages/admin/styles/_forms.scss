@@ -112,7 +112,14 @@
     flex-direction: column;
     gap: $spacing-sm;
   }
+}
 
+// Clean field cosmetics shared by the two-column layout and the GiveButter
+// donations panel: a tidy per-field rhythm (the container owns the gap),
+// one consistent label style, and grey sub-hints under the control (matching
+// the URL-slug sublabel).
+.form-columns,
+.gb-panel {
   .admin-form-field,
   .form-group {
     margin-bottom: 0;

@@ -252,7 +252,7 @@ const CampaignEditor: Component = () => {
                                     GiveButter is managing donations for this campaign.
                                 </div>
                             </Show>
-                            <FormField label="Donation provider" hint="Choose which platform collects donations for this campaign.">
+                            <FormField label="Donation provider" hint="Choose which platform collects donations for this campaign." class="form-field--block">
                                 <select
                                     value={donationProvider()}
                                     onChange={(e,) => {
@@ -266,7 +266,7 @@ const CampaignEditor: Component = () => {
                             </FormField>
 
                             <Show when={donationProvider() === 'givebutter'}>
-                                <FormField label="GiveButter campaign">
+                                <FormField label="GiveButter campaign" class="form-field--block">
                                     <select
                                         value={gbMode()}
                                         onChange={(e,) => {
@@ -305,7 +305,7 @@ const CampaignEditor: Component = () => {
                                             </select>
                                         </Show>
                                     </div>
-                                    <FormField label="…or enter a campaign code" hint="The 6-character code near the campaign title in your GiveButter dashboard.">
+                                    <FormField label="…or enter a campaign code" hint="The 6-character code near the campaign title in your GiveButter dashboard." class="form-field--block">
                                         <input
                                             type="text"
                                             value={gbCampaignCode()}
