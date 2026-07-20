@@ -37,20 +37,36 @@ export function getStripeClient(): Stripe | null {
     return stripeClient();
 }
 
+/**
+ * Map a Stripe authentication error (missing/placeholder/invalid API key) to a
+ * clean 503 so misconfiguration surfaces as "Stripe is not configured" instead
+ * of an opaque 500. Any other Stripe/error rethrows unchanged.
+ */
+function rethrowStripeError(err: unknown,): never {
+    if (err instanceof Stripe.errors.StripeAuthenticationError) {
+        throw new ServiceNotConfiguredError('Stripe',);
+    }
+    throw err;
+}
+
 export class StripePaymentProvider implements PaymentProvider {
     async createPaymentIntent(params: CreatePaymentIntentParams,): Promise<PaymentIntentResult> {
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: params.amountCents,
-            currency: params.currency || 'usd',
-            receipt_email: params.customerEmail,
-            metadata: params.metadata || {},
-        },);
+        try {
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: params.amountCents,
+                currency: params.currency || 'usd',
+                receipt_email: params.customerEmail,
+                metadata: params.metadata || {},
+            },);
 
-        return {
-            id: paymentIntent.id,
-            clientSecret: paymentIntent.client_secret!,
-            status: paymentIntent.status,
-        };
+            return {
+                id: paymentIntent.id,
+                clientSecret: paymentIntent.client_secret!,
+                status: paymentIntent.status,
+            };
+        } catch (err) {
+            rethrowStripeError(err,);
+        }
     }
 
     async createCustomer(params: CreateCustomerParams,): Promise<CustomerResult> {
