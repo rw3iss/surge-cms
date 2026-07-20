@@ -42,6 +42,10 @@ const ConnectionsPanel: Component = () => {
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
     const [twitterMode, setTwitterMode,] = createSignal<'free' | 'api'>('free',);
+    // "Change" toggles a saved-secret read view back to an editable input.
+    const [changingAccessToken, setChangingAccessToken,] = createSignal(false,);
+    const [changingApiSecret, setChangingApiSecret,] = createSignal(false,);
+    const [changingAccessSecret, setChangingAccessSecret,] = createSignal(false,);
     const [connError, setConnError,] = createSignal('',);
     const [connSuccess, setConnSuccess,] = createSignal('',);
     const [oauthLoading, setOauthLoading,] = createSignal(false,);
@@ -76,6 +80,9 @@ const ConnectionsPanel: Component = () => {
         setAppId(conn?.credentials?.appId || '',);
         setAppSecret('',);
         setTwitterMode(conn?.settings?.twitterMode === 'api' ? 'api' : 'free',);
+        setChangingAccessToken(false,);
+        setChangingApiSecret(false,);
+        setChangingAccessSecret(false,);
         setConnError('',);
         setConnSuccess('',);
         setEditingProvider(providerId,);
@@ -301,14 +308,30 @@ const ConnectionsPanel: Component = () => {
                                                     ) :
                                                     undefined}
                                             >
-                                                <input
-                                                    type="password"
-                                                    value={accessToken()}
-                                                    onInput={(e,) => setAccessToken(e.currentTarget.value,)}
-                                                    placeholder={conn()?.credentials?.hasAccessToken ?
-                                                        'Token saved (enter new to replace)' :
-                                                        'Paste access token'}
-                                                />
+                                                <Show
+                                                    when={conn()?.credentials?.hasAccessToken && !changingAccessToken()}
+                                                    fallback={
+                                                        <input
+                                                            type="password"
+                                                            value={accessToken()}
+                                                            onInput={(e,) => setAccessToken(e.currentTarget.value,)}
+                                                            placeholder="Paste access token"
+                                                        />
+                                                    }
+                                                >
+                                                    <div class="secret-readview">
+                                                        <code class="secret-readview__value">
+                                                            {String(conn()?.credentials?.accessToken ?? '',)}
+                                                        </code>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn--small btn--secondary"
+                                                            onClick={() => setChangingAccessToken(true,)}
+                                                        >
+                                                            Change
+                                                        </button>
+                                                    </div>
+                                                </Show>
                                                 <span class="form-help">API access token for {provider.name}</span>
                                             </FormField>
                                             <FormField label={provider.id === 'twitter' ? 'API Key' : 'API Key (optional)'}>
@@ -324,24 +347,52 @@ const ConnectionsPanel: Component = () => {
                                             {/* X/Twitter posting uses OAuth 1.0a — it needs both secrets too. */}
                                             <Show when={provider.id === 'twitter'}>
                                                 <FormField label="API Key Secret">
-                                                    <input
-                                                        type="password"
-                                                        value={apiSecret()}
-                                                        onInput={(e,) => setApiSecret(e.currentTarget.value,)}
-                                                        placeholder={conn()?.credentials?.hasApiSecret ?
-                                                            'Saved (enter new to replace)' :
-                                                            'Consumer / API Key Secret'}
-                                                    />
+                                                    <Show
+                                                        when={conn()?.credentials?.hasApiSecret && !changingApiSecret()}
+                                                        fallback={
+                                                            <input
+                                                                type="password"
+                                                                value={apiSecret()}
+                                                                onInput={(e,) => setApiSecret(e.currentTarget.value,)}
+                                                                placeholder="Consumer / API Key Secret"
+                                                            />
+                                                        }
+                                                    >
+                                                        <div class="secret-readview">
+                                                            <code class="secret-readview__value">••••••••••</code>
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn--small btn--secondary"
+                                                                onClick={() => setChangingApiSecret(true,)}
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        </div>
+                                                    </Show>
                                                 </FormField>
                                                 <FormField label="Access Token Secret">
-                                                    <input
-                                                        type="password"
-                                                        value={accessSecret()}
-                                                        onInput={(e,) => setAccessSecret(e.currentTarget.value,)}
-                                                        placeholder={conn()?.credentials?.hasAccessSecret ?
-                                                            'Saved (enter new to replace)' :
-                                                            'Access Token Secret'}
-                                                    />
+                                                    <Show
+                                                        when={conn()?.credentials?.hasAccessSecret && !changingAccessSecret()}
+                                                        fallback={
+                                                            <input
+                                                                type="password"
+                                                                value={accessSecret()}
+                                                                onInput={(e,) => setAccessSecret(e.currentTarget.value,)}
+                                                                placeholder="Access Token Secret"
+                                                            />
+                                                        }
+                                                    >
+                                                        <div class="secret-readview">
+                                                            <code class="secret-readview__value">••••••••••</code>
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn--small btn--secondary"
+                                                                onClick={() => setChangingAccessSecret(true,)}
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        </div>
+                                                    </Show>
                                                 </FormField>
                                             </Show>
                                         </>
@@ -381,6 +432,7 @@ const ConnectionsPanel: Component = () => {
                                         </Show>
                                     </Show>
 
+                                    <div class="connection-card__switches">
                                     <div class="form-group">
                                         <Toggle checked={enabled()} onChange={setEnabled} label="Enabled" />
                                     </div>
@@ -421,6 +473,7 @@ const ConnectionsPanel: Component = () => {
                                             </Show>
                                         </div>
                                     </Show>
+                                    </div>
                                     <div class="form-actions u-flex-row" style={{ 'margin-top': '1rem', }}>
                                         <button class="btn btn--primary btn--small" onClick={handleSaveConnection}>
                                             Save

@@ -27,7 +27,7 @@
 export interface MaskedCredentials {
     /** non-secret app/client identifier (passes through unmasked) */
     appId?: string;
-    /** masked to `head8…tail4` when an access token is stored */
+    /** masked to dots + last 6 chars (X-style) when an access token is stored */
     accessToken?: string;
     hasAccessToken?: boolean;
     /** masked to `••••••••` when an app secret is stored */

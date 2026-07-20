@@ -157,6 +157,31 @@
   }
 }
 
+// Saved-secret read view: masked value + a Change button (Access Token etc.).
+.secret-readview {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__value {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: $font-size-sm;
+    letter-spacing: 1px;
+    color: var(--admin-text, #{$text-color});
+  }
+}
+
+// Connection editor boolean switches: tight stack, separated from the fields
+// above. Switch-first ordering comes from the global .toggle-control default.
+.connection-card__switches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: $spacing-md;
+
+  .form-group { margin-bottom: 0; }
+}
+
 .social-compose {
   max-width: 42rem;
 

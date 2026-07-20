@@ -42,7 +42,8 @@ export function sanitizeCredentials(
     const sanitized = { ...credentials, };
     if (sanitized.accessToken) {
         const token = String(sanitized.accessToken,);
-        sanitized.accessToken = token.slice(0, 8,) + '...' + token.slice(-4,);
+        // Dots + last 6 chars (X-style), e.g. ••••••••••Zgoh9H.
+        sanitized.accessToken = '••••••••••' + token.slice(-6,);
         sanitized.hasAccessToken = true;
     }
     if (sanitized.appSecret) {
