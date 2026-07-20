@@ -291,6 +291,13 @@
     padding: $spacing-md $spacing-lg $spacing-lg;
     border-top: 1px solid $border-color;
     background: $background-dark;
+    // Comfortable, even spacing between each credential field / section.
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    // The editor's gap owns the rhythm; drop the fields' own bottom margins.
+    .admin-form-field { margin-bottom: 0; }
   }
 }
 

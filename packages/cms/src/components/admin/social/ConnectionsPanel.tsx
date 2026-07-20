@@ -1,9 +1,55 @@
 import { useSearchParams, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, type JSX, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
 import Tooltip from '../common/Tooltip';
 import { FormField, } from '../forms';
+
+/** A credential field that shows a masked read view + "Change" once saved,
+ *  and an editable password input otherwise. Keeps the four X OAuth 1.0a
+ *  fields (and the others) consistent. */
+function SecretField(props: {
+    label: string;
+    tooltip?: JSX.Element;
+    value: () => string;
+    setValue: (v: string,) => void;
+    hasSaved: boolean;
+    masked: string;
+    changing: () => boolean;
+    setChanging: (v: boolean,) => void;
+    placeholder: string;
+    help?: string;
+},): JSX.Element {
+    return (
+        <FormField label={props.label} tooltip={props.tooltip}>
+            <Show
+                when={props.hasSaved && !props.changing()}
+                fallback={
+                    <input
+                        type="password"
+                        value={props.value()}
+                        onInput={(e,) => props.setValue(e.currentTarget.value,)}
+                        placeholder={props.placeholder}
+                    />
+                }
+            >
+                <div class="secret-readview">
+                    <code class="secret-readview__value">{props.masked}</code>
+                    <button
+                        type="button"
+                        class="btn btn--small btn--secondary"
+                        onClick={() => props.setChanging(true,)}
+                    >
+                        Change
+                    </button>
+                </div>
+            </Show>
+            <Show when={props.help}>
+                <span class="form-help">{props.help}</span>
+            </Show>
+        </FormField>
+    );
+}
 
 /**
  * Provider connections manager. Relocated from Settings → Connections into the
@@ -43,8 +89,9 @@ const ConnectionsPanel: Component = () => {
     const [appSecret, setAppSecret,] = createSignal('',);
     const [twitterMode, setTwitterMode,] = createSignal<'free' | 'api'>('free',);
     // "Change" toggles a saved-secret read view back to an editable input.
-    const [changingAccessToken, setChangingAccessToken,] = createSignal(false,);
+    const [changingApiKey, setChangingApiKey,] = createSignal(false,);
     const [changingApiSecret, setChangingApiSecret,] = createSignal(false,);
+    const [changingAccessToken, setChangingAccessToken,] = createSignal(false,);
     const [changingAccessSecret, setChangingAccessSecret,] = createSignal(false,);
     const [connError, setConnError,] = createSignal('',);
     const [connSuccess, setConnSuccess,] = createSignal('',);
@@ -75,13 +122,14 @@ const ConnectionsPanel: Component = () => {
         setPublishAll(!conn?.autoPublishCount,);
         setAccessToken('',);
         setAccessSecret('',);
-        setApiKey(conn?.credentials?.apiKey || '',);
+        setApiKey('',);
         setApiSecret('',);
         setAppId(conn?.credentials?.appId || '',);
         setAppSecret('',);
         setTwitterMode(conn?.settings?.twitterMode === 'api' ? 'api' : 'free',);
-        setChangingAccessToken(false,);
+        setChangingApiKey(false,);
         setChangingApiSecret(false,);
+        setChangingAccessToken(false,);
         setChangingAccessSecret(false,);
         setConnError('',);
         setConnSuccess('',);
@@ -275,7 +323,7 @@ const ConnectionsPanel: Component = () => {
                                             <Show when={provider.id === 'twitter'}>
                                                 <FormField
                                                     label="Feed mode"
-                                                    hint="Free: add/compose posts (no read API needed). API: auto-sync recent posts — requires a paid X Basic tier bearer token."
+                                                    hint="Free (default): compose + paste posts — uses the four keys below, no bearer token needed. API: also auto-syncs your recent posts via the paid X read API, which reads a Bearer token from the server's TWITTER_BEARER_TOKEN env var (not entered here)."
                                                     class="form-field--block"
                                                 >
                                                     <select
@@ -287,10 +335,59 @@ const ConnectionsPanel: Component = () => {
                                                     </select>
                                                 </FormField>
                                             </Show>
-                                            <FormField
-                                                label="Access Token"
-                                                tooltip={provider.id === 'twitter' ?
-                                                    (
+                                            <Show
+                                                when={provider.id === 'twitter'}
+                                                fallback={
+                                                    <>
+                                                        <SecretField
+                                                            label="Access Token"
+                                                            value={accessToken}
+                                                            setValue={setAccessToken}
+                                                            hasSaved={Boolean(conn()?.credentials?.hasAccessToken,)}
+                                                            masked={String(conn()?.credentials?.accessToken ?? '',)}
+                                                            changing={changingAccessToken}
+                                                            setChanging={setChangingAccessToken}
+                                                            placeholder="Paste access token"
+                                                            help={`API access token for ${provider.name}`}
+                                                        />
+                                                        <SecretField
+                                                            label="API Key (optional)"
+                                                            value={apiKey}
+                                                            setValue={setApiKey}
+                                                            hasSaved={Boolean(conn()?.credentials?.hasApiKey,)}
+                                                            masked={String(conn()?.credentials?.apiKey ?? '',)}
+                                                            changing={changingApiKey}
+                                                            setChanging={setChangingApiKey}
+                                                            placeholder="API key if required"
+                                                        />
+                                                    </>
+                                                }
+                                            >
+                                                {/* X/Twitter OAuth 1.0a — two related pairs, grouped: consumer
+                                                    (API Key + Secret) then user token (Access Token + Secret). */}
+                                                <SecretField
+                                                    label="API Key"
+                                                    value={apiKey}
+                                                    setValue={setApiKey}
+                                                    hasSaved={Boolean(conn()?.credentials?.hasApiKey,)}
+                                                    masked={String(conn()?.credentials?.apiKey ?? '',)}
+                                                    changing={changingApiKey}
+                                                    setChanging={setChangingApiKey}
+                                                    placeholder="Consumer / API Key"
+                                                />
+                                                <SecretField
+                                                    label="API Key Secret"
+                                                    value={apiSecret}
+                                                    setValue={setApiSecret}
+                                                    hasSaved={Boolean(conn()?.credentials?.hasApiSecret,)}
+                                                    masked="••••••••••"
+                                                    changing={changingApiSecret}
+                                                    setChanging={setChangingApiSecret}
+                                                    placeholder="Consumer / API Key Secret"
+                                                />
+                                                <SecretField
+                                                    label="Access Token"
+                                                    tooltip={
                                                         <span>
                                                             Your X app's user Access Token. Create a free app at{' '}
                                                             <a
@@ -300,100 +397,30 @@ const ConnectionsPanel: Component = () => {
                                                             >
                                                                 developer.x.com
                                                             </a>{' '}
-                                                            → set the app to <strong>Read and Write</strong> → the
+                                                            → set the app to <strong>Read and Write</strong> → the{' '}
                                                             <strong>Keys &amp; tokens</strong> tab. Posting needs all
                                                             four: API Key, API Key Secret, Access Token, and Access
                                                             Token Secret.
                                                         </span>
-                                                    ) :
-                                                    undefined}
-                                            >
-                                                <Show
-                                                    when={conn()?.credentials?.hasAccessToken && !changingAccessToken()}
-                                                    fallback={
-                                                        <input
-                                                            type="password"
-                                                            value={accessToken()}
-                                                            onInput={(e,) => setAccessToken(e.currentTarget.value,)}
-                                                            placeholder="Paste access token"
-                                                        />
                                                     }
-                                                >
-                                                    <div class="secret-readview">
-                                                        <code class="secret-readview__value">
-                                                            {String(conn()?.credentials?.accessToken ?? '',)}
-                                                        </code>
-                                                        <button
-                                                            type="button"
-                                                            class="btn btn--small btn--secondary"
-                                                            onClick={() => setChangingAccessToken(true,)}
-                                                        >
-                                                            Change
-                                                        </button>
-                                                    </div>
-                                                </Show>
-                                                <span class="form-help">API access token for {provider.name}</span>
-                                            </FormField>
-                                            <FormField label={provider.id === 'twitter' ? 'API Key' : 'API Key (optional)'}>
-                                                <input
-                                                    type="password"
-                                                    value={apiKey()}
-                                                    onInput={(e,) => setApiKey(e.currentTarget.value,)}
-                                                    placeholder={provider.id === 'twitter' ?
-                                                        'Consumer / API Key' :
-                                                        'API key if required'}
+                                                    value={accessToken}
+                                                    setValue={setAccessToken}
+                                                    hasSaved={Boolean(conn()?.credentials?.hasAccessToken,)}
+                                                    masked={String(conn()?.credentials?.accessToken ?? '',)}
+                                                    changing={changingAccessToken}
+                                                    setChanging={setChangingAccessToken}
+                                                    placeholder="Paste access token"
                                                 />
-                                            </FormField>
-                                            {/* X/Twitter posting uses OAuth 1.0a — it needs both secrets too. */}
-                                            <Show when={provider.id === 'twitter'}>
-                                                <FormField label="API Key Secret">
-                                                    <Show
-                                                        when={conn()?.credentials?.hasApiSecret && !changingApiSecret()}
-                                                        fallback={
-                                                            <input
-                                                                type="password"
-                                                                value={apiSecret()}
-                                                                onInput={(e,) => setApiSecret(e.currentTarget.value,)}
-                                                                placeholder="Consumer / API Key Secret"
-                                                            />
-                                                        }
-                                                    >
-                                                        <div class="secret-readview">
-                                                            <code class="secret-readview__value">••••••••••</code>
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn--small btn--secondary"
-                                                                onClick={() => setChangingApiSecret(true,)}
-                                                            >
-                                                                Change
-                                                            </button>
-                                                        </div>
-                                                    </Show>
-                                                </FormField>
-                                                <FormField label="Access Token Secret">
-                                                    <Show
-                                                        when={conn()?.credentials?.hasAccessSecret && !changingAccessSecret()}
-                                                        fallback={
-                                                            <input
-                                                                type="password"
-                                                                value={accessSecret()}
-                                                                onInput={(e,) => setAccessSecret(e.currentTarget.value,)}
-                                                                placeholder="Access Token Secret"
-                                                            />
-                                                        }
-                                                    >
-                                                        <div class="secret-readview">
-                                                            <code class="secret-readview__value">••••••••••</code>
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn--small btn--secondary"
-                                                                onClick={() => setChangingAccessSecret(true,)}
-                                                            >
-                                                                Change
-                                                            </button>
-                                                        </div>
-                                                    </Show>
-                                                </FormField>
+                                                <SecretField
+                                                    label="Access Token Secret"
+                                                    value={accessSecret}
+                                                    setValue={setAccessSecret}
+                                                    hasSaved={Boolean(conn()?.credentials?.hasAccessSecret,)}
+                                                    masked="••••••••••"
+                                                    changing={changingAccessSecret}
+                                                    setChanging={setChangingAccessSecret}
+                                                    placeholder="Access Token Secret"
+                                                />
                                             </Show>
                                         </>
                                     }>
