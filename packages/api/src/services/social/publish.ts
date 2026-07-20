@@ -65,6 +65,24 @@ async function uploadTweetMedia(mediaUrls: string[], creds: TwitterUserCreds,): 
     return ids;
 }
 
+/** Turn an X API error into an operator-actionable message. */
+function friendlyXError(status: number, body: string,): string {
+    if (status === 402 || /credits[- ]depleted|payment required/i.test(body,)) {
+        return 'X declined the post (402 — out of API credits). Posting to X now consumes credits on your X API plan, and this app has none left. '
+            + 'Check Usage & billing in the X developer portal (developer.x.com): the free tier\'s posting allowance is limited and, once used, X requires a paid plan to keep posting.';
+    }
+    if (status === 401) {
+        return 'X rejected the credentials (401). Re-check the API Key/Secret + Access Token/Secret, and that the token was generated with Write access.';
+    }
+    if (status === 403) {
+        return 'X refused the post (403). Set the app to Read and Write in the developer portal, then REGENERATE the Access Token & Secret (a token made before enabling write is read-only).';
+    }
+    if (status === 429) {
+        return 'X rate limit reached (429). Wait a bit and try again.';
+    }
+    return `X API ${status}: ${body.slice(0, 200,)}`;
+}
+
 async function publishToTwitter(text: string, mediaUrls: string[], userId?: string | null,): Promise<PublishResult> {
     if (!text.trim() && mediaUrls.length === 0) {
         return { provider: 'twitter', ok: false, error: 'Write something or attach media.', };
@@ -99,7 +117,7 @@ async function publishToTwitter(text: string, mediaUrls: string[], userId?: stri
         if (!res.ok) {
             const body = await res.text().catch(() => '',);
             logger.warn('X publish failed', { status: res.status, body: body.slice(0, 300,), },);
-            return { provider: 'twitter', ok: false, error: `X API ${res.status}: ${body.slice(0, 200,)}`, };
+            return { provider: 'twitter', ok: false, error: friendlyXError(res.status, body,), };
         }
 
         const json = await res.json() as { data?: { id?: string; }; };
