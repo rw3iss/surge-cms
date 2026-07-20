@@ -116,6 +116,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '047_create_shop_reviews.sql',
             '048_create_shop_orders.sql',
             '049_create_shop_order_items.sql',
+            '071_shop_shipping.sql',
         ],
         // Creation order — uninstall drops in reverse. CASCADE FKs make the
         // exact order safe regardless (child/m2m tables drop with their parent).

@@ -102,6 +102,12 @@ export async function getPublic(): Promise<{ settings: ShopPublicSettings; appea
             // Publishable key is public by design — the checkout page needs it
             // at runtime to load Stripe Elements.
             stripePublishableKey: appConfig.stripe.publishableKey || undefined,
+            // Shipping display config (flat rate + free-ship threshold) so the
+            // storefront can show per-product shipping + a free-ship banner.
+            shipping: {
+                flatCents: settings.shipping?.flatCents,
+                freeThresholdCents: settings.shipping?.freeThresholdCents,
+            },
         },
         appearance,
     };

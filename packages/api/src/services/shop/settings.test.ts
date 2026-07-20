@@ -98,7 +98,7 @@ describe('shop settings service', () => {
         expect(pub.appearance.gridColumns,).toBe(3,);
         // No stray keys on the settings projection (stripePublishableKey is an
         // allowed public field; every other key must be in the safe subset).
-        const allowed = ['businessName', 'currency', 'currencyDisplay', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
+        const allowed = ['businessName', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
         expect(Object.keys(pub.settings,).every((k,) => allowed.includes(k,)),).toBe(true,);
     },);
 

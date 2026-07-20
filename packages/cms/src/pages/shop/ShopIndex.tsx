@@ -6,6 +6,7 @@ import { cms, } from '../../services/cmsClient';
 import { siteName, } from '../../stores/siteSettings';
 import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
+import { money, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import './shop.scss';
 
@@ -53,6 +54,7 @@ const ShopIndexInner: Component = () => {
     const appearance = (): ShopAppearance =>
         config()?.appearance ?? { gridColumns: 3, showRatings: true, cardStyle: 'standard', };
     const currency = () => config()?.settings.currency || 'USD';
+    const freeShipThreshold = () => config()?.settings.shipping?.freeThresholdCents ?? 0;
 
     // Collection view returns the whole collection at once — no "load more".
     const hasMore = () =>
@@ -128,6 +130,12 @@ const ShopIndexInner: Component = () => {
                 canonical={`${window.location.origin}/shop`}
                 type="website"
             />
+
+            <Show when={freeShipThreshold() > 0}>
+                <div class="shop-index__free-ship">
+                    🚚 Free shipping on orders over {money(freeShipThreshold(), currency(),)}
+                </div>
+            </Show>
 
             <header class="page-header shop-store__header">
                 <h1>Shop</h1>

@@ -215,8 +215,9 @@ export async function findProductById(id: string,): Promise<ShopProduct> {
 export async function createProduct(data: Record<string, unknown>, userId: string,): Promise<ShopProduct> {
     const result = await query(
         `INSERT INTO shop_products (title, slug, description, type, status,
-                                    meta_title, meta_description, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                    meta_title, meta_description, shipping_type,
+                                    use_default_shipping, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              RETURNING *`,
         [
             data.title,
@@ -226,6 +227,8 @@ export async function createProduct(data: Record<string, unknown>, userId: strin
             data.status || 'draft',
             data.metaTitle ?? null,
             data.metaDescription ?? null,
+            data.shippingType || 'flat',
+            data.useDefaultShipping ?? true,
             // created_by is a UUID FK; synthetic actors → NULL.
             uuidOrNull(userId,),
         ],
@@ -256,6 +259,7 @@ export interface StructureVariantInput {
     inventoryQty?: number;
     weightGrams?: number | null;
     requiresShipping?: boolean;
+    shippingCents?: number | null;
     option1?: string | null;
     option2?: string | null;
     option3?: string | null;
@@ -321,9 +325,9 @@ export async function replaceProductStructure(
             const v = variants[i];
             await c.query(
                 `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
-                                            inventory_qty, weight_grams, requires_shipping,
+                                            inventory_qty, weight_grams, requires_shipping, shipping_cents,
                                             option1, option2, option3, image_id, position, is_default)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
                 [
                     productId,
                     v.sku ?? null,
@@ -332,6 +336,7 @@ export async function replaceProductStructure(
                     v.inventoryQty ?? 0,
                     v.weightGrams ?? null,
                     v.requiresShipping ?? true,
+                    v.shippingCents ?? null,
                     v.option1 ?? null,
                     v.option2 ?? null,
                     v.option3 ?? null,

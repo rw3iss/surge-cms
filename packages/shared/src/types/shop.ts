@@ -6,6 +6,9 @@
 
 export type ShopProductType = 'physical' | 'digital';
 export type ShopProductStatus = 'draft' | 'active' | 'archived';
+/** How a product's shipping is priced. 'flat' = static fee (shop default or
+ *  per-variant override); 'calculated' = dynamic quote at checkout (future). */
+export type ShopShippingType = 'flat' | 'calculated';
 
 export interface ShopProduct {
     id: string;
@@ -16,6 +19,10 @@ export interface ShopProduct {
     status: ShopProductStatus;
     metaTitle?: string | null;
     metaDescription?: string | null;
+    /** Shipping pricing model. Defaults to 'flat'. */
+    shippingType?: ShopShippingType;
+    /** When flat: use the shop's configured flat rate instead of per-variant. */
+    useDefaultShipping?: boolean;
     ratingAvg: number;
     ratingCount: number;
     createdBy?: string | null;
@@ -53,6 +60,9 @@ export interface ShopVariant {
     inventoryQty: number;
     weightGrams?: number | null;
     requiresShipping: boolean;
+    /** Per-variant flat shipping cost (cents). Used when the product is flat-fee
+     *  and not using the shop default rate. Null → 0. */
+    shippingCents?: number | null;
     option1?: string | null;
     option2?: string | null;
     option3?: string | null;
@@ -259,4 +269,10 @@ export interface ShopPublicSettings {
     /** Stripe publishable key (public by design) — the checkout page loads
      *  Stripe Elements with it. Empty/undefined when Stripe isn't configured. */
     stripePublishableKey?: string;
+    /** Public shipping config for storefront display (flat rate + free-ship
+     *  threshold). Cents. */
+    shipping?: {
+        flatCents?: number;
+        freeThresholdCents?: number;
+    };
 }

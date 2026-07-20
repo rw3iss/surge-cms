@@ -25,6 +25,7 @@ import type {
     ShopProduct,
     ShopProductDetail,
     ShopProductType,
+    ShopShippingType,
     ShopPublicSettings,
     ShopReview,
     ShopSettings,
@@ -48,6 +49,8 @@ export interface ShopVariantInput {
     inventoryQty?: number;
     weightGrams?: number | null;
     requiresShipping?: boolean;
+    /** Per-variant flat shipping cost (cents) for flat-fee products. */
+    shippingCents?: number | null;
     option1?: string | null;
     option2?: string | null;
     option3?: string | null;
@@ -121,6 +124,8 @@ export interface ShopProductCreateBody {
     status?: 'draft' | 'active' | 'archived';
     metaTitle?: string | null;
     metaDescription?: string | null;
+    shippingType?: ShopShippingType;
+    useDefaultShipping?: boolean;
     options?: ShopOptionInput[];
     variants?: ShopVariantInput[];
     media?: ShopMediaInput[];

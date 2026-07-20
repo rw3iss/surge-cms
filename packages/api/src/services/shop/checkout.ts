@@ -67,6 +67,12 @@ interface ResolvedLine {
     sku: string | null;
     isDigital: boolean;
     requiresShipping: boolean;
+    /** Shipping model for the parent product. */
+    shippingType: 'flat' | 'calculated';
+    /** When flat: use the shop's default flat rate rather than the variant cost. */
+    useDefaultShipping: boolean;
+    /** Per-variant flat shipping cost (cents); 0 when unset. */
+    variantShippingCents: number;
 }
 
 // Shop settings (shipping + tax + currency) come from the shop settings
@@ -91,8 +97,8 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
         }
         const result = await query(
             `SELECT v.id AS variant_id, v.product_id, v.price_cents, v.inventory_qty, v.sku,
-                    v.requires_shipping, v.option1, v.option2, v.option3,
-                    p.title, p.type, p.status
+                    v.requires_shipping, v.shipping_cents, v.option1, v.option2, v.option3,
+                    p.title, p.type, p.status, p.shipping_type, p.use_default_shipping
                  FROM shop_variants v
                  JOIN shop_products p ON p.id = v.product_id
                  WHERE v.id = $1`,
@@ -129,6 +135,9 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
             sku: (row.sku as string | null) ?? null,
             isDigital: row.type === 'digital',
             requiresShipping: Boolean(row.requires_shipping,),
+            shippingType: (row.shipping_type as 'flat' | 'calculated') ?? 'flat',
+            useDefaultShipping: row.use_default_shipping !== false,
+            variantShippingCents: (row.shipping_cents as number | null) ?? 0,
         },);
     }
 
@@ -145,11 +154,30 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
 function computeShipping(lines: ResolvedLine[], subtotalCents: number, settings: ShopSettings,): number {
     const anyPhysical = lines.some((l,) => l.requiresShipping,);
     if (!anyPhysical) return 0;
+
     const shipping = settings.shipping ?? {};
-    if (shipping.freeThresholdCents !== undefined && subtotalCents >= shipping.freeThresholdCents) {
+    // Free-shipping threshold overrides everything (only when a positive
+    // threshold is configured).
+    if (
+        shipping.freeThresholdCents !== undefined
+        && shipping.freeThresholdCents > 0
+        && subtotalCents >= shipping.freeThresholdCents
+    ) {
         return 0;
     }
-    return shipping.flatCents ?? 0;
+
+    const shopFlat = shipping.flatCents ?? 0;
+    let total = 0;
+    for (const l of lines) {
+        if (!l.requiresShipping) continue;
+        // 'calculated' shipping is dynamic (rate provider) — stubbed to 0 for
+        // now; added once a shipping-quote provider is integrated.
+        if (l.shippingType === 'calculated') continue;
+        // Flat fee, per unit: shop default rate or the per-variant override.
+        const perUnit = l.useDefaultShipping ? shopFlat : l.variantShippingCents;
+        total += perUnit * l.qty;
+    }
+    return total;
 }
 
 /**

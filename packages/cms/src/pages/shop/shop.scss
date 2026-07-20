@@ -190,6 +190,18 @@
         }
     }
 
+    // Shipping cost + free-ship note under the price.
+    &__shipping {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: $spacing-sm 0 $spacing-md;
+        font-size: $font-size-sm;
+    }
+
+    &__shipping-cost { color: var(--site-text, #{$text-color}); font-weight: 500; }
+    &__shipping-free { color: var(--site-text-muted, #6b7280); font-size: $font-size-xs; }
+
     // Breadcrumb above the product title: "← Shop / Collection".
     &__breadcrumb {
         display: flex;
@@ -723,6 +735,18 @@
 
 // ── Index search ───────────────────────────────────────────────────
 .shop-index {
+    // Free-shipping-threshold banner at the top of the shop.
+    &__free-ship {
+        padding: $spacing-sm $spacing-md;
+        margin-bottom: $spacing-lg;
+        border-radius: var(--site-radius, 6px);
+        background: var(--site-bg-subtle, #{$background-dark});
+        border: 1px solid var(--site-border, #{$border-color});
+        color: var(--site-text, #{$text-color});
+        font-weight: 600;
+        text-align: center;
+    }
+
     // Collections sidebar (left) + search/grid (right). Collapses to a single
     // column on narrow viewports. When no collections exist the sidebar isn't
     // rendered and the main column spans the full width.

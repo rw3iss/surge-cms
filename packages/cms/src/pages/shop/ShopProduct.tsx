@@ -69,6 +69,11 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
         return (collections() ?? []).find((c,) => ids.includes(c.id,),);
     };
 
+    // Public shop settings (shipping flat rate + free-ship threshold).
+    const [shopCfg] = createResource(async () => {
+        try { return await cms.shop.settings.getPublic(); } catch { return null; }
+    },);
+
     // ── Media gallery ────────────────────────────────────────────────
     const media = createMemo(() =>
         [...(product().media ?? []),].sort((a, b,) => a.position - b.position,),
@@ -115,6 +120,17 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
     const inStock = () => (resolvedVariant()?.inventoryQty ?? 0) > 0;
     const price = () => resolvedVariant()?.priceCents;
     const compareAt = () => resolvedVariant()?.compareAtPriceCents;
+
+    // Shipping display for the selected variant.
+    const shippingLabel = (): string => {
+        const p = product();
+        if (p.type === 'digital' || resolvedVariant()?.requiresShipping === false) return 'No shipping';
+        if (p.shippingType === 'calculated') return 'Shipping calculated at checkout';
+        const flat = shopCfg()?.settings?.shipping?.flatCents ?? 0;
+        const cents = (p.useDefaultShipping ?? true) ? flat : (resolvedVariant()?.shippingCents ?? 0);
+        return cents > 0 ? `${money(cents,)} shipping` : 'Free shipping';
+    };
+    const freeThreshold = () => shopCfg()?.settings?.shipping?.freeThresholdCents ?? 0;
 
     const [added, setAdded,] = createSignal(false,);
     const handleAdd = () => {
@@ -267,6 +283,15 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
                             <Show when={compareAt() && compareAt()! > price()!}>
                                 <span class="shop-product__price-was">{money(compareAt()!,)}</span>
                             </Show>
+                        </Show>
+                    </div>
+
+                    <div class="shop-product__shipping">
+                        <span class="shop-product__shipping-cost">{shippingLabel()}</span>
+                        <Show when={freeThreshold() > 0}>
+                            <span class="shop-product__shipping-free">
+                                Free shipping on orders over {money(freeThreshold(),)}
+                            </span>
                         </Show>
                     </div>
 
