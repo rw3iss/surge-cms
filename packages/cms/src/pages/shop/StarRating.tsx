@@ -11,9 +11,12 @@ interface StarRatingProps {
 
 /** Read-only 5-star display driven by an average rating. */
 const StarRating: Component<StarRatingProps> = (props,) => {
-    const fills = () => starFills(props.value || 0,);
+    // `value` may arrive as a string (Postgres NUMERIC serializes to a string),
+    // so coerce before any numeric use.
+    const val = () => Number(props.value,) || 0;
+    const fills = () => starFills(val(),);
     return (
-        <span class="shop-stars" aria-label={`${(props.value || 0).toFixed(1,)} out of 5`}>
+        <span class="shop-stars" aria-label={`${val().toFixed(1,)} out of 5`}>
             <For each={fills()}>
                 {(f,) => <span class={`shop-stars__star shop-stars__star--${f}`}>★</span>}
             </For>

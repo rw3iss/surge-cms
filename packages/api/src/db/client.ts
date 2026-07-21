@@ -1,6 +1,12 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow, } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow, types, } from 'pg';
 import { getConfig, } from '../config';
 import { logger, } from '../utils/logger';
+
+// Postgres returns NUMERIC/DECIMAL (OID 1700) as a string by default to avoid
+// float precision loss. The only NUMERIC column read into JS is
+// `shop_products.rating_avg` (a 0–5 average), where a string breaks numeric use
+// (e.g. `.toFixed`). Parse NUMERIC → float so the API honors its `number` types.
+types.setTypeParser(1700, (v,) => (v === null ? null : parseFloat(v,)),);
 
 /**
  * Lazy, recreatable Postgres pool.

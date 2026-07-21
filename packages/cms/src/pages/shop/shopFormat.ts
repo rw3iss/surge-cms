@@ -6,9 +6,11 @@ export function money(cents: number, currency = 'USD',): string {
     return formatCurrency(cents, currency,);
 }
 
-/** Round a rating average to one decimal for display. */
+/** Round a rating average to one decimal for display. Coerces in case the
+ *  value arrives as a string (Postgres NUMERIC serializes to a string). */
 export function ratingLabel(avg: number,): string {
-    return (Math.round(avg * 10,) / 10).toFixed(1,);
+    const n = Number(avg,) || 0;
+    return (Math.round(n * 10,) / 10).toFixed(1,);
 }
 
 export interface ShipBreakdown {
@@ -38,7 +40,8 @@ export function shipBreakdown(
 }
 
 /** Build a 5-slot star fill array ('full' | 'half' | 'empty') from an avg. */
-export function starFills(avg: number,): ('full' | 'half' | 'empty')[] {
+export function starFills(avgInput: number,): ('full' | 'half' | 'empty')[] {
+    const avg = Number(avgInput,) || 0;
     const out: ('full' | 'half' | 'empty')[] = [];
     for (let i = 1; i <= 5; i++) {
         if (avg >= i) out.push('full',);
