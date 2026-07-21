@@ -1,4 +1,5 @@
 import { Title, } from '@solidjs/meta';
+import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
 import type { ShopReview, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
@@ -74,6 +75,12 @@ const ShopReviewsInner: Component = () => {
                         <For each={list.items()}>
                             {(r,) => (
                                 <div class="shop-admin__review">
+                                    <A
+                                        href={`/admin/shop/products/${r.productId}`}
+                                        class="shop-admin__review-product"
+                                    >
+                                        {r.productTitle || 'View product'}
+                                    </A>
                                     <div class="shop-admin__review-head">
                                         <span class="shop-admin__review-rating">
                                             {'★'.repeat(r.rating,)}{'☆'.repeat(Math.max(0, 5 - r.rating,),)}

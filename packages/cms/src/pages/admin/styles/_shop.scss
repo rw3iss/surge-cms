@@ -191,6 +191,16 @@
         }
     }
 
+    &__review-product {
+        display: inline-block;
+        margin-bottom: $spacing-xs;
+        font-weight: 600;
+        color: var(--site-primary, #{$primary-color});
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+
     &__review-head {
         display: flex;
         align-items: center;

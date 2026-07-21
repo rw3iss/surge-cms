@@ -72,7 +72,10 @@ export async function findAllReviews(
 
     const orderClause = buildReviewSortClause(filters.sort,);
     return paginatedQuery<ShopReview>(
-        `SELECT * FROM shop_reviews ${whereClause} ${orderClause}`,
+        // Correlated subquery for the product title (avoids JOIN ambiguity with
+        // the shared created_at/status columns used by where/order clauses).
+        `SELECT *, (SELECT title FROM shop_products WHERE id = shop_reviews.product_id) AS product_title
+             FROM shop_reviews ${whereClause} ${orderClause}`,
         `SELECT COUNT(*) FROM shop_reviews ${whereClause}`,
         params,
         pagination,

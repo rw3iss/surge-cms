@@ -126,6 +126,8 @@ export interface ShopReview {
     helpfulCount: number;
     createdAt: string;
     updatedAt: string;
+    /** Parent product's title (populated on the admin review list). */
+    productTitle?: string | null;
 }
 
 export type ShopOrderStatus =
