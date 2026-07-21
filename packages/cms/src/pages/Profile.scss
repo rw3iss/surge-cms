@@ -153,6 +153,145 @@
         color: var(--site-text-muted, #9ca3af);
     }
 
+    // ── Tabs ──
+    &__tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        border-bottom: 1px solid var(--site-border, #e5e7eb);
+        margin-bottom: 1.5rem;
+    }
+
+    &__tab {
+        padding: 0.6rem 1rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        font: inherit;
+        font-weight: 600;
+        color: var(--site-text-muted, #6b7280);
+        cursor: pointer;
+
+        &:hover { color: var(--site-text, #111827); }
+
+        &.is-active {
+            color: var(--site-primary, #e63946);
+            border-bottom-color: var(--site-primary, #e63946);
+        }
+    }
+
+    &__muted {
+        margin: 0;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    // ── Orders ──
+    &__orders {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__order {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 8px);
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.12s ease, background 0.12s ease;
+
+        &:hover {
+            border-color: var(--site-primary, #e63946);
+            background: var(--site-bg-subtle, #f9fafb);
+        }
+    }
+
+    &__order-main { display: flex; flex-direction: column; gap: 2px; }
+    &__order-number { font-weight: 600; }
+    &__order-date { font-size: 0.8rem; color: var(--site-text-muted, #6b7280); }
+    &__order-meta { display: flex; align-items: center; gap: 1rem; }
+    &__order-total { font-weight: 600; white-space: nowrap; }
+
+    &__order-status {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: capitalize;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--site-bg-subtle, #f3f4f6);
+        color: var(--site-text-muted, #6b7280);
+
+        &--paid, &--delivered { background: #dcfce7; color: #166534; }
+        &--pending { background: #fef3c7; color: #92400e; }
+        &--processing, &--shipped { background: #dbeafe; color: #1e40af; }
+        &--cancelled, &--refunded { background: #fee2e2; color: #991b1b; }
+    }
+
+    // ── Messages ──
+    &__messages {
+        list-style: none;
+        margin: 0 0 1.5rem;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__message {
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 8px);
+        overflow: hidden;
+    }
+
+    &__message-head {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.7rem 1rem;
+        background: none;
+        border: none;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { background: var(--site-bg-subtle, #f9fafb); }
+    }
+
+    &__message-subject { font-weight: 600; flex: 1; }
+    &__message-date { font-size: 0.8rem; color: var(--site-text-muted, #6b7280); }
+
+    &__message-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    &__message-body {
+        padding: 0 1rem 0.9rem;
+        color: var(--site-text, #111827);
+        white-space: pre-wrap;
+    }
+
+    &__compose {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--site-border, #e5e7eb);
+    }
+
     // ── Membership placeholder ──
     &__membership {
         display: flex;

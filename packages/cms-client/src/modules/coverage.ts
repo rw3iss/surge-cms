@@ -102,6 +102,7 @@ export const ROUTE_COVERAGE: string[] = [
     // ── messages ──
     'POST /api/v1/messages',
     'GET /api/v1/messages',
+    'GET /api/v1/messages/mine',
     'GET /api/v1/messages/:id',
     'PUT /api/v1/messages/:id/status',
     'DELETE /api/v1/messages/:id',

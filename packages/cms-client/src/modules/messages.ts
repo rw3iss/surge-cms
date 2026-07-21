@@ -3,7 +3,7 @@ import type {
     MessageByIdResponse, MessageStatusUpdateBody, MessageStatusUpdateResponse,
     MessageDeleteResponse, MessageBulkBody, MessageBulkResponse,
     MessageBulkStatusBody, MessageBulkStatusResponse,
-    MessageBulkDeleteBody, MessageBulkDeleteResponse,
+    MessageBulkDeleteBody, MessageBulkDeleteResponse, MessagesMineResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -20,6 +20,11 @@ export class MessagesModule extends ModuleBase {
     /** GET /messages — paginated admin list with status/search filters. */
     list(query?: MessageListQuery,): Promise<Paginated<MessageListResponse[number]>> {
         return this.getPaged<MessageListResponse[number]>('/messages', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /messages/mine — the authenticated user's own messages. */
+    listMine(): Promise<MessagesMineResponse> {
+        return this.get<MessagesMineResponse>('/messages/mine',);
     }
 
     /** GET /messages/:id — fetching marks unread → read. */

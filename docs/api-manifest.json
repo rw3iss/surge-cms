@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-20T13:14:49.798Z",
+  "generatedAt": "2026-07-21T03:12:42.562Z",
   "totalModules": 31,
-  "totalRoutes": 261,
+  "totalRoutes": 262,
   "modules": [
     {
       "module": "api-keys",
@@ -822,6 +822,13 @@
           "absolutePath": "/api/v1/messages/bulk-delete",
           "auth": "staff",
           "summary": "Bulk delete messages by id list."
+        },
+        {
+          "method": "GET",
+          "path": "/mine",
+          "absolutePath": "/api/v1/messages/mine",
+          "auth": "user",
+          "summary": "List the authenticated user's own submitted messages."
         },
         {
           "method": "GET",

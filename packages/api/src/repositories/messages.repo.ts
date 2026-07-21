@@ -48,6 +48,15 @@ export async function findMessages(
     };
 }
 
+/** Messages submitted by a given user (newest first). */
+export async function findMessagesByUserId(userId: string,): Promise<ContactMessage[]> {
+    const result = await query(
+        `SELECT * FROM contact_messages WHERE user_id = $1 ORDER BY created_at DESC`,
+        [userId,],
+    );
+    return result.rows.map((r,) => mapRow<ContactMessage>(r,));
+}
+
 export async function findMessageById(id: string,): Promise<ContactMessage> {
     const result = await query('SELECT * FROM contact_messages WHERE id = $1', [id,],);
 

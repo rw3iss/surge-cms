@@ -36,6 +36,9 @@ export interface MessageListQuery {
  *  (the service's `unreadCount` is not forwarded to the wire). */
 export type MessageListResponse = ContactMessage[];
 
+/** GET /messages/mine — the authenticated user's own messages (newest first). */
+export type MessagesMineResponse = ContactMessage[];
+
 // ─── POST /messages/bulk ──────────────────────────────────────────
 
 /** Body for POST /messages/bulk (unified bulk runner). */

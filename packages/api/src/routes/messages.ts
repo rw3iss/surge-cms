@@ -111,6 +111,14 @@ export const messagesRoutes = [
         },
     },),
 
+    // The current user's own messages (declared before /:id so 'mine' doesn't
+    // match the id param).
+    defineRoute({
+        method: 'get', path: '/mine', auth: 'user',
+        summary: 'List the authenticated user\'s own submitted messages.',
+        handler: ({ userId, },) => messages.listMine(userId!,),
+    },),
+
     // Get message by ID (admin)
     defineRoute({
         method: 'get', path: '/:id', auth: 'staff',

@@ -36,6 +36,11 @@ export async function list(
     };
 }
 
+/** The current user's own submitted messages (newest first). */
+export async function listMine(userId: string,): Promise<ContactMessage[]> {
+    return repo.findMessagesByUserId(userId,);
+}
+
 export async function getById(id: string,): Promise<ContactMessage | null> {
     try {
         return await repo.findMessageById(id,);
