@@ -375,6 +375,23 @@
   .admin-layout {
     &__hamburger {
       display: flex;
+
+      // When the sidebar is open this button is the CLOSE (X). Move it to the
+      // right edge of the open sidebar so it sits BESIDE the logo (logo left,
+      // close right) instead of on top of it, and drop the solid button chrome
+      // so it reads as a plain icon on the sidebar.
+      &--open {
+        left: calc(#{$admin-sidebar-width} - 42px - #{$spacing-md});
+        background: transparent;
+        box-shadow: none;
+      }
+    }
+
+    // Left-align the sidebar logo on mobile (base is centered) and keep it
+    // clear of the close button pinned to the right.
+    &__logo {
+      justify-content: flex-start;
+      padding-right: 54px;
     }
 
     &__overlay {

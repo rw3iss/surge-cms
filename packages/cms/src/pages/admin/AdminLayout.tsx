@@ -209,7 +209,9 @@ const AdminLayout: ParentComponent = (props,) => {
                         <A href="/" onClick={handleNavClick}>
                             <SiteLogo
                                 size="small"
-                                name={siteName()}
+                                // Show the site-name wordmark ONLY when no logo image
+                                // is configured; when a logo is set, render it alone.
+                                name={siteLogo() ? undefined : siteName()}
                                 logoSrc={siteLogo()}
                                 compact={collapsed()}
                             />
