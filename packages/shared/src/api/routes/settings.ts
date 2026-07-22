@@ -267,6 +267,40 @@ export interface SettingsServerLogsResponse {
     available: boolean;
 }
 
+// ─── GET /settings/cms-version ────────────────────────────────────────
+
+/** GET /settings/cms-version (admin) — installed vs latest CMS version. */
+export interface SettingsCmsVersionResponse {
+    /** The package the version reflects (`@sitesurge/server`). */
+    name: string;
+    /** Installed version, or null if it couldn't be read. */
+    current: string | null;
+    /** Latest published version, or null if npm couldn't be reached. */
+    latest: string | null;
+    /** True when `latest` is newer than `current`. */
+    updateAvailable: boolean;
+    /** True when the npm registry couldn't be reached. */
+    latestUnavailable: boolean;
+    /** ISO timestamp of the check. */
+    checkedAt: string;
+}
+
+// ─── POST /settings/update-cms ────────────────────────────────────────
+
+/** POST /settings/update-cms (admin) — result of the npm-install update.
+ *  On success the server exits ~1.5s later to restart with the new build. */
+export interface SettingsUpdateCmsResponse {
+    ok: boolean;
+    fromVersion: string | null;
+    toVersion: string | null;
+    /** Packages that were installed at `@latest`. */
+    updated: string[];
+    /** Tail of the npm install output (diagnostics). */
+    output: string;
+    /** True when the process will restart shortly. */
+    restarting: boolean;
+}
+
 // Re-export the computed feature projection for consumers wiring the
 // public settings shape (it already lives on SiteSettings.features).
 export type { SiteFeatures, };

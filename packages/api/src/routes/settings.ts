@@ -4,6 +4,7 @@ import { defineRoute, } from '../api/defineRoute';
 import * as serverLogs from '../services/serverLogs';
 import * as settings from '../services/settings';
 import * as swatches from '../services/swatches';
+import * as systemUpdate from '../services/systemUpdate';
 
 // ─── Schemas ──────────────────────────────────────────────────────────
 
@@ -182,6 +183,18 @@ export const settingsRoutes = [
         summary: 'Tail of the server combined log (admin diagnostics panel).',
         input: { query: z.object({ lines: z.coerce.number().int().min(1,).max(10000,).optional(), },), },
         handler: ({ query, },) => serverLogs.getServerLogs((query as { lines?: number; }).lines,),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/cms-version', auth: 'admin',
+        summary: 'Installed CMS version + latest published version (update check).',
+        handler: () => systemUpdate.getVersionInfo(),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/update-cms', auth: 'admin',
+        summary: 'Install the latest CMS packages and restart the server. Irreversible; brief downtime.',
+        handler: ({ audit, },) => systemUpdate.runUpdate(audit(),),
     },),
 
     defineRoute({

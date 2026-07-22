@@ -264,6 +264,8 @@ export const ROUTE_COVERAGE: string[] = [
     'PUT /api/v1/settings/site-colors',
     'GET /api/v1/settings/site-colors/usages/:id',
     'GET /api/v1/settings/server-logs',
+    'GET /api/v1/settings/cms-version',
+    'POST /api/v1/settings/update-cms',
     'PUT /api/v1/settings/:key',
     'DELETE /api/v1/settings/:key',
     'POST /api/v1/settings/features/:key/uninstall',

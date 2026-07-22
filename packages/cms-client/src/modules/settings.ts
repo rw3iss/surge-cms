@@ -11,6 +11,7 @@ import type {
     SettingsSiteColorsResponse, SettingsSiteColorsBody, SettingsSiteColorsReplaceResponse,
     SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
     SettingsServerLogsResponse,
+    SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 import { CmsError, FeatureCascadeError, isFeatureCascadeResult, } from '../core/errors';
@@ -189,6 +190,25 @@ export class SettingsModule extends ModuleBase {
     getServerLogs(lines?: number,): Promise<SettingsServerLogsResponse> {
         return this.get<SettingsServerLogsResponse>('/settings/server-logs', {
             query: lines != null ? { lines, } : undefined,
+        },);
+    }
+
+    // ─── CMS self-update ──────────────────────────────────────────
+
+    /** GET /settings/cms-version (admin) — installed vs latest CMS version. */
+    getCmsVersion(): Promise<SettingsCmsVersionResponse> {
+        return this.get<SettingsCmsVersionResponse>('/settings/cms-version',);
+    }
+
+    /**
+     * POST /settings/update-cms (admin) — install the latest CMS packages and
+     * restart the server. On success the backend exits ~1.5s after responding,
+     * so the connection drops shortly after this resolves; poll
+     * `getCmsVersion()` until the server is back, then reload.
+     */
+    updateCms(): Promise<SettingsUpdateCmsResponse> {
+        return this.mutate<SettingsUpdateCmsResponse>('POST', '/settings/update-cms', {
+            invalidates: ['settings',],
         },);
     }
 

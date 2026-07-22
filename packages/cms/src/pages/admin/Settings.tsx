@@ -7,6 +7,7 @@ import ColorPicker from '../../components/admin/appearance/ColorPicker';
 import ColorWheel from '../../components/admin/appearance/ColorWheel';
 import FontManagerPanel from '../../components/admin/appearance/FontManagerPanel';
 import FontSelect from '../../components/admin/common/FontSelect';
+import CmsUpdatePanel from '../../components/admin/panels/CmsUpdatePanel';
 import JobManagementPanel from '../../components/admin/panels/JobManagementPanel';
 import ServerLogsPanel from '../../components/admin/panels/ServerLogsPanel';
 import SitemapPanel from '../../components/admin/panels/SitemapPanel';
@@ -1486,6 +1487,8 @@ const AdminSettings: Component = () => {
                         One-shot maintenance tasks. Each runs immediately when triggered;
                         nothing here is scheduled.
                     </p>
+                    <CmsUpdatePanel />
+                    <div style={{ height: '0.75rem', }} />
                     <SitemapPanel />
 
                     <h2 class="settings-subheading" style={{ 'margin-top': '2rem', }}>Job Management</h2>

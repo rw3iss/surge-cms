@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-21T03:50:37.746Z",
+  "generatedAt": "2026-07-22T03:36:07.780Z",
   "totalModules": 31,
-  "totalRoutes": 263,
+  "totalRoutes": 265,
   "modules": [
     {
       "module": "api-keys",
@@ -1446,6 +1446,20 @@
           "absolutePath": "/api/v1/settings/server-logs",
           "auth": "admin",
           "summary": "Tail of the server combined log (admin diagnostics panel)."
+        },
+        {
+          "method": "GET",
+          "path": "/cms-version",
+          "absolutePath": "/api/v1/settings/cms-version",
+          "auth": "admin",
+          "summary": "Installed CMS version + latest published version (update check)."
+        },
+        {
+          "method": "POST",
+          "path": "/update-cms",
+          "absolutePath": "/api/v1/settings/update-cms",
+          "auth": "admin",
+          "summary": "Install the latest CMS packages and restart the server. Irreversible; brief downtime."
         },
         {
           "method": "PUT",
