@@ -58,22 +58,6 @@ const DEFAULT_ITEM: Partial<SiteHeaderItem> = {
     alignment: 'center',
 };
 
-const FONT_SIZE_OPTIONS = [
-    '8px',
-    '10px',
-    '12px',
-    '14px',
-    '16px',
-    '18px',
-    '20px',
-    '22px',
-    '24px',
-    '26px',
-    '28px',
-    '30px',
-    '32px',
-];
-
 const WIDTH_OPTIONS = ['auto', '100%', '50%', '33.333%', '25%', '20%',];
 const PADDING_OPTIONS = ['0px', '5px', '10px', '15px', '20px', '30px',];
 const MARGIN_OPTIONS = ['0px', '5px', '10px', '15px', '20px', '30px',];
@@ -717,21 +701,18 @@ const SiteHeaderEditor: Component = () => {
                         </div>
                         <div class="site-header-editor__field">
                             <label class="site-header-editor__label">Text Size</label>
-                            <select
+                            <input
+                                type="text"
                                 class="site-header-editor__input--sm"
                                 value={textSize()}
-                                onChange={(e,) => {
+                                onInput={(e,) => {
                                     setTextSize(e.currentTarget.value,);
                                     markDirty();
                                 }}
-                            >
-                                <option value="">Default</option>
-                                <For each={FONT_SIZE_OPTIONS}>
-                                    {(size,) => <option value={size}>{size}</option>}
-                                </For>
-                            </select>
+                                placeholder="Default (e.g. 16px, 1.1rem)"
+                            />
                             <Tooltip
-                                content="Default text size for all header items. Individual items override this with their own Font Size."
+                                content="Default text size for all header items — any valid CSS font-size (px, rem, em, %, clamp(), calc()). Individual items override this with their own Font Size. Leave empty to inherit the site font size."
                                 header="Text Size"
                             />
                         </div>

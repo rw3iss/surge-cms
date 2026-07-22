@@ -208,13 +208,18 @@
     }
 
     &__text {
-        font-size: $font-size-sm;
+        // Inherit the font-size from the item wrapper (which carries the item's
+        // own fontSize) or, when unset, the preview bar's header default size —
+        // so the preview faithfully reflects per-item + default sizing instead
+        // of forcing a fixed size that ignored both.
+        font-size: inherit;
         white-space: nowrap;
         padding: 0 $spacing-sm;
     }
 
     &__button {
-        font-size: $font-size-xs;
+        // Same: inherit item/default font-size so a per-item size shows here too.
+        font-size: inherit;
         color: #fff;
         padding: 4px 12px;
         border-radius: $border-radius-sm;
