@@ -35,6 +35,15 @@
     z-index: $z-index-sticky;
   }
 
+  // A floating header that is ALSO sticky stays pinned to the viewport
+  // (fixed) instead of scrolling away with the page (absolute). It keeps
+  // the transparent overlay-over-hero look but follows the scroll. Sticky
+  // is the default, so this applies unless the operator turned sticky off
+  // (which re-adds `header--no-sticky` and falls back to absolute above).
+  &--float:not(.header--no-sticky) {
+    position: fixed;
+  }
+
   // ─── Float right-side content ─────────────────────────────────────
   // The right-side controls (cart / admin / user / logout) are pulled out of
   // flow and pinned to the header's right edge so they don't push the main
