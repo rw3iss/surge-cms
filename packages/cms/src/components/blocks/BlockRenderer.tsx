@@ -86,12 +86,16 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         const explicit = props.block.settings.layout as string | undefined;
         if (explicit) return explicit;
         if (['carousel', 'hero',].includes(props.block.type,)) return 'full';
+        // NOTE: '100%' is the DEFAULT width (BLOCK_STYLE_DEFAULTS.width), not a
+        // full-bleed intent — treating it as one made a block with the default
+        // saved render differently from an unstyled block. So only a literal
+        // 'full'/'none' width counts as a full-width signal here.
         const fullish = (v: unknown,) => {
             const t = String(v ?? '',).trim().toLowerCase();
-            return t === 'full' || t === '100%' || t === 'none';
+            return t === 'full' || t === 'none';
         };
-        // A styled full width, OR any explicit style max-width (the operator's
-        // own cap is then authoritative), suppresses the 1200px inner column.
+        // A literal full width, OR any explicit style max-width (the operator's
+        // own cap is then authoritative), suppresses the default content column.
         const mw = s().maxWidth;
         if (fullish(s().width,) || (mw != null && String(mw,).trim() !== '')) {
             return 'full';
