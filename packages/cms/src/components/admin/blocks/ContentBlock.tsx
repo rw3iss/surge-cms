@@ -317,6 +317,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                         <HtmlInlineEditor
                             blockId={props.block.id}
                             content={props.block.data.content || ''}
+                            contentStyle={rteContentStyle()}
                             onChange={(next,) => props.onUpdate(props.block.id, {
                                 ...props.block.data,
                                 content: next,

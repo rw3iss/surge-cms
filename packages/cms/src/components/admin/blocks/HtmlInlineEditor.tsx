@@ -19,6 +19,7 @@ import {
     Component,
     createEffect,
     createSignal,
+    type JSX,
     onCleanup,
     onMount,
     Show,
@@ -57,6 +58,9 @@ interface HtmlInlineEditorProps {
     /** Current HTML content (from block.data.content). */
     content: string;
     onChange: (next: string,) => void;
+    /** Resolved block style (background/color/font/padding) applied to the
+     *  Preview so it matches the main block preview + the public output. */
+    contentStyle?: JSX.CSSProperties;
 }
 
 const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
@@ -204,6 +208,10 @@ const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
                 <Show when={mode() === 'preview'}>
                     <div
                         class="html-inline-editor__preview rich-text"
+                        // Apply the resolved block style so the Preview matches
+                        // the main block preview + public output (background
+                        // image, color, font, padding, …).
+                        style={props.contentStyle}
                         // eslint-disable-next-line solid/no-innerhtml
                         innerHTML={props.content || '<p style="color:#999;">No content yet.</p>'}
                     />
