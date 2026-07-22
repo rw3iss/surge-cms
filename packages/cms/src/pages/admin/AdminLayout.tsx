@@ -197,9 +197,25 @@ const AdminLayout: ParentComponent = (props,) => {
                     onClick={() => setSidebarOpen(!sidebarOpen(),)}
                     aria-label="Toggle navigation"
                 >
-                    <span />
-                    <span />
-                    <span />
+                    {/* Bars when closed; a clean, symmetric SVG X when open
+                        (the CSS bar-morph produced a lopsided X). */}
+                    <Show
+                        when={sidebarOpen()}
+                        fallback={<><span /><span /><span /></>}
+                    >
+                        <svg
+                            class="admin-layout__hamburger-x"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            aria-hidden="true"
+                        >
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                        </svg>
+                    </Show>
                 </button>
                 <Show when={sidebarOpen()}>
                     <div class="admin-layout__overlay" onClick={() => setSidebarOpen(false,)} />
