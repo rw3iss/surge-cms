@@ -216,9 +216,9 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 Dashboard, Pages, PageEditor, Posts, PostEditor, Campaigns, CampaignEditor, Forms, FormEditor, Users, Messages, MessageView, Media, Settings. Feature-gated **Social** hub (`/admin/social/*`, rendered only when `social` is enabled): SocialHub (shell) → SocialPostsPanel / SocialComposePanel / SocialConfigurationPanel (the last wraps the relocated `ConnectionsPanel`). Feature-gated Shop pages (`/admin/shop/*`, rendered only when `shop` is enabled): ShopDashboard, ShopProducts, ShopProductEditor, ShopCategories, ShopCollections, ShopOrders, ShopOrderDetail, ShopReviews, ShopSettings. Feature-gated Plugins pages (`/admin/plugins`, `/admin/plugins/:name`, rendered only when `plugins` is enabled): Plugins (table), PluginConfig (per-plugin custom config page).
 
 ### Key Components
-- **BlockRenderer** - Renders page blocks (hero, rich_text, image, video, post, form, campaign, html)
+- **BlockRenderer** - Renders page blocks (hero, rich_text/text, image, video, post, post_list, form, campaign, social, document, url_link, html, carousel, spacer, group, group_item). Its wrapper style and the admin inline-edit preview (`ContentBlock`) share `utils/blockStyleCss.ts` (`blockStyleLayoutCss`) so the two paths can't drift.
 - **ContentBlock** - Admin block editor wrapper with drag/drop
-- **Block types**: TextBlock, ImageBlock, VideoBlock, DocumentBlock, SocialMediaBlock, UrlLinkBlock
+- **Block types**: TextBlock, ImageBlock, VideoBlock, DocumentBlock, SocialBlock, UrlLinkBlock (see `config/blockTypes.ts` for the full registry)
 - **MediaPickerModal** - Reusable media selection dialog
 - **DonationForm** - Stripe Elements integration
 - **VideoPlayer** - Plyr-based video player

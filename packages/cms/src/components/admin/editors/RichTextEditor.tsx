@@ -128,7 +128,12 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
         const url = linkUrl().trim();
         if (!url) return;
         // Put the caret/selection back where it was before the input stole it.
-        restoreSelection();
+        // If there's no saved editor selection to restore, bail rather than
+        // apply the link to whatever happens to be selected elsewhere.
+        if (!restoreSelection()) {
+            editorRef?.focus();
+            return;
+        }
         // Replace any existing link on the selection, then apply the new URL
         // so re-linking previously-linked text swaps the href instead of
         // nesting anchors.
@@ -212,45 +217,45 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                     </button>
                 </div>
                 <div class="rte-toolbar__group">
-                    <button type="button" onClick={() => execCommand('justifyLeft',)} title="Align Left">
+                    <button type="button" onClick={() => execCommand('justifyLeft',)} aria-label="Align Left" title="Align Left">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('justifyCenter',)} title="Align Center">
+                    <button type="button" onClick={() => execCommand('justifyCenter',)} aria-label="Align Center" title="Align Center">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('justifyRight',)} title="Align Right">
+                    <button type="button" onClick={() => execCommand('justifyRight',)} aria-label="Align Right" title="Align Right">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('justifyFull',)} title="Justify">
+                    <button type="button" onClick={() => execCommand('justifyFull',)} aria-label="Justify" title="Justify">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                     </button>
                 </div>
                 <div class="rte-toolbar__group">
-                    <button type="button" onClick={() => execCommand('insertUnorderedList',)} title="Bullet List">
+                    <button type="button" onClick={() => execCommand('insertUnorderedList',)} aria-label="Bullet List" title="Bullet List">
                         <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="3" cy="4" r="1.5" fill="currentColor"/><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="3" cy="12" r="1.5" fill="currentColor"/><path d="M6 3.5h8M6 7.5h8M6 11.5h8" stroke="currentColor" stroke-width="1.2"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('insertOrderedList',)} title="Numbered List">
+                    <button type="button" onClick={() => execCommand('insertOrderedList',)} aria-label="Numbered List" title="Numbered List">
                         <svg viewBox="0 0 16 16" width="14" height="14"><text x="1" y="5.5" font-size="5" fill="currentColor" font-weight="700">1</text><text x="1" y="9.5" font-size="5" fill="currentColor" font-weight="700">2</text><text x="1" y="13.5" font-size="5" fill="currentColor" font-weight="700">3</text><path d="M6 3.5h8M6 7.5h8M6 11.5h8" stroke="currentColor" stroke-width="1.2"/></svg>
                     </button>
                 </div>
                 <div class="rte-toolbar__group">
-                    <button type="button" onClick={openLinkDialog} title="Insert Link">
+                    <button type="button" onClick={openLinkDialog} aria-label="Insert Link" title="Insert Link">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M6.5 9.5l3-3M7 11l-1.5 1.5a2.12 2.12 0 01-3-3L4 8m5-3l1.5-1.5a2.12 2.12 0 013 3L12 8" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
                     </button>
                     <Show when={props.onImageUpload}>
-                        <button type="button" onClick={insertImage} title="Insert Image">
+                        <button type="button" onClick={insertImage} aria-label="Insert Image" title="Insert Image">
                             <svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><path d="M1.5 11l3.5-3 2.5 2 3-4 4 5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/></svg>
                         </button>
                     </Show>
                 </div>
                 <div class="rte-toolbar__group">
-                    <button type="button" onClick={() => execCommand('removeFormat',)} title="Clear Formatting">
+                    <button type="button" onClick={() => execCommand('removeFormat',)} aria-label="Clear Formatting" title="Clear Formatting">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M8 3h4.5M6 3l-2 10" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('undo',)} title="Undo">
+                    <button type="button" onClick={() => execCommand('undo',)} aria-label="Undo" title="Undo">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 7l-3-3 3-3" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 4h9a4 4 0 010 8H6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
                     </button>
-                    <button type="button" onClick={() => execCommand('redo',)} title="Redo">
+                    <button type="button" onClick={() => execCommand('redo',)} aria-label="Redo" title="Redo">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M12 7l3-3-3-3" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 4H6a4 4 0 000 8h4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
                     </button>
                 </div>

@@ -452,7 +452,7 @@
     font-size: $font-size-sm;
     font-weight: 600;
     font-family: var(--admin-font-body, inherit);
-    padding: 2px 10px;
+    padding: $spacing-2xs 10px;
     border-radius: $border-radius-full;
 
     &--available {
@@ -481,7 +481,7 @@
     background: var(--admin-bg-subtle, #{color.adjust($border-color, $lightness: 6%)});
     color: var(--admin-text, #{$text-color});
     font-family: var(--admin-font-mono, ui-monospace, monospace);
-    font-size: 12px;
+    font-size: $font-size-xs;
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;

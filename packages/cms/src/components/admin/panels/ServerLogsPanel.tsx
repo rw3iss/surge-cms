@@ -71,7 +71,7 @@ const ServerLogsPanel: Component = () => {
             <Show when={open()}>
                 <div class="collapsible-panel__body">
                     <Show when={error()}>
-                        <p class="form-help" style={{ color: 'var(--admin-text, #b00020)', }}>{error()}</p>
+                        <p class="form-help" style={{ color: 'var(--admin-error, #ef4444)', }}>{error()}</p>
                     </Show>
                     <Show when={logs() && !logs()!.available}>
                         <p class="form-help">

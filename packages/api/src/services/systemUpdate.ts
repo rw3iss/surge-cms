@@ -13,7 +13,7 @@
  * Surfaced through Settings → Admin → Admin Operations (admin-only).
  */
 import { spawn, } from 'child_process';
-import { promises as fs, } from 'fs';
+import { existsSync, promises as fs, } from 'fs';
 import path from 'path';
 import { logger, } from '../utils/logger';
 import { logAudit, } from './audit';
@@ -168,8 +168,53 @@ function runNpmInstall(pkgs: string[],): Promise<{ code: number; output: string;
 /** Delay before exit so the HTTP response flushes to the client first. */
 const RESTART_DELAY_MS = 1500;
 
+/** Serialize updates — two concurrent `npm install`s in the same tree corrupt
+ *  node_modules. Reset only on failure (success exits the process). */
+let updateInProgress = false;
+
+/**
+ * True when the process appears to be running from the source monorepo rather
+ * than an installed package (a dev checkout). Self-update exits the process to
+ * hand off to a supervisor; in a dev checkout there's usually no supervisor, so
+ * exiting would just kill the server with no relaunch. We refuse to exit there.
+ */
+function looksLikeDevCheckout(): boolean {
+    const root = installRoot();
+    return existsSync(path.join(root, 'pnpm-workspace.yaml',),)
+        || existsSync(path.join(root, 'packages', 'api', 'src',),);
+}
+
 export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
     const fromVersion = await readInstalledVersion(PRIMARY_PACKAGE,);
+
+    // Guard: don't reinstall/restart when already on the latest published
+    // version (the panel disables the button, but the endpoint is unguarded).
+    // Skip the guard when npm was unreachable (latest unknown → allow).
+    const info = await getVersionInfo();
+    if (!info.updateAvailable && !info.latestUnavailable) {
+        return {
+            ok: true,
+            fromVersion,
+            toVersion: fromVersion,
+            updated: [],
+            output: `Already up to date (${fromVersion ?? 'unknown'}).`,
+            restarting: false,
+        };
+    }
+
+    // Guard: one update at a time.
+    if (updateInProgress) {
+        return {
+            ok: false,
+            fromVersion,
+            toVersion: fromVersion,
+            updated: [],
+            output: 'An update is already in progress.',
+            restarting: false,
+        };
+    }
+    updateInProgress = true;
+
     const pkgs = await installedPackages();
     logger.info(
         `systemUpdate: installing ${pkgs.map(p => `${p}@latest`,).join(', ',)} in ${installRoot()}`,
@@ -177,6 +222,7 @@ export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
 
     const { code, output, } = await runNpmInstall(pkgs,);
     if (code !== 0) {
+        updateInProgress = false;
         logger.error(`systemUpdate: npm install failed (exit ${code})`,);
         await logAudit({
             userId: ctx.userId,
@@ -200,8 +246,24 @@ export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
-    logger.info(`systemUpdate: updated ${fromVersion} → ${toVersion}; exiting in ${RESTART_DELAY_MS}ms for restart`,);
 
+    // In a dev checkout there's usually no supervisor to relaunch us, so exiting
+    // would just take the server down. Install the packages but skip the restart
+    // and tell the operator to restart manually.
+    if (looksLikeDevCheckout()) {
+        updateInProgress = false;
+        logger.warn('systemUpdate: dev checkout detected — installed update but NOT restarting (no supervisor). Restart manually.',);
+        return {
+            ok: true,
+            fromVersion,
+            toVersion,
+            updated: pkgs,
+            output: `${tail(output,)}\n\nInstalled ${toVersion ?? 'latest'}. Dev checkout — restart the server manually to apply.`,
+            restarting: false,
+        };
+    }
+
+    logger.info(`systemUpdate: updated ${fromVersion} → ${toVersion}; exiting in ${RESTART_DELAY_MS}ms for restart`,);
     // Exit shortly after we return so the response flushes; the supervisor
     // relaunches with the new build and migrations apply on boot.
     setTimeout(() => {
