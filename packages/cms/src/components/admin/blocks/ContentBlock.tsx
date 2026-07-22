@@ -6,6 +6,8 @@ import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../../utils/groupStyle';
+import { blockStyleLayoutCss, } from '../../../utils/blockStyleCss';
+import { toFlexAlign, } from '../../../utils/cssAlign';
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
@@ -136,15 +138,20 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         props.allBlocks.filter(b => b.parentBlockId === props.block.id)
             .sort((a, b,) => a.sort_order - b.sort_order,);
 
-    /** Resolved block style projected onto the inline Rich-Text editing area
-     *  so the admin preview matches the public output (background, color,
-     *  font, alignment, padding). Reactive on the block's styleRef, so it
-     *  updates once a style is saved; it never touches the editable content,
-     *  so applying it can't disturb the caret. */
-    const rteContentStyle = createMemo<JSX.CSSProperties | undefined>(() => {
+    /** Resolved block style projected onto the inline editing area (Rich Text
+     *  AND HTML preview) so the admin preview matches the public output. The
+     *  layout + typography subset comes from the SAME `blockStyleLayoutCss`
+     *  helper the public `BlockRenderer` uses, so the two can't drift; the
+     *  caller-specific background + color + padding are layered on here.
+     *  Reactive on the block's styleRef; never touches editable content, so
+     *  applying it can't disturb the caret. */
+    const resolvedContentStyle = createMemo<JSX.CSSProperties | undefined>(() => {
         const st = BlockStyleService.resolve(props.block,);
         if (!st) return undefined;
-        const out: JSX.CSSProperties = {};
+        const out: Record<string, string | undefined> = blockStyleLayoutCss(st as Record<string, any>, {
+            resolveFont: fontStack,
+            resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
+        },);
         const bg = colorCssValue(st.backgroundColor, '',);
         if (bg) out['background-color'] = bg;
         if (st.backgroundImage) {
@@ -155,29 +162,8 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         }
         const fg = colorCssValue(st.textColor, '',);
         if (fg) out.color = fg;
-        if (st.textAlign) out['text-align'] = st.textAlign as JSX.CSSProperties['text-align'];
-        if (st.fontSize) out['font-size'] = st.fontSize;
-        if (st.lineHeight) out['line-height'] = st.lineHeight;
-        const ff = fontStack(st.fontFamily,);
-        if (ff) out['font-family'] = ff;
         if (st.padding) out.padding = st.padding;
-        // Vertical alignment — mirror BlockRenderer: a non-top vertical align
-        // makes the block a flex column and pushes its content to center/bottom.
-        // The inline editor's preview fills its (drag-resizable) body height, so
-        // this centers/bottoms the content within that viewport just like the
-        // public output does within the block's box.
-        if (st.verticalAlign && st.verticalAlign !== 'top') {
-            out.display = 'flex';
-            out['flex-direction'] = 'column';
-            out['justify-content'] = st.verticalAlign === 'center'
-                ? 'center'
-                : st.verticalAlign === 'bottom'
-                ? 'flex-end'
-                : undefined;
-        }
-        if (st.overflowX) out['overflow-x'] = st.overflowX as JSX.CSSProperties['overflow-x'];
-        if (st.overflowY) out['overflow-y'] = st.overflowY as JSX.CSSProperties['overflow-y'];
-        return Object.keys(out,).length ? out : undefined;
+        return Object.keys(out,).length ? (out as JSX.CSSProperties) : undefined;
     },);
 
     return (
@@ -333,7 +319,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                         <HtmlInlineEditor
                             blockId={props.block.id}
                             content={props.block.data.content || ''}
-                            contentStyle={rteContentStyle()}
+                            contentStyle={resolvedContentStyle()}
                             onChange={(next,) => props.onUpdate(props.block.id, {
                                 ...props.block.data,
                                 content: next,
@@ -348,7 +334,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                                     ...props.block.data,
                                     content: next,
                                 },)}
-                                contentStyle={rteContentStyle()}
+                                contentStyle={resolvedContentStyle()}
                                 placeholder="Type your content here…"
                             />
                         </div>

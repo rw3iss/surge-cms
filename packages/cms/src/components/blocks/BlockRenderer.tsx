@@ -5,6 +5,7 @@ import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
+import { blockStyleLayoutCss, } from '../../utils/blockStyleCss';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
@@ -125,29 +126,19 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     }
                     : (bgColorValue() ? { background: bgColorValue(), } : {})),
                 color: color(s().textColor || (props.block.settings.textColor as string),),
-                'text-align': s().textAlign || undefined,
-                display: s().verticalAlign && s().verticalAlign !== 'top' ? 'flex' : undefined,
-                'flex-direction': s().verticalAlign && s().verticalAlign !== 'top' ? 'column' : undefined,
-                'justify-content': s().verticalAlign === 'center' ?
-                    'center' :
-                    s().verticalAlign === 'bottom' ?
-                    'flex-end' :
-                    undefined,
-                'font-size': s().fontSize || undefined,
-                'line-height': s().lineHeight || undefined,
-                'font-family': fontStack(s().fontFamily,),
-                // For a group_item the slot sizing (spread below) owns width /
-                // flex; the default style width (100%) would otherwise force
-                // each slot to a full row.
-                width: isGroupItem() ? undefined : (s().width || undefined),
-                'max-width': isGroupItem() ? undefined : (s().maxWidth || undefined),
-                'min-height': s().minHeight || undefined,
-                height: isGroupItem() ? undefined : (s().height || undefined),
-                // Horizontal alignment → a CSS var read by the block's item
-                // row/grid (e.g. the social grid) as its justify-content.
-                ...(s().horizontalAlign
-                    ? { '--block-h-align': toFlexAlign(s().horizontalAlign, 'flex-start',), }
-                    : {}),
+                // Layout + typography (text-align, vertical-align flex, font, box
+                // sizing, --block-h-align, margin, overflow) — shared with the
+                // admin inline-edit preview via blockStyleLayoutCss so the two
+                // render paths can't drift. `suppressBox` skips width/height for
+                // a group_item (its slot sizing, spread below, owns those).
+                // Background / color / padding stay inline here: the public path
+                // composites a color+image overlay and cascades the site-default
+                // padding, neither of which the flat admin preview has.
+                ...blockStyleLayoutCss(s(), {
+                    resolveFont: fontStack,
+                    resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
+                    suppressBox: isGroupItem(),
+                }),
                 padding: isCarousel() ? undefined : (
                     s().padding || (props.block.settings.padding as string) ||
                     // Only apply the site default padding when it isn't
@@ -164,16 +155,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                             : 'var(--site-block-padding, 0)'
                     )
                 ),
-                margin: (() => {
-                    const m = s().margin;
-                    if (!m) return undefined;
-                    const parts = m.trim().split(/\s+/,);
-                    return parts.length === 1 && m !== 'auto' ? `${m} auto` : m;
-                })(),
-                'overflow-x': s().overflowX || undefined,
-                'overflow-y': s().overflowY || undefined,
                 // group_item slot sizing (flex + width/min/max/align-self) —
                 // makes THIS wrapper the correctly-sized parent-group flex item.
+                // Spread LAST so a slot's width/height wins over the style box.
                 ...slotStyle(),
             }}
         >
