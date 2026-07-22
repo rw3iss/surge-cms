@@ -76,6 +76,29 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
 
+    // Inner wrapper's content-column class. An explicit `settings.layout` wins
+    // (legacy control); otherwise carousel/hero are full-bleed, and a block
+    // whose STYLE makes it full-width opts OUT of the default 1200px content
+    // column (`block__inner--contained`) so its content can fill the block —
+    // otherwise a `width: full` / `max-width: 100%` block would still have its
+    // inner content capped at 1200px, which contradicts the operator's intent.
+    const innerLayout = (): string => {
+        const explicit = props.block.settings.layout as string | undefined;
+        if (explicit) return explicit;
+        if (['carousel', 'hero',].includes(props.block.type,)) return 'full';
+        const fullish = (v: unknown,) => {
+            const t = String(v ?? '',).trim().toLowerCase();
+            return t === 'full' || t === '100%' || t === 'none';
+        };
+        // A styled full width, OR any explicit style max-width (the operator's
+        // own cap is then authoritative), suppresses the 1200px inner column.
+        const mw = s().maxWidth;
+        if (fullish(s().width,) || (mw != null && String(mw,).trim() !== '')) {
+            return 'full';
+        }
+        return 'contained';
+    };
+
     return (
         <Show when={!isHidden()}>
         <div
@@ -156,10 +179,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 <div class="block__bg-overlay" style={{ background: bgColorValue(), }} aria-hidden="true" />
             </Show>
             <div
-                class={`block__inner block__inner--${
-                    props.block.settings.layout ||
-                    (['carousel', 'hero',].includes(props.block.type,) ? 'full' : 'contained')
-                }`}
+                class={`block__inner block__inner--${innerLayout()}`}
                 style={{
                     ...(s().gap ? { display: 'flex', 'flex-direction': 'column', gap: s().gap, } : {}),
                     ...(s().overflowX ? { 'overflow-x': s().overflowX, 'max-width': '100%', } : {}),

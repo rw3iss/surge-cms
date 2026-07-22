@@ -161,6 +161,22 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         const ff = fontStack(st.fontFamily,);
         if (ff) out['font-family'] = ff;
         if (st.padding) out.padding = st.padding;
+        // Vertical alignment — mirror BlockRenderer: a non-top vertical align
+        // makes the block a flex column and pushes its content to center/bottom.
+        // The inline editor's preview fills its (drag-resizable) body height, so
+        // this centers/bottoms the content within that viewport just like the
+        // public output does within the block's box.
+        if (st.verticalAlign && st.verticalAlign !== 'top') {
+            out.display = 'flex';
+            out['flex-direction'] = 'column';
+            out['justify-content'] = st.verticalAlign === 'center'
+                ? 'center'
+                : st.verticalAlign === 'bottom'
+                ? 'flex-end'
+                : undefined;
+        }
+        if (st.overflowX) out['overflow-x'] = st.overflowX as JSX.CSSProperties['overflow-x'];
+        if (st.overflowY) out['overflow-y'] = st.overflowY as JSX.CSSProperties['overflow-y'];
         return Object.keys(out,).length ? out : undefined;
     },);
 
