@@ -64,6 +64,13 @@ export function createApp(mode: AppMode = 'running',): Express {
             // `same-origin-allow-popups` keeps the opener reference alive for
             // popups this page opens while still isolating us as a popup victim.
             crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups', },
+            // Helmet defaults Referrer-Policy to `no-referrer`, which strips the
+            // Referer entirely — but embedded players (YouTube's iframe) validate
+            // the embedding domain from it and fail with "Error 153" when it's
+            // absent. `strict-origin-when-cross-origin` (the modern browser
+            // default) sends only the origin cross-origin (no path/query), which
+            // satisfies YouTube while still not leaking full URLs.
+            referrerPolicy: { policy: 'strict-origin-when-cross-origin', },
             // CSP is handled separately (pluginAwareCsp) so enabled plugins can
             // extend connect-src/etc. with the origins their widgets need.
             contentSecurityPolicy: false,
