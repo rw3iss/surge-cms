@@ -1,41 +1,65 @@
-import { Component, JSX, } from 'solid-js';
+/**
+ * Toggle — the single project-wide on/off switch. Drop-in replacement for
+ * `<input type="checkbox">` for binary settings (anything conceptually "on or
+ * off", not "pick one/more from a set" — those stay plain checkboxes).
+ *
+ * Renders switch-first (switch on the left, optional label after) as a
+ * `role="switch"` button: one deliberate flip, keyboard-accessible via
+ * Enter/Space, announced with `aria-checked`. Styled by the co-located
+ * `Toggle.scss` (component-scoped so it works in BOTH the admin and the
+ * setup flow — the admin global stylesheet isn't loaded during setup).
+ *
+ * `admin/common/Toggle` re-exports this so its 20+ call sites are unchanged.
+ *
+ *   <Toggle checked={enabled()} onChange={setEnabled} />
+ *   <Toggle checked={x()} onChange={setX} label="Show advanced" size="sm" />
+ */
+import { Component, JSX, Show, } from 'solid-js';
 import './Toggle.scss';
 
 export interface ToggleProps {
     checked: boolean;
-    onChange: (checked: boolean,) => void;
-    label?: JSX.Element;
+    onChange: (next: boolean,) => void;
+    /** Optional inline label rendered after the switch. */
+    label?: string | JSX.Element;
     disabled?: boolean;
+    /** Visual size hint. Defaults to `md`. */
     size?: 'sm' | 'md';
-    /** When true, the visual style emphasizes the toggle as a section header pill. */
+    /** Larger label styling — used when the toggle acts as a section header. */
     emphasis?: boolean;
+    /** Optional aria-label for a bare switch with no surrounding label. */
+    ariaLabel?: string;
+    /** Optional class on the outer wrapper for ad-hoc tweaks. */
+    class?: string;
 }
 
-/**
- * Switch / toggle. Used both inline (next to a label) and inside
- * `FormSection` headers to "enable this section". The whole control is
- * a button so screen readers report `role="switch"` correctly.
- */
-export const Toggle: Component<ToggleProps> = (props,) => {
+export const Toggle: Component<ToggleProps> = (p,) => {
+    const onClick = (): void => {
+        if (p.disabled) return;
+        p.onChange(!p.checked,);
+    };
+
     return (
-        <button
-            type="button"
-            role="switch"
-            aria-checked={props.checked}
-            disabled={props.disabled}
-            class={[
-                'ui-toggle',
-                `ui-toggle--${props.size ?? 'md'}`,
-                props.checked ? 'is-checked' : '',
-                props.emphasis ? 'ui-toggle--emphasis' : '',
-            ].filter(Boolean,).join(' ',)}
-            onClick={() => props.onChange(!props.checked,)}
+        <span
+            class={`toggle-control ${p.size === 'sm' ? 'toggle-control--sm' : ''} ${
+                p.emphasis ? 'toggle-control--emphasis' : ''
+            } ${p.class ?? ''}`}
         >
-            <span class="ui-toggle__track">
-                <span class="ui-toggle__thumb" />
-            </span>
-            {props.label && <span class="ui-toggle__label">{props.label}</span>}
-        </button>
+            <Show when={p.label}>
+                <span class="toggle-control__label">{p.label}</span>
+            </Show>
+            <button
+                type="button"
+                class={`toggle-control__switch ${p.checked ? 'is-on' : ''}`}
+                onClick={onClick}
+                role="switch"
+                aria-checked={p.checked}
+                aria-label={p.ariaLabel}
+                disabled={p.disabled}
+            >
+                <span class="toggle-control__knob" />
+            </button>
+        </span>
     );
 };
 

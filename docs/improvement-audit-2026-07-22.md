@@ -47,3 +47,11 @@ Two findings are **live bugs**, not cosmetics:
 - **Phase C (planned, not applied):** U1/U2 Toggle unification (22 call sites), A3 column-list single-source, U7 RTE `.btn` migration, U10 Tooltip, utils barrel. These deserve a dedicated reviewed change — run `/implement` or `superpowers:writing-plans`.
 
 _Applied-status notes are appended inline as work lands._
+
+## 7. Phase C follow-up (second pass — applied)
+- **U1 Toggle unification — DONE.** `ui/Toggle` is now the single implementation (component-scoped SCSS carrying the former `admin/common/Toggle.scss` rules, so it loads in both the admin and setup flows). `admin/common/Toggle` re-exports it (20+ call sites unchanged, pixel-identical); dead `admin/common/Toggle.scss` removed + its global `@use` dropped from `AdminLayout.scss`. a11y upgraded to `role="switch"`/`aria-checked` across all sites.
+- **A3 block_styles single-source — DONE.** One ordered `STYLE_COLUMNS` array in `blockStyles.repo.ts` drives both the create INSERT and the update field-map (was two hand-lists).
+- **U7 RTE `.btn` migration — DONE.** Link-dialog Insert/Cancel use `.btn btn--primary/--secondary btn--small`; removed the bespoke SCSS + the `button:not(.ui-toggle)` hack.
+- **U10 Tooltip a11y — DONE.** Dropped misleading `role="button"`, derived `aria-label` from the tooltip header, added Escape-to-dismiss.
+- **U3/U4 empty-state — DONE (safely).** Added a `.block-message` class matching the inline values exactly (zero visual change) and replaced the 5 duplicated inline loading/empty paragraphs in `BlockRenderer`.
+- **Consciously skipped:** the `utils/` barrel (pure churn across 11 files, no functional gain — YAGNI) and folding `FeatureToggleRow` into the shared Toggle (it has bespoke blocked-state/confirmation behavior — an intentional larger variant).

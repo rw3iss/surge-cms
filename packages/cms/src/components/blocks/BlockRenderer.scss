@@ -340,3 +340,15 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+
+// Loading / empty status text inside a block (form/campaign/carousel resolvers).
+// Replaces repeated inline `color:var(--site-text-muted); text-align:center;
+// padding:1rem` paragraphs — same values, one class.
+.block-message {
+  color: var(--site-text-muted, #6b7280);
+  text-align: center;
+  padding: 1rem;
+
+  &--lg { padding: 2rem; }
+}

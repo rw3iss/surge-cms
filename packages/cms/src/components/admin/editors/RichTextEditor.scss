@@ -97,33 +97,15 @@
     }
   }
 
-  .ui-toggle {
+  .toggle-control {
     flex-shrink: 0;
   }
 
-  // Action buttons only — exclude the Toggle's internal <button> (.ui-toggle).
-  button:not(.ui-toggle) {
-    height: 32px;
-    padding: 0 $spacing-md;
-    border: 1px solid $border-color;
-    border-radius: $border-radius-sm;
-    background: $background;
-    color: var(--admin-page-text, #{$text-color});
-    font-size: $font-size-sm;
-    cursor: pointer;
-    white-space: nowrap;
-
-    // Primary styling on the Insert action (was `:first-of-type`, which the
-    // Toggle button would have stolen once added before it).
-    &.rte-link-dialog__insert {
-      background: var(--site-primary, #{$primary-color});
-      border-color: var(--site-primary, #{$primary-color});
-      color: white;
-    }
-
-    &:hover {
-      opacity: 0.9;
-    }
+  // Insert / Cancel use the shared `.btn` system (btn--primary / btn--secondary
+  // + btn--small) — no bespoke button styling, and the Toggle's own button is
+  // untouched since it isn't a `.btn`.
+  .btn {
+    flex-shrink: 0;
   }
 }
 

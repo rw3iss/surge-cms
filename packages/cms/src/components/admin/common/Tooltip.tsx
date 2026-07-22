@@ -110,9 +110,12 @@ const Tooltip: Component<TooltipProps> = (props,) => {
             onMouseLeave={hide}
             onFocusIn={show}
             onFocusOut={hide}
+            onKeyDown={(e,) => { if (e.key === 'Escape') hide(); }}
             tabIndex={0}
-            role="button"
-            aria-label="Help"
+            // Informational trigger (reveals on hover/focus) — NOT role="button":
+            // there's no click action, so button semantics were misleading. The
+            // label names the topic so screen readers announce what the help is for.
+            aria-label={props.header ? `Help: ${props.header}` : 'Help'}
         >
             <Show
                 when={props.icon}

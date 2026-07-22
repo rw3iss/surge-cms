@@ -3,6 +3,35 @@ import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 
+/**
+ * The block_styles VALUE columns as ordered `[camelCase field, snake_case
+ * column]` pairs — the SINGLE source for both `create` (INSERT) and `update`
+ * (dynamic SET). `name` / `is_default` are handled explicitly (required /
+ * default-flip), so they're not here. Add a new style property in ONE place:
+ * this list (+ a migration + the shared `BlockStyle` type / DTO / zod schema).
+ */
+const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string]> = [
+    ['backgroundColor', 'background_color',],
+    ['backgroundImage', 'background_image',],
+    ['backgroundPosition', 'background_position',],
+    ['textColor', 'text_color',],
+    ['textAlign', 'text_align',],
+    ['verticalAlign', 'vertical_align',],
+    ['horizontalAlign', 'horizontal_align',],
+    ['fontFamily', 'font_family',],
+    ['fontSize', 'font_size',],
+    ['lineHeight', 'line_height',],
+    ['width', 'width',],
+    ['maxWidth', 'max_width',],
+    ['minHeight', 'min_height',],
+    ['height', 'height',],
+    ['padding', 'padding',],
+    ['margin', 'margin',],
+    ['gap', 'gap',],
+    ['overflowX', 'overflow_x',],
+    ['overflowY', 'overflow_y',],
+];
+
 export async function findAll(): Promise<BlockStyle[]> {
     const result = await query(
         'SELECT * FROM block_styles ORDER BY is_default DESC, name ASC',
@@ -22,35 +51,18 @@ export async function findDefault(): Promise<BlockStyle | null> {
 }
 
 export async function create(data: Partial<BlockStyle>,): Promise<BlockStyle> {
+    // name + is_default are explicit; the rest derive from STYLE_COLUMNS so the
+    // column list, placeholders, and values can't fall out of sync.
+    const cols = ['name', 'is_default', ...STYLE_COLUMNS.map(([, col,],) => col),];
+    const values: unknown[] = [
+        data.name,
+        data.isDefault || false,
+        ...STYLE_COLUMNS.map(([key,],) => data[key],),
+    ];
+    const placeholders = values.map((_, i,) => `$${i + 1}`).join(', ',);
     const result = await query(
-        `INSERT INTO block_styles (name, is_default, background_color, background_image, background_position, text_color, text_align,
-                                   vertical_align, horizontal_align, font_family, font_size, line_height, width, max_width,
-                                   min_height, height, padding, margin, gap, overflow_x, overflow_y)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
-         RETURNING *`,
-        [
-            data.name,
-            data.isDefault || false,
-            data.backgroundColor,
-            data.backgroundImage,
-            data.backgroundPosition,
-            data.textColor,
-            data.textAlign,
-            data.verticalAlign,
-            data.horizontalAlign,
-            data.fontFamily,
-            data.fontSize,
-            data.lineHeight,
-            data.width,
-            data.maxWidth,
-            data.minHeight,
-            data.height,
-            data.padding,
-            data.margin,
-            data.gap,
-            data.overflowX,
-            data.overflowY,
-        ],
+        `INSERT INTO block_styles (${cols.join(', ',)}) VALUES (${placeholders}) RETURNING *`,
+        values,
     );
     return mapRow<BlockStyle>(result.rows[0],);
 }
@@ -60,28 +72,11 @@ export async function update(id: string, data: Partial<BlockStyle>,): Promise<Bl
     const updates: string[] = [];
     const values: unknown[] = [];
 
+    // Same single source as create() — plus the two explicit special columns.
     const fields: Record<string, string> = {
         name: 'name',
         isDefault: 'is_default',
-        backgroundColor: 'background_color',
-        backgroundImage: 'background_image',
-        backgroundPosition: 'background_position',
-        textColor: 'text_color',
-        textAlign: 'text_align',
-        verticalAlign: 'vertical_align',
-        horizontalAlign: 'horizontal_align',
-        fontFamily: 'font_family',
-        fontSize: 'font_size',
-        lineHeight: 'line_height',
-        width: 'width',
-        maxWidth: 'max_width',
-        minHeight: 'min_height',
-        height: 'height',
-        padding: 'padding',
-        margin: 'margin',
-        gap: 'gap',
-        overflowX: 'overflow_x',
-        overflowY: 'overflow_y',
+        ...Object.fromEntries(STYLE_COLUMNS,),
     };
 
     for (const [camelKey, dbKey,] of Object.entries(fields,)) {

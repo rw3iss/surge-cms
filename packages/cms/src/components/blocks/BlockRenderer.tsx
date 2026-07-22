@@ -573,7 +573,7 @@ const FormBlock: Component<{ block: Block; }> = (props,) => {
     return (
         <Show when={form()} fallback={
             <Show when={form.loading}>
-                <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>Loading form...</p>
+                <p class="block-message">Loading form...</p>
             </Show>
         }>
             <div class="form-block">
@@ -690,10 +690,10 @@ const CampaignBlock: Component<{ block: Block; }> = (props,) => {
             </Show>
             <Show when={isAllCampaigns()}>
                 <Show when={allCampaigns.loading}>
-                    <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>Loading campaigns...</p>
+                    <p class="block-message">Loading campaigns...</p>
                 </Show>
                 <Show when={!allCampaigns.loading && allCampaigns()?.length === 0}>
-                    <p style={{ color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', padding: '1rem', }}>No active campaigns.</p>
+                    <p class="block-message">No active campaigns.</p>
                 </Show>
                 <Show when={!allCampaigns.loading && (allCampaigns()?.length ?? 0) > 0}>
                     <div
@@ -925,7 +925,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
     },);
 
     return (
-        <Show when={items().length > 0} fallback={<div style={{ padding: '2rem', color: 'var(--site-text-muted, #6b7280)', 'text-align': 'center', }}>No carousel items</div>}>
+        <Show when={items().length > 0} fallback={<div class="block-message block-message--lg">No carousel items</div>}>
             <ResolvedHeroCarousel
                 items={items()}
                 options={options()}

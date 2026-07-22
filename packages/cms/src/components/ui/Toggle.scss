@@ -1,68 +1,90 @@
 @use '../../styles/variables' as *;
 
-.ui-toggle {
+// Project-wide on/off switch. Component-scoped (imported by Toggle.tsx) so it
+// loads in both the admin and the setup flow. Rules relocated verbatim from the
+// former admin/common/Toggle.scss — the 20+ admin call sites render identically.
+.toggle-control {
     display: inline-flex;
     align-items: center;
-    gap: $spacing-sm;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    color: $text-color;
-    font-size: $font-size-sm;
-    font-weight: 500;
+    gap: 0.5rem;
+    // Switch-first everywhere: the switch reads before its label across the
+    // whole admin. The label is DOM-first (for accessible reading order), so
+    // row-reverse puts the switch visually first.
+    flex-direction: row-reverse;
+    justify-content: flex-end;
 
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+    &__label {
+        font-size: 0.875rem;
+        color: var(--admin-text, #{$text-color});
     }
 
-    &__track {
+    &__switch {
         position: relative;
-        display: inline-block;
-        background-color: $border-color;
-        border-radius: $border-radius-full;
-        transition: background-color $transition-fast;
         flex-shrink: 0;
+        width: 38px;
+        height: 22px;
+        border-radius: 11px;
+        background: var(--admin-border, #{$border-color});
+        border: none;
+        cursor: pointer;
+        transition: background 120ms ease;
+        padding: 0;
+
+        &:focus-visible {
+            outline: 2px solid var(--site-primary, #{$primary-color});
+            outline-offset: 2px;
+        }
+
+        &.is-on {
+            background: var(--site-primary, #{$primary-color});
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     }
 
-    &__thumb {
+    &__knob {
         position: absolute;
         top: 2px;
         left: 2px;
-        background-color: #fff;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        box-shadow: $shadow-sm;
-        transition: transform $transition-fast;
+        background: #fff;
+        transition: left 120ms ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
+    &__switch.is-on &__knob { left: 18px; }
+
+    // Compact size for tight rows (e.g. a settings panel column with many
+    // toggles stacked). Same proportions, ~75% scale.
     &--sm {
-        .ui-toggle__track { width: 32px; height: 18px; }
-        .ui-toggle__thumb { width: 14px; height: 14px; }
-        &.is-checked .ui-toggle__thumb { transform: translateX(14px); }
+        gap: 0.4rem;
+
+        .toggle-control__label { font-size: 0.8rem; }
+
+        .toggle-control__switch {
+            width: 30px;
+            height: 18px;
+            border-radius: 9px;
+        }
+        .toggle-control__knob {
+            width: 14px;
+            height: 14px;
+            top: 2px;
+            left: 2px;
+        }
+        .toggle-control__switch.is-on .toggle-control__knob { left: 14px; }
     }
 
-    &--md {
-        .ui-toggle__track { width: 42px; height: 24px; }
-        .ui-toggle__thumb { width: 20px; height: 20px; }
-        &.is-checked .ui-toggle__thumb { transform: translateX(18px); }
-    }
-
-    &.is-checked .ui-toggle__track {
-        background-color: var(--site-primary, #{$primary-color});
-    }
-
+    // Section-header emphasis (used by FormSection's "enable this section").
     &--emphasis {
-        font-size: $font-size-base;
-        font-weight: 600;
-    }
-
-    &__label {
-        display: inline-block;
-    }
-
-    &:focus-visible .ui-toggle__track {
-        outline: 2px solid var(--site-primary, #{$primary-color});
-        outline-offset: 2px;
+        .toggle-control__label {
+            font-size: $font-size-base;
+            font-weight: 600;
+        }
     }
 }
