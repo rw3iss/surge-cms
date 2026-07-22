@@ -139,6 +139,23 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </select>
                     </FormField>
 
+                    {/* Row Padding — only the Horizontal Row layout scrolls, so
+                        this controls the padding INSIDE the scroll container
+                        (independent of the block's style padding). */}
+                    <Show when={(props.data.layout || 'grid') === 'row'}>
+                        <FormField
+                            label="Row Padding"
+                            hint="Optional. Any CSS padding value (e.g. 12px, 8px 16px). Applied inside the horizontal scroll row — separate from the block's style padding."
+                        >
+                            <input
+                                type="text"
+                                value={props.data.rowPadding || ''}
+                                onChange={(e,) => update({ rowPadding: e.currentTarget.value || undefined, },)}
+                                placeholder="e.g. 12px 16px"
+                            />
+                        </FormField>
+                    </Show>
+
                     <FormField label="Item width" hint="Optional. Any CSS width (e.g. 300px, 20rem). Sizes every post evenly across the grid.">
                         <input
                             type="text"

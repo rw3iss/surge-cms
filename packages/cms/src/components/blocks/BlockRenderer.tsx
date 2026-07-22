@@ -748,6 +748,9 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const rowHeight = () => (settings().rowHeight as string) || undefined;
     const itemWidth = () => (settings().itemWidth as string) || undefined;
     const itemHeight = () => (settings().itemHeight as string) || undefined;
+    // Padding INSIDE the horizontal scroll row (row layout only) — set via the
+    // block's main Edit properties, independent of the block-style padding.
+    const rowPadding = () => (settings().rowPadding as string) || undefined;
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
     // Auto-feed only fires when no slots are pinned. If the operator
@@ -786,7 +789,13 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         itemWidth() && layout() !== 'row' ? ' social-block__grid--fixed-width' : ''
                     }`}
                     style={{
-                        ...(blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {}),
+                        // Scroll-container padding: the Horizontal Row layout uses
+                        // its own `rowPadding` (set in the block's main properties)
+                        // when provided, so the block-style padding can stay on the
+                        // block wrapper. Other layouts keep the style padding here.
+                        ...((layout() === 'row' && rowPadding())
+                            ? { padding: rowPadding(), }
+                            : (blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {})),
                         ...(blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {}),
                         // rowHeight only constrains card height in the row layout;
                         // the outer block dimensions are left to the block style system.
