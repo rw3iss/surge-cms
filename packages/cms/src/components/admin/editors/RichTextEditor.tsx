@@ -16,6 +16,59 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
     const [showLinkDialog, setShowLinkDialog,] = createSignal(false,);
     const [linkUrl, setLinkUrl,] = createSignal('',);
 
+    // The selection is lost once focus moves to the link URL input, so we
+    // snapshot the editor's Range when the dialog opens and restore it before
+    // applying the link. Without this, execCommand('createLink') runs against
+    // an empty/collapsed selection and does nothing.
+    let savedRange: Range | null = null;
+
+    const saveSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const r = sel.getRangeAt(0,);
+            if (editorRef && editorRef.contains(r.commonAncestorContainer,)) {
+                savedRange = r.cloneRange();
+                return;
+            }
+        }
+        savedRange = null;
+    };
+
+    const restoreSelection = (): boolean => {
+        if (!savedRange || !editorRef) return false;
+        editorRef.focus();
+        const sel = window.getSelection();
+        if (!sel) return false;
+        sel.removeAllRanges();
+        sel.addRange(savedRange,);
+        return true;
+    };
+
+    /** The anchor element wrapping the current selection, if any (for prefill
+     *  + replace). Walks up from the selection to the editor root. */
+    const anchorInSelection = (): HTMLAnchorElement | null => {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return null;
+        let node: Node | null = sel.getRangeAt(0,).commonAncestorContainer;
+        while (node && node !== editorRef) {
+            if (node instanceof HTMLAnchorElement) return node;
+            node = node.parentNode;
+        }
+        return null;
+    };
+
+    const openLinkDialog = () => {
+        if (showLinkDialog()) {
+            setShowLinkDialog(false,);
+            return;
+        }
+        // Snapshot the selection NOW, while it's still in the editor, and
+        // prefill the box with the existing link (if the selection is one).
+        saveSelection();
+        setLinkUrl(anchorInSelection()?.getAttribute('href',) || '',);
+        setShowLinkDialog(true,);
+    };
+
     /**
      * Lift the editor's HTML up to the parent — but ONLY when we actually need
      * it (blur, Ctrl/Cmd+S), NOT on every keystroke. Propagating per keystroke
@@ -57,11 +110,20 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
     };
 
     const insertLink = () => {
-        if (linkUrl()) {
-            execCommand('createLink', linkUrl(),);
-            setLinkUrl('',);
-            setShowLinkDialog(false,);
-        }
+        const url = linkUrl().trim();
+        if (!url) return;
+        // Put the caret/selection back where it was before the input stole it.
+        restoreSelection();
+        // Replace any existing link on the selection, then apply the new URL
+        // so re-linking previously-linked text swaps the href instead of
+        // nesting anchors.
+        document.execCommand('unlink', false,);
+        document.execCommand('createLink', false, url,);
+        flush();
+        setLinkUrl('',);
+        setShowLinkDialog(false,);
+        savedRange = null;
+        editorRef?.focus();
     };
 
     const insertImage = async () => {
@@ -145,7 +207,7 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                     </button>
                 </div>
                 <div class="rte-toolbar__group">
-                    <button type="button" onClick={() => setShowLinkDialog(!showLinkDialog(),)} title="Insert Link">
+                    <button type="button" onClick={openLinkDialog} title="Insert Link">
                         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M6.5 9.5l3-3M7 11l-1.5 1.5a2.12 2.12 0 01-3-3L4 8m5-3l1.5-1.5a2.12 2.12 0 013 3L12 8" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
                     </button>
                     <Show when={props.onImageUpload}>
