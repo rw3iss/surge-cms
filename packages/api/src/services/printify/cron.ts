@@ -7,7 +7,7 @@
 import { logger, } from '../../utils/logger';
 import { cronRegistry, } from '../cron';
 import { getPrintifyConfig, } from './config';
-import { pollOrderStatuses, } from './fulfillment';
+import { pollOrderStatuses, retryPendingPrintifyFulfillment, } from './fulfillment';
 import { getStatus, syncProducts, } from './sync';
 
 const JOB_NAME = 'printify:sync';
@@ -22,6 +22,14 @@ async function tick(): Promise<void> {
         await pollOrderStatuses();
     } catch (err) {
         logger.warn(`printify order-status poll failed: ${(err as Error).message}`,);
+    }
+
+    // 1b) Self-heal paid orders whose Printify handoff didn't complete (submit
+    //     failed, or send-to-production was held for a missing payment method).
+    try {
+        await retryPendingPrintifyFulfillment();
+    } catch (err) {
+        logger.warn(`printify fulfillment retry failed: ${(err as Error).message}`,);
     }
 
     // 2) Refresh the catalog when the configured interval has elapsed.

@@ -139,6 +139,73 @@ export async function submitOrderToPrintify(orderId: string,): Promise<void> {
     }
 }
 
+/**
+ * Retry the Printify handoff for paid orders that didn't complete it. Two cases:
+ *   1. A paid order with Printify items but no `printify_order_id` — the checkout
+ *      submission failed (transient API error) and was never retried.
+ *   2. An order created in Printify but stuck at `printify_status='created'` — the
+ *      send-to-production charge was held (commonly: no valid payment method on the
+ *      Printify account at the time), so it never entered production.
+ * Idempotent + best-effort; runs on the printify cron so a stranded paid order
+ * self-heals once the underlying issue is resolved (e.g. a card added to Printify).
+ */
+export async function retryPendingPrintifyFulfillment(): Promise<{ resubmitted: number; produced: number; }> {
+    const cfg = await getPrintifyConfig();
+    if (!cfg) return { resubmitted: 0, produced: 0, };
+
+    let resubmitted = 0;
+    let produced = 0;
+
+    // (1) Paid orders with Printify items but no Printify order yet → (re)create.
+    const unsent = (await query(
+        `SELECT DISTINCT o.id
+             FROM shop_orders o
+             JOIN shop_order_items oi ON oi.order_id = o.id
+             JOIN shop_products p ON p.id = oi.product_id
+             WHERE o.printify_order_id IS NULL
+               AND o.status IN ('paid', 'processing')
+               AND p.external_provider = 'printify'
+             LIMIT 50`,
+    )).rows;
+    for (const row of unsent) {
+        try {
+            await submitOrderToPrintify(String(row.id,),);
+            resubmitted++;
+        } catch (err) {
+            logger.warn(`Printify resubmit failed for order ${row.id}: ${(err as Error).message}`,);
+        }
+    }
+
+    // (2) Created-but-not-produced orders → retry send-to-production when autoFulfill
+    //     is on (a payment method may have been added since the first attempt).
+    if (cfg.autoFulfill) {
+        const held = (await query(
+            `SELECT id, printify_order_id FROM shop_orders
+                 WHERE printify_order_id IS NOT NULL
+                   AND printify_status = 'created'
+                   AND status NOT IN ('cancelled', 'refunded')
+                 LIMIT 50`,
+        )).rows;
+        for (const row of held) {
+            try {
+                await sendToProduction(cfg, String(row.printify_order_id,),);
+                await query(
+                    `UPDATE shop_orders SET printify_status = 'in-production', updated_at = NOW() WHERE id = $1`,
+                    [row.id,],
+                );
+                produced++;
+            } catch (err) {
+                logger.warn(`Printify retry send-to-production failed for order ${row.id}: ${(err as Error).message}`,);
+            }
+        }
+    }
+
+    if (resubmitted || produced) {
+        logger.info(`Printify fulfillment retry: ${resubmitted} resubmitted, ${produced} sent to production.`,);
+    }
+    return { resubmitted, produced, };
+}
+
 /** Map Printify order status → shop status/fulfillment. */
 function mapStatus(pfStatus: string,): { status?: string; fulfillment?: string; } {
     switch (pfStatus) {
