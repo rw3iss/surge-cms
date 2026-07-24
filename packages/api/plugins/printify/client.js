@@ -11,11 +11,14 @@ export default {
 
         const { group, input, checkbox } = host.ui.form(cfg);
 
-        wrap.appendChild(group('API access token', input('apiToken', { type: 'password', placeholder: 'Printify personal access token' })));
-        wrap.appendChild(group('Shop ID', input('shopId', { placeholder: 'e.g. 28333614' })));
+        // input(key, type) takes a STRING type; set placeholders on the element.
+        const withPlaceholder = (elm, ph) => { if (ph) elm.placeholder = ph; return elm; };
+        wrap.appendChild(group('API access token', withPlaceholder(input('apiToken', 'password'), 'Printify personal access token')));
+        wrap.appendChild(group('Shop ID', withPlaceholder(input('shopId', 'text'), 'e.g. 28333614')));
         wrap.appendChild(group('Publish synced products immediately', checkbox('autoPublish')));
-        wrap.appendChild(group('Auto-sync interval (minutes)', input('syncIntervalMinutes', { type: 'number', placeholder: '60' })));
-        wrap.appendChild(group('Price markup (%)', input('priceMarkupPercent', { type: 'number', placeholder: '0' })));
+        wrap.appendChild(group('Auto-fulfill paid orders', checkbox('autoFulfill')));
+        wrap.appendChild(group('Auto-sync interval (minutes)', withPlaceholder(input('syncIntervalMinutes', 'number'), '60')));
+        wrap.appendChild(group('Price markup (%)', withPlaceholder(input('priceMarkupPercent', 'number'), '0')));
 
         const status = document.createElement('div');
         status.style.cssText = 'margin-top:10px;font-size:13px;line-height:1.5;';

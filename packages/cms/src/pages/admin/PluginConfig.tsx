@@ -140,9 +140,16 @@ const ConfigArea: Component<{
 
     return (
         <>
-            <Show when={mode() === 'custom'}>
-                <div ref={el} class="plugin-custom-config" />
-            </Show>
+            {/* The custom mount point is ALWAYS in the DOM so its ref is assigned
+                before onMount runs (a `ref` inside a <Show> that starts false is
+                undefined at mount — the plugin's mountConfig would never fire and
+                the page silently fell back to the schema form). Hidden until the
+                plugin's mountConfig has actually rendered into it. */}
+            <div
+                ref={el}
+                class="plugin-custom-config"
+                style={mode() === 'custom' ? undefined : { display: 'none', }}
+            />
             <Show when={mode() === 'declarative'}>
                 <PluginConfigForm plugin={props.plugin} onSave={props.saveConfig} />
             </Show>
