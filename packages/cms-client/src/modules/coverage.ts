@@ -314,6 +314,9 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/shop/settings/admin',
     'GET /api/v1/shop/settings/stripe-status',
     'PUT /api/v1/shop/settings',
+    // ── shop printify (POD sync; feature-gated) ──
+    'GET /api/v1/shop/printify/status',
+    'POST /api/v1/shop/printify/sync',
     // plugins
     'GET /api/v1/plugins/enabled',
     'GET /api/v1/plugins',

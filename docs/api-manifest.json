@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-22T05:49:13.659Z",
+  "generatedAt": "2026-07-24T15:49:34.861Z",
   "totalModules": 31,
-  "totalRoutes": 265,
+  "totalRoutes": 267,
   "modules": [
     {
       "module": "api-keys",
@@ -1794,6 +1794,20 @@
           "absolutePath": "/api/v1/shop/settings",
           "auth": "admin",
           "summary": "Update shop settings and/or appearance (admin); merges the partial and returns the full config."
+        },
+        {
+          "method": "GET",
+          "path": "/printify/status",
+          "absolutePath": "/api/v1/shop/printify/status",
+          "auth": "admin",
+          "summary": "Printify integration status: enabled, product counts, last sync time."
+        },
+        {
+          "method": "POST",
+          "path": "/printify/sync",
+          "absolutePath": "/api/v1/shop/printify/sync",
+          "auth": "admin",
+          "summary": "Pull the latest products from Printify into the shop (upsert + archive removed)."
         }
       ]
     },

@@ -623,3 +623,30 @@
         max-height: 22rem;
     }
 }
+
+
+// ─── Printify sync bar (Shop → Products) ─────────────────────────────
+.printify-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  flex-wrap: wrap;
+  margin-bottom: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+  background: var(--admin-bg-subtle, #{color.adjust($border-color, $lightness: 6%)});
+
+  &__title {
+    font-weight: 700;
+    margin-right: $spacing-sm;
+  }
+
+  &__meta {
+    font-size: $font-size-sm;
+    color: $text-light;
+  }
+
+  &__warn { color: $error-color; }
+}

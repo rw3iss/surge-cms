@@ -258,4 +258,37 @@ export class ShopModule extends ModuleBase {
         update: (body: ShopSettingsUpdateBody,): Promise<ShopSettingsUpdateResponse> =>
             this.mutate<ShopSettingsUpdateResponse>('PUT', '/shop/settings', { body, invalidates: ['shop',], },),
     };
+
+    /** Printify (POD) — sync the catalog + read integration status (admin).
+     *  Credentials come from the printify plugin's config. */
+    readonly printify = {
+        /** GET /shop/printify/status — enabled, product counts, last sync. */
+        status: (): Promise<PrintifyStatusResponse> =>
+            this.get<PrintifyStatusResponse>('/shop/printify/status',),
+
+        /** POST /shop/printify/sync — pull the latest products into the shop. */
+        sync: (): Promise<PrintifySyncResponse> =>
+            this.mutate<PrintifySyncResponse>('POST', '/shop/printify/sync', { invalidates: ['shop',], },),
+    };
+}
+
+/** GET /shop/printify/status */
+export interface PrintifyStatusResponse {
+    active: boolean;
+    productCount: number;
+    activeProductCount: number;
+    lastSyncedAt: string | null;
+    shopId: string | null;
+    syncIntervalMinutes: number | null;
+}
+
+/** POST /shop/printify/sync */
+export interface PrintifySyncResponse {
+    ok: boolean;
+    fetched: number;
+    upserted: number;
+    archived: number;
+    skipped: number;
+    errors: string[];
+    durationMs: number;
 }

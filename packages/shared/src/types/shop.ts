@@ -34,6 +34,17 @@ export interface ShopProduct {
     /** URL of the product's position-0 image. Populated on list responses;
      *  undefined on other reads, null when the product has no image. */
     primaryImageUrl?: string | null;
+    // ─── External source (Printify / other integrations) ───
+    /** Set when this product is synced from an external provider (e.g.
+     *  'printify'). External products are read-only in the admin and edited at
+     *  the provider. Null/undefined for native products. */
+    externalProvider?: string | null;
+    /** The provider's product id (idempotent-sync key with externalProvider). */
+    externalId?: string | null;
+    /** Deep link to manage this product at the provider. */
+    externalUrl?: string | null;
+    /** ISO timestamp of the last successful sync from the provider. */
+    externalSyncedAt?: string | null;
 }
 
 export interface ShopProductOption {
@@ -71,6 +82,9 @@ export interface ShopVariant {
     isDefault: boolean;
     createdAt: string;
     updatedAt: string;
+    /** External provider's variant id (e.g. Printify variant), for order
+     *  fulfillment mapping. Null for native variants. */
+    externalId?: string | null;
 }
 
 export type ShopProductMediaKind = 'image' | 'video';
@@ -78,7 +92,11 @@ export type ShopProductMediaKind = 'image' | 'video';
 export interface ShopProductMedia {
     id: string;
     productId: string;
-    mediaId: string;
+    /** Imported media asset id. Null when the row points at an external URL
+     *  (`externalUrl`) instead — e.g. a Printify CDN image. */
+    mediaId?: string | null;
+    /** External image URL (used when mediaId is null). */
+    externalUrl?: string | null;
     variantId?: string | null;
     position: number;
     kind: ShopProductMediaKind;

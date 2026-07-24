@@ -102,9 +102,11 @@ describe('shop products service', () => {
         const variantInserts = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
         expect(optionInserts.length,).toBe(0,);
         expect(variantInserts.length,).toBe(1,);
-        // is_default (last param) true for the synthesized default variant
+        // is_default true for the synthesized default variant. It's the
+        // second-to-last param now (external_id was appended as the last).
         const params = variantInserts[0].params as unknown[];
-        expect(params[params.length - 1],).toBe(true,);
+        expect(params[params.length - 2],).toBe(true,);
+        expect(params[params.length - 1],).toBe(null,); // external_id (native → null)
     },);
 
     it('taxonomy-only update does NOT touch variants/options (no structure wipe)', async () => {

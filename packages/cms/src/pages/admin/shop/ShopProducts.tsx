@@ -8,6 +8,7 @@ import { useSearchFilter, } from '../../../hooks/useSearchFilter';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
 import { money, } from '../../shop/shopFormat';
+import PrintifySyncBar from './PrintifySyncBar';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { createResource, } from 'solid-js';
@@ -75,6 +76,7 @@ const ShopProductsInner: Component = () => {
                 <h1>Products</h1>
                 <A href="/admin/shop/products/new" class="btn btn--primary">New Product</A>
             </div>
+            <PrintifySyncBar onSynced={() => list.refetch()} />
             <div class="admin-filter-bar">
                 <input
                     class="admin-filter-bar__search"

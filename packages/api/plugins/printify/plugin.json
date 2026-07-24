@@ -1,0 +1,54 @@
+{
+  "name": "printify",
+  "label": "Printify",
+  "description": "Sync your Printify print-on-demand catalog into the built-in Shop. Products, variants, images and product types are ingested so the storefront, categories and reviews work natively; checkout uses Stripe and paid orders are sent to Printify for fulfillment.",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "author": "SiteSurge",
+  "homepage": "https://printify.com",
+  "server": "server.js",
+  "client": "client.js",
+  "capabilities": ["config-page"],
+  "adminOnlyToggle": true,
+  "csp": {
+    "connectSrc": ["https://api.printify.com"],
+    "imgSrc": ["https://images-api.printify.com", "https://images.printify.com"]
+  },
+  "configSchema": [
+    {
+      "key": "apiToken",
+      "label": "API access token",
+      "type": "secret",
+      "required": true,
+      "help": "Printify → My account → Connections → Personal access tokens. Needs shops/products/orders scopes."
+    },
+    {
+      "key": "shopId",
+      "label": "Shop ID",
+      "type": "string",
+      "required": true,
+      "help": "Your numeric Printify shop id. Click 'Test connection' to list your shops and verify."
+    },
+    {
+      "key": "autoPublish",
+      "label": "Publish synced products immediately",
+      "type": "boolean",
+      "default": true,
+      "help": "On: imported products go live (active). Off: import as drafts for review before publishing."
+    },
+    {
+      "key": "syncIntervalMinutes",
+      "label": "Auto-sync interval (minutes)",
+      "type": "number",
+      "default": 60,
+      "help": "Background refresh cadence. 0 disables auto-sync (manual 'Sync from Printify' only)."
+    },
+    {
+      "key": "priceMarkupPercent",
+      "label": "Price markup (%)",
+      "type": "number",
+      "default": 0,
+      "help": "Optional uplift on Printify's retail price. 0 = use Printify's price as-is."
+    }
+  ]
+}

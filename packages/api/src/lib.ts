@@ -27,6 +27,7 @@ import { cache, } from './services/cache';
 import { cronRegistry, } from './services/cron';
 import { verifyEmailConfig, } from './services/email';
 import { getInstallationState, } from './services/installation';
+import { initPrintifyCron, } from './services/printify/cron';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
@@ -81,6 +82,7 @@ async function bootRunningMode(): Promise<void> {
 
     await initSocialCrons();
     initScheduledPublisher();
+    initPrintifyCron();
     cronRegistry.startAll();
     logger.info('Cron jobs started',);
 

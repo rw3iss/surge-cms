@@ -48,9 +48,10 @@ const VALID_SORT_COLUMNS: Record<string, string> = {
 const LIST_EXTRAS = `
     (SELECT MIN(v.price_cents) FROM shop_variants v
          WHERE v.product_id = shop_products.id) AS from_price_cents,
-    (SELECT m.url FROM shop_product_media spm
-         JOIN media m ON m.id = spm.media_id
+    (SELECT COALESCE(m.url, spm.external_url) FROM shop_product_media spm
+         LEFT JOIN media m ON m.id = spm.media_id
          WHERE spm.product_id = shop_products.id AND spm.kind = 'image'
+           AND (spm.media_id IS NOT NULL OR spm.external_url IS NOT NULL)
          ORDER BY spm.position ASC LIMIT 1) AS primary_image_url`;
 
 export interface ProductFilters {
@@ -145,10 +146,13 @@ async function loadVariants(productId: string,): Promise<ShopVariant[]> {
 
 async function loadMedia(productId: string,): Promise<ShopProductMediaDetail[]> {
     const result = await query(
-        `SELECT pm.*, m.url, m.thumbnail_url, m.alt, m.mime_type AS media_type
+        // COALESCE lets a Printify (external_url) row resolve without an imported
+        // media asset; native rows still resolve through the media join.
+        `SELECT pm.*, COALESCE(m.url, pm.external_url) AS url, m.thumbnail_url, m.alt, m.mime_type AS media_type
              FROM shop_product_media pm
-             JOIN media m ON m.id = pm.media_id
+             LEFT JOIN media m ON m.id = pm.media_id
              WHERE pm.product_id = $1
+               AND (pm.media_id IS NOT NULL OR pm.external_url IS NOT NULL)
              ORDER BY pm.position ASC`,
         [productId,],
     );
@@ -240,6 +244,76 @@ export async function updateProduct(id: string, data: Record<string, unknown>,):
     return updateById<ShopProduct>('shop_products', id, data, 'Product',);
 }
 
+// ─── External-source (Printify) upsert + reconciliation ───────────────
+
+export interface ExternalProductFields {
+    externalProvider: string;
+    externalId: string;
+    title: string;
+    slug: string;
+    description?: string | null;
+    status?: string;
+    externalUrl?: string | null;
+    metaTitle?: string | null;
+    metaDescription?: string | null;
+}
+
+/**
+ * Insert or update a product keyed on (external_provider, external_id) — the
+ * idempotent core of a provider sync. Returns the product row (id stable across
+ * re-syncs). Sets external_synced_at = now().
+ */
+export async function upsertExternalProduct(f: ExternalProductFields, client?: PoolClient,): Promise<ShopProduct> {
+    const sql =
+        `INSERT INTO shop_products (title, slug, description, type, status,
+                                    meta_title, meta_description,
+                                    external_provider, external_id, external_url, external_synced_at)
+             VALUES ($1, $2, $3, 'physical', $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (external_provider, external_id) WHERE external_provider IS NOT NULL
+         DO UPDATE SET title = EXCLUDED.title, slug = EXCLUDED.slug,
+                       description = EXCLUDED.description, status = EXCLUDED.status,
+                       meta_title = EXCLUDED.meta_title, meta_description = EXCLUDED.meta_description,
+                       external_url = EXCLUDED.external_url, external_synced_at = NOW()
+         RETURNING *`;
+    const params = [
+        f.title,
+        f.slug,
+        f.description ?? null,
+        f.status || 'active',
+        f.metaTitle ?? null,
+        f.metaDescription ?? null,
+        f.externalProvider,
+        f.externalId,
+        f.externalUrl ?? null,
+    ];
+    const result = client ? await client.query(sql, params,) : await query(sql, params,);
+    return mapRow<ShopProduct>(result.rows[0],);
+}
+
+/** All external products for a provider — id + external_id + status, used to
+ *  reconcile (archive rows that vanished from the provider on a sync). */
+export async function findExternalProductRefs(
+    provider: string,
+): Promise<{ id: string; externalId: string; status: string; }[]> {
+    const result = await query(
+        `SELECT id, external_id, status FROM shop_products WHERE external_provider = $1`,
+        [provider,],
+    );
+    return result.rows.map((r,) => ({ id: r.id as string, externalId: r.external_id as string, status: r.status as string, }));
+}
+
+/** Archive external products (soft delete) whose ids are no longer present at
+ *  the provider. Returns the count archived. */
+export async function archiveExternalProducts(ids: string[],): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await query(
+        `UPDATE shop_products SET status = 'archived', updated_at = NOW()
+             WHERE id = ANY($1::uuid[]) AND status <> 'archived'`,
+        [ids,],
+    );
+    return result.rowCount ?? 0;
+}
+
 export async function deleteProduct(id: string,): Promise<void> {
     return deleteById('shop_products', id, 'Product',);
 }
@@ -266,10 +340,15 @@ export interface StructureVariantInput {
     imageId?: string | null;
     position?: number;
     isDefault?: boolean;
+    /** External provider variant id (Printify), for order fulfillment. */
+    externalId?: string | null;
 }
 
 export interface StructureMediaInput {
-    mediaId: string;
+    /** Imported media asset id. Provide EITHER mediaId OR externalUrl. */
+    mediaId?: string | null;
+    /** External image URL (e.g. a Printify CDN mockup) — no imported asset. */
+    externalUrl?: string | null;
     variantId?: string | null;
     position?: number;
     kind?: 'image' | 'video';
@@ -326,8 +405,8 @@ export async function replaceProductStructure(
             await c.query(
                 `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
                                             inventory_qty, weight_grams, requires_shipping, shipping_cents,
-                                            option1, option2, option3, image_id, position, is_default)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                                            option1, option2, option3, image_id, position, is_default, external_id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
                 [
                     productId,
                     v.sku ?? null,
@@ -343,6 +422,7 @@ export async function replaceProductStructure(
                     uuidOrNull(v.imageId ?? null,),
                     v.position ?? i,
                     v.isDefault ?? (variants.length === 1),
+                    v.externalId ?? null,
                 ],
             );
         }
@@ -353,12 +433,24 @@ export async function replaceProductStructure(
         const media = structure.media ?? [];
         for (let i = 0; i < media.length; i++) {
             const m = media[i];
+            // A media row references EITHER an imported asset (media_id) OR an
+            // external URL. External rows have a NULL media_id (which never
+            // conflicts on the (product_id, media_id) unique index — NULLs are
+            // distinct), so the ON CONFLICT arm only applies to imported assets.
             await c.query(
-                `INSERT INTO shop_product_media (product_id, media_id, variant_id, position, kind)
-                     VALUES ($1, $2, $3, $4, $5)
+                `INSERT INTO shop_product_media (product_id, media_id, external_url, variant_id, position, kind)
+                     VALUES ($1, $2, $3, $4, $5, $6)
                      ON CONFLICT (product_id, media_id) DO UPDATE SET
-                         variant_id = EXCLUDED.variant_id, position = EXCLUDED.position, kind = EXCLUDED.kind`,
-                [productId, m.mediaId, uuidOrNull(m.variantId ?? null,), m.position ?? i, m.kind || 'image',],
+                         external_url = EXCLUDED.external_url, variant_id = EXCLUDED.variant_id,
+                         position = EXCLUDED.position, kind = EXCLUDED.kind`,
+                [
+                    productId,
+                    uuidOrNull(m.mediaId ?? null,),
+                    m.externalUrl ?? null,
+                    uuidOrNull(m.variantId ?? null,),
+                    m.position ?? i,
+                    m.kind || 'image',
+                ],
             );
         }
     };

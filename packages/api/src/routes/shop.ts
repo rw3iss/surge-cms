@@ -23,6 +23,7 @@ import { NotFoundError, } from '../core/errors';
 import * as catalog from '../services/shop/catalog';
 import * as checkout from '../services/shop/checkout';
 import * as orders from '../services/shop/orders';
+import * as printify from '../services/printify';
 import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
 import * as shopSettings from '../services/shop/settings';
@@ -661,5 +662,20 @@ export const shopRoutes = [
         summary: 'Update shop settings and/or appearance (admin); merges the partial and returns the full config.',
         input: { body: shopSettingsUpdateSchema, },
         handler: ({ body, audit, },) => shopSettings.update(body, audit(),),
+    },),
+
+    // ── Printify (POD) — sync + status. Credentials come from the printify
+    // plugin's config; these run the ingest into the native shop. ──
+
+    defineRoute({
+        method: 'get', path: '/printify/status', auth: 'admin',
+        summary: 'Printify integration status: enabled, product counts, last sync time.',
+        handler: () => printify.getStatus(),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/printify/sync', auth: 'admin',
+        summary: 'Pull the latest products from Printify into the shop (upsert + archive removed).',
+        handler: () => printify.syncProducts(),
     },),
 ];
