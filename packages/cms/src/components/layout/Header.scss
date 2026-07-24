@@ -307,7 +307,7 @@
     position: absolute;
     top: calc(100% + #{$spacing-xs});
     right: 0;
-    min-width: 180px;
+    min-width: 220px;
     display: flex;
     flex-direction: column;
     background: $background;
@@ -317,6 +317,10 @@
     box-shadow: $shadow-lg;
     padding: $spacing-xs;
     z-index: $z-index-dropdown;
+    // Base font size for the menu. Items use `font: inherit`, so this — not the
+    // header's (larger) Text Size — sets their size. The trigger/gear keeps the
+    // header size; only this dropdown's contents drop to a comfortable 14px.
+    font-size: 14px;
   }
 
   &__account-item {
