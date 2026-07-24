@@ -1,4 +1,6 @@
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { NotFoundError, } from '@sitesurge/client';
+import { useToast, } from '../../components/common/toast';
 import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
@@ -94,6 +96,7 @@ const AdminPageEditor: Component = () => {
     // be the homepage at a time; the backend clears the flag on others
     // when this page saves with isHomepage=true.
     const [isHomepage, setIsHomepage,] = createSignal(false,);
+    const toast = useToast();
 
     // Per-block create/update/delete/reorder sync (page-specific; posts
     // embed their blocks in the save payload instead).
@@ -106,7 +109,15 @@ const AdminPageEditor: Component = () => {
         const currentIds = new Set(currentBlocks.map(b => b.id),);
         const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
         for (const id of deletedIds) {
-            await cms.pages.deleteBlock(pageId, id,);
+            try {
+                await cms.pages.deleteBlock(pageId, id,);
+            } catch (err) {
+                // A 404 means the block is already gone — e.g. it was a child of
+                // a block we just deleted (the backend cascade-removes children),
+                // or it was removed in an earlier save. That's the desired end
+                // state, so don't let it fail the whole page save.
+                if (!(err instanceof NotFoundError)) throw err;
+            }
         }
 
         // Per-parent "order" is a block's index within its siblings. Compute
@@ -237,6 +248,25 @@ const AdminPageEditor: Component = () => {
         },
     },);
 
+    /** Apply a locally-saved draft (fields + blocks) over the server-hydrated
+     *  state. `savedBlocks`/`originalBlockIds` stay as the SERVER state so the
+     *  save reconcile still knows what's actually persisted; only the CURRENT
+     *  (unsaved) `blocks` + fields come from the draft. */
+    const applyDraft = (d: Record<string, any>,) => {
+        if (d.title != null) setTitle(d.title,);
+        if (d.titleAlignment != null) setTitleAlignment(d.titleAlignment,);
+        if (d.slug != null) setSlug(d.slug,);
+        if (d.status != null) setStatus(d.status,);
+        if (d.accessLevel != null) setAccessLevel(d.accessLevel,);
+        if (d.showTitle != null) setShowTitle(d.showTitle !== false,);
+        if (d.applyPagePadding != null) setApplyPagePadding(d.applyPagePadding !== false,);
+        if (d.applySiteGutter != null) setApplySiteGutter(d.applySiteGutter !== false,);
+        if (d.headerStyle != null) setHeaderStyle(d.headerStyle,);
+        if (d.headerPosition != null) setHeaderPosition(d.headerPosition,);
+        if (d.isHomepage != null) setIsHomepage(Boolean(d.isHomepage,),);
+        if (Array.isArray(d.blocks,)) editor.setBlocks(d.blocks as BlockData[],);
+    };
+
     // ─── Hydrate signals from the loaded page ───
     createEffect(() => {
         const p = editor.entity();
@@ -261,6 +291,22 @@ const AdminPageEditor: Component = () => {
             editor.setBlocks(converted,);
             editor.setSavedBlocks(structuredClone(converted,),);
             editor.setOriginalBlockIds(new Set<string>(blockList.map((b,) => String(b.id,)),),);
+        }
+
+        // Draft restore: if a locally-saved draft is NEWER than the server
+        // version (i.e. unsaved edits from before a reload / a failed save),
+        // load it over the server content so nothing is lost. A real save
+        // clears the draft; a draft older than the server version is stale and
+        // discarded.
+        const draft = editor.autoSave.getDraft();
+        if (draft) {
+            const serverUpdated = new Date((p as any).updatedAt || 0,).getTime();
+            if (draft.timestamp > serverUpdated + 1000) {
+                applyDraft(draft.data as Record<string, any>,);
+                toast.info('Restored your unsaved draft for this page.',);
+            } else {
+                editor.autoSave.clear(); // stale draft — page was saved since
+            }
         }
     },);
 
