@@ -49,6 +49,13 @@
       "type": "number",
       "default": 0,
       "help": "Optional uplift on Printify's retail price. 0 = use Printify's price as-is."
+    },
+    {
+      "key": "autoFulfill",
+      "label": "Auto-fulfill paid orders",
+      "type": "boolean",
+      "default": true,
+      "help": "On: paid orders are submitted to Printify AND sent to production automatically. Off: orders are created in Printify but held for manual review (recommended for first tests)."
     }
   ]
 }

@@ -59,6 +59,16 @@ const ShopOrderConfirmationInner: Component = () => {
                                     Order <strong>{o().orderNumber}</strong> — status{' '}
                                     <span class={`shop-order__status shop-order__status--${o().status}`}>{o().status}</span>
                                 </p>
+                                <Show when={o().trackingNumber}>
+                                    <p class="shop-order__tracking">
+                                        Tracking: {o().carrier ? `${o().carrier} · ` : ''}
+                                        <Show when={o().trackingUrl} fallback={<strong>{o().trackingNumber}</strong>}>
+                                            <a href={o().trackingUrl!} target="_blank" rel="noopener noreferrer">
+                                                {o().trackingNumber}
+                                            </a>
+                                        </Show>
+                                    </p>
+                                </Show>
                             </header>
 
                             <div class="shop-order__items">

@@ -115,7 +115,35 @@ export async function testConnection(cfg: PrintifyConfig,): Promise<{ ok: true; 
     return { ok: true, shopTitle: shop ? shop.title : `(shop ${cfg.shopId} not found in account)`, };
 }
 
-/** Create a fulfillment order (used by the commerce layer). */
+// ─── Orders / shipping (commerce) ─────────────────────────────────────
+
+export interface PrintifyLineItem {
+    product_id: string;
+    variant_id: number;
+    quantity: number;
+}
+
+/** Calculate shipping for a set of line items to an address. Returns cents per
+ *  method: { standard, express?, priority?, printify_express? }. */
+export async function calcShipping(
+    cfg: PrintifyConfig,
+    lineItems: PrintifyLineItem[],
+    addressTo: Record<string, unknown>,
+): Promise<{ standard?: number; express?: number; priority?: number; printify_express?: number; }> {
+    return req(cfg, 'POST', `/shops/${cfg.shopId}/orders/shipping.json`, { line_items: lineItems, address_to: addressTo, },);
+}
+
+/** Create a fulfillment order. Returns the created Printify order (with id). */
 export async function createOrder(cfg: PrintifyConfig, order: unknown,): Promise<any> {
     return req(cfg, 'POST', `/shops/${cfg.shopId}/orders.json`, order,);
+}
+
+/** Send a created order to production (actually fulfill it). */
+export async function sendToProduction(cfg: PrintifyConfig, printifyOrderId: string,): Promise<any> {
+    return req(cfg, 'POST', `/shops/${cfg.shopId}/orders/${printifyOrderId}/send_to_production.json`,);
+}
+
+/** Fetch a Printify order (status + shipments for tracking sync). */
+export async function getOrder(cfg: PrintifyConfig, printifyOrderId: string,): Promise<any> {
+    return req(cfg, 'GET', `/shops/${cfg.shopId}/orders/${printifyOrderId}.json`,);
 }

@@ -18,6 +18,10 @@ export interface PrintifyConfig {
     /** Optional retail uplift on the Printify price (percent). Printify's price
      *  is already retail, so this defaults to 0. */
     priceMarkupPercent: number;
+    /** On a paid order, auto-send it to Printify production (fulfill). When
+     *  false, the order is created in Printify but held for manual review
+     *  (a safety valve for first tests). Defaults to true. */
+    autoFulfill: boolean;
 }
 
 export async function getPrintifyConfig(): Promise<PrintifyConfig | null> {
@@ -38,6 +42,7 @@ export async function getPrintifyConfig(): Promise<PrintifyConfig | null> {
         syncIntervalMinutes: Number(c.syncIntervalMinutes,) || 60,
         autoPublish: c.autoPublish !== false,
         priceMarkupPercent: Number(c.priceMarkupPercent,) || 0,
+        autoFulfill: c.autoFulfill !== false,
     };
 }
 

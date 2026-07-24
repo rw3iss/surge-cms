@@ -7,6 +7,7 @@
 import { logger, } from '../../utils/logger';
 import { cronRegistry, } from '../cron';
 import { getPrintifyConfig, } from './config';
+import { pollOrderStatuses, } from './fulfillment';
 import { getStatus, syncProducts, } from './sync';
 
 const JOB_NAME = 'printify:sync';
@@ -14,7 +15,17 @@ const SCHEDULE = '*/15 * * * *';
 
 async function tick(): Promise<void> {
     const cfg = await getPrintifyConfig();
-    if (!cfg || cfg.syncIntervalMinutes <= 0) return;
+    if (!cfg) return;
+
+    // 1) Sync order statuses/tracking back from Printify (every tick, cheap).
+    try {
+        await pollOrderStatuses();
+    } catch (err) {
+        logger.warn(`printify order-status poll failed: ${(err as Error).message}`,);
+    }
+
+    // 2) Refresh the catalog when the configured interval has elapsed.
+    if (cfg.syncIntervalMinutes <= 0) return;
     const st = await getStatus();
     if (st.lastSyncedAt) {
         const elapsedMin = (Date.now() - new Date(st.lastSyncedAt,).getTime()) / 60000;

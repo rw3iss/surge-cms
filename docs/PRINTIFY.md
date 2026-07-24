@@ -104,6 +104,21 @@ status on the shop admin. Reviews are moderated normally.
 2. **Plugin veneer** — `plugin.json` + `server.js` (test) + `client.js` config.
 3. **Sync engine** — core `services/printify/*` + routes + SDK; tested against the
    live store; admin Sync button + badge.
-4. **Commerce** — Stripe→Printify order submission + shipping rates + status sync.
+4. **Commerce** ✅ — Printify products sell through the existing Stripe checkout
+   (native shop_products). At checkout, Printify line items get an address-based
+   shipping quote from Printify's shipping API (added to the shop's own shipping).
+   On a paid order (the `fulfillShopOrder` webhook hook, post-commit + best-
+   effort), the order is submitted to Printify's Orders API (`external_id` = our
+   order number) and — when `autoFulfill` is on — sent to production. The printify
+   cron polls in-flight orders and syncs Printify status + tracking (number/url/
+   carrier) back onto the order (migration 076); the confirmation page shows
+   tracking. Order-body + shipping validated live against the store.
 
 Each phase is committed + deployed working.
+
+## Operate
+
+Enable Plugins → install **Printify** → set token + shop id, **Test connection**
+→ Shop → Products → **Sync from Printify**. Keep **Auto-fulfill paid orders**
+OFF for the first test order (it's created in Printify but held, not produced);
+turn it on for hands-off fulfillment.

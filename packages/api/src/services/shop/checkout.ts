@@ -17,6 +17,7 @@ import { ConflictError, ValidationError, } from '../../core/errors';
 import { logAudit, } from '../audit';
 import { logger, } from '../../utils/logger';
 import { getPaymentProvider, } from '../payment';
+import { calcPrintifyShipping, } from '../printify/fulfillment';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
 import { generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
@@ -73,6 +74,12 @@ interface ResolvedLine {
     useDefaultShipping: boolean;
     /** Per-variant flat shipping cost (cents); 0 when unset. */
     variantShippingCents: number;
+    /** External provider (e.g. 'printify') — such lines get provider-calculated
+     *  shipping instead of the shop's flat rate. */
+    externalProvider: string | null;
+    /** Provider product id + variant id (for Printify shipping calc / order). */
+    externalProductId: string | null;
+    externalVariantId: string | null;
 }
 
 // Shop settings (shipping + tax + currency) come from the shop settings
@@ -98,7 +105,9 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
         const result = await query(
             `SELECT v.id AS variant_id, v.product_id, v.price_cents, v.inventory_qty, v.sku,
                     v.requires_shipping, v.shipping_cents, v.option1, v.option2, v.option3,
-                    p.title, p.type, p.status, p.shipping_type, p.use_default_shipping
+                    v.external_id AS variant_external_id,
+                    p.title, p.type, p.status, p.shipping_type, p.use_default_shipping,
+                    p.external_provider, p.external_id AS product_external_id
                  FROM shop_variants v
                  JOIN shop_products p ON p.id = v.product_id
                  WHERE v.id = $1`,
@@ -138,6 +147,9 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
             shippingType: (row.shipping_type as 'flat' | 'calculated') ?? 'flat',
             useDefaultShipping: row.use_default_shipping !== false,
             variantShippingCents: (row.shipping_cents as number | null) ?? 0,
+            externalProvider: (row.external_provider as string | null) ?? null,
+            externalProductId: (row.product_external_id as string | null) ?? null,
+            externalVariantId: (row.variant_external_id as string | null) ?? null,
         },);
     }
 
@@ -172,7 +184,9 @@ function computeShipping(lines: ResolvedLine[], subtotalCents: number, settings:
     // 'calculated' is dynamic → stubbed to 0 until a rate provider is wired).
     const perUnitCosts: number[] = [];
     for (const l of lines) {
-        if (!l.requiresShipping || l.shippingType === 'calculated') continue;
+        // Printify lines are quoted separately (provider shipping calc), and
+        // 'calculated' shipping is a stub → both skip the flat-rate tier here.
+        if (!l.requiresShipping || l.shippingType === 'calculated' || l.externalProvider === 'printify') continue;
         const perUnit = l.useDefaultShipping ? shopFlat : l.variantShippingCents;
         for (let i = 0; i < l.qty; i++) perUnitCosts.push(perUnit,);
     }
@@ -238,7 +252,12 @@ async function computeTotals(input: CheckoutPreviewInput,): Promise<{ lines: Res
     const currency = settings.currency ?? 'usd';
     const lines = await resolveLines(input.items,);
     const subtotalCents = lines.reduce((sum, l,) => sum + l.subtotalCents, 0,);
-    const shippingCents = computeShipping(lines, subtotalCents, settings,);
+    // Native flat shipping + Printify's address-based quote for Printify lines.
+    const printifyLines = lines
+        .filter((l,) => l.externalProvider === 'printify' && l.requiresShipping && l.externalProductId && l.externalVariantId)
+        .map((l,) => ({ product_id: l.externalProductId!, variant_id: Number(l.externalVariantId,), quantity: l.qty, }));
+    const shippingCents = computeShipping(lines, subtotalCents, settings,)
+        + await calcPrintifyShipping(printifyLines, input.shippingAddress ?? null,);
     const taxCents = await computeTax(lines, shippingCents, currency, settings, input.shippingAddress,);
     const totalCents = subtotalCents + shippingCents + taxCents;
     return {

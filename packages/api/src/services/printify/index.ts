@@ -7,3 +7,4 @@
 export { getPrintifyConfig, isPrintifyActive, type PrintifyConfig, } from './config';
 export { syncProducts, getStatus, type PrintifySyncResult, type PrintifyStatus, } from './sync';
 export { testConnection, } from './client';
+export { submitOrderToPrintify, calcPrintifyShipping, pollOrderStatuses, } from './fulfillment';

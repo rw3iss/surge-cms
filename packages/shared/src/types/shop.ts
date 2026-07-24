@@ -189,6 +189,12 @@ export interface ShopOrder {
     billingAddress?: ShopAddress | null;
     fulfillmentStatus: ShopFulfillmentStatus;
     trackingNumber?: string | null;
+    /** Tracking URL + carrier — synced back from Printify shipments. */
+    trackingUrl?: string | null;
+    carrier?: string | null;
+    /** Printify order id + status when the order was fulfilled by Printify. */
+    printifyOrderId?: string | null;
+    printifyStatus?: string | null;
     notes?: string | null;
     createdAt: string;
     updatedAt: string;
