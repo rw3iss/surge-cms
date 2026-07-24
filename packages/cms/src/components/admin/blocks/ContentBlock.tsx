@@ -63,6 +63,14 @@ interface ContentBlockProps {
      *  the pre-filled id when the user picked from a recent-items
      *  submenu. */
     onAddChildBlock?: (type: BlockType, parentId: string, initialData?: Record<string, unknown>,) => void;
+    /** Copy this block (+ its whole subtree) to the editor clipboard. */
+    onCopyBlock?: (id: string,) => void;
+    /** Paste the clipboard block after this one (as a new sibling). */
+    onPasteAfter?: (id: string,) => void;
+    /** Paste the clipboard block in place of this one (replace). */
+    onPasteReplace?: (id: string,) => void;
+    /** Whether the clipboard has a block to paste (gates the paste options). */
+    canPaste?: boolean;
     blockTypes?: Array<{ type: BlockType; label: string; }>;
     onChangeType?: (id: string, newType: BlockType,) => void;
 }
@@ -281,6 +289,17 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                             <button onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Insert Block Before
                             </button>
+                            <button onClick={() => { props.onCopyBlock?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                Copy Block
+                            </button>
+                            <Show when={props.canPaste}>
+                                <button onClick={() => { props.onPasteAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                    Paste Block (after)
+                                </button>
+                                <button onClick={() => { props.onPasteReplace?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                    Paste Block (replace)
+                                </button>
+                            </Show>
                             <button onClick={() => { toggleDisabled(); setShowOptionsMenu(false,); }}>
                                 {isDisabled() ? 'Enable' : 'Disable'}
                             </button>
@@ -415,6 +434,10 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                             onInsertBefore={props.ownProps.onInsertBefore}
                             onDragStart={props.ownProps.onDragStart}
                             onAddChildBlock={props.ownProps.onAddChildBlock}
+                            onCopyBlock={props.ownProps.onCopyBlock}
+                            onPasteAfter={props.ownProps.onPasteAfter}
+                            onPasteReplace={props.ownProps.onPasteReplace}
+                            canPaste={props.ownProps.canPaste}
                             blockTypes={props.ownProps.blockTypes}
                             onChangeType={props.ownProps.onChangeType}
                         />
@@ -482,6 +505,10 @@ const GroupItemPreview: Component<NestedPreviewProps> = (props,) => {
                             onMoveToBottom={props.ownProps.onMoveToBottom}
                             onDragStart={props.ownProps.onDragStart}
                             onAddChildBlock={props.ownProps.onAddChildBlock}
+                            onCopyBlock={props.ownProps.onCopyBlock}
+                            onPasteAfter={props.ownProps.onPasteAfter}
+                            onPasteReplace={props.ownProps.onPasteReplace}
+                            canPaste={props.ownProps.canPaste}
                             blockTypes={props.ownProps.blockTypes}
                             onChangeType={props.ownProps.onChangeType}
                         />

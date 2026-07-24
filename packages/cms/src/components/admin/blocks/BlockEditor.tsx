@@ -10,6 +10,7 @@ import FlyoutPanel, { type FlyoutMode, } from '../common/FlyoutPanel';
 import Toggle from '../common/Toggle';
 import { generateBlockId, } from '../../../utils/blockId';
 import { titleizeBlockType, } from '../../../config/blockTypes';
+import { useToast, } from '../../common/toast';
 
 export type { BlockData, BlockType, } from './ContentBlock';
 
@@ -507,6 +508,78 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         },);
     };
 
+    // ─── Copy / paste ─────────────────────────────────────────────────
+    // The clipboard is the copied block's full subtree (data + styles +
+    // children), stored in localStorage so it survives re-renders and works
+    // across pages. Paste deep-clones it with fresh ids.
+    const toast = useToast();
+    const CLIPBOARD_KEY = 'sitesurge.editor.blockClipboard';
+
+    const readClipboard = (): BlockNode | null => {
+        try {
+            const raw = localStorage.getItem(CLIPBOARD_KEY,);
+            return raw ? (JSON.parse(raw,) as BlockNode) : null;
+        } catch {
+            return null;
+        }
+    };
+    const [clipboardReady, setClipboardReady,] = createSignal(readClipboard() !== null,);
+
+    /** Copy a block + its entire subtree (all children, data and styles as set
+     *  on each) to the clipboard. */
+    const copyBlock = (id: string,) => {
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found) return;
+        try {
+            localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(found.node,),);
+            setClipboardReady(true,);
+            toast.success('Block copied',);
+        } catch {
+            toast.error('Could not copy this block',);
+        }
+    };
+
+    /** Deep-clone a copied subtree, assigning fresh ids and remapping the
+     *  parent references so nothing collides with the existing blocks. */
+    const cloneSubtree = (node: BlockNode, parentBlockId: string | null,): BlockNode => {
+        const newId = generateBlockId();
+        return {
+            ...node,
+            id: newId,
+            parentBlockId,
+            data: JSON.parse(JSON.stringify(node.data ?? {},),),
+            styleRef: node.styleRef ? JSON.parse(JSON.stringify(node.styleRef,),) : undefined,
+            children: (node.children ?? []).map(c => cloneSubtree(c, newId,)),
+        };
+    };
+
+    /** Paste the clipboard subtree either after the target block or in its
+     *  place (replace). The pasted root becomes a sibling of the target. */
+    const pasteBlock = (id: string, mode: 'after' | 'replace',) => {
+        const clip = readClipboard();
+        if (!clip) {
+            toast.error('Nothing to paste — copy a block first',);
+            return;
+        }
+        const tree = treeify(props.blocks,);
+        const found = findInTree(tree, id,);
+        if (!found) return;
+        const clone = cloneSubtree(clip, found.node.parentBlockId ?? null,);
+        if (mode === 'replace') {
+            if (selectedBlockId() === id) setSelectedBlockId(null,);
+            found.parent.splice(found.idx, 1, clone,);
+        } else {
+            found.parent.splice(found.idx + 1, 0, clone,);
+        }
+        props.onBlocksChange(flattenTree(tree,),);
+        setSelectedBlockId(clone.id,);
+        requestAnimationFrame(() => {
+            const el = document.getElementById(clone.id,);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
+        },);
+    };
+
     const handleDragStart = (e: PointerEvent, id: string,) => {
         const blockEl = (e.target as HTMLElement).closest('.content-block',) as HTMLElement;
         if (!blockEl) return;
@@ -789,6 +862,10 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                         onInsertBefore={insertBlockBefore}
                                         onDragStart={handleDragStart}
                                         onAddChildBlock={addChildBlock}
+                                        onCopyBlock={copyBlock}
+                                        onPasteAfter={(id) => pasteBlock(id, 'after',)}
+                                        onPasteReplace={(id) => pasteBlock(id, 'replace',)}
+                                        canPaste={clipboardReady()}
                                         blockTypes={blockTypes()}
                                         onChangeType={changeBlockType}
                                     />
