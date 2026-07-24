@@ -3,18 +3,23 @@
  * plugin is active OR any Printify products exist. Shows last-sync time +
  * product count and a "Sync from Printify" button that pulls the latest catalog.
  */
-import { Component, createResource, createSignal, Show, } from 'solid-js';
+import { Component, createResource, createSignal, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../../components/common/toast';
+import { isPluginEnabled, loadEnabledPlugins, } from '../../../stores/plugins';
 
 const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
     const toast = useToast();
     const [status, { refetch, },] = createResource(() => cms.shop.printify.status());
     const [busy, setBusy,] = createSignal(false,);
 
+    // Refresh enabled-plugin state so the bar appears as soon as Printify is
+    // enabled — even before the first sync (when productCount is still 0).
+    onMount(() => { void loadEnabledPlugins(true,); },);
+
     const visible = () => {
         const s = status();
-        return !!s && (s.active || s.productCount > 0);
+        return isPluginEnabled('printify',) || (!!s && (s.active || s.productCount > 0));
     };
 
     const sync = async () => {

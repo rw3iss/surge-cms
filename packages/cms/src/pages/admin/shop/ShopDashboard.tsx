@@ -5,6 +5,7 @@ import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopOrder, ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
+import PrintifySyncBar from './PrintifySyncBar';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
@@ -85,6 +86,7 @@ const ShopDashboardInner: Component = () => {
             </div>
 
             <ShopifyManagedBanner />
+            <PrintifySyncBar />
 
             {/* Shopify-backed lightweight dashboard (read-only) when the plugin is on. */}
             <Show when={isShopifyActive()}>
