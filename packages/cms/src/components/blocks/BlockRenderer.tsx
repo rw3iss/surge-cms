@@ -64,7 +64,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     //     renders as an absolutely-positioned overlay ON TOP of it (use a
     //     translucent color/gradient to tint the image for readability).
     const bgColorValue = () => color(s().backgroundColor || (props.block.settings.backgroundColor as string),);
-    const bgImageValue = () => (s().backgroundImage as string | undefined) || undefined;
+    // An image block renders its picture as an inner <img>, never as the wrapper
+    // background — a stale style.backgroundImage (e.g. a previously-set/copied
+    // background) would otherwise ghost above the image once the block is padded.
+    const bgImageValue = () =>
+        props.block.type === 'image' ? undefined : ((s().backgroundImage as string | undefined) || undefined);
     const hasBgOverlay = () => Boolean(bgColorValue() && bgImageValue());
 
     // A group_item's wrapper IS the flex/grid item of its parent group, so the
