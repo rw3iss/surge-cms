@@ -649,4 +649,32 @@
   }
 
   &__warn { color: $error-color; }
+
+  // Full-width alert row: wraps beneath the info + button within the flex bar.
+  &__attention {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+    margin-top: $spacing-xs;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $warning-color;
+    border-radius: $border-radius-sm;
+    background: color.adjust($warning-color, $lightness: 42%, $saturation: -10%);
+    color: color.adjust($warning-color, $lightness: -28%);
+
+    &-text {
+      font-size: $font-size-sm;
+      line-height: 1.4;
+      strong { font-weight: 700; }
+    }
+
+    &-links {
+      display: inline-flex;
+      gap: $spacing-md;
+      white-space: nowrap;
+    }
+  }
 }

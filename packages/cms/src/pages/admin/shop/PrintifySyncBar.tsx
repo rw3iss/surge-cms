@@ -4,6 +4,7 @@
  * product count and a "Sync from Printify" button that pulls the latest catalog.
  */
 import { Component, createResource, createSignal, onMount, Show, } from 'solid-js';
+import { A, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../../components/common/toast';
 import { isPluginEnabled, loadEnabledPlugins, } from '../../../stores/plugins';
@@ -64,6 +65,33 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                 <button class="btn btn--primary btn--small" onClick={sync} disabled={busy()}>
                     {busy() ? 'Syncing…' : 'Sync from Printify'}
                 </button>
+
+                <Show when={(status()?.needsAttentionCount ?? 0) > 0}>
+                    {(() => {
+                        const n = () => status()!.needsAttentionCount!;
+                        return (
+                            <div class="printify-bar__attention" role="status">
+                                <span class="printify-bar__attention-text">
+                                    ⚠ <strong>{n()}</strong> paid order{n() === 1 ? '' : 's'} awaiting Printify
+                                    fulfillment. This usually means your Printify account needs a valid payment
+                                    method — orders are held until production can be charged. The system retries
+                                    automatically once it's resolved.
+                                </span>
+                                <span class="printify-bar__attention-links">
+                                    <a
+                                        href="https://printify.com/app/orders"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="table-link"
+                                    >
+                                        Open Printify ↗
+                                    </a>
+                                    <A href="/admin/shop/orders" class="table-link">Review orders</A>
+                                </span>
+                            </div>
+                        );
+                    })()}
+                </Show>
             </div>
         </Show>
     );

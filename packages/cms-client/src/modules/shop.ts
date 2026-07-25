@@ -280,6 +280,9 @@ export interface PrintifyStatusResponse {
     lastSyncedAt: string | null;
     shopId: string | null;
     syncIntervalMinutes: number | null;
+    /** Count of paid orders whose Printify handoff hasn't completed and need
+     *  operator attention (auto-retried by the cron). Absent on older servers. */
+    needsAttentionCount?: number;
 }
 
 /** POST /shop/printify/sync */

@@ -204,6 +204,10 @@ export interface PrintifyStatus {
     lastSyncedAt: string | null;
     shopId: string | null;
     syncIntervalMinutes: number | null;
+    /** Paid orders whose Printify handoff hasn't completed (submit failed, or
+     *  send-to-production held — commonly a missing Printify payment method).
+     *  The cron auto-retries these, but they warrant operator attention. */
+    needsAttentionCount: number;
 }
 
 /** Status for the admin panel — derived from the ingested rows (no extra store). */
@@ -217,6 +221,23 @@ export async function getStatus(): Promise<PrintifyStatus> {
         [PROVIDER,],
     );
     const row = r.rows[0] || {};
+
+    // Stranded paid orders: Printify items but never submitted, OR created in
+    // Printify but stuck before production. Mirrors retryPendingPrintifyFulfillment.
+    const att = await query(
+        `SELECT COUNT(*)::int AS n FROM shop_orders o
+             WHERE o.status NOT IN ('cancelled', 'refunded')
+               AND (
+                 (o.printify_order_id IS NULL AND o.status IN ('paid', 'processing')
+                    AND EXISTS (
+                      SELECT 1 FROM shop_order_items oi
+                        JOIN shop_products p ON p.id = oi.product_id
+                       WHERE oi.order_id = o.id AND p.external_provider = $1))
+                 OR (o.printify_order_id IS NOT NULL AND o.printify_status = 'created')
+               )`,
+        [PROVIDER,],
+    );
+
     return {
         active: cfg !== null,
         productCount: row.total ?? 0,
@@ -224,5 +245,6 @@ export async function getStatus(): Promise<PrintifyStatus> {
         lastSyncedAt: row.last_synced ? new Date(row.last_synced,).toISOString() : null,
         shopId: cfg?.shopId ?? null,
         syncIntervalMinutes: cfg?.syncIntervalMinutes ?? null,
+        needsAttentionCount: att.rows[0]?.n ?? 0,
     };
 }
