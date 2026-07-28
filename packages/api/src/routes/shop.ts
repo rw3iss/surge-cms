@@ -14,7 +14,7 @@ import type {
     ShopReviewAdminListQuery,
     ShopReviewCreateBody,
     ShopReviewListQuery,
-    ShopPaymentCredentialsBody,
+    PaymentCredentialsUpdateBody,
     ShopReviewModerateBody,
     ShopSettingsUpdateBody,
 } from '@sitesurge/types';
@@ -230,14 +230,17 @@ const shopSettingsUpdateSchema = z.object({
     appearance: shopAppearancePatch.optional(),
 },) satisfies z.ZodType<ShopSettingsUpdateBody>;
 
-// Admin-editable Stripe keys. Each optional: only present fields are written; an
-// empty string clears that key (→ env fallback). Prefixes are re-validated in
-// the service so the error message is consistent.
+// Admin-editable Stripe keys (shared with /settings/payment-credentials). Each
+// field optional: only present fields are written; an empty string clears that
+// key. Prefixes are re-validated in the service. `context` is forced to 'shop'
+// by the shop handler below.
 const paymentCredentialsSchema = z.object({
+    context: z.enum(['default', 'shop', 'donations',],).optional(),
+    useDefault: z.boolean().optional(),
     secretKey: z.string().optional(),
     publishableKey: z.string().optional(),
     webhookSecret: z.string().optional(),
-},) satisfies z.ZodType<ShopPaymentCredentialsBody>;
+},) satisfies z.ZodType<PaymentCredentialsUpdateBody>;
 
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertProductListQuery = AssertCompatible<z.infer<typeof productListQuery>, ShopProductListQuery>;
@@ -662,9 +665,9 @@ export const shopRoutes = [
     // admin sees whether payments are actually wired up + accepting charges.
     defineRoute({
         method: 'get', path: '/settings/stripe-status', auth: 'admin',
-        summary: 'Stripe connection status (cached ~60s; ?refresh=true forces a re-check).',
+        summary: 'Shop Stripe connection status (cached ~60s; ?refresh=true forces a re-check).',
         input: { query: stripeStatusQuery, },
-        handler: ({ query, },) => stripeStatus.getStripeStatus(query.refresh === 'true',),
+        handler: ({ query, },) => stripeStatus.getStripeStatus(query.refresh === 'true', 'shop',),
     },),
 
     // Update config (admin): merge partial into shop_settings / shop_appearance.
@@ -680,14 +683,14 @@ export const shopRoutes = [
     // Secret + webhook are write-only: the GET returns only a masked status.
     defineRoute({
         method: 'get', path: '/payment-credentials', auth: 'admin',
-        summary: 'Masked Stripe key status (which keys are set, last-4, source). Never returns secret values.',
-        handler: () => stripeCreds.credentialsStatus(),
+        summary: 'Masked Stripe key status for the SHOP context (never returns secret values).',
+        handler: () => stripeCreds.credentialsStatus('shop',),
     },),
     defineRoute({
         method: 'put', path: '/payment-credentials', auth: 'admin',
-        summary: 'Set/clear the Stripe secret, publishable, and webhook keys (empty string clears → env fallback).',
+        summary: 'Set/clear the SHOP Stripe keys, or toggle "use default" (empty string clears a key).',
         input: { body: paymentCredentialsSchema, },
-        handler: ({ body, audit, },) => stripeCreds.updateStripeCredentials(body, audit(),),
+        handler: ({ body, audit, },) => stripeCreds.updateStripeCredentials({ ...body, context: 'shop', }, audit(),),
     },),
 
     // ── Printify (POD) — sync + status. Credentials come from the printify

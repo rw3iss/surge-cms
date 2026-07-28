@@ -27,6 +27,7 @@ import { FEATURES, } from '../../config/features';
 const SiteHeaderEditor = lazy(() => import('../../components/admin/editors/SiteHeaderEditor'));
 const SiteFooterEditor = lazy(() => import('../../components/admin/editors/SiteFooterEditor'));
 const ApiKeysPanel = lazy(() => import('../../components/admin/settings/ApiKeysPanel'));
+const StripeKeysEditor = lazy(() => import('../../components/admin/StripeKeysEditor'));
 
 // ─── Tabs ───
 
@@ -35,6 +36,7 @@ const TABS = [
     { id: 'appearance', label: 'Appearance', },
     { id: 'site-header', label: 'Site Header', },
     { id: 'site-footer', label: 'Site Footer', },
+    { id: 'payments', label: 'Payments', },
     { id: 'api-keys', label: 'API Keys', },
     { id: 'admin', label: 'Admin', },
 ] as const;
@@ -1466,6 +1468,29 @@ const AdminSettings: Component = () => {
                         site until you enable it here.
                     </p>
                     <SiteFooterEditor />
+                </Show>
+
+                {/* ─── Payments Tab ─── */}
+                <Show when={activeTab() === 'payments'}>
+                    <h2 class="settings-subheading">Payments (Stripe)</h2>
+                    <p class="form-help" style={{ 'margin-bottom': '1rem', }}>
+                        These are the site-wide default Stripe keys. They power donations, subscriptions,
+                        and shop checkout unless a section overrides them. Keys are stored on the server;
+                        the publishable key is public (served to the browser), the secret and webhook keys
+                        never leave the server. Any <code>STRIPE_*</code> env vars act as a fallback.
+                    </p>
+                    <StripeKeysEditor context="default" title="Default keys" />
+
+                    <h2 class="settings-subheading" style={{ 'margin-top': '2rem', }}>Donations &amp; campaigns</h2>
+                    <p class="form-help" style={{ 'margin-bottom': '1rem', }}>
+                        By default donations use the site default keys above. Turn off "Use site default" to
+                        route donations/campaigns through a different Stripe account.
+                    </p>
+                    <StripeKeysEditor
+                        context="donations"
+                        showUseDefault
+                        title="Donation keys"
+                    />
                 </Show>
 
                 {/* ─── API Keys Tab ─── */}

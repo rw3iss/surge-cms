@@ -1,8 +1,10 @@
 import { z, } from 'zod';
-import type { SettingsUpdateBody, } from '@sitesurge/types';
+import type { PaymentCredentialsUpdateBody, SettingsUpdateBody, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import * as serverLogs from '../services/serverLogs';
 import * as settings from '../services/settings';
+import * as stripeCreds from '../services/payment/credentials';
+import * as stripeStatus from '../services/shop/stripeStatus';
 import * as swatches from '../services/swatches';
 import * as systemUpdate from '../services/systemUpdate';
 
@@ -45,6 +47,21 @@ const settingsSchema = z.object({
 
 const keyParams = z.object({ key: z.string(), },);
 
+const paymentContextQuery = z.object({
+    context: z.enum(['default', 'shop', 'donations',],).optional(),
+},);
+const stripeStatusQuery = z.object({
+    refresh: z.string().optional(),
+    context: z.enum(['default', 'shop', 'donations',],).optional(),
+},);
+const paymentCredentialsSchema = z.object({
+    context: z.enum(['default', 'shop', 'donations',],).optional(),
+    useDefault: z.boolean().optional(),
+    secretKey: z.string().optional(),
+    publishableKey: z.string().optional(),
+    webhookSecret: z.string().optional(),
+},) satisfies z.ZodType<PaymentCredentialsUpdateBody>;
+
 // ─── Routes ───────────────────────────────────────────────────────────
 // Order matters: literal paths (/public, /site-colors/usages/:id, …)
 // must precede the /:key catch-all.
@@ -55,6 +72,27 @@ export const settingsRoutes = [
         method: 'get', path: '/public', auth: 'public',
         summary: 'Public site settings projection (cached 600s).',
         handler: () => settings.getPublicSettings(),
+    },),
+
+    // Payment (Stripe) credentials — site-wide default + per-context overrides.
+    // Masked status; secret/webhook are write-only. Context = default|shop|donations.
+    defineRoute({
+        method: 'get', path: '/payment-credentials', auth: 'admin',
+        summary: 'Masked Stripe key status for a payment context (default|shop|donations).',
+        input: { query: paymentContextQuery, },
+        handler: ({ query, },) => stripeCreds.credentialsStatus(query.context ?? 'default',),
+    },),
+    defineRoute({
+        method: 'put', path: '/payment-credentials', auth: 'admin',
+        summary: 'Set/clear Stripe keys (or toggle "use default") for a context.',
+        input: { body: paymentCredentialsSchema, },
+        handler: ({ body, audit, },) => stripeCreds.updateStripeCredentials(body, audit(),),
+    },),
+    defineRoute({
+        method: 'get', path: '/stripe-status', auth: 'admin',
+        summary: 'Stripe connection status for a context (cached ~60s; ?refresh=true re-checks).',
+        input: { query: stripeStatusQuery, },
+        handler: ({ query, },) => stripeStatus.getStripeStatus(query.refresh === 'true', query.context ?? 'default',),
     },),
 
     defineRoute({

@@ -243,9 +243,13 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/payments/admin/plans',
     'PUT /api/v1/payments/admin/plans/:id',
     'GET /api/v1/payments/plans',
+    'GET /api/v1/payments/publishable-key',
 
     // ── settings ──
     'GET /api/v1/settings/public',
+    'GET /api/v1/settings/payment-credentials',
+    'PUT /api/v1/settings/payment-credentials',
+    'GET /api/v1/settings/stripe-status',
     'GET /api/v1/settings',
     'PUT /api/v1/settings',
     'GET /api/v1/settings/homepage-hero',

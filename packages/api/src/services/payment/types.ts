@@ -1,3 +1,10 @@
+/**
+ * Which set of Stripe keys a charge uses. `default` = the site-wide keys
+ * (Settings → Payments); `shop` / `donations` may override them or inherit the
+ * default. Resolved by services/payment/credentials.ts.
+ */
+export type PaymentContext = 'default' | 'shop' | 'donations';
+
 export interface PaymentProvider {
     // One-time payments
     createPaymentIntent(params: CreatePaymentIntentParams,): Promise<PaymentIntentResult>;
@@ -17,6 +24,8 @@ export interface CreatePaymentIntentParams {
     currency?: string;
     customerEmail?: string;
     metadata?: Record<string, string>;
+    /** Which Stripe key set to charge against. Defaults to 'default'. */
+    context?: PaymentContext;
 }
 
 export interface PaymentIntentResult {

@@ -12,6 +12,8 @@ import type {
     SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
     SettingsServerLogsResponse,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
+    PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
+    ShopStripeStatusResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 import { CmsError, FeatureCascadeError, isFeatureCascadeResult, } from '../core/errors';
@@ -43,6 +45,29 @@ export class SettingsModule extends ModuleBase {
     /** GET /settings (admin) — every row keyed by key, with editor metadata. */
     getAll(): Promise<SettingsGetAllResponse> {
         return this.get<SettingsGetAllResponse>('/settings',);
+    }
+
+    // ─── Payment (Stripe) credentials — site-wide + per-context ───────
+
+    /** GET /settings/payment-credentials?context= (admin) — masked key status. */
+    paymentCredentials(context: PaymentContext = 'default',): Promise<PaymentCredentialsResponse> {
+        return this.get<PaymentCredentialsResponse>('/settings/payment-credentials', { query: { context, }, },);
+    }
+
+    /** PUT /settings/payment-credentials (admin) — set/clear keys or toggle
+     *  "use default" for a context; returns the refreshed masked status. */
+    updatePaymentCredentials(body: PaymentCredentialsUpdateBody,): Promise<PaymentCredentialsResponse> {
+        return this.mutate<PaymentCredentialsResponse>('PUT', '/settings/payment-credentials', {
+            body,
+            invalidates: ['settings', 'shop',],
+        },);
+    }
+
+    /** GET /settings/stripe-status?context= (admin) — live connection status. */
+    stripeStatus(context: PaymentContext = 'default', refresh?: boolean,): Promise<ShopStripeStatusResponse> {
+        return this.get<ShopStripeStatusResponse>('/settings/stripe-status', {
+            query: { context, ...(refresh ? { refresh: true, } : {}), },
+        },);
     }
 
     /**

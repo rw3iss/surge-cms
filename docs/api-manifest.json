@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T20:21:22.244Z",
+  "generatedAt": "2026-07-28T20:41:41.100Z",
   "totalModules": 31,
-  "totalRoutes": 269,
+  "totalRoutes": 273,
   "modules": [
     {
       "module": "api-keys",
@@ -1072,6 +1072,13 @@
           "absolutePath": "/api/v1/payments/plans",
           "auth": "public",
           "summary": "List active subscription plans (public subscribe page)."
+        },
+        {
+          "method": "GET",
+          "path": "/publishable-key",
+          "absolutePath": "/api/v1/payments/publishable-key",
+          "auth": "public",
+          "summary": "Resolved Stripe publishable key for a payment context (default | shop | donations)."
         }
       ]
     },
@@ -1313,6 +1320,27 @@
           "absolutePath": "/api/v1/settings/public",
           "auth": "public",
           "summary": "Public site settings projection (cached 600s)."
+        },
+        {
+          "method": "GET",
+          "path": "/payment-credentials",
+          "absolutePath": "/api/v1/settings/payment-credentials",
+          "auth": "admin",
+          "summary": "Masked Stripe key status for a payment context (default|shop|donations)."
+        },
+        {
+          "method": "PUT",
+          "path": "/payment-credentials",
+          "absolutePath": "/api/v1/settings/payment-credentials",
+          "auth": "admin",
+          "summary": "Set/clear Stripe keys (or toggle \"use default\") for a context."
+        },
+        {
+          "method": "GET",
+          "path": "/stripe-status",
+          "absolutePath": "/api/v1/settings/stripe-status",
+          "auth": "admin",
+          "summary": "Stripe connection status for a context (cached ~60s; ?refresh=true re-checks)."
         },
         {
           "method": "GET",
@@ -1786,7 +1814,7 @@
           "path": "/settings/stripe-status",
           "absolutePath": "/api/v1/shop/settings/stripe-status",
           "auth": "admin",
-          "summary": "Stripe connection status (cached ~60s; ?refresh=true forces a re-check)."
+          "summary": "Shop Stripe connection status (cached ~60s; ?refresh=true forces a re-check)."
         },
         {
           "method": "PUT",
@@ -1800,14 +1828,14 @@
           "path": "/payment-credentials",
           "absolutePath": "/api/v1/shop/payment-credentials",
           "auth": "admin",
-          "summary": "Masked Stripe key status (which keys are set, last-4, source). Never returns secret values."
+          "summary": "Masked Stripe key status for the SHOP context (never returns secret values)."
         },
         {
           "method": "PUT",
           "path": "/payment-credentials",
           "absolutePath": "/api/v1/shop/payment-credentials",
           "auth": "admin",
-          "summary": "Set/clear the Stripe secret, publishable, and webhook keys (empty string clears → env fallback)."
+          "summary": "Set/clear the SHOP Stripe keys, or toggle \"use default\" (empty string clears a key)."
         },
         {
           "method": "GET",

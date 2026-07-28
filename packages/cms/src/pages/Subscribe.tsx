@@ -46,12 +46,12 @@ const SubscribePage: Component = () => {
     );
 
     onMount(async () => {
-        // Prefer the admin-configured publishable key (public settings), fall
-        // back to the build-time env for older setups.
+        // Publishable key for the DEFAULT context (subscriptions bill on the
+        // site default account). Falls back to the build-time env.
         let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
         try {
-            const pub = await cms.settings.getPublic();
-            if (pub?.stripePublishableKey) key = pub.stripePublishableKey;
+            const res = await cms.payments.publishableKey('default',);
+            if (res?.publishableKey) key = res.publishableKey;
         } catch { /* fall back to env key */ }
         if (key) {
             stripeInstance = await loadStripe(key,);

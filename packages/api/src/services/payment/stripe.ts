@@ -1,52 +1,55 @@
 import Stripe from 'stripe';
 import { ServiceNotConfiguredError, } from '../../core/errors';
-import { stripeCredentials, } from './credentials';
+import { allWebhookSecrets, stripeCredentials, } from './credentials';
 import {
     CreateCustomerParams,
     CreatePaymentIntentParams,
     CreateSubscriptionParams,
     CustomerResult,
+    PaymentContext,
     PaymentIntentResult,
     PaymentProvider,
     SubscriptionResult,
 } from './types';
 import { invoiceClientSecret, subscriptionPeriod, } from './stripeCompat';
 
-// Stripe client is lazy so the backend can boot in setup mode without
-// a Stripe secret. The secret is resolved from `stripeCredentials()` (DB
-// override → env fallback), so an admin key change takes effect after
-// `resetStripeClient()` drops the memoized instance.
-let _stripe: Stripe | null = null;
-let _stripeKey: string | null = null;
-function stripeClient(): Stripe {
-    const key = stripeCredentials().secretKey;
-    if (!key) throw new ServiceNotConfiguredError('Stripe',);
-    // Rebuild if the resolved secret changed (admin updated the key at runtime).
-    if (_stripe && _stripeKey === key) return _stripe;
-    _stripe = new Stripe(key,);
-    _stripeKey = key;
-    return _stripe;
+// Stripe clients are lazy + memoized per resolved secret key, so different
+// payment contexts (default / shop / donations) that use different Stripe
+// accounts each get their own client. `resetStripeClient()` drops them all
+// after an admin key change so the next use rebuilds with the current keys.
+const _clients = new Map<string, Stripe>();
+function clientForSecret(secret: string,): Stripe {
+    if (!secret) throw new ServiceNotConfiguredError('Stripe',);
+    let c = _clients.get(secret,);
+    if (!c) {
+        c = new Stripe(secret,);
+        _clients.set(secret, c,);
+    }
+    return c;
 }
+function stripeClient(context: PaymentContext = 'default',): Stripe {
+    return clientForSecret(stripeCredentials(context,).secretKey,);
+}
+// Default-context proxy for the many call sites that don't specify a context
+// (customers, subscriptions, account status).
 const stripe = new Proxy({} as Stripe, {
     get(_t, p,) {
-        const client = stripeClient();
+        const client = stripeClient('default',);
         const value = (client as unknown as Record<string | symbol, unknown>)[p as string];
         return typeof value === 'function' ? (value as Function).bind(client,) : value;
     },
 },);
 
-/** Drop the memoized client so the next use rebuilds with the current secret.
- *  Called by the credentials service after an admin key change. */
+/** Drop every memoized client so the next use rebuilds with current secrets. */
 export function resetStripeClient(): void {
-    _stripe = null;
-    _stripeKey = null;
+    _clients.clear();
 }
 
-/** The memoized Stripe client, or null when no secret key is configured.
+/** The memoized client for a context, or null when no secret key resolves.
  *  For read-only checks (e.g. connection status) that must not throw. */
-export function getStripeClient(): Stripe | null {
-    if (!stripeCredentials().secretKey) return null;
-    return stripeClient();
+export function getStripeClient(context: PaymentContext = 'default',): Stripe | null {
+    if (!stripeCredentials(context,).secretKey) return null;
+    return stripeClient(context,);
 }
 
 /**
@@ -64,7 +67,10 @@ function rethrowStripeError(err: unknown,): never {
 export class StripePaymentProvider implements PaymentProvider {
     async createPaymentIntent(params: CreatePaymentIntentParams,): Promise<PaymentIntentResult> {
         try {
-            const paymentIntent = await stripe.paymentIntents.create({
+            // Charge against the resolved keys for this context (shop / donations
+            // may use their own Stripe account, else inherit the default).
+            const client = stripeClient(params.context ?? 'default',);
+            const paymentIntent = await client.paymentIntents.create({
                 amount: params.amountCents,
                 currency: params.currency || 'usd',
                 receipt_email: params.customerEmail,
@@ -137,10 +143,18 @@ export class StripePaymentProvider implements PaymentProvider {
     }
 
     verifyWebhookSignature(payload: string | Buffer, signature: string,): Stripe.Event {
-        return stripe.webhooks.constructEvent(
-            payload,
-            signature,
-            stripeCredentials().webhookSecret,
-        );
+        // An event may originate from any configured Stripe account (default,
+        // shop, or donations), so try each distinct signing secret and return
+        // the first that verifies. The last error propagates if none match.
+        const secrets = allWebhookSecrets();
+        let lastErr: unknown = new Error('No Stripe webhook secret configured',);
+        for (const secret of secrets) {
+            try {
+                return stripe.webhooks.constructEvent(payload, signature, secret,);
+            } catch (err) {
+                lastErr = err;
+            }
+        }
+        throw lastErr;
     }
 }

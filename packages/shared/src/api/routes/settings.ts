@@ -45,6 +45,60 @@ export type SettingsPublicResponse = SiteSettings & {
     shopifyStorefrontToken?: string;
 };
 
+// ─── Payment (Stripe) credentials — site-wide + per-context ───────────
+
+/** Which Stripe key set a charge uses. `default` = site-wide (Settings →
+ *  Payments); `shop` / `donations` may override the default or inherit it. */
+export type PaymentContext = 'default' | 'shop' | 'donations';
+
+/**
+ * GET /settings/payment-credentials?context= and GET /shop/payment-credentials.
+ * MASKED — the secret + webhook keys are write-only (never returned in full),
+ * only whether they're set + last-4. The publishable key is public → returned
+ * in full so the input can prefill.
+ */
+export interface PaymentCredentialsResponse {
+    context: PaymentContext;
+    /** Stored "use the site default keys" toggle (always false for `default`). */
+    useDefault: boolean;
+    /** Effective: this context currently resolves to the default key set. */
+    usingDefault: boolean;
+    publishableKey: string;
+    secretKeyConfigured: boolean;
+    secretKeyLast4: string;
+    webhookConfigured: boolean;
+    webhookSecretLast4: string;
+    mode: 'test' | 'live' | null;
+}
+
+/**
+ * PUT /settings/payment-credentials — set/clear keys for a context. Only the
+ * fields present are touched; an empty string clears that key (→ falls back to
+ * the default, then env). `useDefault` toggles inherit-vs-override for a
+ * sub-context. Keys are prefix-validated server-side (sk_/rk_, pk_, whsec_).
+ */
+export interface PaymentCredentialsUpdateBody {
+    context?: PaymentContext;
+    useDefault?: boolean;
+    secretKey?: string;
+    publishableKey?: string;
+    webhookSecret?: string;
+}
+
+/** PUT /settings/payment-credentials — the refreshed masked status. */
+export type PaymentCredentialsUpdateResponse = PaymentCredentialsResponse;
+
+/** GET /payments/publishable-key?context= — the resolved key (public). */
+export interface PaymentPublishableKeyResponse {
+    publishableKey: string | null;
+}
+
+/** GET /settings/stripe-status?context=&refresh= query. */
+export interface SettingsStripeStatusQuery {
+    refresh?: boolean;
+    context?: PaymentContext;
+}
+
 // ─── GET /settings (admin) ────────────────────────────────────────────
 
 /** One settings row as surfaced to the admin panel: the JSON value plus

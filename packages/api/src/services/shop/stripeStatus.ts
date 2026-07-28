@@ -9,28 +9,29 @@ import type { ShopStripeStatusResponse, } from '@sitesurge/types';
 import * as cache from '../cache';
 import { stripeCredentials, } from '../payment/credentials';
 import { getStripeClient, } from '../payment/stripe';
+import type { PaymentContext, } from '../payment/types';
 
 const CACHE_TTL_SECONDS = 60;
 
 /** The status shape is the shared wire DTO (one definition, no drift). */
 export type ShopStripeStatus = ShopStripeStatusResponse;
 
-function keyMode(): 'test' | 'live' | null {
-    const k = stripeCredentials().secretKey;
+function keyMode(context: PaymentContext,): 'test' | 'live' | null {
+    const k = stripeCredentials(context,).secretKey;
     if (!k) return null;
     return k.startsWith('sk_live', ) || k.startsWith('rk_live',) ? 'live' : 'test';
 }
 
-async function computeStatus(): Promise<ShopStripeStatus> {
-    const creds = stripeCredentials();
+async function computeStatus(context: PaymentContext,): Promise<ShopStripeStatus> {
+    const creds = stripeCredentials(context,);
     const base = {
-        mode: keyMode(),
+        mode: keyMode(context,),
         webhookConfigured: Boolean(creds.webhookSecret,),
         publishableKeyConfigured: Boolean(creds.publishableKey,),
         checkedAt: new Date().toISOString(),
     };
 
-    const client = getStripeClient();
+    const client = getStripeClient(context,);
     if (!client) {
         return {
             ...base,
@@ -85,16 +86,21 @@ async function computeStatus(): Promise<ShopStripeStatus> {
 }
 
 /**
- * Get the cached Stripe status (60s TTL), or force a fresh check with
- * `refresh=true`. Errors are cached too (with the same short TTL) so a bad
- * key doesn't hammer Stripe, but they self-heal on the next window.
+ * Get the cached Stripe status (60s TTL) for a context, or force a fresh check
+ * with `refresh=true`. Errors are cached too (same short TTL) so a bad key
+ * doesn't hammer Stripe, but they self-heal on the next window. The cache key
+ * carries the context; invalidateShopSettingsCache clears every variant.
  */
-export async function getStripeStatus(refresh = false,): Promise<ShopStripeStatus> {
+export async function getStripeStatus(
+    refresh = false,
+    context: PaymentContext = 'default',
+): Promise<ShopStripeStatus> {
+    const key = `${cache.CACHE_KEYS.shopStripeStatus}:${context}`;
     if (!refresh) {
-        const cached = await cache.get<ShopStripeStatus>(cache.CACHE_KEYS.shopStripeStatus,);
+        const cached = await cache.get<ShopStripeStatus>(key,);
         if (cached) return cached;
     }
-    const status = await computeStatus();
-    await cache.set(cache.CACHE_KEYS.shopStripeStatus, status, CACHE_TTL_SECONDS,);
+    const status = await computeStatus(context,);
+    await cache.set(key, status, CACHE_TTL_SECONDS,);
     return status;
 }

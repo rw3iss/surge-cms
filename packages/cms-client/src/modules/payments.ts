@@ -7,6 +7,7 @@ import type {
     PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
     PaymentsAdminTransactionsQuery, PaymentsAdminTransactionsResponse,
     PaymentsAdminUserTransactionsResponse,
+    PaymentContext, PaymentPublishableKeyResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -23,6 +24,13 @@ export class PaymentsModule extends ModuleBase {
     /** POST /payments/donate — anonymous donations allowed (optional auth). */
     donate(body: PaymentsDonateBody,): Promise<PaymentsDonateResponse> {
         return this.mutate<PaymentsDonateResponse>('POST', '/payments/donate', { body, },);
+    }
+
+    /** GET /payments/publishable-key?context= — the resolved Stripe publishable
+     *  key for a context (public), so the checkout / donation forms load the
+     *  right Stripe account. */
+    publishableKey(context: PaymentContext = 'default',): Promise<PaymentPublishableKeyResponse> {
+        return this.get<PaymentPublishableKeyResponse>('/payments/publishable-key', { query: { context, }, },);
     }
 
     /** POST /payments/subscribe — may return a clientSecret for confirmation. */

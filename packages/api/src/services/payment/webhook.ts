@@ -9,7 +9,7 @@
 import Stripe from 'stripe';
 import { query, } from '../../db';
 import { cache, } from '../cache';
-import { stripeCredentials, } from './credentials';
+import { allWebhookSecrets, } from './credentials';
 import { getPaymentProvider, } from './index';
 import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } from './stripeCompat';
 import { logger, } from '../../utils/logger';
@@ -34,7 +34,7 @@ export async function handleWebhook(
     let event: Stripe.Event;
 
     try {
-        if (stripeCredentials().webhookSecret) {
+        if (allWebhookSecrets().length > 0) {
             // Production mode: verify webhook signature using raw body.
             if (!signature) {
                 logger.warn('Webhook received without stripe-signature header',);

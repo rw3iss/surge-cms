@@ -334,6 +334,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): 
                 orderId: created.id,
                 orderNumber: created.orderNumber,
             },
+            context: 'shop',
         },);
 
         await client.query(

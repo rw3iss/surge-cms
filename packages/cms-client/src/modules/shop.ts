@@ -47,9 +47,8 @@ import type {
     ShopReviewListQuery,
     ShopReviewListResponse,
     ShopReviewModerateBody,
-    ShopPaymentCredentialsBody,
-    ShopPaymentCredentialsResponse,
-    ShopPaymentCredentialsUpdateResponse,
+    PaymentCredentialsResponse,
+    PaymentCredentialsUpdateBody,
     ShopReviewModerateResponse,
     ShopSettingsAdminResponse,
     ShopSettingsPublicResponse,
@@ -261,15 +260,14 @@ export class ShopModule extends ModuleBase {
         update: (body: ShopSettingsUpdateBody,): Promise<ShopSettingsUpdateResponse> =>
             this.mutate<ShopSettingsUpdateResponse>('PUT', '/shop/settings', { body, invalidates: ['shop',], },),
 
-        /** GET /shop/payment-credentials (admin) — masked Stripe key status
-         *  (never returns secret values). */
-        paymentCredentials: (): Promise<ShopPaymentCredentialsResponse> =>
-            this.get<ShopPaymentCredentialsResponse>('/shop/payment-credentials',),
+        /** GET /shop/payment-credentials (admin) — masked SHOP Stripe key status. */
+        paymentCredentials: (): Promise<PaymentCredentialsResponse> =>
+            this.get<PaymentCredentialsResponse>('/shop/payment-credentials',),
 
-        /** PUT /shop/payment-credentials (admin) — set/clear Stripe keys; returns
-         *  the refreshed masked status. */
-        updatePaymentCredentials: (body: ShopPaymentCredentialsBody,): Promise<ShopPaymentCredentialsUpdateResponse> =>
-            this.mutate<ShopPaymentCredentialsUpdateResponse>('PUT', '/shop/payment-credentials', {
+        /** PUT /shop/payment-credentials (admin) — set/clear SHOP keys or toggle
+         *  "use default"; returns the refreshed masked status. */
+        updatePaymentCredentials: (body: PaymentCredentialsUpdateBody,): Promise<PaymentCredentialsResponse> =>
+            this.mutate<PaymentCredentialsResponse>('PUT', '/shop/payment-credentials', {
                 body,
                 invalidates: ['shop', 'settings',],
             },),

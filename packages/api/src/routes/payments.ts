@@ -33,6 +33,11 @@ import type {
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as payments from '../services/payments';
+import { stripeCredentials, } from '../services/payment/credentials';
+
+const publishableKeyQuery = z.object({
+    context: z.enum(['default', 'shop', 'donations',],).optional(),
+},);
 
 const donateSchema = z.object({
     amountCents: z.number().int().min(100,),
@@ -181,5 +186,14 @@ export const paymentsRoutes = [
         method: 'get', path: '/plans', auth: 'public',
         summary: 'List active subscription plans (public subscribe page).',
         handler: () => payments.publicPlans(),
+    },),
+
+    // Publishable key for a payment context (public by design) — lets the
+    // donation / subscription forms load Stripe Elements with the right account.
+    defineRoute({
+        method: 'get', path: '/publishable-key', auth: 'public',
+        summary: 'Resolved Stripe publishable key for a payment context (default | shop | donations).',
+        input: { query: publishableKeyQuery, },
+        handler: ({ query, },) => ({ publishableKey: stripeCredentials(query.context ?? 'default',).publishableKey || null, }),
     },),
 ];

@@ -82,6 +82,7 @@ export async function donate(input: DonateInput, actorUserId: string | undefined
         amountCents: input.amountCents,
         customerEmail: input.donorEmail,
         metadata,
+        context: 'donations',
     },);
 
     // donations.user_id is a UUID FK — synthetic actors → NULL.

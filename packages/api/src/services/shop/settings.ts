@@ -100,9 +100,9 @@ export async function getPublic(): Promise<{ settings: ShopPublicSettings; appea
             businessName: settings.businessName,
             currencyDisplay: appearance.currencyDisplay,
             // Publishable key is public by design — the checkout page needs it
-            // at runtime to load Stripe Elements. Resolved from the admin-set
-            // key (DB) with env fallback.
-            stripePublishableKey: stripeCredentials().publishableKey || undefined,
+            // at runtime to load Stripe Elements. Resolved for the SHOP context
+            // (its own override, or the site default, then env).
+            stripePublishableKey: stripeCredentials('shop',).publishableKey || undefined,
             // Shipping display config (flat rate + free-ship threshold) so the
             // storefront can show per-product shipping + a free-ship banner.
             shipping: {
