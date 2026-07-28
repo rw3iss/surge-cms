@@ -23,7 +23,9 @@ const DASHBOARD_FEATURES: Array<{ key: 'posts' | 'campaigns' | 'forms' | 'messag
 const AdminDashboard: Component = () => {
     const [stats,] = createResource(async () => {
         try {
-            return await cms.dashboard.summary();
+            // Fetch fresh on every dashboard mount so counts (e.g. unread
+            // messages) reflect the latest data rather than a stale cached hit.
+            return await cms.dashboard.summary(true,);
         } catch {
             return null;
         }

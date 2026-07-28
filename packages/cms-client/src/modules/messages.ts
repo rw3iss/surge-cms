@@ -14,7 +14,7 @@ export class MessagesModule extends ModuleBase {
 
     /** POST /messages — public contact-form submission (server adds ip/ua/userId). */
     submit(body: MessageSubmitBody,): Promise<MessageSubmitResponse> {
-        return this.mutate<MessageSubmitResponse>('POST', '/messages', { body, invalidates: ['messages',], },);
+        return this.mutate<MessageSubmitResponse>('POST', '/messages', { body, invalidates: ['messages', 'dashboard',], },);
     }
 
     /** GET /messages — paginated admin list with status/search filters. */
@@ -34,25 +34,25 @@ export class MessagesModule extends ModuleBase {
 
     /** PUT /messages/:id/status — update one message's status. */
     updateStatus(id: string, body: MessageStatusUpdateBody,): Promise<MessageStatusUpdateResponse> {
-        return this.mutate<MessageStatusUpdateResponse>('PUT', '/messages/:id/status', { params: { id, }, body, invalidates: ['messages',], },);
+        return this.mutate<MessageStatusUpdateResponse>('PUT', '/messages/:id/status', { params: { id, }, body, invalidates: ['messages', 'dashboard',], },);
     }
 
     remove(id: string,): Promise<MessageDeleteResponse> {
-        return this.mutate<MessageDeleteResponse>('DELETE', '/messages/:id', { params: { id, }, invalidates: ['messages',], },);
+        return this.mutate<MessageDeleteResponse>('DELETE', '/messages/:id', { params: { id, }, invalidates: ['messages', 'dashboard',], },);
     }
 
     /** POST /messages/bulk — unified runner (action='delete'|'status'). */
     bulk(body: MessageBulkBody,): Promise<MessageBulkResponse> {
-        return this.mutate<MessageBulkResponse>('POST', '/messages/bulk', { body, invalidates: ['messages',], },);
+        return this.mutate<MessageBulkResponse>('POST', '/messages/bulk', { body, invalidates: ['messages', 'dashboard',], },);
     }
 
     /** POST /messages/bulk-status — legacy bulk status (redundant with bulk). */
     bulkStatus(body: MessageBulkStatusBody,): Promise<MessageBulkStatusResponse> {
-        return this.mutate<MessageBulkStatusResponse>('POST', '/messages/bulk-status', { body, invalidates: ['messages',], },);
+        return this.mutate<MessageBulkStatusResponse>('POST', '/messages/bulk-status', { body, invalidates: ['messages', 'dashboard',], },);
     }
 
     /** POST /messages/bulk-delete — legacy bulk delete (redundant with bulk). */
     bulkDelete(body: MessageBulkDeleteBody,): Promise<MessageBulkDeleteResponse> {
-        return this.mutate<MessageBulkDeleteResponse>('POST', '/messages/bulk-delete', { body, invalidates: ['messages',], },);
+        return this.mutate<MessageBulkDeleteResponse>('POST', '/messages/bulk-delete', { body, invalidates: ['messages', 'dashboard',], },);
     }
 }
