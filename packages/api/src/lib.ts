@@ -76,6 +76,15 @@ async function bootRunningMode(): Promise<void> {
     const emailConfigured = await verifyEmailConfig();
     if (!emailConfigured) logger.warn('Email not configured — emails will not be sent',);
 
+    // Warm the Stripe credentials cache (DB-configured keys → env fallback) so
+    // the sync `stripeCredentials()` call sites resolve the admin-set keys.
+    try {
+        const { refreshStripeCredentials, } = await import('./services/payment/credentials.js');
+        await refreshStripeCredentials();
+    } catch (err) {
+        logger.warn(`Stripe credentials warm-up failed (using env fallback): ${(err as Error).message}`,);
+    }
+
     const avatarDir = path.resolve(config.dataDir, 'avatars',);
     await fs.mkdir(avatarDir, { recursive: true, },);
     logger.info(`Data directory: ${path.resolve(config.dataDir,)}`,);

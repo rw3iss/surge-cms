@@ -47,6 +47,9 @@ import type {
     ShopReviewListQuery,
     ShopReviewListResponse,
     ShopReviewModerateBody,
+    ShopPaymentCredentialsBody,
+    ShopPaymentCredentialsResponse,
+    ShopPaymentCredentialsUpdateResponse,
     ShopReviewModerateResponse,
     ShopSettingsAdminResponse,
     ShopSettingsPublicResponse,
@@ -257,6 +260,19 @@ export class ShopModule extends ModuleBase {
         /** PUT /shop/settings (admin) — merge partial; returns full config. */
         update: (body: ShopSettingsUpdateBody,): Promise<ShopSettingsUpdateResponse> =>
             this.mutate<ShopSettingsUpdateResponse>('PUT', '/shop/settings', { body, invalidates: ['shop',], },),
+
+        /** GET /shop/payment-credentials (admin) — masked Stripe key status
+         *  (never returns secret values). */
+        paymentCredentials: (): Promise<ShopPaymentCredentialsResponse> =>
+            this.get<ShopPaymentCredentialsResponse>('/shop/payment-credentials',),
+
+        /** PUT /shop/payment-credentials (admin) — set/clear Stripe keys; returns
+         *  the refreshed masked status. */
+        updatePaymentCredentials: (body: ShopPaymentCredentialsBody,): Promise<ShopPaymentCredentialsUpdateResponse> =>
+            this.mutate<ShopPaymentCredentialsUpdateResponse>('PUT', '/shop/payment-credentials', {
+                body,
+                invalidates: ['shop', 'settings',],
+            },),
     };
 
     /** Printify (POD) — sync the catalog + read integration status (admin).

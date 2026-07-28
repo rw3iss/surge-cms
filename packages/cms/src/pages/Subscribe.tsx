@@ -46,7 +46,13 @@ const SubscribePage: Component = () => {
     );
 
     onMount(async () => {
-        const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+        // Prefer the admin-configured publishable key (public settings), fall
+        // back to the build-time env for older setups.
+        let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+        try {
+            const pub = await cms.settings.getPublic();
+            if (pub?.stripePublishableKey) key = pub.stripePublishableKey;
+        } catch { /* fall back to env key */ }
         if (key) {
             stripeInstance = await loadStripe(key,);
         }

@@ -6,8 +6,8 @@
  * public account metadata (display name, country, currency).
  */
 import type { ShopStripeStatusResponse, } from '@sitesurge/types';
-import { config, } from '../../config';
 import * as cache from '../cache';
+import { stripeCredentials, } from '../payment/credentials';
 import { getStripeClient, } from '../payment/stripe';
 
 const CACHE_TTL_SECONDS = 60;
@@ -16,16 +16,17 @@ const CACHE_TTL_SECONDS = 60;
 export type ShopStripeStatus = ShopStripeStatusResponse;
 
 function keyMode(): 'test' | 'live' | null {
-    const k = config.stripe.secretKey;
+    const k = stripeCredentials().secretKey;
     if (!k) return null;
     return k.startsWith('sk_live', ) || k.startsWith('rk_live',) ? 'live' : 'test';
 }
 
 async function computeStatus(): Promise<ShopStripeStatus> {
+    const creds = stripeCredentials();
     const base = {
         mode: keyMode(),
-        webhookConfigured: Boolean(config.stripe.webhookSecret,),
-        publishableKeyConfigured: Boolean(config.stripe.publishableKey,),
+        webhookConfigured: Boolean(creds.webhookSecret,),
+        publishableKeyConfigured: Boolean(creds.publishableKey,),
         checkedAt: new Date().toISOString(),
     };
 

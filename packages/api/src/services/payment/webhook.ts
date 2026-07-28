@@ -7,9 +7,9 @@
  * Dependency is one-directional (this file never imports `payments.ts`).
  */
 import Stripe from 'stripe';
-import { config, } from '../../config';
 import { query, } from '../../db';
 import { cache, } from '../cache';
+import { stripeCredentials, } from './credentials';
 import { getPaymentProvider, } from './index';
 import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } from './stripeCompat';
 import { logger, } from '../../utils/logger';
@@ -34,7 +34,7 @@ export async function handleWebhook(
     let event: Stripe.Event;
 
     try {
-        if (config.stripe.webhookSecret) {
+        if (stripeCredentials().webhookSecret) {
             // Production mode: verify webhook signature using raw body.
             if (!signature) {
                 logger.warn('Webhook received without stripe-signature header',);

@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
-import { config, } from '../../config';
 import { ServiceNotConfiguredError, } from '../../core/errors';
+import { stripeCredentials, } from './credentials';
 import {
     CreateCustomerParams,
     CreatePaymentIntentParams,
@@ -13,13 +13,18 @@ import {
 import { invoiceClientSecret, subscriptionPeriod, } from './stripeCompat';
 
 // Stripe client is lazy so the backend can boot in setup mode without
-// a Stripe secret. Any first use after install will pick up the value
-// once .env has been populated.
+// a Stripe secret. The secret is resolved from `stripeCredentials()` (DB
+// override → env fallback), so an admin key change takes effect after
+// `resetStripeClient()` drops the memoized instance.
 let _stripe: Stripe | null = null;
+let _stripeKey: string | null = null;
 function stripeClient(): Stripe {
-    if (_stripe) return _stripe;
-    if (!config.stripe.secretKey) throw new ServiceNotConfiguredError('Stripe',);
-    _stripe = new Stripe(config.stripe.secretKey,);
+    const key = stripeCredentials().secretKey;
+    if (!key) throw new ServiceNotConfiguredError('Stripe',);
+    // Rebuild if the resolved secret changed (admin updated the key at runtime).
+    if (_stripe && _stripeKey === key) return _stripe;
+    _stripe = new Stripe(key,);
+    _stripeKey = key;
     return _stripe;
 }
 const stripe = new Proxy({} as Stripe, {
@@ -30,10 +35,17 @@ const stripe = new Proxy({} as Stripe, {
     },
 },);
 
+/** Drop the memoized client so the next use rebuilds with the current secret.
+ *  Called by the credentials service after an admin key change. */
+export function resetStripeClient(): void {
+    _stripe = null;
+    _stripeKey = null;
+}
+
 /** The memoized Stripe client, or null when no secret key is configured.
  *  For read-only checks (e.g. connection status) that must not throw. */
 export function getStripeClient(): Stripe | null {
-    if (!config.stripe.secretKey) return null;
+    if (!stripeCredentials().secretKey) return null;
     return stripeClient();
 }
 
@@ -128,7 +140,7 @@ export class StripePaymentProvider implements PaymentProvider {
         return stripe.webhooks.constructEvent(
             payload,
             signature,
-            config.stripe.webhookSecret!,
+            stripeCredentials().webhookSecret,
         );
     }
 }

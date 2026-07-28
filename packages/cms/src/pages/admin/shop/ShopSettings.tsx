@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { Component, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import { createStore, } from 'solid-js/store';
 import type { ShopAppearance, ShopSettings as ShopSettingsModel, } from '@sitesurge/types';
@@ -70,6 +70,48 @@ const ShopSettingsInner: Component = () => {
             setStripeStatus(fresh,);
         } finally {
             setRechecking(false,);
+        }
+    };
+
+    // ── Stripe API keys (DB-configured, env fallback) ──────────────────
+    // Masked status (which keys are set, last-4, source). Secret + webhook are
+    // write-only: the inputs stay blank and only send when a new value is typed.
+    const [creds, { mutate: setCreds, },] = createSafeResource(
+        async () => await cms.shop.settings.paymentCredentials(),
+        null,
+    );
+    const [pubKeyInput, setPubKeyInput,] = createSignal('',);
+    const [secretInput, setSecretInput,] = createSignal('',);
+    const [webhookInput, setWebhookInput,] = createSignal('',);
+    const [savingKeys, setSavingKeys,] = createSignal(false,);
+    // Prefill the publishable key (public) once the status loads.
+    createEffect(() => {
+        const c = creds();
+        if (c) setPubKeyInput(c.publishableKey || '',);
+    },);
+
+    const saveKeys = async () => {
+        setSavingKeys(true,);
+        try {
+            const body: { secretKey?: string; publishableKey?: string; webhookSecret?: string; } = {
+                // Publishable is shown in full → send as-is (blank clears it).
+                publishableKey: pubKeyInput().trim(),
+            };
+            // Secret + webhook are write-only → only send when the operator typed
+            // a new value; blank means "keep the current key".
+            if (secretInput().trim()) body.secretKey = secretInput().trim();
+            if (webhookInput().trim()) body.webhookSecret = webhookInput().trim();
+
+            const updated = await cms.shop.settings.updatePaymentCredentials(body,);
+            setCreds(updated,);
+            setSecretInput('',);
+            setWebhookInput('',);
+            toast.success('Stripe keys saved.',);
+            await recheckStripe();
+        } catch (err: any) {
+            toast.error(err?.message || 'Failed to save Stripe keys.',);
+        } finally {
+            setSavingKeys(false,);
         }
     };
 
@@ -205,20 +247,19 @@ const ShopSettingsInner: Component = () => {
                                         </Show>
                                         <Show when={s.connected && !s.webhookConfigured}>
                                             <p class="shop-stripe__help">
-                                                No webhook signing secret set — paid orders won't auto-fulfill. Set <code>STRIPE_WEBHOOK_SECRET</code>{' '}
-                                                (from <code>stripe listen</code> locally, or a Dashboard webhook endpoint in production).
+                                                No webhook signing secret set — paid orders won't auto-fulfill. Add the webhook secret below
+                                                (from a Dashboard webhook endpoint, or <code>stripe listen</code> locally).
                                             </p>
                                         </Show>
                                         <Show when={s.connected && !s.publishableKeyConfigured}>
                                             <p class="shop-stripe__help">
-                                                No storefront publishable key — checkout can't load. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the web app env.
+                                                No publishable key — checkout can't load. Add it below.
                                             </p>
                                         </Show>
                                         <Show when={!s.connected}>
                                             <p class="shop-stripe__help">
                                                 <Show when={s.error}><span>{s.error}</span><br /></Show>
-                                                Set <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PUBLISHABLE_KEY</code> in the API env, then restart the server.
-                                                Get keys from the{' '}
+                                                Enter your Stripe keys below to connect. Get them from the{' '}
                                                 <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe Dashboard → Developers → API keys</a>.
                                             </p>
                                         </Show>
@@ -235,6 +276,74 @@ const ShopSettingsInner: Component = () => {
                                 );
                             }}
                         </Show>
+
+                        {/* Stripe API keys — stored server-side (DB), used by the
+                            backend + client. Env vars still work as a fallback. */}
+                        <div class="shop-stripe-keys">
+                            <h3 class="shop-stripe-keys__title">Stripe API keys</h3>
+                            <p class="form-help-muted">
+                                Configure Stripe here to power donations, subscriptions, and shop checkout. Keys are
+                                stored securely on the server; the publishable key is served to the browser (it's public),
+                                the secret and webhook keys never leave the server. Leave a field blank to keep the
+                                current value. Any <code>STRIPE_*</code> env vars act as a fallback.
+                            </p>
+
+                            <FormField
+                                label="Publishable key"
+                                hint="Starts with pk_. Public — loaded by the checkout / donation forms."
+                            >
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    spellcheck={false}
+                                    placeholder="pk_live_… or pk_test_…"
+                                    value={pubKeyInput()}
+                                    onInput={(e,) => setPubKeyInput(e.currentTarget.value,)}
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Secret key"
+                                hint={creds()?.secretKeyConfigured
+                                    ? `Currently set (…${creds()!.secretKeyLast4}, from ${creds()!.sources.secret}). Leave blank to keep it.`
+                                    : 'Starts with sk_. Server-only — used to create charges.'}
+                            >
+                                <input
+                                    type="password"
+                                    autocomplete="off"
+                                    spellcheck={false}
+                                    placeholder={creds()?.secretKeyConfigured ? '•••••••••• (unchanged)' : 'sk_live_… or sk_test_…'}
+                                    value={secretInput()}
+                                    onInput={(e,) => setSecretInput(e.currentTarget.value,)}
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Webhook signing secret"
+                                hint={creds()?.webhookConfigured
+                                    ? `Currently set (…${creds()!.webhookSecretLast4}, from ${creds()!.sources.webhook}). Leave blank to keep it.`
+                                    : 'Starts with whsec_. Verifies incoming webhooks (order/subscription fulfillment).'}
+                            >
+                                <input
+                                    type="password"
+                                    autocomplete="off"
+                                    spellcheck={false}
+                                    placeholder={creds()?.webhookConfigured ? '•••••••••• (unchanged)' : 'whsec_…'}
+                                    value={webhookInput()}
+                                    onInput={(e,) => setWebhookInput(e.currentTarget.value,)}
+                                />
+                            </FormField>
+
+                            <p class="form-help-muted">
+                                Webhook endpoint URL: <code>{window.location.origin}/api/v1/payments/webhook</code>
+                            </p>
+
+                            <div class="shop-stripe-keys__actions">
+                                <button class="btn btn--primary btn--small" onClick={saveKeys} disabled={savingKeys()}>
+                                    {savingKeys() ? 'Saving…' : 'Save Stripe keys'}
+                                </button>
+                            </div>
+                        </div>
 
                         <div class="form-group">
                             <Toggle

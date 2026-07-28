@@ -265,6 +265,13 @@ export interface SiteSettings {
     };
     appearance?: AppearanceSettings;
     /**
+     * Stripe publishable key (public by design). Resolved server-side from the
+     * admin-configured key (Shop → Settings → Payments) with env fallback, so
+     * donation / subscription forms load Stripe Elements at runtime without a
+     * build-time env var. Absent when Stripe isn't configured.
+     */
+    stripePublishableKey?: string;
+    /**
      * Server-computed feature flags. Each flag is the AND of an admin
      * toggle (in `site_settings`) and the runtime conditions required
      * for the feature to actually work (e.g. a connected provider).

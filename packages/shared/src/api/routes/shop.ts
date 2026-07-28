@@ -506,3 +506,36 @@ export interface ShopStripeStatusResponse {
     /** ISO timestamp the status was computed. */
     checkedAt: string;
 }
+
+/** Where a resolved Stripe key comes from: admin-set (DB), env, or unset. */
+export type ShopStripeKeySource = 'db' | 'env' | 'none';
+
+/**
+ * GET /shop/payment-credentials — masked view of the admin-editable Stripe keys.
+ * The secret + webhook keys are WRITE-ONLY: never returned in full, only whether
+ * they're set, their last-4, and which source each resolves from. The publishable
+ * key is public by design and returned in full so the input can prefill.
+ */
+export interface ShopPaymentCredentialsResponse {
+    publishableKey: string;
+    secretKeyConfigured: boolean;
+    secretKeyLast4: string;
+    webhookConfigured: boolean;
+    webhookSecretLast4: string;
+    mode: 'test' | 'live' | null;
+    sources: { publishable: ShopStripeKeySource; secret: ShopStripeKeySource; webhook: ShopStripeKeySource; };
+}
+
+/**
+ * PUT /shop/payment-credentials — set/clear the admin Stripe keys. Only fields
+ * present are touched; an empty string clears that key (falls back to env). Keys
+ * are prefix-validated server-side (sk_/rk_, pk_, whsec_).
+ */
+export interface ShopPaymentCredentialsBody {
+    secretKey?: string;
+    publishableKey?: string;
+    webhookSecret?: string;
+}
+
+/** PUT /shop/payment-credentials — the refreshed masked status. */
+export type ShopPaymentCredentialsUpdateResponse = ShopPaymentCredentialsResponse;

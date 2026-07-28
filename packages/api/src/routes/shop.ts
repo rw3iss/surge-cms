@@ -14,6 +14,7 @@ import type {
     ShopReviewAdminListQuery,
     ShopReviewCreateBody,
     ShopReviewListQuery,
+    ShopPaymentCredentialsBody,
     ShopReviewModerateBody,
     ShopSettingsUpdateBody,
 } from '@sitesurge/types';
@@ -28,6 +29,7 @@ import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
 import * as shopSettings from '../services/shop/settings';
 import * as stripeStatus from '../services/shop/stripeStatus';
+import * as stripeCreds from '../services/payment/credentials';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -227,6 +229,15 @@ const shopSettingsUpdateSchema = z.object({
     settings: shopSettingsPatch.optional(),
     appearance: shopAppearancePatch.optional(),
 },) satisfies z.ZodType<ShopSettingsUpdateBody>;
+
+// Admin-editable Stripe keys. Each optional: only present fields are written; an
+// empty string clears that key (→ env fallback). Prefixes are re-validated in
+// the service so the error message is consistent.
+const paymentCredentialsSchema = z.object({
+    secretKey: z.string().optional(),
+    publishableKey: z.string().optional(),
+    webhookSecret: z.string().optional(),
+},) satisfies z.ZodType<ShopPaymentCredentialsBody>;
 
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertProductListQuery = AssertCompatible<z.infer<typeof productListQuery>, ShopProductListQuery>;
@@ -662,6 +673,21 @@ export const shopRoutes = [
         summary: 'Update shop settings and/or appearance (admin); merges the partial and returns the full config.',
         input: { body: shopSettingsUpdateSchema, },
         handler: ({ body, audit, },) => shopSettings.update(body, audit(),),
+    },),
+
+    // Stripe API keys (admin) — DB-configured with env fallback, used by the
+    // backend (charging + webhook verification) and the client (publishable key).
+    // Secret + webhook are write-only: the GET returns only a masked status.
+    defineRoute({
+        method: 'get', path: '/payment-credentials', auth: 'admin',
+        summary: 'Masked Stripe key status (which keys are set, last-4, source). Never returns secret values.',
+        handler: () => stripeCreds.credentialsStatus(),
+    },),
+    defineRoute({
+        method: 'put', path: '/payment-credentials', auth: 'admin',
+        summary: 'Set/clear the Stripe secret, publishable, and webhook keys (empty string clears → env fallback).',
+        input: { body: paymentCredentialsSchema, },
+        handler: ({ body, audit, },) => stripeCreds.updateStripeCredentials(body, audit(),),
     },),
 
     // ── Printify (POD) — sync + status. Credentials come from the printify

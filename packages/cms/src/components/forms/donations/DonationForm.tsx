@@ -29,7 +29,13 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
     const [cardReady, setCardReady,] = createSignal(false,);
 
     onMount(async () => {
-        const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+        // Publishable key: prefer the admin-configured key (served from the
+        // public settings), fall back to the build-time env for older setups.
+        let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+        try {
+            const pub = await cms.settings.getPublic();
+            if (pub?.stripePublishableKey) key = pub.stripePublishableKey;
+        } catch { /* fall back to env key */ }
         if (!key) {
             setError('Stripe is not configured',);
             return;

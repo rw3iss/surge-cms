@@ -19,8 +19,8 @@
  * so they cannot leak through any of these reads.
  */
 import type { ShopAppearance, ShopPublicSettings, ShopSettings, } from '@sitesurge/types';
-import { config as appConfig, } from '../../config';
 import { query, } from '../../db';
+import { stripeCredentials, } from '../payment/credentials';
 import { ValidationError, } from '../../core/errors';
 import { logAudit, } from '../audit';
 import { cache, } from '../cache';
@@ -100,8 +100,9 @@ export async function getPublic(): Promise<{ settings: ShopPublicSettings; appea
             businessName: settings.businessName,
             currencyDisplay: appearance.currencyDisplay,
             // Publishable key is public by design — the checkout page needs it
-            // at runtime to load Stripe Elements.
-            stripePublishableKey: appConfig.stripe.publishableKey || undefined,
+            // at runtime to load Stripe Elements. Resolved from the admin-set
+            // key (DB) with env fallback.
+            stripePublishableKey: stripeCredentials().publishableKey || undefined,
             // Shipping display config (flat rate + free-ship threshold) so the
             // storefront can show per-product shipping + a free-ship banner.
             shipping: {

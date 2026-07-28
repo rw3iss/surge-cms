@@ -302,6 +302,9 @@ export async function invalidateShopReviewCache(productId: string,): Promise<voi
 export async function invalidateShopSettingsCache(): Promise<void> {
     await del(CACHE_KEYS.shopSettingsRaw,);
     await del(CACHE_KEYS.shopSettingsPublic,);
+    // A Stripe-key change flows through the shop-settings save path, so bust the
+    // cached connection status too and it re-checks against the new key.
+    await del(CACHE_KEYS.shopStripeStatus,);
 }
 
 /** Read-and-delete the transient OAuth CSRF state (get already JSON-parses). */

@@ -21,6 +21,7 @@ import { query, } from '../db';
 import { ValidationError, } from '../middleware/error';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
+import { stripeCredentials, } from './payment/credentials';
 import { FEATURE_REGISTRY, FeatureKey, featureSettingKey, } from '../features/registry';
 import { uuidOrNull, } from '../utils/uuid';
 import type { AuditContext, } from './types';
@@ -237,6 +238,13 @@ export async function getPublicSettings(): Promise<SiteSettings> {
     if (config.shopify.storeDomain && config.shopify.storefrontAccessToken) {
         (publicSettings as any).shopifyDomain = config.shopify.storeDomain;
         (publicSettings as any).shopifyStorefrontToken = config.shopify.storefrontAccessToken;
+    }
+
+    // Stripe publishable key (public by design) so donation / subscription forms
+    // can load Stripe Elements from the admin-set key without a build-time env.
+    const stripePublishable = stripeCredentials().publishableKey;
+    if (stripePublishable) {
+        publicSettings.stripePublishableKey = stripePublishable;
     }
 
     await cache.set(cacheKey, publicSettings, 600,);

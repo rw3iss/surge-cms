@@ -256,6 +256,26 @@
 }
 
 // Stripe connection status panel (Payments tab).
+// Stripe key editor (Payments tab). Sits below the connection-status banner.
+.shop-stripe-keys {
+    margin-top: $spacing-lg;
+    padding-top: $spacing-lg;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+
+    &__title {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-lg;
+    }
+
+    &__actions {
+        margin-top: $spacing-md;
+    }
+
+    code {
+        word-break: break-all;
+    }
+}
+
 .shop-stripe {
     display: flex;
     flex-direction: column;
