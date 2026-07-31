@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response, } from 'express';
+import { isCacheablePublicHtml, } from '../utils/cachePolicy';
 
 // Static-asset paths never need a CSRF cookie, and emitting a `Set-Cookie` on
 // them stops a CDN (Cloudflare) from caching them at all. Skipping the cookie
@@ -16,7 +17,10 @@ function isStaticAssetPath(p: string,): boolean {
 
 // Generate CSRF token and set as cookie
 export function csrfToken(req: Request, res: Response, next: NextFunction,) {
-    if (!req.cookies['csrf-token'] && !isStaticAssetPath(req.path,)) {
+    // Skip on static assets AND edge-cacheable anonymous public HTML — a
+    // Set-Cookie would stop the CDN from caching them. Anonymous visitors still
+    // pick up the token from their first (uncached) /api call before any POST.
+    if (!req.cookies['csrf-token'] && !isStaticAssetPath(req.path,) && !isCacheablePublicHtml(req,)) {
         const token = crypto.randomBytes(32,).toString('hex',);
         res.cookie('csrf-token', token, {
             httpOnly: false, // Must be readable by JS

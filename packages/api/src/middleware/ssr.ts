@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response, } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { renderPublicRoute, } from '../services/ssr';
+import { isCacheablePublicHtml, PUBLIC_HTML_CACHE_CONTROL, } from '../utils/cachePolicy';
 import { logger, } from '../utils/logger';
 
 /**
@@ -41,13 +42,15 @@ export function createSsrMiddleware(distDir: string,) {
                 return next();
             }
 
+            // Anonymous public pages get a short edge micro-cache so a CDN
+            // absorbs traffic spikes (origin renders each hot page ~once/TTL).
+            // Logged-in/admin/dynamic requests stay no-store (fresh). The CSP is
+            // plugin-config-derived (no per-request nonce), so a cached copy is
+            // correct for every anonymous visitor; a plugin change propagates
+            // within the TTL. Hashed JS/CSS assets are cached separately (1y).
             res.status(200,)
                 .setHeader('Content-Type', 'text/html; charset=utf-8',)
-                // no-store: the HTML document carries the CSP header, which is
-                // extended per enabled plugin. A cached document would pin a
-                // stale CSP (blocking a plugin widget's backend), so the shell
-                // is always re-fetched. Hashed JS/CSS assets stay cacheable.
-                .setHeader('Cache-Control', 'no-store',)
+                .setHeader('Cache-Control', isCacheablePublicHtml(req,) ? PUBLIC_HTML_CACHE_CONTROL : 'no-store',)
                 .send(html,);
         } catch (error) {
             logger.error('SSR error', { path: pathname, error: (error as Error).message, },);
