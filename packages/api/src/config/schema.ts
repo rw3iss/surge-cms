@@ -64,6 +64,9 @@ export const envSchema = z.object({
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
     S3_BUCKET: z.string().optional(),
     S3_CDN_URL: z.string().optional(),
+    // Custom S3-compatible endpoint (Cloudflare R2, Backblaze B2, MinIO, …).
+    // e.g. https://<accountid>.r2.cloudflarestorage.com — leave unset for AWS S3.
+    S3_ENDPOINT: z.string().optional(),
 
     FACEBOOK_APP_ID: z.string().optional(),
     FACEBOOK_APP_SECRET: z.string().optional(),

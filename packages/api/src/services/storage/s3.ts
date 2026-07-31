@@ -15,8 +15,14 @@ export class S3StorageProvider implements StorageProvider {
         this.bucket = config.aws.s3Bucket || '';
         this.cdnUrl = config.aws.cdnUrl;
 
+        // A custom endpoint (Cloudflare R2, Backblaze B2, MinIO, …) switches the
+        // client off AWS. R2 needs path-style addressing. When set, a public URL
+        // MUST come from S3_CDN_URL (the raw endpoint isn't publicly servable).
         this.client = new S3Client({
             region: this.region,
+            ...(config.aws.endpoint
+                ? { endpoint: config.aws.endpoint, forcePathStyle: true, }
+                : {}),
             credentials: config.aws.accessKeyId && config.aws.secretAccessKey ?
                 {
                     accessKeyId: config.aws.accessKeyId,

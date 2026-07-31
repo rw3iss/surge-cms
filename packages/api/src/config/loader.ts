@@ -83,6 +83,7 @@ export interface Config {
         secretAccessKey: string | undefined;
         s3Bucket: string | undefined;
         cdnUrl: string | undefined;
+        endpoint: string | undefined;
     };
 
     social: {
@@ -200,6 +201,7 @@ function build(parsed: EnvVars,): Config {
             secretAccessKey: parsed.AWS_SECRET_ACCESS_KEY,
             s3Bucket: parsed.S3_BUCKET,
             cdnUrl: parsed.S3_CDN_URL,
+            endpoint: parsed.S3_ENDPOINT,
         },
 
         social: {
