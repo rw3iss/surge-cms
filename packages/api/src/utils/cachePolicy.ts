@@ -1,4 +1,4 @@
-import type { Request, } from 'express';
+import type { Request, Response, } from 'express';
 
 /**
  * Edge-cache policy for public HTML documents (see docs/deploy cache rules).
@@ -51,3 +51,13 @@ export function isCacheablePublicHtml(req: Request,): boolean {
  *  Browser always revalidates (max-age=0) but the CDN serves a 60s edge copy
  *  and can serve stale for up to 10 min while it revalidates in the background. */
 export const PUBLIC_HTML_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=600';
+
+/** Apply the public-HTML edge-cache headers to a response.
+ *  Also collapses `Vary` to just `Accept-Encoding`: the CORS middleware adds
+ *  `Vary: Origin`, and a CDN (Cloudflare) treats any Vary other than
+ *  Accept-Encoding as uncacheable. Anonymous public HTML is same-origin
+ *  navigation, so Origin-varying is unnecessary on these responses. */
+export function applyPublicHtmlCacheHeaders(res: Response,): void {
+    res.setHeader('Cache-Control', PUBLIC_HTML_CACHE_CONTROL,);
+    res.setHeader('Vary', 'Accept-Encoding',);
+}

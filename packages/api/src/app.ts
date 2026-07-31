@@ -13,7 +13,7 @@ import { csrfProtection, csrfToken, } from './middleware/csrf';
 import { errorHandler, notFoundHandler, } from './middleware/error';
 import { setupGate, } from './middleware/setupGate';
 import { createSsrMiddleware, } from './middleware/ssr';
-import { isCacheablePublicHtml, PUBLIC_HTML_CACHE_CONTROL, } from './utils/cachePolicy';
+import { applyPublicHtmlCacheHeaders, isCacheablePublicHtml, } from './utils/cachePolicy';
 import { registerModule, } from './api/registry';
 import routes from './routes';
 import { setupRoutes, } from './routes/setup';
@@ -209,7 +209,8 @@ export function createApp(mode: AppMode = 'running',): Express {
                 // Anonymous public routes get the short edge micro-cache (same
                 // policy as SSR); logged-in/admin/dynamic stay no-store so the
                 // SPA shell + its plugin CSP are always fetched fresh.
-                res.setHeader('Cache-Control', isCacheablePublicHtml(req,) ? PUBLIC_HTML_CACHE_CONTROL : 'no-store',);
+                if (isCacheablePublicHtml(req,)) applyPublicHtmlCacheHeaders(res,);
+                else res.setHeader('Cache-Control', 'no-store',);
                 return res.sendFile(indexPath, { cacheControl: false, etag: false, lastModified: false, },);
             }
         } catch {

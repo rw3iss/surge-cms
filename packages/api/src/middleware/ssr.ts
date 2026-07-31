@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response, } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { renderPublicRoute, } from '../services/ssr';
-import { isCacheablePublicHtml, PUBLIC_HTML_CACHE_CONTROL, } from '../utils/cachePolicy';
+import { applyPublicHtmlCacheHeaders, isCacheablePublicHtml, } from '../utils/cachePolicy';
 import { logger, } from '../utils/logger';
 
 /**
@@ -48,10 +48,10 @@ export function createSsrMiddleware(distDir: string,) {
             // plugin-config-derived (no per-request nonce), so a cached copy is
             // correct for every anonymous visitor; a plugin change propagates
             // within the TTL. Hashed JS/CSS assets are cached separately (1y).
-            res.status(200,)
-                .setHeader('Content-Type', 'text/html; charset=utf-8',)
-                .setHeader('Cache-Control', isCacheablePublicHtml(req,) ? PUBLIC_HTML_CACHE_CONTROL : 'no-store',)
-                .send(html,);
+            res.status(200,).setHeader('Content-Type', 'text/html; charset=utf-8',);
+            if (isCacheablePublicHtml(req,)) applyPublicHtmlCacheHeaders(res,);
+            else res.setHeader('Cache-Control', 'no-store',);
+            res.send(html,);
         } catch (error) {
             logger.error('SSR error', { path: pathname, error: (error as Error).message, },);
             // Fall back to SPA (serve raw index.html)
