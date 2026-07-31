@@ -184,6 +184,17 @@ export function createApp(mode: AppMode = 'running',): Express {
     // SSR + frontend serving. Same in both modes; the SPA handles its
     // own redirect to /setup based on the status endpoint.
     const distDir = resolveAdminDist();
+    // Build assets are content-hashed → immutable. Serve them with a long,
+    // immutable cache (and, via the CSRF middleware's static-path skip, no
+    // Set-Cookie) so a CDN can cache them indefinitely. Mounted BEFORE SSR so
+    // asset requests never touch the renderer; `fallthrough: false` makes a
+    // missing asset 404 rather than fall through to the SPA shell.
+    app.use('/assets', express.static(path.join(distDir, 'assets',), {
+        immutable: true,
+        maxAge: '365d',
+        index: false,
+        fallthrough: false,
+    },),);
     app.use(createSsrMiddleware(distDir,),);
     app.use(express.static(distDir, { index: false, },),);
     // Express 5 / path-to-regexp 8 no longer accept the bare '*' string route;

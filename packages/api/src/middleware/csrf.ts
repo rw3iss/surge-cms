@@ -1,9 +1,22 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response, } from 'express';
 
+// Static-asset paths never need a CSRF cookie, and emitting a `Set-Cookie` on
+// them stops a CDN (Cloudflare) from caching them at all. Skipping the cookie
+// here lets /assets/*, /uploads/*, and hashed static files be edge-cached; real
+// HTML documents and API responses (which the SPA reads the token from) still
+// get it.
+const STATIC_ASSET_EXT = /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif|ico|mp4|webm)$/i;
+function isStaticAssetPath(p: string,): boolean {
+    return p.startsWith('/assets/',)
+        || p.startsWith('/uploads/',)
+        || p.startsWith('/avatars/',)
+        || STATIC_ASSET_EXT.test(p,);
+}
+
 // Generate CSRF token and set as cookie
 export function csrfToken(req: Request, res: Response, next: NextFunction,) {
-    if (!req.cookies['csrf-token']) {
+    if (!req.cookies['csrf-token'] && !isStaticAssetPath(req.path,)) {
         const token = crypto.randomBytes(32,).toString('hex',);
         res.cookie('csrf-token', token, {
             httpOnly: false, // Must be readable by JS
