@@ -641,6 +641,49 @@
     // Give the product picker more height in this taller modal.
     .shop-admin__product-picker {
         max-height: 22rem;
+
+        // Product rows: checkbox + small thumbnail + title. A touch taller so
+        // the thumbnail has room.
+        .shop-product-editor__check {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 44px;
+            padding: 4px 6px;
+            cursor: pointer;
+
+            &:hover {
+                background: var(--admin-bg-subtle, #{color.adjust($border-color, $lightness: 8%)});
+            }
+        }
+
+        .shop-product-editor__thumb {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            border-radius: $border-radius-sm;
+            object-fit: cover;
+            background: var(--admin-bg-subtle, #f0f0f0);
+            border: 1px solid var(--admin-border, #{$border-color});
+
+            // No-image placeholder: a subtle diagonal-slash box.
+            &--empty {
+                background:
+                    linear-gradient(
+                        135deg,
+                        transparent calc(50% - 1px),
+                        var(--admin-border, #{$border-color}) calc(50% - 1px),
+                        var(--admin-border, #{$border-color}) calc(50% + 1px),
+                        transparent calc(50% + 1px)
+                    ),
+                    var(--admin-bg-subtle, #f0f0f0);
+            }
+        }
+
+        .shop-product-editor__check-title {
+            font-size: $font-size-sm;
+            line-height: 1.3;
+        }
     }
 }
 

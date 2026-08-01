@@ -208,7 +208,13 @@ const ShopCollectionsInner: Component = () => {
                                                         checked={draft()!.productIds.includes(p.id,)}
                                                         onChange={() => toggleProduct(p.id,)}
                                                     />
-                                                    {p.title}
+                                                    <Show
+                                                        when={p.primaryImageUrl}
+                                                        fallback={<span class="shop-product-editor__thumb shop-product-editor__thumb--empty" aria-hidden="true" />}
+                                                    >
+                                                        <img class="shop-product-editor__thumb" src={p.primaryImageUrl!} alt="" loading="lazy" />
+                                                    </Show>
+                                                    <span class="shop-product-editor__check-title">{p.title}</span>
                                                 </label>
                                             )}
                                         </For>
