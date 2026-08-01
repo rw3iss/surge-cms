@@ -46,7 +46,10 @@ function isEmpty(val: string | undefined | null,): boolean {
 export default function ColorPicker(props: ColorPickerProps,) {
     const defaultColor = () => props.defaultColor || '#ffffff';
     const [open, setOpen,] = createSignal(false,);
-    const [popupPos, setPopupPos,] = createSignal({ top: 0, left: 0, },);
+    // `right` (not `left`): the popup right-aligns to the swatch button's right
+    // edge and expands leftward, so a swatch near the right of the Style/Edit
+    // panel never spills off the container (or behind a side widget).
+    const [popupPos, setPopupPos,] = createSignal({ top: 0, right: 0, },);
     let containerRef: HTMLDivElement | undefined;
     let swatchRef: HTMLButtonElement | undefined;
 
@@ -149,7 +152,10 @@ export default function ColorPicker(props: ColorPickerProps,) {
     createEffect(() => {
         if (open() && swatchRef) {
             const rect = swatchRef.getBoundingClientRect();
-            setPopupPos({ top: rect.bottom + 4, left: rect.left, },);
+            // Anchor the popup's RIGHT edge under the button's right edge (fixed
+            // positioning → `right` is measured from the viewport's right edge),
+            // so it grows leftward and stays inside the panel.
+            setPopupPos({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right,), },);
         }
     },);
 
@@ -208,7 +214,7 @@ export default function ColorPicker(props: ColorPickerProps,) {
                     style={{
                         position: 'fixed',
                         top: `${popupPos().top}px`,
-                        left: `${popupPos().left}px`,
+                        right: `${popupPos().right}px`,
                     }}
                 >
                     <div class="color-picker__popup-header">
