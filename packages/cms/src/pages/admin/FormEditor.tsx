@@ -1,6 +1,6 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { deriveFieldKeys, type Form, type FormActionType, type FormCreateBody, } from '@sitesurge/types';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
@@ -82,6 +82,18 @@ const FormEditor: Component = () => {
             }
         },
     );
+
+    // Re-apply the saved mailing list once the async options have rendered.
+    // SolidJS won't re-run the `value` binding when only the option list
+    // changes, so a value set (on load) before its <option> exists is dropped
+    // by the DOM — leaving the dropdown blank after a refresh. This effect
+    // forces the selection when both the id and the loaded lists are present.
+    let mailingListSelect: HTMLSelectElement | undefined;
+    createEffect(() => {
+        const id = mailingListId();
+        const lists = mailingLists();
+        if (mailingListSelect && lists && lists.length) mailingListSelect.value = id;
+    },);
 
     /** Variable tokens available in the email template, derived from the current
      *  questions (matches the backend's deriveFieldKeys). */
@@ -568,6 +580,7 @@ const FormEditor: Component = () => {
                             <div class="form-subaction">
                                 <FormField label="Mailing list">
                                     <select
+                                        ref={mailingListSelect}
                                         value={mailingListId()}
                                         onChange={(e,) => { setMailingListId(e.currentTarget.value,); markDirty(); }}
                                         style={{ 'max-width': '320px', }}
