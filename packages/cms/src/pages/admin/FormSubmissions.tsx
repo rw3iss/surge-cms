@@ -1,7 +1,9 @@
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import { useToast, } from '../../components/common/toast';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
  *  (were four identical inline objects). */
@@ -27,16 +29,62 @@ const FormSubmissions: Component = () => {
         }
     },);
 
-    const [submissions,] = createResource(() => params.id, async (id,) => {
+    // Fetch the submissions (up to the API's per-page cap) — feeds both the
+    // summary aggregation and the client-paginated table below.
+    const [submissions, { refetch: refetchSubs, },] = createResource(() => params.id, async (id,) => {
         try {
-            const res = await cms.forms.listSubmissions(id, { limit: 200, } as any,);
+            const res = await cms.forms.listSubmissions(id, { limit: 500, } as any,);
             return res.data;
         } catch {
             return [];
         }
     },);
 
+    const toast = useToast();
     const formatDate = (d: string,) => new Date(d,).toLocaleString();
+
+    // ── Table pagination (20/page) + selection + delete ────────────────
+    const PAGE_SIZE = 20;
+    const [page, setPage,] = createSignal(1,);
+    const [selectMode, setSelectMode,] = createSignal(false,);
+    const [selected, setSelected,] = createSignal<Set<string>>(new Set(),);
+    const [pending, setPending,] = createSignal<{ type: 'single'; id: string; } | { type: 'bulk'; } | null>(null,);
+    const [deleting, setDeleting,] = createSignal(false,);
+
+    const allSubs = createMemo(() => (submissions() || []) as any[],);
+    const totalPages = createMemo(() => Math.max(1, Math.ceil(allSubs().length / PAGE_SIZE,),),);
+    const pageSubs = createMemo(() => allSubs().slice((page() - 1) * PAGE_SIZE, page() * PAGE_SIZE,),);
+
+    const toggle = (id: string,) =>
+        setSelected((prev,) => { const n = new Set(prev,); n.has(id,) ? n.delete(id,) : n.add(id,); return n; },);
+    const selectAll = () => setSelected(new Set(allSubs().map((s,) => s.id,),),);
+    const deselectAll = () => setSelected(new Set(),);
+    const exitSelect = () => { setSelectMode(false,); deselectAll(); };
+
+    const performDelete = async () => {
+        const pd = pending();
+        if (!pd) return;
+        setDeleting(true,);
+        try {
+            if (pd.type === 'single') {
+                await cms.forms.deleteSubmission(params.id, pd.id,);
+                setSelected((prev,) => { const n = new Set(prev,); n.delete(pd.id,); return n; },);
+                toast.success('Submission deleted.',);
+            } else {
+                const ids = [...selected(),];
+                const res = await cms.forms.bulkDeleteSubmissions(params.id, ids,);
+                toast.success(`Deleted ${res.deleted} submission${res.deleted !== 1 ? 's' : ''}.`,);
+                exitSelect();
+            }
+            await refetchSubs();
+            if (page() > totalPages()) setPage(totalPages(),);
+        } catch (err: any) {
+            toast.error(err?.message || 'Delete failed.',);
+        } finally {
+            setDeleting(false,);
+            setPending(null,);
+        }
+    };
 
     // Compute summary stats from submissions
     const stats = () => {
@@ -162,25 +210,58 @@ const FormSubmissions: Component = () => {
             </Show>
 
             {/* Individual submissions table */}
-            <Show when={(submissions() || []).length > 0} fallback={
+            <Show when={allSubs().length > 0} fallback={
                 <div class="empty-state">No submissions yet.</div>
             }>
+                {/* Toolbar — bulk-select toggle + bulk actions */}
+                <div class="u-flex-row u-gap-sm u-flex-wrap" style={{ 'align-items': 'center', 'margin-bottom': '0.5rem', }}>
+                    <Show
+                        when={selectMode()}
+                        fallback={
+                            <button class="btn btn--secondary btn--small" onClick={() => setSelectMode(true,)}>Edit / select</button>
+                        }
+                    >
+                        <button class="btn btn--ghost btn--small" onClick={exitSelect}>Done</button>
+                        <button class="btn btn--ghost btn--small" onClick={selectAll} disabled={selected().size === allSubs().length}>Select all</button>
+                        <button class="btn btn--ghost btn--small" onClick={deselectAll} disabled={selected().size === 0}>Deselect all</button>
+                        <span style={{ 'font-size': '0.85rem', color: 'var(--admin-text-muted, #6b7280)', }}>{selected().size} selected</span>
+                        <button class="btn btn--danger btn--small" disabled={selected().size === 0} onClick={() => setPending({ type: 'bulk', },)}>
+                            Delete selected
+                        </button>
+                    </Show>
+                </div>
+
                 <div class="admin-table-container">
                     <table class="admin-table">
                         <thead>
                             <tr>
+                                <Show when={selectMode()}>
+                                    <th style={{ width: '32px', }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selected().size > 0 && selected().size === allSubs().length}
+                                            onChange={(e,) => e.currentTarget.checked ? selectAll() : deselectAll()}
+                                        />
+                                    </th>
+                                </Show>
                                 <th>#</th>
                                 <th>Submitted</th>
                                 <For each={form()?.questions || []}>
                                     {(q: any,) => <th>{q.question}</th>}
                                 </For>
+                                <th style={{ 'text-align': 'right', }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <For each={submissions() || []}>
+                            <For each={pageSubs()}>
                                 {(sub: any, idx,) => (
                                     <tr>
-                                        <td>{idx() + 1}</td>
+                                        <Show when={selectMode()}>
+                                            <td>
+                                                <input type="checkbox" checked={selected().has(sub.id,)} onChange={() => toggle(sub.id,)} />
+                                            </td>
+                                        </Show>
+                                        <td>{(page() - 1) * PAGE_SIZE + idx() + 1}</td>
                                         <td style={{ 'white-space': 'nowrap', 'font-size': '0.85rem', }}>{formatDate(sub.submittedAt || sub.submitted_at,)}</td>
                                         <For each={form()?.questions || []}>
                                             {(q: any,) => {
@@ -193,13 +274,43 @@ const FormSubmissions: Component = () => {
                                                 );
                                             }}
                                         </For>
+                                        <td style={{ 'text-align': 'right', 'white-space': 'nowrap', }}>
+                                            <button
+                                                class="btn btn--danger btn--small"
+                                                title="Delete submission"
+                                                onClick={() => setPending({ type: 'single', id: sub.id, },)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
                                     </tr>
                                 )}
                             </For>
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pager (pages of 20) */}
+                <Show when={totalPages() > 1}>
+                    <div class="u-flex-row u-gap-sm" style={{ 'align-items': 'center', 'justify-content': 'center', 'margin-top': '1rem', }}>
+                        <button class="btn btn--ghost btn--small" disabled={page() <= 1} onClick={() => setPage((p,) => Math.max(1, p - 1,),)}>← Prev</button>
+                        <span style={{ 'font-size': '0.85rem', }}>Page {page()} of {totalPages()}</span>
+                        <button class="btn btn--ghost btn--small" disabled={page() >= totalPages()} onClick={() => setPage((p,) => Math.min(totalPages(), p + 1,),)}>Next →</button>
+                    </div>
+                </Show>
             </Show>
+
+            <ConfirmModal
+                open={pending() !== null}
+                title={pending()?.type === 'bulk' ? 'Delete selected submissions' : 'Delete submission'}
+                message={pending()?.type === 'bulk'
+                    ? `Permanently delete ${selected().size} selected submission${selected().size !== 1 ? 's' : ''}? This cannot be undone.`
+                    : 'Permanently delete this submission? This cannot be undone.'}
+                confirmLabel={deleting() ? 'Deleting…' : 'Delete'}
+                danger
+                onConfirm={performDelete}
+                onCancel={() => setPending(null,)}
+            />
         </div>
     );
 };

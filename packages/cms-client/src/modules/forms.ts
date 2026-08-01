@@ -5,6 +5,7 @@ import type {
     FormUpdateBody, FormUpdateResponse, FormDeleteResponse, FormBulkBody, FormBulkResponse,
     FormQuestionCreateBody, FormQuestionCreateResponse, FormQuestionUpdateBody,
     FormQuestionUpdateResponse, FormQuestionDeleteResponse, FormSubmissionsExportResponse,
+    FormSubmissionDeleteResponse, FormSubmissionsBulkDeleteResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -46,6 +47,20 @@ export class FormsModule extends ModuleBase {
     /** GET /forms/:id/submissions (admin) — submission rows, paginated. */
     listSubmissions(id: string, query?: FormSubmissionsQuery,): Promise<Paginated<FormSubmissionsResponse[number]>> {
         return this.getPaged<FormSubmissionsResponse[number]>('/forms/:id/submissions', { params: { id, }, query: query as Record<string, unknown>, },);
+    }
+
+    /** DELETE /forms/:id/submissions/:submissionId (staff) — delete one. */
+    deleteSubmission(formId: string, submissionId: string,): Promise<FormSubmissionDeleteResponse> {
+        return this.mutate<FormSubmissionDeleteResponse>('DELETE', '/forms/:id/submissions/:submissionId', {
+            params: { id: formId, submissionId, }, invalidates: ['forms',],
+        },);
+    }
+
+    /** POST /forms/:id/submissions/bulk-delete (staff) — delete several. */
+    bulkDeleteSubmissions(formId: string, ids: string[],): Promise<FormSubmissionsBulkDeleteResponse> {
+        return this.mutate<FormSubmissionsBulkDeleteResponse>('POST', '/forms/:id/submissions/bulk-delete', {
+            params: { id: formId, }, body: { ids, }, invalidates: ['forms',],
+        },);
     }
 
     /**

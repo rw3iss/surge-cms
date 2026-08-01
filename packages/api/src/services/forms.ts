@@ -14,7 +14,7 @@
  */
 import type { Form, FormQuestion, FormResults, FormSubmission, QuestionResult, } from '@sitesurge/types';
 import { formatAnswerValue, } from '@sitesurge/types';
-import { ValidationError, } from '../core/errors';
+import { NotFoundError, ValidationError, } from '../core/errors';
 import * as repo from '../repositories/forms.repo';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
@@ -278,6 +278,37 @@ export async function listSubmissions(
         data: result.data,
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
     };
+}
+
+/** Delete a single submission (staff). 404 when it doesn't belong to the form. */
+export async function deleteSubmission(formId: string, submissionId: string, ctx: AuditContext,): Promise<void> {
+    const ok = await repo.deleteSubmission(formId, submissionId,);
+    if (!ok) throw new NotFoundError('Submission',);
+    await cache.invalidateFormCache(formId,);
+    await logAudit({
+        userId: ctx.userId,
+        action: 'delete',
+        entityType: 'form-submission',
+        entityId: submissionId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+}
+
+/** Bulk-delete submissions of a form (staff). Returns how many were removed. */
+export async function deleteSubmissions(formId: string, ids: string[], ctx: AuditContext,): Promise<{ deleted: number; }> {
+    const deleted = await repo.deleteSubmissions(formId, ids,);
+    if (deleted > 0) await cache.invalidateFormCache(formId,);
+    await logAudit({
+        userId: ctx.userId,
+        action: 'delete',
+        entityType: 'form-submission',
+        entityId: formId,
+        newValues: { deleted, count: ids.length, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    return { deleted, };
 }
 
 function escapeCSV(value: string,): string {

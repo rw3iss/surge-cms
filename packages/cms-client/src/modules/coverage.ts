@@ -67,6 +67,8 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/forms/:id',
     'GET /api/v1/forms/:id/submissions',
     'GET /api/v1/forms/:id/submissions/export',
+    'POST /api/v1/forms/:id/submissions/bulk-delete',
+    'DELETE /api/v1/forms/:id/submissions/:submissionId',
     'POST /api/v1/forms',
     'PUT /api/v1/forms/:id',
     'DELETE /api/v1/forms/:id',

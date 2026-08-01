@@ -4,6 +4,7 @@ import type {
     FormCreateBody,
     FormListQuery,
     FormQuestionInput,
+    FormSubmissionsBulkDeleteBody,
     FormSubmissionsQuery,
     FormSubmitBody,
 } from '@sitesurge/types';
@@ -89,6 +90,10 @@ const submissionsQuery = z.object({
 
 const idParams = z.object({ id: z.string(), },);
 const slugParams = z.object({ slug: z.string(), },);
+const submissionIdParams = z.object({ id: z.string(), submissionId: z.string(), },);
+const submissionBulkDeleteSchema = z.object({
+    ids: z.array(z.string(),).min(1,),
+},) satisfies z.ZodType<FormSubmissionsBulkDeleteBody>;
 
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertFormListQuery = AssertCompatible<z.infer<typeof listQuery>, FormListQuery>;
@@ -221,6 +226,26 @@ export const formsRoutes = [
         handler: async ({ params, query, },) => {
             const result = await forms.listSubmissions(params.id, { page: query.page, limit: query.limit, },);
             return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    // Bulk-delete submissions (admin). Registered before the :submissionId
+    // route so "bulk-delete" is never captured as an id.
+    defineRoute({
+        method: 'post', path: '/:id/submissions/bulk-delete', auth: 'staff',
+        summary: 'Delete multiple submissions of a form (staff).',
+        input: { params: idParams, body: submissionBulkDeleteSchema, },
+        handler: ({ params, body, audit, },) => forms.deleteSubmissions(params.id, body.ids, audit(),),
+    },),
+
+    // Delete one submission (admin).
+    defineRoute({
+        method: 'delete', path: '/:id/submissions/:submissionId', auth: 'staff',
+        summary: 'Delete a single submission of a form (staff).',
+        input: { params: submissionIdParams, },
+        handler: async ({ params, audit, },) => {
+            await forms.deleteSubmission(params.id, params.submissionId, audit(),);
+            return { success: true, };
         },
     },),
 

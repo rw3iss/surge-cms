@@ -143,6 +143,14 @@ export interface FormSubmissionsQuery {
  *  envelope. */
 export type FormSubmissionsResponse = FormSubmission[];
 
+/** DELETE /forms/:id/submissions/:submissionId — delete one submission. */
+export interface FormSubmissionDeleteParams { id: string; submissionId: string; }
+export interface FormSubmissionDeleteResponse { success: boolean; }
+
+/** POST /forms/:id/submissions/bulk-delete — delete several at once. */
+export interface FormSubmissionsBulkDeleteBody { ids: string[]; }
+export interface FormSubmissionsBulkDeleteResponse { deleted: number; }
+
 // ─── POST /forms ──────────────────────────────────────────────────
 
 /** Body for POST /forms (create). */

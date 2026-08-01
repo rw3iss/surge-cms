@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T20:41:41.100Z",
+  "generatedAt": "2026-08-01T20:09:52.420Z",
   "totalModules": 31,
-  "totalRoutes": 273,
+  "totalRoutes": 275,
   "modules": [
     {
       "module": "api-keys",
@@ -444,6 +444,20 @@
           "absolutePath": "/api/v1/forms/:id/submissions",
           "auth": "staff",
           "summary": "List a form's submissions."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/submissions/bulk-delete",
+          "absolutePath": "/api/v1/forms/:id/submissions/bulk-delete",
+          "auth": "staff",
+          "summary": "Delete multiple submissions of a form (staff)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id/submissions/:submissionId",
+          "absolutePath": "/api/v1/forms/:id/submissions/:submissionId",
+          "auth": "staff",
+          "summary": "Delete a single submission of a form (staff)."
         },
         {
           "method": "POST",

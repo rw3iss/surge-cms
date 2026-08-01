@@ -385,6 +385,26 @@ export async function findSubmissions(
     };
 }
 
+/** Delete a single submission (scoped to its form). Returns true if a row was
+ *  removed. The AFTER DELETE trigger keeps forms.submission_count in sync. */
+export async function deleteSubmission(formId: string, submissionId: string,): Promise<boolean> {
+    const res = await query(
+        `DELETE FROM form_submissions WHERE id = $1 AND form_id = $2 RETURNING id`,
+        [submissionId, formId,],
+    );
+    return (res.rowCount ?? 0) > 0;
+}
+
+/** Delete multiple submissions of a form. Returns how many rows were removed. */
+export async function deleteSubmissions(formId: string, ids: string[],): Promise<number> {
+    if (!ids.length) return 0;
+    const res = await query(
+        `DELETE FROM form_submissions WHERE form_id = $1 AND id = ANY($2::uuid[]) RETURNING id`,
+        [formId, ids,],
+    );
+    return res.rowCount ?? 0;
+}
+
 export async function findSubmissionAnswers(formId: string,): Promise<Record<string, unknown>[]> {
     const result = await query(
         `SELECT answers FROM form_submissions WHERE form_id = $1`,
