@@ -18,9 +18,10 @@ import { deleteById, updateById, } from '../base.repo';
 const PRODUCT_LIST_EXTRAS = `
     (SELECT MIN(v.price_cents) FROM shop_variants v
          WHERE v.product_id = p.id) AS from_price_cents,
-    (SELECT m.url FROM shop_product_media spm
-         JOIN media m ON m.id = spm.media_id
+    (SELECT COALESCE(m.url, spm.external_url) FROM shop_product_media spm
+         LEFT JOIN media m ON m.id = spm.media_id
          WHERE spm.product_id = p.id AND spm.kind = 'image'
+           AND (spm.media_id IS NOT NULL OR spm.external_url IS NOT NULL)
          ORDER BY spm.position ASC LIMIT 1) AS primary_image_url`;
 
 // ─── Categories ───────────────────────────────────────────────────
