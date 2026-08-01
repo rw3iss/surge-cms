@@ -1,38 +1,42 @@
 'use strict';
 /**
- * PageLoop plugin — server hooks. The install/update hooks DOWNLOAD the PageLoop
- * vanilla widget bundle into this plugin's client/ folder (served same-origin at
- * /api/v1/plugins/pageloop/assets/*), demonstrating a plugin that fetches its own
- * dependencies. All hooks are idempotent + self-detecting.
+ * PageLoop plugin — server hooks. The widget bundle (client/pageloop.umd.js +
+ * vanilla.css, served same-origin at /api/v1/plugins/pageloop/assets/*) now
+ * SHIPS WITH THIS PLUGIN: PageLoop went closed-source, so the old
+ * download-from-npm/jsdelivr path 404s. install()/update() therefore keep the
+ * shipped bundle in place; there is no network fetch. All hooks are idempotent.
  */
-const PAGELOOP_VERSION = '0.7.3';
-// jsdelivr, not unpkg: unpkg can lag many minutes behind a fresh npm publish
-// (404 on the just-published version), which stalls the install-time bundle
-// download. jsdelivr serves new versions almost immediately and is generally
-// more reliable for programmatic fetches.
+const PAGELOOP_VERSION = '0.7.4';
+// Legacy public-CDN location — kept only as a last-resort fallback if the
+// shipped bundle is somehow missing (it 404s for closed-source releases, so
+// the fetch is wrapped and never allowed to throw the install).
 const CDN = `https://cdn.jsdelivr.net/npm/@pageloop/vanilla@${PAGELOOP_VERSION}/dist`;
 
-async function ensureBundle(ctx, force) {
-    // storage.download skips when the file already exists unless force=true.
-    await ctx.storage.download(`${CDN}/pageloop.umd.js`, 'client/pageloop.umd.js', { force });
-    await ctx.storage.download(`${CDN}/vanilla.css`, 'client/vanilla.css', { force });
+async function ensureBundle(ctx) {
+    // The bundle ships with the plugin — storage.download with force=false is a
+    // no-op when the file exists. Wrapped so a dead CDN can never fail install.
+    try {
+        await ctx.storage.download(`${CDN}/pageloop.umd.js`, 'client/pageloop.umd.js', { force: false });
+        await ctx.storage.download(`${CDN}/vanilla.css`, 'client/vanilla.css', { force: false });
+    } catch (err) {
+        ctx.logger.warn(`PageLoop bundle ships with the plugin; CDN fetch skipped (${err && err.message}).`);
+    }
 }
 
 module.exports = {
     async install(ctx) {
-        ctx.logger.info(`Downloading PageLoop widget bundle v${PAGELOOP_VERSION}…`);
-        await ensureBundle(ctx, false);
-        ctx.logger.info('PageLoop widget bundle ready.');
+        await ensureBundle(ctx);
+        ctx.logger.info(`PageLoop widget bundle v${PAGELOOP_VERSION} ready (shipped).`);
     },
 
     async update(ctx) {
-        // Re-fetch the bundle for the pinned version. Config + comments untouched.
-        await ensureBundle(ctx, true);
+        // The new bundle arrived with the updated plugin files; nothing to fetch.
+        await ensureBundle(ctx);
         return {
             fromVersion: ctx.installedVersion || ctx.version,
             toVersion: ctx.version,
             migrated: false,
-            notes: `Re-downloaded PageLoop widget bundle v${PAGELOOP_VERSION}.`,
+            notes: `PageLoop widget bundle v${PAGELOOP_VERSION} (shipped with the plugin).`,
         };
     },
 

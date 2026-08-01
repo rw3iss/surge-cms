@@ -35,5 +35,13 @@ if (existsSync(catalogSrc)) {
       return !SKIP.has(b) && !b.endsWith('.zip');
     },
   });
+  // PageLoop is closed-source — its widget bundle can't be downloaded at
+  // install time, so it SHIPS with the plugin. Copy its client/ into the
+  // catalog (the generic filter above skips every plugin's client/).
+  const plClient = join(catalogSrc, 'pageloop', 'client');
+  if (existsSync(plClient)) {
+    cpSync(plClient, join(dist, 'plugins-catalog', 'pageloop', 'client'), { recursive: true });
+    console.log('copy-assets: pageloop/client (shipped bundle) -> dist/plugins-catalog');
+  }
   console.log('copy-assets: plugins/ -> dist/plugins-catalog (minus vendor bundles)');
 }

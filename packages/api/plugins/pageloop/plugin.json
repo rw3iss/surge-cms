@@ -2,7 +2,7 @@
   "name": "pageloop",
   "label": "PageLoop Comments",
   "description": "Drop-in commenting / annotation layer (PageLoop) for your public site.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "SiteSurge",
   "homepage": "https://pageloop.dev",
   "apiVersion": 1,
