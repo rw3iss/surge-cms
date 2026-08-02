@@ -98,6 +98,7 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
             return `<a class="ssr-entity ssr-entity--post" href="/posts/${g('slug')}"><h3>${g('title')}</h3>`
                 + (data.excerpt ? `<p>${g('excerpt')}</p>` : '') + '</a>';
         case 'campaign':
+        case 'campaignLink':
             return `<a class="ssr-entity ssr-entity--campaign" href="/campaigns/${g('slug')}"><h3>${g('title')}</h3>`
                 + (data.shortDescription ? `<p>${g('shortDescription')}</p>` : '') + '</a>';
         case 'form': {
@@ -154,6 +155,12 @@ function buildSsrRuntime(entities: Record<string, Rec | null>): TemplateRuntime 
             }
             case 'user':
                 return entityRef('user', null);
+            case 'campaignLink': {
+                const ref = s(args[0]).trim();
+                if (!ref) return entityRef('campaignLink', null);
+                const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref));
+                return entityRef('campaignLink', data, ref);
+            }
             case 'posts':
             case 'campaigns':
             case 'forms': {

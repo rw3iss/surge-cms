@@ -20,7 +20,7 @@ export const SYNTAX_EXAMPLES: SyntaxExample[] = [
     { title: 'Nested property', code: '{{ post.author }}', desc: 'Reads a sub-property off an entity in scope.' },
     { title: 'Page entity', code: '{{ post.title }}', desc: 'On a post page, `post` is the current post; on a campaign page, `campaign` is the current campaign.' },
     { title: 'Entity by id — property', code: "{{ campaign('the-id').title }}", desc: 'Fetch an entity by id (or slug) and read a property.' },
-    { title: 'Entity by id — whole', code: "{{ form('the-id') }}", desc: 'No property → renders the whole entity (the form / a post or campaign card).' },
+    { title: 'Entity by id — whole', code: "{{ form('the-id') }}", desc: 'No property → renders the whole entity (an interactive form, a post card, or — for `campaign` — the FULL campaign with its donation form; use `campaignLink(...)` for just the teaser card).' },
     { title: 'Render options (keyword args)', code: "{{ form('newsletter', title=false, columns=2, gap=16px) }}", desc: 'Whole-entity calls take optional keyword args (any order) that tweak the output. Forms: `title` (false / "" to hide, or a string to override), `columns` (1–8), and `gap` (any CSS length, e.g. `10px`, sets the space between fields). With `columns`, each field\'s own width still applies — a Full-width field spans all columns (its own row); Half-width fields take one column and pack side by side. Single column on mobile.' },
     { title: 'Utility function', code: '{{ formatCurrency(campaign.goalAmountCents) }}', desc: 'Call a convenience function on a value.' },
 ];
@@ -43,7 +43,8 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
         group: 'Entity lookups (whole entity, or add .property)',
         items: [
             { sig: "post(idOrSlug)", desc: 'A post by id or slug.' },
-            { sig: "campaign(idOrSlug)", desc: 'A campaign by id or slug.' },
+            { sig: "campaign(idOrSlug)", desc: 'A campaign by id or slug. Whole (no property) renders the FULL campaign — progress, description, and the donation form — exactly like the campaign page.' },
+            { sig: "campaignLink(idOrSlug)", desc: 'A campaign teaser CARD linking to its page (title, blurb, raised/goal) — the same block the `campaign` content block shows. Use when you want just a link, not the full form.' },
             { sig: "form(idOrSlug, title?, columns?, gap?)", desc: 'A form by id or slug (whole = interactive form). Keyword args: title=false/"" hides the title (or a string overrides it); columns=N lays fields out in N columns; gap=<len> sets the space between fields (e.g. 10px).' },
             { sig: "page(slug)", desc: 'A CMS page by slug.' },
             { sig: "media(id)", desc: 'A media asset by id (admin only).' },

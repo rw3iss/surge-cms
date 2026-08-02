@@ -2,6 +2,8 @@ import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, Match, Show, Switch, } from 'solid-js';
 import FormRenderer from '../forms/FormRenderer';
+import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
+import CampaignCard from './CampaignCard';
 
 /**
  * Renders a WHOLE entity in place — used when a template references an entity
@@ -26,21 +28,16 @@ const TemplateEntity: Component<{
                     gap={props.options?.gap as string | undefined}
                 />
             </Match>
+            {/* Whole campaign — the full page render (progress + form etc.). */}
             <Match when={props.kind === 'campaign'}>
-                {(() => {
-                    const c = props.data as unknown as Campaign;
-                    return (
-                        <A href={`/campaigns/${c.slug}`} class="template-entity template-entity--campaign">
-                            <Show when={c.featuredImage}>
-                                <img src={c.featuredImage!} alt={c.title} class="template-entity__img" />
-                            </Show>
-                            <h3 class="template-entity__title">{c.title}</h3>
-                            <Show when={c.shortDescription}>
-                                <p class="template-entity__desc">{c.shortDescription}</p>
-                            </Show>
-                        </A>
-                    );
-                })()}
+                <CampaignDetail
+                    campaign={props.data as unknown as Campaign}
+                    options={props.options as CampaignDetailOptions | undefined}
+                />
+            </Match>
+            {/* Campaign teaser/link — the same card the `campaign` content block shows. */}
+            <Match when={props.kind === 'campaignLink'}>
+                <CampaignCard campaign={props.data as unknown as Campaign} />
             </Match>
             <Match when={props.kind === 'post'}>
                 {(() => {

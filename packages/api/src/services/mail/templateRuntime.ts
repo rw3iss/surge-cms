@@ -70,6 +70,7 @@ function entityToMailHtml(kind: string, data: Rec | null,): string {
         case 'post':
             return `<strong>${g('title',)}</strong>` + (data.excerpt ? ` — ${g('excerpt',)}` : '');
         case 'campaign':
+        case 'campaignLink':
             return `<strong>${g('title',)}</strong>` + (data.shortDescription ? ` — ${g('shortDescription',)}` : '');
         case 'form':
             return `<strong>${g('title',)}</strong>`;
@@ -101,6 +102,12 @@ function buildMailRuntime(context: Rec,): TemplateRuntime {
                 if (!ref) return entityRef(name, null,);
                 const data = await memo(`${name}:${ref}`, () => fetchEntity(name, ref,),);
                 return entityRef(name, data, ref,);
+            }
+            case 'campaignLink': {
+                const ref = s(args[0],).trim();
+                if (!ref) return entityRef('campaignLink', null,);
+                const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref,),);
+                return entityRef('campaignLink', data, ref,);
             }
             default:
                 return undefined;
