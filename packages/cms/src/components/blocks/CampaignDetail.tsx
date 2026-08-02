@@ -7,30 +7,32 @@ import { usePluginEnabled, } from '../../hooks/usePluginGate';
 import '../../pages/Campaign.scss';
 
 /**
- * The full campaign render — hero image, title, subtitle, raised/goal tracker,
- * the templated description, and the donation form (GiveButter widget or the
- * built-in Stripe form). Extracted from the campaign PAGE so the SAME body is
- * reused by `/campaigns/:slug` AND the `{{campaign('slug-or-id')}}` template
- * function (which renders the whole campaign inline, form and all).
+ * The full campaign render — hero image, title, slug, short/full description,
+ * raised/goal tracker, and the donation form (GiveButter widget or the built-in
+ * Stripe form). Extracted from the campaign PAGE so the SAME body is reused by
+ * `/campaigns/:slug` AND the `{{campaign('slug-or-id')}}` template function.
  *
- * `options` is a keyword-arg bag from the template (`{{campaign('x', form=false)}}`)
- * — each section can be toggled; everything defaults on so a bare
- * `{{campaign('x')}}` matches the campaign page. (Fuller option set is a
- * follow-up.)
+ * Per-field options come from the template's positional/keyword args
+ * (`{{campaign('x', title=false, shortDescription='Custom')}}`). The four text
+ * fields each take a **boolean** (show/hide the campaign's own value) OR a
+ * **string** (override the value AND show it). Everything defaults on so a bare
+ * `{{campaign('x')}}` renders the whole campaign.
  */
 export interface CampaignDetailOptions {
-    /** Show the hero/featured image. Default true. */
+    /** Title (h1). omitted/true → campaign title · false → hide · string → override. */
+    title?: boolean | string;
+    /** Slug line. omitted/true → campaign slug · false → hide · string → override. */
+    slug?: boolean | string;
+    /** Short-description subtitle. omitted/true → value · false → hide · string → override. */
+    shortDescription?: boolean | string;
+    /** Full description body (rendered through the `{{ }}` engine).
+     *  omitted/true → campaign description · false → hide · string → override. */
+    fullDescription?: boolean | string;
+    /** Hero/featured image. Default true. */
     image?: boolean;
-    /** Show the title. Default true. */
-    title?: boolean;
-    /** Show the short-description subtitle. Default true. */
-    subtitle?: boolean;
-    /** Show the raised/goal tracker + stats. Default = the campaign's own
-     *  `showRaisedAmount`. */
+    /** Raised/goal tracker + stats. Default = the campaign's `showRaisedAmount`. */
     raised?: boolean;
-    /** Show the templated description body. Default true. */
-    description?: boolean;
-    /** Show the donation form. Default true. */
+    /** Donation form. Default true. */
     form?: boolean;
 }
 
@@ -38,27 +40,34 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
     const gbEnabled = usePluginEnabled('givebutter',);
     const useGiveButter = () => gbEnabled() && props.campaign.donationProvider === 'givebutter';
 
-    /** Read a boolean option; `undefined` → the supplied default. */
+    /** Boolean option → show/hide (undefined → the supplied default). */
     const on = (v: boolean | undefined, dflt: boolean,): boolean => (v === undefined ? dflt : v !== false);
+    /** Field option → the string to render (or null to hide): `false` hides, a
+     *  string overrides, `true`/undefined use the campaign's own value. */
+    const field = (v: boolean | string | undefined, dflt: string | undefined | null,): string | null => {
+        if (v === false) return null;
+        if (typeof v === 'string') return v;
+        return dflt || null;
+    };
 
+    const c = () => props.campaign;
+    const title = () => field(props.options?.title, c().title,);
+    const slug = () => field(props.options?.slug, c().slug,);
+    const shortDescription = () => field(props.options?.shortDescription, c().shortDescription,);
+    const fullDescription = () => field(props.options?.fullDescription, c().description,);
     const showImage = () => on(props.options?.image, true,);
-    const showTitle = () => on(props.options?.title, true,);
-    const showSubtitle = () => on(props.options?.subtitle, true,);
-    const showRaised = () => on(props.options?.raised, props.campaign.showRaisedAmount !== false,);
-    const showDescription = () => on(props.options?.description, true,);
+    const showRaised = () => on(props.options?.raised, c().showRaisedAmount !== false,);
     const showForm = () => on(props.options?.form, true,);
 
     const progress = () => {
-        const c = props.campaign;
-        if (!c.goalAmountCents) return 0;
-        return Math.min((c.currentAmountCents / c.goalAmountCents) * 100, 100,);
+        const cc = c();
+        if (!cc.goalAmountCents) return 0;
+        return Math.min((cc.currentAmountCents / cc.goalAmountCents) * 100, 100,);
     };
     const formatCurrency = (cents: number,) =>
         `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, },)}`;
     const formatDate = (d: string | Date | undefined,) =>
         d ? new Date(d,).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', },) : null;
-
-    const c = () => props.campaign;
 
     return (
         <div class="campaign-detail">
@@ -69,12 +78,18 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
             </Show>
 
             <div class="campaign-page__content">
-                <Show when={showTitle()}>
-                    <h1 class="campaign-page__title">{c().title}</h1>
+                <Show when={title()}>
+                    <h1 class="campaign-page__title">{title()}</h1>
                 </Show>
 
-                <Show when={showSubtitle() && c().shortDescription}>
-                    <p class="campaign-page__subtitle">{c().shortDescription}</p>
+                <Show when={slug()}>
+                    <div class="campaign-detail__slug" style={{ color: 'var(--site-text-muted, #6b7280)', 'font-size': '0.85rem', 'margin': '0 0 0.5rem', }}>
+                        {slug()}
+                    </div>
+                </Show>
+
+                <Show when={shortDescription()}>
+                    <p class="campaign-page__subtitle">{shortDescription()}</p>
                 </Show>
 
                 <Show when={showRaised()}>
@@ -121,17 +136,16 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
                     </div>
                 </Show>
 
-                <Show when={showDescription()}>
+                <Show when={fullDescription()}>
                     <TemplatedContent
                         class="campaign-page__description rich-text"
-                        html={c().description}
+                        html={fullDescription()}
                         entities={{ campaign: { kind: 'campaign', data: c() as unknown as Record<string, unknown>, id: c().id, }, }}
                     />
                 </Show>
 
                 <Show when={showForm()}>
                     <div class="campaign-page__donate">
-                        <h2>Make a Donation</h2>
                         <Show
                             when={useGiveButter()}
                             fallback={<DonationForm campaignId={c().id} />}

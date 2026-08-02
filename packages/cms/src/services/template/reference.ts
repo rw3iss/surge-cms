@@ -43,7 +43,7 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
         group: 'Entity lookups (whole entity, or add .property)',
         items: [
             { sig: "post(idOrSlug)", desc: 'A post by id or slug.' },
-            { sig: "campaign(idOrSlug)", desc: 'A campaign by id or slug. Whole (no property) renders the FULL campaign — progress, description, and the donation form — exactly like the campaign page.' },
+            { sig: "campaign(idOrSlug, title?, slug?, shortDescription?, fullDescription?)", desc: 'A campaign by id or slug. Whole (no property) renders the FULL campaign — image, title, slug, descriptions, raised/goal, and the donation form. Each field arg takes a boolean (false hides it) OR a string (overrides + shows it); omitted = the campaign’s own value. E.g. campaign(\'x\', title=false, shortDescription=\'Give today\').' },
             { sig: "campaignLink(idOrSlug)", desc: 'A campaign teaser CARD linking to its page (title, blurb, raised/goal) — the same block the `campaign` content block shows. Use when you want just a link, not the full form.' },
             { sig: "form(idOrSlug, title?, columns?, gap?)", desc: 'A form by id or slug (whole = interactive form). Keyword args: title=false/"" hides the title (or a string overrides it); columns=N lays fields out in N columns; gap=<len> sets the space between fields (e.g. 10px).' },
             { sig: "page(slug)", desc: 'A CMS page by slug.' },

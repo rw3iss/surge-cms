@@ -45,10 +45,14 @@ function buildDirectives(): Record<string, string[]> {
         // stylesheets; the gstatic font files are already covered by the
         // default font-src ('self' https: data:).
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...pluginOrigins.styleSrc],
-        scriptSrc: ["'self'", ...pluginOrigins.scriptSrc],
+        // js.stripe.com must be in script-src (not just frame-src): the built-in
+        // Stripe donation / subscription / shop-checkout forms load Stripe.js as a
+        // SCRIPT. Core feature → always allowed, independent of any plugin.
+        scriptSrc: ["'self'", 'https://js.stripe.com', ...pluginOrigins.scriptSrc],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:', ...pluginOrigins.imgSrc],
         connectSrc: ["'self'", 'https://api.stripe.com', ...pluginOrigins.connectSrc],
-        frameSrc: ["'self'", 'https://js.stripe.com', ...EMBED_FRAME_SRC, ...pluginOrigins.frameSrc],
+        // js.stripe.com (Elements) + hooks.stripe.com (3-D Secure / redirects).
+        frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', ...EMBED_FRAME_SRC, ...pluginOrigins.frameSrc],
     };
 }
 
