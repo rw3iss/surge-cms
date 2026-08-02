@@ -21,7 +21,8 @@ import '../../pages/Campaign.scss';
 export interface CampaignDetailOptions {
     /** Title (h1). omitted/true → campaign title · false → hide · string → override. */
     title?: boolean | string;
-    /** Slug line. omitted/true → campaign slug · false → hide · string → override. */
+    /** Slug line — OPT-IN (hidden by default). true → campaign slug · string →
+     *  override · omitted/false → hidden. */
     slug?: boolean | string;
     /** Short-description subtitle. omitted/true → value · false → hide · string → override. */
     shortDescription?: boolean | string;
@@ -52,7 +53,14 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
 
     const c = () => props.campaign;
     const title = () => field(props.options?.title, c().title,);
-    const slug = () => field(props.options?.slug, c().slug,);
+    // Slug is OPT-IN (hidden by default): only rendered when explicitly requested
+    // via slug=true (→ the campaign's slug) or a string override.
+    const slug = () => {
+        const v = props.options?.slug;
+        if (v === true) return c().slug || null;
+        if (typeof v === 'string') return v;
+        return null;
+    };
     const shortDescription = () => field(props.options?.shortDescription, c().shortDescription,);
     const fullDescription = () => field(props.options?.fullDescription, c().description,);
     const showImage = () => on(props.options?.image, true,);

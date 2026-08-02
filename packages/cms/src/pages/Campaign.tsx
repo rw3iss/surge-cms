@@ -59,9 +59,9 @@ const CampaignPage: Component = () => {
                         <A href="/donate" class="campaign-page__back">&larr; All Campaigns</A>
 
                         {/* Full campaign render — shared with the
-                            `{{campaign('slug-or-id')}}` template function. The page
-                            hides the slug line (it's this campaign's own URL). */}
-                        <CampaignDetail campaign={c()} options={{ slug: false, }} />
+                            `{{campaign('slug-or-id')}}` template function. Slug is
+                            opt-in, so the page's own slug is hidden by default. */}
+                        <CampaignDetail campaign={c()} />
                     </>
                 )}
             </Show>
