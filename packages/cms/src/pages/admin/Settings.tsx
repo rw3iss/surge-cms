@@ -510,7 +510,7 @@ function BreakpointsEditor(props: {
         <input
             type="text"
             class="theme-field__input"
-            style={{ width: '56px', }}
+            style={{ width: '65px', padding: '5px', }}
             maxLength={6}
             value={(props.value[i][key] as string | undefined) ?? ''}
             onInput={(e,) => update(i, { [key]: e.currentTarget.value, },)}
