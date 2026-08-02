@@ -352,7 +352,15 @@ const SITE_APPEARANCE: KeyedSetting = {
     key: 'site_appearance',
     cacheKey: 'settings:site_appearance',
     entityId: 'site_appearance',
-    fallback: { backgroundColor: '#ffffff', fontSize: 16, gutterWidth: '', },
+    // Ship a default "Mobile" breakpoint (≤768px) so the responsive-breakpoint
+    // feature is usable out of the box on a fresh install (no site_appearance
+    // row). Existing installs are backfilled by migration 080.
+    fallback: {
+        backgroundColor: '#ffffff',
+        fontSize: 16,
+        gutterWidth: '',
+        breakpoints: [{ id: 'mobile', name: 'Mobile', maxWidth: '768', },],
+    },
 };
 
 const USERS_SETTINGS: KeyedSetting = {
