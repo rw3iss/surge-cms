@@ -4,20 +4,24 @@ Deploys this project to **https://surge.ryanweiss.net** (a demo of the SiteSurge
 CMS). This tree is currently the same repo as the CMS; when the Surge site gets
 its own repo, move `deploy/` there.
 
-## Production layout (server `37.27.248.79`, Fedora)
+## Production layout (server `216.158.233.15`, Fedora)
 
 | Piece      | Where |
 |------------|-------|
-| Code       | `/opt/surge` (rsynced source, built on the server) |
-| Runtime    | `systemd` unit `surge.service` → `node dist/index.js` in `packages/api`, on **:3003** |
-| Env        | `/opt/surge/packages/api/.env` (prod values; not in git) |
+| Code       | `/var/www/surge-media` (rsynced source, built on the server) |
+| Runtime    | `systemd` unit `surge.service` → `node dist/index.js` in `packages/api`, on **:3001** |
+| Env        | `/var/www/surge-media/packages/api/.env` (prod values; not in git) |
 | Database   | Postgres 18, db `surge`, role `surge` (localhost only, scram) |
-| Cache      | Valkey/Redis on `:6379` db `3` |
-| Web        | nginx `/etc/nginx/conf.d/surge.ryanweiss.net.conf` → proxies `:3003`, TLS via Let's Encrypt (webroot, auto-renews) |
+| Cache      | Valkey/Redis on `:6379` |
+| Web        | nginx → proxies `:3001`, TLS via Let's Encrypt (webroot, auto-renews) |
 | DNS        | `surge.ryanweiss.net` → Cloudflare (proxied) → origin |
 
 The backend serves BOTH the API and the SPA (SSR + static from `packages/cms/dist`),
-so nginx just reverse-proxies everything to `:3003`.
+so nginx just reverse-proxies everything to `:3001`.
+
+`hotpatch-surge.sh` is the fast path (build dist locally → rsync over
+`packages/*/dist` → restart; migrations apply on boot). `deploy.sh` is the full
+path (rsync source → build on server → restart).
 
 ## Scripts
 
@@ -32,7 +36,7 @@ Overrides via env: `SURGE_SSH`, `SURGE_REMOTE`, `SURGE_HOST`, `SURGE_LOCAL_DB`, 
 
 ## Notes
 - `db-sync.sh` is a **one-way push** (local → prod) and overwrites prod data; it
-  dumps the remote DB to `/opt/surge/backups/` first. It does not merge — prod-only
+  dumps the remote DB to `/var/www/surge-media/backups/` first. It does not merge — prod-only
   data (e.g. live form submissions) is not preserved. Fine for a demo where local
   is authoritative.
 - The service runs via `node dist/index.js` — `@sitesurge/types` now emits

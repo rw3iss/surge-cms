@@ -217,6 +217,27 @@ export const settingsRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/users', auth: 'admin',
+        summary: 'Users-feature settings (email-verification requirement + verification email).',
+        handler: () => settings.getUsersSettings(),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/users', auth: 'admin',
+        summary: 'Update users-feature settings.',
+        input: {
+            body: z.object({
+                requireEmailVerification: z.boolean(),
+                verificationEmail: z.object({
+                    subject: z.string(),
+                    blocks: z.array(z.record(z.string(), z.unknown(),),),
+                },),
+            },),
+        },
+        handler: ({ body, audit, },) => settings.setUsersSettings(body, audit(),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/server-logs', auth: 'admin',
         summary: 'Tail of the server combined log (admin diagnostics panel).',
         input: { query: z.object({ lines: z.coerce.number().int().min(1,).max(10000,).optional(), },), },

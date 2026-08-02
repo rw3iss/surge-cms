@@ -65,6 +65,9 @@ export interface Config {
         sendConcurrency: number;
         sendDelayMs: number;
         unsubscribeSecret: string;
+        /** Default FROM for bulk mailing-list sends (separate reputation from
+         *  transactional EMAIL_FROM). Undefined → falls back to EMAIL_FROM. */
+        listFrom: string | undefined;
     };
 
     dataDir: string;
@@ -183,6 +186,7 @@ function build(parsed: EnvVars,): Config {
             // explicitly — old tokens become invalid, which is fine
             // because re-sends regenerate them.
             unsubscribeSecret: parsed.MAIL_UNSUBSCRIBE_SECRET || parsed.JWT_SECRET || '',
+            listFrom: parsed.MAIL_LIST_FROM,
         },
 
         dataDir: parsed.DATA_DIR,

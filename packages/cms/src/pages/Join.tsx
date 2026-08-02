@@ -13,6 +13,7 @@ const Join: Component = () => {
     const [error, setError,] = createSignal('',);
     const [isLoading, setIsLoading,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
+    const [verifyRequired, setVerifyRequired,] = createSignal(false,);
 
     const handlePatreonJoin = () => {
         window.location.href = '/api/v1/auth/patreon?intent=register';
@@ -34,11 +35,12 @@ const Join: Component = () => {
 
         setIsLoading(true,);
         try {
-            await cms.auth.register({
+            const res = await cms.auth.register({
                 name: name(),
                 email: email(),
                 password: password(),
             },);
+            setVerifyRequired(res.verificationRequired === true,);
             setSuccess(true,);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Registration failed',);
@@ -72,7 +74,16 @@ const Join: Component = () => {
                                 <polyline points="22 4 12 14.01 9 11.01" />
                             </svg>
                             <h2>Account Created</h2>
-                            <p>Your account has been created successfully. You can now sign in.</p>
+                            <Show
+                                when={verifyRequired()}
+                                fallback={<p>Your account has been created successfully. You can now sign in.</p>}
+                            >
+                                <p>
+                                    Check your inbox — we've sent a verification link to{' '}
+                                    <strong>{email()}</strong>. Click it to confirm your email address
+                                    before signing in.
+                                </p>
+                            </Show>
                             <A href="/login" class="join__btn join__btn--primary">Sign In</A>
                         </div>
                     }

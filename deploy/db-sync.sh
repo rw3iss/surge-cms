@@ -9,15 +9,15 @@
 #
 # Usage:  ./deploy/db-sync.sh            # prompts for confirmation
 #         ./deploy/db-sync.sh --yes      # skip the prompt (CI/automation)
-# Env:    SURGE_SSH        ssh target   (default: rw3iss@37.27.248.79)
-#         SURGE_REMOTE     remote path  (default: /opt/surge)
+# Env:    SURGE_SSH        ssh target   (default: rw3iss@216.158.233.15)
+#         SURGE_REMOTE     remote path  (default: /var/www/surge-media)
 #         SURGE_LOCAL_DB   local DB URL (default: postgresql://surge:surge@localhost:5432/surge)
 #         SURGE_REMOTE_DB  remote DB    (default: surge)
 #
 set -euo pipefail
 
-SERVER="${SURGE_SSH:-rw3iss@37.27.248.79}"
-REMOTE="${SURGE_REMOTE:-/opt/surge}"
+SERVER="${SURGE_SSH:-rw3iss@216.158.233.15}"
+REMOTE="${SURGE_REMOTE:-/var/www/surge-media}"
 LOCAL_DB="${SURGE_LOCAL_DB:-postgresql://surge:surge@localhost:5432/surge}"
 REMOTE_DB="${SURGE_REMOTE_DB:-surge}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

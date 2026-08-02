@@ -23,6 +23,17 @@ export class SmtpMailProvider implements MailProvider {
             port: c.port,
             secure: c.secure,
             auth: c.user ? { user: c.user, pass: c.pass, } : undefined,
+            // Pooled connections + bounded parallelism for bulk sends (5k+):
+            // reuse a handful of SMTP connections instead of dialing per email.
+            pool: true,
+            maxConnections: 5,
+            maxMessages: 100,
+            // Hard timeouts so one hung socket can't stall a whole job (the
+            // worker delivers a chunk with Promise.all — a single stuck send
+            // would otherwise block the entire chunk indefinitely).
+            connectionTimeout: 15_000,
+            greetingTimeout: 10_000,
+            socketTimeout: 30_000,
         },);
         return this.transporter;
     }

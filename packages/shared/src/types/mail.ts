@@ -89,7 +89,7 @@ export interface MailSendJob {
     createdAt: string;
 }
 
-export type MailRecipientStatus = 'pending' | 'sent' | 'failed' | 'skipped';
+export type MailRecipientStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'skipped';
 
 export interface MailSendRecipient {
     id: string;

@@ -142,6 +142,7 @@ export const ROUTE_COVERAGE: string[] = [
     // ── auth ──
     'POST /api/v1/auth/login',
     'POST /api/v1/auth/register',
+    'POST /api/v1/auth/verify-email',
     'POST /api/v1/auth/refresh',
     'POST /api/v1/auth/logout',
     'POST /api/v1/auth/logout-all',
@@ -269,6 +270,8 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/settings/site-colors',
     'PUT /api/v1/settings/site-colors',
     'GET /api/v1/settings/site-colors/usages/:id',
+    'GET /api/v1/settings/users',
+    'PUT /api/v1/settings/users',
     'GET /api/v1/settings/server-logs',
     'GET /api/v1/settings/cms-version',
     'POST /api/v1/settings/update-cms',

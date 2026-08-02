@@ -75,6 +75,48 @@ export async function findPending(jobId: string, limit: number,): Promise<MailSe
     return r.rows.map(map,);
 }
 
+/**
+ * Atomically claim a batch of pending recipients: flip them 'pending' →
+ * 'sending' and RETURN the claimed rows in one statement, under
+ * `FOR UPDATE SKIP LOCKED`. Two overlapping runs (a boot-time resume racing
+ * a still-running worker, or two processes) can never grab the same rows, so
+ * nobody is double-sent. Delivery then moves each row to 'sent' (terminal —
+ * never re-pulled), which is what guarantees no duplicate to an already-sent
+ * recipient.
+ */
+export async function claimBatch(jobId: string, limit: number,): Promise<MailSendRecipient[]> {
+    const r = await query<DbRow>(
+        `UPDATE mail_send_recipients
+            SET status = 'sending'
+          WHERE id IN (
+              SELECT id FROM mail_send_recipients
+               WHERE job_id = $1 AND status = 'pending'
+               ORDER BY id
+               LIMIT $2
+               FOR UPDATE SKIP LOCKED
+          )
+        RETURNING *`,
+        [jobId, limit,],
+    );
+    return r.rows.map(map,);
+}
+
+/**
+ * Requeue rows stranded in 'sending' by a crashed worker (the process died
+ * between the claim and the terminal status write). Called when a job is
+ * resumed on boot so those recipients aren't lost. Rows already 'sent' are
+ * untouched — the resume is at-least-once for the tiny crash window, never
+ * re-sending an already-'sent' recipient. Returns the number requeued.
+ */
+export async function resetStaleSending(jobId: string,): Promise<number> {
+    const r = await query(
+        `UPDATE mail_send_recipients SET status = 'pending'
+         WHERE job_id = $1 AND status = 'sending'`,
+        [jobId,],
+    );
+    return r.rowCount ?? 0;
+}
+
 export async function setStatus(
     id: string,
     status: MailRecipientStatus,

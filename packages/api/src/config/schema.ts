@@ -45,6 +45,12 @@ export const envSchema = z.object({
     SMTP_PASS: z.string().optional(),
     EMAIL_FROM: z.string().optional(),
 
+    // Default FROM for MAILING-LIST (bulk) sends, kept separate from EMAIL_FROM
+    // (transactional) so the two can send from different subdomains and their
+    // sender reputations stay isolated. Falls back to EMAIL_FROM when unset.
+    // A per-template "From email" still overrides this.
+    MAIL_LIST_FROM: z.string().optional(),
+
     MAIL_PROVIDER: z.enum(['smtp', 'mailgun', 'sendgrid', 'postmark',]).default('smtp',),
     MAIL_SEND_CONCURRENCY: z.string().transform(Number,).prefault('10',),
     MAIL_SEND_DELAY_MS: z.string().transform(Number,).prefault('50',),

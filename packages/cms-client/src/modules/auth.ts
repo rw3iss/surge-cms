@@ -3,6 +3,7 @@ import type {
     AuthLogoutAllResponse, AuthMeResponse, AuthPatreonSyncResponse, AuthAutologinResponse,
     AuthRegisterBody, AuthRegisterResponse,
     AuthUpdateProfileBody, AuthUpdateProfileResponse, AuthAvatarResponse,
+    AuthVerifyEmailBody, AuthVerifyEmailResponse,
 } from '@sitesurge/types';
 import type { CmsClientCore, } from '../core/client';
 import type { AuthRuntime, } from '../core/auth/authManager';
@@ -53,6 +54,14 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
      *  duplicate email. */
     register(body: AuthRegisterBody,): Promise<AuthRegisterResponse> {
         return this.mutate<AuthRegisterResponse>('POST', '/auth/register', { body, },);
+    }
+
+    /** POST /auth/verify-email — confirm a verification token. The backend
+     *  logs the user in (sets the httpOnly cookie pair), so in cookie mode the
+     *  browser session is live immediately after this resolves; the caller can
+     *  then probe `me()` / reload. A stale/used token rejects with a 400. */
+    verifyEmail(body: AuthVerifyEmailBody,): Promise<AuthVerifyEmailResponse> {
+        return this.mutate<AuthVerifyEmailResponse>('POST', '/auth/verify-email', { body, },);
     }
 
     /** POST /auth/refresh — delegates to the manager's single-flight refresh. */

@@ -17,12 +17,36 @@ import * as subs from '../../repositories/mailingListSubscribers.repo';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/factory';
-import { buildVariableContext, substituteVariables, } from './variables';
+import { buildVariableContext, } from './variables';
+import { resolveMailTemplate, } from './templateRuntime';
 import { isFeatureEnabledServer, } from '../settings';
 import { generateUnsubscribeToken, } from './unsubscribe';
-import type { MailingListSubscriber, } from '@sitesurge/types';
+import type { MailingListSubscriber, OutboundMessage, } from '@sitesurge/types';
+import type { MailProvider, } from './providers/types';
 
 const sleep = (ms: number,): Promise<void> => new Promise((r,) => setTimeout(r, ms,),);
+
+/** Deliver with a small exponential backoff so a transient SMTP blip (SES
+ *  throttling / a dropped socket) doesn't fail an otherwise-deliverable
+ *  recipient. Never produces a duplicate: a retry only fires when the prior
+ *  attempt THREW (no message accepted). */
+async function sendWithRetry(
+    provider: MailProvider,
+    msg: OutboundMessage,
+    attempts = 3,
+): Promise<void> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            await provider.send(msg,);
+            return;
+        } catch (err) {
+            lastErr = err;
+            if (i < attempts - 1) await sleep(500 * 2 ** i,);
+        }
+    }
+    throw lastErr;
+}
 
 async function siteContext(): Promise<{ name: string; url: string; }> {
     const r = await query<{ key: string; value: unknown; }>(
@@ -50,6 +74,11 @@ export async function kickJob(jobId: string,): Promise<void> {
         await jobs.setStatus(jobId, 'running', { startedAt: new Date().toISOString(), },);
     }
 
+    // Requeue any recipients stranded 'sending' by a previous crash so a
+    // resume picks up exactly where it stopped (no-op for a fresh send).
+    const requeued = await recipients.resetStaleSending(jobId,);
+    if (requeued > 0) logger.info(`Requeued ${requeued} stranded recipient(s) for job ${jobId}`,);
+
     const list = await lists.findById(job.listId,);
     if (!list) {
         await jobs.setStatus(jobId, 'failed', {
@@ -71,7 +100,9 @@ export async function kickJob(jobId: string,): Promise<void> {
         const fresh = await jobs.findById(jobId,);
         if (!fresh || fresh.status === 'cancelled') break;
 
-        const batch = await recipients.findPending(jobId, concurrency,);
+        // Atomic claim: flips pending → sending + returns the rows, so a
+        // concurrent run can't grab the same recipients (no double-send).
+        const batch = await recipients.claimBatch(jobId, concurrency,);
         if (batch.length === 0) break;
 
         await Promise.all(batch.map(async (r,) => {
@@ -94,8 +125,8 @@ export async function kickJob(jobId: string,): Promise<void> {
                     siteUrl: site.url,
                     unsubscribeUrl,
                 },);
-                const subject = substituteVariables(job.subject, ctx,);
-                const html = substituteVariables(job.renderedHtmlTemplate, ctx,);
+                const subject = await resolveMailTemplate(job.subject, ctx as unknown as Record<string, unknown>,);
+                const html = await resolveMailTemplate(job.renderedHtmlTemplate, ctx as unknown as Record<string, unknown>,);
 
                 const headers: Record<string, string> = { 'X-Mail-Job-Id': jobId, };
                 if (unsubscribeUrl) {
@@ -105,10 +136,12 @@ export async function kickJob(jobId: string,): Promise<void> {
                     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
                 }
 
-                await provider.send({
+                await sendWithRetry(provider, {
                     to: r.email,
                     fromName: job.fromName ?? site.name,
-                    fromEmail: job.fromEmail ?? config.email.from ?? 'no-reply@example.com',
+                    // Per-template From overrides; else the dedicated mailing-list
+                    // sender (MAIL_LIST_FROM); else the transactional EMAIL_FROM.
+                    fromEmail: job.fromEmail ?? config.mail.listFrom ?? config.email.from ?? 'no-reply@example.com',
                     replyTo: job.replyTo,
                     subject,
                     html,
@@ -138,8 +171,11 @@ export async function kickJob(jobId: string,): Promise<void> {
 }
 
 /**
- * Resume any jobs left in `running` state by a previous process
- * crash. Called on backend boot.
+ * Resume any jobs left `running` (crashed mid-send) OR `pending` (created
+ * but the process died before the worker started) by a previous process.
+ * Called on backend boot. `kickJob` requeues any stranded 'sending'
+ * recipients, so a resumed job continues exactly where it stopped without
+ * re-sending anyone already 'sent'.
  */
 export async function resumeRunningJobs(): Promise<void> {
     try {
@@ -147,9 +183,9 @@ export async function resumeRunningJobs(): Promise<void> {
         // installed. On a site with the feature disabled the table is absent,
         // so skip the resumer entirely rather than error on a missing relation.
         if (!(await isFeatureEnabledServer('mailing_lists',))) return;
-        const running = await jobs.findRunning();
-        for (const j of running) {
-            logger.info(`Resuming send job ${j.id} (left running from a previous boot)`,);
+        const resumable = await jobs.findResumable();
+        for (const j of resumable) {
+            logger.info(`Resuming send job ${j.id} (status=${j.status} from a previous boot)`,);
             setImmediate(() => { void kickJob(j.id,); },);
         }
     } catch (err) {

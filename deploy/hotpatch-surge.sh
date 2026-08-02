@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # Hot-patch the surge deployments WITHOUT publishing new npm versions. Builds
-# the packages locally and rsyncs the compiled `dist/` folders over the
-# installed @sitesurge/* packages in each consumer's node_modules, so both the
-# LOCAL surge-media instance and the REMOTE surge.ryanweiss.net run the latest
-# code at the same version number.
+# the packages locally and rsyncs the compiled `dist/` folders to each target:
+#   - LOCAL surge-media (npm consumer): over node_modules/@sitesurge/*/dist.
+#   - REMOTE surge.ryanweiss.net (FULL-SOURCE build): over packages/*/dist,
+#     where the box runs `node dist/index.js` in packages/api on :3001.
+# Both then run the latest code at the same package version numbers.
 #
 # Use this for rapid iteration between real releases. Installed package VERSION
 # numbers stay the same (e.g. server still reports 0.1.13) but the code is the
@@ -21,7 +22,7 @@
 # Env overrides: SURGE_SSH, SURGE_REMOTE, SURGE_HOST, SURGE_LOCAL.
 set -euo pipefail
 
-SURGE_SSH="${SURGE_SSH:-rw3iss@162.35.181.92}"
+SURGE_SSH="${SURGE_SSH:-rw3iss@216.158.233.15}"
 SURGE_REMOTE="${SURGE_REMOTE:-/var/www/surge-media}"
 SURGE_HOST="${SURGE_HOST:-surge.ryanweiss.net}"
 SURGE_LOCAL="${SURGE_LOCAL:-$HOME/Sites/others/surge}"
@@ -39,6 +40,16 @@ sync_dist() {
   rsync -az --delete "$REPO/packages/shared/dist/" "$nm/types/dist/"
   rsync -az --delete "$REPO/packages/api/dist/"    "$nm/server/dist/"
   rsync -az --delete "$REPO/packages/cms/dist/"    "$nm/admin/dist/"
+}
+
+# Rsync the three built dist/ folders into a FULL-SOURCE deployment's
+# packages/*/dist (the surge.ryanweiss.net box builds from source and runs
+# `node dist/index.js` in packages/api). $1 = ssh dest prefix for the repo root.
+sync_dist_source() {
+  local root="$1"
+  rsync -az --delete "$REPO/packages/shared/dist/" "$root/packages/shared/dist/"
+  rsync -az --delete "$REPO/packages/api/dist/"    "$root/packages/api/dist/"
+  rsync -az --delete "$REPO/packages/cms/dist/"    "$root/packages/cms/dist/"
 }
 
 cyan "▶ Hot-patch surge (no version bump)"
@@ -61,19 +72,16 @@ if [ "${REMOTE_ONLY:-}" != "1" ]; then
   fi
 fi
 
-# ─── Remote surge.ryanweiss.net ───
+# ─── Remote surge.ryanweiss.net (full-source build) ───
 if [ "${LOCAL_ONLY:-}" != "1" ]; then
-  local_nm="$SURGE_SSH:$SURGE_REMOTE/node_modules/@sitesurge"
-  cyan "▶ Syncing dist → remote $SURGE_SSH:$SURGE_REMOTE"
-  sync_dist "$local_nm"
+  cyan "▶ Syncing dist → remote $SURGE_SSH:$SURGE_REMOTE/packages/*/dist"
+  sync_dist_source "$SURGE_SSH:$SURGE_REMOTE"
 
-  if [ "${SKIP_MIGRATE:-}" != "1" ]; then
-    cyan "▶ Migrate + restart"
-    ssh "$SURGE_SSH" "cd $SURGE_REMOTE && npm run migrate && sudo systemctl restart surge"
-  else
-    cyan "▶ Restart (migrations skipped)"
-    ssh "$SURGE_SSH" "sudo systemctl restart surge"
-  fi
+  # The server runs migrations on boot (bootRunningMode), so a restart applies
+  # any new SQL migrations that shipped in this dist. (SKIP_MIGRATE is a no-op
+  # here — boot always migrates.)
+  cyan "▶ Restart (boot-time migrations apply)"
+  ssh "$SURGE_SSH" "sudo systemctl restart surge"
 
   cyan "▶ Health check"
   sleep 3

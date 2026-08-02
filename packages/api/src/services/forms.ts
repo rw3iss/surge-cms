@@ -214,7 +214,13 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
         return { error: 'closed', };
     }
 
-    if (!form.allowMultipleSubmissions) {
+    // Newsletter/subscribe forms are identified by EMAIL, not IP: the mailing
+    // list dedups by exact email (so plus-addresses like `a+test@x.com` and
+    // `a@x.com` are distinct subscribers) and is idempotent for a true
+    // re-subscribe. Gating these on user_id/IP would block everyone behind one
+    // NAT / household — and make plus-address testing impossible — so the
+    // IP/user duplicate check applies only to `submit` forms.
+    if (!form.allowMultipleSubmissions && form.action !== 'subscribe') {
         const isDuplicate = await repo.checkDuplicateSubmission(
             form.id,
             input.userId,

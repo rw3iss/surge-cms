@@ -68,7 +68,24 @@ export interface AuthRegisterBody {
 export interface AuthRegisterResponse {
     userId: string;
     email: string;
+    /** True when the operator requires email verification: the account was
+     *  created UNVERIFIED and a verification email was sent. The Join form
+     *  shows a "check your inbox" state instead of prompting for login. */
+    verificationRequired?: boolean;
 }
+
+// ─── POST /auth/verify-email ──────────────────────────────────────
+
+/** Body for POST /auth/verify-email — the token from the verification
+ *  link (`/verify?token=…`). */
+export interface AuthVerifyEmailBody {
+    token: string;
+}
+
+/** POST /auth/verify-email — marks the account verified and logs the user
+ *  in (mints a session + sets the auth cookie pair), returning the user +
+ *  tokens exactly like login. A stale/used/invalid token returns 400. */
+export type AuthVerifyEmailResponse = AuthResponse;
 
 // ─── POST /auth/refresh ───────────────────────────────────────────
 

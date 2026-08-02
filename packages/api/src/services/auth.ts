@@ -8,6 +8,8 @@ import { query, transaction, } from '../db';
 import { logAudit, } from './audit';
 import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
+import { getUsersSettings, } from './settings';
+import { generateVerificationToken, sendVerificationEmail, } from './mail/verification';
 
 interface PatreonTokenResponse {
     access_token: string;
@@ -235,7 +237,7 @@ export async function authenticateWithEmail(
     const result = await query(
         `SELECT id, email, password_hash, display_name, avatar_url, role,
             auth_provider, patreon_id, patreon_tier, is_active, is_banned,
-            last_login_at, created_at, updated_at
+            email_verified, last_login_at, created_at, updated_at
      FROM users WHERE email = $1 AND auth_provider = 'email'`,
         [email,],
     );
@@ -253,6 +255,19 @@ export async function authenticateWithEmail(
 
     if (!dbUser.is_active || dbUser.is_banned) {
         throw new Error('Account is disabled or banned',);
+    }
+
+    // Email-verification gate. Only self-registered members are subject to it
+    // (staff accounts are admin-vouched; Patreon accounts are OAuth-verified),
+    // and only when the operator has verification enabled. `email_verified`
+    // defaults true for every pre-existing / non-self-signup account.
+    if (dbUser.role === 'member' && dbUser.email_verified === false) {
+        const { requireEmailVerification, } = await getUsersSettings();
+        if (requireEmailVerification) {
+            throw new Error(
+                'Please verify your email address before logging in. Check your inbox for the verification link.',
+            );
+        }
     }
 
     // Update last login
@@ -341,8 +356,9 @@ export async function refreshTokens(
 export async function registerMember(
     input: { name: string; email: string; password: string; },
     ctx?: { ipAddress?: string; userAgent?: string; },
-): Promise<{ userId: string; email: string; }> {
+): Promise<{ userId: string; email: string; verificationRequired: boolean; }> {
     const email = input.email.trim().toLowerCase();
+    const name = input.name.trim();
 
     // Reject banned emails/IPs (mirrors the login/Patreon ban check).
     const banCheck = await query(
@@ -359,16 +375,31 @@ export async function registerMember(
         throw new ConflictError('An account with this email already exists.',);
     }
 
+    // When verification is required, the account starts UNVERIFIED with a
+    // token; otherwise it's created verified (email_verified defaults true).
+    const { requireEmailVerification, } = await getUsersSettings();
+    const token = requireEmailVerification ? generateVerificationToken() : null;
+
     const passwordHash = await bcrypt.hash(input.password, 12,);
 
     const result = await query(
-        `INSERT INTO users (email, password_hash, display_name, role, auth_provider)
-     VALUES ($1, $2, $3, 'member', 'email')
+        `INSERT INTO users (email, password_hash, display_name, role, auth_provider, email_verified, verification_token)
+     VALUES ($1, $2, $3, 'member', 'email', $4, $5)
      RETURNING id, email`,
-        [email, passwordHash, input.name.trim(),],
+        [email, passwordHash, name, !requireEmailVerification, token,],
     );
 
     const row = result.rows[0] as { id: string; email: string; };
+
+    if (requireEmailVerification && token) {
+        // Best effort — a mail failure must not roll back the account (the
+        // member can be re-sent a link). Logged for operator visibility.
+        try {
+            await sendVerificationEmail({ email: row.email, name, }, token,);
+        } catch (err) {
+            logger.warn('Failed to send verification email', { error: err, email: row.email, },);
+        }
+    }
 
     try {
         await logAudit({
@@ -383,7 +414,27 @@ export async function registerMember(
         logger.warn('Failed to audit member registration', { error: err, },);
     }
 
-    return { userId: row.id, email: row.email, };
+    return { userId: row.id, email: row.email, verificationRequired: requireEmailVerification, };
+}
+
+/**
+ * Consume a verification token: mark the account verified, clear the token,
+ * and return the user (for session minting). Returns null when the token is
+ * unknown / already used (so the route can 400). Idempotent-safe: a second
+ * use finds no matching unverified row and returns null.
+ */
+export async function verifyEmailToken(token: string,): Promise<User | null> {
+    const result = await query(
+        `UPDATE users
+            SET email_verified = true, verified_at = NOW(), verification_token = NULL, updated_at = NOW()
+          WHERE verification_token = $1 AND email_verified = false
+        RETURNING id, email, display_name, avatar_url, role, auth_provider,
+                  patreon_id, patreon_tier, is_active, is_banned,
+                  last_login_at, created_at, updated_at`,
+        [token,],
+    );
+    if (result.rows.length === 0) return null;
+    return mapRow<User>(result.rows[0],);
 }
 
 export function generateState(): string {

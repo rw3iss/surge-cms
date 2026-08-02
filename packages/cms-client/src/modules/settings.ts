@@ -11,6 +11,7 @@ import type {
     SettingsSiteColorsResponse, SettingsSiteColorsBody, SettingsSiteColorsReplaceResponse,
     SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
     SettingsServerLogsResponse,
+    SettingsUsersResponse, SettingsUsersBody,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
     PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
     ShopStripeStatusResponse,
@@ -186,6 +187,20 @@ export class SettingsModule extends ModuleBase {
     /** PUT /settings/appearance (admin). */
     appearance(body: SettingsAppearanceBody,): Promise<SettingsRawKeyResponse> {
         return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/appearance', {
+            body, invalidates: ['settings',],
+        },);
+    }
+
+    // ─── Users feature settings ───────────────────────────────────
+
+    /** GET /settings/users (admin) — email-verification requirement + email. */
+    getUsersSettings(): Promise<SettingsUsersResponse> {
+        return this.get<SettingsUsersResponse>('/settings/users',);
+    }
+
+    /** PUT /settings/users (admin). */
+    usersSettings(body: SettingsUsersBody,): Promise<SettingsRawKeyResponse> {
+        return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/users', {
             body, invalidates: ['settings',],
         },);
     }

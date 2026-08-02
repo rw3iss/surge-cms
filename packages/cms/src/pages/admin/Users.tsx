@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { useNavigate, } from '@solidjs/router';
+import { A, useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
@@ -94,12 +94,15 @@ const AdminUsers: Component = () => {
             <Title>Users - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Users</h1>
-                <button
-                    class="btn btn--primary"
-                    onClick={() => { setShowForm(!showForm(),); if (!showForm()) resetForm(); }}
-                >
-                    {showForm() ? 'Cancel' : 'Add User'}
-                </button>
+                <div class="admin-header__actions">
+                    <A href="/admin/users/settings" class="btn btn--secondary">Settings</A>
+                    <button
+                        class="btn btn--primary"
+                        onClick={() => { setShowForm(!showForm(),); if (!showForm()) resetForm(); }}
+                    >
+                        {showForm() ? 'Cancel' : 'Add User'}
+                    </button>
+                </div>
             </div>
 
             <Show when={showForm()}>

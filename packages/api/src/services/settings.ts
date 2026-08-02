@@ -355,6 +355,18 @@ const SITE_APPEARANCE: KeyedSetting = {
     fallback: { backgroundColor: '#ffffff', fontSize: 16, gutterWidth: '', },
 };
 
+const USERS_SETTINGS: KeyedSetting = {
+    key: 'users_settings',
+    cacheKey: 'settings:users_settings',
+    entityId: 'users_settings',
+    // Verification ON by default; empty verification email → the backend
+    // renders a built-in styled default body with the verification link.
+    fallback: {
+        requireEmailVerification: true,
+        verificationEmail: { subject: '', blocks: [], },
+    },
+};
+
 /** Read one keyed JSON setting (cached 600s), with a typed fallback. */
 async function getKeyed(def: KeyedSetting,): Promise<unknown> {
     const cached = await cache.get(def.cacheKey,);
@@ -407,6 +419,21 @@ export const getSiteBranding = () => getKeyed(SITE_BRANDING,);
 export const setSiteBranding = (value: unknown, ctx: AuditContext,) => setKeyed(SITE_BRANDING, value, ctx,);
 export const getAppearance = () => getKeyed(SITE_APPEARANCE,);
 export const setAppearance = (value: unknown, ctx: AuditContext,) => setKeyed(SITE_APPEARANCE, value, ctx,);
+
+/** Users-feature settings (email-verification requirement + verification
+ *  email). Typed getter — read by the register/login flows and the Users
+ *  settings page. Falls back to `{ requireEmailVerification: true, … }`. */
+export async function getUsersSettings(): Promise<import('@sitesurge/types').UsersSettings> {
+    const raw = await getKeyed(USERS_SETTINGS,) as Partial<import('@sitesurge/types').UsersSettings> | null;
+    return {
+        requireEmailVerification: raw?.requireEmailVerification !== false,
+        verificationEmail: {
+            subject: raw?.verificationEmail?.subject ?? '',
+            blocks: raw?.verificationEmail?.blocks ?? [],
+        },
+    };
+}
+export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);
 
 // ─── Admin appearance (operator-only, not cached) ─────────────────────
 // Color tokens applied to the admin chrome. Stored at

@@ -131,6 +131,15 @@ export async function findRunning(): Promise<MailSendJob[]> {
     return r.rows.map(map,);
 }
 
+/** Jobs to re-kick on boot: those left 'running' by a crash AND those stuck
+ *  'pending' (created but the process died before the worker started). */
+export async function findResumable(): Promise<MailSendJob[]> {
+    const r = await query<DbRow>(
+        `SELECT * FROM mail_send_jobs WHERE status IN ('running', 'pending') ORDER BY created_at ASC`,
+    );
+    return r.rows.map(map,);
+}
+
 /**
  * `MailSendJob` with the joined `listName` guaranteed to be present.
  * Re-export for callers that want a non-optional narrowing.

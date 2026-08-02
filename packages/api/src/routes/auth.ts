@@ -20,6 +20,7 @@ import type {
     AuthRefreshBody,
     AuthRegisterBody,
     AuthUpdateProfileBody,
+    AuthVerifyEmailBody,
 } from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, } from '../api/defineRoute';
@@ -29,7 +30,9 @@ import {
     authenticateWithPatreon,
     autologinAdmin,
     clientIp,
+    createSession,
     generateState,
+    generateTokens,
     getPatreonAuthUrl,
     invalidateAllUserSessions,
     invalidateSession,
@@ -37,6 +40,7 @@ import {
     refreshTokens,
     registerMember,
     syncPatreonMembership,
+    verifyEmailToken,
 } from '../services/auth';
 import { isFeatureEnabledServer, } from '../services/settings';
 import * as usersService from '../services/users';
@@ -59,6 +63,10 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8,),
 },) satisfies z.ZodType<AuthRegisterBody>;
+
+const verifyEmailSchema = z.object({
+    token: z.string().min(1,),
+},) satisfies z.ZodType<AuthVerifyEmailBody>;
 
 const updateProfileSchema = z.object({
     firstName: z.string().max(100,).nullish(),
@@ -222,6 +230,30 @@ export const authRoutes = [
                 { name: body.name, email: body.email, password: body.password, },
                 { ipAddress, userAgent, },
             );
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/verify-email', auth: 'public',
+        summary: 'Confirm an email-verification token; logs the user in (sets auth cookies).',
+        input: { body: verifyEmailSchema, },
+        handler: async ({ body, req, res, },) => {
+            const user = await verifyEmailToken(body.token,);
+            if (!user) {
+                throw new AppError(
+                    400, 'INVALID_TOKEN',
+                    'This verification link is invalid or has already been used.',
+                );
+            }
+
+            const ipAddress = clientIp(req.headers, req.ip,);
+            const userAgent = req.headers['user-agent'];
+            const { accessToken, refreshToken, expiresAt, } = generateTokens(user.id, user.role,);
+            await createSession(user.id, accessToken, refreshToken, expiresAt, ipAddress, userAgent,);
+
+            setAuthCookies(res, { accessToken, refreshToken, },);
+
+            return { user, accessToken, refreshToken, expiresAt, };
         },
     },),
 

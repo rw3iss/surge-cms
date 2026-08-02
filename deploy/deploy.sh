@@ -7,14 +7,14 @@
 # Code only; DB + uploads are data (see db-sync.sh).
 #
 # Usage:  ./deploy/deploy.sh
-# Env:    SURGE_SSH   ssh target      (default: rw3iss@37.27.248.79)
-#         SURGE_REMOTE remote path    (default: /opt/surge)
+# Env:    SURGE_SSH   ssh target      (default: rw3iss@216.158.233.15)
+#         SURGE_REMOTE remote path    (default: /var/www/surge-media)
 #         SURGE_HOST  public host     (default: surge.ryanweiss.net)
 #
 set -euo pipefail
 
-SERVER="${SURGE_SSH:-rw3iss@37.27.248.79}"
-REMOTE="${SURGE_REMOTE:-/opt/surge}"
+SERVER="${SURGE_SSH:-rw3iss@216.158.233.15}"
+REMOTE="${SURGE_REMOTE:-/var/www/surge-media}"
 HOST="${SURGE_HOST:-surge.ryanweiss.net}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"

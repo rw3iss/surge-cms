@@ -1,9 +1,14 @@
 import { BlockEmailRenderer, } from './index';
 import { escapeHtml, resolveColorForEmail, } from './_util';
+import { sanitize, } from '../../../utils/sanitize';
 
 export const renderHero: BlockEmailRenderer = (node, ctx,) => {
     const title = String(node.settings.title ?? '',);
     const subtitle = String(node.settings.subtitle ?? node.settings.lede ?? '',);
+    // The Hero editor writes a rich-text `content` body below the subtitle;
+    // it must be emitted so its {{ }} tokens survive into the send-time pass
+    // (previously dropped — the block never rendered its body).
+    const body = String(node.settings.content ?? '',);
     const bgImage = String(node.settings.backgroundImage ?? node.settings.image ?? '',);
     const ctaText = String(node.settings.ctaText ?? '',);
     const ctaUrl = String(node.settings.ctaUrl ?? '',);
@@ -29,6 +34,7 @@ export const renderHero: BlockEmailRenderer = (node, ctx,) => {
         <div style="text-align:center;${bgStyle}">
             <h1 style="margin:0 0 8px;font-size:28px">${escapeHtml(title,)}</h1>
             ${subtitle ? `<div style="font-size:16px;color:${resolveColorForEmail(node.style.textColor as string | undefined, ctx.palette, '#555',)}">${escapeHtml(subtitle,)}</div>` : ''}
+            ${body ? `<div style="font-size:15px;line-height:1.5;padding-top:12px">${sanitize(body,)}</div>` : ''}
             ${cta}
         </div>
     `;

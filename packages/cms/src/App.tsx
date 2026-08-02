@@ -31,6 +31,7 @@ const SearchPage = lazy(() => import('./pages/Search'));
 const ProfilePage = lazy(() => import('./pages/Profile'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const SetupPage = lazy(() => import('./pages/setup/Setup'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmail'));
 
 // Admin pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -40,6 +41,7 @@ const AdminPageEditor = lazy(() => import('./pages/admin/PageEditor'));
 const AdminPosts = lazy(() => import('./pages/admin/Posts'));
 const AdminPostEditor = lazy(() => import('./pages/admin/PostEditor'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminUsersSettings = lazy(() => import('./pages/admin/UsersSettings'));
 const AdminUserDetail = lazy(() => import('./pages/admin/UserDetail'));
 const AdminCampaigns = lazy(() => import('./pages/admin/Campaigns'));
 const AdminCampaignEditor = lazy(() => import('./pages/admin/CampaignEditor'));
@@ -94,6 +96,7 @@ const App: Component = () => {
 										<Route path="/" component={HomePage} />
 										<Route path="/login" component={LoginPage} />
 										<Route path="/join" component={JoinPage} />
+										<Route path="/verify" component={VerifyEmailPage} />
 										<Route path="/posts" component={PostsPage} />
 										<Route path="/posts/:slug" component={PostPage} />
 										<Route path="/donate" component={DynamicPage} />
@@ -135,6 +138,7 @@ const App: Component = () => {
 										<Route path="/posts/new" component={AdminPostEditor} />
 										<Route path="/posts/:id" component={AdminPostEditor} />
 										<Route path="/users" component={AdminUsers} />
+										<Route path="/users/settings" component={AdminUsersSettings} />
 										<Route path="/users/:id" component={AdminUserDetail} />
 										<Route path="/campaigns" component={AdminCampaigns} />
 										<Route path="/campaigns/new" component={AdminCampaignEditor} />

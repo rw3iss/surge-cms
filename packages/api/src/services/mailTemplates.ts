@@ -14,7 +14,8 @@ import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from './mail/renderer';
 import { loadMailRenderContext, } from './mail/siteContext';
-import { buildSampleContext, describeVariables, substituteVariables, } from './mail/variables';
+import { buildSampleContext, describeVariables, } from './mail/variables';
+import { resolveMailTemplate, } from './mail/templateRuntime';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import type { AuditContext, } from './types';
@@ -150,9 +151,9 @@ export async function preview(input: PreviewInput,) {
     const ctx = buildSampleContext(input.variables ?? {},);
 
     return {
-        html: substituteVariables(result.html, ctx,),
-        subject: substituteVariables(result.subject, ctx,),
-        preheader: result.preheader ? substituteVariables(result.preheader, ctx,) : undefined,
+        html: await resolveMailTemplate(result.html, ctx,),
+        subject: await resolveMailTemplate(result.subject, ctx,),
+        preheader: result.preheader ? await resolveMailTemplate(result.preheader, ctx,) : undefined,
         detectedVariables: result.detectedVariables,
     };
 }

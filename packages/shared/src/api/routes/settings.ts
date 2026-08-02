@@ -282,6 +282,36 @@ export interface SettingsSwatchUsagesResponse {
     breakdown: Array<{ source: string; count: number; }>;
 }
 
+// ─── GET/PUT /settings/users ──────────────────────────────────────────
+
+/** The verification email an operator customizes in the Users settings
+ *  page. Reuses the block editor / mail block pipeline standalone (no
+ *  Mailing Lists feature dependency). When `blocks` is empty the backend
+ *  falls back to a built-in styled default body. */
+export interface UsersVerificationEmail {
+    /** Email subject. Supports `{{ }}` variables (site.name, user.name, …). */
+    subject: string;
+    /** Mail block tree (the `mail_template_blocks` wire shape: id,
+     *  parentBlockId, blockType, position, settings, style). Stored
+     *  verbatim; rendered through the same mail renderer as templates. */
+    blocks: Array<Record<string, unknown>>;
+}
+
+/** Users-feature settings (site_settings key `users_settings`). Admin-only. */
+export interface UsersSettings {
+    /** Require self-registered members to verify their email before login.
+     *  Default true. Only affects `member`-role, email-provider accounts. */
+    requireEmailVerification: boolean;
+    /** The verification email's subject + custom body. */
+    verificationEmail: UsersVerificationEmail;
+}
+
+/** GET /settings/users (admin) — the stored users settings (or defaults). */
+export type SettingsUsersResponse = UsersSettings;
+
+/** Body for PUT /settings/users (admin). */
+export type SettingsUsersBody = UsersSettings;
+
 // ─── PUT/DELETE /settings/:key ────────────────────────────────────────
 
 /** Params for the arbitrary-key upsert/delete routes. */
