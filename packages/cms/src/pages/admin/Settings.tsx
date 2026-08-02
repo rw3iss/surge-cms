@@ -529,13 +529,14 @@ function BreakpointsEditor(props: {
             </p>
 
             <div style={{ display: 'flex', gap: '1.5rem', 'align-items': 'flex-start', 'flex-wrap': 'wrap', }}>
-                {/* ── Left: the breakpoints list ── */}
-                <div style={{ flex: '0 1 auto', }}>
+                {/* ── Left: the breakpoints list ── (natural width, not full-bleed,
+                    so the layout editor can sit to its right) */}
+                <div style={{ flex: '0 0 auto', }}>
                     <Show
                         when={props.value.length}
                         fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
                     >
-                        <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', }}>
+                        <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', width: 'auto', }}>
                             <thead style={{ 'font-size': '0.7rem', }}>
                                 <tr>
                                     <th>Name</th>
