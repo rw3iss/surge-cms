@@ -519,19 +519,26 @@ function BreakpointsEditor(props: {
     );
 
     return (
-        <div class="theme-section breakpoints-editor">
-            <h4 class="theme-section__title">Breakpoints</h4>
-            <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
-                Define responsive breakpoints (e.g. Mobile, Tablet). Content blocks then expose a
-                per-breakpoint style override, and the ✎ button here sets per-breakpoint site LAYOUT
-                overrides. Set any subset — a bare number is read as px; leave a bound blank for an
-                open-ended range.
-            </p>
-
-            <div style={{ display: 'flex', gap: '1.5rem', 'align-items': 'flex-start', 'flex-wrap': 'wrap', }}>
-                {/* ── Left: the breakpoints list ── (natural width, not full-bleed,
-                    so the layout editor can sit to its right) */}
-                <div style={{ flex: '0 0 auto', }}>
+        <div
+            style={{
+                display: 'grid',
+                // Single column when idle; two columns (table sized to content,
+                // layout editor filling the rest) while editing a breakpoint.
+                'grid-template-columns': editing() ? 'auto minmax(0, 1fr)' : '1fr',
+                gap: '1.5rem',
+                'align-items': 'start',
+                'margin-bottom': '1.5rem',
+            }}
+        >
+            {/* ── Left: the breakpoints list (its own section) ── */}
+            <div class="theme-section breakpoints-editor">
+                <h4 class="theme-section__title">Breakpoints</h4>
+                <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
+                    Define responsive breakpoints (e.g. Mobile, Tablet). Content blocks then expose a
+                    per-breakpoint style override, and the ✎ button here sets per-breakpoint site LAYOUT
+                    overrides. Set any subset — a bare number is read as px; leave a bound blank for an
+                    open-ended range.
+                </p>
                     <Show
                         when={props.value.length}
                         fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
@@ -591,20 +598,11 @@ function BreakpointsEditor(props: {
                         </table>
                     </Show>
                     <button type="button" class="btn btn--secondary btn--small" onClick={add}>+ Add breakpoint</button>
-                </div>
+            </div>
 
-                {/* ── Right: per-breakpoint LAYOUT editor (shown while editing) ── */}
-                <Show when={editing()}>
-                    <div
-                        class="theme-section breakpoints-editor__layout"
-                        style={{
-                            flex: '1 1 260px',
-                            'min-width': '240px',
-                            border: '1px solid var(--admin-border, #e5e7eb)',
-                            'border-radius': '6px',
-                            padding: '1rem',
-                        }}
-                    >
+            {/* ── Right: per-breakpoint LAYOUT editor (its own section, shown while editing) ── */}
+            <Show when={editing()}>
+                <div class="theme-section breakpoints-editor__layout">
                         <h4 class="theme-section__title">Breakpoint Layout: {editing()!.name || '(unnamed)'}</h4>
                         <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
                             Site-wide layout overrides applied only within this breakpoint's media query
@@ -633,9 +631,8 @@ function BreakpointsEditor(props: {
                         <p class="form-help-muted" style={{ margin: '0.5rem 0 0', 'font-size': '0.75rem', }}>
                             "Save Appearance" (top) still persists everything.
                         </p>
-                    </div>
-                </Show>
-            </div>
+                </div>
+            </Show>
         </div>
     );
 }
@@ -1021,13 +1018,11 @@ function AppearancePanel() {
             </div>
             </div>
 
-            {/* ─── Breakpoints ─── */}
-            <div class="theme-columns">
-                <BreakpointsEditor
-                    value={breakpoints()}
-                    onChange={(bps,) => { setBreakpoints(bps,); markDirty(); }}
-                />
-            </div>
+            {/* ─── Breakpoints ─── (owns its own grid: 1 col idle, 2 cols editing) */}
+            <BreakpointsEditor
+                value={breakpoints()}
+                onChange={(bps,) => { setBreakpoints(bps,); markDirty(); }}
+            />
 
             {/* ─── Font manager ─── */}
             <FontManagerPanel />
