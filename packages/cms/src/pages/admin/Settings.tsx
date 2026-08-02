@@ -15,7 +15,7 @@ import Tooltip from '../../components/admin/common/Tooltip';
 import { cms, } from '../../services/cmsClient';
 import { FeatureCascadeError, } from '@sitesurge/client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
-import type { SiteBreakpoint, SiteSwatch, } from '@sitesurge/types';
+import type { BreakpointLayout, SiteBreakpoint, SiteSwatch, } from '@sitesurge/types';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';
@@ -463,24 +463,55 @@ function ThemeField(props: {
  * four bounds may be set (open-ended ranges allowed); numeric-only values are
  * treated as px at render time.
  */
+/** The per-breakpoint LAYOUT fields — mirror the "Default Layout" section. */
+const BREAKPOINT_LAYOUT_FIELDS: { key: keyof BreakpointLayout; label: string; placeholder: string; }[] = [
+    { key: 'gutterWidth', label: 'Site Gutter', placeholder: 'e.g. 40px, 5%', },
+    { key: 'pagePadding', label: 'Page Padding', placeholder: 'e.g. 80px, 4rem 0', },
+    { key: 'postPadding', label: 'Post Padding', placeholder: 'e.g. 80px, 4rem 0', },
+    { key: 'borderRadius', label: 'Border Radius', placeholder: 'e.g. 8px', },
+    { key: 'maxContentWidth', label: 'Max Content Width', placeholder: 'e.g. 1200px', },
+    { key: 'blockPadding', label: 'Block Default Padding', placeholder: 'e.g. 1rem, 20px', },
+];
+
 function BreakpointsEditor(props: {
     value: SiteBreakpoint[];
     onChange: (bps: SiteBreakpoint[],) => void;
 },) {
+    // Which breakpoint's LAYOUT is being edited (right column), + a local draft
+    // so Cancel discards and Save commits to the parent draft (persisted only by
+    // the top "Save Appearance" button).
+    const [editingId, setEditingId,] = createSignal<string | null>(null,);
+    const [layoutDraft, setLayoutDraft,] = createSignal<BreakpointLayout>({},);
+    const editing = () => props.value.find((b,) => b.id === editingId(),) ?? null;
+
     const update = (i: number, patch: Partial<SiteBreakpoint>,) =>
         props.onChange(props.value.map((b, idx,) => (idx === i ? { ...b, ...patch, } : b)),);
-    const remove = (i: number,) => props.onChange(props.value.filter((_, idx,) => idx !== i),);
+    const remove = (i: number,) => {
+        if (props.value[i].id === editingId()) setEditingId(null,);
+        props.onChange(props.value.filter((_, idx,) => idx !== i),);
+    };
     const add = () =>
         props.onChange([
             ...props.value,
             { id: crypto.randomUUID(), name: '', minWidth: '', maxWidth: '', minHeight: '', maxHeight: '', },
         ],);
 
+    const startEdit = (bp: SiteBreakpoint,) => { setLayoutDraft({ ...(bp.layout ?? {}), },); setEditingId(bp.id,); };
+    const saveLayout = () => {
+        const id = editingId();
+        if (!id) return;
+        props.onChange(props.value.map((b,) => (b.id === id ? { ...b, layout: { ...layoutDraft(), }, } : b)),);
+        setEditingId(null,);
+    };
+    const setDraftField = (key: keyof BreakpointLayout, val: string,) =>
+        setLayoutDraft((d,) => ({ ...d, [key]: val, }),);
+
     const boundInput = (i: number, key: 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight',) => (
         <input
             type="text"
             class="theme-field__input"
-            style={{ width: '84px', }}
+            style={{ width: '56px', }}
+            maxLength={6}
             value={(props.value[i][key] as string | undefined) ?? ''}
             onInput={(e,) => update(i, { [key]: e.currentTarget.value, },)}
             placeholder="—"
@@ -491,60 +522,119 @@ function BreakpointsEditor(props: {
         <div class="theme-section breakpoints-editor">
             <h4 class="theme-section__title">Breakpoints</h4>
             <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
-                Define responsive breakpoints (e.g. Mobile, Tablet). Once created, editing any content
-                block exposes a per-breakpoint style override. Set any subset — a bare number is read as
-                px. Leave a bound blank to make the range open-ended.
+                Define responsive breakpoints (e.g. Mobile, Tablet). Content blocks then expose a
+                per-breakpoint style override, and the ✎ button here sets per-breakpoint site LAYOUT
+                overrides. Set any subset — a bare number is read as px; leave a bound blank for an
+                open-ended range.
             </p>
-            <Show
-                when={props.value.length}
-                fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
-            >
-                <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', }}>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Min width</th>
-                            <th>Max width</th>
-                            <th>Min height</th>
-                            <th>Max height</th>
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <For each={props.value}>
-                            {(bp, i,) => (
+
+            <div style={{ display: 'flex', gap: '1.5rem', 'align-items': 'flex-start', 'flex-wrap': 'wrap', }}>
+                {/* ── Left: the breakpoints list ── */}
+                <div style={{ flex: '0 1 auto', }}>
+                    <Show
+                        when={props.value.length}
+                        fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
+                    >
+                        <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', }}>
+                            <thead style={{ 'font-size': '0.7rem', }}>
                                 <tr>
-                                    <td>
+                                    <th>Name</th>
+                                    <th>Min W</th>
+                                    <th>Max W</th>
+                                    <th>Min H</th>
+                                    <th>Max H</th>
+                                    <th />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <For each={props.value}>
+                                    {(bp, i,) => (
+                                        <tr style={editingId() === bp.id ? { background: 'var(--admin-bg-subtle, #f3f4f6)', } : {}}>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    class="theme-field__input"
+                                                    style={{ width: '96px', }}
+                                                    value={bp.name}
+                                                    onInput={(e,) => update(i(), { name: e.currentTarget.value, },)}
+                                                    placeholder="e.g. Mobile"
+                                                />
+                                            </td>
+                                            <td>{boundInput(i(), 'minWidth',)}</td>
+                                            <td>{boundInput(i(), 'maxWidth',)}</td>
+                                            <td>{boundInput(i(), 'minHeight',)}</td>
+                                            <td>{boundInput(i(), 'maxHeight',)}</td>
+                                            <td style={{ 'white-space': 'nowrap', }}>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn--small btn--secondary"
+                                                    onClick={() => startEdit(bp,)}
+                                                    title="Edit layout overrides for this breakpoint"
+                                                    style={{ 'margin-right': '4px', }}
+                                                >
+                                                    ✎
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn--small btn--danger"
+                                                    onClick={() => remove(i(),)}
+                                                    title="Remove breakpoint"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </For>
+                            </tbody>
+                        </table>
+                    </Show>
+                    <button type="button" class="btn btn--secondary btn--small" onClick={add}>+ Add breakpoint</button>
+                </div>
+
+                {/* ── Right: per-breakpoint LAYOUT editor (shown while editing) ── */}
+                <Show when={editing()}>
+                    <div
+                        class="theme-section breakpoints-editor__layout"
+                        style={{
+                            flex: '1 1 260px',
+                            'min-width': '240px',
+                            border: '1px solid var(--admin-border, #e5e7eb)',
+                            'border-radius': '6px',
+                            padding: '1rem',
+                        }}
+                    >
+                        <h4 class="theme-section__title">Breakpoint Layout: {editing()!.name || '(unnamed)'}</h4>
+                        <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
+                            Site-wide layout overrides applied only within this breakpoint's media query
+                            (pages, posts, blocks). Leave a field blank to inherit the Default Layout.
+                        </p>
+                        <div class="theme-section__fields">
+                            <For each={BREAKPOINT_LAYOUT_FIELDS}>
+                                {(f,) => (
+                                    <ThemeField label={f.label}>
                                         <input
                                             type="text"
                                             class="theme-field__input"
-                                            style={{ width: '140px', }}
-                                            value={bp.name}
-                                            onInput={(e,) => update(i(), { name: e.currentTarget.value, },)}
-                                            placeholder="e.g. Mobile"
+                                            style={{ width: '200px', }}
+                                            value={(layoutDraft()[f.key] as string | undefined) ?? ''}
+                                            onInput={(e,) => setDraftField(f.key, e.currentTarget.value,)}
+                                            placeholder={f.placeholder}
                                         />
-                                    </td>
-                                    <td>{boundInput(i(), 'minWidth',)}</td>
-                                    <td>{boundInput(i(), 'maxWidth',)}</td>
-                                    <td>{boundInput(i(), 'minHeight',)}</td>
-                                    <td>{boundInput(i(), 'maxHeight',)}</td>
-                                    <td>
-                                        <button
-                                            type="button"
-                                            class="btn btn--small btn--danger"
-                                            onClick={() => remove(i(),)}
-                                            title="Remove breakpoint"
-                                        >
-                                            ✕
-                                        </button>
-                                    </td>
-                                </tr>
-                            )}
-                        </For>
-                    </tbody>
-                </table>
-            </Show>
-            <button type="button" class="btn btn--secondary btn--small" onClick={add}>+ Add breakpoint</button>
+                                    </ThemeField>
+                                )}
+                            </For>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', 'margin-top': '0.75rem', }}>
+                            <button type="button" class="btn btn--small btn--primary" onClick={saveLayout}>Save</button>
+                            <button type="button" class="btn btn--small btn--secondary" onClick={() => setEditingId(null,)}>Cancel</button>
+                        </div>
+                        <p class="form-help-muted" style={{ margin: '0.5rem 0 0', 'font-size': '0.75rem', }}>
+                            "Save Appearance" (top) still persists everything.
+                        </p>
+                    </div>
+                </Show>
+            </div>
         </div>
     );
 }
@@ -835,7 +925,7 @@ function AppearancePanel() {
 
             {/* ─── Layout ─── */}
             <div class="theme-section">
-                <h4 class="theme-section__title">Layout</h4>
+                <h4 class="theme-section__title">Default Layout</h4>
                 <div class="theme-section__fields">
                     <ThemeField
                         label="Site Gutter"

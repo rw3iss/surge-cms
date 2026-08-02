@@ -6,7 +6,7 @@ import { swatchCssVars, } from '../../services/colorResolver';
 import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
-import { appearanceCssVars, } from '../../utils/appearanceStyle';
+import { appearanceCssVars, appearanceGlobalCss, } from '../../utils/appearanceStyle';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -103,9 +103,30 @@ export const Layout: ParentComponent = (props,) => {
     // slightly narrower set (no site-bg/text/font on the root, since
     // admin chrome has its own controlled styling).
     const layoutStyle = createMemo(() => ({
-        ...appearanceCssVars(appearance(), 'public',),
+        // excludeLayout: the 6 layout tokens (gutter/paddings/radius/max-width/
+        // block-padding) are emitted in the global appearance <style> below on
+        // `.layout` instead of inline, so per-breakpoint @media rules can
+        // override them. Colors / fonts / bg / text stay inline here.
+        ...appearanceCssVars(appearance(), 'public', { excludeLayout: true, },),
         ...swatchCssVars(swatchesSignal(),),
     }),);
+
+    // Global appearance stylesheet: the layout tokens + default block padding +
+    // per-breakpoint @media overrides, injected once into a <head> <style> (so
+    // it applies site-wide and lands early to minimize FOUC). Mirrors the fonts
+    // <style> pattern above.
+    createEffect(() => {
+        if (typeof document === 'undefined') return;
+        const css = appearanceGlobalCss(appearance(),);
+        const tagId = 'site-appearance-css';
+        let tag = document.getElementById(tagId,) as HTMLStyleElement | null;
+        if (!tag) {
+            tag = document.createElement('style',);
+            tag.id = tagId;
+            document.head.appendChild(tag,);
+        }
+        tag.textContent = css;
+    },);
 
     // Same belt-and-braces pattern as AdminLayout: in addition to the
     // inline style binding, write every key imperatively via

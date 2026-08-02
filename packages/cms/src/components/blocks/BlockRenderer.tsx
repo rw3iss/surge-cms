@@ -125,12 +125,26 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         return 'contained';
     };
 
+    // The site-default block padding is now a global CSS rule
+    // (`.block--default-pad` in the appearance stylesheet) — DRY + overridable by
+    // the per-breakpoint layout @media rules. We add the class only when that
+    // default would apply: not a carousel, no explicit style/settings padding,
+    // and not suppressed (group / group_item / nested / opted out). Explicit
+    // padding still wins inline below.
+    const usesDefaultPad = () => !isCarousel()
+        && !s().padding
+        && !(props.block.settings.padding as string | undefined)
+        && !props.noDefaultPadding
+        && props.block.type !== 'group'
+        && props.block.type !== 'group_item'
+        && props.block.settings.useDefaultPadding !== false;
+
     return (
         <Show when={!isHidden()}>
         <div
             class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}${
                 hasBgOverlay() ? ' block--has-bg-overlay' : ''
-            }`}
+            }${usesDefaultPad() ? ' block--default-pad' : ''}`}
             data-block-id={props.block.id}
             style={{
                 // Background image covers the block's whole box; padding does
@@ -161,22 +175,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
                     suppressBox: isGroupItem(),
                 }),
-                padding: isCarousel() ? undefined : (
-                    s().padding || (props.block.settings.padding as string) ||
-                    // Only apply the site default padding when it isn't
-                    // suppressed: group containers (`group`/`group_item`) and
-                    // any block nested inside one never stamp it (avoids the
-                    // level-by-level cascade), nor does a block that turned the
-                    // default off. Explicit style/settings padding still wins above.
-                    (
-                        props.noDefaultPadding
-                        || props.block.type === 'group'
-                        || props.block.type === 'group_item'
-                        || props.block.settings.useDefaultPadding === false
-                            ? undefined
-                            : 'var(--site-block-padding, 0)'
-                    )
-                ),
+                // EXPLICIT padding only (inline, wins over everything). The
+                // site-default padding is applied via the `.block--default-pad`
+                // global rule (see usesDefaultPad + appearanceGlobalCss).
+                padding: isCarousel() ? undefined : (s().padding || (props.block.settings.padding as string) || undefined),
                 // group_item slot sizing (flex + width/min/max/align-self) —
                 // makes THIS wrapper the correctly-sized parent-group flex item.
                 // Spread LAST so a slot's width/height wins over the style box.

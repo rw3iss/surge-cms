@@ -262,6 +262,21 @@ export interface SiteBreakpoint {
     maxWidth?: string;
     minHeight?: string;
     maxHeight?: string;
+    /** Site-wide LAYOUT token overrides applied inside this breakpoint's media
+     *  query (rendered on `.layout` in the global appearance stylesheet). Mirrors
+     *  the "Default Layout" appearance fields; only set values override. */
+    layout?: BreakpointLayout;
+}
+
+/** The subset of `AppearanceSettings` layout fields that a breakpoint can
+ *  override site-wide (→ `--site-*` custom properties inside its media query). */
+export interface BreakpointLayout {
+    gutterWidth?: string;
+    pagePadding?: string;
+    postPadding?: string;
+    borderRadius?: string;
+    maxContentWidth?: string;
+    blockPadding?: string;
 }
 
 export interface SiteSettings {

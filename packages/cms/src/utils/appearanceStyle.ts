@@ -1,5 +1,6 @@
-import type { AppearanceSettings, } from '@sitesurge/types';
+import type { AppearanceSettings, BreakpointLayout, } from '@sitesurge/types';
 import { colorCssValue, } from '../services/colorResolver';
+import { breakpointMediaCondition, } from './breakpointMedia';
 
 /**
  * Resolve a font value to a CSS `font-family` string. Values are usually a
@@ -37,6 +38,7 @@ export function fontStack(value: string | null | undefined,): string | undefined
 export function appearanceCssVars(
     a: AppearanceSettings | null | undefined,
     mode: 'public' | 'admin' = 'public',
+    opts?: { excludeLayout?: boolean; },
 ): Record<string, string> {
     const s: Record<string, string> = {};
     if (!a) return s;
@@ -56,12 +58,18 @@ export function appearanceCssVars(
     const headingFont = fontStack(a.headingFontFamily,);
     if (headingFont) s['--site-heading-font'] = headingFont;
     if (a.headingWeight) s['--site-heading-weight'] = a.headingWeight;
-    if (a.borderRadius) s['--site-radius'] = a.borderRadius;
-    if (a.gutterWidth) s['--site-gutter'] = a.gutterWidth;
-    if (a.pagePadding) s['--site-page-padding'] = a.pagePadding;
-    if (a.postPadding) s['--site-post-padding'] = a.postPadding;
-    if (a.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
-    if (a.blockPadding) s['--site-block-padding'] = a.blockPadding;
+    // The 6 LAYOUT tokens are excluded on the public site (excludeLayout) —
+    // they're emitted in the global appearance stylesheet on `.layout` instead,
+    // so per-breakpoint @media rules can override them (an inline var on the
+    // element would win over a stylesheet media query). Admin keeps them inline.
+    if (!opts?.excludeLayout) {
+        if (a.borderRadius) s['--site-radius'] = a.borderRadius;
+        if (a.gutterWidth) s['--site-gutter'] = a.gutterWidth;
+        if (a.pagePadding) s['--site-page-padding'] = a.pagePadding;
+        if (a.postPadding) s['--site-post-padding'] = a.postPadding;
+        if (a.maxContentWidth) s['--site-max-width'] = a.maxContentWidth;
+        if (a.blockPadding) s['--site-block-padding'] = a.blockPadding;
+    }
 
     // Background / text / line-height: flow through both as raw inline
     // styles AND as variables on the public site. The admin shell has
@@ -94,6 +102,49 @@ export function appearanceCssVars(
     }
 
     return s;
+}
+
+/**
+ * Global appearance stylesheet (public site) — the LAYOUT `--site-*` tokens on
+ * `.layout` plus the default block-padding rule, followed by one `@media` block
+ * per breakpoint that has layout overrides. Injected once into a `<style>` in
+ * `<head>` so:
+ *   1. the 6 layout tokens live in ONE place (not inline on every element), and
+ *   2. per-breakpoint overrides work — a media query retargets the token on
+ *      `.layout` and every `var(--site-*)` consumer (page/post padding, block
+ *      padding, max-width, radius) picks up the breakpoint value automatically.
+ * Returns '' when there's nothing to emit.
+ */
+export function appearanceGlobalCss(a: AppearanceSettings | null | undefined,): string {
+    if (!a) return '';
+    const vars = (l: BreakpointLayout,): string => {
+        const p: string[] = [];
+        if (l.gutterWidth) p.push(`--site-gutter:${l.gutterWidth}`,);
+        if (l.pagePadding) p.push(`--site-page-padding:${l.pagePadding}`,);
+        if (l.postPadding) p.push(`--site-post-padding:${l.postPadding}`,);
+        if (l.borderRadius) p.push(`--site-radius:${l.borderRadius}`,);
+        if (l.maxContentWidth) p.push(`--site-max-width:${l.maxContentWidth}`,);
+        if (l.blockPadding) p.push(`--site-block-padding:${l.blockPadding}`,);
+        return p.join(';',);
+    };
+
+    const rules: string[] = [];
+    const base = vars(a,);
+    if (base) rules.push(`.layout{${base}}`,);
+    // Default block padding: previously stamped inline on every .block; now one
+    // global rule (opt-in via the .block--default-pad class the renderer adds
+    // when no explicit padding + not suppressed), so it's DRY + overridable by
+    // the breakpoint media queries below.
+    rules.push('.layout .block--default-pad{padding:var(--site-block-padding,0)}',);
+
+    for (const bp of a.breakpoints ?? []) {
+        if (!bp.layout) continue;
+        const v = vars(bp.layout,);
+        if (!v) continue;
+        const cond = breakpointMediaCondition(bp,);
+        rules.push(cond ? `@media ${cond}{.layout{${v}}}` : `.layout{${v}}`,);
+    }
+    return rules.join('\n',);
 }
 
 /**

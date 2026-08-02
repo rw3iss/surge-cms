@@ -20,6 +20,7 @@
  */
 import type { SiteBreakpoint, } from '@sitesurge/types';
 import { blockStyleLayoutCss, type BlockStyleCssResolvers, } from './blockStyleCss';
+import { breakpointMediaCondition, } from './breakpointMedia';
 
 export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
     /** Resolve a stored color value (hex / swatch ref) to a literal CSS color. */
@@ -54,23 +55,6 @@ function declarations(override: Record<string, unknown>, opts: BlockResponsiveOp
         .join(';',);
 }
 
-/** Numeric-only bound → px; otherwise pass the literal (e.g. '48rem'). */
-function toLen(v: string | undefined,): string {
-    const t = (v ?? '').trim();
-    if (!t) return '';
-    return /^\d+(\.\d+)?$/.test(t,) ? `${t}px` : t;
-}
-
-/** AND-joined media condition from a breakpoint's bounds ('' = always). */
-function mediaCondition(bp: SiteBreakpoint,): string {
-    const parts: string[] = [];
-    const minW = toLen(bp.minWidth,); if (minW) parts.push(`(min-width:${minW})`,);
-    const maxW = toLen(bp.maxWidth,); if (maxW) parts.push(`(max-width:${maxW})`,);
-    const minH = toLen(bp.minHeight,); if (minH) parts.push(`(min-height:${minH})`,);
-    const maxH = toLen(bp.maxHeight,); if (maxH) parts.push(`(max-height:${maxH})`,);
-    return parts.join(' and ',);
-}
-
 /** Escape a block id for safe use inside a `[data-block-id="…"]` selector. */
 function escapeId(id: string,): string {
     return id.replace(/["\\]/g, '\\$&',);
@@ -93,7 +77,7 @@ export function blockResponsiveCss(
         if (!override || Object.keys(override,).length === 0) continue;
         const decls = declarations(override, opts,);
         if (!decls) continue;
-        const cond = mediaCondition(bp,);
+        const cond = breakpointMediaCondition(bp,);
         rules.push(cond ? `@media ${cond}{${sel}{${decls}}}` : `${sel}{${decls}}`,);
     }
     return rules.length ? rules.join('\n',) : null;
