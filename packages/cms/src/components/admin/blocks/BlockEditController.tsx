@@ -5,6 +5,7 @@ import { FormField, } from '../forms';
 import TemplateReference from './TemplateReference';
 import type { BlockData, BlockType, } from './ContentBlock';
 import BlockStyleEditor from './blockStyles/BlockStyleEditor';
+import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import DocumentBlock from './types/DocumentBlock';
@@ -91,6 +92,8 @@ export interface BlockEditControllerProps {
 
 const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     const [editingStyle, setEditingStyle,] = createSignal(false,);
+    // Site-defined responsive breakpoints → the style editor's breakpoint picker.
+    const appearance = useAppearance();
     const [blockStyles, setBlockStyles,] = createSignal<BlockStyleData[]>([],);
     const [currentStyle, setCurrentStyle,] = createSignal<BlockStyleData>(BlockStyleService.getDefault(),);
     const [selectedStyleId, setSelectedStyleId,] = createSignal<string>('none',);
@@ -331,6 +334,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                     <BlockStyleEditor
                         style={currentStyle()}
                         onChange={setCurrentStyle}
+                        breakpoints={appearance()?.breakpoints ?? []}
                         allowSaveTemplate={true}
                         onSaveTemplate={handleSaveTemplate}
                         onCopyTemplate={currentStyle().id ? (() => {

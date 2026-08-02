@@ -25,6 +25,8 @@ const blockStyleSchema = z.object({
     gap: z.string().nullable().optional(),
     overflowX: z.string().nullable().optional(),
     overflowY: z.string().nullable().optional(),
+    // { [breakpointId]: { cssProp: value|null } } — per-breakpoint overrides.
+    breakpoints: z.record(z.string(), z.record(z.string(), z.string().nullable(),),).optional(),
 },) satisfies z.ZodType<BlockStyleCreateBody>;
 
 const idParams = z.object({ id: z.string(), },);

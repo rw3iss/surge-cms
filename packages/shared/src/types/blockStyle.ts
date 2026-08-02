@@ -30,9 +30,23 @@ export interface BlockStyle {
     gap?: string; // CSS gap value
     overflowX?: string; // CSS overflow-x value
     overflowY?: string; // CSS overflow-y value
+    /** Per-breakpoint style overrides, keyed by `SiteBreakpoint.id`. Each entry
+     *  holds only the presentation props that differ at that breakpoint (a prop
+     *  absent = inherit the base/default style; `null` = explicitly cleared).
+     *  Rendered as scoped `@media` rules; absent/empty = no responsive styles.
+     *  Applies to both per-block inline styles and saved templates. */
+    breakpoints?: Record<string, BlockStyleOverride>;
     createdAt?: Date;
     updatedAt?: Date;
 }
+
+/**
+ * A single breakpoint's override bag: CSS-prop (a `BlockStyle` presentation key
+ * like `padding`, `margin`, `backgroundColor`, …) → value. `null` means the
+ * prop is explicitly cleared at that breakpoint. Kept loose (string values) to
+ * match how the style→CSS mapper already consumes a style bag.
+ */
+export type BlockStyleOverride = Record<string, string | null>;
 
 export interface BlockStyleReference {
     // Either a template reference OR inline custom styles

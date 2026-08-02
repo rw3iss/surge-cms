@@ -1,4 +1,5 @@
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import type { SiteBreakpoint, } from '@sitesurge/types';
 import { BLOCK_STYLE_DEFAULTS, BlockStyleData, } from '../../../../services/blockStyles';
 import { useToast, } from '../../../common/toast/Toast';
 import ColorPicker from '../../appearance/ColorPicker';
@@ -16,6 +17,10 @@ interface BlockStyleEditorProps {
     onSaveTemplate?: (style: BlockStyleData,) => Promise<void>;
     onCopyTemplate?: () => void;
     onSetDefault?: (templateId: string,) => Promise<void>;
+    /** Operator-defined responsive breakpoints (Settings → Appearance). When
+     *  non-empty, a breakpoint dropdown appears and every control edits that
+     *  breakpoint's override bag instead of the base style. */
+    breakpoints?: SiteBreakpoint[];
 }
 
 const FONT_SIZE_OPTIONS = [
@@ -80,12 +85,53 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
         }
     },);
 
+    // ─── Responsive breakpoint routing ───
+    // '' = the base/default style (shown at all sizes). A breakpoint id routes
+    // every control's read + write to that breakpoint's override bag, so empty
+    // fields there inherit the base and only differences are stored.
+    const [activeBp, setActiveBp,] = createSignal('',);
+    const bpList = () => props.breakpoints ?? [];
+
+    /** Effective value of a style field for the active editing context. */
+    const sv = (field: string,): string => {
+        const bp = activeBp();
+        if (bp) {
+            const ov = (props.style.breakpoints as Record<string, Record<string, string | null>> | undefined)?.[bp];
+            return (ov?.[field] ?? '') as string;
+        }
+        return ((props.style as Record<string, unknown>)[field] as string | undefined) ?? '';
+    };
+
     const update = (field: keyof BlockStyleData, value: string | undefined,) => {
-        // Use null (not undefined) for explicitly-cleared values so the key
-        // survives JSON serialization and the backend can write the clear.
-        // undefined would be stripped by JSON.stringify / object spread.
+        const bp = activeBp();
+        if (bp) {
+            // Write into the breakpoint's override bag; clearing a field removes
+            // the key (so it inherits the base) rather than storing null.
+            const bps = { ...(props.style.breakpoints ?? {}), } as Record<string, Record<string, string | null>>;
+            const ov = { ...(bps[bp] ?? {}), };
+            if (value === '' || value === undefined) delete ov[field as string];
+            else ov[field as string] = value;
+            if (Object.keys(ov,).length === 0) delete bps[bp];
+            else bps[bp] = ov;
+            props.onChange({ ...props.style, breakpoints: Object.keys(bps,).length ? bps : undefined, },);
+            return;
+        }
+        // Base style. null (not undefined) for a clear so the key survives JSON
+        // serialization and the backend writes the clear.
         props.onChange({ ...props.style, [field]: value === '' ? null : value, },);
     };
+
+    // Recompute the preset-vs-custom toggles ONLY when the active breakpoint
+    // switches (not on every edit, which would fight the manual "Custom" button).
+    let lastBp = '';
+    createEffect(() => {
+        const bp = activeBp();
+        if (bp === lastBp) return;
+        lastBp = bp;
+        setCustomWidth(isCustomValue(sv('width',), WIDTH_OPTIONS, BLOCK_STYLE_DEFAULTS.width,),);
+        setCustomPadding(isCustomValue(sv('padding',), PADDING_OPTIONS, BLOCK_STYLE_DEFAULTS.padding,),);
+        setCustomMargin(isCustomValue(sv('margin',), MARGIN_OPTIONS, BLOCK_STYLE_DEFAULTS.margin,),);
+    },);
 
     const handleSaveTemplate = async () => {
         if (!props.onSaveTemplate) return;
@@ -144,6 +190,39 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
 
     return (
         <div class="block-style-editor">
+            {/* Breakpoint selector — only when the site has custom breakpoints */}
+            <Show when={bpList().length}>
+                <div
+                    class="block-style-editor__bp-bar"
+                    style={{
+                        display: 'flex',
+                        'align-items': 'center',
+                        gap: '0.5rem',
+                        'margin-bottom': '0.75rem',
+                        'padding-bottom': '0.75rem',
+                        'border-bottom': '1px solid var(--admin-border, #e5e7eb)',
+                    }}
+                >
+                    <label class="block-style-editor__label" style={{ margin: 0, }}>
+                        Editing
+                        <Tooltip
+                            header="Responsive breakpoint"
+                            content="Choose a breakpoint to set style overrides that apply only within its media query. 'Default' edits the base style shown at all sizes. Fields left empty at a breakpoint inherit the default."
+                        />
+                    </label>
+                    <select
+                        class="block-style-editor__select"
+                        value={activeBp()}
+                        onChange={(e,) => setActiveBp(e.currentTarget.value,)}
+                    >
+                        <option value="">Default (all sizes)</option>
+                        <For each={bpList()}>
+                            {(bp,) => <option value={bp.id}>{bp.name}</option>}
+                        </For>
+                    </select>
+                </div>
+            </Show>
+
             {/* Style properties */}
             <div class="block-style-editor__properties">
                 {/* Background Color */}
@@ -151,7 +230,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Background Color</label>
                     <div class="block-style-editor__color-row">
                         <ColorPicker
-                            value={props.style.backgroundColor || ''}
+                            value={sv('backgroundColor') || ''}
                             onChange={(val,) => update('backgroundColor', val,)}
                             allowCustomValue
                             clearable
@@ -165,7 +244,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Text Color</label>
                     <div class="block-style-editor__color-row">
                         <ColorPicker
-                            value={props.style.textColor || BLOCK_STYLE_DEFAULTS.textColor}
+                            value={sv('textColor') || BLOCK_STYLE_DEFAULTS.textColor}
                             onChange={(hex,) => update('textColor', hex,)}
                         />
                     </div>
@@ -181,7 +260,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         />
                     </label>
                     <Show
-                        when={props.style.backgroundImage}
+                        when={sv('backgroundImage')}
                         fallback={
                             <div class="block-style-editor__bg-row">
                                 <span class="block-style-editor__bg-none">None</span>
@@ -203,7 +282,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         <div class="block-style-editor__bg-row">
                             <img
                                 class="block-style-editor__bg-thumb"
-                                src={props.style.backgroundImage}
+                                src={sv('backgroundImage')}
                                 alt="Background preview"
                             />
                             <button
@@ -229,7 +308,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                 </div>
 
                 {/* Background Position — only relevant when a background image is set */}
-                <Show when={props.style.backgroundImage}>
+                <Show when={sv('backgroundImage')}>
                     <div class="block-style-editor__field block-style-editor__field--full">
                         <label class="block-style-editor__label">
                             Background Position
@@ -243,7 +322,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 <input
                                     type="text"
                                     class="block-style-editor__custom-input"
-                                    value={props.style.backgroundPosition || ''}
+                                    value={sv('backgroundPosition') || ''}
                                     onChange={(e,) => update('backgroundPosition', e.currentTarget.value,)}
                                     placeholder="e.g. center, center 100%, top left"
                                 />
@@ -257,7 +336,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Text Alignment</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.textAlign || BLOCK_STYLE_DEFAULTS.textAlign}
+                        value={sv('textAlign') || BLOCK_STYLE_DEFAULTS.textAlign}
                         onChange={(e,) => update('textAlign', e.currentTarget.value,)}
                     >
                         <option value="left">Left</option>
@@ -272,7 +351,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Line Height</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.lineHeight || BLOCK_STYLE_DEFAULTS.lineHeight}
+                        value={sv('lineHeight') || BLOCK_STYLE_DEFAULTS.lineHeight}
                         onChange={(e,) => update('lineHeight', e.currentTarget.value,)}
                     >
                         <option value={BLOCK_STYLE_DEFAULTS.lineHeight}>Default</option>
@@ -287,7 +366,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Font Size</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.fontSize || BLOCK_STYLE_DEFAULTS.fontSize}
+                        value={sv('fontSize') || BLOCK_STYLE_DEFAULTS.fontSize}
                         onChange={(e,) => update('fontSize', e.currentTarget.value,)}
                     >
                         <option value={BLOCK_STYLE_DEFAULTS.fontSize}>Default ({BLOCK_STYLE_DEFAULTS.fontSize})</option>
@@ -301,7 +380,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                 <div class="block-style-editor__field">
                     <label class="block-style-editor__label">Font</label>
                     <FontSelect
-                        value={props.style.fontFamily || ''}
+                        value={sv('fontFamily') || ''}
                         onChange={(v,) => update('fontFamily', v,)}
                         noneLabel="Default (site font)"
                     />
@@ -324,7 +403,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                     <input
                                         type="text"
                                         class="block-style-editor__custom-input"
-                                        value={props.style.width || ''}
+                                        value={sv('width') || ''}
                                         onChange={(e,) => update('width', e.currentTarget.value,)}
                                         placeholder="e.g. 50%, 300px"
                                     />
@@ -337,7 +416,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <div class="block-style-editor__preset-row">
                                 <select
                                     class="block-style-editor__select"
-                                    value={props.style.width || BLOCK_STYLE_DEFAULTS.width}
+                                    value={sv('width') || BLOCK_STYLE_DEFAULTS.width}
                                     onChange={(e,) => update('width', e.currentTarget.value,)}
                                 >
                                     <option value="100%">Full</option>
@@ -369,7 +448,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <input
                                 type="text"
                                 class="block-style-editor__custom-input"
-                                value={props.style.maxWidth || ''}
+                                value={sv('maxWidth') || ''}
                                 onChange={(e,) => update('maxWidth', e.currentTarget.value,)}
                                 placeholder="e.g. 640px, 80%"
                             />
@@ -391,7 +470,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <input
                                 type="text"
                                 class="block-style-editor__custom-input"
-                                value={props.style.minHeight || ''}
+                                value={sv('minHeight') || ''}
                                 onChange={(e,) => update('minHeight', e.currentTarget.value,)}
                                 placeholder="e.g. 200px, 40vh"
                             />
@@ -407,7 +486,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <input
                                 type="text"
                                 class="block-style-editor__custom-input"
-                                value={props.style.height || ''}
+                                value={sv('height') || ''}
                                 onChange={(e,) => update('height', e.currentTarget.value,)}
                                 placeholder="e.g. 300px, 50vh"
                             />
@@ -420,7 +499,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Vertical Alignment</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.verticalAlign || BLOCK_STYLE_DEFAULTS.verticalAlign}
+                        value={sv('verticalAlign') || BLOCK_STYLE_DEFAULTS.verticalAlign}
                         onChange={(e,) => update('verticalAlign', e.currentTarget.value,)}
                     >
                         <option value="top">Top</option>
@@ -440,7 +519,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.horizontalAlign || ''}
+                        value={sv('horizontalAlign') || ''}
                         onChange={(e,) => update('horizontalAlign', e.currentTarget.value || undefined,)}
                     >
                         <option value="">Default</option>
@@ -471,7 +550,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                     <input
                                         type="text"
                                         class="block-style-editor__custom-input block-style-editor__custom-input--short"
-                                        value={props.style.padding || ''}
+                                        value={sv('padding') || ''}
                                         onChange={(e,) => update('padding', e.currentTarget.value,)}
                                         placeholder="e.g. 10px 20px"
                                     />
@@ -489,7 +568,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         >
                             <select
                                 class="block-style-editor__select"
-                                value={props.style.padding || BLOCK_STYLE_DEFAULTS.padding}
+                                value={sv('padding') || BLOCK_STYLE_DEFAULTS.padding}
                                 onChange={(e,) => {
                                     const v = e.currentTarget.value;
                                     if (v === CUSTOM) { setCustomPadding(true,); return; }
@@ -525,7 +604,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                     <input
                                         type="text"
                                         class="block-style-editor__custom-input block-style-editor__custom-input--short"
-                                        value={props.style.margin || ''}
+                                        value={sv('margin') || ''}
                                         onChange={(e,) => update('margin', e.currentTarget.value,)}
                                         placeholder="e.g. 10px 0"
                                     />
@@ -543,7 +622,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                         >
                             <select
                                 class="block-style-editor__select"
-                                value={props.style.margin || BLOCK_STYLE_DEFAULTS.margin}
+                                value={sv('margin') || BLOCK_STYLE_DEFAULTS.margin}
                                 onChange={(e,) => {
                                     const v = e.currentTarget.value;
                                     if (v === CUSTOM) { setCustomMargin(true,); return; }
@@ -576,7 +655,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <input
                                 type="text"
                                 class="block-style-editor__custom-input"
-                                value={props.style.gap || ''}
+                                value={sv('gap') || ''}
                                 onChange={(e,) => update('gap', e.currentTarget.value,)}
                                 placeholder="e.g. 1rem, 16px"
                             />
@@ -589,7 +668,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Overflow X</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.overflowX || ''}
+                        value={sv('overflowX') || ''}
                         onChange={(e,) => update('overflowX', e.currentTarget.value || undefined,)}
                     >
                         <option value="">Default (wrap)</option>
@@ -604,7 +683,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     <label class="block-style-editor__label">Overflow Y</label>
                     <select
                         class="block-style-editor__select"
-                        value={props.style.overflowY || ''}
+                        value={sv('overflowY') || ''}
                         onChange={(e,) => update('overflowY', e.currentTarget.value || undefined,)}
                     >
                         <option value="">Default (grow)</option>

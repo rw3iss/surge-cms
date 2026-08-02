@@ -239,6 +239,29 @@ export interface AppearanceSettings {
      *  `applyPostPadding` flag. Primarily vertical (the gutter overrides
      *  left/right). Empty/undefined → 0. Exposed as `--site-post-padding`. */
     postPadding?: string;
+    /** Operator-defined responsive breakpoints. When non-empty, the Content
+     *  Block editor exposes a breakpoint dropdown so each block (or block-style
+     *  template) can carry per-breakpoint style overrides, rendered as scoped
+     *  `@media` rules on the public site + admin preview. */
+    breakpoints?: SiteBreakpoint[];
+}
+
+/**
+ * A named responsive breakpoint managed in Settings → Appearance. Any subset of
+ * the four bounds may be set (open-ended ranges are allowed); width-first —
+ * most breakpoints set only `maxWidth` and/or `minWidth`. Numeric-only strings
+ * are treated as px (a unit may be included, e.g. `'48rem'`). The media query is
+ * the AND of whichever bounds are present.
+ */
+export interface SiteBreakpoint {
+    /** Stable id — the key under which blocks store this breakpoint's overrides. */
+    id: string;
+    /** Display label shown in the editor dropdown (e.g. "Mobile", "Tablet"). */
+    name: string;
+    minWidth?: string;
+    maxWidth?: string;
+    minHeight?: string;
+    maxHeight?: string;
 }
 
 export interface SiteSettings {

@@ -3,6 +3,8 @@ import { createStore, reconcile, } from 'solid-js/store';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
 import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDevices';
 import { BlockStyleService, } from '../../../services/blockStyles';
+import { useAppearance, } from '../../../hooks/useAppearance';
+import { previewBreakpoint, setPreviewBreakpoint, } from '../../../stores/previewBreakpoint';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
@@ -294,9 +296,33 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const deviceWidth = () => isLandscape() ? selectedDevice().height : selectedDevice().width;
     const deviceHeight = () => isLandscape() ? selectedDevice().width : selectedDevice().height;
 
+    // ─── Responsive breakpoint preview (simulate — see previewBreakpoint store) ───
+    const appearance = useAppearance();
+    const bpList = () => appearance()?.breakpoints ?? [];
+    /** The px width the preview container is capped to for the selected preview
+     *  breakpoint (its maxWidth, else minWidth), or null for full size. */
+    const bpWidth = () => {
+        const id = previewBreakpoint();
+        if (!id) return null;
+        const bp = bpList().find((b,) => b.id === id,);
+        const w = (bp?.maxWidth || bp?.minWidth || '').trim();
+        if (!w) return null;
+        return /^\d+(\.\d+)?$/.test(w,) ? `${w}px` : w;
+    };
+    // Leaving the editor clears the module-global simulate state.
+    onCleanup(() => setPreviewBreakpoint('',));
+
     const previewContainerStyle = createMemo(() => {
         const base = { ...(props.containerStyle || {}), };
-        if (isMobile() && !isFullWidth()) {
+        // A selected preview breakpoint caps the width to that breakpoint (so the
+        // simulated overrides show at a representative size); else the mobile
+        // device width; else full.
+        const bw = bpWidth();
+        if (bw && !isFullWidth()) {
+            base['max-width'] = bw;
+            base['margin-left'] = 'auto';
+            base['margin-right'] = 'auto';
+        } else if (isMobile() && !isFullWidth()) {
             base['max-width'] = `${deviceWidth()}px`;
             base['margin-left'] = 'auto';
             base['margin-right'] = 'auto';
@@ -751,6 +777,21 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                 <path d="M4 6l-2 2 2 2M12 6l2 2-2 2" stroke="currentColor" fill="none" stroke-width="1.2" />
                             </svg>
                         </button>
+                        {/* Preview a responsive breakpoint (simulated) — only when
+                            the site has custom breakpoints defined. */}
+                        <Show when={bpList().length}>
+                            <select
+                                class="block-editor__device-select"
+                                value={previewBreakpoint()}
+                                onChange={(e,) => setPreviewBreakpoint(e.currentTarget.value,)}
+                                title="Preview a responsive breakpoint"
+                            >
+                                <option value="">Full size</option>
+                                <For each={bpList()}>
+                                    {(bp,) => <option value={bp.id}>{bp.name}</option>}
+                                </For>
+                            </select>
+                        </Show>
                     </div>
                 </div>
                 {/* Mobile device picker — shown when mobile mode is on */}

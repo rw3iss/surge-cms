@@ -30,6 +30,9 @@ const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string]> = [
     ['gap', 'gap',],
     ['overflowX', 'overflow_x',],
     ['overflowY', 'overflow_y',],
+    // JSONB map of { [breakpointId]: { prop: value } }. node-pg JSON-stringifies
+    // a plain object param for a jsonb column; mapRow reads it back as an object.
+    ['breakpoints', 'breakpoints',],
 ];
 
 export async function findAll(): Promise<BlockStyle[]> {

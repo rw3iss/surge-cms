@@ -15,7 +15,7 @@ import Tooltip from '../../components/admin/common/Tooltip';
 import { cms, } from '../../services/cmsClient';
 import { FeatureCascadeError, } from '@sitesurge/client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
-import type { SiteSwatch, } from '@sitesurge/types';
+import type { SiteBreakpoint, SiteSwatch, } from '@sitesurge/types';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';
@@ -456,6 +456,99 @@ function ThemeField(props: {
     );
 }
 
+/**
+ * Managed list of responsive breakpoints (Settings → Appearance). Edits are
+ * lifted to the parent AppearancePanel, which persists them inside
+ * `site_appearance` via the shared "Save Appearance" button. Any subset of the
+ * four bounds may be set (open-ended ranges allowed); numeric-only values are
+ * treated as px at render time.
+ */
+function BreakpointsEditor(props: {
+    value: SiteBreakpoint[];
+    onChange: (bps: SiteBreakpoint[],) => void;
+},) {
+    const update = (i: number, patch: Partial<SiteBreakpoint>,) =>
+        props.onChange(props.value.map((b, idx,) => (idx === i ? { ...b, ...patch, } : b)),);
+    const remove = (i: number,) => props.onChange(props.value.filter((_, idx,) => idx !== i),);
+    const add = () =>
+        props.onChange([
+            ...props.value,
+            { id: crypto.randomUUID(), name: '', minWidth: '', maxWidth: '', minHeight: '', maxHeight: '', },
+        ],);
+
+    const boundInput = (i: number, key: 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight',) => (
+        <input
+            type="text"
+            class="theme-field__input"
+            style={{ width: '84px', }}
+            value={(props.value[i][key] as string | undefined) ?? ''}
+            onInput={(e,) => update(i, { [key]: e.currentTarget.value, },)}
+            placeholder="—"
+        />
+    );
+
+    return (
+        <div class="theme-section breakpoints-editor">
+            <h4 class="theme-section__title">Breakpoints</h4>
+            <p class="theme-field__sublabel" style={{ 'margin-bottom': '0.75rem', }}>
+                Define responsive breakpoints (e.g. Mobile, Tablet). Once created, editing any content
+                block exposes a per-breakpoint style override. Set any subset — a bare number is read as
+                px. Leave a bound blank to make the range open-ended.
+            </p>
+            <Show
+                when={props.value.length}
+                fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
+            >
+                <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', }}>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Min width</th>
+                            <th>Max width</th>
+                            <th>Min height</th>
+                            <th>Max height</th>
+                            <th />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <For each={props.value}>
+                            {(bp, i,) => (
+                                <tr>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            class="theme-field__input"
+                                            style={{ width: '140px', }}
+                                            value={bp.name}
+                                            onInput={(e,) => update(i(), { name: e.currentTarget.value, },)}
+                                            placeholder="e.g. Mobile"
+                                        />
+                                    </td>
+                                    <td>{boundInput(i(), 'minWidth',)}</td>
+                                    <td>{boundInput(i(), 'maxWidth',)}</td>
+                                    <td>{boundInput(i(), 'minHeight',)}</td>
+                                    <td>{boundInput(i(), 'maxHeight',)}</td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="btn btn--small btn--danger"
+                                            onClick={() => remove(i(),)}
+                                            title="Remove breakpoint"
+                                        >
+                                            ✕
+                                        </button>
+                                    </td>
+                                </tr>
+                            )}
+                        </For>
+                    </tbody>
+                </table>
+            </Show>
+            <button type="button" class="btn btn--secondary btn--small" onClick={add}>+ Add breakpoint</button>
+        </div>
+    );
+}
+
 function AppearancePanel() {
     // Colors
     const [backgroundColor, setBackgroundColor,] = createSignal('#ffffff',);
@@ -480,6 +573,9 @@ function AppearancePanel() {
     const [borderRadius, setBorderRadius,] = createSignal('',);
     const [maxContentWidth, setMaxContentWidth,] = createSignal('',);
     const [blockPadding, setBlockPadding,] = createSignal('',);
+
+    // Responsive breakpoints (managed list, persisted inside site_appearance)
+    const [breakpoints, setBreakpoints,] = createSignal<SiteBreakpoint[]>([],);
 
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
@@ -508,6 +604,7 @@ function AppearancePanel() {
                 if (d.borderRadius) setBorderRadius(d.borderRadius,);
                 if (d.maxContentWidth) setMaxContentWidth(d.maxContentWidth,);
                 if (d.blockPadding) setBlockPadding(d.blockPadding,);
+                if (Array.isArray(d.breakpoints,)) setBreakpoints(d.breakpoints as SiteBreakpoint[],);
             }
         } catch (e) {
             console.error('Failed to load appearance:', e,);
@@ -541,6 +638,9 @@ function AppearancePanel() {
                 borderRadius: borderRadius() || undefined,
                 maxContentWidth: maxContentWidth() || undefined,
                 blockPadding: blockPadding() || undefined,
+                // Drop incomplete rows (no name) so a half-added breakpoint
+                // doesn't persist / show up in the block editor dropdown.
+                breakpoints: breakpoints().filter((b,) => b.name.trim()),
             } as any,);
 
             // Appearance save also touches site_settings.site_appearance,
@@ -828,6 +928,14 @@ function AppearancePanel() {
                     </ThemeField>
                 </div>
             </div>
+            </div>
+
+            {/* ─── Breakpoints ─── */}
+            <div class="theme-columns">
+                <BreakpointsEditor
+                    value={breakpoints()}
+                    onChange={(bps,) => { setBreakpoints(bps,); markDirty(); }}
+                />
             </div>
 
             {/* ─── Font manager ─── */}

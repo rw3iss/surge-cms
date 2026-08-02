@@ -7,6 +7,7 @@ import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../../utils/groupStyle';
 import { blockStyleLayoutCss, } from '../../../utils/blockStyleCss';
+import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import { toFlexAlign, } from '../../../utils/cssAlign';
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { colorCssValue, } from '../../../services/colorResolver';
@@ -154,8 +155,14 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
      *  Reactive on the block's styleRef; never touches editable content, so
      *  applying it can't disturb the caret. */
     const resolvedContentStyle = createMemo<JSX.CSSProperties | undefined>(() => {
-        const st = BlockStyleService.resolve(props.block,);
-        if (!st) return undefined;
+        const base = BlockStyleService.resolve(props.block,);
+        if (!base) return undefined;
+        // Simulate the selected preview breakpoint by merging its overrides over
+        // the base style (the device-preview container is only width-capped, so
+        // real viewport @media queries won't fire — we approximate them here).
+        const pbp = previewBreakpoint();
+        const ov = pbp ? (base as Record<string, any>).breakpoints?.[pbp] : undefined;
+        const st = ov ? { ...base, ...ov, } : base;
         const out: Record<string, string | undefined> = blockStyleLayoutCss(st as Record<string, any>, {
             resolveFont: fontStack,
             resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),

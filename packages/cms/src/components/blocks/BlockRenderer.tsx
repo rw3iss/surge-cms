@@ -6,6 +6,8 @@ import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
 import { blockStyleLayoutCss, } from '../../utils/blockStyleCss';
+import { blockResponsiveCss, } from '../../utils/blockResponsiveCss';
+import { siteSettings, } from '../../stores/siteSettings';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
@@ -78,6 +80,20 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // slot wraps to its own row. `settings` already carries the parent's item
     // defaults (merged via withSlotDefaults).
     const isGroupItem = () => props.block.type === 'group_item';
+
+    // Per-breakpoint responsive CSS (scoped @media rules), or null when the
+    // block has no overrides — the default inline style path is unchanged.
+    const responsiveCss = () => blockResponsiveCss(
+        props.block.id,
+        s(),
+        siteSettings()?.appearance?.breakpoints,
+        {
+            resolveFont: fontStack,
+            resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
+            resolveColor: color,
+            suppressBox: isGroupItem(),
+        },
+    );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
 
@@ -114,6 +130,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}${
                 hasBgOverlay() ? ' block--has-bg-overlay' : ''
             }`}
+            data-block-id={props.block.id}
             style={{
                 // Background image covers the block's whole box; padding does
                 // NOT clip it (default border-box), so a full-bleed image shows
@@ -165,6 +182,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                 ...slotStyle(),
             }}
         >
+            {/* Per-breakpoint overrides as scoped @media rules (only emitted
+                when this block actually has responsive overrides). */}
+            <Show when={responsiveCss()}>
+                <style>{responsiveCss()}</style>
+            </Show>
             {/* Color/gradient overlay painted on top of the background image
                 (only when BOTH are set). Sits behind the content via CSS. */}
             <Show when={hasBgOverlay()}>

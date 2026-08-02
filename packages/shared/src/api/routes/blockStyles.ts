@@ -44,6 +44,8 @@ export interface BlockStyleCreateBody {
     gap?: string | null;
     overflowX?: string | null;
     overflowY?: string | null;
+    /** Per-breakpoint overrides: { [breakpointId]: { cssProp: value|null } }. */
+    breakpoints?: Record<string, Record<string, string | null>>;
 }
 
 /** POST /api/v1/block-styles (201) — the created template. */
