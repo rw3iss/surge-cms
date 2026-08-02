@@ -522,9 +522,11 @@ function BreakpointsEditor(props: {
         <div
             style={{
                 display: 'grid',
-                // Single column when idle; two columns (table sized to content,
-                // layout editor filling the rest) while editing a breakpoint.
-                'grid-template-columns': editing() ? 'auto minmax(0, 1fr)' : '1fr',
+                // Single column when idle; when editing, a FIXED-width left
+                // column (fits the breakpoints table) + the layout editor filling
+                // the rest. Fixed (not `auto`) so the long description paragraph's
+                // max-content can't make the left column hog the whole row.
+                'grid-template-columns': editing() ? '620px minmax(0, 1fr)' : '1fr',
                 gap: '1.5rem',
                 'align-items': 'start',
                 'margin-bottom': '1.5rem',
