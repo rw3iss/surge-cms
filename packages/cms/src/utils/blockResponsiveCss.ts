@@ -65,12 +65,18 @@ export function blockResponsiveCss(
     style: Record<string, unknown> | undefined,
     breakpoints: SiteBreakpoint[] | undefined,
     opts: BlockResponsiveOptions,
+    // Optional descendant selector to target instead of the block wrapper — used
+    // by the carousel, which routes its block-style padding to the slide content
+    // (`.hero-carousel__content`), not the outer `.block`, so per-breakpoint
+    // overrides must land on the same inner element as the default style.
+    innerSelector?: string,
 ): string | null {
     if (!blockId) return null;
     const bps = style?.breakpoints as Record<string, Record<string, unknown>> | undefined;
     if (!bps || !breakpoints || breakpoints.length === 0) return null;
 
-    const sel = `[data-block-id="${escapeId(blockId,)}"]`;
+    const base = `[data-block-id="${escapeId(blockId,)}"]`;
+    const sel = innerSelector ? `${base} ${innerSelector}` : base;
     const rules: string[] = [];
     for (const bp of breakpoints) {
         const override = bps[bp.id];

@@ -94,6 +94,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             resolveColor: color,
             suppressBox: isGroupItem(),
         },
+        // Carousel routes its block style (padding etc.) to the slide content, not
+        // the wrapper — so per-breakpoint overrides target the same inner element.
+        isCarousel() ? '.hero-carousel__content' : undefined,
     );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
