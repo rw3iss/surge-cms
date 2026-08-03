@@ -513,7 +513,10 @@ function BreakpointsEditor(props: {
             style={{ width: '65px', padding: '5px', }}
             maxLength={6}
             value={(props.value[i][key] as string | undefined) ?? ''}
-            onInput={(e,) => update(i, { [key]: e.currentTarget.value, },)}
+            // onChange (commit on blur), NOT onInput: updating the array on every
+            // keystroke gives the row a new object ref, so the keyed <For>
+            // recreates the row and the focused input loses focus mid-type.
+            onChange={(e,) => update(i, { [key]: e.currentTarget.value, },)}
             placeholder="—"
         />
     );
@@ -566,7 +569,7 @@ function BreakpointsEditor(props: {
                                                     class="theme-field__input"
                                                     style={{ width: '96px', }}
                                                     value={bp.name}
-                                                    onInput={(e,) => update(i(), { name: e.currentTarget.value, },)}
+                                                    onChange={(e,) => update(i(), { name: e.currentTarget.value, },)}
                                                     placeholder="e.g. Mobile"
                                                 />
                                             </td>
@@ -619,7 +622,7 @@ function BreakpointsEditor(props: {
                                             class="theme-field__input"
                                             style={{ width: '200px', }}
                                             value={(layoutDraft()[f.key] as string | undefined) ?? ''}
-                                            onInput={(e,) => setDraftField(f.key, e.currentTarget.value,)}
+                                            onChange={(e,) => setDraftField(f.key, e.currentTarget.value,)}
                                             placeholder={f.placeholder}
                                         />
                                     </ThemeField>
