@@ -272,9 +272,22 @@ export async function createBlock(pageId: string, data: Record<string, unknown>,
         data.id :
         null;
 
+    // Idempotent by client-supplied id: if the editor POSTs a block that already
+    // exists (its `origIds` tracking can lag after a prior save), OVERWRITE it
+    // instead of failing with a unique-violation 409 — a save should just save
+    // over the block. (The no-id path can't collide: the DB generates the id.)
     const result = await query(
         `INSERT INTO blocks (${clientId ? 'id, ' : ''}page_id, parent_block_id, type, title, content, settings, "order", is_visible, style)
      VALUES (${clientId ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10' : '$1, $2, $3, $4, $5, $6, $7, $8, $9'})
+     ${
+            clientId
+                ? `ON CONFLICT (id) DO UPDATE SET
+         page_id = EXCLUDED.page_id, parent_block_id = EXCLUDED.parent_block_id,
+         type = EXCLUDED.type, title = EXCLUDED.title, content = EXCLUDED.content,
+         settings = EXCLUDED.settings, "order" = EXCLUDED."order",
+         is_visible = EXCLUDED.is_visible, style = EXCLUDED.style`
+                : ''
+        }
      RETURNING *`,
         clientId ? [
             clientId,
