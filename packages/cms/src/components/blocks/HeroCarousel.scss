@@ -62,6 +62,10 @@
   &__overlay {
     position: absolute;
     inset: 0;
+    // Query context for the per-slide content: `--arrow-clearance` reacts to the
+    // slide's own rendered width (not the viewport) so it fires on the mobile
+    // site AND in the resized admin preview, which only narrows the container.
+    container: hero-slide / inline-size;
     display: flex;
     align-items: var(--hero-valign, center);
     justify-content: var(--hero-content-align, center);
@@ -85,6 +89,22 @@
     margin: var(--hero-content-margin, 0);
     max-width: 90%;
     pointer-events: auto;
+  }
+
+  // Vertical clearance between the post meta and excerpt that keeps the
+  // vertically-centered nav arrows from overlapping the text on narrow slides.
+  // Zero by default; the container query below grows it once the slide is
+  // narrow, pushing the title/meta up (above the arrow band) and the
+  // excerpt/CTA down (below it).
+  &__arrow-clearance {
+    flex: 0 0 auto;
+    height: 0;
+  }
+
+  @container hero-slide (max-width: 768px) {
+    &__arrow-clearance {
+      height: 2.75rem; // ~arrow height (40px) + breathing room on each side
+    }
   }
 
   &__header {

@@ -1,6 +1,7 @@
 import { Component, onCleanup, onMount, Show, } from 'solid-js';
 import { BlockRenderer, } from '../../blocks/BlockRenderer';
 import { BlockStyleService, } from '../../../services/blockStyles';
+import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import type { BlockData, } from './ContentBlock';
 
 interface BlockPreviewProps {
@@ -37,6 +38,15 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         // Resolve style from styleRef or data.__styleRef (shared resolver).
         const resolvedStyle = BlockStyleService.resolve(props.block,);
 
+        // Simulate the active "Preview breakpoint" by merging that breakpoint's
+        // overrides over the base style — so BlockPreview-rendered blocks
+        // (carousel, image, …) reflect the responsive changes in the editor, not
+        // just on the live site (the device preview only caps width, so real
+        // @media queries don't fire here).
+        const pbp = previewBreakpoint();
+        const ov = pbp ? (resolvedStyle as Record<string, any> | undefined)?.breakpoints?.[pbp] : undefined;
+        const effectiveStyle = ov && Object.keys(ov,).length ? { ...resolvedStyle, ...ov, } : resolvedStyle;
+
         return {
             id: props.block.id,
             pageId: '',
@@ -46,7 +56,7 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
             settings: rest,
             order: props.block.sort_order || 0,
             isVisible: true,
-            style: resolvedStyle,
+            style: effectiveStyle,
             createdAt: new Date(),
             updatedAt: new Date(),
         };
