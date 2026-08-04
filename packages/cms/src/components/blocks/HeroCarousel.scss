@@ -262,6 +262,12 @@
   // queries the root `.hero-carousel` (container-type set above); the arrows
   // aren't inside the `hero-slide` overlay container, so this is their nearest.
   @container (max-width: 768px) {
+    // Let the slide content use the full width on a narrow carousel (the 90%
+    // cap above only makes sense on wide slides).
+    &__content {
+      max-width: 100%;
+    }
+
     &__arrow {
       // Full-size chevron again (inherits the base 40px / 20px svg), with a
       // little padding and no circular background, tucked against the page edges.
