@@ -125,6 +125,9 @@ export function appearanceGlobalCss(a: AppearanceSettings | null | undefined,): 
         if (l.borderRadius) p.push(`--site-radius:${l.borderRadius}`,);
         if (l.maxContentWidth) p.push(`--site-max-width:${l.maxContentWidth}`,);
         if (l.blockPadding) p.push(`--site-block-padding:${l.blockPadding}`,);
+        if (l.postHeaderBannerHeight) {
+            p.push(`--site-post-header-banner-height:${l.postHeaderBannerHeight}`,);
+        }
         return p.join(';',);
     };
 

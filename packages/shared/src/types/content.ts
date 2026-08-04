@@ -239,6 +239,12 @@ export interface AppearanceSettings {
      *  `applyPostPadding` flag. Primarily vertical (the gutter overrides
      *  left/right). Empty/undefined → 0. Exposed as `--site-post-padding`. */
     postPadding?: string;
+    /** Static height for a post page's Hero / Hero Full banner image. Any valid
+     *  CSS length. Empty/undefined → no fixed height (the banner keeps its fluid
+     *  min-height). Primarily used per-breakpoint (e.g. a shorter banner on
+     *  mobile) to avoid layout shift and center the title. Exposed as
+     *  `--site-post-header-banner-height`. */
+    postHeaderBannerHeight?: string;
     /** Operator-defined responsive breakpoints. When non-empty, the Content
      *  Block editor exposes a breakpoint dropdown so each block (or block-style
      *  template) can carry per-breakpoint style overrides, rendered as scoped
@@ -277,6 +283,9 @@ export interface BreakpointLayout {
     borderRadius?: string;
     maxContentWidth?: string;
     blockPadding?: string;
+    /** Static post Hero/Hero-Full banner height inside this breakpoint's media
+     *  query (→ `--site-post-header-banner-height`). Empty → inherit default. */
+    postHeaderBannerHeight?: string;
 }
 
 export interface SiteSettings {

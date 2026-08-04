@@ -463,14 +463,33 @@ function ThemeField(props: {
  * four bounds may be set (open-ended ranges allowed); numeric-only values are
  * treated as px at render time.
  */
+/** Tooltip shared by the Default Layout + per-breakpoint "Post Header Banner
+ *  Height" fields. */
+const POST_HEADER_BANNER_HEIGHT_TOOLTIP =
+    "Sets the post's header image (background) to a static height at the top of "
+    + 'the post pages, so the banner has a fixed size (no load-time shift) and the '
+    + 'title reads more centered. Any valid CSS value (e.g. 220px, 40vh). Leave '
+    + 'blank to not set a static height.';
+
 /** The per-breakpoint LAYOUT fields — mirror the "Default Layout" section. */
-const BREAKPOINT_LAYOUT_FIELDS: { key: keyof BreakpointLayout; label: string; placeholder: string; }[] = [
+const BREAKPOINT_LAYOUT_FIELDS: {
+    key: keyof BreakpointLayout;
+    label: string;
+    placeholder: string;
+    tooltip?: string;
+}[] = [
     { key: 'gutterWidth', label: 'Site Gutter', placeholder: 'e.g. 40px, 5%', },
     { key: 'pagePadding', label: 'Page Padding', placeholder: 'e.g. 80px, 4rem 0', },
     { key: 'postPadding', label: 'Post Padding', placeholder: 'e.g. 80px, 4rem 0', },
     { key: 'borderRadius', label: 'Border Radius', placeholder: 'e.g. 8px', },
     { key: 'maxContentWidth', label: 'Max Content Width', placeholder: 'e.g. 1200px', },
     { key: 'blockPadding', label: 'Block Default Padding', placeholder: 'e.g. 1rem, 20px', },
+    {
+        key: 'postHeaderBannerHeight',
+        label: 'Post Header Banner Height',
+        placeholder: 'e.g. 220px, 40vh',
+        tooltip: POST_HEADER_BANNER_HEIGHT_TOOLTIP,
+    },
 ];
 
 function BreakpointsEditor(props: {
@@ -616,7 +635,7 @@ function BreakpointsEditor(props: {
                         <div class="theme-section__fields">
                             <For each={BREAKPOINT_LAYOUT_FIELDS}>
                                 {(f,) => (
-                                    <ThemeField label={f.label}>
+                                    <ThemeField label={f.label} tooltip={f.tooltip}>
                                         <input
                                             type="text"
                                             class="theme-field__input"
@@ -666,6 +685,7 @@ function AppearancePanel() {
     const [borderRadius, setBorderRadius,] = createSignal('',);
     const [maxContentWidth, setMaxContentWidth,] = createSignal('',);
     const [blockPadding, setBlockPadding,] = createSignal('',);
+    const [postHeaderBannerHeight, setPostHeaderBannerHeight,] = createSignal('',);
 
     // Responsive breakpoints (managed list, persisted inside site_appearance)
     const [breakpoints, setBreakpoints,] = createSignal<SiteBreakpoint[]>([],);
@@ -697,6 +717,7 @@ function AppearancePanel() {
                 if (d.borderRadius) setBorderRadius(d.borderRadius,);
                 if (d.maxContentWidth) setMaxContentWidth(d.maxContentWidth,);
                 if (d.blockPadding) setBlockPadding(d.blockPadding,);
+                if (d.postHeaderBannerHeight) setPostHeaderBannerHeight(d.postHeaderBannerHeight,);
                 if (Array.isArray(d.breakpoints,)) setBreakpoints(d.breakpoints as SiteBreakpoint[],);
             }
         } catch (e) {
@@ -731,6 +752,7 @@ function AppearancePanel() {
                 borderRadius: borderRadius() || undefined,
                 maxContentWidth: maxContentWidth() || undefined,
                 blockPadding: blockPadding() || undefined,
+                postHeaderBannerHeight: postHeaderBannerHeight() || undefined,
                 // Drop incomplete rows (no name) so a half-added breakpoint
                 // doesn't persist / show up in the block editor dropdown.
                 breakpoints: breakpoints().filter((b,) => b.name.trim()),
@@ -1015,6 +1037,21 @@ function AppearancePanel() {
                             value={blockPadding()}
                             onInput={(e,) => { setBlockPadding(e.currentTarget.value,); markDirty(); }}
                             placeholder="e.g. 1rem, 20px"
+                            style={{ width: '200px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Post Header Banner Height"
+                        sublabel="Static height for post hero banners"
+                        tooltip={POST_HEADER_BANNER_HEIGHT_TOOLTIP}
+                    >
+                        <input
+                            type="text"
+                            value={postHeaderBannerHeight()}
+                            onInput={(e,) => { setPostHeaderBannerHeight(e.currentTarget.value,); markDirty(); }}
+                            placeholder="e.g. 220px, 40vh"
                             style={{ width: '200px', }}
                             class="theme-field__input"
                         />

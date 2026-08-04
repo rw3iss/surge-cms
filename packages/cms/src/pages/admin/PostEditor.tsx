@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
@@ -451,6 +451,23 @@ const AdminPostEditor: Component = () => {
         </CollapsiblePanel>
     );
 
+    // Vertical anchor of the banner image (mirrors Post.tsx). start=top, end=bottom.
+    const previewBannerPos = () =>
+        bannerImagePosition() === 'start' ? 'center top'
+            : bannerImagePosition() === 'end' ? 'center bottom'
+            : 'center center';
+    // Shared post header content (back link + title + a status/excerpt meta line)
+    // used inside every banner layout in the preview.
+    const previewHeading = () => (
+        <>
+            <a class="post-page__back" href="/posts" onClick={(e,) => e.preventDefault()}>← Back to Posts</a>
+            <h1 class="post-page__title">{title() || 'Untitled Post'}</h1>
+            <div class="post-page__meta">
+                <span>{status() === 'draft' ? 'Draft' : 'Preview'}{excerpt() ? ` — ${excerpt()}` : ''}</span>
+            </div>
+        </>
+    );
+
     const previewBody = (
         // Wrap in the public <Layout> so the preview shows the configured
         // site header, footer, navigation, appearance vars, swatches, and
@@ -459,12 +476,34 @@ const AdminPostEditor: Component = () => {
             {/* Match the public Post page wrapper so scoped styles apply
                 identically in preview. */}
             <div class="post-page page-wrapper">
-                <article style={{ 'max-width': 'var(--site-max-width, 800px)', margin: '0 auto', padding: '2rem 1rem', }}>
-                    <h1 style={{ 'margin-bottom': '0.5rem', }}>{title() || 'Untitled Post'}</h1>
-                    <div style={{ color: 'var(--admin-text-muted, #6b7280)', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
-                        {status() === 'draft' ? 'Draft' : 'Preview'}
-                        {excerpt() ? ` — ${excerpt()}` : ''}
-                    </div>
+                <article class="post-page__article" style={{ 'max-width': 'var(--site-max-width, 800px)', margin: '0 auto', padding: '2rem 1rem', }}>
+                    {/* Faithful header: Hero / Hero Full render the real banner so
+                        the configured "Post Header Banner Height" (default +
+                        breakpoint) is reflected in the preview, not just live. */}
+                    <Switch fallback={<header class="page-header">{previewHeading()}</header>}>
+                        <Match when={featuredImage() && bannerLayout() === 'hero'}>
+                            <header
+                                class="post-page__hero"
+                                style={{
+                                    'background-image': `url("${featuredImage()}")`,
+                                    'background-position': previewBannerPos(),
+                                }}
+                            >
+                                <div class="post-page__hero-overlay">{previewHeading()}</div>
+                            </header>
+                        </Match>
+                        <Match when={featuredImage() && bannerLayout() === 'hero-full'}>
+                            <header
+                                class="post-page__hero post-page__hero--full"
+                                style={{
+                                    'background-image': `url("${featuredImage()}")`,
+                                    'background-position': previewBannerPos(),
+                                }}
+                            >
+                                <div class="post-page__hero-overlay post-page__hero-overlay--full">{previewHeading()}</div>
+                            </header>
+                        </Match>
+                    </Switch>
                     <Show when={editor.blocks().length}>
                         <div class="u-flex-col u-gap-md">
                             <For each={editor.blocks()}>

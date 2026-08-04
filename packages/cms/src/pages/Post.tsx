@@ -177,6 +177,7 @@ const PostPage: Component = () => {
                         });
                         const heading = () => (
                             <>
+                                <a class="post-page__back" href="/posts">← Back to Posts</a>
                                 <h1 class="post-page__title">{postData().title}</h1>
                                 <div class="post-page__meta">
                                     {/* Only show the byline when an author is actually set. */}
@@ -285,6 +286,15 @@ const PostPage: Component = () => {
                                 <Show when={!(postData() as any).contentBlocks?.length && postData().content}>
                                     <TemplatedContent class="rich-text" html={postData().content} entities={postCtx()} />
                                 </Show>
+
+                                {/* Right-aligned "back to top" after the article body. */}
+                                <button
+                                    type="button"
+                                    class="post-page__to-top"
+                                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth', },)}
+                                >
+                                    ↑ Back to top
+                                </button>
                             </article>
                         </>
                         );

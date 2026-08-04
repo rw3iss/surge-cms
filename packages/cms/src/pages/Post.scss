@@ -21,6 +21,45 @@
     margin-bottom: $spacing-xl;
   }
 
+  // "← Back to Posts" — sits at the very top of the post header, above the
+  // title. Rendered inside every header layout (hero overlay, standalone /
+  // thumbnail page-header). Default is a muted brand link; the hero-overlay
+  // override below inverts it to white over the banner image.
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: $spacing-md;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--site-link, #{$primary-color});
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  // "↑ Back to top" — right-aligned button after the content blocks, with
+  // breathing room above and below.
+  &__to-top {
+    display: block;
+    margin: $spacing-2xl 0 $spacing-lg auto;
+    padding: $spacing-sm $spacing-md;
+    background: transparent;
+    border: 1px solid var(--site-border, #{$border-color});
+    border-radius: var(--site-radius, #{$border-radius-md});
+    color: var(--site-text-muted, #{$text-light});
+    font-size: $font-size-sm;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+    &:hover {
+      background: var(--site-primary, #{$primary-color});
+      color: var(--site-button-text, #fff);
+      border-color: var(--site-primary, #{$primary-color});
+    }
+  }
+
   &__title {
     // Fluid title: scales with the content column's inline size (like the
     // homepage carousel post slides). Caps at ~40px on a full-width column and
@@ -49,7 +88,14 @@
   &__hero {
     position: relative;
     width: 100%;
-    min-height: 340px;
+    // Optional static banner height (Appearance → Default Layout, or a custom
+    // breakpoint's layout). When `--site-post-header-banner-height` is set it
+    // fixes the banner height — avoids the load-time shift (FOUC) and pulls the
+    // bottom-anchored title up so it reads more centered. Unset → the var is
+    // invalid, so `height` falls back to auto and the fluid 340px min-height
+    // stands (unchanged default).
+    height: var(--site-post-header-banner-height);
+    min-height: var(--site-post-header-banner-height, 340px);
     display: flex;
     align-items: flex-end;
     background-size: cover;
@@ -105,6 +151,12 @@
 
     // Invert the meta text to white for the hero header (over the image).
     .post-page__meta {
+      color: rgba(255, 255, 255, 0.92);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    // Invert the "← Back to Posts" link to white over the banner image.
+    .post-page__back {
       color: rgba(255, 255, 255, 0.92);
       text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
     }
