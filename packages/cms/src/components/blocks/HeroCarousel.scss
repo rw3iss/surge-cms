@@ -103,7 +103,7 @@
 
   @container hero-slide (max-width: 768px) {
     &__arrow-clearance {
-      height: 2.75rem; // ~arrow height (40px) + breathing room on each side
+      height: 1rem; // small gap; the mobile arrows below also shrink + move out
     }
   }
 
@@ -274,6 +274,27 @@
 
     &--prev { left: $spacing-md; }
     &--next { right: $spacing-md; }
+  }
+
+  // On a narrow carousel (mobile site + resized admin preview): shrink the nav
+  // arrows to ~75%, tuck them against the edges, and drop the circular
+  // background so only the chevron shows over the media. Unnamed @container
+  // queries the root `.hero-carousel` (container-type set above); the arrows
+  // aren't inside the `hero-slide` overlay container, so this is their nearest.
+  @container (max-width: 768px) {
+    &__arrow {
+      width: 30px;
+      height: 30px;
+      background: transparent;
+      backdrop-filter: none;
+
+      &:hover { background: transparent; }
+
+      svg { width: 15px; height: 15px; }
+
+      &--prev { left: $spacing-xs; }
+      &--next { right: $spacing-xs; }
+    }
   }
 
   // ─── Dots ───
