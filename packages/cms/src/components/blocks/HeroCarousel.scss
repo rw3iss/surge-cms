@@ -283,17 +283,16 @@
   // aren't inside the `hero-slide` overlay container, so this is their nearest.
   @container (max-width: 768px) {
     &__arrow {
-      width: 30px;
-      height: 30px;
+      // Full-size chevron again (inherits the base 40px / 20px svg), with a
+      // little padding and no circular background, tucked against the page edges.
+      padding: 5px;
       background: transparent;
       backdrop-filter: none;
 
       &:hover { background: transparent; }
 
-      svg { width: 15px; height: 15px; }
-
-      &--prev { left: $spacing-xs; }
-      &--next { right: $spacing-xs; }
+      &--prev { left: 2px; }
+      &--next { right: 2px; }
     }
   }
 
