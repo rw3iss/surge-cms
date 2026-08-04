@@ -335,13 +335,6 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                                 </Show>
                                             </div>
                                         </Show>
-                                        {/* Vertical clearance so the center nav arrows don't overlap the
-                                            post content when the carousel is narrow: pushes the title/meta
-                                            up and the excerpt/CTA down. Sized via a container query (fires
-                                            on the mobile site AND the resized admin preview). */}
-                                        <Show when={item.postMeta}>
-                                            <div class="hero-carousel__arrow-clearance" aria-hidden="true" />
-                                        </Show>
                                         <Show when={item.postMeta?.excerpt}>
                                             <p class="hero-carousel__excerpt">{item.postMeta!.excerpt}</p>
                                         </Show>
