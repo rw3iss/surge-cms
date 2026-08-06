@@ -114,7 +114,15 @@ export default defineConfig(({ mode }) => {
             },
           },
           {
-            urlPattern: /^https:\/\/.*\.(png|jpg|jpeg|svg|gif|webp)$/i,
+            // SAME-ORIGIN images only. A cross-origin image (e.g. media now
+            // served from Cloudflare R2 at cdn.ryanweiss.net) is fetched no-cors
+            // and comes back OPAQUE (status 0); CacheFirst's default
+            // cacheableResponse rejects status 0, then fails the request →
+            // net::ERR_FAILED. Cross-origin CDN images are already edge-cached
+            // by Cloudflare, so let them bypass the SW and load from the network.
+            // Same-origin uploads (local-storage installs) still get CacheFirst.
+            urlPattern: ({ url, sameOrigin, }: { url: URL; sameOrigin: boolean; },) =>
+              sameOrigin && /\.(png|jpg|jpeg|svg|gif|webp)$/i.test(url.pathname,),
             handler: 'CacheFirst',
             options: {
               cacheName: 'image-cache',
