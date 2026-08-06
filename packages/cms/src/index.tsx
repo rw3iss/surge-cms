@@ -49,6 +49,37 @@ function stripStaticMetaFallbacks() {
 }
 stripStaticMetaFallbacks();
 
+// ── Stale-chunk recovery ─────────────────────────────────────────────────
+// After a deploy, a client still running the PREVIOUS bundle (or one served a
+// stale index.html) references route chunks by their old content hash. If those
+// files are gone from the origin, a lazy `import()` fails with "Failed to fetch
+// dynamically imported module" and the route silently doesn't render. Force a
+// ONE-TIME reload to pull the fresh index.html + current chunks. A sessionStorage
+// guard prevents a reload loop if the fresh load still fails (e.g. a CDN briefly
+// serving a stale document); it's cleared once the app has run for a few seconds,
+// so recovery re-arms for the next deploy.
+const CHUNK_RELOAD_FLAG = 'ss:chunk-reload';
+function recoverFromStaleChunk() {
+    if (sessionStorage.getItem(CHUNK_RELOAD_FLAG,)) return; // already tried this session
+    sessionStorage.setItem(CHUNK_RELOAD_FLAG, '1',);
+    window.location.reload();
+}
+function isChunkLoadError(reason: unknown,): boolean {
+    const msg = String((reason as { message?: string; } | undefined)?.message ?? reason ?? '',);
+    return /dynamically imported module|Importing a module script failed|error loading dynamically imported/i.test(msg,);
+}
+// Vite/rolldown dispatches this when a lazily-imported module fails to preload.
+window.addEventListener('vite:preloadError', (e,) => { e.preventDefault(); recoverFromStaleChunk(); },);
+// Belt-and-braces: the raw dynamic-import rejection (older browsers / direct import()).
+window.addEventListener('unhandledrejection', (e,) => {
+    if (isChunkLoadError(e.reason,)) recoverFromStaleChunk();
+},);
+// Re-arm after the app has been running successfully, so a later (post-deploy)
+// stale-chunk error can reload again without looping on a still-broken load.
+window.addEventListener('load', () => {
+    setTimeout(() => sessionStorage.removeItem(CHUNK_RELOAD_FLAG,), 5000,);
+},);
+
 render(() => <App />, root!,);
 
 // Register service worker for PWA (production only)
