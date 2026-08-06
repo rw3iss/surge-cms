@@ -9,6 +9,7 @@
  * Printify product ends up identical to a native one apart from provenance.
  */
 import { generateSlug, } from '@sitesurge/types';
+import { config, } from '../../config';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import {
@@ -27,7 +28,7 @@ import {
     setProductTags,
 } from '../../repositories/shop/shopCatalog.repo';
 import { getPrintifyConfig, type PrintifyConfig, } from './config';
-import { listAllProducts, type PrintifyProduct, } from './client';
+import { confirmPublishingSucceeded, listAllProducts, type PrintifyProduct, } from './client';
 
 const PROVIDER = 'printify';
 
@@ -47,6 +48,8 @@ export interface PrintifySyncResult {
     upserted: number;
     archived: number;
     skipped: number;
+    /** Products whose stuck "publishing" lock we acknowledged this run. */
+    published: number;
     errors: string[];
     durationMs: number;
 }
@@ -75,8 +78,9 @@ async function resolveTypeCategoryId(tags: string[],): Promise<string | null> {
     return created.id;
 }
 
-/** Adapt one Printify product into shop structure + taxonomy, then persist. */
-async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<void> {
+/** Adapt one Printify product into shop structure + taxonomy, then persist.
+ *  Returns whether we cleared a stuck "publishing" lock for this product. */
+async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ published: boolean; }> {
     const markup = 1 + (cfg.priceMarkupPercent || 0) / 100;
     const enabledVariants = (p.variants ?? []).filter((v,) => v.is_enabled);
     // Value ids actually used by enabled variants — so the storefront selector
@@ -149,6 +153,24 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<void
     await setProductTags(product.id, (p.tags ?? []).slice(0, 40,),);
     const catId = await resolveTypeCategoryId(p.tags ?? [],);
     await setProductCategories(product.id, catId ? [catId,] : [],);
+
+    // Custom / API-integration store: if Printify has this product LOCKED in
+    // "publishing" (operator clicked Publish, nothing acked it), acknowledge it
+    // now that it lives on our storefront — clears the stuck lock. Best-effort:
+    // a failure here must not fail the sync of the product itself.
+    if (p.is_locked) {
+        try {
+            const base = config.frontendUrl.replace(/\/+$/, '',);
+            await confirmPublishingSucceeded(cfg, String(p.id,), {
+                id: product.id,
+                handle: `${base}/shop/${slug}`,
+            },);
+            return { published: true, };
+        } catch (err) {
+            logger.warn(`Printify publish-ack failed for "${p.title}": ${(err as Error).message}`,);
+        }
+    }
+    return { published: false, };
 }
 
 /** Run a full sync. Pass a config or it reads the plugin config. */
@@ -156,7 +178,7 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
     const started = Date.now();
     const cfg = cfgArg ?? (await getPrintifyConfig());
     if (!cfg) {
-        return { ok: false, fetched: 0, upserted: 0, archived: 0, skipped: 0, errors: ['Printify is not enabled/configured.',], durationMs: 0, };
+        return { ok: false, fetched: 0, upserted: 0, archived: 0, skipped: 0, published: 0, errors: ['Printify is not enabled/configured.',], durationMs: 0, };
     }
 
     const errors: string[] = [];
@@ -164,12 +186,13 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
     try {
         products = await listAllProducts(cfg,);
     } catch (err) {
-        return { ok: false, fetched: 0, upserted: 0, archived: 0, skipped: 0, errors: [(err as Error).message,], durationMs: Date.now() - started, };
+        return { ok: false, fetched: 0, upserted: 0, archived: 0, skipped: 0, published: 0, errors: [(err as Error).message,], durationMs: Date.now() - started, };
     }
 
     const seenExternalIds = new Set<string>();
     let upserted = 0;
     let skipped = 0;
+    let published = 0;
     for (const p of products) {
         seenExternalIds.add(String(p.id,),);
         // Skip products with no sellable (enabled) variant.
@@ -178,8 +201,9 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
             continue;
         }
         try {
-            await upsertOne(p, cfg,);
+            const r = await upsertOne(p, cfg,);
             upserted++;
+            if (r.published) published++;
         } catch (err) {
             errors.push(`${p.title}: ${(err as Error).message}`,);
         }
@@ -193,8 +217,8 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
     const archived = await archiveExternalProducts(goneIds,);
 
     const durationMs = Date.now() - started;
-    logger.info(`Printify sync: ${upserted} upserted, ${archived} archived, ${skipped} skipped, ${errors.length} errors in ${durationMs}ms`,);
-    return { ok: errors.length === 0, fetched: products.length, upserted, archived, skipped, errors, durationMs, };
+    logger.info(`Printify sync: ${upserted} upserted, ${published} published, ${archived} archived, ${skipped} skipped, ${errors.length} errors in ${durationMs}ms`,);
+    return { ok: errors.length === 0, fetched: products.length, upserted, archived, skipped, published, errors, durationMs, };
 }
 
 export interface PrintifyStatus {

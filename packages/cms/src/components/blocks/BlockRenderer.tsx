@@ -58,6 +58,14 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // CarouselBlockRenderer) so the background media stays full-bleed —
     // hence the outer wrapper skips block-style padding for this type.
     const isCarousel = () => props.block.type === 'carousel';
+    // A carousel's height is controlled by its "Custom Height" content setting
+    // (settings.options.customHeight/height), not the block Style panel. When
+    // that toggle is off, suppress the wrapper's style.height so a leftover value
+    // doesn't keep forcing a fixed height — height then falls to the carousel's
+    // own default (and any breakpoint styles).
+    const suppressCarouselHeight = () =>
+        isCarousel()
+        && !((props.block.settings as Record<string, any> | undefined)?.options?.customHeight);
 
     // Background resolution. A block style may carry a color/gradient (any CSS
     // value, resolved through the swatch helper) and/or an image:
@@ -177,6 +185,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     resolveFont: fontStack,
                     resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
                     suppressBox: isGroupItem(),
+                    // Carousel height is owned by its "Custom Height" content
+                    // setting; when that's off, don't let a stale style.height
+                    // force a fixed wrapper height (breakpoint styles still apply).
+                    suppressHeight: suppressCarouselHeight(),
                 }),
                 // EXPLICIT padding only (inline, wins over everything). The
                 // site-default padding is applied via the `.block--default-pad`

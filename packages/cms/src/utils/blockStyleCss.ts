@@ -30,6 +30,11 @@ export interface BlockStyleCssOptions extends BlockStyleCssResolvers {
      *  sizing, so skip width / max-width / height here (min-height still
      *  applies). Defaults to false. */
     suppressBox?: boolean;
+    /** Skip ONLY the `height` property (width / max-width still apply). Used by
+     *  carousels: their height is owned by the "Custom Height" content setting,
+     *  so a stale `style.height` must not force a fixed wrapper height when that
+     *  setting is off. Defaults to false. */
+    suppressHeight?: boolean;
 }
 
 type CssRecord = Record<string, string | undefined>;
@@ -69,7 +74,7 @@ export function blockStyleLayoutCss(
     if (!opts.suppressBox) {
         if (s.width) out.width = s.width;
         if (s.maxWidth) out['max-width'] = s.maxWidth;
-        if (s.height) out.height = s.height;
+        if (s.height && !opts.suppressHeight) out.height = s.height;
     }
     if (s.minHeight) out['min-height'] = s.minHeight;
 

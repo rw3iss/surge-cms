@@ -108,6 +108,34 @@ export async function listAllProducts(cfg: PrintifyConfig,): Promise<PrintifyPro
     return out;
 }
 
+/**
+ * Confirm a "publish" back to Printify for a custom / API-integration store.
+ *
+ * When an operator clicks Publish in the Printify dashboard for such a store,
+ * Printify LOCKS the product (`is_locked=true`, status "publishing") and waits
+ * for the connected app to acknowledge — native channels (Shopify, etc.) send
+ * this automatically, but a custom API store must POST it itself or the product
+ * hangs in "publishing" forever. `external` records where the product now lives
+ * on our storefront (id + handle URL).
+ */
+export async function confirmPublishingSucceeded(
+    cfg: PrintifyConfig,
+    productId: string,
+    external: { id: string; handle: string; },
+): Promise<void> {
+    await req(cfg, 'POST', `/shops/${cfg.shopId}/products/${productId}/publishing_succeeded.json`, { external, },);
+}
+
+/** Counterpart to {@link confirmPublishingSucceeded}: release the publish lock
+ *  as FAILED (returns the product to draft) when we can't publish it. */
+export async function confirmPublishingFailed(
+    cfg: PrintifyConfig,
+    productId: string,
+    reason: string,
+): Promise<void> {
+    await req(cfg, 'POST', `/shops/${cfg.shopId}/products/${productId}/publishing_failed.json`, { reason, },);
+}
+
 /** Verify the token + shop id; returns the resolved shop title. */
 export async function testConnection(cfg: PrintifyConfig,): Promise<{ ok: true; shopTitle: string; }> {
     const shops = await req<Array<{ id: number; title: string; }>>(cfg, 'GET', '/shops.json',);
