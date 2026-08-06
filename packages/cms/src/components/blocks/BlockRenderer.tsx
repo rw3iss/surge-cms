@@ -58,14 +58,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // CarouselBlockRenderer) so the background media stays full-bleed —
     // hence the outer wrapper skips block-style padding for this type.
     const isCarousel = () => props.block.type === 'carousel';
-    // A carousel's height is controlled by its "Custom Height" content setting
-    // (settings.options.customHeight/height), not the block Style panel. When
-    // that toggle is off, suppress the wrapper's style.height so a leftover value
-    // doesn't keep forcing a fixed height — height then falls to the carousel's
-    // own default (and any breakpoint styles).
-    const suppressCarouselHeight = () =>
-        isCarousel()
-        && !((props.block.settings as Record<string, any> | undefined)?.options?.customHeight);
+    // A carousel owns its height on the INNER `.hero-carousel` element — from its
+    // block `style.height` (default) + per-breakpoint overrides, or the "Custom
+    // Height" content setting. So the outer `.block` wrapper never takes an inline
+    // height for this type (avoids a duplicate/among-elements height).
+    const suppressCarouselHeight = () => isCarousel();
 
     // Background resolution. A block style may carry a color/gradient (any CSS
     // value, resolved through the swatch helper) and/or an image:
@@ -102,9 +99,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             resolveColor: color,
             suppressBox: isGroupItem(),
         },
-        // Carousel routes its block style (padding etc.) to the slide content, not
-        // the wrapper — so per-breakpoint overrides target the same inner element.
-        isCarousel() ? '.hero-carousel__content' : undefined,
+        // Carousel splits its block style across two elements: box props (height)
+        // stay on the carousel element, padding/align/bg go to the slide content —
+        // so per-breakpoint overrides target the same element as each default.
+        isCarousel() ? { box: '.hero-carousel', content: '.hero-carousel__content', } : undefined,
     );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
@@ -941,6 +939,10 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
             <ResolvedHeroCarousel
                 items={items()}
                 options={options()}
+                // Block style.height drives the carousel height (lands on the
+                // inner .hero-carousel); undefined → the carousel's own default.
+                // Per-breakpoint height overrides come via the scoped @media CSS.
+                height={style().height as string | undefined}
                 gutterWidth={appearance()?.gutterWidth}
                 align={style().textAlign}
                 valign={style().verticalAlign}

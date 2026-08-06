@@ -29,8 +29,11 @@ export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
     suppressBox?: boolean;
 }
 
-/** Build the `prop:value !important;` declaration string for one override bag. */
-function declarations(override: Record<string, unknown>, opts: BlockResponsiveOptions,): string {
+/** Build the CSS declaration record for one override bag (unfiltered). */
+function declarationRecord(
+    override: Record<string, unknown>,
+    opts: BlockResponsiveOptions,
+): Record<string, string | undefined> {
     const rec: Record<string, string | undefined> = {
         ...blockStyleLayoutCss(override, opts,),
     };
@@ -48,7 +51,15 @@ function declarations(override: Record<string, unknown>, opts: BlockResponsiveOp
     }
     if (override.textColor) rec.color = opts.resolveColor(override.textColor as string,);
     if (override.padding) rec.padding = override.padding as string;
+    return rec;
+}
 
+/** Box-model props. For a carousel these stay on the carousel element (where the
+ *  default height lands), while everything else targets the slide content. */
+const BOX_PROPS = new Set(['width', 'max-width', 'height', 'min-height', 'max-height',],);
+
+/** Serialize a declaration record to `prop:value !important;` (skips empties). */
+function stringifyDecls(rec: Record<string, string | undefined>,): string {
     return Object.entries(rec,)
         .filter(([, v,],) => v != null && v !== '')
         .map(([k, v,],) => `${k}:${v} !important`)
@@ -65,26 +76,45 @@ export function blockResponsiveCss(
     style: Record<string, unknown> | undefined,
     breakpoints: SiteBreakpoint[] | undefined,
     opts: BlockResponsiveOptions,
-    // Optional descendant selector to target instead of the block wrapper — used
-    // by the carousel, which routes its block-style padding to the slide content
-    // (`.hero-carousel__content`), not the outer `.block`, so per-breakpoint
-    // overrides must land on the same inner element as the default style.
-    innerSelector?: string,
+    // Optional descendant selectors. A carousel splits its default block style
+    // across two elements — box-model props (height/width) sit on the carousel
+    // element, while padding/align/background go to the slide content — so a
+    // per-breakpoint override must land on the SAME element as its default.
+    // `box` receives the box-model props; `content` receives the rest. Omitted →
+    // both target the block wrapper (every other block type).
+    selectors?: { box?: string; content?: string; },
 ): string | null {
     if (!blockId) return null;
     const bps = style?.breakpoints as Record<string, Record<string, unknown>> | undefined;
     if (!bps || !breakpoints || breakpoints.length === 0) return null;
 
     const base = `[data-block-id="${escapeId(blockId,)}"]`;
-    const sel = innerSelector ? `${base} ${innerSelector}` : base;
+    const boxSel = selectors?.box ? `${base} ${selectors.box}` : base;
+    const contentSel = selectors?.content ? `${base} ${selectors.content}` : base;
     const rules: string[] = [];
     for (const bp of breakpoints) {
         const override = bps[bp.id];
         if (!override || Object.keys(override,).length === 0) continue;
-        const decls = declarations(override, opts,);
-        if (!decls) continue;
+        const rec = declarationRecord(override, opts,);
+        const boxRec: Record<string, string | undefined> = {};
+        const contentRec: Record<string, string | undefined> = {};
+        for (const [k, v,] of Object.entries(rec,)) {
+            if (v == null || v === '') continue;
+            (BOX_PROPS.has(k,) ? boxRec : contentRec)[k] = v;
+        }
         const cond = breakpointMediaCondition(bp,);
-        rules.push(cond ? `@media ${cond}{${sel}{${decls}}}` : `${sel}{${decls}}`,);
+        const push = (sel: string, r: Record<string, string | undefined>,) => {
+            const d = stringifyDecls(r,);
+            if (d) rules.push(cond ? `@media ${cond}{${sel}{${d}}}` : `${sel}{${d}}`,);
+        };
+        // When box + content resolve to the same selector (every non-carousel
+        // block), emit ONE combined rule — preserves the prior output exactly.
+        if (boxSel === contentSel) {
+            push(boxSel, { ...boxRec, ...contentRec, },);
+        } else {
+            push(boxSel, boxRec,);
+            push(contentSel, contentRec,);
+        }
     }
     return rules.length ? rules.join('\n',) : null;
 }

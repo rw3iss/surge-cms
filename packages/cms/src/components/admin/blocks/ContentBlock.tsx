@@ -166,11 +166,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
         const out: Record<string, string | undefined> = blockStyleLayoutCss(st as Record<string, any>, {
             resolveFont: fontStack,
             resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
-            // Mirror the public renderer: a carousel's height is owned by its
-            // "Custom Height" content setting, so don't apply a stale style.height
-            // in the editor preview when that toggle is off.
-            suppressHeight: props.block.type === 'carousel'
-                && !((props.block.data as Record<string, any> | undefined)?.options?.customHeight),
+            // Mirror the public renderer: a carousel owns its height on the inner
+            // .hero-carousel element, so the wrapper never takes style.height.
+            suppressHeight: props.block.type === 'carousel',
         },);
         const bg = colorCssValue(st.backgroundColor, '',);
         if (bg) out['background-color'] = bg;

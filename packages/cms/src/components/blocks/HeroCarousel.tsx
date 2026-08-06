@@ -105,9 +105,11 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     const itemCount = () => props.items.length;
     const hasMultiple = () => itemCount() > 1;
 
+    // Height precedence: the explicit "Custom Height" content setting wins, then
+    // the block's style.height (passed as `height`), then the built-in default.
     const resolvedHeight = () => {
-        if (props.height) return props.height;
         if (props.options.customHeight && props.options.height) return props.options.height;
+        if (props.height) return props.height;
         return DEFAULT_HEIGHT;
     };
 
