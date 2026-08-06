@@ -30,16 +30,54 @@ const BODY_END_MARKER = '<!-- SSR_BODY_END -->';
 
 let htmlTemplate: string | null = null;
 let htmlTemplatePath: string | null = null;
+let htmlTemplateMtimeMs = 0;
+let lastBuildMtimeMs = 0;
 
-/** Load and cache the frontend index.html template */
+/**
+ * Drop the rendered-HTML cache when the frontend build changes (or on first
+ * request after boot). A deploy replaces `index.html` with new content-hashed
+ * asset URLs and removes the old bundles; the Redis `ssr:html:*` cache holds
+ * fully-rendered shells that still point at the OLD hashes, so without this a
+ * hard refresh serves a shell referencing a deleted main chunk → 500 → the SPA
+ * never boots (only the SSR body shows). Runs before the cache lookup so the
+ * stale entry is cleared before it can be served; self-heals with NO restart.
+ */
+async function ensureFreshBuild(distDir: string,): Promise<void> {
+    try {
+        const stat = await fs.stat(path.join(distDir, 'index.html',),);
+        if (stat.mtimeMs === lastBuildMtimeMs) return;
+        lastBuildMtimeMs = stat.mtimeMs; // set first so concurrent requests don't double-flush
+        await cache.invalidateAllSsrCache();
+        logger.info('SSR: frontend build changed — flushed rendered-HTML cache',);
+    } catch {
+        // stat failed — non-fatal; loadTemplate surfaces a missing template.
+    }
+}
+
+/**
+ * Load and cache the frontend index.html template, reloading when the file
+ * changes on disk.
+ *
+ * The template embeds CONTENT-HASHED asset URLs (index-<hash>.js etc.) that
+ * change on every deploy. Caching it purely in memory meant a deploy that
+ * replaced index.html (new hashes, old bundles removed) was never picked up
+ * until a process restart — so the SSR kept injecting the page body into the
+ * STALE shell, which pointed at deleted bundles. A hard refresh then 500s on
+ * the missing main chunk and the SPA never boots (only the SSR body shows).
+ * Keying the cache on the file's mtime makes a `dist` deploy take effect on the
+ * next request; the `stat` is negligible next to the render.
+ */
 async function loadTemplate(distDir: string,): Promise<string | null> {
-    if (htmlTemplate && htmlTemplatePath === distDir) return htmlTemplate;
-
     try {
         const templatePath = path.join(distDir, 'index.html',);
+        const stat = await fs.stat(templatePath,);
+        if (htmlTemplate && htmlTemplatePath === distDir && htmlTemplateMtimeMs === stat.mtimeMs) {
+            return htmlTemplate;
+        }
         const content = await fs.readFile(templatePath, 'utf-8',);
         htmlTemplate = content;
         htmlTemplatePath = distDir;
+        htmlTemplateMtimeMs = stat.mtimeMs;
         logger.info(`SSR: Loaded HTML template from ${templatePath}`,);
         return content;
     } catch (error) {
@@ -108,6 +146,10 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
         logger.debug(`SSR: Served static HTML for ${pathname}`,);
         return staticHtml;
     }
+
+    // 1b. Drop stale rendered HTML if the frontend build changed since we last
+    //     rendered (deploy) — before the cache lookup below can serve it.
+    await ensureFreshBuild(distDir,);
 
     // 2. Check Redis cache
     const cacheKey = cache.CACHE_KEYS.ssrPath(pathname,);
