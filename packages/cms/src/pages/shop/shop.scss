@@ -811,6 +811,11 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
+
+        // Extra breathing room between stacked sections (Categories ↔ Collections).
+        & + & {
+            margin-top: 15px;
+        }
     }
 
     &__filter-heading {

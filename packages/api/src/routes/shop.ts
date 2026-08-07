@@ -59,7 +59,11 @@ const variantInputSchema = z.object({
 },);
 
 const mediaInputSchema = z.object({
-    mediaId: z.string(),
+    // A media row references EITHER an imported asset (mediaId) OR an external
+    // URL (e.g. a Printify CDN image). External media must round-trip through the
+    // editor so a save doesn't drop them.
+    mediaId: z.string().nullish(),
+    externalUrl: z.string().nullish(),
     variantId: z.string().nullish(),
     position: z.number().int().optional(),
     kind: z.enum(['image', 'video',],).optional(),

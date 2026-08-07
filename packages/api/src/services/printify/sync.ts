@@ -16,6 +16,7 @@ import { logger, } from '../../utils/logger';
 import {
     archiveExternalProducts,
     findExternalProductRefs,
+    hasProductMedia,
     replaceProductStructure,
     type StructureMediaInput,
     type StructureOptionInput,
@@ -150,7 +151,17 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
         externalUrl,
     },);
 
-    await replaceProductStructure(product.id, { options, variants, media, },);
+    // Media is imported ONCE (first sync) then CMS-curated: on a resync of a
+    // product that already has media, don't overwrite it, so operator removals /
+    // reorders persist. Options/variants (pricing/inventory) still resync every
+    // time — Printify owns those. (`replaceProductStructure` skips the media part
+    // when it's omitted.)
+    const keepMedia = await hasProductMedia(product.id,);
+    await replaceProductStructure(product.id, {
+        options,
+        variants,
+        ...(keepMedia ? {} : { media, }),
+    },);
     await setProductTags(product.id, (p.tags ?? []).slice(0, 40,),);
     // Add the Printify-derived category (from product-type tags) WITHOUT removing
     // any categories the operator assigned in the admin — Printify has no category

@@ -61,7 +61,10 @@ export interface ShopVariantInput {
 
 /** A product-media assignment, as sent in a product write. */
 export interface ShopMediaInput {
-    mediaId: string;
+    /** Imported asset id OR — for provider-synced media (Printify) — an
+     *  externalUrl. Exactly one is set per row. */
+    mediaId?: string | null;
+    externalUrl?: string | null;
     variantId?: string | null;
     position?: number;
     kind?: 'image' | 'video';

@@ -360,11 +360,12 @@ export interface ProductStructure {
     media?: StructureMediaInput[];
 }
 
-/** The product's external provider (e.g. 'printify'), or null for a native
- *  product. Used to protect provider-owned structure from admin-editor saves. */
-export async function getExternalProvider(id: string,): Promise<string | null> {
-    const r = await query(`SELECT external_provider FROM shop_products WHERE id = $1`, [id,],);
-    return (r.rows[0]?.external_provider as string | null | undefined) ?? null;
+/** Whether a product already has any media rows. Used by the Printify sync to
+ *  import media ONCE (first sync) and then leave it CMS-curated — so operator
+ *  removals/reorders persist instead of being re-added on every resync. */
+export async function hasProductMedia(id: string,): Promise<boolean> {
+    const r = await query(`SELECT 1 FROM shop_product_media WHERE product_id = $1 LIMIT 1`, [id,],);
+    return r.rows.length > 0;
 }
 
 /**

@@ -183,27 +183,16 @@ export async function update(
     input: Partial<ProductWriteInput>,
     ctx: AuditContext,
 ): Promise<ShopProductDetail> {
-    // Provider-synced products (e.g. Printify) OWN their structure — options,
-    // variants, and media come from the sync, and the admin editor can't even
-    // represent external media. So drop structure from the payload for those
-    // products; otherwise a save (e.g. changing the category) wipes the synced
-    // media. Taxonomy (categories/collections/tags) + CMS fields still save.
-    const externalProvider = await repo.getExternalProvider(id,);
-    let writable: Partial<ProductWriteInput> = input;
-    if (externalProvider) {
-        writable = { ...input, };
-        delete writable.options;
-        delete writable.variants;
-        delete writable.media;
-    }
-
-    const { fields, structure, taxonomy, } = splitStructure(writable,);
+    const { fields, structure, taxonomy, } = splitStructure(input,);
     if (Object.keys(fields,).length > 0) {
         await repo.updateProduct(id, fields,);
     }
-    // Only re-sync structure when any structural/taxonomy field was sent.
-    const hasStructure = writable.options !== undefined || writable.variants !== undefined
-        || writable.media !== undefined;
+    // Only re-sync structure when any structural/taxonomy field was sent. The
+    // editor round-trips external (Printify) media, so a save no longer drops
+    // them — and `replaceProductStructure` only touches the parts provided, so
+    // an operator can add / remove / reorder media and it persists.
+    const hasStructure = input.options !== undefined || input.variants !== undefined
+        || input.media !== undefined;
     const hasTaxonomy = taxonomy.categoryIds !== undefined
         || taxonomy.collectionIds !== undefined
         || taxonomy.tags !== undefined;
