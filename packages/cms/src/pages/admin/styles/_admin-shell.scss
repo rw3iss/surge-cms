@@ -694,6 +694,19 @@
         min-width: 140px;
     }
 
+    // Result count, pushed to the far end of the bar.
+    &__count {
+        margin-left: auto;
+        color: $text-light;
+        font-size: $font-size-sm;
+        font-weight: 500;
+        white-space: nowrap;
+
+        @include mobile-only {
+            margin-left: 0;
+        }
+    }
+
     input, select {
         padding: $spacing-xs $spacing-sm;
         border: 1px solid $border-color;

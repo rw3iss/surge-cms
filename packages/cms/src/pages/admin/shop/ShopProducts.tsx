@@ -95,6 +95,12 @@ const ShopProductsInner: Component = () => {
                     <option value="active">Active</option>
                     <option value="archived">Archived</option>
                 </select>
+                {/* Full result count for the active filter (not just this page). */}
+                <Show when={!list.loading()}>
+                    <span class="admin-filter-bar__count">
+                        {list.total()} {list.total() === 1 ? 'product' : 'products'}
+                    </span>
+                </Show>
             </div>
             <Show when={selected().size > 0}>
                 <div class="admin-list-page__bulk-bar">
