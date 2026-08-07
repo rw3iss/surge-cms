@@ -86,7 +86,7 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
 
     switch (item().type) {
         case 'image':
-            return <img src={item().imageUrl} alt="" class="footer__item-img" style={baseStyle()} />;
+            return <img src={item().imageUrl} alt={item().altText || ''} class="footer__item-img" style={baseStyle()} />;
 
         case 'image_link':
             return (
@@ -97,7 +97,7 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
                     class="footer__item-img-link"
                     style={baseStyle()}
                 >
-                    <img src={item().imageUrl} alt={item().text || ''} />
+                    <img src={item().imageUrl} alt={item().altText || item().text || ''} />
                 </a>
             );
 
@@ -148,8 +148,10 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
         case 'group': {
             // An inline row/column that lays out its own child items — reuses
             // FooterItem recursively so every element type (and nested groups)
-            // renders identically to a top-level item (DRY).
-            const dir = item().direction === 'row' ? 'row' : 'column';
+            // renders identically to a top-level item (DRY). Default direction is
+            // 'row' (matches the editor dropdown default), so a fresh group whose
+            // `direction` is still unset lays out as a row immediately.
+            const dir = item().direction === 'column' ? 'column' : 'row';
             const gStyle: Record<string, string> = {
                 display: 'flex',
                 'flex-direction': dir,

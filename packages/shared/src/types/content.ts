@@ -413,6 +413,8 @@ export interface SiteLayoutItem {
     text?: string;
     url?: string;
     imageUrl?: string;
+    /** Alt text for image / image_link items (accessibility + SEO). */
+    altText?: string;
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;

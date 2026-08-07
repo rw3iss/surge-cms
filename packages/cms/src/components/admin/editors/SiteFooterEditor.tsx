@@ -931,11 +931,11 @@ function EditableItem(props: {
     const renderContent = () => {
         switch (it().type) {
             case 'image':
-                return <img src={it().imageUrl} alt="" style={baseStyle()} class="footer__item-img" />;
+                return <img src={it().imageUrl} alt={it().altText || ''} style={baseStyle()} class="footer__item-img" />;
             case 'image_link':
                 return (
                     <span style={baseStyle()} class="footer__item-img-link">
-                        <img src={it().imageUrl} alt={it().text || ''} />
+                        <img src={it().imageUrl} alt={it().altText || it().text || ''} />
                     </span>
                 );
             case 'text':
@@ -960,7 +960,7 @@ function EditableItem(props: {
             case 'flex_spacer':
                 return <span class="footer__item-flex-spacer" />;
             case 'group': {
-                const dir = it().direction === 'row' ? 'row' : 'column';
+                const dir = it().direction === 'column' ? 'column' : 'row';
                 const gStyle: Record<string, string> = { display: 'flex', 'flex-direction': dir, };
                 if (it().gap) gStyle['gap'] = it().gap!;
                 const j = it().alignment;
@@ -1677,6 +1677,15 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                         value={props.item.imageUrl ?? ''}
                         placeholder="/uploads/… or https://…"
                         onInput={(e,) => props.onChange({ imageUrl: e.currentTarget.value, },)}
+                    />
+                </label>
+                <label class="footer-editor__field">
+                    <span>Alt Text</span>
+                    <input
+                        type="text"
+                        value={props.item.altText ?? ''}
+                        placeholder="e.g. Instagram"
+                        onInput={(e,) => props.onChange({ altText: e.currentTarget.value, },)}
                     />
                 </label>
             </Show>
