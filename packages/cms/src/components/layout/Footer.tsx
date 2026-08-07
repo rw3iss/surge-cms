@@ -145,6 +145,33 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
         case 'flex_spacer':
             return <span class="footer__item-flex-spacer" />;
 
+        case 'group': {
+            // An inline row/column that lays out its own child items — reuses
+            // FooterItem recursively so every element type (and nested groups)
+            // renders identically to a top-level item (DRY).
+            const dir = item().direction === 'row' ? 'row' : 'column';
+            const gStyle: Record<string, string> = {
+                display: 'flex',
+                'flex-direction': dir,
+                ...(item().gap ? { gap: item().gap!, } : {}),
+                ...(item().width ? { width: item().width!, } : {}),
+                ...(item().margin ? { margin: item().margin!, } : {}),
+                ...(item().padding ? { padding: item().padding!, } : {}),
+            };
+            const j = item().alignment;
+            if (j) gStyle['justify-content'] = j === 'start' ? 'flex-start' : j === 'end' ? 'flex-end' : j;
+            const a = item().verticalAlignment;
+            if (a) gStyle['align-items'] = a === 'start' ? 'flex-start' : a === 'end' ? 'flex-end' : a;
+            const children = [...(item().items ?? []),].toSorted((x, y,) => (x.order ?? 0) - (y.order ?? 0));
+            return (
+                <div class="footer__item-group" style={gStyle}>
+                    <For each={children}>
+                        {(child,) => <FooterItem item={child} footerTextColor={props.footerTextColor} />}
+                    </For>
+                </div>
+            );
+        }
+
         case 'menu':
             // The menu type is currently a no-op in footer — there's no
             // navigation tree to expand. Render nothing until we ship a

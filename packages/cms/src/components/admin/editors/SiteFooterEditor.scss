@@ -583,4 +583,103 @@
             align-items: center;
         }
     }
+
+    // ── Group element: child-item list inside its settings panel ──
+    &__group-items {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid $border-color;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__group-items-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        font-size: $font-size-sm;
+    }
+
+    &__group-item-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        padding: 4px 6px;
+        background: #fff;
+
+        &.is-selected {
+            border-color: var(--site-primary, #{$primary-color});
+            box-shadow: 0 0 0 2px rgba($primary-color, 0.12);
+        }
+    }
+
+    &__group-item-label {
+        flex: 1;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+        background: none;
+        border: none;
+        text-align: left;
+        cursor: pointer;
+        padding: 2px;
+    }
+
+    &__group-item-type {
+        flex: 0 0 auto;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: $text-light;
+    }
+
+    &__group-item-text {
+        font-size: $font-size-sm;
+        color: $text-color;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__group-item-actions {
+        display: flex;
+        gap: 2px;
+        flex: 0 0 auto;
+
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: $text-light;
+            padding: 2px 4px;
+            font-size: $font-size-sm;
+            border-radius: 4px;
+
+            &:hover {
+                background: $background-dark;
+                color: $text-color;
+            }
+        }
+    }
+
+    // Nested child form, indented under its row.
+    &__group-child-panel {
+        margin-top: 6px;
+        padding: 8px;
+        border: 1px dashed $border-color;
+        border-radius: $border-radius-sm;
+        background: rgba($primary-color, 0.03);
+    }
+
+    &__pv-group-empty {
+        font-size: $font-size-xs;
+        font-style: italic;
+        color: $text-light;
+    }
 }

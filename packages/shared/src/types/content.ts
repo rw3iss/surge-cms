@@ -396,7 +396,16 @@ export type SiteFeatureKey = keyof SiteFeatures;
  * can be reused (the field set — image / text / link / button / spacer
  * — is the same regardless of where the item lives).
  */
-export type SiteLayoutItemType = 'image' | 'image_link' | 'text' | 'text_link' | 'button' | 'menu' | 'gap' | 'flex_spacer';
+export type SiteLayoutItemType =
+    | 'image'
+    | 'image_link'
+    | 'text'
+    | 'text_link'
+    | 'button'
+    | 'menu'
+    | 'gap'
+    | 'flex_spacer'
+    | 'group';
 
 export interface SiteLayoutItem {
     id: string;
@@ -423,6 +432,16 @@ export interface SiteLayoutItem {
     margin?: string;
     padding?: string;
     order: number;
+    // ── Group type (`type: 'group'`) — an inline row/column container that
+    //    holds its own list of items (any type, incl. nested groups). Lets an
+    //    operator build inner rows/columns inside a footer column without new
+    //    top-level structure. Ignored by non-group items. ──
+    /** Inner layout direction for a group. Defaults to 'row'. */
+    direction?: 'row' | 'column';
+    /** Spacing between the group's items (any CSS length). */
+    gap?: string;
+    /** The group's child items (recursive). */
+    items?: SiteLayoutItem[];
 }
 
 // ─── Site Footer ───

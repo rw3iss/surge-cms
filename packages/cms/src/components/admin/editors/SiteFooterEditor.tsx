@@ -46,6 +46,7 @@ const ITEM_TYPES: { value: SiteLayoutItemType; label: string; }[] = [
     { value: 'button', label: 'Button', },
     { value: 'gap', label: 'Gap', },
     { value: 'flex_spacer', label: 'Flex Spacer', },
+    { value: 'group', label: 'Group (row/column)', },
 ];
 
 const ALIGN_OPTIONS = [
@@ -892,10 +893,14 @@ function EditableItem(props: {
     footerTextColor?: string;
     selection: Selection;
     onSelect: (s: Selection,) => void;
+    /** True when rendered as a group's child — not independently selectable in
+     *  the preview (clicks bubble up to select the containing group). */
+    nested?: boolean;
 },) {
     const it = () => props.item;
     const isSelected = () =>
-        props.selection.kind === 'item'
+        !props.nested
+        && props.selection.kind === 'item'
         && props.selection.rowId === props.row.id
         && props.selection.columnId === props.column.id
         && props.selection.itemId === it().id;
@@ -954,6 +959,36 @@ function EditableItem(props: {
                 return <span class="footer__item-gap" style={{ width: it().width || '12px', }} />;
             case 'flex_spacer':
                 return <span class="footer__item-flex-spacer" />;
+            case 'group': {
+                const dir = it().direction === 'row' ? 'row' : 'column';
+                const gStyle: Record<string, string> = { display: 'flex', 'flex-direction': dir, };
+                if (it().gap) gStyle['gap'] = it().gap!;
+                const j = it().alignment;
+                if (j) gStyle['justify-content'] = j === 'start' ? 'flex-start' : j === 'end' ? 'flex-end' : j;
+                const a = it().verticalAlignment;
+                if (a) gStyle['align-items'] = a === 'start' ? 'flex-start' : a === 'end' ? 'flex-end' : a;
+                const kids = [...(it().items ?? []),].toSorted((x, y,) => (x.order ?? 0) - (y.order ?? 0));
+                return (
+                    <span class="footer-editor__pv-group" style={gStyle}>
+                        <For each={kids}>
+                            {(child,) => (
+                                <EditableItem
+                                    row={props.row}
+                                    column={props.column}
+                                    item={child}
+                                    footerTextColor={props.footerTextColor}
+                                    selection={props.selection}
+                                    onSelect={props.onSelect}
+                                    nested={true}
+                                />
+                            )}
+                        </For>
+                        <Show when={kids.length === 0}>
+                            <span class="footer-editor__pv-group-empty">group</span>
+                        </Show>
+                    </span>
+                );
+            }
             case 'menu':
                 return null;
         }
@@ -962,7 +997,9 @@ function EditableItem(props: {
     return (
         <span
             class={`footer-editor__pv-item ${isSelected() ? 'is-selected' : ''}`}
-            onClick={(e,) => { e.stopPropagation(); props.onSelect({ kind: 'item', rowId: props.row.id, columnId: props.column.id, itemId: it().id, },); }}
+            onClick={props.nested
+                ? undefined
+                : (e,) => { e.stopPropagation(); props.onSelect({ kind: 'item', rowId: props.row.id, columnId: props.column.id, itemId: it().id, },); }}
         >
             {renderContent()}
         </span>
@@ -1473,6 +1510,36 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
     const supportsImage = () => ['image', 'image_link',].includes(t(),);
     const supportsTypography = () => ['text', 'text_link', 'button',].includes(t(),);
 
+    // ── Group children (only for type 'group') ──
+    // A group holds its own list of items; each child is edited with THIS same
+    // ItemPanel (recursion) so no per-type form is duplicated. Child selection
+    // is local to this panel (the main tree/preview selects the group as a unit).
+    const [selChild, setSelChild,] = createSignal<string | null>(null,);
+    const children = () => props.item.items ?? [];
+    const childLabel = (c: SiteLayoutItem,) => ITEM_TYPES.find((o,) => o.value === c.type,)?.label ?? c.type;
+    const addChild = () => {
+        const it = newItem();
+        it.order = children().length;
+        props.onChange({ items: [...children(), it,], },);
+        setSelChild(it.id,);
+    };
+    const removeChild = (id: string,) => {
+        props.onChange({ items: children().filter((c,) => c.id !== id,), },);
+        if (selChild() === id) setSelChild(null,);
+    };
+    const moveChild = (id: string, dir: -1 | 1,) => {
+        const arr = [...children(),];
+        const idx = arr.findIndex((c,) => c.id === id,);
+        const target = idx + dir;
+        if (idx < 0 || target < 0 || target >= arr.length) return;
+        [arr[idx], arr[target],] = [arr[target], arr[idx],];
+        arr.forEach((c, i,) => { c.order = i; },);
+        props.onChange({ items: arr, },);
+    };
+    const patchChild = (id: string, patch: Partial<SiteLayoutItem>,) => {
+        props.onChange({ items: children().map((c,) => (c.id === id ? { ...c, ...patch, } : c)), },);
+    };
+
     return (
         <div class="footer-editor__form">
             <h3>Item settings</h3>
@@ -1485,6 +1552,92 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                     <For each={ITEM_TYPES}>{(opt,) => <option value={opt.value}>{opt.label}</option>}</For>
                 </select>
             </label>
+
+            <Show when={t() === 'group'}>
+                <label class="footer-editor__field">
+                    <span>Layout</span>
+                    <select
+                        value={props.item.direction ?? 'row'}
+                        onChange={(e,) => props.onChange({ direction: e.currentTarget.value as 'row' | 'column', },)}
+                    >
+                        <option value="row">Row (horizontal)</option>
+                        <option value="column">Column (vertical)</option>
+                    </select>
+                </label>
+                <label class="footer-editor__field">
+                    <span>Gap</span>
+                    <input
+                        type="text"
+                        value={props.item.gap ?? ''}
+                        placeholder="e.g. 8px"
+                        onInput={(e,) => props.onChange({ gap: e.currentTarget.value, },)}
+                    />
+                </label>
+                <label class="footer-editor__field">
+                    <span>Align (main axis)</span>
+                    <select
+                        value={props.item.alignment ?? ''}
+                        onChange={(e,) => props.onChange({ alignment: e.currentTarget.value || undefined, },)}
+                    >
+                        <option value="">Default</option>
+                        <For each={ALIGN_OPTIONS}>{(o,) => <option value={o.value}>{o.label}</option>}</For>
+                    </select>
+                </label>
+                <label class="footer-editor__field">
+                    <span>Align (cross axis)</span>
+                    <select
+                        value={props.item.verticalAlignment ?? ''}
+                        onChange={(e,) => props.onChange({ verticalAlignment: e.currentTarget.value || undefined, },)}
+                    >
+                        <option value="">Default</option>
+                        <For each={VALIGN_OPTIONS}>{(o,) => <option value={o.value}>{o.label}</option>}</For>
+                    </select>
+                </label>
+
+                {/* Maintainable, selectable list of the group's items. Selecting
+                    one opens its edit form (this same ItemPanel, recursively). */}
+                <div class="footer-editor__group-items">
+                    <div class="footer-editor__group-items-head">
+                        <span>Group items</span>
+                        <button type="button" class="btn btn--small btn--secondary" onClick={addChild}>+ Add item</button>
+                    </div>
+                    <Show when={children().length === 0}>
+                        <p class="footer-editor__hint">No items in this group yet — add one.</p>
+                    </Show>
+                    <For each={children()}>
+                        {(child,) => (
+                            <div class={`footer-editor__group-item-row ${selChild() === child.id ? 'is-selected' : ''}`}>
+                                <button
+                                    type="button"
+                                    class="footer-editor__group-item-label"
+                                    onClick={() => setSelChild(selChild() === child.id ? null : child.id,)}
+                                >
+                                    <span class="footer-editor__group-item-type">{childLabel(child,)}</span>
+                                    <Show when={child.text}>
+                                        <span class="footer-editor__group-item-text">{child.text}</span>
+                                    </Show>
+                                </button>
+                                <span class="footer-editor__group-item-actions">
+                                    <button type="button" onClick={() => moveChild(child.id, -1,)} title="Move up">↑</button>
+                                    <button type="button" onClick={() => moveChild(child.id, 1,)} title="Move down">↓</button>
+                                    <button type="button" onClick={() => removeChild(child.id,)} title="Remove">✕</button>
+                                </span>
+                            </div>
+                        )}
+                    </For>
+                    <Show when={selChild()}>
+                        {(id,) => (
+                            <Show when={children().find((c,) => c.id === id(),)}>
+                                {(child,) => (
+                                    <div class="footer-editor__group-child-panel">
+                                        <ItemPanel item={child()} onChange={(patch,) => patchChild(id(), patch,)} />
+                                    </div>
+                                )}
+                            </Show>
+                        )}
+                    </Show>
+                </div>
+            </Show>
 
             <Show when={supportsText()}>
                 <label class="footer-editor__field">
