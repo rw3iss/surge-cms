@@ -1,4 +1,4 @@
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createMemo, createResource, For, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import { hasTemplateSyntax, renderTemplate, } from '../../services/template';
 import { buildRuntime, type RuntimeOptions, } from '../../services/template/runtime';
@@ -38,9 +38,18 @@ function stripTags(html: string): string {
  */
 const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
     const auth = useUser();
+    // Track only the user IDENTITY, not the user object. The auth store re-issues
+    // a NEW user object on every tab-focus / visibility re-verify (see
+    // stores/auth). Reading `auth.user?.id` directly in the resource source made
+    // the template re-resolve — and the `keyed` <Show> below then destroyed and
+    // recreated every embedded entity — on each focus event. That nuked stateful
+    // embeds like the donation form (Stripe Card Element) mid-interaction, e.g.
+    // when the Stripe/Link popup returns focus to the page. A memo de-dupes so a
+    // same-id refresh is a no-op; a real login/logout (id change) still re-resolves.
+    const uid = createMemo(() => auth.user?.id ?? null,);
 
     const [resolved] = createResource(
-        () => ({ html: props.html ?? '', entities: props.entities, uid: auth.user?.id ?? null }),
+        () => ({ html: props.html ?? '', entities: props.entities, uid: uid() }),
         async (src): Promise<Resolved> => {
             if (!hasTemplateSyntax(src.html)) return { html: src.html, entities: [], };
             const u = auth.user;
