@@ -11,6 +11,7 @@
 import { generateSlug, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
+import { cache, } from '../cache';
 import { logger, } from '../../utils/logger';
 import {
     archiveExternalProducts,
@@ -215,6 +216,13 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
         .filter((e,) => !seenExternalIds.has(e.externalId,) && e.status !== 'archived')
         .map((e,) => e.id);
     const archived = await archiveExternalProducts(goneIds,);
+
+    // A sync that changed the catalog must bust the shop product + catalog caches
+    // (category/collection counts, product lists) so the storefront reflects it.
+    if (upserted > 0 || archived > 0) {
+        await cache.invalidateShopProductCache();
+        await cache.invalidateShopCatalogCache();
+    }
 
     const durationMs = Date.now() - started;
     logger.info(`Printify sync: ${upserted} upserted, ${published} published, ${archived} archived, ${skipped} skipped, ${errors.length} errors in ${durationMs}ms`,);

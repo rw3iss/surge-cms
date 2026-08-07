@@ -23,6 +23,10 @@ export type { ProductFilters, } from '../../repositories/shop/shopProducts.repo'
 
 async function invalidateProductCache(): Promise<void> {
     await cache.invalidateShopProductCache();
+    // Category/collection product COUNTS (shown in the storefront sidebar) depend
+    // on the product set + status + membership, so any product mutation must also
+    // bust the catalog cache that carries those counts.
+    await cache.invalidateShopCatalogCache();
 }
 
 // ─── Admin reads (any status) ─────────────────────────────────────

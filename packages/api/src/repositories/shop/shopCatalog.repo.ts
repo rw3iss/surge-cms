@@ -27,8 +27,16 @@ const PRODUCT_LIST_EXTRAS = `
 // ─── Categories ───────────────────────────────────────────────────
 
 export async function findAllCategories(): Promise<ShopCategory[]> {
+    // `product_count` = ACTIVE products filed under each category (the storefront
+    // sidebar hides empty categories + shows the count). Correlated subquery →
+    // always-correct, no denormalized column to maintain.
     const result = await query(
-        `SELECT * FROM shop_categories ORDER BY position ASC, name ASC`,
+        `SELECT c.*,
+                (SELECT COUNT(*) FROM shop_product_categories pc
+                    JOIN shop_products p ON p.id = pc.product_id
+                  WHERE pc.category_id = c.id AND p.status = 'active')::int AS product_count
+             FROM shop_categories c
+             ORDER BY c.position ASC, c.name ASC`,
     );
     return mapRows<ShopCategory>(result.rows,);
 }
@@ -80,10 +88,14 @@ export async function findProductsInCategory(categoryId: string,): Promise<ShopP
 export async function findAllCollections(publishedOnly: boolean,): Promise<ShopCollection[]> {
     const whereClause = publishedOnly ? 'WHERE c.is_published = true' : '';
     // Live product_count per collection — a cheap correlated subquery keeps it
-    // always-correct (no denormalized column / trigger to maintain).
+    // always-correct (no denormalized column / trigger to maintain). Counts only
+    // ACTIVE products so it matches what the storefront actually shows (and the
+    // sidebar can hide empty collections).
     const result = await query(
         `SELECT c.*,
-                (SELECT COUNT(*) FROM shop_collection_products cp WHERE cp.collection_id = c.id)::int AS product_count
+                (SELECT COUNT(*) FROM shop_collection_products cp
+                    JOIN shop_products p ON p.id = cp.product_id
+                  WHERE cp.collection_id = c.id AND p.status = 'active')::int AS product_count
          FROM shop_collections c ${whereClause}
          ORDER BY c.position ASC, c.title ASC`,
     );

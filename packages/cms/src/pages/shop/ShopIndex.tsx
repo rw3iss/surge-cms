@@ -1,4 +1,4 @@
-import type { ShopAppearance, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
+import type { ShopAppearance, ShopCategory, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
@@ -18,7 +18,7 @@ interface StorefrontConfig {
 }
 
 const ShopIndexInner: Component = () => {
-    const [searchParams] = useSearchParams<{ collection?: string, }>();
+    const [searchParams] = useSearchParams<{ collection?: string, category?: string, }>();
     const [products, setProducts,] = createSignal<ShopProduct[]>([],);
     const [total, setTotal,] = createSignal(0,);
     const [page, setPage,] = createSignal(1,);
@@ -37,8 +37,10 @@ const ShopIndexInner: Component = () => {
         }
     },);
 
-    // Published collections for the filter sidebar (built-in shop only; Shopify
-    // has its own collection routing). Empty → the sidebar isn't rendered.
+    // Categories + published collections for the filter sidebar (built-in shop
+    // only; Shopify has its own routing). Each carries a `productCount` (active
+    // products); the sidebar hides empty items and empty sections. Empty both →
+    // the sidebar isn't rendered.
     const [collections] = createResource<ShopCollection[]>(async () => {
         if (isShopifyActive()) return [];
         try {
@@ -48,26 +50,54 @@ const ShopIndexInner: Component = () => {
         }
     },);
 
+    const [categories] = createResource<ShopCategory[]>(async () => {
+        if (isShopifyActive()) return [];
+        try {
+            return await cms.shop.categories.list() as ShopCategory[];
+        } catch {
+            return [];
+        }
+    },);
+
     /** The active collection slug from ?collection=…, or '' for "All". */
     const activeCollection = () => searchParams.collection || '';
+    /** The active category slug from ?category=…, or '' for "All". */
+    const activeCategory = () => searchParams.category || '';
+
+    // Sidebar sections: only items that actually have (active) products, and only
+    // shown at all when the section is non-empty.
+    const visibleCategories = () => (categories() ?? []).filter((c,) => (c.productCount ?? 0) > 0);
+    const visibleCollections = () => (collections() ?? []).filter((c,) => (c.productCount ?? 0) > 0);
+    const hasSidebar = () => visibleCategories().length > 0 || visibleCollections().length > 0;
 
     const appearance = (): ShopAppearance =>
         config()?.appearance ?? { gridColumns: 3, showRatings: true, cardStyle: 'standard', };
     const currency = () => config()?.settings.currency || 'USD';
     const freeShipThreshold = () => config()?.settings.shipping?.freeThresholdCents ?? 0;
 
-    // Collection view returns the whole collection at once — no "load more".
+    // Collection / category views return the whole set at once — no "load more".
     const hasMore = () =>
-        !activeCollection() && (isShopifyActive() ? shopifyHasMore() : products().length < total());
+        !activeCollection() && !activeCategory()
+        && (isShopifyActive() ? shopifyHasMore() : products().length < total());
 
     const load = async (pageNum: number, append = false,) => {
         if (append) setLoadingMore(true,);
         else setLoading(true,);
         try {
-            // Collection filter (built-in): fetch the collection's products, then
-            // narrow by the search box client-side.
+            // Collection / category filter (built-in): fetch that set's products,
+            // then narrow by the search box client-side.
             if (activeCollection() && !isShopifyActive()) {
                 const res = await cms.shop.collections.getBySlug(activeCollection(),);
+                let items = res?.products ?? [];
+                const q = search().trim().toLowerCase();
+                if (q) items = items.filter((p,) => p.title.toLowerCase().includes(q,),);
+                setProducts(items,);
+                setTotal(items.length,);
+                setPage(1,);
+                return;
+            }
+            if (activeCategory() && !isShopifyActive()) {
+                const res = await cms.shop.categories.getBySlug(activeCategory(),);
                 let items = res?.products ?? [];
                 const q = search().trim().toLowerCase();
                 if (q) items = items.filter((p,) => p.title.toLowerCase().includes(q,),);
@@ -107,9 +137,11 @@ const ShopIndexInner: Component = () => {
         }
     };
 
-    // Reload whenever the active collection changes (route ?collection=… ).
+    // Reload whenever the active collection/category changes (route ?collection=
+    // / ?category=).
     createEffect(() => {
         activeCollection();
+        activeCategory();
         void load(1,);
     },);
 
@@ -142,25 +174,53 @@ const ShopIndexInner: Component = () => {
             </header>
 
             <div class="shop-index__body">
-                {/* Collections filter column — only when collections exist. */}
-                <Show when={(collections() ?? []).length > 0}>
-                    <aside class="shop-index__collections" aria-label="Collections">
+                {/* Filters column: Categories + Collections. Each section shows
+                    only when it has items (products); the whole aside is hidden
+                    when neither does. */}
+                <Show when={hasSidebar()}>
+                    <aside class="shop-index__sidebar" aria-label="Product filters">
                         <A
                             href="/shop"
-                            class={`shop-index__collection ${!activeCollection() ? 'is-active' : ''}`}
+                            class={`shop-index__filter shop-index__filter--all ${
+                                (!activeCollection() && !activeCategory()) ? 'is-active' : ''
+                            }`}
                         >
-                            All
+                            All Products
                         </A>
-                        <For each={collections()}>
-                            {(c,) => (
-                                <A
-                                    href={`/shop?collection=${encodeURIComponent(c.slug,)}`}
-                                    class={`shop-index__collection ${activeCollection() === c.slug ? 'is-active' : ''}`}
-                                >
-                                    {c.title}
-                                </A>
-                            )}
-                        </For>
+
+                        <Show when={visibleCategories().length > 0}>
+                            <div class="shop-index__filter-group">
+                                <h2 class="shop-index__filter-heading">Categories</h2>
+                                <For each={visibleCategories()}>
+                                    {(c,) => (
+                                        <A
+                                            href={`/shop?category=${encodeURIComponent(c.slug,)}`}
+                                            class={`shop-index__filter ${activeCategory() === c.slug ? 'is-active' : ''}`}
+                                        >
+                                            <span>{c.name}</span>
+                                            <span class="shop-index__filter-count">({c.productCount})</span>
+                                        </A>
+                                    )}
+                                </For>
+                            </div>
+                        </Show>
+
+                        <Show when={visibleCollections().length > 0}>
+                            <div class="shop-index__filter-group">
+                                <h2 class="shop-index__filter-heading">Collections</h2>
+                                <For each={visibleCollections()}>
+                                    {(c,) => (
+                                        <A
+                                            href={`/shop?collection=${encodeURIComponent(c.slug,)}`}
+                                            class={`shop-index__filter ${activeCollection() === c.slug ? 'is-active' : ''}`}
+                                        >
+                                            <span>{c.title}</span>
+                                            <span class="shop-index__filter-count">({c.productCount})</span>
+                                        </A>
+                                    )}
+                                </For>
+                            </div>
+                        </Show>
                     </aside>
                 </Show>
 

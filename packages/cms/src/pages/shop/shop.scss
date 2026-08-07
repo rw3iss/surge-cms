@@ -790,25 +790,44 @@
         }
     }
 
-    &__collections {
+    // Filters sidebar (left): "Categories" + "Collections" groups, each with a
+    // heading and its items. Hidden entirely when neither group has items.
+    &__sidebar {
         flex: 0 0 auto;
-        width: 200px;
+        width: 220px;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: $spacing-md;
         position: sticky;
         top: $spacing-lg;
 
         @media (max-width: $breakpoint-md) {
             position: static;
             width: 100%;
-            flex-direction: row;
-            flex-wrap: wrap;
         }
     }
 
-    &__collection {
-        display: block;
+    &__filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__filter-heading {
+        margin: 0 0 $spacing-xs;
+        padding: 0 $spacing-md;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--site-text-muted, #{$text-light});
+    }
+
+    &__filter {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm;
         padding: $spacing-sm $spacing-md;
         border-radius: var(--site-radius, 6px);
         color: var(--site-text, #{$text-color});
@@ -823,7 +842,23 @@
         &.is-active {
             background: var(--site-primary, #{$primary-color});
             color: #fff;
+
+            .shop-index__filter-count {
+                color: rgba(255, 255, 255, 0.8);
+            }
         }
+    }
+
+    &__filter--all {
+        font-weight: 600;
+        margin-bottom: $spacing-xs;
+    }
+
+    &__filter-count {
+        flex: 0 0 auto;
+        color: var(--site-text-muted, #{$text-light});
+        font-size: $font-size-sm;
+        font-variant-numeric: tabular-nums;
     }
 
     &__main {

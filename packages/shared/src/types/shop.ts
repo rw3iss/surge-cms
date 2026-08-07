@@ -111,6 +111,8 @@ export interface ShopCategory {
     description?: string | null;
     imageId?: string | null;
     position: number;
+    /** Count of ACTIVE products in this category (from the list endpoint). */
+    productCount?: number;
     createdAt: string;
     updatedAt: string;
 }
