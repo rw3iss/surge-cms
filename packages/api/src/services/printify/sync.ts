@@ -23,9 +23,9 @@ import {
     upsertExternalProduct,
 } from '../../repositories/shop/shopProducts.repo';
 import {
+    addProductCategory,
     createCategory,
     findCategoryBySlug,
-    setProductCategories,
     setProductTags,
 } from '../../repositories/shop/shopCatalog.repo';
 import { getPrintifyConfig, type PrintifyConfig, } from './config';
@@ -152,8 +152,12 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
 
     await replaceProductStructure(product.id, { options, variants, media, },);
     await setProductTags(product.id, (p.tags ?? []).slice(0, 40,),);
+    // Add the Printify-derived category (from product-type tags) WITHOUT removing
+    // any categories the operator assigned in the admin — Printify has no category
+    // concept, so a resync must never wipe internal taxonomy. Collections aren't
+    // touched by sync at all, so they're preserved too.
     const catId = await resolveTypeCategoryId(p.tags ?? [],);
-    await setProductCategories(product.id, catId ? [catId,] : [],);
+    if (catId) await addProductCategory(product.id, catId,);
 
     // Custom / API-integration store: if Printify has this product LOCKED in
     // "publishing" (operator clicked Publish, nothing acked it), acknowledge it

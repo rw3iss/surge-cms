@@ -176,6 +176,22 @@ function exec(client?: PoolClient,): Exec {
 }
 
 /** Replace a product's category assignments. */
+/** Add ONE category to a product WITHOUT removing existing memberships. Used by
+ *  the Printify sync — Printify has no category concept, so a resync must never
+ *  wipe categories the operator assigned in the admin. */
+export async function addProductCategory(
+    productId: string,
+    categoryId: string,
+    client?: PoolClient,
+): Promise<void> {
+    const run = exec(client,);
+    await run(
+        `INSERT INTO shop_product_categories (product_id, category_id) VALUES ($1, $2)
+             ON CONFLICT DO NOTHING`,
+        [productId, categoryId,],
+    );
+}
+
 export async function setProductCategories(
     productId: string,
     categoryIds: string[],

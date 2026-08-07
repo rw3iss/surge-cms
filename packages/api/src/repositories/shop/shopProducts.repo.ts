@@ -360,12 +360,19 @@ export interface ProductStructure {
     media?: StructureMediaInput[];
 }
 
+/** The product's external provider (e.g. 'printify'), or null for a native
+ *  product. Used to protect provider-owned structure from admin-editor saves. */
+export async function getExternalProvider(id: string,): Promise<string | null> {
+    const r = await query(`SELECT external_provider FROM shop_products WHERE id = $1`, [id,],);
+    return (r.rows[0]?.external_provider as string | null | undefined) ?? null;
+}
+
 /**
- * Transactionally replace a product's full structure. Deletes + reinserts
- * options/values and variants, and syncs product_media (delete rows no
- * longer present, upsert the rest). Every product ends with ≥1 variant:
- * if no variants are supplied a default variant (is_default=true, all
- * option slots null) is created.
+ * Transactionally replace a product's structure. Each part (options / variants /
+ * media) is replaced ONLY when explicitly provided (non-undefined), so a partial
+ * update preserves the parts it didn't send. Every product ends with ≥1 variant:
+ * if none exist a default variant (is_default=true, all option slots null) is
+ * created.
  */
 export async function replaceProductStructure(
     productId: string,
@@ -373,85 +380,106 @@ export async function replaceProductStructure(
     client?: PoolClient,
 ): Promise<void> {
     const run = async (c: PoolClient,): Promise<void> => {
+        // Each part below is replaced ONLY when it was explicitly provided
+        // (non-undefined), so a PARTIAL update preserves what it didn't send —
+        // most importantly media synced from an external provider (Printify),
+        // which the admin product editor does not round-trip. The ≥1-variant
+        // invariant is enforced afterward regardless.
+
         // ── Options + values ──
-        await c.query(`DELETE FROM shop_product_options WHERE product_id = $1`, [productId,],);
-        const options = structure.options ?? [];
-        for (let i = 0; i < options.length; i++) {
-            const opt = options[i];
-            const optRes = await c.query(
-                `INSERT INTO shop_product_options (product_id, name, position) VALUES ($1, $2, $3) RETURNING id`,
-                [productId, opt.name, opt.position ?? i,],
-            );
-            const optionId = optRes.rows[0].id as string;
-            for (let j = 0; j < opt.values.length; j++) {
-                const val = opt.values[j];
-                await c.query(
-                    `INSERT INTO shop_option_values (option_id, value, position) VALUES ($1, $2, $3)`,
-                    [optionId, val.value, val.position ?? j,],
+        if (structure.options !== undefined) {
+            await c.query(`DELETE FROM shop_product_options WHERE product_id = $1`, [productId,],);
+            for (let i = 0; i < structure.options.length; i++) {
+                const opt = structure.options[i];
+                const optRes = await c.query(
+                    `INSERT INTO shop_product_options (product_id, name, position) VALUES ($1, $2, $3) RETURNING id`,
+                    [productId, opt.name, opt.position ?? i,],
                 );
+                const optionId = optRes.rows[0].id as string;
+                for (let j = 0; j < opt.values.length; j++) {
+                    const val = opt.values[j];
+                    await c.query(
+                        `INSERT INTO shop_option_values (option_id, value, position) VALUES ($1, $2, $3)`,
+                        [optionId, val.value, val.position ?? j,],
+                    );
+                }
             }
         }
 
         // ── Variants ── (dropping product's variants also SET NULLs any
         // product_media.variant_id referencing them, per the FK.)
-        await c.query(`DELETE FROM shop_variants WHERE product_id = $1`, [productId,],);
-        let variants = structure.variants ?? [];
-        if (variants.length === 0) {
-            // Every product needs ≥1 variant → synthesize a default.
-            variants = [{ priceCents: 0, isDefault: true, inventoryQty: 0, }];
+        if (structure.variants !== undefined) {
+            await c.query(`DELETE FROM shop_variants WHERE product_id = $1`, [productId,],);
+            const variants = structure.variants;
+            for (let i = 0; i < variants.length; i++) {
+                const v = variants[i];
+                await c.query(
+                    `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
+                                                inventory_qty, weight_grams, requires_shipping, shipping_cents,
+                                                option1, option2, option3, image_id, position, is_default, external_id)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+                    [
+                        productId,
+                        v.sku ?? null,
+                        v.priceCents ?? 0,
+                        v.compareAtPriceCents ?? null,
+                        v.inventoryQty ?? 0,
+                        v.weightGrams ?? null,
+                        v.requiresShipping ?? true,
+                        v.shippingCents ?? null,
+                        v.option1 ?? null,
+                        v.option2 ?? null,
+                        v.option3 ?? null,
+                        uuidOrNull(v.imageId ?? null,),
+                        v.position ?? i,
+                        v.isDefault ?? (variants.length === 1),
+                        v.externalId ?? null,
+                    ],
+                );
+            }
         }
-        for (let i = 0; i < variants.length; i++) {
-            const v = variants[i];
+
+        // ≥1-variant invariant: after a create (or a cleared variant set) the
+        // product may have zero variants — synthesize a default. On a media-only
+        // / options-only update the count is already ≥1, so this is a no-op.
+        const variantCount = await c.query(
+            `SELECT COUNT(*)::int AS n FROM shop_variants WHERE product_id = $1`,
+            [productId,],
+        );
+        if (((variantCount.rows[0]?.n as number | undefined) ?? 0) === 0) {
             await c.query(
-                `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
-                                            inventory_qty, weight_grams, requires_shipping, shipping_cents,
-                                            option1, option2, option3, image_id, position, is_default, external_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-                [
-                    productId,
-                    v.sku ?? null,
-                    v.priceCents ?? 0,
-                    v.compareAtPriceCents ?? null,
-                    v.inventoryQty ?? 0,
-                    v.weightGrams ?? null,
-                    v.requiresShipping ?? true,
-                    v.shippingCents ?? null,
-                    v.option1 ?? null,
-                    v.option2 ?? null,
-                    v.option3 ?? null,
-                    uuidOrNull(v.imageId ?? null,),
-                    v.position ?? i,
-                    v.isDefault ?? (variants.length === 1),
-                    v.externalId ?? null,
-                ],
+                `INSERT INTO shop_variants (product_id, price_cents, inventory_qty, requires_shipping, is_default, position)
+                     VALUES ($1, 0, 0, true, true, 0)`,
+                [productId,],
             );
         }
 
         // ── Media ── (delete-all + reinsert keeps ordering simple; the
         // media_id values come from the media library.)
-        await c.query(`DELETE FROM shop_product_media WHERE product_id = $1`, [productId,],);
-        const media = structure.media ?? [];
-        for (let i = 0; i < media.length; i++) {
-            const m = media[i];
-            // A media row references EITHER an imported asset (media_id) OR an
-            // external URL. External rows have a NULL media_id (which never
-            // conflicts on the (product_id, media_id) unique index — NULLs are
-            // distinct), so the ON CONFLICT arm only applies to imported assets.
-            await c.query(
-                `INSERT INTO shop_product_media (product_id, media_id, external_url, variant_id, position, kind)
-                     VALUES ($1, $2, $3, $4, $5, $6)
-                     ON CONFLICT (product_id, media_id) DO UPDATE SET
-                         external_url = EXCLUDED.external_url, variant_id = EXCLUDED.variant_id,
-                         position = EXCLUDED.position, kind = EXCLUDED.kind`,
-                [
-                    productId,
-                    uuidOrNull(m.mediaId ?? null,),
-                    m.externalUrl ?? null,
-                    uuidOrNull(m.variantId ?? null,),
-                    m.position ?? i,
-                    m.kind || 'image',
-                ],
-            );
+        if (structure.media !== undefined) {
+            await c.query(`DELETE FROM shop_product_media WHERE product_id = $1`, [productId,],);
+            for (let i = 0; i < structure.media.length; i++) {
+                const m = structure.media[i];
+                // A media row references EITHER an imported asset (media_id) OR an
+                // external URL. External rows have a NULL media_id (which never
+                // conflicts on the (product_id, media_id) unique index — NULLs are
+                // distinct), so the ON CONFLICT arm only applies to imported assets.
+                await c.query(
+                    `INSERT INTO shop_product_media (product_id, media_id, external_url, variant_id, position, kind)
+                         VALUES ($1, $2, $3, $4, $5, $6)
+                         ON CONFLICT (product_id, media_id) DO UPDATE SET
+                             external_url = EXCLUDED.external_url, variant_id = EXCLUDED.variant_id,
+                             position = EXCLUDED.position, kind = EXCLUDED.kind`,
+                    [
+                        productId,
+                        uuidOrNull(m.mediaId ?? null,),
+                        m.externalUrl ?? null,
+                        uuidOrNull(m.variantId ?? null,),
+                        m.position ?? i,
+                        m.kind || 'image',
+                    ],
+                );
+            }
         }
     };
 
