@@ -935,7 +935,11 @@ function EditableItem(props: {
             case 'image_link':
                 return (
                     <span style={baseStyle()} class="footer__item-img-link">
-                        <img src={it().imageUrl} alt={it().altText || it().text || ''} />
+                        <img
+                            src={it().imageUrl}
+                            alt={it().altText || it().text || ''}
+                            style={it().width ? { width: it().width, } : undefined}
+                        />
                     </span>
                 );
             case 'text':
@@ -1431,6 +1435,17 @@ function RowPanel(props: { row: SiteFooterRow; onChange: (p: Partial<SiteFooterR
 }
 
 function ColumnPanel(props: { column: SiteFooterColumn; onChange: (p: Partial<SiteFooterColumn>,) => void; },) {
+    // Flex is a text draft that only commits to state on blur — so a decimal
+    // (e.g. "1.5") can be typed without the per-keystroke re-render stealing
+    // focus or truncating the value. Re-syncs when a different column is selected
+    // (or flex changes externally).
+    const [flexDraft, setFlexDraft,] = createSignal(String(props.column.flex ?? 1,),);
+    createEffect(() => { setFlexDraft(String(props.column.flex ?? 1,),); },);
+    const commitFlex = (raw: string,) => {
+        const n = parseFloat(raw,);
+        props.onChange({ flex: (isNaN(n,) || n < 0) ? 1 : n, },);
+    };
+
     return (
         <div class="footer-editor__form">
             <h3>Column settings</h3>
@@ -1447,11 +1462,12 @@ function ColumnPanel(props: { column: SiteFooterColumn; onChange: (p: Partial<Si
             <label class="footer-editor__field">
                 <span>Flex size (proportion of row width)</span>
                 <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={props.column.flex ?? 1}
-                    onInput={(e,) => props.onChange({ flex: Number(e.currentTarget.value,) || 1, },)}
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="e.g. 1 or 1.5"
+                    value={flexDraft()}
+                    onInput={(e,) => setFlexDraft(e.currentTarget.value,)}
+                    onChange={(e,) => commitFlex(e.currentTarget.value,)}
                 />
             </label>
             <label class="footer-editor__field">
@@ -1517,6 +1533,14 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
     const [selChild, setSelChild,] = createSignal<string | null>(null,);
     const children = () => props.item.items ?? [];
     const childLabel = (c: SiteLayoutItem,) => ITEM_TYPES.find((o,) => o.value === c.type,)?.label ?? c.type;
+    // Preview text shown next to each child's type in the list. Image items show
+    // their Alt Text (their leftover `text` would be a stale "New link"); text
+    // items show their text; structural/blank types show nothing.
+    const childPreview = (c: SiteLayoutItem,): string => {
+        if (c.type === 'image' || c.type === 'image_link') return c.altText ?? '';
+        if (c.type === 'group' || c.type === 'gap' || c.type === 'flex_spacer') return '';
+        return c.text ?? '';
+    };
     const addChild = () => {
         const it = newItem();
         it.order = children().length;
@@ -1613,8 +1637,8 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                                     onClick={() => setSelChild(selChild() === child.id ? null : child.id,)}
                                 >
                                     <span class="footer-editor__group-item-type">{childLabel(child,)}</span>
-                                    <Show when={child.text}>
-                                        <span class="footer-editor__group-item-text">{child.text}</span>
+                                    <Show when={childPreview(child,)}>
+                                        <span class="footer-editor__group-item-text">{childPreview(child,)}</span>
                                     </Show>
                                 </button>
                                 <span class="footer-editor__group-item-actions">
@@ -1756,6 +1780,18 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                         type="text"
                         value={props.item.width ?? ''}
                         placeholder="e.g. 12px"
+                        onInput={(e,) => props.onChange({ width: e.currentTarget.value, },)}
+                    />
+                </label>
+            </Show>
+
+            <Show when={supportsImage()}>
+                <label class="footer-editor__field">
+                    <span>Width</span>
+                    <input
+                        type="text"
+                        value={props.item.width ?? ''}
+                        placeholder="e.g. 40px, 100%"
                         onInput={(e,) => props.onChange({ width: e.currentTarget.value, },)}
                     />
                 </label>

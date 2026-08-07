@@ -147,13 +147,28 @@
     // row (inline styles). On small screens that's too cramped, so wrap the
     // columns into a 2-up grid with the brand/blurb column full-width on top.
     // Inline styles win over classes, so these overrides use !important.
-    // Mobile: keep every column on a SINGLE row (no 2-up wrap / stacking).
-    // Columns share the row via their inline flex sizing (grow 1, basis 0,
-    // min-width 0 from the renderer), shrinking to fit rather than wrapping.
+    // Mobile (temporary static rules until footer breakpoints ship): the FIRST
+    // column of a row takes its own full-width line; every column AFTER it shares
+    // ONE row together below it. A single-column row (e.g. the copyright row) is
+    // just the first-child rule → full width, unchanged.
     @media (max-width: 640px) {
         &__row-inner {
-            flex-wrap: nowrap !important;
-            gap: 14px !important;
+            flex-wrap: wrap !important;
+            gap: 24px 14px !important;
+        }
+
+        &__row-inner > &__column:first-child {
+            flex-basis: 100% !important;
+            max-width: 100%;
+        }
+
+        // Remaining columns: split the next row evenly (grow, basis 0) instead of
+        // stacking; min-width:0 (from the renderer) lets them shrink to fit.
+        &__row-inner > &__column:not(:first-child) {
+            flex-grow: 1 !important;
+            flex-shrink: 1 !important;
+            flex-basis: 0 !important;
+            max-width: none !important;
         }
     }
 }

@@ -97,7 +97,11 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
                     class="footer__item-img-link"
                     style={baseStyle()}
                 >
-                    <img src={item().imageUrl} alt={item().altText || item().text || ''} />
+                    <img
+                        src={item().imageUrl}
+                        alt={item().altText || item().text || ''}
+                        style={item().width ? { width: item().width, } : undefined}
+                    />
                 </a>
             );
 
