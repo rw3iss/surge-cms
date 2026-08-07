@@ -819,8 +819,11 @@
     }
 
     &__filter-heading {
-        margin: 0 0 $spacing-xs;
-        padding: 0 $spacing-md;
+        // A tiny bit of space above (nudges the first section down from "All
+        // Products") + a bit more below the label; left-aligned with the left
+        // edge of a selected item's highlight (flush left, not the item text).
+        margin: 5px 0 8px;
+        padding: 0 $spacing-md 0 0;
         font-size: $font-size-xs;
         font-weight: 700;
         text-transform: uppercase;

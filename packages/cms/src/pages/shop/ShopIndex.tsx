@@ -188,23 +188,6 @@ const ShopIndexInner: Component = () => {
                             All Products
                         </A>
 
-                        <Show when={visibleCategories().length > 0}>
-                            <div class="shop-index__filter-group">
-                                <h2 class="shop-index__filter-heading">Categories</h2>
-                                <For each={visibleCategories()}>
-                                    {(c,) => (
-                                        <A
-                                            href={`/shop?category=${encodeURIComponent(c.slug,)}`}
-                                            class={`shop-index__filter ${activeCategory() === c.slug ? 'is-active' : ''}`}
-                                        >
-                                            <span>{c.name}</span>
-                                            <span class="shop-index__filter-count">({c.productCount})</span>
-                                        </A>
-                                    )}
-                                </For>
-                            </div>
-                        </Show>
-
                         <Show when={visibleCollections().length > 0}>
                             <div class="shop-index__filter-group">
                                 <h2 class="shop-index__filter-heading">Collections</h2>
@@ -215,6 +198,23 @@ const ShopIndexInner: Component = () => {
                                             class={`shop-index__filter ${activeCollection() === c.slug ? 'is-active' : ''}`}
                                         >
                                             <span>{c.title}</span>
+                                            <span class="shop-index__filter-count">({c.productCount})</span>
+                                        </A>
+                                    )}
+                                </For>
+                            </div>
+                        </Show>
+
+                        <Show when={visibleCategories().length > 0}>
+                            <div class="shop-index__filter-group">
+                                <h2 class="shop-index__filter-heading">Categories</h2>
+                                <For each={visibleCategories()}>
+                                    {(c,) => (
+                                        <A
+                                            href={`/shop?category=${encodeURIComponent(c.slug,)}`}
+                                            class={`shop-index__filter ${activeCategory() === c.slug ? 'is-active' : ''}`}
+                                        >
+                                            <span>{c.name}</span>
                                             <span class="shop-index__filter-count">({c.productCount})</span>
                                         </A>
                                     )}
