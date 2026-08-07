@@ -16,7 +16,8 @@ import { logger, } from '../../utils/logger';
 import {
     archiveExternalProducts,
     findExternalProductRefs,
-    hasProductMedia,
+    getExternalRef,
+    getImportedMedia,
     replaceProductStructure,
     type StructureMediaInput,
     type StructureOptionInput,
@@ -30,7 +31,7 @@ import {
     setProductTags,
 } from '../../repositories/shop/shopCatalog.repo';
 import { getPrintifyConfig, type PrintifyConfig, } from './config';
-import { confirmPublishingSucceeded, listAllProducts, type PrintifyProduct, } from './client';
+import { confirmPublishingSucceeded, getProduct, listAllProducts, type PrintifyProduct, } from './client';
 
 const PROVIDER = 'printify';
 
@@ -151,16 +152,15 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
         externalUrl,
     },);
 
-    // Media is imported ONCE (first sync) then CMS-curated: on a resync of a
-    // product that already has media, don't overwrite it, so operator removals /
-    // reorders persist. Options/variants (pricing/inventory) still resync every
-    // time — Printify owns those. (`replaceProductStructure` skips the media part
-    // when it's omitted.)
-    const keepMedia = await hasProductMedia(product.id,);
+    // Merge media: refresh the provider (external_url) images with Printify's
+    // CURRENT set, but re-append any CMS-added media (imported assets) the
+    // operator added so those survive the resync. This also self-heals any stale
+    // / blank provider rows left by an earlier bad save.
+    const cmsMedia = await getImportedMedia(product.id,);
     await replaceProductStructure(product.id, {
         options,
         variants,
-        ...(keepMedia ? {} : { media, }),
+        media: [...media, ...cmsMedia,],
     },);
     await setProductTags(product.id, (p.tags ?? []).slice(0, 40,),);
     // Add the Printify-derived category (from product-type tags) WITHOUT removing
@@ -242,6 +242,46 @@ export async function syncProducts(cfgArg?: PrintifyConfig,): Promise<PrintifySy
     const durationMs = Date.now() - started;
     logger.info(`Printify sync: ${upserted} upserted, ${published} published, ${archived} archived, ${skipped} skipped, ${errors.length} errors in ${durationMs}ms`,);
     return { ok: errors.length === 0, fetched: products.length, upserted, archived, skipped, published, errors, durationMs, };
+}
+
+export interface PrintifyOneSyncResult {
+    ok: boolean;
+    /** Set when ok=false — a human-readable reason (surfaced as a toast). */
+    error?: string;
+}
+
+/** Resync a SINGLE product from Printify (pull the latest for one item). Looks up
+ *  the CMS product's Printify id, refetches that product, and upserts it (same
+ *  merge rules as a full sync — provider images refreshed, CMS media kept). */
+export async function syncOneProduct(cmsProductId: string,): Promise<PrintifyOneSyncResult> {
+    const cfg = await getPrintifyConfig();
+    if (!cfg) return { ok: false, error: 'Printify is not enabled/configured.', };
+
+    const ref = await getExternalRef(cmsProductId,);
+    if (ref.provider !== PROVIDER || !ref.externalId) {
+        return { ok: false, error: 'This product is not linked to Printify.', };
+    }
+
+    let p: PrintifyProduct;
+    try {
+        p = await getProduct(cfg, ref.externalId,);
+    } catch (err) {
+        return { ok: false, error: `Printify fetch failed: ${(err as Error).message}`, };
+    }
+    if (!(p.variants ?? []).some((v,) => v.is_enabled)) {
+        return { ok: false, error: 'Product has no enabled variants in Printify.', };
+    }
+
+    try {
+        await upsertOne(p, cfg,);
+    } catch (err) {
+        return { ok: false, error: (err as Error).message, };
+    }
+
+    await cache.invalidateShopProductCache();
+    await cache.invalidateShopCatalogCache();
+    logger.info(`Printify: resynced single product ${cmsProductId} (${p.title})`,);
+    return { ok: true, };
 }
 
 export interface PrintifyStatus {

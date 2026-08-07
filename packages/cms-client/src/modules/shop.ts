@@ -283,7 +283,20 @@ export class ShopModule extends ModuleBase {
         /** POST /shop/printify/sync — pull the latest products into the shop. */
         sync: (): Promise<PrintifySyncResponse> =>
             this.mutate<PrintifySyncResponse>('POST', '/shop/printify/sync', { invalidates: ['shop',], },),
+
+        /** POST /shop/printify/sync/:id — resync a single product from Printify. */
+        syncOne: (id: string,): Promise<PrintifyOneSyncResponse> =>
+            this.mutate<PrintifyOneSyncResponse>('POST', '/shop/printify/sync/:id', {
+                params: { id, },
+                invalidates: ['shop',],
+            },),
     };
+}
+
+/** POST /shop/printify/sync/:id */
+export interface PrintifyOneSyncResponse {
+    ok: boolean;
+    error?: string;
 }
 
 /** GET /shop/printify/status */

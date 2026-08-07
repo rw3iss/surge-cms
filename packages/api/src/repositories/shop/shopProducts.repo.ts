@@ -360,12 +360,32 @@ export interface ProductStructure {
     media?: StructureMediaInput[];
 }
 
-/** Whether a product already has any media rows. Used by the Printify sync to
- *  import media ONCE (first sync) and then leave it CMS-curated — so operator
- *  removals/reorders persist instead of being re-added on every resync. */
-export async function hasProductMedia(id: string,): Promise<boolean> {
-    const r = await query(`SELECT 1 FROM shop_product_media WHERE product_id = $1 LIMIT 1`, [id,],);
-    return r.rows.length > 0;
+/** A product's CMS-added media — imported assets (media_id set), NOT the
+ *  provider's external images. The Printify sync refreshes the external images
+ *  from Printify but re-appends these so operator-added media survive a resync. */
+export async function getImportedMedia(id: string,): Promise<StructureMediaInput[]> {
+    const r = await query(
+        `SELECT media_id, variant_id, kind FROM shop_product_media
+             WHERE product_id = $1 AND media_id IS NOT NULL
+             ORDER BY position ASC`,
+        [id,],
+    );
+    return r.rows.map((row,) => ({
+        mediaId: row.media_id as string,
+        variantId: (row.variant_id as string | null) ?? null,
+        kind: (row.kind as string) === 'video' ? 'video' : 'image',
+    }),);
+}
+
+/** A product's provider provenance — used to resync a single item from its
+ *  source (e.g. Printify) and to gate provider-only actions. */
+export async function getExternalRef(id: string,): Promise<{ provider: string | null; externalId: string | null; }> {
+    const r = await query(`SELECT external_provider, external_id FROM shop_products WHERE id = $1`, [id,],);
+    const row = r.rows[0];
+    return {
+        provider: (row?.external_provider as string | null | undefined) ?? null,
+        externalId: (row?.external_id as string | null | undefined) ?? null,
+    };
 }
 
 /**

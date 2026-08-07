@@ -136,6 +136,11 @@ export async function confirmPublishingFailed(
     await req(cfg, 'POST', `/shops/${cfg.shopId}/products/${productId}/publishing_failed.json`, { reason, },);
 }
 
+/** Fetch a single product's full detail from Printify (for a single-item resync). */
+export async function getProduct(cfg: PrintifyConfig, productId: string,): Promise<PrintifyProduct> {
+    return req<PrintifyProduct>(cfg, 'GET', `/shops/${cfg.shopId}/products/${productId}.json`,);
+}
+
 /** Verify the token + shop id; returns the resolved shop title. */
 export async function testConnection(cfg: PrintifyConfig,): Promise<{ ok: true; shopTitle: string; }> {
     const shops = await req<Array<{ id: number; title: string; }>>(cfg, 'GET', '/shops.json',);

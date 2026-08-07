@@ -1,4 +1,4 @@
-import { Component, Show, } from 'solid-js';
+import { Component, type JSX, Show, } from 'solid-js';
 
 export interface EditorSaveBarProps {
     onSave: () => void | Promise<void>;
@@ -11,6 +11,9 @@ export interface EditorSaveBarProps {
     saveLabel?: string;
     cancelLabel?: string;
     deleteLabel?: string;
+    /** Extra buttons rendered after Cancel in the left group (e.g. a per-page
+     *  "Sync from Printify" action). */
+    extraActions?: JSX.Element;
 }
 
 /**
@@ -31,6 +34,7 @@ const EditorSaveBar: Component<EditorSaveBarProps> = (props,) => {
                 <button class="btn btn--secondary" onClick={props.onCancel}>
                     {props.cancelLabel || 'Cancel'}
                 </button>
+                {props.extraActions}
             </div>
             <Show when={props.showDelete !== false && props.onDelete}>
                 <button
