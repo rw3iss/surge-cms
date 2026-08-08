@@ -271,6 +271,24 @@
         margin-top: $spacing-md;
     }
 
+    // Match the "styled labels" used in the Edit Page/Post property fields
+    // (see _editor-properties.scss): small, semibold, sentence-case, with a
+    // little space above the input. Applies to the Publishable / Secret /
+    // Webhook key labels here.
+    .admin-form-field__label,
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 4px;
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: var(--admin-text, #{$text-color});
+        text-transform: none;
+        letter-spacing: 0;
+        line-height: 1.3;
+    }
+
     code {
         word-break: break-all;
     }
@@ -280,6 +298,9 @@
     display: flex;
     flex-direction: column;
     gap: $spacing-md;
+    // Separate the connection-status card (with the Recheck button) from the
+    // key inputs below it so they aren't touching.
+    margin-bottom: $spacing-lg;
 
     &__banner {
         display: flex;
