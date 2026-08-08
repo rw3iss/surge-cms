@@ -2,6 +2,7 @@ import { z, } from 'zod';
 import type {
     AssertCompatible,
     ShopCategoryCreateBody,
+    ShopCategoryReorderBody,
     ShopCheckoutBody,
     ShopCheckoutPreviewBody,
     ShopCollectionCreateBody,
@@ -116,6 +117,10 @@ const categorySchema = z.object({
     imageId: z.string().nullish(),
     position: z.number().int().optional(),
 },) satisfies z.ZodType<ShopCategoryCreateBody>;
+
+const categoryReorderSchema = z.object({
+    orderedIds: z.array(z.string(),).min(1,),
+},) satisfies z.ZodType<ShopCategoryReorderBody>;
 
 const collectionSchema = z.object({
     title: z.string().min(1,).max(255,),
@@ -403,6 +408,18 @@ export const shopRoutes = [
         handler: async ({ body, audit, },) => {
             const category = await catalog.createCategory(body, audit(),);
             return reply(category, { status: 201, },);
+        },
+    },),
+
+    // Manual reorder (admin). Declared before /categories/:id so "reorder" isn't
+    // captured as an :id.
+    defineRoute({
+        method: 'put', path: '/categories/reorder', auth: 'admin',
+        summary: 'Persist a manual category sort order (drag-reorder).',
+        input: { body: categoryReorderSchema, },
+        handler: async ({ body, audit, },) => {
+            await catalog.reorderCategories(body.orderedIds, audit(),);
+            return { message: 'Categories reordered', };
         },
     },),
 

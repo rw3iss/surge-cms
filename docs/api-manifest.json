@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-08T15:38:48.235Z",
+  "generatedAt": "2026-08-08T15:54:41.789Z",
   "totalModules": 31,
-  "totalRoutes": 280,
+  "totalRoutes": 281,
   "modules": [
     {
       "module": "api-keys",
@@ -1675,6 +1675,13 @@
           "absolutePath": "/api/v1/shop/categories",
           "auth": "admin",
           "summary": "Create a category."
+        },
+        {
+          "method": "PUT",
+          "path": "/categories/reorder",
+          "absolutePath": "/api/v1/shop/categories/reorder",
+          "auth": "admin",
+          "summary": "Persist a manual category sort order (drag-reorder)."
         },
         {
           "method": "PUT",

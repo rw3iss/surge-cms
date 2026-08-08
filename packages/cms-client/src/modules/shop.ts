@@ -15,6 +15,8 @@ import type {
     ShopCategoryCreateBody,
     ShopCategoryCreateResponse,
     ShopCategoryDeleteResponse,
+    ShopCategoryReorderBody,
+    ShopCategoryReorderResponse,
     ShopCategoryListResponse,
     ShopCategoryUpdateBody,
     ShopCategoryUpdateResponse,
@@ -126,6 +128,10 @@ export class ShopModule extends ModuleBase {
 
         remove: (id: string,): Promise<ShopCategoryDeleteResponse> =>
             this.mutate<ShopCategoryDeleteResponse>('DELETE', '/shop/categories/:id', { params: { id, }, invalidates: ['shop',], },),
+
+        /** Persist a manual category order (drag-reorder). */
+        reorder: (body: ShopCategoryReorderBody,): Promise<ShopCategoryReorderResponse> =>
+            this.mutate<ShopCategoryReorderResponse>('PUT', '/shop/categories/reorder', { body, invalidates: ['shop',], },),
     };
 
     /** Collections — curated product groupings. */

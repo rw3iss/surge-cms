@@ -66,6 +66,18 @@ export async function removeCategory(id: string, ctx: AuditContext,): Promise<vo
     },);
 }
 
+/** Persist a manual category order (drag-reorder). Invalidates the catalog cache
+ *  so the storefront sidebar reflects the new order. */
+export async function reorderCategories(orderedIds: string[], ctx: AuditContext,): Promise<void> {
+    await repo.reorderCategories(orderedIds,);
+    await invalidateCatalogCache();
+    await logAudit({
+        userId: ctx.userId, action: 'reorder', entityType: 'shop-category',
+        entityId: orderedIds[0] ?? 'multiple', newValues: { orderedIds, },
+        ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
+    },);
+}
+
 // ─── Collections ──────────────────────────────────────────────────
 
 /** Published collections (public), cached. */

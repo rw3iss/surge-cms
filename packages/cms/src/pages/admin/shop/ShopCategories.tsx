@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { Component, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopCategory, ShopCategoryCreateBody, } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
@@ -15,9 +15,11 @@ interface Draft {
     slug: string;
     description: string;
     parentId: string;
+    /** '' = keep current/auto; otherwise the 1-based display position. */
+    position: string;
 }
 
-const emptyDraft = (): Draft => ({ name: '', slug: '', description: '', parentId: '', });
+const emptyDraft = (): Draft => ({ name: '', slug: '', description: '', parentId: '', position: '', });
 
 const ShopCategoriesInner: Component = () => {
     const toast = useToast();
@@ -29,6 +31,28 @@ const ShopCategoriesInner: Component = () => {
     const [draft, setDraft,] = createSignal<Draft | null>(null,);
     const [saving, setSaving,] = createSignal(false,);
 
+    // Local reorderable mirror of the fetched list.
+    const [rows, setRows,] = createSignal<ShopCategory[]>([],);
+    createEffect(() => { setRows(categories() || [],); },);
+
+    const [dragIndex, setDragIndex,] = createSignal<number | null>(null,);
+    const [overIndex, setOverIndex,] = createSignal<number | null>(null,);
+
+    const onDrop = async (targetIndex: number,) => {
+        const from = dragIndex();
+        setDragIndex(null,);
+        setOverIndex(null,);
+        if (from === null || from === targetIndex) return;
+        const arr = [...rows(),];
+        const [moved,] = arr.splice(from, 1,);
+        arr.splice(targetIndex, 0, moved,);
+        setRows(arr,);
+        try {
+            await cms.shop.categories.reorder({ orderedIds: arr.map((c,) => c.id), },);
+        } catch { /* error bus */ }
+        refetch();
+    };
+
     const openNew = () => setDraft(emptyDraft(),);
     const openEdit = (c: ShopCategory,) =>
         setDraft({
@@ -37,6 +61,7 @@ const ShopCategoriesInner: Component = () => {
             slug: c.slug,
             description: c.description || '',
             parentId: c.parentId || '',
+            position: c.position != null ? String(c.position + 1,) : '',
         },);
 
     const setName = (v: string,) => {
@@ -56,8 +81,20 @@ const ShopCategoriesInner: Component = () => {
                 description: d.description || null,
                 parentId: d.parentId || null,
             };
+            let savedId = d.id;
             if (d.id) await cms.shop.categories.update(d.id, body,);
-            else await cms.shop.categories.create(body,);
+            else savedId = (await cms.shop.categories.create(body,)).id;
+
+            // Apply the chosen Position (1-based) via a reorder: move this
+            // category to that index in the flat list and renumber. '' = leave
+            // where it is (a new category stays appended).
+            if (d.position !== '' && savedId) {
+                const fresh = await cms.shop.categories.list() as ShopCategory[];
+                const ids = fresh.map((c,) => c.id).filter((id,) => id !== savedId);
+                const target = Math.max(0, Math.min(Number(d.position,) - 1, ids.length,),);
+                ids.splice(target, 0, savedId,);
+                await cms.shop.categories.reorder({ orderedIds: ids, },);
+            }
             toast.success('Category saved.',);
             setDraft(null,);
             refetch();
@@ -96,6 +133,7 @@ const ShopCategoriesInner: Component = () => {
                     <table class="admin-table">
                         <thead>
                             <tr>
+                                <th style={{ width: '32px', }} title="Drag to reorder" />
                                 <th>Name</th>
                                 <th>Slug</th>
                                 <th>Parent</th>
@@ -103,15 +141,30 @@ const ShopCategoriesInner: Component = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            <For each={categories()}>
-                                {(c,) => (
-                                    <tr>
+                            <For each={rows()}>
+                                {(c, i) => (
+                                    <tr
+                                        classList={{ 'is-drop-target': overIndex() === i(), }}
+                                        onDragOver={(e,) => { e.preventDefault(); setOverIndex(i(),); }}
+                                        onDrop={() => onDrop(i(),)}
+                                    >
+                                        <td
+                                            class="shop-products__drag"
+                                            draggable={true}
+                                            onDragStart={() => setDragIndex(i(),)}
+                                            onDragEnd={() => { setDragIndex(null,); setOverIndex(null,); }}
+                                            title="Drag to reorder"
+                                        >
+                                            ⠿
+                                        </td>
                                         <td>{c.name}</td>
                                         <td class="form-help-muted">{c.slug}</td>
                                         <td>{(categories() || []).find((p,) => p.id === c.parentId,)?.name || '—'}</td>
                                         <td>
-                                            <button class="btn btn--small btn--secondary" onClick={() => openEdit(c,)}>Edit</button>
-                                            <button class="btn btn--small btn--danger" onClick={() => remove(c,)}>Delete</button>
+                                            <div class="table-actions">
+                                                <button class="btn btn--small btn--secondary" onClick={() => openEdit(c,)}>Edit</button>
+                                                <button class="btn btn--small btn--danger" onClick={() => remove(c,)}>Delete</button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}
@@ -125,23 +178,36 @@ const ShopCategoriesInner: Component = () => {
                 <div class="confirm-modal-overlay" onClick={(e,) => { if (e.target === e.currentTarget) setDraft(null,); }}>
                     <div class="confirm-modal shop-admin__edit-modal">
                         <h3 class="confirm-modal__title">{draft()!.id ? 'Edit' : 'New'} Category</h3>
-                        <FormField label="Name">
-                            <input type="text" value={draft()!.name} onInput={(e,) => setName(e.currentTarget.value,)} />
-                        </FormField>
-                        <FormField label="Slug">
-                            <input type="text" value={draft()!.slug} onInput={(e,) => setDraft({ ...draft()!, slug: e.currentTarget.value, },)} />
-                        </FormField>
-                        <FormField label="Parent" inline>
-                            <select value={draft()!.parentId} onChange={(e,) => setDraft({ ...draft()!, parentId: e.currentTarget.value, },)}>
-                                <option value="">None</option>
-                                <For each={(categories() || []).filter((c,) => c.id !== draft()!.id,)}>
-                                    {(c,) => <option value={c.id}>{c.name}</option>}
-                                </For>
-                            </select>
-                        </FormField>
-                        <FormField label="Description">
-                            <textarea rows={3} value={draft()!.description} onInput={(e,) => setDraft({ ...draft()!, description: e.currentTarget.value, },)} />
-                        </FormField>
+                        {/* Row 1: Name + Slug (half each) */}
+                        <div class="category-form-grid">
+                            <FormField label="Name">
+                                <input type="text" value={draft()!.name} onInput={(e,) => setName(e.currentTarget.value,)} />
+                            </FormField>
+                            <FormField label="Slug">
+                                <input type="text" value={draft()!.slug} onInput={(e,) => setDraft({ ...draft()!, slug: e.currentTarget.value, },)} />
+                            </FormField>
+                            {/* Row 2: Parent + Position (half each) */}
+                            <FormField label="Parent">
+                                <select value={draft()!.parentId} onChange={(e,) => setDraft({ ...draft()!, parentId: e.currentTarget.value, },)}>
+                                    <option value="">None</option>
+                                    <For each={(categories() || []).filter((c,) => c.id !== draft()!.id,)}>
+                                        {(c,) => <option value={c.id}>{c.name}</option>}
+                                    </For>
+                                </select>
+                            </FormField>
+                            <FormField label="Position">
+                                <select value={draft()!.position} onChange={(e,) => setDraft({ ...draft()!, position: e.currentTarget.value, },)}>
+                                    <option value="">—</option>
+                                    <For each={Array.from({ length: (categories() || []).length || 1, }, (_, i) => i + 1,)}>
+                                        {(n,) => <option value={String(n,)}>{n}</option>}
+                                    </For>
+                                </select>
+                            </FormField>
+                            {/* Row 3: Description (full width) */}
+                            <FormField label="Description" class="category-form-grid__full">
+                                <textarea rows={3} value={draft()!.description} onInput={(e,) => setDraft({ ...draft()!, description: e.currentTarget.value, },)} />
+                            </FormField>
+                        </div>
                         <div class="confirm-modal__actions">
                             <button class="btn btn--secondary" onClick={() => setDraft(null,)}>Cancel</button>
                             <button class="btn btn--primary" onClick={save} disabled={saving()}>

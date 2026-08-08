@@ -5,7 +5,7 @@
  */
 import type { ShopCategory, ShopCollection, ShopProduct, } from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
-import { query, } from '../../db';
+import { query, transaction, } from '../../db';
 import { mapRow, mapRows, } from '../../utils/mapRow';
 import { deleteById, updateById, } from '../base.repo';
 
@@ -69,6 +69,18 @@ export async function updateCategory(id: string, data: Record<string, unknown>,)
 
 export async function deleteCategory(id: string,): Promise<void> {
     return deleteById('shop_categories', id, 'Category',);
+}
+
+/** Assign sequential positions (0-based) to an ordered list of category ids —
+ *  the categories admin shows the full flat list, so a straight renumber is
+ *  enough. Atomic (one transaction). */
+export async function reorderCategories(orderedIds: string[],): Promise<void> {
+    if (orderedIds.length === 0) return;
+    await transaction(async (c,) => {
+        for (let i = 0; i < orderedIds.length; i++) {
+            await c.query(`UPDATE shop_categories SET position = $1 WHERE id = $2`, [i, orderedIds[i],],);
+        }
+    },);
 }
 
 /** Active products in a category (public). */

@@ -229,6 +229,18 @@ export interface ShopCategoryDeleteResponse {
     message: string;
 }
 
+// ─── PUT /shop/categories/reorder ─────────────────────────────────
+
+/** Body for PUT /shop/categories/reorder — category ids in their new order. */
+export interface ShopCategoryReorderBody {
+    orderedIds: string[];
+}
+
+/** PUT /shop/categories/reorder — confirmation message. */
+export interface ShopCategoryReorderResponse {
+    message: string;
+}
+
 // ─── Collections ──────────────────────────────────────────────────
 
 /** GET /shop/collections — published (public) or all (admin via all=true). */
