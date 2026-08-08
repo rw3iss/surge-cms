@@ -29,6 +29,19 @@ export function groupColumns(data: Record<string, unknown>,): number | null {
     return Math.min(16, cols,);
 }
 
+/** Whether a horizontal group should stack to a single column on mobile.
+ *  A `nowrap` horizontal group can never wrap its slots, so on a phone its
+ *  columns get crushed (e.g. a 1/3 + 2/3 split → ~127px + ~255px). Callers
+ *  add the `--stack-mobile` modifier class (CSS collapses it to a column and
+ *  forces slot width to 100% under the mobile breakpoint). Wrapping groups
+ *  and column-grids already reflow, so they're excluded. */
+export function groupStacksMobile(data: Record<string, unknown>,): boolean {
+    const direction = (data.direction as string) || 'horizontal';
+    if (direction === 'vertical') return false;
+    if (groupColumns(data,) != null) return false;
+    return (data.wrap as string) === 'nowrap';
+}
+
 /**
  * Flex/grid-item CSS for a single group_item slot. The public renderer applies
  * this to the `.block--group_item` element (the flex/grid item); the admin

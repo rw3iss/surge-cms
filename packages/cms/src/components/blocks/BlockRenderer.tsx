@@ -9,7 +9,7 @@ import { blockStyleLayoutCss, } from '../../utils/blockStyleCss';
 import { blockResponsiveCss, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
 import { toFlexAlign, } from '../../utils/cssAlign';
-import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
 import GiveButterWidget from './GiveButterWidget';
 import ResolvedHeroCarousel from './ResolvedHeroCarousel';
@@ -116,6 +116,12 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     const innerLayout = (): string => {
         const explicit = props.block.settings.layout as string | undefined;
         if (explicit) return explicit;
+        // A group_item slot is sized by its parent group (slot width/flex on the
+        // outer wrapper) — its content must FILL that slot, never get re-capped at
+        // the site content column (--site-max-width) or centered with side gutters.
+        // Otherwise a wide slot (e.g. holding a carousel) shows gaps instead of
+        // reaching the slot's edges.
+        if (props.block.type === 'group_item') return 'full';
         if (['carousel', 'hero',].includes(props.block.type,)) return 'full';
         // NOTE: '100%' is the DEFAULT width (BLOCK_STYLE_DEFAULTS.width), not a
         // full-bleed intent — treating it as one made a block with the default
@@ -971,7 +977,10 @@ const GroupBlock: Component<{ block: Block; }> = (props,) => {
     return (
         <div
             class="block--group"
-            classList={{ 'block--group--cols': groupColumns(data(),) != null, }}
+            classList={{
+                'block--group--cols': groupColumns(data(),) != null,
+                'block--group--stack-mobile': groupStacksMobile(data(),),
+            }}
             style={containerStyle()}
         >
             <For each={children()}>
@@ -1003,30 +1012,18 @@ function withSlotDefaults(child: Block, parentData: Record<string, any>,): Block
 
 const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
-    const data = () => (props.block.settings || {}) as Record<string, any>;
-    const slotStyle = (): Record<string, string | undefined> => ({
-        flex: data().width ? '0 0 auto' : '1 1 0',
-        width: (data().width as string) || undefined,
-        'min-width': (data().minWidth as string) || undefined,
-        'max-width': (data().maxWidth as string) || undefined,
-        height: (data().height as string) || undefined,
-        'min-height': (data().minHeight as string) || undefined,
-        'max-height': (data().maxHeight as string) || undefined,
-        // align-self passes CSS values through (auto/stretch/center/…), only
-        // normalizing the start/end shorthands — matches the former local helper.
-        'align-self': (() => {
-            const v = data().alignSelf as string | undefined;
-            if (!v) return undefined;
-            if (v === 'start') return 'flex-start';
-            if (v === 'end') return 'flex-end';
-            return v;
-        })(),
-    });
+    // NOTE: the slot's sizing (flex + width/min/max/height/align-self) lives on
+    // the OUTER `.block--group_item` wrapper (BlockRenderer applies it via
+    // slotStyle) — that element is the parent group's actual flex/grid item.
+    // This inner div must NOT re-apply width/flex, or an explicit slot width
+    // compounds (e.g. `width:30%` becomes 30% of the already-30% slot). It just
+    // fills the slot so the child content spans the full column; the child owns
+    // its own centering (e.g. a card's `max-width` + `margin:auto`).
     // Empty group_items render nothing on the public site (placeholder
     // picker is admin-only, in the editor BlockPreview).
     return (
         <Show when={children().length > 0}>
-            <div class="block--group_item" style={slotStyle()}>
+            <div class="block--group_item" style={{ width: '100%', height: '100%', }}>
                 <For each={children()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>

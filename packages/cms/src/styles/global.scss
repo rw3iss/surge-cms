@@ -503,6 +503,26 @@ html:not([data-active-outlines='show']) {
   }
 }
 
+// A `nowrap` horizontal group can't reflow its slots, so on mobile its columns
+// get crushed (a 1/3 + 2/3 split becomes unusable). Stack to one column and let
+// each slot span the full width. `!important` overrides the inline slot width
+// (e.g. 33% / 66%) set by the flex-item sizing. Applies to both the public
+// renderer (`.block--group_item`) and the admin preview (`.content-block__group
+// -slot`, the slot wrapper).
+@include mobile-only {
+  .block--group--stack-mobile,
+  .content-block__group--stack-mobile {
+    flex-direction: column !important;
+
+    > .block--group_item,
+    > .content-block__group-slot {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 0 0 auto !important;
+    }
+  }
+}
+
 // ─── Shared page layout ───
 
 .page-wrapper {

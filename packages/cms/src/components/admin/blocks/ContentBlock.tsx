@@ -5,7 +5,7 @@ import BlockPreview from './BlockPreview';
 import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
-import { groupColumns, groupContainerStyle, groupSlotItemStyle, } from '../../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../../utils/groupStyle';
 import { blockStyleLayoutCss, } from '../../../utils/blockStyleCss';
 import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import { toFlexAlign, } from '../../../utils/cssAlign';
@@ -411,7 +411,10 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
     return (
         <div
             class="content-block__group"
-            classList={{ 'content-block__group--cols': groupColumns(data(),) != null, }}
+            classList={{
+                'content-block__group--cols': groupColumns(data(),) != null,
+                'content-block__group--stack-mobile': groupStacksMobile(data(),),
+            }}
             style={containerStyle()}
         >
             <For each={props.childBlocks}>
@@ -460,15 +463,16 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
 
 const GroupItemPreview: Component<NestedPreviewProps> = (props,) => {
     const data = () => props.block.data;
+    // The slot's sizing (flex + width/min/max/align-self) is applied to the
+    // OUTER `.content-block__group-slot` wrapper (GroupBlockPreview, via
+    // groupSlotItemStyle) — the actual flex/grid item. Re-applying width here
+    // compounded it (an explicit `width:30%` became 30% of the already-30%
+    // slot) and mismatched the public renderer. This inner div just fills the
+    // slot; only the min-height floor is kept so empty slots stay clickable.
     const slotStyle = () => ({
-        flex: '1 1 0',
-        'min-width': (data().minWidth as string) || (data().width as string) || '120px',
-        'max-width': (data().maxWidth as string) || undefined,
-        width: (data().width as string) || undefined,
+        width: '100%',
+        height: (data().height as string) || '100%',
         'min-height': (data().minHeight as string) || '80px',
-        'max-height': (data().maxHeight as string) || undefined,
-        height: (data().height as string) || undefined,
-        'align-self': (data().alignSelf as string) || undefined,
     });
 
     return (
