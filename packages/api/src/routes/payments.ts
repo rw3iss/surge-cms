@@ -115,6 +115,17 @@ export const paymentsRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/donations', auth: 'user',
+        summary: 'List the logged-in user\'s completed donations (by their id OR email).',
+        input: { query: pageQuery, },
+        handler: async ({ user, query, },) => {
+            // userId + email come from the AUTH TOKEN only — never client input.
+            const result = await payments.listMyDonations(user!.id, user!.email, query.page, query.limit,);
+            return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    defineRoute({
         method: 'post', path: '/webhook', auth: 'public', raw: true,
         summary: 'Stripe webhook (raw body, signature-verified). Always 200 unless bad signature (400).',
         handler: async ({ req, res, },) => {

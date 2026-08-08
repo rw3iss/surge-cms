@@ -2,6 +2,7 @@ import type {
     PaymentsCreateCustomerResponse, PaymentsDonateBody, PaymentsDonateResponse,
     PaymentsSubscribeBody, PaymentsSubscribeResponse, PaymentsUnsubscribeResponse,
     PaymentsSubscriptionsResponse, PaymentsTransactionsQuery, PaymentsTransactionsResponse,
+    PaymentsDonationsQuery, PaymentsDonationsResponse,
     PaymentsPublicPlansResponse, PaymentsAdminPlansResponse, PaymentsPlanCreateBody,
     PaymentsPlanCreateResponse, PaymentsPlanUpdateBody, PaymentsPlanUpdateResponse,
     PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
@@ -56,6 +57,12 @@ export class PaymentsModule extends ModuleBase {
     /** GET /payments/transactions — the current user's transaction history. */
     transactions(query?: PaymentsTransactionsQuery,): Promise<Paginated<PaymentsTransactionsResponse[number]>> {
         return this.getPaged<PaymentsTransactionsResponse[number]>('/payments/transactions', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /payments/donations — the current user's completed donations (by their
+     *  own id OR email; server-enforced). */
+    donations(query?: PaymentsDonationsQuery,): Promise<Paginated<PaymentsDonationsResponse[number]>> {
+        return this.getPaged<PaymentsDonationsResponse[number]>('/payments/donations', { query: query as Record<string, unknown>, },);
     }
 
     /** GET /payments/plans — active plans for the public subscribe page. */

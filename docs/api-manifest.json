@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-08T15:54:41.789Z",
+  "generatedAt": "2026-08-08T16:18:40.703Z",
   "totalModules": 31,
-  "totalRoutes": 281,
+  "totalRoutes": 282,
   "modules": [
     {
       "module": "api-keys",
@@ -1037,6 +1037,13 @@
           "absolutePath": "/api/v1/payments/transactions",
           "auth": "user",
           "summary": "List the logged-in user's transaction history."
+        },
+        {
+          "method": "GET",
+          "path": "/donations",
+          "absolutePath": "/api/v1/payments/donations",
+          "auth": "user",
+          "summary": "List the logged-in user's completed donations (by their id OR email)."
         },
         {
           "method": "POST",

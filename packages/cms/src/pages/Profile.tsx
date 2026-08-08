@@ -1,7 +1,9 @@
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { formatCurrency, } from '@sitesurge/types';
-import type { ContactMessage, ShopOrder, } from '@sitesurge/types';
+import type { ContactMessage, PaymentsDonationsResponse, ShopOrder, } from '@sitesurge/types';
+
+type UserDonation = PaymentsDonationsResponse[number];
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
@@ -10,7 +12,7 @@ import './Profile.scss';
 
 const BIO_MAX = 250;
 
-type Tab = 'profile' | 'membership' | 'orders' | 'messages';
+type Tab = 'profile' | 'membership' | 'orders' | 'donations' | 'messages';
 
 /**
  * Self-service user profile (`/profile`). Tabbed: Profile (edit details),
@@ -35,17 +37,21 @@ const Profile: Component = () => {
 
     const showOrders = () => isFeatureEnabled('shop',);
     const showMessages = () => isFeatureEnabled('messages',);
+    // Donations tab is shown only when the user actually has donations.
+    const showDonations = () => (donations() ?? []).length > 0;
 
     const TABS = (): { key: Tab; label: string; }[] => [
         { key: 'profile', label: 'Profile', },
         { key: 'membership', label: 'Membership', },
         ...(showOrders() ? [{ key: 'orders' as Tab, label: 'Orders', },] : []),
+        ...(showDonations() ? [{ key: 'donations' as Tab, label: 'Donations', },] : []),
         ...(showMessages() ? [{ key: 'messages' as Tab, label: 'Messages', },] : []),
     ];
 
     const validTab = (t: string | undefined,): Tab => {
         if (t === 'membership') return 'membership';
         if (t === 'orders' && showOrders()) return 'orders';
+        if (t === 'donations' && showDonations()) return 'donations';
         if (t === 'messages' && showMessages()) return 'messages';
         return 'profile';
     };
@@ -130,6 +136,25 @@ const Profile: Component = () => {
                 return [] as ShopOrder[];
             }
         },
+    );
+
+    // ── Donations ── Loaded eagerly once authenticated so the tab can be shown
+    // only when the user actually has donations (by their id OR account email —
+    // server-enforced; anonymous donations with the same email are included).
+    const [donations] = createResource(
+        () => (auth.isAuthenticated ? 'load' : null),
+        async () => {
+            try {
+                const res = await cms.payments.donations({ limit: 100, },);
+                return res.data as UserDonation[];
+            } catch {
+                return [] as UserDonation[];
+            }
+        },
+    );
+
+    const donationTotalCents = createMemo(() =>
+        (donations() ?? []).reduce((sum, d,) => sum + (d.amountCents || 0), 0,)
     );
 
     // ── Messages (loaded only when the Messages tab is opened) ──
@@ -341,6 +366,52 @@ const Profile: Component = () => {
                                                         <span class="profile__order-total">{formatCurrency(o.totalCents, o.currency,)}</span>
                                                     </div>
                                                 </A>
+                                            )}
+                                        </For>
+                                    </ul>
+                                </Show>
+                            </Show>
+                        </div>
+                    </Show>
+
+                    {/* ── Donations tab ── */}
+                    <Show when={tab() === 'donations'}>
+                        <div class="profile__card">
+                            <Show
+                                when={!donations.loading}
+                                fallback={<p class="profile__muted">Loading your donations…</p>}
+                            >
+                                <Show
+                                    when={(donations() ?? []).length}
+                                    fallback={<p class="profile__muted">You haven't made any donations yet.</p>}
+                                >
+                                    <div class="profile__donations-summary">
+                                        <span>{(donations() ?? []).length} donation{(donations() ?? []).length === 1 ? '' : 's'}</span>
+                                        <span class="profile__donations-total">
+                                            {formatCurrency(donationTotalCents(), 'USD',)} total
+                                        </span>
+                                    </div>
+                                    <ul class="profile__orders">
+                                        <For each={donations()}>
+                                            {(d,) => (
+                                                <li class="profile__order profile__order--static">
+                                                    <div class="profile__order-main">
+                                                        <span class="profile__order-number">
+                                                            {d.campaignTitle || 'General donation'}
+                                                        </span>
+                                                        <span class="profile__order-date">{fmtDate(d.createdAt,)}</span>
+                                                    </div>
+                                                    <div class="profile__order-meta">
+                                                        <Show when={d.campaignSlug}>
+                                                            <A href={`/donate/${d.campaignSlug}`} class="profile__donation-link">
+                                                                View campaign
+                                                            </A>
+                                                        </Show>
+                                                        <span class="profile__order-total">
+                                                            {formatCurrency(d.amountCents, 'USD',)}
+                                                        </span>
+                                                    </div>
+                                                </li>
                                             )}
                                         </For>
                                     </ul>

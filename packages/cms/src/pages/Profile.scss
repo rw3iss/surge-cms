@@ -235,6 +235,44 @@
         &--cancelled, &--refunded { background: #fee2e2; color: #991b1b; }
     }
 
+    // A donation row isn't a link itself (only its campaign link is), so it
+    // shouldn't show the hover affordance the clickable order rows have.
+    &__order--static {
+        cursor: default;
+
+        &:hover {
+            border-color: var(--site-border, #e5e7eb);
+            background: transparent;
+        }
+    }
+
+    // ── Donations ──
+    &__donations-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--site-border, #e5e7eb);
+        font-size: 0.95rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__donations-total {
+        font-weight: 700;
+        color: var(--site-text, #111827);
+    }
+
+    &__donation-link {
+        font-size: 0.8rem;
+        color: var(--site-link, #2f6fed);
+        text-decoration: none;
+        white-space: nowrap;
+
+        &:hover { text-decoration: underline; }
+    }
+
     // ── Messages ──
     &__messages {
         list-style: none;

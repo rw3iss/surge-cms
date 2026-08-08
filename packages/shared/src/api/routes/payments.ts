@@ -118,6 +118,33 @@ export interface UserTransaction {
  *  the envelope. */
 export type PaymentsTransactionsResponse = UserTransaction[];
 
+// ─── GET /payments/donations ──────────────────────────────────────────
+
+/** Query accepted by GET /payments/donations. */
+export interface PaymentsDonationsQuery {
+    page?: number;
+    limit?: number;
+}
+
+/** A completed donation as exposed to its owner (the /profile Donations tab).
+ *  Matched by the authenticated user's id OR email. */
+export interface UserDonation {
+    id: string;
+    amountCents: number;
+    message: string | null;
+    visibility: string;
+    status: string;
+    campaignId: string | null;
+    campaignTitle: string | null;
+    campaignSlug: string | null;
+    /** ISO date-time */
+    createdAt: string;
+}
+
+/** GET /payments/donations — the current user's donations. Page meta on the
+ *  envelope. */
+export type PaymentsDonationsResponse = UserDonation[];
+
 // ─── GET /payments/admin/subscriptions ────────────────────────────────
 
 /** Query accepted by GET /payments/admin/subscriptions. */

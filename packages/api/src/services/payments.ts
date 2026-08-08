@@ -256,6 +256,59 @@ export async function listUserTransactions(userId: string, page: number, limit: 
     return paginate(transactions, page, limit, total,);
 }
 
+/**
+ * List the current user's completed donations. Matched by the AUTHENTICATED
+ * user's own id OR their own email (case-insensitive) — so donations made while
+ * logged in AND anonymous donations made with the same email address both show.
+ * The caller passes `userId`/`email` derived from the auth token (never from
+ * client input), so a user can only ever see their own donations.
+ */
+export async function listMyDonations(
+    userId: string,
+    email: string | undefined,
+    page: number,
+    limit: number,
+): Promise<Paginated<unknown>> {
+    const offset = (page - 1) * limit;
+    const normEmail = (email || '').trim().toLowerCase();
+
+    // Owned = this user's id, or (their verified account email) matches the
+    // donor_email on an anonymous donation. Only 'completed' donations count.
+    const where = `WHERE d.status = 'completed'
+                     AND (d.user_id = $1 ${normEmail ? 'OR LOWER(d.donor_email) = $2' : ''})`;
+    const params: unknown[] = normEmail ? [userId, normEmail,] : [userId,];
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
+
+    const countResult = await query(`SELECT COUNT(*) FROM donations d ${where}`, params,);
+    const total = parseInt(countResult.rows[0].count, 10,);
+
+    const result = await query(
+        `SELECT d.id, d.amount_cents, d.message, d.visibility, d.status, d.created_at,
+                d.campaign_id, c.title AS campaign_title, c.slug AS campaign_slug
+             FROM donations d
+             LEFT JOIN campaigns c ON c.id = d.campaign_id
+             ${where}
+             ORDER BY d.created_at DESC
+             LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        [...params, limit, offset,],
+    );
+
+    const donations = result.rows.map((row,) => ({
+        id: row.id,
+        amountCents: row.amount_cents,
+        message: row.message,
+        visibility: row.visibility,
+        status: row.status,
+        campaignId: row.campaign_id,
+        campaignTitle: row.campaign_title,
+        campaignSlug: row.campaign_slug,
+        createdAt: row.created_at,
+    }));
+
+    return paginate(donations, page, limit, total,);
+}
+
 // ─── Admin endpoints ─────────────────────────────────────────────────
 
 export {
