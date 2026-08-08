@@ -25,6 +25,7 @@ import {
     Show,
 } from 'solid-js';
 import { formatHtml, } from '../../../utils/codeFormat';
+import TemplatedContent from '../../blocks/TemplatedContent';
 
 const STORAGE_KEY = 'sitesurge.editor.blockHeights';
 const DEFAULT_HEIGHT = 200;
@@ -212,9 +213,18 @@ const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
                         // the main block preview + public output (background
                         // image, color, font, padding, …).
                         style={props.contentStyle}
-                        // eslint-disable-next-line solid/no-innerhtml
-                        innerHTML={props.content || '<p style="color:#999;">No content yet.</p>'}
-                    />
+                    >
+                        {/* Render through TemplatedContent (same as the deselected
+                            block + public output) so {{ … }} variable syntax
+                            resolves to its real values here too, instead of showing
+                            the raw braces. */}
+                        <Show
+                            when={(props.content || '').trim()}
+                            fallback={<p style={{ color: '#999', }}>No content yet.</p>}
+                        >
+                            <TemplatedContent html={props.content} />
+                        </Show>
+                    </div>
                 </Show>
             </div>
 
