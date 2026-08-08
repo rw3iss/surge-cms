@@ -170,5 +170,19 @@
             flex-basis: 0 !important;
             max-width: none !important;
         }
+
+        // Center everything on mobile: each column's items, the columns within
+        // their row, and the bottom copyright row. Overrides the inline
+        // alignment the renderer applies from each column's settings.
+        &__row-inner {
+            justify-content: center !important;
+            align-items: center !important;
+        }
+
+        &__column {
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+        }
     }
 }
