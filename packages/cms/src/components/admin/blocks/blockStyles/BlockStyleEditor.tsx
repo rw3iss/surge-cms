@@ -40,7 +40,6 @@ const FONT_SIZE_OPTIONS = [
 ];
 
 const LINE_HEIGHT_OPTIONS = ['1', '1.15', '1.25', '1.4', '1.5', '1.6', '1.75', '2', '2.5',];
-const WIDTH_OPTIONS = ['100%', '66.666%', '50%', '33.333%', '25%', '20%',];
 const PADDING_OPTIONS = ['15px', '30px', '45px', '60px',];
 const MARGIN_OPTIONS = ['auto', '15px', '30px', '45px', '60px',];
 
@@ -56,9 +55,6 @@ const isCustomValue = (value: string | undefined, presets: string[], defaultVal:
 const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
     const toast = useToast();
     const [templateName, setTemplateName,] = createSignal(props.style.name || '',);
-    const [customWidth, setCustomWidth,] = createSignal(
-        isCustomValue(props.style.width, WIDTH_OPTIONS, BLOCK_STYLE_DEFAULTS.width,),
-    );
     const [customPadding, setCustomPadding,] = createSignal(
         isCustomValue(props.style.padding, PADDING_OPTIONS, BLOCK_STYLE_DEFAULTS.padding,),
     );
@@ -128,7 +124,6 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
         const bp = activeBp();
         if (bp === lastBp) return;
         lastBp = bp;
-        setCustomWidth(isCustomValue(sv('width',), WIDTH_OPTIONS, BLOCK_STYLE_DEFAULTS.width,),);
         setCustomPadding(isCustomValue(sv('padding',), PADDING_OPTIONS, BLOCK_STYLE_DEFAULTS.padding,),);
         setCustomMargin(isCustomValue(sv('margin',), MARGIN_OPTIONS, BLOCK_STYLE_DEFAULTS.margin,),);
     },);
@@ -167,15 +162,9 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
             name: props.style.name,
             isDefault: props.style.isDefault,
         } as BlockStyleData,);
-        setCustomWidth(false,);
         setCustomPadding(false,);
         setCustomMargin(false,);
         toast.info('Style reset to defaults',);
-    };
-
-    const handleCancelCustomWidth = () => {
-        update('width', undefined,);
-        setCustomWidth(false,);
     };
 
     const handleCancelCustomPadding = () => {
@@ -386,51 +375,27 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     />
                 </div>
 
-                {/* Width */}
+                {/* Width — a free CSS-value input (matches Max Width). `full`
+                    (and legacy `none`) resolve to 100% in the renderer via
+                    normalizeCssWidth, so "fill the container" still has a word. */}
                 <div class="block-style-editor__field">
                     <label class="block-style-editor__label">
                         Width
                         <Tooltip
                             header="CSS Width"
-                            content="Any CSS length: %, px, vw, rem, em, auto, max-content, min-content, or calc() expressions."
+                            content="Any CSS length: %, px, vw, rem, em, auto, full (= 100%), max-content, min-content, or calc() expressions."
                         />
                     </label>
                     <div class="block-style-editor__field-right">
-                        <Show
-                            when={!customWidth()}
-                            fallback={
-                                <div class="block-style-editor__custom-input-row">
-                                    <input
-                                        type="text"
-                                        class="block-style-editor__custom-input"
-                                        value={sv('width') || ''}
-                                        onChange={(e,) => update('width', e.currentTarget.value,)}
-                                        placeholder="e.g. 50%, 300px"
-                                    />
-                                    <button class="btn btn--small btn--ghost" onClick={handleCancelCustomWidth}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            }
-                        >
-                            <div class="block-style-editor__preset-row">
-                                <select
-                                    class="block-style-editor__select"
-                                    value={sv('width') || BLOCK_STYLE_DEFAULTS.width}
-                                    onChange={(e,) => update('width', e.currentTarget.value,)}
-                                >
-                                    <option value="100%">Full</option>
-                                    <option value="66.666%">2/3</option>
-                                    <option value="50%">Half</option>
-                                    <option value="33.333%">1/3</option>
-                                    <option value="25%">1/4</option>
-                                    <option value="20%">1/5</option>
-                                </select>
-                                <button class="btn btn--small btn--link" onClick={() => setCustomWidth(true,)}>
-                                    Custom
-                                </button>
-                            </div>
-                        </Show>
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="text"
+                                class="block-style-editor__custom-input"
+                                value={sv('width') || ''}
+                                onChange={(e,) => update('width', e.currentTarget.value,)}
+                                placeholder="e.g. full, 50%, 300px"
+                            />
+                        </div>
                     </div>
                 </div>
 

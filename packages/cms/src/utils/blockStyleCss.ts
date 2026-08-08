@@ -40,6 +40,23 @@ export interface BlockStyleCssOptions extends BlockStyleCssResolvers {
 type CssRecord = Record<string, string | undefined>;
 
 /**
+ * Normalize a block-style `width` value to a real CSS width.
+ *
+ * `full` (and the legacy `none`) are friendly aliases the width control offers
+ * as "fill the container" — they are NOT valid CSS width keywords, so the
+ * browser silently dropped them and the block never actually went full-width.
+ * They now resolve to `100%`. Every other value (%, px, vw, rem, auto,
+ * max-content, calc(), …) passes through untouched. Empty/undefined → omitted.
+ */
+export function normalizeCssWidth(width: unknown,): string | undefined {
+    const v = String(width ?? '',).trim();
+    if (!v) return undefined;
+    const lower = v.toLowerCase();
+    if (lower === 'full' || lower === 'none') return '100%';
+    return v;
+}
+
+/**
  * Build the layout + typography CSS for a resolved block style. Returns only
  * the properties the style actually sets (everything else omitted), so the
  * result can be spread into a larger style object without clobbering.
@@ -72,7 +89,8 @@ export function blockStyleLayoutCss(
 
     // Box sizing. A group_item's slot sizing owns width/flex, so it opts out.
     if (!opts.suppressBox) {
-        if (s.width) out.width = s.width;
+        const w = normalizeCssWidth(s.width,);
+        if (w) out.width = w;
         if (s.maxWidth) out['max-width'] = s.maxWidth;
         if (s.height && !opts.suppressHeight) out.height = s.height;
     }
