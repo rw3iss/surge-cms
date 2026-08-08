@@ -26,8 +26,13 @@ export interface ImageLinkValue {
     mediaId?: string;
 }
 
+// Individual props (not a `value` object) so Solid tracks each field
+// reactively — an object-literal prop is re-created per render but its inner
+// reads weren't reliably re-tracked, so a media selection didn't re-render.
 interface ImageLinkPickerProps {
-    value: ImageLinkValue;
+    imageUrl?: string;
+    mediaUrl?: string;
+    mediaId?: string;
     onChange: (patch: Partial<ImageLinkValue>,) => void;
 }
 
@@ -35,9 +40,9 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
     const [showSelect, setShowSelect,] = createSignal(false,);
     const [showUpload, setShowUpload,] = createSignal(false,);
 
-    const src = () => resolveImageSrc(props.value.imageUrl, props.value.mediaUrl,);
-    const hasMedia = () => Boolean(props.value.mediaId || props.value.mediaUrl);
-    const urlOverrides = () => Boolean((props.value.imageUrl ?? '').trim()) && hasMedia();
+    const src = () => resolveImageSrc(props.imageUrl, props.mediaUrl,);
+    const hasMedia = () => Boolean(props.mediaId || props.mediaUrl);
+    const urlOverrides = () => Boolean((props.imageUrl ?? '').trim()) && hasMedia();
 
     const pickMedia = (m: MediaItem,) => {
         // Set the library selection; leave any external URL intact (it still wins,
@@ -80,7 +85,7 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
                 <span class="image-link-picker__label">Image URL</span>
                 <input
                     type="text"
-                    value={props.value.imageUrl ?? ''}
+                    value={props.imageUrl ?? ''}
                     placeholder="/uploads/… or https://… (optional)"
                     onInput={(e,) => props.onChange({ imageUrl: e.currentTarget.value, },)}
                 />

@@ -8,19 +8,27 @@
   // post/slide area in a narrow block or on small screens, not just the
   // viewport.
   container-type: inline-size;
+  // Flex column so the track (and therefore the slides) STRETCH to fill the
+  // carousel's box — whether it's sized by an explicit `height` or only by a
+  // `min-height` (e.g. a per-breakpoint block style). A child `height:100%` is
+  // indefinite against a min-height-only parent, which left grey gaps above/
+  // below the slides; `flex:1` fills it for every breakpoint + style.
+  display: flex;
+  flex-direction: column;
 
   &__empty {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    flex: 1;
     color: $text-light;
     font-size: $font-size-lg;
   }
 
   &__track {
     display: flex;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     will-change: transform;
   }
 
@@ -28,7 +36,9 @@
     position: relative;
     flex: 0 0 100%;
     width: 100%;
-    height: 100%;
+    // Fill the track's height (the track is flex:1 of the carousel box).
+    height: auto;
+    align-self: stretch;
   }
 
   // ─── Media background ───

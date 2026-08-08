@@ -1699,7 +1699,9 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                 <div class="footer-editor__field">
                     <span>Image</span>
                     <ImageLinkPicker
-                        value={{ imageUrl: props.item.imageUrl, mediaUrl: props.item.mediaUrl, mediaId: props.item.mediaId, }}
+                        imageUrl={props.item.imageUrl}
+                        mediaUrl={props.item.mediaUrl}
+                        mediaId={props.item.mediaId}
                         onChange={(patch,) => props.onChange(patch,)}
                     />
                 </div>

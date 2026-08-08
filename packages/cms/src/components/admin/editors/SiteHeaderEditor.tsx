@@ -979,7 +979,9 @@ const SiteHeaderEditor: Component = () => {
                                     <div class="site-header-edit-panel__field">
                                         <label class="site-header-edit-panel__label">Image</label>
                                         <ImageLinkPicker
-                                            value={{ imageUrl: item().imageUrl, mediaUrl: item().mediaUrl, mediaId: item().mediaId, }}
+                                            imageUrl={item().imageUrl}
+                                            mediaUrl={item().mediaUrl}
+                                            mediaId={item().mediaId}
                                             onChange={(patch,) => {
                                                 if ('imageUrl' in patch) updateEditField('imageUrl', patch.imageUrl,);
                                                 if ('mediaUrl' in patch) updateEditField('mediaUrl', patch.mediaUrl,);
