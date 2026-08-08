@@ -124,17 +124,19 @@ const ApiKeysPanel: Component = () => {
 
                     <div class="form-group">
                         <label>Scopes</label>
-                        <For each={SCOPES}>
-                            {(s,) => (
-                                <div class="checkbox-label">
-                                    <Toggle
-                                        checked={scopes().includes(s,)}
-                                        onChange={() => toggleScope(s,)}
-                                        label={s}
-                                    />
-                                </div>
-                            )}
-                        </For>
+                        <div class="u-flex-col" style={{ gap: '6px', 'margin-bottom': '8px', }}>
+                            <For each={SCOPES}>
+                                {(s,) => (
+                                    <div class="checkbox-label">
+                                        <Toggle
+                                            checked={scopes().includes(s,)}
+                                            onChange={() => toggleScope(s,)}
+                                            label={s}
+                                        />
+                                    </div>
+                                )}
+                            </For>
+                        </div>
                         <p class="form-help-muted">
                             read &lt; write &lt; admin (hierarchical). GET endpoints need
                             read; mutations need write.
