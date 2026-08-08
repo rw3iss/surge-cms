@@ -11,6 +11,7 @@ import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateCampaignsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import { usePluginEnabled, } from '../../hooks/usePluginGate';
+import CampaignDonations from './CampaignDonations';
 
 interface GbCampaign { id: number; code: string; title: string; }
 
@@ -504,6 +505,11 @@ const CampaignEditor: Component = () => {
                         </Show>
                     </div>
                 </form>
+
+                {/* Donations table — existing campaigns only. */}
+                <Show when={!isNew()}>
+                    <CampaignDonations campaignId={params.id} />
+                </Show>
             </Show>
         </div>
     );

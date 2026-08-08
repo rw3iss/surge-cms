@@ -1,6 +1,7 @@
 import type {
     CampaignListQuery, CampaignPublicListResponse, CampaignAdminListResponse,
     CampaignBySlugResponse, CampaignDonationsQuery, CampaignDonationsResponse,
+    CampaignAdminDonationsQuery, CampaignAdminDonationsResponse,
     CampaignDonationSummaryResponse, CampaignAllDonationsQuery, CampaignAllDonationsResponse,
     CampaignByIdResponse, CampaignCreateBody, CampaignCreateResponse, CampaignUpdateBody,
     CampaignUpdateResponse, CampaignDeleteResponse, CampaignBulkBody, CampaignBulkResponse,
@@ -30,6 +31,11 @@ export class CampaignsModule extends ModuleBase {
     /** GET /campaigns/:id/donations — masked public donations, paginated. */
     donations(id: string, query?: CampaignDonationsQuery,): Promise<Paginated<CampaignDonationsResponse[number]>> {
         return this.getPaged<CampaignDonationsResponse[number]>('/campaigns/:id/donations', { params: { id, }, query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /campaigns/:id/donations/admin — full donor rows, searchable + sortable. */
+    adminDonations(id: string, query?: CampaignAdminDonationsQuery,): Promise<Paginated<CampaignAdminDonationsResponse[number]>> {
+        return this.getPaged<CampaignAdminDonationsResponse[number]>('/campaigns/:id/donations/admin', { params: { id, }, query: query as Record<string, unknown>, },);
     }
 
     /** GET /campaigns/donations/summary — dashboard donation totals (admin). */

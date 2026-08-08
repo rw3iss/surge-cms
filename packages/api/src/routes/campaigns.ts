@@ -3,6 +3,7 @@ import type {
     AssertCompatible,
     CampaignAllDonationsQuery,
     CampaignCreateBody,
+    CampaignAdminDonationsQuery,
     CampaignDonationsQuery,
     CampaignListQuery,
 } from '@sitesurge/types';
@@ -54,6 +55,14 @@ const allDonationsQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(50,),
 },);
+
+const adminDonationsQuery = z.object({
+    page: z.coerce.number().int().min(1,).default(1,),
+    limit: z.coerce.number().int().min(1,).max(100,).default(20,),
+    search: z.string().optional(),
+    sortBy: z.enum(['name', 'email', 'amount', 'date', 'status',],).optional(),
+    sortOrder: z.enum(['asc', 'desc',],).optional(),
+},) satisfies z.ZodType<CampaignAdminDonationsQuery>;
 
 const idParams = z.object({ id: z.string(), },);
 
@@ -137,6 +146,20 @@ export const campaignsRoutes = [
                 params.id,
                 { page: query.page, limit: query.limit, },
             );
+            return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    // Admin donations table for a campaign: full donor info, search + sort.
+    defineRoute({
+        method: 'get', path: '/:id/donations/admin', auth: 'staff',
+        summary: 'Admin donations table for a campaign (full donor info; searchable + sortable).',
+        input: { params: idParams, query: adminDonationsQuery, },
+        handler: async ({ params, query, },) => {
+            const result = await campaigns.listCampaignDonationsAdmin(params.id, {
+                page: query.page, limit: query.limit, search: query.search,
+                sortBy: query.sortBy, sortOrder: query.sortOrder,
+            },);
             return reply(result.data, { meta: result.meta, },);
         },
     },),

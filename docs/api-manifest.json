@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-08T16:18:40.703Z",
+  "generatedAt": "2026-08-08T16:52:22.345Z",
   "totalModules": 31,
-  "totalRoutes": 282,
+  "totalRoutes": 284,
   "modules": [
     {
       "module": "api-keys",
@@ -221,6 +221,13 @@
           "summary": "List a campaign's donations."
         },
         {
+          "method": "GET",
+          "path": "/:id/donations/admin",
+          "absolutePath": "/api/v1/campaigns/:id/donations/admin",
+          "auth": "staff",
+          "summary": "Admin donations table for a campaign (full donor info; searchable + sortable)."
+        },
+        {
           "method": "POST",
           "path": "/bulk",
           "absolutePath": "/api/v1/campaigns/bulk",
@@ -329,6 +336,13 @@
           "absolutePath": "/api/v1/dashboard/summary",
           "auth": "admin",
           "summary": "Admin dashboard stats (counts + recent activity + quick actions)."
+        },
+        {
+          "method": "POST",
+          "path": "/dismiss-pending-donations",
+          "absolutePath": "/api/v1/dashboard/dismiss-pending-donations",
+          "auth": "admin",
+          "summary": "Dismiss the pending-donations alert for all admins (records \"now\")."
         }
       ]
     },

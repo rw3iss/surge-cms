@@ -6,6 +6,28 @@
 import type { DashboardRecentPost, } from '@sitesurge/types';
 import { query, } from '../db';
 
+// Key in site_settings holding the ISO timestamp at which an admin last
+// dismissed the "pending donations" alert. The alert only counts pending
+// donations created AFTER this — so a dismiss clears it for every admin, and a
+// NEW pending donation re-surfaces it. Stored raw (no cache) — read once/render.
+const PENDING_ACK_KEY = 'dashboard_pending_donations_ack';
+
+async function getPendingDonationsAck(): Promise<string | null> {
+    const r = await query(`SELECT value FROM site_settings WHERE key = $1`, [PENDING_ACK_KEY,],);
+    // Stored as a JSON string; `value` is JSONB → a bare string.
+    const v = r.rows[0]?.value;
+    return typeof v === 'string' ? v : null;
+}
+
+/** Dismiss the pending-donations alert for all admins (records "now"). */
+export async function dismissPendingDonations(): Promise<void> {
+    await query(
+        `INSERT INTO site_settings (key, value) VALUES ($1, to_jsonb(NOW()::text))
+         ON CONFLICT (key) DO UPDATE SET value = to_jsonb(NOW()::text), updated_at = NOW()`,
+        [PENDING_ACK_KEY,],
+    );
+}
+
 export interface DashboardSummary {
     pages: { total: number; };
     posts: { total: number; };
@@ -15,10 +37,14 @@ export interface DashboardSummary {
     donations: { last30Days: { count: number; totalCents: number; }; };
     forms: { submissionsLast30Days: number; };
     recentPosts: DashboardRecentPost[];
-    quickActions: Array<{ label: string; href: string; urgent: boolean; }>;
+    quickActions: Array<{ label: string; href: string; urgent: boolean; dismissKey?: string; }>;
 }
 
 export async function summary(): Promise<DashboardSummary> {
+    // Pending-donations alert is scoped to donations created AFTER the last
+    // dismiss, so an X on the dashboard clears it for everyone until a new
+    // pending donation arrives.
+    const pendingAck = await getPendingDonationsAck();
     const [
         pageCount,
         postCount,
@@ -48,13 +74,15 @@ export async function summary(): Promise<DashboardSummary> {
         query(`SELECT id, title, slug, status, created_at FROM posts
         ORDER BY created_at DESC LIMIT 5`,),
         query(`SELECT COUNT(*) FROM subscriptions WHERE status = 'active'`,),
-        query(`SELECT COUNT(*) FROM donations WHERE status = 'pending'`,),
+        pendingAck
+            ? query(`SELECT COUNT(*) FROM donations WHERE status = 'pending' AND created_at > $1`, [pendingAck,],)
+            : query(`SELECT COUNT(*) FROM donations WHERE status = 'pending'`,),
     ],);
 
     const unreadCount = parseInt(unreadMessages.rows[0].count, 10,);
     const pendingCount = parseInt(pendingDonations.rows[0].count, 10,);
 
-    const quickActions: Array<{ label: string; href: string; urgent: boolean; }> = [];
+    const quickActions: Array<{ label: string; href: string; urgent: boolean; dismissKey?: string; }> = [];
 
     if (unreadCount > 0) {
         quickActions.push({
@@ -69,6 +97,7 @@ export async function summary(): Promise<DashboardSummary> {
             label: `${pendingCount} pending donation${pendingCount !== 1 ? 's' : ''}`,
             href: '/admin/campaigns',
             urgent: pendingCount > 0,
+            dismissKey: 'pending-donations',
         },);
     }
 

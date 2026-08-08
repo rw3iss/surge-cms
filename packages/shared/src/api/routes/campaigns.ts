@@ -99,6 +99,36 @@ export interface CampaignDonationsQuery {
  *  the envelope. */
 export type CampaignDonationsResponse = PublicDonation[];
 
+// ─── GET /campaigns/:id/donations/admin ───────────────────────────
+
+/** Query accepted by GET /campaigns/:id/donations/admin. */
+export interface CampaignAdminDonationsQuery {
+    page?: number;
+    limit?: number;
+    /** Search across donor name OR email (all rows, server-side). */
+    search?: string;
+    sortBy?: 'name' | 'email' | 'amount' | 'date' | 'status';
+    sortOrder?: 'asc' | 'desc';
+}
+
+/** One admin donation row — full donor info (name + email + status). */
+export interface AdminCampaignDonation {
+    id: string;
+    donorName: string | null;
+    donorEmail: string;
+    amountCents: number;
+    status: string;
+    message: string | null;
+    visibility: string;
+    userId: string | null;
+    /** ISO date-time */
+    createdAt: string;
+}
+
+/** GET /campaigns/:id/donations/admin — full donor rows. Page meta on the
+ *  envelope. */
+export type CampaignAdminDonationsResponse = AdminCampaignDonation[];
+
 // ─── POST /campaigns/bulk ─────────────────────────────────────────
 
 /** Body for POST /campaigns/bulk (unified bulk runner). */

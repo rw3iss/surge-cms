@@ -1,6 +1,6 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 
@@ -21,7 +21,7 @@ const DASHBOARD_FEATURES: Array<{ key: 'posts' | 'campaigns' | 'forms' | 'messag
 ];
 
 const AdminDashboard: Component = () => {
-    const [stats,] = createResource(async () => {
+    const [stats, { refetch: refetchStats, },] = createResource(async () => {
         try {
             // Fetch fresh on every dashboard mount so counts (e.g. unread
             // messages) reflect the latest data rather than a stale cached hit.
@@ -30,6 +30,16 @@ const AdminDashboard: Component = () => {
             return null;
         }
     },);
+
+    // Locally-dismissed alert keys (also cleared server-side so all admins see it).
+    const [dismissed, setDismissed,] = createSignal<Set<string>>(new Set<string>(),);
+    const dismissAlert = async (key: string,) => {
+        setDismissed((prev,) => new Set(prev,).add(key,),);
+        if (key === 'pending-donations') {
+            try { await cms.dashboard.dismissPendingDonations(); } catch { /* error bus */ }
+            refetchStats();
+        }
+    };
 
     // Make the feature flags reactive on the dashboard the same way
     // they are in the sidebar — load once, then read through
@@ -55,15 +65,28 @@ const AdminDashboard: Component = () => {
                 {(data,) => (
                     <>
                         {/* Urgent Actions Banner */}
-                        <Show when={data().quickActions?.some((a: any,) => a.urgent)}>
+                        <Show when={data().quickActions?.some((a: any,) => a.urgent && !dismissed().has(a.dismissKey ?? '',))}>
                             <div class="dashboard-alerts">
-                                <For each={data().quickActions?.filter((a: any,) => a.urgent)}>
+                                <For each={data().quickActions?.filter((a: any,) => a.urgent && !dismissed().has(a.dismissKey ?? '',))}>
                                     {(action: any,) => (
-                                        <A href={action.href} class="dashboard-alert dashboard-alert--warning">
-                                            <span class="dashboard-alert__icon">!</span>
-                                            <span>{action.label}</span>
-                                            <span class="dashboard-alert__arrow">&rarr;</span>
-                                        </A>
+                                        <div class="dashboard-alert dashboard-alert--warning">
+                                            <A href={action.href} class="dashboard-alert__link">
+                                                <span class="dashboard-alert__icon">!</span>
+                                                <span>{action.label}</span>
+                                                <span class="dashboard-alert__arrow">&rarr;</span>
+                                            </A>
+                                            <Show when={action.dismissKey}>
+                                                <button
+                                                    type="button"
+                                                    class="dashboard-alert__dismiss"
+                                                    aria-label="Dismiss"
+                                                    title="Dismiss for all admins"
+                                                    onClick={() => dismissAlert(action.dismissKey,)}
+                                                >
+                                                    &times;
+                                                </button>
+                                            </Show>
+                                        </div>
                                     )}
                                 </For>
                             </div>

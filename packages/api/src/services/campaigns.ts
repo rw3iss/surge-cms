@@ -154,6 +154,23 @@ export async function listDonationsForCampaign(
     };
 }
 
+/** Admin donations table for one campaign: full donor info, searchable +
+ *  sortable (server-side, across all rows). */
+export async function listCampaignDonationsAdmin(
+    campaignId: string,
+    opts: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; } = {},
+): Promise<ListResult<Record<string, unknown>>> {
+    const page = opts.page ?? 1;
+    const limit = opts.limit ?? 20;
+    const result = await repo.findCampaignDonationsAdmin(campaignId, {
+        page, limit, search: opts.search, sortBy: opts.sortBy, sortOrder: opts.sortOrder,
+    },);
+    return {
+        data: result.data,
+        meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
+    };
+}
+
 export async function listAllDonations(
     filters: { campaignId?: string; status?: string; } = {},
     pagination: PaginationOpts = {},

@@ -172,6 +172,73 @@ export async function findCampaignDonations(
     return { data, total, };
 }
 
+/** Whitelist of sortable columns for the admin campaign-donations table →
+ *  SQL column. Prevents injection while allowing header-click sorting. */
+const ADMIN_DONATION_SORT: Record<string, string> = {
+    name: 'donor_name',
+    email: 'donor_email',
+    amount: 'amount_cents',
+    date: 'created_at',
+    status: 'status',
+};
+
+/**
+ * Admin view of a campaign's donations — FULL donor info (name, email, amount,
+ * status, date, message), searchable (name OR email, across ALL rows) and
+ * sortable by any whitelisted column. Unlike the public donor-wall query this
+ * shows every status (incl. pending/refunded) and never masks anonymous names,
+ * since it's admin-only.
+ */
+export async function findCampaignDonationsAdmin(
+    campaignId: string,
+    opts: {
+        page: number;
+        limit: number;
+        search?: string;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+    },
+): Promise<PaginatedResult<Record<string, unknown>>> {
+    const params: unknown[] = [campaignId,];
+    let where = `WHERE d.campaign_id = $1`;
+    const term = (opts.search ?? '').trim();
+    if (term) {
+        params.push(`%${term}%`,);
+        where += ` AND (d.donor_name ILIKE $${params.length} OR d.donor_email ILIKE $${params.length})`;
+    }
+
+    const countResult = await query(`SELECT COUNT(*) FROM donations d ${where}`, params,);
+    const total = parseInt(countResult.rows[0].count, 10,);
+
+    const sortCol = ADMIN_DONATION_SORT[opts.sortBy ?? 'date'] ?? 'created_at';
+    const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const offset = (opts.page - 1) * opts.limit;
+    params.push(opts.limit, offset,);
+
+    const result = await query(
+        `SELECT d.id, d.donor_name, d.donor_email, d.amount_cents, d.status,
+                d.message, d.visibility, d.user_id, d.created_at
+             FROM donations d ${where}
+             ORDER BY ${sortCol} ${sortDir}, d.created_at DESC
+             LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
+    );
+
+    const data = result.rows.map((row,) => ({
+        id: row.id,
+        donorName: row.donor_name,
+        donorEmail: row.donor_email,
+        amountCents: row.amount_cents,
+        status: row.status,
+        message: row.message,
+        visibility: row.visibility,
+        userId: row.user_id,
+        createdAt: row.created_at,
+    }));
+
+    return { data, total, };
+}
+
 export async function findAllDonations(
     filters: { campaignId?: string; status?: string; },
     pagination: PaginationOptions,

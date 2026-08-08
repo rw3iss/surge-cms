@@ -18,6 +18,9 @@ export interface DashboardQuickAction {
     label: string;
     href: string;
     urgent: boolean;
+    /** When set, the alert is dismissible (X) via a matching dashboard action
+     *  (e.g. 'pending-donations' → POST /dashboard/dismiss-pending-donations). */
+    dismissKey?: string;
 }
 
 /** GET /api/v1/dashboard/summary — admin stats + recent activity. */

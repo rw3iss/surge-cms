@@ -11,4 +11,9 @@ export class DashboardModule extends ModuleBase {
     summary(fresh = false,): Promise<DashboardSummaryResponse> {
         return this.get<DashboardSummaryResponse>('/dashboard/summary', fresh ? { options: { cache: false, }, } : {},);
     }
+
+    /** POST /dashboard/dismiss-pending-donations — clear the alert for all admins. */
+    dismissPendingDonations(): Promise<{ ok: boolean; }> {
+        return this.mutate<{ ok: boolean; }>('POST', '/dashboard/dismiss-pending-donations',);
+    }
 }
