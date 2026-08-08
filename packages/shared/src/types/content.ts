@@ -412,9 +412,16 @@ export interface SiteLayoutItem {
     type: SiteLayoutItemType;
     text?: string;
     url?: string;
+    /** External image URL override for image / image_link items. Takes
+     *  precedence over a selected media image (`mediaUrl`) when non-empty; clear
+     *  it to fall back to the media library selection. */
     imageUrl?: string;
+    /** URL of the selected media-library asset (set when picking from the
+     *  library). Used as the image source when `imageUrl` is empty. */
+    mediaUrl?: string;
     /** Alt text for image / image_link items (accessibility + SEO). */
     altText?: string;
+    /** Selected media-library asset id (companion to `mediaUrl`). */
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;

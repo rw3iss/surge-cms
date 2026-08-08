@@ -3,6 +3,7 @@ import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutIte
 import { Component, For, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
+import { resolveImageSrc, } from '../../utils/imageSrc';
 import './Footer.scss';
 
 /**
@@ -86,7 +87,14 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
 
     switch (item().type) {
         case 'image':
-            return <img src={item().imageUrl} alt={item().altText || ''} class="footer__item-img" style={baseStyle()} />;
+            return (
+                <img
+                    src={resolveImageSrc(item().imageUrl, item().mediaUrl,)}
+                    alt={item().altText || ''}
+                    class="footer__item-img"
+                    style={baseStyle()}
+                />
+            );
 
         case 'image_link':
             return (
@@ -98,7 +106,7 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
                     style={baseStyle()}
                 >
                     <img
-                        src={item().imageUrl}
+                        src={resolveImageSrc(item().imageUrl, item().mediaUrl,)}
                         alt={item().altText || item().text || ''}
                         style={item().width ? { width: item().width, } : undefined}
                     />

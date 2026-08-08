@@ -5,7 +5,9 @@ import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
 import ColorPicker from '../appearance/ColorPicker';
 import FontSelect from '../common/FontSelect';
+import ImageLinkPicker from '../media/ImageLinkPicker';
 import Toggle from '../common/Toggle';
+import { resolveImageSrc, } from '../../../utils/imageSrc';
 import Tooltip from '../common/Tooltip';
 import { useToast, } from '../../common/toast';
 import './SiteFooterEditor.scss';
@@ -931,12 +933,12 @@ function EditableItem(props: {
     const renderContent = () => {
         switch (it().type) {
             case 'image':
-                return <img src={it().imageUrl} alt={it().altText || ''} style={baseStyle()} class="footer__item-img" />;
+                return <img src={resolveImageSrc(it().imageUrl, it().mediaUrl,)} alt={it().altText || ''} style={baseStyle()} class="footer__item-img" />;
             case 'image_link':
                 return (
                     <span style={baseStyle()} class="footer__item-img-link">
                         <img
-                            src={it().imageUrl}
+                            src={resolveImageSrc(it().imageUrl, it().mediaUrl,)}
                             alt={it().altText || it().text || ''}
                             style={it().width ? { width: it().width, } : undefined}
                         />
@@ -1694,15 +1696,13 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
             </Show>
 
             <Show when={supportsImage()}>
-                <label class="footer-editor__field">
-                    <span>Image URL</span>
-                    <input
-                        type="text"
-                        value={props.item.imageUrl ?? ''}
-                        placeholder="/uploads/… or https://…"
-                        onInput={(e,) => props.onChange({ imageUrl: e.currentTarget.value, },)}
+                <div class="footer-editor__field">
+                    <span>Image</span>
+                    <ImageLinkPicker
+                        value={{ imageUrl: props.item.imageUrl, mediaUrl: props.item.mediaUrl, mediaId: props.item.mediaId, }}
+                        onChange={(patch,) => props.onChange(patch,)}
                     />
-                </label>
+                </div>
                 <label class="footer-editor__field">
                     <span>Alt Text</span>
                     <input

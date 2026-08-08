@@ -5,8 +5,8 @@ import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
 import FontSelect from '../common/FontSelect';
-import MediaSelectModal from '../media/MediaSelectModal';
-import MediaUploadModal from '../media/MediaUploadModal';
+import ImageLinkPicker from '../media/ImageLinkPicker';
+import { resolveImageSrc, } from '../../../utils/imageSrc';
 import Tooltip from '../common/Tooltip';
 import Toggle from '../common/Toggle';
 import './SiteHeaderEditor.scss';
@@ -20,7 +20,10 @@ interface SiteHeaderItem {
     type: HeaderItemType;
     text?: string;
     url?: string;
+    /** External image URL override — wins over `mediaUrl` when non-empty. */
     imageUrl?: string;
+    /** Selected media-library asset URL (used when `imageUrl` is empty). */
+    mediaUrl?: string;
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
@@ -140,10 +143,7 @@ const SiteHeaderEditor: Component = () => {
     // Edit panel local state
     const [editItem, setEditItem,] = createSignal<SiteHeaderItem | null>(null,);
 
-    // Media modals
     const [showSettings, setShowSettings,] = createSignal(false,);
-    const [showMediaSelect, setShowMediaSelect,] = createSignal(false,);
-    const [showMediaUpload, setShowMediaUpload,] = createSignal(false,);
 
     // Custom input toggles
     const [customWidth, setCustomWidth,] = createSignal(false,);
@@ -387,8 +387,8 @@ const SiteHeaderEditor: Component = () => {
         switch (item.type) {
             case 'image':
                 return (
-                    <Show when={item.imageUrl} fallback={<span class="site-header-preview__placeholder">IMG</span>}>
-                        <img src={item.imageUrl} alt="" class="site-header-preview__img" />
+                    <Show when={resolveImageSrc(item.imageUrl, item.mediaUrl,)} fallback={<span class="site-header-preview__placeholder">IMG</span>}>
+                        <img src={resolveImageSrc(item.imageUrl, item.mediaUrl,)} alt="" class="site-header-preview__img" />
                     </Show>
                 );
             case 'image_link': {
@@ -404,7 +404,7 @@ const SiteHeaderEditor: Component = () => {
                 };
                 const hAlign = item.alignment || 'center';
                 return (
-                    <Show when={item.imageUrl} fallback={<span class="site-header-preview__placeholder">IMG</span>}>
+                    <Show when={resolveImageSrc(item.imageUrl, item.mediaUrl,)} fallback={<span class="site-header-preview__placeholder">IMG</span>}>
                         <div
                             style={{
                                 display: 'flex',
@@ -415,7 +415,7 @@ const SiteHeaderEditor: Component = () => {
                             }}
                         >
                             <img
-                                src={item.imageUrl}
+                                src={resolveImageSrc(item.imageUrl, item.mediaUrl,)}
                                 alt=""
                                 class="site-header-preview__img"
                                 style={{
@@ -480,18 +480,6 @@ const SiteHeaderEditor: Component = () => {
     const needsButtonColor = (type: HeaderItemType,) => type === 'button';
 
     const needsCommonStyles = (type: HeaderItemType,) => !['gap', 'flex_spacer',].includes(type,);
-
-    const handleMediaSelect = (media: any,) => {
-        updateEditField('imageUrl', media.url,);
-        updateEditField('mediaId', media.id,);
-        setShowMediaSelect(false,);
-    };
-
-    const handleMediaUpload = (media: any,) => {
-        updateEditField('imageUrl', media.url,);
-        updateEditField('mediaId', media.id,);
-        setShowMediaUpload(false,);
-    };
 
     // ─── Render ───
 
@@ -985,41 +973,19 @@ const SiteHeaderEditor: Component = () => {
                                     </select>
                                 </div>
 
-                                {/* Image select/upload */}
+                                {/* Image: library select / upload / external URL
+                                    (shared with the Site Footer via ImageLinkPicker). */}
                                 <Show when={needsImage(currentType(),)}>
                                     <div class="site-header-edit-panel__field">
                                         <label class="site-header-edit-panel__label">Image</label>
-                                        <Show when={item().imageUrl}>
-                                            <div class="site-header-edit-panel__image-preview">
-                                                <img src={item().imageUrl} alt="" />
-                                            </div>
-                                        </Show>
-                                        <div class="site-header-edit-panel__btn-row">
-                                            <button
-                                                class="btn btn--secondary btn--small"
-                                                onClick={() => setShowMediaSelect(true,)}
-                                            >
-                                                Select Media
-                                            </button>
-                                            <button
-                                                class="btn btn--outline btn--small"
-                                                onClick={() => setShowMediaUpload(true,)}
-                                            >
-                                                Upload New
-                                            </button>
-                                            <Show when={item().imageUrl}>
-                                                <button
-                                                    class="btn btn--danger btn--small"
-                                                    onClick={() => {
-                                                        updateEditField('imageUrl', undefined,);
-                                                        updateEditField('mediaId', undefined,);
-                                                    }}
-                                                    title="Remove image"
-                                                >
-                                                    &times;
-                                                </button>
-                                            </Show>
-                                        </div>
+                                        <ImageLinkPicker
+                                            value={{ imageUrl: item().imageUrl, mediaUrl: item().mediaUrl, mediaId: item().mediaId, }}
+                                            onChange={(patch,) => {
+                                                if ('imageUrl' in patch) updateEditField('imageUrl', patch.imageUrl,);
+                                                if ('mediaUrl' in patch) updateEditField('mediaUrl', patch.mediaUrl,);
+                                                if ('mediaId' in patch) updateEditField('mediaId', patch.mediaId,);
+                                            }}
+                                        />
                                     </div>
                                 </Show>
 
@@ -1462,22 +1428,6 @@ const SiteHeaderEditor: Component = () => {
                         );
                     }}
                 </Show>
-            </Show>
-
-            {/* ─── Modals ─── */}
-            <Show when={showMediaSelect()}>
-                <MediaSelectModal
-                    types={['image',]}
-                    onSelect={handleMediaSelect}
-                    onClose={() => setShowMediaSelect(false,)}
-                />
-            </Show>
-            <Show when={showMediaUpload()}>
-                <MediaUploadModal
-                    acceptTypes="image/*"
-                    onUploaded={handleMediaUpload}
-                    onClose={() => setShowMediaUpload(false,)}
-                />
             </Show>
         </div>
     );

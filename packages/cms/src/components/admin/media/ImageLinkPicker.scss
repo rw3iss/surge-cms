@@ -1,0 +1,57 @@
+@use '../../../styles/variables' as *;
+
+.image-link-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &__preview {
+        img {
+            max-width: 160px;
+            max-height: 80px;
+            object-fit: contain;
+            border: 1px solid $border-color;
+            border-radius: $border-radius-sm;
+            background: $background-dark;
+            padding: 4px;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        input {
+            padding: 8px 10px;
+            border: 1px solid $border-color;
+            border-radius: $border-radius-sm;
+            background-color: #fff;
+            font-size: $font-size-sm;
+
+            &:focus {
+                outline: none;
+                border-color: var(--site-primary, #{$primary-color});
+                box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+            }
+        }
+    }
+
+    &__label {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-color;
+    }
+
+    &__hint {
+        margin: 0;
+        font-size: $font-size-xs;
+        color: $text-light;
+    }
+}

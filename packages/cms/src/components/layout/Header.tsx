@@ -3,6 +3,7 @@ import { isAdminRole, type NavigationItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, onCleanup, onMount, Show, } from 'solid-js';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
+import { resolveImageSrc, } from '../../utils/imageSrc';
 import { activeHeaderPosition, activeHeaderStyle, setSiteDefaultHeaderPosition, setSiteDefaultPageHeaderStyle, } from '../../stores/headerStyle';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
@@ -20,6 +21,8 @@ interface SiteHeaderItem {
     text?: string;
     url?: string;
     imageUrl?: string;
+    /** Selected media-library asset URL (used when `imageUrl` is empty). */
+    mediaUrl?: string;
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
@@ -178,7 +181,7 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
             });
             return (
                 <img
-                    src={item().imageUrl}
+                    src={resolveImageSrc(item().imageUrl, item().mediaUrl,)}
                     alt=""
                     class="header__custom-img"
                     style={imgStyle()}
@@ -229,7 +232,7 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
                     class="header__custom-image-link"
                     style={linkStyle()}
                 >
-                    <img src={item().imageUrl} alt="" style={imgStyle()} />
+                    <img src={resolveImageSrc(item().imageUrl, item().mediaUrl,)} alt="" style={imgStyle()} />
                 </a>
             );
         }
