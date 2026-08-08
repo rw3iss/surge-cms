@@ -58,6 +58,39 @@
     }
   }
 
+  // On narrow screens, tighten the preset buttons + "Other" input so all six
+  // fit on a single row (avoids the last button wrapping), and trim the form's
+  // horizontal padding for a touch more room.
+  @media (max-width: 600px) {
+    padding: 1.5rem 1rem;
+
+    .donation-form__amounts {
+      gap: 0.4rem;
+      // Prevent wrapping so every option shares one row (they shrink to fit).
+      flex-wrap: nowrap;
+    }
+
+    .donation-form__amount-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0.5rem 0.35rem;
+      text-align: center;
+    }
+
+    .donation-form__custom-amount {
+      // A bit wider than the preset buttons so the "$ Other" placeholder stays
+      // readable, while still fitting all six on one row.
+      flex: 1.8 1 0;
+      min-width: 0;
+      padding: 0 0.35rem;
+
+      input {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+  }
+
   &__currency {
     color: #64748b;
     font-weight: 500;
