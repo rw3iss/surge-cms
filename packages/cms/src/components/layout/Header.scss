@@ -448,10 +448,22 @@
     flex-shrink: 0;
   }
 
-  // Collapsed-header instance: sits left of the hamburger, mobile-only.
-  &__mobile-donate {
-    margin-right: 8px;
+  // Collapsed-header: Donate + hamburger grouped on the right with the SAME 10px
+  // gap as the flyout head, so the Donate button sits in the identical spot
+  // whether the menu is open or closed (no shift). Mobile-only.
+  &__mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 
+    @include md {
+      display: none;
+    }
+  }
+
+  // Collapsed-header Donate instance: mobile-only (spacing now owned by the
+  // .header__mobile-actions group's gap, so no margin here).
+  &__mobile-donate {
     @include md {
       display: none;
     }
@@ -612,20 +624,18 @@
     flex-direction: column;
   }
 
-  // Accordion parent — a <button> styled like a nav link, full-width with a
-  // caret that rotates when expanded. Resets native button chrome.
+  // Accordion parent — a <button> that renders identically to a plain nav link
+  // (it carries the .header__nav-link class, so it inherits that box model:
+  // block, full-width, same padding/font-size). We only reset native button
+  // chrome + inherit the font so every flyout row is the same size/height. The
+  // caret sits inline right after the label.
   &__mobile-menu-parent {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     width: 100%;
-    gap: 8px;
-    font-weight: 700;
+    text-align: left;
     background: none;
     border: none;
-    text-align: left;
     cursor: pointer;
-    font: inherit;
+    font-family: inherit; // <button> doesn't inherit the site font by default
     color: inherit;
 
     &.is-expanded .header__mobile-menu-caret {
@@ -636,7 +646,10 @@
   &__mobile-menu-caret {
     width: 18px;
     height: 18px;
-    flex-shrink: 0;
+    margin-left: 5px; // a touch more space from the label
+    vertical-align: middle; // drop from the text baseline toward the row center
+    position: relative;
+    top: 2px; // extra nudge down for optical centering
     transition: transform $transition-fast;
   }
 

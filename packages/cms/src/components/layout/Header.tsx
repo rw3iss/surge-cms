@@ -906,26 +906,29 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
                     </nav>
 
-                    {/* Donate CTA + Hamburger — mobile only. The Donate entry is
-                        masked from the flyout list and shown here as a primary
-                        button to the left of the hamburger. */}
-                    <A
-                        href={donateHref()}
-                        class="header__donate-btn header__mobile-donate"
-                        onClick={closeMobileMenu}
-                    >
-                        Donate
-                    </A>
-                    <button
-                        class={`header__mobile-toggle ${mobileMenuOpen() ? 'header__mobile-toggle--open' : ''}`}
-                        onClick={toggleMobileMenu}
-                        aria-label="Toggle menu"
-                        aria-expanded={mobileMenuOpen()}
-                    >
-                        <span class="header__mobile-toggle-bar" />
-                        <span class="header__mobile-toggle-bar" />
-                        <span class="header__mobile-toggle-bar" />
-                    </button>
+                    {/* Donate CTA + Hamburger — mobile only, grouped so the
+                        Donate button hugs the hamburger (matches the flyout head)
+                        instead of floating to the middle via space-between. The
+                        Donate entry is masked from the flyout list. */}
+                    <div class="header__mobile-actions">
+                        <A
+                            href={donateHref()}
+                            class="header__donate-btn header__mobile-donate"
+                            onClick={closeMobileMenu}
+                        >
+                            Donate
+                        </A>
+                        <button
+                            class={`header__mobile-toggle ${mobileMenuOpen() ? 'header__mobile-toggle--open' : ''}`}
+                            onClick={toggleMobileMenu}
+                            aria-label="Toggle menu"
+                            aria-expanded={mobileMenuOpen()}
+                        >
+                            <span class="header__mobile-toggle-bar" />
+                            <span class="header__mobile-toggle-bar" />
+                            <span class="header__mobile-toggle-bar" />
+                        </button>
+                    </div>
                 </div>
             </header>
 
