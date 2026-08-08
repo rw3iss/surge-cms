@@ -143,14 +143,14 @@ function menuChildren(item: SiteHeaderItem,): SiteHeaderItem[] {
     return (item.children ?? []).slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0),);
 }
 
-// TEMPORARY static rule: the "Donate" header entry is masked from the mobile
+// TEMPORARY static rule: the "Shop" header entry is masked from the mobile
 // flyout list and surfaced as a dedicated primary button beside the hamburger.
-// Matched by visible text "Donate" or a /donate URL. (Will become admin-driven
+// Matched by visible text "Shop" or a /shop URL. (Will become admin-driven
 // mobile-header config later.)
-function isDonateItem(item: SiteHeaderItem,): boolean {
+function isShopItem(item: SiteHeaderItem,): boolean {
     const text = (item.text ?? '').trim().toLowerCase();
     const url = (item.url ?? '').trim().toLowerCase().replace(/\/+$/, '',);
-    return text === 'donate' || url === '/donate';
+    return text === 'shop' || url === '/shop';
 }
 
 // ─── Render a single header item ───
@@ -584,18 +584,18 @@ export const Header: Component<HeaderProps> = (props,) => {
     const hasCustomHeader = () => props.headerSettings?.items && props.headerSettings.items.length > 0;
 
     // Items to show in the mobile flyout: text, text_link, button, menu — no
-    // spacers/images, and NOT the Donate entry (surfaced as its own button).
+    // spacers/images, and NOT the Shop entry (surfaced as its own button).
     const mobileNavItems = () => {
         if (!hasCustomHeader()) return [];
         return (props.headerSettings?.items ?? [])
-            .filter(i => ['text', 'text_link', 'button', 'menu',].includes(i.type,) && !isDonateItem(i,),)
+            .filter(i => ['text', 'text_link', 'button', 'menu',].includes(i.type,) && !isShopItem(i,),)
             .toSorted((a, b,) => a.order - b.order,);
     };
 
-    // The Donate CTA's destination — from the masked header item, else /donate.
-    const donateHref = () => {
-        const found = (props.headerSettings?.items ?? []).find(isDonateItem,);
-        return found?.url || '/donate';
+    // The Shop CTA's destination — from the masked header item, else /shop.
+    const shopHref = () => {
+        const found = (props.headerSettings?.items ?? []).find(isShopItem,);
+        return found?.url || '/shop';
     };
 
     // ─── Sticky / auto-hide behavior ────────────────────────────
@@ -906,17 +906,17 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
                     </nav>
 
-                    {/* Donate CTA + Hamburger — mobile only, grouped so the
-                        Donate button hugs the hamburger (matches the flyout head)
+                    {/* Shop CTA + Hamburger — mobile only, grouped so the Shop
+                        button hugs the hamburger (matches the flyout head)
                         instead of floating to the middle via space-between. The
-                        Donate entry is masked from the flyout list. */}
+                        Shop entry is masked from the flyout list. */}
                     <div class="header__mobile-actions">
                         <A
-                            href={donateHref()}
+                            href={shopHref()}
                             class="header__donate-btn header__mobile-donate"
                             onClick={closeMobileMenu}
                         >
-                            Donate
+                            Shop
                         </A>
                         <button
                             class={`header__mobile-toggle ${mobileMenuOpen() ? 'header__mobile-toggle--open' : ''}`}
@@ -942,9 +942,9 @@ export const Header: Component<HeaderProps> = (props,) => {
                             <SiteLogo logoSrc={props.logo} />
                         </A>
                         <div class="header__mobile-flyout-head-actions">
-                            {/* Keep the Donate CTA available in the expanded view too. */}
-                            <A href={donateHref()} class="header__donate-btn" onClick={closeMobileMenu}>
-                                Donate
+                            {/* Keep the Shop CTA available in the expanded view too. */}
+                            <A href={shopHref()} class="header__donate-btn" onClick={closeMobileMenu}>
+                                Shop
                             </A>
                             <button
                                 class="header__mobile-flyout-close"
