@@ -9,6 +9,7 @@
  */
 import { config, } from '../config';
 import { query, } from '../db';
+import { logger, } from '../utils/logger';
 import { AppError, NotFoundError, ValidationError, } from '../core/errors';
 import { getPaymentProvider, } from './payment';
 import { paginate, type Paginated, } from './payment/pagination';
@@ -85,22 +86,18 @@ export async function donate(input: DonateInput, actorUserId: string | undefined
         context: 'donations',
     },);
 
-    // donations.user_id is a UUID FK — synthetic actors → NULL.
-    await query(
-        `INSERT INTO donations (campaign_id, user_id, donor_name, donor_email, amount_cents,
-                                message, visibility, stripe_payment_intent_id, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
-        [
-            input.campaignId || null,
-            uuidOrNull(actorUserId,),
-            input.donorName,
-            input.donorEmail,
-            input.amountCents,
-            input.message,
-            input.visibility || 'public',
-            paymentIntent.id,
-        ],
-    );
+    // NOTE: we deliberately DON'T persist a `donations` row here. The row is
+    // created ONLY when Stripe confirms the charge (payment_intent.succeeded
+    // webhook), from the PaymentIntent metadata above — so abandoned/failed
+    // attempts never leave orphan `pending` rows. Failed attempts are logged in
+    // the webhook. All donor fields the webhook needs ride in `metadata`; the
+    // amount is the PaymentIntent's own `amount`.
+    logger.info('Donation intent created', {
+        paymentIntentId: paymentIntent.id,
+        campaignId: input.campaignId || 'general',
+        amountCents: input.amountCents,
+        donorEmail: input.donorEmail,
+    },);
 
     return {
         clientSecret: paymentIntent.clientSecret,

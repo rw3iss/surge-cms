@@ -13,6 +13,7 @@ import { allWebhookSecrets, } from './credentials';
 import { getPaymentProvider, } from './index';
 import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } from './stripeCompat';
 import { logger, } from '../../utils/logger';
+import { uuidOrNull, } from '../../utils/uuid';
 
 const paymentProvider = getPaymentProvider();
 
@@ -83,11 +84,30 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                 break;
             }
 
+            // Donations are persisted ONLY here, on confirmed payment — the row
+            // is INSERTed from the PaymentIntent metadata (set in payments.donate)
+            // so abandoned/failed attempts never create a row. Idempotent:
+            // stripe_payment_intent_id is UNIQUE, so a webhook retry is a no-op.
+            const md = paymentIntent.metadata ?? {};
+            const campaignId = md.campaignId && md.campaignId !== 'general' ? md.campaignId : null;
             const donationResult = await query(
-                `UPDATE donations SET status = 'completed', stripe_charge_id = $1
-                 WHERE stripe_payment_intent_id = $2
+                `INSERT INTO donations
+                    (campaign_id, user_id, donor_name, donor_email, amount_cents, message,
+                     visibility, stripe_payment_intent_id, stripe_charge_id, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'completed')
+                 ON CONFLICT (stripe_payment_intent_id) DO NOTHING
                  RETURNING id, campaign_id, user_id, amount_cents`,
-                [paymentIntent.latest_charge, paymentIntent.id,],
+                [
+                    campaignId,
+                    uuidOrNull(md.userId,),
+                    md.donorName || null,
+                    md.donorEmail || paymentIntent.receipt_email || '',
+                    paymentIntent.amount,
+                    md.message || null,
+                    (md.visibility as string) || 'public',
+                    paymentIntent.id,
+                    paymentIntent.latest_charge,
+                ],
             );
 
             if (donationResult.rows.length > 0) {
@@ -107,10 +127,12 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                         donation.campaign_id ? 'Campaign donation' : 'General donation',
                     ],
                 );
+                logger.info('Donation recorded via webhook', { paymentIntentId: paymentIntent.id, donationId: donation.id, },);
+            } else {
+                logger.info('Donation webhook duplicate (already recorded)', { paymentIntentId: paymentIntent.id, },);
             }
 
             await cache.invalidateCampaignCache();
-            logger.info('Donation completed via webhook', { paymentIntentId: paymentIntent.id, },);
             break;
         }
 
@@ -118,12 +140,15 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
             const paymentIntent = event.data.object as Stripe.PaymentIntent;
             const failureMessage = paymentIntent.last_payment_error?.message || 'Unknown failure';
 
-            await query(
-                `UPDATE donations SET status = 'failed' WHERE stripe_payment_intent_id = $1`,
-                [paymentIntent.id,],
-            );
-
-            logger.warn('Donation payment failed', { paymentIntentId: paymentIntent.id, reason: failureMessage, },);
+            // No row is persisted for a failed/abandoned donation attempt — just
+            // log it (operator visibility; surfaced later if needed).
+            logger.warn('Donation payment failed (not persisted)', {
+                paymentIntentId: paymentIntent.id,
+                reason: failureMessage,
+                donorEmail: paymentIntent.metadata?.donorEmail,
+                amountCents: paymentIntent.amount,
+                campaignId: paymentIntent.metadata?.campaignId,
+            },);
             break;
         }
 
