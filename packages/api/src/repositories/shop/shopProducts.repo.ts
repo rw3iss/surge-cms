@@ -257,14 +257,32 @@ export async function updateProduct(id: string, data: Record<string, unknown>,):
     return updateById<ShopProduct>('shop_products', id, data, 'Product',);
 }
 
-/** Assign sequential positions to an ordered list of product ids, starting at
- *  `startPosition` (1-based; the page offset when reordering a paginated view).
- *  Runs in one transaction so the reorder is atomic. */
-export async function reorderProducts(orderedIds: string[], startPosition = 1,): Promise<void> {
-    if (orderedIds.length === 0) return;
+/**
+ * Reorder products by MERGING the shown items' new relative order into the full
+ * catalog order. `orderedShownIds` is the visible list (a page and/or a filtered
+ * subset) in its new order. We keep every OTHER product exactly where it sits in
+ * the current global order and only permute the shown items among the slots they
+ * occupy — so reordering works with any status/search filter and pagination,
+ * without disturbing rows that aren't on screen. Then the merged sequence gets
+ * sequential positions (1..N) in one transaction.
+ */
+export async function reorderProducts(orderedShownIds: string[],): Promise<void> {
+    if (orderedShownIds.length === 0) return;
     await transaction(async (c,) => {
-        for (let i = 0; i < orderedIds.length; i++) {
-            await c.query(`UPDATE shop_products SET position = $1 WHERE id = $2`, [startPosition + i, orderedIds[i],],);
+        // Current global display order (matches POSITION_ORDER used everywhere).
+        const all = await c.query<{ id: string; }>(
+            `SELECT id FROM shop_products ORDER BY position ASC NULLS LAST, updated_at DESC`,
+        );
+        const globalOrder = all.rows.map((r,) => r.id);
+        const shown = new Set(orderedShownIds,);
+        const queue = [...orderedShownIds,]; // shown ids in their NEW order
+
+        // Walk the global order; each slot that held a shown item receives the
+        // next shown id from the new order. Unshown items stay in place.
+        const merged = globalOrder.map((id,) => (shown.has(id,) ? (queue.shift() ?? id) : id));
+
+        for (let i = 0; i < merged.length; i++) {
+            await c.query(`UPDATE shop_products SET position = $1 WHERE id = $2`, [i + 1, merged[i],],);
         }
     },);
 }

@@ -51,9 +51,10 @@ const ShopProductsInner: Component = () => {
     const [rows, setRows,] = createSignal<ShopProduct[]>([],);
     createEffect(() => { setRows(list.items(),); },);
 
-    // Reordering only makes sense in the default position-ordered view — a
-    // search / status filter shows a subset, so dragging is disabled there.
-    const canReorder = () => !searchParams.search && !searchParams.status && !isShopifyActive();
+    // Reordering works with any status/search filter (and pagination): the
+    // server merges the shown order into the full catalog, leaving off-screen
+    // products in place. Only Shopify (its own ordering, no position) is gated.
+    const canReorder = () => !isShopifyActive();
 
     const [dragIndex, setDragIndex,] = createSignal<number | null>(null,);
     const [overIndex, setOverIndex,] = createSignal<number | null>(null,);
@@ -67,11 +68,10 @@ const ShopProductsInner: Component = () => {
         const [moved,] = arr.splice(from, 1,);
         arr.splice(targetIndex, 0, moved,);
         setRows(arr,);
-        // Positions are global 1-based; on a paginated page they start at the
-        // page offset so ordering stays consistent across pages.
-        const startPosition = (list.page() - 1) * list.limit() + 1;
+        // Send the shown list's new order; the server merges it into the global
+        // catalog order (off-screen rows stay put).
         try {
-            await cms.shop.products.reorder({ orderedIds: arr.map((p,) => p.id), startPosition, },);
+            await cms.shop.products.reorder({ orderedIds: arr.map((p,) => p.id), },);
         } catch { /* error bus surfaces it */ }
         list.refetch();
     };

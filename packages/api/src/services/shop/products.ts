@@ -214,22 +214,19 @@ export async function update(
     return repo.findProductDetailById(id,);
 }
 
-/** Persist a manual product order: assign sequential positions to `orderedIds`
- *  starting at `startPosition` (the page offset, 1-based). Invalidates caches so
+/** Persist a manual product order. `orderedShownIds` is the currently-visible
+ *  list (any filter/page) in its new order; the repo merges it into the full
+ *  catalog order, leaving off-screen products in place. Invalidates caches so
  *  every listing reflects the new order. */
-export async function reorder(
-    orderedIds: string[],
-    startPosition: number,
-    ctx: AuditContext,
-): Promise<void> {
-    await repo.reorderProducts(orderedIds, startPosition,);
+export async function reorder(orderedShownIds: string[], ctx: AuditContext,): Promise<void> {
+    await repo.reorderProducts(orderedShownIds,);
     await invalidateProductCache();
     await logAudit({
         userId: ctx.userId,
         action: 'reorder',
         entityType: 'shop-product',
-        entityId: orderedIds[0] ?? 'multiple',
-        newValues: { orderedIds, startPosition, },
+        entityId: orderedShownIds[0] ?? 'multiple',
+        newValues: { orderedShownIds, },
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);

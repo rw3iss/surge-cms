@@ -91,7 +91,6 @@ const productSchema = z.object({
 
 const productReorderSchema = z.object({
     orderedIds: z.array(z.string(),).min(1,),
-    startPosition: z.number().int().min(1,).optional(),
 },) satisfies z.ZodType<ShopProductReorderBody>;
 
 const productListQuery = z.object({
@@ -330,7 +329,7 @@ export const shopRoutes = [
         summary: 'Persist a manual product sort order (drag-reorder).',
         input: { body: productReorderSchema, },
         handler: async ({ body, audit, },) => {
-            await products.reorder(body.orderedIds, body.startPosition ?? 1, audit(),);
+            await products.reorder(body.orderedIds, audit(),);
             return { message: 'Products reordered', };
         },
     },),

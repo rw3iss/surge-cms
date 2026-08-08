@@ -172,11 +172,11 @@ export type ShopProductBulkResponse = BulkActionResult;
 
 // ─── PUT /shop/products/reorder ───────────────────────────────────
 
-/** Body for PUT /shop/products/reorder — the ordered product ids to position
- *  sequentially, and the 1-based starting position (the page offset). */
+/** Body for PUT /shop/products/reorder — the currently-visible product ids in
+ *  their new order (any filter/page). The server merges this into the full
+ *  catalog order, leaving off-screen products in place. */
 export interface ShopProductReorderBody {
     orderedIds: string[];
-    startPosition?: number;
 }
 
 /** PUT /shop/products/reorder — confirmation message. */
