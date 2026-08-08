@@ -10,6 +10,7 @@ import type {
     ShopOrderUpdateBody,
     ShopProductBySlugQuery,
     ShopProductCreateBody,
+    ShopProductReorderBody,
     ShopProductListQuery,
     ShopReviewAdminListQuery,
     ShopReviewCreateBody,
@@ -85,7 +86,13 @@ const productSchema = z.object({
     categoryIds: z.array(z.string(),).optional(),
     collectionIds: z.array(z.string(),).optional(),
     tags: z.array(z.string(),).optional(),
+    position: z.number().int().nullish(),
 },) satisfies z.ZodType<ShopProductCreateBody>;
+
+const productReorderSchema = z.object({
+    orderedIds: z.array(z.string(),).min(1,),
+    startPosition: z.number().int().min(1,).optional(),
+},) satisfies z.ZodType<ShopProductReorderBody>;
 
 const productListQuery = z.object({
     search: z.string().optional(),
@@ -314,6 +321,18 @@ export const shopRoutes = [
         method: 'post', path: '/products/bulk', auth: 'admin',
         summary: 'Bulk status change / delete products by id list.',
         handler: ({ body, },) => products.bulk(body,),
+    },),
+
+    // Manual reorder (admin): assign sequential positions to an ordered id list.
+    // Declared before /products/:id so "reorder" isn't captured as an :id.
+    defineRoute({
+        method: 'put', path: '/products/reorder', auth: 'admin',
+        summary: 'Persist a manual product sort order (drag-reorder).',
+        input: { body: productReorderSchema, },
+        handler: async ({ body, audit, },) => {
+            await products.reorder(body.orderedIds, body.startPosition ?? 1, audit(),);
+            return { message: 'Products reordered', };
+        },
     },),
 
     // Fetch product by id (admin, any status, full detail).

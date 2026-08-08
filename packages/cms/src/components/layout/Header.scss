@@ -649,7 +649,7 @@
     margin-left: 5px; // a touch more space from the label
     vertical-align: middle; // drop from the text baseline toward the row center
     position: relative;
-    top: 2px; // extra nudge down for optical centering
+    top: -1px; // nudge up for optical centering
     transition: transform $transition-fast;
   }
 

@@ -25,6 +25,10 @@ export interface ShopProduct {
     useDefaultShipping?: boolean;
     ratingAvg: number;
     ratingCount: number;
+    /** Manual sort order. Products with a position sort first (ascending);
+     *  null/undefined products fall back to updatedAt DESC. Set via drag-reorder
+     *  in the admin table or the per-product Position dropdown. */
+    position?: number | null;
     createdBy?: string | null;
     createdAt: string;
     updatedAt: string;

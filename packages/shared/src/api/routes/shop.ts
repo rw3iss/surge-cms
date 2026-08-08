@@ -135,6 +135,8 @@ export interface ShopProductCreateBody {
     categoryIds?: string[];
     collectionIds?: string[];
     tags?: string[];
+    /** Manual sort position (null clears it → falls back to updated_at order). */
+    position?: number | null;
 }
 
 /** POST /shop/products (201) — the created product, full detail. */
@@ -167,6 +169,20 @@ export interface ShopProductBulkBody {
 
 /** POST /shop/products/bulk — count + action performed. */
 export type ShopProductBulkResponse = BulkActionResult;
+
+// ─── PUT /shop/products/reorder ───────────────────────────────────
+
+/** Body for PUT /shop/products/reorder — the ordered product ids to position
+ *  sequentially, and the 1-based starting position (the page offset). */
+export interface ShopProductReorderBody {
+    orderedIds: string[];
+    startPosition?: number;
+}
+
+/** PUT /shop/products/reorder — confirmation message. */
+export interface ShopProductReorderResponse {
+    message: string;
+}
 
 // ─── Categories ───────────────────────────────────────────────────
 

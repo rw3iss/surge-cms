@@ -28,6 +28,8 @@ import type {
     ShopCollectionUpdateResponse,
     ShopProductBulkBody,
     ShopProductBulkResponse,
+    ShopProductReorderBody,
+    ShopProductReorderResponse,
     ShopProductByIdResponse,
     ShopProductBySlugResponse,
     ShopProductCreateBody,
@@ -101,6 +103,11 @@ export class ShopModule extends ModuleBase {
 
         bulk: (body: ShopProductBulkBody,): Promise<ShopProductBulkResponse> =>
             this.mutate<ShopProductBulkResponse>('POST', '/shop/products/bulk', { body, invalidates: ['shop',], },),
+
+        /** Persist a manual product order (drag-reorder). `startPosition` is the
+         *  1-based page offset so paginated reorders keep global positions. */
+        reorder: (body: ShopProductReorderBody,): Promise<ShopProductReorderResponse> =>
+            this.mutate<ShopProductReorderResponse>('PUT', '/shop/products/reorder', { body, invalidates: ['shop',], },),
     };
 
     /** Categories — hierarchical taxonomy (tree assembled via parentId). */

@@ -741,3 +741,21 @@
     }
   }
 }
+
+// ── Product table drag-reorder ──
+.shop-products {
+  &__drag {
+    cursor: grab;
+    text-align: center;
+    color: $text-light;
+    font-size: $font-size-lg;
+    user-select: none;
+
+    &:active { cursor: grabbing; }
+    &:hover { color: $text-color; }
+  }
+}
+
+.admin-table tr.is-drop-target > td {
+  box-shadow: inset 0 2px 0 var(--site-primary, #{$primary-color});
+}

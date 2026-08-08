@@ -120,6 +120,8 @@ export interface ProductWriteInput {
     categoryIds?: string[];
     collectionIds?: string[];
     tags?: string[];
+    /** Manual sort position (null clears it → falls back to updated_at order). */
+    position?: number | null;
 }
 
 function splitStructure(input: Partial<ProductWriteInput>,): {
@@ -210,6 +212,27 @@ export async function update(
         userAgent: ctx.userAgent,
     },);
     return repo.findProductDetailById(id,);
+}
+
+/** Persist a manual product order: assign sequential positions to `orderedIds`
+ *  starting at `startPosition` (the page offset, 1-based). Invalidates caches so
+ *  every listing reflects the new order. */
+export async function reorder(
+    orderedIds: string[],
+    startPosition: number,
+    ctx: AuditContext,
+): Promise<void> {
+    await repo.reorderProducts(orderedIds, startPosition,);
+    await invalidateProductCache();
+    await logAudit({
+        userId: ctx.userId,
+        action: 'reorder',
+        entityType: 'shop-product',
+        entityId: orderedIds[0] ?? 'multiple',
+        newValues: { orderedIds, startPosition, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
 }
 
 export async function remove(id: string, ctx: AuditContext,): Promise<ShopProduct | null> {

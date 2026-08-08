@@ -44,6 +44,38 @@ const ShopProductsInner: Component = () => {
         setSelected(next,);
     };
     const clear = () => setSelected(new Set<string>(),);
+
+    // ── Drag-reorder ──────────────────────────────────────────────────
+    // Local mirror of the fetched rows so a drag can reorder in place before
+    // persisting. Re-synced whenever the fetch result changes (page/filter).
+    const [rows, setRows,] = createSignal<ShopProduct[]>([],);
+    createEffect(() => { setRows(list.items(),); },);
+
+    // Reordering only makes sense in the default position-ordered view — a
+    // search / status filter shows a subset, so dragging is disabled there.
+    const canReorder = () => !searchParams.search && !searchParams.status && !isShopifyActive();
+
+    const [dragIndex, setDragIndex,] = createSignal<number | null>(null,);
+    const [overIndex, setOverIndex,] = createSignal<number | null>(null,);
+
+    const onDrop = async (targetIndex: number,) => {
+        const from = dragIndex();
+        setDragIndex(null,);
+        setOverIndex(null,);
+        if (from === null || from === targetIndex) return;
+        const arr = [...rows(),];
+        const [moved,] = arr.splice(from, 1,);
+        arr.splice(targetIndex, 0, moved,);
+        setRows(arr,);
+        // Positions are global 1-based; on a paginated page they start at the
+        // page offset so ordering stays consistent across pages.
+        const startPosition = (list.page() - 1) * list.limit() + 1;
+        try {
+            await cms.shop.products.reorder({ orderedIds: arr.map((p,) => p.id), startPosition, },);
+        } catch { /* error bus surfaces it */ }
+        list.refetch();
+    };
+
     const allSelected = () => {
         const items = list.items();
         return items.length > 0 && items.every((p,) => selected().has(p.id,));
@@ -126,6 +158,9 @@ const ShopProductsInner: Component = () => {
                         <table class="admin-table">
                             <thead>
                                 <tr>
+                                    <Show when={canReorder()}>
+                                        <th style={{ width: '32px', }} title="Drag to reorder" />
+                                    </Show>
                                     <th style={{ width: '40px', }}>
                                         <input type="checkbox" checked={allSelected()} onChange={toggleAll} />
                                     </th>
@@ -137,9 +172,27 @@ const ShopProductsInner: Component = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <For each={list.items()}>
-                                    {(p,) => (
-                                        <tr>
+                                <For each={rows()}>
+                                    {(p, i) => (
+                                        <tr
+                                            classList={{ 'is-drop-target': canReorder() && overIndex() === i(), }}
+                                            onDragOver={canReorder()
+                                                ? (e,) => { e.preventDefault(); setOverIndex(i(),); }
+                                                : undefined}
+                                            onDrop={canReorder() ? () => onDrop(i(),) : undefined}
+                                        >
+                                            <Show when={canReorder()}>
+                                                <td
+                                                    class="shop-products__drag"
+                                                    draggable={true}
+                                                    onDragStart={() => setDragIndex(i(),)}
+                                                    onDragEnd={() => { setDragIndex(null,); setOverIndex(null,); }}
+                                                    title="Drag to reorder"
+                                                    onClick={(e,) => e.stopPropagation()}
+                                                >
+                                                    ⠿
+                                                </td>
+                                            </Show>
                                             <td onClick={(e,) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"

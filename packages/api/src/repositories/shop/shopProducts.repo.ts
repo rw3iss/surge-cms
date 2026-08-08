@@ -37,6 +37,11 @@ const VALID_SORT_COLUMNS: Record<string, string> = {
     rating_count: 'rating_count',
 };
 
+// Default product ordering: manual `position` first (products with one sort
+// ascending), then everything else by most-recently-updated. NULLS LAST puts
+// unpositioned products after positioned ones; updated_at DESC is the fallback.
+const POSITION_ORDER = 'ORDER BY position ASC NULLS LAST, updated_at DESC';
+
 /**
  * Extra computed columns for list rows (public + admin lists). Correlated
  * subqueries against the outer `shop_products` row:
@@ -76,7 +81,11 @@ export async function findPublicProducts(
         whereClause += ` AND (title ILIKE $${params.length} OR description ILIKE $${params.length})`;
     }
 
-    const orderClause = buildSortClause(filters.sortBy, filters.sortOrder, VALID_SORT_COLUMNS, 'created_at',);
+    // Storefront: manual position first, else updated_at (an explicit sortBy
+    // — e.g. a future price sort — overrides).
+    const orderClause = filters.sortBy
+        ? buildSortClause(filters.sortBy, filters.sortOrder, VALID_SORT_COLUMNS, 'created_at',)
+        : POSITION_ORDER;
 
     return paginatedQuery<ShopProduct>(
         `SELECT *, ${LIST_EXTRAS} FROM shop_products ${whereClause} ${orderClause}`,
@@ -103,7 +112,11 @@ export async function findAllProducts(
         whereClause += ` AND (title ILIKE $${params.length} OR description ILIKE $${params.length})`;
     }
 
-    const orderClause = buildSortClause(filters.sortBy || 'updated_at', filters.sortOrder || 'desc', VALID_SORT_COLUMNS, 'created_at',);
+    // Admin: default to the manual position order (so the table matches the
+    // storefront + drag-reorder is meaningful); explicit sortBy overrides.
+    const orderClause = filters.sortBy
+        ? buildSortClause(filters.sortBy, filters.sortOrder || 'desc', VALID_SORT_COLUMNS, 'created_at',)
+        : POSITION_ORDER;
 
     return paginatedQuery<ShopProduct>(
         `SELECT *, ${LIST_EXTRAS} FROM shop_products ${whereClause} ${orderClause}`,
@@ -242,6 +255,18 @@ export async function createProduct(data: Record<string, unknown>, userId: strin
 
 export async function updateProduct(id: string, data: Record<string, unknown>,): Promise<ShopProduct> {
     return updateById<ShopProduct>('shop_products', id, data, 'Product',);
+}
+
+/** Assign sequential positions to an ordered list of product ids, starting at
+ *  `startPosition` (1-based; the page offset when reordering a paginated view).
+ *  Runs in one transaction so the reorder is atomic. */
+export async function reorderProducts(orderedIds: string[], startPosition = 1,): Promise<void> {
+    if (orderedIds.length === 0) return;
+    await transaction(async (c,) => {
+        for (let i = 0; i < orderedIds.length; i++) {
+            await c.query(`UPDATE shop_products SET position = $1 WHERE id = $2`, [startPosition + i, orderedIds[i],],);
+        }
+    },);
 }
 
 // ─── External-source (Printify) upsert + reconciliation ───────────────
