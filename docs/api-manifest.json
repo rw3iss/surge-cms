@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-02T01:15:09.943Z",
+  "generatedAt": "2026-08-08T06:38:35.563Z",
   "totalModules": 31,
-  "totalRoutes": 278,
+  "totalRoutes": 280,
   "modules": [
     {
       "module": "api-keys",
@@ -1621,6 +1621,13 @@
           "summary": "Bulk status change / delete products by id list."
         },
         {
+          "method": "PUT",
+          "path": "/products/reorder",
+          "absolutePath": "/api/v1/shop/products/reorder",
+          "auth": "admin",
+          "summary": "Persist a manual product sort order (drag-reorder)."
+        },
+        {
           "method": "GET",
           "path": "/products/:id",
           "absolutePath": "/api/v1/shop/products/:id",
@@ -1885,6 +1892,13 @@
           "absolutePath": "/api/v1/shop/printify/sync",
           "auth": "admin",
           "summary": "Pull the latest products from Printify into the shop (upsert + archive removed)."
+        },
+        {
+          "method": "POST",
+          "path": "/printify/sync/:id",
+          "absolutePath": "/api/v1/shop/printify/sync/:id",
+          "auth": "admin",
+          "summary": "Resync a single product from Printify (pull the latest for one item)."
         }
       ]
     },
