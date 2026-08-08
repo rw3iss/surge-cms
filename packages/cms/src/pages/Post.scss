@@ -40,9 +40,18 @@
 
   // "↑ Back to top" — right-aligned button after the content blocks, with
   // breathing room above and below.
-  &__to-top {
-    display: block;
-    margin: $spacing-2xl 0 $spacing-lg auto;
+  // Footer nav row after the article body: "Back to Posts" (left) +
+  // "Back to top" (right), both sharing the same outlined-button styling.
+  &__footer-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-md;
+    margin: $spacing-2xl 0 $spacing-lg;
+  }
+
+  &__footer-btn {
+    display: inline-block;
     padding: $spacing-sm $spacing-md;
     background: transparent;
     border: 1px solid var(--site-border, #{$border-color});
@@ -50,6 +59,7 @@
     color: var(--site-text-muted, #{$text-light});
     font-size: $font-size-sm;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 

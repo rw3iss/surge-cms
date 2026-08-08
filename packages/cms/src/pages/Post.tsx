@@ -287,14 +287,20 @@ const PostPage: Component = () => {
                                     <TemplatedContent class="rich-text" html={postData().content} entities={postCtx()} />
                                 </Show>
 
-                                {/* Right-aligned "back to top" after the article body. */}
-                                <button
-                                    type="button"
-                                    class="post-page__to-top"
-                                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth', },)}
-                                >
-                                    ↑ Back to top
-                                </button>
+                                {/* Footer nav row after the article body:
+                                    "Back to Posts" on the left, "Back to top" on the right. */}
+                                <div class="post-page__footer-nav">
+                                    <a class="post-page__footer-btn" href="/posts">
+                                        ← Back to Posts
+                                    </a>
+                                    <button
+                                        type="button"
+                                        class="post-page__footer-btn"
+                                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth', },)}
+                                    >
+                                        ↑ Back to top
+                                    </button>
+                                </div>
                             </article>
                         </>
                         );
