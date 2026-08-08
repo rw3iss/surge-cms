@@ -12,7 +12,6 @@
  * media-modal state so a host just renders it and reacts to `onChange`.
  */
 import { Component, createSignal, Show, } from 'solid-js';
-import { resolveImageSrc, } from '../../../utils/imageSrc';
 import MediaSelectModal, { type MediaItem, } from './MediaSelectModal';
 import MediaUploadModal from './MediaUploadModal';
 import './ImageLinkPicker.scss';
@@ -40,9 +39,13 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
     const [showSelect, setShowSelect,] = createSignal(false,);
     const [showUpload, setShowUpload,] = createSignal(false,);
 
-    const src = () => resolveImageSrc(props.imageUrl, props.mediaUrl,);
     const hasMedia = () => Boolean(props.mediaId || props.mediaUrl);
     const urlOverrides = () => Boolean((props.imageUrl ?? '').trim()) && hasMedia();
+    // Preview shows the SELECTED MEDIA image when there is one (so the operator
+    // sees their pick), else the external URL image. When a URL override is
+    // present it wins at render, so we grey the media preview to signal it's
+    // currently disabled/overridden — without hiding what was selected.
+    const previewSrc = () => props.mediaUrl || (props.imageUrl ?? '').trim() || '';
 
     const pickMedia = (m: MediaItem,) => {
         // Set the library selection; leave any external URL intact (it still wins,
@@ -56,9 +59,12 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
 
     return (
         <div class="image-link-picker">
-            <Show when={src()}>
-                <div class="image-link-picker__preview">
-                    <img src={src()} alt="" />
+            <Show when={previewSrc()}>
+                <div class="image-link-picker__preview" classList={{ 'is-overridden': urlOverrides(), }}>
+                    <img src={previewSrc()} alt="" />
+                    <Show when={urlOverrides()}>
+                        <span class="image-link-picker__preview-badge">Overridden by URL</span>
+                    </Show>
                 </div>
             </Show>
 
