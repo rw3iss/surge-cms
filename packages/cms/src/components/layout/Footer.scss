@@ -164,11 +164,15 @@
 
         // Remaining columns: split the next row evenly (grow, basis 0) instead of
         // stacking; min-width:0 (from the renderer) lets them shrink to fit.
+        // align-self:flex-start top-aligns them (so their headings line up) even
+        // though the row otherwise centers items; their own content stays
+        // horizontally centered (column rule below).
         &__row-inner > &__column:not(:first-child) {
             flex-grow: 1 !important;
             flex-shrink: 1 !important;
             flex-basis: 0 !important;
             max-width: none !important;
+            align-self: flex-start !important;
         }
 
         // Center everything on mobile: each column's items, the columns within
