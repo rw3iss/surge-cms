@@ -143,6 +143,16 @@ function menuChildren(item: SiteHeaderItem,): SiteHeaderItem[] {
     return (item.children ?? []).slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0),);
 }
 
+// TEMPORARY static rule: the "Donate" header entry is masked from the mobile
+// flyout list and surfaced as a dedicated primary button beside the hamburger.
+// Matched by visible text "Donate" or a /donate URL. (Will become admin-driven
+// mobile-header config later.)
+function isDonateItem(item: SiteHeaderItem,): boolean {
+    const text = (item.text ?? '').trim().toLowerCase();
+    const url = (item.url ?? '').trim().toLowerCase().replace(/\/+$/, '',);
+    return text === 'donate' || url === '/donate';
+}
+
 // ─── Render a single header item ───
 
 function HeaderItem(props: { item: SiteHeaderItem; },) {
@@ -355,12 +365,15 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
 
 function MobileNavItem(props: { item: SiteHeaderItem; onClose: () => void; },) {
     const item = () => props.item;
+    // Menu items with children start COLLAPSED; tapping the parent toggles them.
+    const [expanded, setExpanded,] = createSignal(false,);
 
     if (item().type === 'text') {
         return <span class="header__mobile-flyout-label">{item().text}</span>;
     }
 
-    // Menu with sub-items → parent link followed by indented children.
+    // Menu with sub-items → a tappable parent (accordion) that reveals its
+    // indented children when expanded. A childless menu / other type is a link.
     const kids = () => menuChildren(item(),);
     return (
         <Show
@@ -368,22 +381,39 @@ function MobileNavItem(props: { item: SiteHeaderItem; onClose: () => void; },) {
             fallback={<HeaderLink item={item()} class="header__nav-link" onClick={props.onClose} />}
         >
             <div class="header__mobile-menu">
-                <HeaderLink
-                    item={item()}
-                    class="header__nav-link header__mobile-menu-parent"
-                    onClick={props.onClose}
-                />
-                <div class="header__mobile-submenu">
-                    <For each={kids()}>
-                        {(child,) => (
-                            <HeaderLink
-                                item={child}
-                                class="header__nav-link header__mobile-sublink"
-                                onClick={props.onClose}
-                            />
-                        )}
-                    </For>
-                </div>
+                <button
+                    type="button"
+                    class={`header__nav-link header__mobile-menu-parent ${expanded() ? 'is-expanded' : ''}`}
+                    onClick={() => setExpanded(!expanded(),)}
+                    aria-expanded={expanded()}
+                >
+                    <span>{item().text}</span>
+                    <svg
+                        class="header__mobile-menu-caret"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </button>
+                <Show when={expanded()}>
+                    <div class="header__mobile-submenu">
+                        <For each={kids()}>
+                            {(child,) => (
+                                <HeaderLink
+                                    item={child}
+                                    class="header__nav-link header__mobile-sublink"
+                                    onClick={props.onClose}
+                                />
+                            )}
+                        </For>
+                    </div>
+                </Show>
             </div>
         </Show>
     );
@@ -553,12 +583,19 @@ export const Header: Component<HeaderProps> = (props,) => {
 
     const hasCustomHeader = () => props.headerSettings?.items && props.headerSettings.items.length > 0;
 
-    // Items to show in the mobile flyout: text, text_link, button, menu — no spacers/images
+    // Items to show in the mobile flyout: text, text_link, button, menu — no
+    // spacers/images, and NOT the Donate entry (surfaced as its own button).
     const mobileNavItems = () => {
         if (!hasCustomHeader()) return [];
         return (props.headerSettings?.items ?? [])
-            .filter(i => ['text', 'text_link', 'button', 'menu',].includes(i.type,),)
+            .filter(i => ['text', 'text_link', 'button', 'menu',].includes(i.type,) && !isDonateItem(i,),)
             .toSorted((a, b,) => a.order - b.order,);
+    };
+
+    // The Donate CTA's destination — from the masked header item, else /donate.
+    const donateHref = () => {
+        const found = (props.headerSettings?.items ?? []).find(isDonateItem,);
+        return found?.url || '/donate';
     };
 
     // ─── Sticky / auto-hide behavior ────────────────────────────
@@ -869,7 +906,16 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
                     </nav>
 
-                    {/* Hamburger — visible on mobile only */}
+                    {/* Donate CTA + Hamburger — mobile only. The Donate entry is
+                        masked from the flyout list and shown here as a primary
+                        button to the left of the hamburger. */}
+                    <A
+                        href={donateHref()}
+                        class="header__donate-btn header__mobile-donate"
+                        onClick={closeMobileMenu}
+                    >
+                        Donate
+                    </A>
                     <button
                         class={`header__mobile-toggle ${mobileMenuOpen() ? 'header__mobile-toggle--open' : ''}`}
                         onClick={toggleMobileMenu}
@@ -892,16 +938,22 @@ export const Header: Component<HeaderProps> = (props,) => {
                             {/* Match the closed mobile header exactly: logo only. */}
                             <SiteLogo logoSrc={props.logo} />
                         </A>
-                        <button
-                            class="header__mobile-flyout-close"
-                            onClick={closeMobileMenu}
-                            aria-label="Close menu"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                            </svg>
-                        </button>
+                        <div class="header__mobile-flyout-head-actions">
+                            {/* Keep the Donate CTA available in the expanded view too. */}
+                            <A href={donateHref()} class="header__donate-btn" onClick={closeMobileMenu}>
+                                Donate
+                            </A>
+                            <button
+                                class="header__mobile-flyout-close"
+                                onClick={closeMobileMenu}
+                                aria-label="Close menu"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Flyout nav items */}

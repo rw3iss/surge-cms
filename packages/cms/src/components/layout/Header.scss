@@ -431,6 +431,39 @@
     transition: all $transition-fast;
   }
 
+  // Donate CTA (mobile) — primary-color button using the appearance settings.
+  &__donate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: var(--site-radius, 6px);
+    background: var(--site-primary, #{$primary-color});
+    color: var(--site-button-text, #fff);
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  // Collapsed-header instance: sits left of the hamburger, mobile-only.
+  &__mobile-donate {
+    margin-right: 8px;
+
+    @include md {
+      display: none;
+    }
+  }
+
+  // Flyout head: group the Donate button + close button on the right.
+  &__mobile-flyout-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   // ─── Custom header items ───
 
   &__custom-items {
@@ -579,8 +612,32 @@
     flex-direction: column;
   }
 
+  // Accordion parent — a <button> styled like a nav link, full-width with a
+  // caret that rotates when expanded. Resets native button chrome.
   &__mobile-menu-parent {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
     font-weight: 700;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+
+    &.is-expanded .header__mobile-menu-caret {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__mobile-menu-caret {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    transition: transform $transition-fast;
   }
 
   &__mobile-submenu {
