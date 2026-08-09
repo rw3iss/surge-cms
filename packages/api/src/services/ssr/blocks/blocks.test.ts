@@ -1,6 +1,6 @@
 import { describe, expect, it, } from 'vitest';
 import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
-import { renderBlockForSeo, SSR_BLOCK_RENDERERS, } from './index';
+import { assembleSsrBlockTree, renderBlockForSeo, SSR_BLOCK_RENDERERS, } from './index';
 
 describe('SSR block registry coverage', () => {
     it('every BlockType has an SSR strategy', () => {
@@ -33,9 +33,27 @@ describe('SSR block output parity', () => {
     it('dynamic blocks emit a naming comment', () => {
         expect(renderBlockForSeo({ type: 'form', },)).toBe('<!-- form block (not server-rendered) -->',);
     });
-    it('video/group/group_item emit nothing', () => {
+    it('video emits nothing; childless group/group_item emit nothing', () => {
         expect(renderBlockForSeo({ type: 'video', },)).toBe('',);
         expect(renderBlockForSeo({ type: 'group', },)).toBe('',);
         expect(renderBlockForSeo({ type: 'group_item', },)).toBe('',);
+    });
+});
+
+describe('SSR nested block tree', () => {
+    it('assembles a flat list into a tree and recurses group children', () => {
+        // page → group → group_item → rich_text
+        const flat = [
+            { id: 'g', parentBlockId: null, type: 'group', },
+            { id: 'slot', parentBlockId: 'g', type: 'group_item', },
+            { id: 'rt', parentBlockId: 'slot', type: 'rich_text', content: '<p>Nested</p>', },
+        ];
+        const roots = assembleSsrBlockTree(flat,);
+        expect(roots,).toHaveLength(1,);
+        expect(roots[0].type,).toBe('group',);
+        // The nested rich_text is now indexable through the container recursion.
+        expect(renderBlockForSeo(roots[0],)).toBe(
+            '<div class="ssr-block ssr-block--rich_text"><p>Nested</p></div>',
+        );
     });
 });

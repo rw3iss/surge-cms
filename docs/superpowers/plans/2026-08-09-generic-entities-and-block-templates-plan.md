@@ -332,14 +332,15 @@ now accept `ctx?: TplCtx` and pass it to child `BlockRenderer` calls; dispatch s
   one solely for this prop-thread would be scope creep — verified structurally + at build).
 - [x] Commit.
 
-### Task 0.4 — SSR walks the block tree
-**Files:** `packages/api/src/services/ssr/routes.ts` (run `buildBlockTree` before
-`renderBlockForSeo`) · `packages/api/src/services/ssr/blocks/index.ts` (add a `group`/child
-walk so nested blocks emit).
-- [ ] **Test first:** `ssr/blocks` test — a page with a `group` wrapping a `rich_text` emits
-  the inner text in SSR HTML (currently empty).
-- [ ] Feed the assembled tree; recurse into children in the group emitter.
-- [ ] Green. Commit. (This also fixes the pre-existing "groups emit nothing in SSR" gap.)
+### Task 0.4 — SSR walks the block tree ✅ DONE
+**Files:** `ssr/blocks/index.ts` (extended `SsrBlockInput` with `id`/`parentBlockId`/`children`;
+added `assembleSsrBlockTree` + `renderChildren`; `group`/`group_item` now recurse) ·
+`ssr/bodyBuilder.ts` (`PageBody.blocks: SsrBlockInput[]`) · `ssr/routes.ts` (SELECT
+`id, parent_block_id …` ordered parent-first, resolve `{{ }}` flat, then assemble the tree).
+- [x] **Test:** `blocks.test.ts` — flat `page→group→group_item→rich_text` assembles to a tree
+  and the nested rich_text is emitted (was empty). Childless group still emits `''`.
+- [x] `vitest` 8/8 green; api build green. Fixes the pre-existing "groups emit nothing in SSR" gap.
+- [x] Commit.
 
 ### Task 0.5 — Promote `reference.ts` into shared (schema-shaped, generated-ready)
 **Files:** Move the machine-readable `ENTITIES` catalog into

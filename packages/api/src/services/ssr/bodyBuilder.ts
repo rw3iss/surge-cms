@@ -15,7 +15,7 @@
  */
 
 import { sanitize, } from '../../utils/sanitize';
-import { renderBlockForSeo, } from './blocks';
+import { renderBlockForSeo, type SsrBlockInput, } from './blocks';
 import { escapeHtml, isoToReadable, } from './blocks/_util';
 
 // ─── Post detail ────────────────────────────────────────────────
@@ -86,12 +86,8 @@ export interface PageBody {
     title: string;
     showTitle?: boolean;
     description?: string | null;
-    blocks?: Array<{
-        type: string;
-        title?: string | null;
-        content?: string | null;
-        settings?: Record<string, unknown> | null;
-    }>;
+    /** Root blocks (a tree — container blocks carry `children`). */
+    blocks?: SsrBlockInput[];
 }
 
 /**

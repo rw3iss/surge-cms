@@ -11,6 +11,7 @@ import {
     buildPostBody,
     buildPostListBody,
 } from './bodyBuilder';
+import { assembleSsrBlockTree, type SsrBlockInput, } from './blocks';
 import type { MetaTags, } from './metaBuilder';
 import { resolveContentForSsr, } from './templateRuntime';
 import {
@@ -373,28 +374,42 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
             // skips dynamic block types it can't index anyway.
             // Errors fall back to a title-only body so SSR never
             // breaks for a page that's missing its blocks row.
-            let blocks: Array<{ type: string; title: string | null; content: string | null; settings: Record<string, unknown> | null; }> = [];
+            let flatBlocks: SsrBlockInput[] = [];
             try {
                 const blocksRes = await query<{
+                    id: string;
+                    parent_block_id: string | null;
                     type: string;
                     title: string | null;
                     content: string | null;
                     settings: Record<string, unknown> | null;
                 }>(
-                    `SELECT type, title, content, settings FROM blocks
+                    // Include id + parent_block_id and order by parent first so
+                    // the tree assembler can nest children (group/group_item).
+                    `SELECT id, parent_block_id, type, title, content, settings FROM blocks
                      WHERE page_id = $1 AND is_visible = true
-                     ORDER BY "order" ASC`,
+                     ORDER BY parent_block_id NULLS FIRST, "order" ASC`,
                     [page.id,],
                 );
-                blocks = blocksRes.rows;
+                flatBlocks = blocksRes.rows.map((r,) => ({
+                    id: r.id,
+                    parentBlockId: r.parent_block_id,
+                    type: r.type,
+                    title: r.title,
+                    content: r.content,
+                    settings: r.settings,
+                }),);
             } catch { /* ignore — fall through to title-only body */ }
 
-            // Resolve any {{ … }} template syntax in block content so crawlers
-            // see real content (the `page` entity is exposed to the templates).
-            blocks = await Promise.all(blocks.map(async (b,) => ({
+            // Resolve any {{ … }} template syntax in block content (flat, before
+            // tree assembly) so crawlers see real content — including nested
+            // blocks. The `page` entity is exposed to the templates.
+            flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
                 ...b,
                 content: await resolveContentForSsr(b.content, { page, },),
             }),),);
+            // Assemble the flat list into a tree so container blocks recurse.
+            const blocks = assembleSsrBlockTree(flatBlocks,);
 
             return {
                 title,
