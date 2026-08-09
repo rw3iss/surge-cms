@@ -8,6 +8,7 @@ import { campaignsRoutes, } from './campaigns';
 import { connectionsRoutes, } from './connections';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
+import { entitiesRoutes, } from './entities';
 import { fontsRoutes, } from './fonts';
 import { formsRoutes, } from './forms';
 import { healthRoutes, } from './health';
@@ -54,6 +55,7 @@ router.use('/api-keys', registerModule('api-keys', apiKeysRoutes, { mountPath: '
 router.use('/audit', registerModule('audit', auditRoutes, { mountPath: '/api/v1/audit', },),);
 router.use('/dashboard', registerModule('dashboard', dashboardRoutes, { mountPath: '/api/v1/dashboard', },),);
 router.use('/dev', registerModule('dev', devRoutes, { mountPath: '/api/v1/dev', },),);
+router.use('/entities', registerModule('entities', entitiesRoutes, { mountPath: '/api/v1/entities', },),);
 router.use('/fonts', registerModule('fonts', fontsRoutes, { mountPath: '/api/v1/fonts', },),);
 router.use('/mailing-lists', registerModule('mailing-lists', mailingListsRoutes, { mountPath: '/api/v1/mailing-lists', },),);
 router.use('/mail-templates', registerModule('mail-templates', mailTemplatesRoutes, { mountPath: '/api/v1/mail-templates', },),);

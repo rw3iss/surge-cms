@@ -59,6 +59,15 @@ export const CACHE_KEYS = {
     shopSettingsPublic: 'shop:settings:public',
     shopStripeStatus: 'shop:stripe:status',
 
+    // ── Generic entities ──
+    entityPrefix: (type: string,) => `entity:${type}:`,
+    entityList: (type: string, hash: string,) => `entity:${type}:list:${hash}`,
+    entityRecord: (type: string, id: string,) => `entity:${type}:rec:${id}`,
+    entityTypesAll: 'entity_types:all',
+
+    // ── Content-block templates ──
+    contentBlockTemplatesByType: (type: string,) => `cbt:type:${type}`,
+
     // ── Feed / sitemap ──
     feedRss: 'feed:rss',
     sitemapXml: 'sitemap:xml',
@@ -256,6 +265,22 @@ export async function invalidateFontsCache(): Promise<void> {
     await del(CACHE_KEYS.fontsList,);
 }
 
+/** Drop all cached list + record reads for one generic entity type. */
+export async function invalidateEntityCache(type: string,): Promise<void> {
+    await delPattern(`${CACHE_KEYS.entityPrefix(type,)}*`,);
+}
+
+/** Drop the cached entity-type registry projection + all per-type reads. */
+export async function invalidateEntityTypesCache(): Promise<void> {
+    await del(CACHE_KEYS.entityTypesAll,);
+    await delPattern('entity:*',);
+}
+
+/** Drop the cached content-block-template list for one entity type. */
+export async function invalidateContentBlockTemplatesCache(type: string,): Promise<void> {
+    await del(CACHE_KEYS.contentBlockTemplatesByType(type,),);
+}
+
 /** Swatches persist under the settings namespace (settings:site_colors). This
  *  is a subset of what invalidateSettingsCache already clears; kept explicit
  *  for call-site readability. */
@@ -379,6 +404,9 @@ export const cache = {
     invalidateSocialEmbed,
     invalidateBlockStylesCache,
     invalidateFontsCache,
+    invalidateEntityCache,
+    invalidateEntityTypesCache,
+    invalidateContentBlockTemplatesCache,
     invalidateSwatchesCache,
     invalidateSsrCache,
     invalidateAllSsrCache,
