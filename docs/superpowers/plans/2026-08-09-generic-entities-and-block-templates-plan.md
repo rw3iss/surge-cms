@@ -342,15 +342,19 @@ added `assembleSsrBlockTree` + `renderChildren`; `group`/`group_item` now recurs
 - [x] `vitest` 8/8 green; api build green. Fixes the pre-existing "groups emit nothing in SSR" gap.
 - [x] Commit.
 
-### Task 0.5 — Promote `reference.ts` into shared (schema-shaped, generated-ready)
-**Files:** Move the machine-readable `ENTITIES` catalog into
-`packages/shared/src/entities/reference.ts` as `EntityFieldDef[]`-compatible data; keep
-`packages/cms/src/services/template/reference.ts` re-exporting for the editor/help pages.
-- [ ] No behavior change; it becomes the seed for core descriptors (Phase 1) and is later
-  generated FROM the registry (Phase 2). Commit.
+### Task 0.5 — Promote `reference.ts` into shared (schema-shaped, generated-ready) ✅ DONE
+**Files:** Created `packages/shared/src/entities/reference.ts` (the machine-readable `ENTITIES`
+catalog + `EntityField`/`EntityDoc` docs types) + barrel export ·
+`packages/cms/src/services/template/reference.ts` now re-exports `ENTITIES`/`EntityDoc`/
+`EntityField` from `@sitesurge/types` and keeps the cms-local prose (OVERVIEW/SYNTAX/FUNCTIONS).
+- [x] No behavior change; the catalog is now server-visible (seeds Phase 1 core descriptors;
+  later generated FROM the registry). shared + admin builds green.
+- [x] Commit.
 
-**Phase 0 exit:** union deduped, ctx threads through groups, SSR walks trees, entity-ref types
-exist — all with green tests, no user-visible change. Deploy.
+**Phase 0 exit ✅:** union deduped, ctx threads through groups, SSR walks trees, entity-ref
+contracts exist — shared/api/admin/client all build; api suite green **except 4 PRE-EXISTING
+failures in `shop/products.test.ts`** (stale cache mock + variant-count assertions; reproduce at
+the pre-Phase-0 commit; unrelated to this work — flagged to the user). Deploy.
 
 ---
 

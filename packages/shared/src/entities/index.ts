@@ -11,3 +11,4 @@ export * from './types';
 export * from './templates';
 export * from './entityBlock';
 export * from './registry';
+export * from './reference';
