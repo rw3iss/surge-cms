@@ -273,10 +273,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                         />
                     </Match>
                     <Match when={props.block.type === 'group'}>
-                        <GroupBlock block={props.block} />
+                        <GroupBlock block={props.block} ctx={props.templateContext} />
                     </Match>
                     <Match when={props.block.type === 'group_item'}>
-                        <GroupItemBlock block={props.block} />
+                        <GroupItemBlock block={props.block} ctx={props.templateContext} />
                     </Match>
                     {/* Removed block types render a polite fallback on the
                         public site so an old page doesn't go blank.
@@ -969,7 +969,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
 // `align` / `justify` accept short keywords (start/center/end/stretch) mapped
 // to flexbox values by the shared groupContainerStyle util.
 
-const GroupBlock: Component<{ block: Block; }> = (props,) => {
+const GroupBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
     const data = () => (props.block.settings || {}) as Record<string, any>;
     const containerStyle = () => groupContainerStyle(data(),);
@@ -986,7 +986,14 @@ const GroupBlock: Component<{ block: Block; }> = (props,) => {
             <For each={children()}>
                 {(child,) => (
                     <Show when={child.isVisible !== false}>
-                        <BlockRenderer block={withSlotDefaults(child, data(),)} noDefaultPadding />
+                        {/* Thread the template context down so `{{ }}` (incl. a
+                            bound entity) resolves in blocks nested inside a group
+                            — previously the ctx was dropped at this recursion. */}
+                        <BlockRenderer
+                            block={withSlotDefaults(child, data(),)}
+                            templateContext={props.ctx}
+                            noDefaultPadding
+                        />
                     </Show>
                 )}
             </For>
@@ -1010,7 +1017,7 @@ function withSlotDefaults(child: Block, parentData: Record<string, any>,): Block
     return { ...child, settings: merged as any, };
 }
 
-const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
+const GroupItemBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
     // NOTE: the slot's sizing (flex + width/min/max/height/align-self) lives on
     // the OUTER `.block--group_item` wrapper (BlockRenderer applies it via
@@ -1027,7 +1034,9 @@ const GroupItemBlock: Component<{ block: Block; }> = (props,) => {
                 <For each={children()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
-                            <BlockRenderer block={child} noDefaultPadding />
+                            {/* Thread the template context to the slot's child so
+                                nested `{{ }}` / entity blocks resolve. */}
+                            <BlockRenderer block={child} templateContext={props.ctx} noDefaultPadding />
                         </Show>
                     )}
                 </For>
