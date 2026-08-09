@@ -29,6 +29,7 @@ import { ShopModule, } from './shop';
 import { PluginsModule, } from './plugins';
 import { FeedModule, } from './feed';
 import { SitemapModule, } from './sitemap';
+import { ContentBlockTemplatesModule, EntitiesModule, EntityTypesModule, } from './entities';
 
 export interface CmsModules {
     posts: PostsModule;
@@ -60,6 +61,9 @@ export interface CmsModules {
     plugins: PluginsModule;
     feed: FeedModule;
     sitemap: SitemapModule;
+    entities: EntitiesModule;
+    entityTypes: EntityTypesModule;
+    contentBlockTemplates: ContentBlockTemplatesModule;
 }
 
 export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModules {
@@ -99,6 +103,9 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.plugins = new PluginsModule(core,);
     c.feed = new FeedModule(core,);
     c.sitemap = new SitemapModule(core,);
+    c.entities = new EntitiesModule(core,);
+    c.entityTypes = new EntityTypesModule(core,);
+    c.contentBlockTemplates = new ContentBlockTemplatesModule(core,);
     return c as CmsClientCore & CmsModules;
 }
 
@@ -111,4 +118,5 @@ export {
     DevModule, HealthModule, SetupModule,
     MailingListsModule, MailTemplatesModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
+    EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,
 };
