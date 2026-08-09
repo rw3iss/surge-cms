@@ -23,6 +23,8 @@ import * as formsSvc from '../forms';
 import * as mediaSvc from '../media';
 import * as pagesSvc from '../pages';
 import * as postsSvc from '../posts';
+import * as entitiesSvc from '../entities';
+import * as entityManager from '../../entities/entityManager';
 import { escapeHtml } from './blocks/_util';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,7 +49,9 @@ async function fetchEntity(kind: string, ref: string): Promise<Rec | null> {
             case 'media':
                 return byId ? ((await mediaSvc.getById(ref)) as unknown as Rec) : null;
             default:
-                return null;
+                // Generic fallback: any registered entity type (custom OR core
+                // like `user`) resolves through the generic entity service.
+                return (await entitiesSvc.get(kind, ref, { admin: false }).catch(() => null)) as Rec | null;
         }
     } catch {
         return null;
@@ -70,8 +74,14 @@ async function fetchCollection(name: string, limit: number): Promise<{ kind: str
                 const items = (await formsSvc.listPublished()) as unknown as Rec[];
                 return { kind: 'form', items: items.slice(0, limit), total: items.length };
             }
-            default:
-                return { kind: '', items: [], total: 0 };
+            default: {
+                // Generic fallback: match a registered type by its plural var.
+                await entityManager.ready();
+                const t = entityManager.all().find((x) => x.pluralVar === name || `${x.key}s` === name);
+                if (!t) return { kind: '', items: [], total: 0 };
+                const r = await entitiesSvc.list(t.key, { limit }, { admin: false });
+                return { kind: t.key, items: r.items as unknown as Rec[], total: r.total };
+            }
         }
     } catch {
         return { kind: '', items: [], total: 0 };
@@ -117,8 +127,19 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
         }
         case 'user':
             return escapeHtml(String((data.displayName ?? data.name) ?? ''));
-        default:
-            return '';
+        default: {
+            // Generic entity (custom type, no bespoke serializer): emit a title
+            // + a short indexable field dump so crawlers see real words.
+            const title = g('title') || g('name') || g('slug');
+            const body = Object.entries(data)
+                .filter(([k, v]) => typeof v === 'string' && v && !['id', 'slug', 'title', 'name'].includes(k))
+                .slice(0, 3)
+                .map(([, v]) => `<p>${escapeHtml(String(v))}</p>`)
+                .join('');
+            return title
+                ? `<div class="ssr-entity ssr-entity--${escapeHtml(kind)}"><h3>${title}</h3>${body}</div>`
+                : '';
+        }
     }
 }
 
@@ -171,7 +192,23 @@ function buildSsrRuntime(entities: Record<string, Rec | null>): TemplateRuntime 
             case 'postCount': return (await memo('postCount', () => fetchCollection('posts', 1))).total;
             case 'campaignCount': return (await memo('campaignCount', () => fetchCollection('campaigns', 200))).total;
             case 'formCount': return (await memo('formCount', () => fetchCollection('forms', 200))).total;
-            default: return undefined;
+            default: {
+                // Generic entity fallback for any registered type.
+                await entityManager.ready();
+                const plural = entityManager.all().find((x) => x.pluralVar === name || `${x.key}s` === name);
+                if (plural) {
+                    const limit = typeof args[0] === 'number' ? (args[0] as number) : 20;
+                    const { kind, items } = await memo(`${name}:${limit}`, () => fetchCollection(name, limit));
+                    return items.map((it) => entityRef(kind, it, s(it.id ?? it.slug)));
+                }
+                if (entityManager.getType(name)) {
+                    const ref = s(args[0]).trim();
+                    if (!ref) return entityRef(name, null);
+                    const data = await memo(`${name}:${ref}`, () => fetchEntity(name, ref));
+                    return entityRef(name, data, ref);
+                }
+                return undefined;
+            }
         }
     };
 

@@ -31,6 +31,7 @@ import { logger, } from '../../utils/logger';
 import * as campaignsSvc from '../campaigns';
 import * as formsSvc from '../forms';
 import * as postsSvc from '../posts';
+import * as entitiesSvc from '../entities';
 import { escapeHtml, } from './blocks/_util';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,7 +54,7 @@ async function fetchEntity(kind: string, ref: string,): Promise<Rec | null> {
                 return ((byId ? await formsSvc.getById(ref,) : await formsSvc.getBySlug(ref,)) as Rec | null)
                     ?? ((byId ? await formsSvc.getBySlug(ref,) : await formsSvc.getById(ref,)) as Rec | null);
             default:
-                return null;
+                return (await entitiesSvc.get(kind, ref, { admin: false, },).catch(() => null,)) as Rec | null;
         }
     } catch {
         return null;
@@ -74,8 +75,10 @@ function entityToMailHtml(kind: string, data: Rec | null,): string {
             return `<strong>${g('title',)}</strong>` + (data.shortDescription ? ` — ${g('shortDescription',)}` : '');
         case 'form':
             return `<strong>${g('title',)}</strong>`;
-        default:
-            return '';
+        default: {
+            const title = g('title',) || g('name',);
+            return title ? `<strong>${title}</strong>` : '';
+        }
     }
 }
 
@@ -109,8 +112,14 @@ function buildMailRuntime(context: Rec,): TemplateRuntime {
                 const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref,),);
                 return entityRef('campaignLink', data, ref,);
             }
-            default:
-                return undefined;
+            default: {
+                // Generic fallback: any registered entity type resolves via the
+                // generic service (custom types + core like `user`/`page`).
+                const ref = s(args[0],).trim();
+                if (!ref) return undefined;
+                const data = await memo(`${name}:${ref}`, () => fetchEntity(name, ref,),);
+                return entityRef(name, data, ref,);
+            }
         }
     };
 
