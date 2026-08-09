@@ -79,6 +79,8 @@ const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
+const AdminEntityTemplateList = lazy(() => import('./pages/admin/entities/TemplateList'));
+const AdminEntityTemplateEditor = lazy(() => import('./pages/admin/entities/TemplateEditor'));
 
 const PageLoading: Component = () => (
     <div class="page-loading">
@@ -165,6 +167,8 @@ const App: Component = () => {
 										<Route path="/media" component={AdminMedia} />
 										<Route path="/entities" component={AdminEntitiesList} />
 										<Route path="/entities/:type" component={AdminEntityDetail} />
+										<Route path="/entities/:type/templates" component={AdminEntityTemplateList} />
+										<Route path="/entities/:type/templates/:id" component={AdminEntityTemplateEditor} />
 										<Route path="/entities/:type/:id" component={AdminEntityRecordEdit} />
 										<Route path="/entities/:type/:id/edit" component={AdminEntityRecordEdit} />
 										<Route path="/shop" component={AdminShopDashboard} />
