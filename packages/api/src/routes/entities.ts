@@ -130,7 +130,9 @@ export const entitiesRoutes = [
         handler: async ({ params, },) => cbtSvc.listByType(params.type,),
     },),
     defineRoute({
-        method: 'get', path: '/:type/templates/:id', auth: 'staff', summary: 'Get a content-block template + its blocks',
+        // Public read: the public site renders `entity` blocks by fetching the
+        // bound template's blocks (page content — not sensitive).
+        method: 'get', path: '/:type/templates/:id', auth: 'optional', summary: 'Get a content-block template + its blocks',
         input: { params: templateIdParam, },
         handler: async ({ params, },) => {
             const template = await cbtSvc.findById(params.id,);
@@ -162,7 +164,7 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'get', path: '/:type/templates/:id/blocks', auth: 'staff', summary: 'Get a template\'s resolved blocks',
+        method: 'get', path: '/:type/templates/:id/blocks', auth: 'optional', summary: 'Get a template\'s resolved blocks',
         input: { params: templateIdParam, },
         handler: async ({ params, },) => cbtSvc.findBlocksResolved(params.id,),
     },),
