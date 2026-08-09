@@ -7,6 +7,7 @@ import { z, } from 'zod';
 import { isStaffRole, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
+import * as cbtSvc from '../services/contentBlockTemplates';
 import * as entitiesSvc from '../services/entities';
 import * as typesSvc from '../services/entityTypes';
 
@@ -64,6 +65,24 @@ const createTypeSchema = z.object({
 const updateTypeSchema = createTypeSchema.partial();
 const instanceBody = z.record(z.string(), z.unknown(),);
 
+const templateIdParam = z.object({ type: z.string(), id: z.string(), },);
+const templateCreateSchema = z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    mode: z.enum(['single', 'list',],).optional(),
+    maxRecords: z.number().int().nullable().optional(),
+},);
+const templateUpdateSchema = templateCreateSchema.partial();
+const templateBlockSchema = z.object({
+    id: z.string().optional(),
+    parentBlockId: z.string().nullable().optional(),
+    blockType: z.string(),
+    position: z.number().int(),
+    settings: z.record(z.string(), z.unknown(),).optional(),
+    style: z.record(z.string(), z.unknown(),).optional(),
+},);
+const templateBlocksBody = z.object({ blocks: z.array(templateBlockSchema,), },);
+
 function meta(total: number, page = 1, limit = 20,) {
     return { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit,),), };
 }
@@ -99,6 +118,60 @@ export const entitiesRoutes = [
         handler: async ({ params, },) => {
             await typesSvc.deleteType(params.key,);
             return { deleted: true, };
+        },
+    },),
+
+    // ── Content-block templates ──
+    // Registered BEFORE the `/:type/:idOrSlug` + `/:type` instance routes so
+    // `/:type/templates` isn't captured by the single-entity matcher.
+    defineRoute({
+        method: 'get', path: '/:type/templates', auth: 'staff', summary: 'List content-block templates for a type',
+        input: { params: typeParam, },
+        handler: async ({ params, },) => cbtSvc.listByType(params.type,),
+    },),
+    defineRoute({
+        method: 'get', path: '/:type/templates/:id', auth: 'staff', summary: 'Get a content-block template + its blocks',
+        input: { params: templateIdParam, },
+        handler: async ({ params, },) => {
+            const template = await cbtSvc.findById(params.id,);
+            if (!template) throw new NotFoundError(`Content-block template "${params.id}"`,);
+            return { ...template, blocks: await cbtSvc.findBlocksResolved(params.id,), };
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/:type/templates', auth: 'admin', summary: 'Create a content-block template',
+        input: { params: typeParam, body: templateCreateSchema, },
+        handler: async ({ params, body, },) =>
+            reply(await cbtSvc.create({ ...body, entityTypeKey: params.type, },), { status: 201, },),
+    },),
+    defineRoute({
+        method: 'put', path: '/:type/templates/:id', auth: 'admin', summary: 'Update a content-block template',
+        input: { params: templateIdParam, body: templateUpdateSchema, },
+        handler: async ({ params, body, },) => {
+            const template = await cbtSvc.update(params.id, body,);
+            if (!template) throw new NotFoundError(`Content-block template "${params.id}"`,);
+            return template;
+        },
+    },),
+    defineRoute({
+        method: 'delete', path: '/:type/templates/:id', auth: 'admin', summary: 'Delete a content-block template',
+        input: { params: templateIdParam, },
+        handler: async ({ params, },) => {
+            await cbtSvc.remove(params.id,);
+            return { deleted: true, };
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/:type/templates/:id/blocks', auth: 'staff', summary: 'Get a template\'s resolved blocks',
+        input: { params: templateIdParam, },
+        handler: async ({ params, },) => cbtSvc.findBlocksResolved(params.id,),
+    },),
+    defineRoute({
+        method: 'put', path: '/:type/templates/:id/blocks', auth: 'admin', summary: 'Replace a template\'s blocks',
+        input: { params: templateIdParam, body: templateBlocksBody, },
+        handler: async ({ params, body, },) => {
+            await cbtSvc.replaceBlocks(params.id, body.blocks,);
+            return { saved: true, };
         },
     },),
 
