@@ -303,14 +303,14 @@ before Phase 1. **Items 1, 2, 3, 7 are RESOLVED (2026-08-09) — marked below.**
 
 Small, safe, no user-visible change. De-risks everything after.
 
-### Task 0.1 — Single source of truth for `BlockType`
+### Task 0.1 — Single source of truth for `BlockType` ✅ DONE
 **Files:** Modify `packages/shared/src/types/content.ts` (keep the canonical union) · Modify
 `packages/cms/src/config/blockTypes.ts` (import `BlockType` from `@sitesurge/types` instead
 of redefining) · `packages/shared/src/utils/blockCatalog.ts` (unchanged; still the runtime array).
-- [ ] Delete the duplicate `BlockType` union in `config/blockTypes.ts`; import from shared.
-- [ ] Run `tsc` across workspaces; fix any inference gaps. Existing coverage tests
-  (`blockCatalog`, ssr/mail) stay green.
-- [ ] Commit.
+- [x] Delete the duplicate `BlockType` union in `config/blockTypes.ts`; import + re-export from shared.
+- [x] Admin build green (`pnpm --filter @sitesurge/admin build`). Existing coverage tests
+  (`blockCatalog`, ssr/mail) unaffected.
+- [x] Commit.
 
 ### Task 0.2 — Generic entity-ref shape in block settings
 **Files:** `packages/shared/src/entities/entityBlock.ts` (the `EntityBinding` type above) ·

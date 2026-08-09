@@ -16,25 +16,13 @@
  * existing call sites don't have to handle them.
  */
 
-export type BlockType =
-    | 'text'
-    | 'social'
-    | 'image'
-    | 'video'
-    | 'document'
-    | 'url_link'
-    | 'rich_text'
-    | 'hero'
-    | 'html'
-    | 'campaign'
-    | 'form'
-    | 'post'
-    | 'post_list'
-    | 'gallery'
-    | 'carousel'
-    | 'spacer'
-    | 'group'
-    | 'group_item';
+// `BlockType` is the single canonical union in `@sitesurge/types`
+// (`packages/shared/src/types/content.ts`). It used to be re-declared here,
+// which meant adding a block type required editing two lists in lockstep.
+// We now import + re-export it so the many admin call sites that pull
+// `BlockType` from this registry keep working, with ZERO drift risk.
+import type { BlockType, } from '@sitesurge/types';
+export type { BlockType, };
 
 /**
  * Categories used to group block types in the AddBlockMenu. The label
