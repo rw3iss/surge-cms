@@ -420,7 +420,7 @@ core types are registered as adopted descriptors; EntityManager serves cached me
 
 ## PHASE 2 — Generic entity API + SDK + template-runtime unification
 
-### Task 2.1 — Generic entity repository (test-first)
+### Task 2.1 — Generic entity repository ✅ DONE (`repositories/genericEntity.repo.ts`; list/get/create/update/delete over any typeDef; filter/search/sort allowlist; integration-tested via routes in 2.4)
 **Files:** `packages/api/src/repositories/genericEntity.repo.ts`
 - [ ] `list(typeDef, query)` (dynamic WHERE from `filter`, `buildSortClause` over field
   allowlist, `paginatedQuery`, full-text `search` over searchable columns), `getById`,
