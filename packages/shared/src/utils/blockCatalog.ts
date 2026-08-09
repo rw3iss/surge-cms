@@ -27,6 +27,7 @@ export const ALL_BLOCK_TYPES = [
     'spacer',
     'group',
     'group_item',
+    'entity',
 ] as const satisfies readonly BlockType[];
 
 // Exhaustiveness guard: if a BlockType is added to the union but not

@@ -85,6 +85,10 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     group_item: () => '',
     // gallery is legacy (folded into image). Try the image renderer.
     gallery: renderImage,
+    // `entity` blocks render a content-block template with a bound entity — a
+    // dynamic, client-resolved block. Emails skip it for now (no template
+    // resolution in the sync mail emitter path).
+    entity: () => '',
 };
 
 function toResult(out: BlockEmailRendererOut,): BlockEmailRenderResult {

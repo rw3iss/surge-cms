@@ -93,6 +93,9 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     // caller). Childless containers emit nothing.
     group: renderChildren,
     group_item: renderChildren,
+    // `entity` renders a content-block template with a bound entity — resolved
+    // client-side; the crawler sees a naming comment (like other dynamic blocks).
+    entity: notIndexable,
 };
 
 /** Server-side block renderer for SSR. Dispatches by type; unknown

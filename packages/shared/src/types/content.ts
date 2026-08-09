@@ -62,7 +62,8 @@ export type BlockType =
     | 'carousel'
     | 'spacer'
     | 'group'
-    | 'group_item';
+    | 'group_item'
+    | 'entity';
 
 export interface Block {
     id: string;
