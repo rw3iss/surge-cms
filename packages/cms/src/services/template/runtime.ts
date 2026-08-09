@@ -80,6 +80,12 @@ async function fetchList(kind: string, limit: number): Promise<{ items: Record<s
 /** Map the collection function name → its element entity kind. */
 const COLLECTION_KIND: Record<string, string> = { posts: 'post', campaigns: 'campaign', forms: 'form' };
 
+/** Best-effort plural → singular for generic entity type keys (strip trailing
+ *  's'). Custom type keys are singular (`recipe`), plural vars add 's'. */
+function singularize(name: string): string {
+    return name.endsWith('s') ? name.slice(0, -1) : name;
+}
+
 export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
     const cache = new Map<string, Promise<unknown>>();
     const memo = <T>(key: string, fn: () => Promise<T>): Promise<T> => {
@@ -143,8 +149,47 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             case 'campaignCount': return (await memo('campaignCount', () => fetchList('campaigns', 200))).total;
             case 'formCount': return (await memo('formCount', () => fetchList('forms', 200))).total;
 
-            default:
+            default: {
+                // ── generic entity types ── resolve ANY registered type through
+                // the generic entity endpoint (optional-auth → works publicly).
+                // `name(ref)` → single; `<plural>` (no string arg) → collection;
+                // `<type>Count` → count. Singular type key = plural minus trailing 's'.
+                if (name.endsWith('Count')) {
+                    const singular = singularize(name.slice(0, -5));
+                    return memo(name, async () => {
+                        try {
+                            const r = await cms.entities.list(singular, { limit: 1 } as never);
+                            return r.meta?.total ?? 0;
+                        } catch {
+                            return 0;
+                        }
+                    });
+                }
+                const firstStr = typeof args[0] === 'string' ? args[0].trim() : '';
+                if (firstStr) {
+                    const data = await memo(`${name}:${firstStr}`, async () => {
+                        try {
+                            return (await cms.entities.getOne(name, firstStr)) as unknown as Record<string, unknown>;
+                        } catch {
+                            return null;
+                        }
+                    });
+                    return entityRef(name, data, firstStr);
+                }
+                // Collection: `{{ for recipes as r }}`.
+                const singular = singularize(name);
+                const limit = typeof args[0] === 'number' ? (args[0] as number) : 20;
+                const items = await memo(`coll:${name}:${limit}`, async () => {
+                    try {
+                        const r = await cms.entities.list(singular, { limit } as never);
+                        return (r.data ?? []) as unknown as Record<string, unknown>[];
+                    } catch {
+                        return [];
+                    }
+                });
+                if (items.length) return items.map((it) => entityRef(singular, it, s(it.id ?? it.slug)));
                 return undefined;
+            }
         }
     };
 

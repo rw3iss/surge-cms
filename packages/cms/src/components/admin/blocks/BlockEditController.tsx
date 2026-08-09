@@ -8,6 +8,7 @@ import BlockStyleEditor from './blockStyles/BlockStyleEditor';
 import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
+import EntityBlockEdit from './types/EntityBlock';
 import DocumentBlock from './types/DocumentBlock';
 import FormBlock from './types/FormBlock';
 import GroupBlock from './types/GroupBlock';
@@ -445,6 +446,9 @@ const BlockContentForm: Component<{
         </Match>
         <Match when={props.block.type === 'group_item'}>
             <GroupItemBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
+        </Match>
+        <Match when={props.block.type === 'entity'}>
+            <EntityBlockEdit data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
     </Switch>
 );

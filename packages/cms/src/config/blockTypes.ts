@@ -152,6 +152,16 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
         recentDataField: 'formId',
     },
     { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
+    {
+        type: 'entity',
+        label: 'Entity Template',
+        description: 'Render a content-block template with an entity (or list) bound to it.',
+        icon: '❖',
+        category: 'blocks',
+        defaultData: () => ({
+            entity: { templateId: '', entityType: '', binding: { mode: 'context' } },
+        }),
+    },
 
     // ─── Layout ───────────────────────────────────────────
     {

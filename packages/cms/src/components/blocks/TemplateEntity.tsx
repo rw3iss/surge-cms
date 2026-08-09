@@ -1,9 +1,33 @@
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
-import { Component, Match, Show, Switch, } from 'solid-js';
+import { Component, For, Match, Show, Switch, } from 'solid-js';
 import FormRenderer from '../forms/FormRenderer';
 import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
+
+/** Default renderer for a whole entity of a CUSTOM type (no bespoke component):
+ *  a title + its scalar string fields. Used when a `{{recipe('id')}}`-style
+ *  whole-entity ref has no dedicated card. */
+const GenericEntityCard: Component<{ kind: string; data: Record<string, unknown>; }> = (props,) => {
+    const title = () =>
+        String(props.data.title ?? props.data.name ?? props.data.slug ?? '',);
+    const fields = () =>
+        Object.entries(props.data,)
+            .filter(([k, v],) =>
+                typeof v === 'string' && v && !['id', 'slug', 'title', 'name', 'status'].includes(k,)
+            )
+            .slice(0, 6,) as [string, string][];
+    return (
+        <div class={`template-entity template-entity--${props.kind}`}>
+            <Show when={title()}>
+                <h3 class="template-entity__title">{title()}</h3>
+            </Show>
+            <For each={fields()}>
+                {([, v],) => <p class="template-entity__desc">{v}</p>}
+            </For>
+        </div>
+    );
+};
 
 /**
  * Renders a WHOLE entity in place — used when a template references an entity
@@ -18,7 +42,7 @@ const TemplateEntity: Component<{
     options?: Record<string, unknown>;
 }> = (props,) => (
     <Show when={props.data} fallback={null}>
-        <Switch fallback={null}>
+        <Switch fallback={<GenericEntityCard kind={props.kind} data={props.data!} />}>
             <Match when={props.kind === 'form'}>
                 <FormRenderer
                     form={props.data as unknown as Form}

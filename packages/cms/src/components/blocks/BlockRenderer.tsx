@@ -19,6 +19,8 @@ import SocialEmbed from './social/SocialEmbed';
 import { usePluginEnabled, } from '../../hooks/usePluginGate';
 import TemplatedContent from './TemplatedContent';
 import type { RuntimeOptions, } from '../../services/template/runtime';
+import { buildBlockTree, } from '@sitesurge/types';
+import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../services/entityBinding';
 import './BlockRenderer.scss';
 
 /** Page-entity context threaded into a block's `{{ … }}` template resolution. */
@@ -271,6 +273,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                                 height: (props.block.settings?.height as string) || '60px',
                             }}
                         />
+                    </Match>
+                    <Match when={props.block.type === 'entity'}>
+                        <EntityBlock block={props.block} ctx={props.templateContext} />
                     </Match>
                     <Match when={props.block.type === 'group'}>
                         <GroupBlock block={props.block} ctx={props.templateContext} />
@@ -968,6 +973,60 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
 //
 // `align` / `justify` accept short keywords (start/center/end/stretch) mapped
 // to flexbox values by the shared groupContainerStyle util.
+
+// ─── Entity (template) block ─────────────────────────────────────────
+//
+// Renders a content-block template with an entity (or list) bound in. The
+// template's block subtree is fetched, its records resolved from the binding,
+// and the subtree rendered ONCE PER record with the entity bound under its
+// singular variable (so template blocks use `{{post.title}}` etc.). List
+// bindings therefore render the template per item — the card/carousel pattern.
+const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
+    const settings = () => (props.block.settings?.entity ?? null) as
+        | { templateId: string; entityType: string; binding: import('@sitesurge/types').EntityBinding; }
+        | null;
+
+    const [resolved] = createResource(
+        () => {
+            const s = settings();
+            if (!s || !s.templateId || !s.entityType) return null;
+            return { s, ctx: props.ctx, };
+        },
+        async (input) => {
+            const { s, ctx, } = input;
+            const tpl = await cms.contentBlockTemplates.getOne(s.entityType, s.templateId,).catch(() => null);
+            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, };
+            const recs = await resolveRecords(s.entityType, s.binding, tpl.maxRecords, ctx,);
+            const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
+            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, };
+        },
+    );
+
+    return (
+        <Show when={resolved()} fallback={null}>
+            {(r) => (
+                <For each={r().items}>
+                    {(rec) => {
+                        const { singular, } = entityVars(r().entityType,);
+                        const mergedCtx = {
+                            ...(props.ctx ?? {}),
+                            [singular]: { kind: r().entityType, data: rec, id: String(rec.id ?? ''), },
+                        } as TplCtx;
+                        return (
+                            <For each={r().roots}>
+                                {(child) => (
+                                    <Show when={child.isVisible !== false}>
+                                        <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
+                                    </Show>
+                                )}
+                            </For>
+                        );
+                    }}
+                </For>
+            )}
+        </Show>
+    );
+};
 
 const GroupBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
