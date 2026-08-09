@@ -312,10 +312,15 @@ of redefining) · `packages/shared/src/utils/blockCatalog.ts` (unchanged; still 
   (`blockCatalog`, ssr/mail) unaffected.
 - [x] Commit.
 
-### Task 0.2 — Generic entity-ref shape in block settings
-**Files:** `packages/shared/src/entities/entityBlock.ts` (the `EntityBinding` type above) ·
-Modify `BlockSettings` (`content.ts`) to allow an optional `entity?: EntityBlockSettings`.
-- [ ] Add the types; no runtime consumer yet. `tsc` green. Commit.
+### Task 0.2 — Generic entity-ref shape in block settings ✅ DONE
+**Files:** Created the FULL shared `packages/shared/src/entities/` module (front-loaded, since
+Phases 1–6 depend on it): `fieldTypes.ts` (`EntityFieldType` + `FIELD_COLUMN_SQL`), `types.ts`
+(`EntityFieldDef`/`EntityTypeDef`/`EntityRecord`/`EntityQuery`/routing/caching), `templates.ts`
+(`ContentBlockTemplate`/`ContentBlockTemplateBlock`), `entityBlock.ts` (`EntityBinding`/
+`EntityBlockSettings`), `registry.ts` (`EntityKindDescriptor`/`EntityTypeRegistry` +
+`createEntityTypeRegistry`), `index.ts` · `shared/src/index.ts` barrel adds `export * from
+'./entities'` · `BlockSettings.entity?` added in `content.ts`.
+- [x] All type-only (no runtime consumer yet). shared/api/admin/client builds all green. Commit.
 
 ### Task 0.3 — Thread `templateContext` through group/child recursion
 **Files:** `packages/cms/src/components/blocks/BlockRenderer.tsx` (GroupBlock/GroupItemBlock

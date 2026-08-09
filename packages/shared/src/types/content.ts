@@ -100,6 +100,9 @@ export interface BlockSettings {
     textColor?: string;
     padding?: string;
     customClasses?: string;
+    /** Payload for an `entity` block (template + data binding). Present only
+     *  on blocks of type `entity`; see `@sitesurge/types` EntityBlockSettings. */
+    entity?: import('../entities/entityBlock').EntityBlockSettings;
     [key: string]: unknown;
 }
 
