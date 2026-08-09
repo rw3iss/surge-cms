@@ -360,7 +360,7 @@ the pre-Phase-0 commit; unrelated to this work — flagged to the user). Deploy.
 
 ## PHASE 1 — Entity-type registry + storage engine (backend, no UI)
 
-### Task 1.1 — Migration: registry + ledger tables
+### Task 1.1 — Migration: registry + ledger tables ✅ DONE (`082_create_entity_registry.sql`)
 **Files:** `packages/api/src/db/migrations/0NN_create_entity_registry.sql`
 - [ ] `entity_types` (columns mirroring `EntityTypeDef` scalars + jsonb `routing`/`caching`),
   `entity_fields` (mirroring `EntityFieldDef`, FK→entity_types CASCADE, `UNIQUE(entity_type_id,
@@ -368,13 +368,13 @@ the pre-Phase-0 commit; unrelated to this work — flagged to the user). Deploy.
 - [ ] Idempotent (`IF NOT EXISTS`). Add to base `schema.sql` too (fresh-install parity).
 - [ ] Commit.
 
-### Task 1.2 — Column mapping + field validation (pure, test-first)
+### Task 1.2 — Column mapping + field validation (pure, test-first) ✅ DONE (`entities/columnMap.ts`, 10 tests)
 **Files:** `packages/api/src/entities/columnMap.ts`
 - [ ] **Tests:** `mapFieldToColumnSql(field)` for every `EntityFieldType`; `validateRecord
   (fields, data)` (required/enum/pattern/min-max/type coercion); slug generation.
 - [ ] Implement using `FIELD_COLUMN_SQL`. Green. Commit.
 
-### Task 1.3 — Table generator (runtime migrations under advisory lock)
+### Task 1.3 — Table generator (runtime migrations under advisory lock) ✅ DONE (`entities/tableGenerator.ts`, 6 tests; pure builders + ledgered/advisory-locked apply)
 **Files:** `packages/api/src/entities/tableGenerator.ts`
 - [ ] Reuse the `pg_advisory_xact_lock(hashtext($1))` pattern from `features/migrations.ts:52`.
 - [ ] `ensureTable(typeDef, client)` → `CREATE TABLE IF NOT EXISTS <tableName> (id uuid pk …,
@@ -386,13 +386,13 @@ the pre-Phase-0 commit; unrelated to this work — flagged to the user). Deploy.
   columns; add a field → column added; idempotent re-run is a no-op; core-field drop rejected.
 - [ ] Green. Commit.
 
-### Task 1.4 — `entity_types`/`entity_fields` repository
+### Task 1.4 — `entity_types`/`entity_fields` repository ✅ DONE (`repositories/entityTypes.repo.ts`)
 **Files:** `packages/api/src/repositories/entityTypes.repo.ts`
 - [ ] CRUD over the two tables (using `base.repo` helpers); `findAllWithFields()` (one query
   + assemble), `findByKey`, `upsertType`, `replaceFields`.
 - [ ] Tests. Commit.
 
-### Task 1.5 — EntityManager (cached metadata authority)
+### Task 1.5 — EntityManager (cached metadata authority) ✅ DONE (`entities/entityManager.ts`, 2 tests; wired into boot)
 **Files:** `packages/api/src/entities/entityManager.ts`
 - [ ] In-memory cache of all `EntityTypeDef`s (with fields), loaded at boot; `getType(key)`,
   `getField`, `requireType`, `all()`; `invalidate()` on any schema change; optional Redis
@@ -400,7 +400,7 @@ the pre-Phase-0 commit; unrelated to this work — flagged to the user). Deploy.
 - [ ] **Tests:** load, get, invalidate-on-change. Commit.
 - [ ] Wire `entityManager.load()` into boot (`index.ts`/`bootRunningMode`).
 
-### Task 1.6 — Core descriptors (adopt existing tables) + feature scaffolding hook
+### Task 1.6 — Core descriptors (adopt existing tables) + feature scaffolding hook ✅ DONE (`entities/coreDescriptors.ts`, 2 tests; boot-seeds enabled core types)
 **Files:** `packages/api/src/entities/coreDescriptors.ts` · Modify
 `packages/api/src/features/registry.ts` (add `entityTypes?: EntityTypeDef[]` to `FeatureConfig`
 and scaffold them in `onEnable`; add `adminListRoute`/`adminEditRoute` on those descriptors).
@@ -413,7 +413,7 @@ and scaffold them in `onEnable`; add `adminListRoute`/`adminEditRoute` on those 
 - [ ] **Tests:** enabling `posts` registers the `post` type; core fields flagged `core:true`.
 - [ ] Commit.
 
-**Phase 1 exit:** the DB can hold entity-type definitions; custom types generate real tables;
+**Phase 1 exit ✅ COMPLETE** (20 new tests green, api build green): the DB can hold entity-type definitions; custom types generate real tables;
 core types are registered as adopted descriptors; EntityManager serves cached metadata. Deploy.
 
 ---

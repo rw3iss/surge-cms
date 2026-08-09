@@ -68,6 +68,17 @@ async function bootRunningMode(): Promise<void> {
         // Don't crash — surface the error and continue serving /health.
     }
 
+    // Register the core entity types (idempotent) + warm the EntityManager
+    // metadata cache so the generic entity system + template registry resolve.
+    try {
+        const { seedCoreEntityTypes, } = await import('./entities/coreDescriptors.js');
+        const entityManager = await import('./entities/entityManager.js');
+        await seedCoreEntityTypes();
+        await entityManager.load();
+    } catch (err) {
+        logger.warn('Entity registry init skipped', { error: err, },);
+    }
+
     logger.info('Connecting to Redis...',);
     const redisHealthy = await cache.healthCheck();
     if (redisHealthy) logger.info('Redis connected',);
