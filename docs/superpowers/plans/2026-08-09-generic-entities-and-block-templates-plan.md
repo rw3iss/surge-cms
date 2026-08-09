@@ -31,6 +31,42 @@ SolidJS + Vite + SCSS, the existing block editor + `{{ }}` engine. Shared: `@sit
 
 ---
 
+## IMPLEMENTATION STATUS — 2026-08-09 (shipped to surge + live-verified)
+
+- **Phase 0 — Foundations ✅ DONE** (deduped BlockType, shared `entities/` contracts, group
+  ctx threading, SSR tree-walk, reference promoted). Deployed + verified.
+- **Phase 1 — Entity storage engine ✅ DONE** (migrations 082, columnMap, table generator,
+  entityTypes repo, EntityManager, core descriptors). 20 tests; **live-verified against
+  production Postgres** (custom type → generated `ce_*` table → CRUD → search → drop).
+- **Phase 2 — Generic API + SDK + template unification ✅ DONE** (generic repo/service/
+  schema-CRUD, `/api/v1/entities`, `cms.entities`/`cms.entityTypes`/`cms.contentBlockTemplates`,
+  cms+ssr+mail `{{ }}` generic fallback + generic whole-entity renderer).
+- **Phase 3 — Admin Entities UI ✅ DONE** (sidebar, list, Schema/Data tabs, record editor,
+  reusable search-select modal).
+- **Phase 4 — Content-block templates ✅ DONE** (migration 083, repo/service/routes, SDK,
+  template list + editor UI reusing the block editor).
+- **Phase 5 — `entity` block ✅ DONE** (migration 084, block type, binding resolver, public
+  renderer, admin panel, SSR/mail arms). **End-to-end live-verified**: a page's `entity` block
+  rendered a content-block template with the bound entity resolved via `{{ }}`.
+- **Phase 9 — Docs ✅ (core)**: CLAUDE.md capability section, `docs/sdk/` headless docs, 11
+  MCP entity tools. (Per-type `/admin/help` auto-pages: follow-up.)
+- **Phase 6 — Carousel entity items — PARTIAL/FOLLOW-UP.** The `entity` block already renders
+  single OR **list** of entity templates (per-record). Native `HeroItem.type='entity'`
+  carousel integration (mixed-type swipeable) is a scoped follow-up (HeroCarousel renders a
+  fixed HeroItem shape, not arbitrary block subtrees per slide).
+- **Phase 7 — Public entity routes — FOLLOW-UP.** Entity data is fully API/SDK-accessible and
+  renderable via `entity` blocks on any page; auto `/{prefix}/:slug` detail/index routes are
+  deferred (adding a greedy 2-segment SPA route to the live site warrants its own careful pass).
+- **Phase 8 — Full core-module migration — FOUNDATION DONE, REWRITE STAGED.** Core types are
+  registered as generic entity types adopting their real tables (readable/manageable via the
+  generic layer). The **full rewrite** of the bespoke post/page/user/campaign/form services onto
+  the generic repo + data reshaping is intentionally **staged per-entity** rather than done in
+  one shot: it's a high-risk migration on a LIVE production site (posts/pages power the whole
+  site) and must be verified entity-by-entity. Doing it blindly would risk an outage — deferred
+  to a dedicated, checkpointed pass.
+
+---
+
 ## Guiding principles (apply to every task)
 
 - **SOLID + DRY.** One generic implementation over `(tableName, fieldSchema)`; no per-entity
