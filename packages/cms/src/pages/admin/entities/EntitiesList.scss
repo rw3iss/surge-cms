@@ -1,0 +1,260 @@
+// Entities admin UI — the generic entity-type registry + record management.
+//
+// Component-scoped partial (imported directly by the entity admin pages).
+// `variables.scss` + `sass:color` are auto-injected via the Vite SCSS
+// `additionalData` config, so tokens like `$spacing-md` are in scope here.
+//
+// Follows ADMIN_STYLES.md: reuses shared admin chrome (`.admin-header`,
+// `.admin-filter-bar`, `.admin-table`, `.settings-tabs`, `.btn`, `.badge`)
+// and only adds the entity-specific row + schema-editor surfaces.
+
+// ─── Entity-type list rows ───────────────────────────────────────────
+.entity-type-rows {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+}
+
+.entity-type-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    padding: $spacing-md $spacing-lg;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-sm;
+
+    &__main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__label {
+        font-weight: 600;
+        font-size: $font-size-base;
+        color: var(--admin-page-text, #{$text-color});
+    }
+
+    &__key {
+        font-family: var(--admin-font-mono, monospace);
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__desc {
+        margin-top: $spacing-xs;
+        color: $text-light;
+        font-size: $font-size-sm;
+        @include truncate;
+    }
+
+    &__meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        white-space: nowrap;
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__count {
+        font-weight: 600;
+        color: var(--admin-page-text, #{$text-color});
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-shrink: 0;
+    }
+
+    @include mobile-only {
+        flex-direction: column;
+        align-items: stretch;
+
+        &__meta { align-items: flex-start; }
+        &__actions { justify-content: flex-end; }
+    }
+}
+
+// ─── Schema editor ───────────────────────────────────────────────────
+.entity-schema {
+    &__section {
+        background: $background;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-lg;
+        padding: $spacing-lg;
+        margin-bottom: $spacing-lg;
+    }
+
+    &__section-title {
+        margin: 0 0 $spacing-md;
+        font-size: $font-size-lg;
+        font-weight: 600;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: $spacing-md;
+    }
+
+    &__save-bar {
+        display: flex;
+        justify-content: flex-end;
+        gap: $spacing-sm;
+        margin-top: $spacing-lg;
+    }
+}
+
+.schema-field-list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+}
+
+.schema-field {
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    padding: $spacing-md;
+    background: var(--admin-bg-subtle, #{$background-dark});
+
+    &--core {
+        border-style: dashed;
+        opacity: 0.9;
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__key {
+        font-family: var(--admin-font-mono, monospace);
+        font-weight: 600;
+    }
+
+    &__type {
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__spacer { flex: 1 1 auto; }
+
+    &__flags {
+        display: flex;
+        gap: $spacing-xs;
+        flex-wrap: wrap;
+    }
+
+    &__body {
+        margin-top: $spacing-md;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: $spacing-md;
+    }
+
+    &__checks {
+        display: flex;
+        gap: $spacing-md;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: $spacing-sm;
+    }
+}
+
+.schema-flag-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: $border-radius-sm;
+    font-size: 11px;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 14%, white);
+    color: var(--site-primary, #{$primary-color});
+}
+
+// ─── Generic record form ─────────────────────────────────────────────
+.entity-record-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: $spacing-lg;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    padding: $spacing-lg;
+
+    &__field--wide { grid-column: 1 / -1; }
+
+    &__ref-row {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+    }
+
+    &__ref-row input { flex: 1 1 auto; }
+
+    textarea { min-height: 90px; resize: vertical; width: 100%; }
+    input, select { width: 100%; }
+}
+
+// ─── Entity search/select modal ──────────────────────────────────────
+.entity-search-modal {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-height: 320px;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+    }
+
+    &__toolbar {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    &__toolbar input { flex: 1 1 200px; }
+
+    &__body { overflow: auto; max-height: 50vh; }
+
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        border-top: 1px solid $border-color;
+        padding-top: $spacing-md;
+    }
+
+    &__selected-count {
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__query {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: $spacing-md;
+    }
+
+    tr.is-selected {
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
+    }
+}

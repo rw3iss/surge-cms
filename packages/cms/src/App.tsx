@@ -76,6 +76,9 @@ const AdminPlugins = lazy(() => import('./pages/admin/Plugins'));
 const AdminPluginConfig = lazy(() => import('./pages/admin/PluginConfig'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
 const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
+const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
+const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
+const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
 
 const PageLoading: Component = () => (
     <div class="page-loading">
@@ -160,6 +163,10 @@ const App: Component = () => {
 										<Route path="/mail/send" component={AdminMailSend} />
 										<Route path="/mail/jobs/:id" component={AdminMailJob} />
 										<Route path="/media" component={AdminMedia} />
+										<Route path="/entities" component={AdminEntitiesList} />
+										<Route path="/entities/:type" component={AdminEntityDetail} />
+										<Route path="/entities/:type/:id" component={AdminEntityRecordEdit} />
+										<Route path="/entities/:type/:id/edit" component={AdminEntityRecordEdit} />
 										<Route path="/shop" component={AdminShopDashboard} />
 										<Route path="/shop/products" component={AdminShopProducts} />
 										<Route path="/shop/products/new" component={AdminShopProductEditor} />

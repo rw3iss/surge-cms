@@ -71,6 +71,7 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
     { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     { path: '/admin/media', label: 'Media', icon: 'media', },
+    { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
     { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
