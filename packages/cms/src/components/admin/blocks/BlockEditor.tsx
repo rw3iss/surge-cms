@@ -133,6 +133,25 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         setStoreBlocks(reconcile(props.blocks, { key: 'id', merge: true, },),);
     },);
 
+    /**
+     * Emit a block-list change while PRESERVING the window scroll position.
+     * EVERY block mutation (enable/disable, add, remove, move, group-slot pick,
+     * change-type, data edit, self-heal) flows through here — otherwise the
+     * editor + live-preview re-render resets scroll to the top. We restore the
+     * captured scrollY after the reconcile + reflow (rAF), then once more on the
+     * next frame to catch late layout (images / height changes). A block edit
+     * must NEVER move the scroll position.
+     */
+    const emitBlocks = (next: BlockData[],) => {
+        const y = window.scrollY;
+        props.onBlocksChange(next,);
+        const restore = () => window.scrollTo(0, y,);
+        requestAnimationFrame(() => {
+            restore();
+            requestAnimationFrame(restore,);
+        },);
+    };
+
     // Self-heal group slots: a `group` must always have at least `columns`
     // group_item children so the slot pickers render immediately — including
     // right after the group is added, before the columns field is touched.
@@ -155,7 +174,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             }
         };
         heal(tree,);
-        if (changed) props.onBlocksChange(flattenTree(tree,),);
+        if (changed) emitBlocks(flattenTree(tree,),);
     },);
 
     // ─── Saved-state snapshots for dirty detection ───
@@ -217,7 +236,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const revertBlock = (blockId: string,) => {
         const saved = savedSnapshots().get(blockId);
         if (!saved) return;
-        props.onBlocksChange(
+        emitBlocks(
             props.blocks.map(b => b.id === blockId ? structuredClone(saved) : b,),
         );
     };
@@ -348,7 +367,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const blockTypes = () => props.blockTypes || getEnabledBlockTypeOptions();
 
     const changeBlockType = (id: string, newType: BlockType,) => {
-        props.onBlocksChange(props.blocks.map(b => {
+        emitBlocks(props.blocks.map(b => {
             if (b.id !== id) return b;
             // Try to carry over compatible data
             const oldData = b.data || {};
@@ -415,12 +434,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             position === 'top' ? destList.unshift(newBlock,) : destList.push(newBlock,);
         }
 
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
         setSelectedBlockId(newBlock.id,);
-        requestAnimationFrame(() => {
-            const el = document.getElementById(newBlock.id,);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
-        },);
     };
 
     /** Convenience for empty group_item slots: add a child to a parent. */
@@ -433,7 +448,6 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     };
 
     const updateBlock = (id: string, data: Record<string, any>,) => {
-        const scrollY = window.scrollY;
         const prevBlock = props.blocks.find(b => b.id === id);
         const updated = props.blocks.map(b => b.id === id ? { ...b, data, } : b);
 
@@ -454,16 +468,14 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                     } else if (nextCols < items.length) {
                         items.length = nextCols;
                     }
-                    props.onBlocksChange(flattenTree(tree,),);
+                    emitBlocks(flattenTree(tree,),);
                     requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
                     return;
                 }
             }
         }
 
-        props.onBlocksChange(updated,);
-        requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
-    };
+        emitBlocks(updated,);    };
 
     const removeBlock = (id: string,) => {
         if (selectedBlockId() === id) setSelectedBlockId(null,);
@@ -471,7 +483,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         const found = findInTree(tree, id,);
         if (!found) return;
         found.parent.splice(found.idx, 1,);
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
     };
 
     const moveBlockUp = (id: string,) => {
@@ -480,7 +492,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         if (!found || found.idx === 0) return;
         const list = found.parent;
         [list[found.idx - 1], list[found.idx],] = [list[found.idx], list[found.idx - 1],];
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
     };
 
     const moveBlockDown = (id: string,) => {
@@ -489,7 +501,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         if (!found || found.idx >= found.parent.length - 1) return;
         const list = found.parent;
         [list[found.idx], list[found.idx + 1],] = [list[found.idx + 1], list[found.idx],];
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
     };
 
     const moveBlockToTop = (id: string,) => {
@@ -498,7 +510,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         if (!found || found.idx === 0) return;
         const [node,] = found.parent.splice(found.idx, 1,);
         found.parent.unshift(node,);
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
     };
 
     const moveBlockToBottom = (id: string,) => {
@@ -507,7 +519,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         if (!found || found.idx >= found.parent.length - 1) return;
         const [node,] = found.parent.splice(found.idx, 1,);
         found.parent.push(node,);
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
     };
 
     /** Insert a new empty block immediately before the given one, in the
@@ -526,12 +538,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             children: [],
         };
         found.parent.splice(found.idx, 0, newBlock,);
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
         setSelectedBlockId(newBlock.id,);
-        requestAnimationFrame(() => {
-            const el = document.getElementById(newBlock.id,);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
-        },);
     };
 
     // ─── Copy / paste ─────────────────────────────────────────────────
@@ -598,12 +606,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         } else {
             found.parent.splice(found.idx + 1, 0, clone,);
         }
-        props.onBlocksChange(flattenTree(tree,),);
+        emitBlocks(flattenTree(tree,),);
         setSelectedBlockId(clone.id,);
-        requestAnimationFrame(() => {
-            const el = document.getElementById(clone.id,);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', },);
-        },);
     };
 
     const handleDragStart = (e: PointerEvent, id: string,) => {
@@ -696,7 +700,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                     return false;
                 };
                 reorderInTree(tree,);
-                props.onBlocksChange(flattenTree(tree,),);
+                emitBlocks(flattenTree(tree,),);
             }
         };
 
