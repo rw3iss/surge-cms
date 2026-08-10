@@ -302,11 +302,13 @@
     &--next { right: max(#{$spacing-md}, calc(var(--hero-side-padding, 0px) / 2 - 20px)); }
   }
 
-  // On a narrow carousel (mobile site + resized admin preview): shrink the nav
-  // arrows to ~75%, tuck them against the edges, and drop the circular
-  // background so only the chevron shows over the media. Unnamed @container
-  // queries the root `.hero-carousel` (container-type set above); the arrows
-  // aren't inside the `hero-slide` overlay container, so this is their nearest.
+  // On a narrow carousel (mobile site, resized admin preview, OR a carousel in a
+  // half-width column on a smaller laptop): shrink the nav arrows. Unnamed
+  // @container queries the root `.hero-carousel` (container-type set above); the
+  // arrows aren't inside the `hero-slide` overlay container, so this is their
+  // nearest. KEEP the dark circle background so the white chevron stays visible
+  // over LIGHT content too (e.g. product cards) — dropping it made white-on-white
+  // arrows vanish on a ~720px-wide column (14" laptop).
   @container (max-width: 768px) {
     // Let the slide content use the full width on a narrow carousel (the 90%
     // cap above only makes sense on wide slides).
@@ -315,16 +317,16 @@
     }
 
     &__arrow {
-      // Full-size chevron again (inherits the base 40px / 20px svg), with a
-      // little padding and no circular background, tucked against the page edges.
-      padding: 5px;
-      background: transparent;
-      backdrop-filter: none;
+      width: 30px;
+      height: 30px;
+      padding: 0;
 
-      &:hover { background: transparent; }
+      svg { width: 16px; height: 16px; }
 
-      &--prev { left: 2px; }
-      &--next { right: 2px; }
+      // Center in the side-padding gutter (30px arrow → 15px half), floored so it
+      // still shows when the gutter is small/unset (tucked near the edge).
+      &--prev { left: max(4px, calc(var(--hero-side-padding, 0px) / 2 - 15px)); }
+      &--next { right: max(4px, calc(var(--hero-side-padding, 0px) / 2 - 15px)); }
     }
   }
 
