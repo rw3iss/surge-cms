@@ -2,7 +2,10 @@ import { describe, expect, it, } from 'vitest';
 import type { EntityFieldDef, } from '@sitesurge/types';
 import {
     assertSafeIdentifier,
+    assertValidFieldKey,
+    columnFor,
     mapFieldColumnDdl,
+    snakeCase,
     standardColumnsDdl,
     validateRecord,
 } from './columnMap';
@@ -40,6 +43,14 @@ describe('mapFieldColumnDdl', () => {
     it('emits a CHECK for enum fields', () => {
         expect(mapFieldColumnDdl(field({ key: 'size', type: 'enum', options: { values: ['S', 'M', "L'x",], }, },)))
             .toBe(`"size" VARCHAR(255) CHECK ("size" IN ('S', 'M', 'L''x'))`,);
+    });
+
+    it('maps a camelCase field key to a snake_case column', () => {
+        expect(snakeCase('shortDescription',)).toBe('short_description',);
+        expect(columnFor({ key: 'goalAmountCents', },)).toBe('goal_amount_cents',);
+        expect(mapFieldColumnDdl(field({ key: 'featuredImage', type: 'text', },)))
+            .toBe('"featured_image" VARCHAR(255)',);
+        expect(assertValidFieldKey('shortDescription',)).toBe('shortDescription',); // camelCase key allowed
     });
 
     it('rejects unsafe identifiers (injection guard)', () => {

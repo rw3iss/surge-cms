@@ -24,6 +24,26 @@ export function assertSafeIdentifier(name: string, what = 'identifier',): string
     return name;
 }
 
+/** A field KEY may be camelCase or snake_case (the API/template-facing name);
+ *  the backing COLUMN is always snake_case (see `columnFor`). */
+const FIELD_KEY_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
+export function assertValidFieldKey(key: string,): string {
+    if (!FIELD_KEY_RE.test(key,)) {
+        throw new ValidationError(`Invalid field key: "${key}" (letters, digits, underscore; must start with a letter)`,);
+    }
+    return key;
+}
+
+/** camelCase / kebab / spaced → snake_case. */
+export function snakeCase(s: string,): string {
+    return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2',).replace(/[\s-]+/g, '_',).toLowerCase();
+}
+
+/** The safe snake_case SQL column for a field (field keys may be camelCase). */
+export function columnFor(field: { key: string; },): string {
+    return assertSafeIdentifier(snakeCase(field.key,), 'field column',);
+}
+
 /** Escape a string literal for inline SQL (enum CHECK values). */
 function sqlLiteral(v: string,): string {
     return `'${v.replace(/'/g, "''",)}'`;
@@ -36,7 +56,7 @@ function sqlLiteral(v: string,): string {
  */
 export function mapFieldColumnDdl(field: EntityFieldDef,): string | null {
     if (!isColumnField(field.type,)) return null;
-    const col = assertSafeIdentifier(field.key, 'field key',);
+    const col = columnFor(field,);
     const parts = [`"${col}"`, FIELD_COLUMN_SQL[field.type],];
 
     if (field.type === 'enum' && field.options?.values?.length) {

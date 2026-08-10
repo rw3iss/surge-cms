@@ -9,7 +9,7 @@ import { transaction, } from '../db';
 import * as repo from '../repositories/entityTypes.repo';
 import * as tableGen from '../entities/tableGenerator';
 import * as entityManager from '../entities/entityManager';
-import { assertSafeIdentifier, } from '../entities/columnMap';
+import { assertSafeIdentifier, assertValidFieldKey, } from '../entities/columnMap';
 import { cache, } from './cache';
 import { ValidationError, } from '../middleware/error';
 
@@ -143,7 +143,7 @@ export async function deleteType(key: string,): Promise<void> {
 /** Coerce incoming field objects to full EntityFieldDefs (positions + flags). */
 function normalizeFields(fields: EntityFieldDef[], forceCore: boolean,): EntityFieldDef[] {
     return fields.map((f, i,) => {
-        assertSafeIdentifier(f.key, 'field key',);
+        assertValidFieldKey(f.key,);
         return {
             id: f.id || `f:${f.key}`, key: f.key, label: f.label || f.key, type: f.type,
             core: forceCore ? true : Boolean(f.core,),

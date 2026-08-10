@@ -4,8 +4,11 @@ import { coreDescriptors, } from './coreDescriptors';
 describe('coreDescriptors', () => {
     const defs = coreDescriptors();
 
-    it('registers the five core types adopting existing tables', () => {
-        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'form', 'page', 'post', 'user',],);
+    it('registers the core types adopting existing tables', () => {
+        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'form', 'page', 'post', 'product', 'user',],);
+        const product = defs.find((d,) => d.key === 'product',)!;
+        expect(product.tableName,).toBe('shop_products',);
+        expect(product.ownerFeature,).toBe('shop',);
         const post = defs.find((d,) => d.key === 'post',)!;
         expect(post.origin,).toBe('core',);
         expect(post.internal,).toBe(true,);

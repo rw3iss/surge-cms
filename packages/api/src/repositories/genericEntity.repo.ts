@@ -14,7 +14,7 @@ import {
 } from '@sitesurge/types';
 import { query, } from '../db';
 import { buildSortClause, } from './base.repo';
-import { assertSafeIdentifier, } from '../entities/columnMap';
+import { assertSafeIdentifier, columnFor, snakeCase, } from '../entities/columnMap';
 
 /** Column-backed fields (excludes `blocks`). */
 function columnFields(typeDef: EntityTypeDef,) {
@@ -29,7 +29,8 @@ function mapEntityRow(typeDef: EntityTypeDef, row: Record<string, unknown>,): En
     rec.createdAt = row.created_at as string;
     rec.updatedAt = row.updated_at as string;
     if ('created_by' in row) rec.createdBy = row.created_by as string;
-    for (const f of columnFields(typeDef,)) rec[f.key] = row[f.key];
+    // Field keys are API-facing (may be camelCase); the DB column is snake_case.
+    for (const f of columnFields(typeDef,)) rec[f.key] = row[columnFor(f,)];
     return rec;
 }
 
@@ -40,7 +41,7 @@ function sortAllowlist(typeDef: EntityTypeDef,): Record<string, string> {
     };
     if (typeDef.hasSlug) allow.slug = 'slug';
     if (typeDef.hasStatus) allow.status = 'status';
-    for (const f of columnFields(typeDef,)) allow[f.key] = `"${assertSafeIdentifier(f.key,)}"`;
+    for (const f of columnFields(typeDef,)) allow[f.key] = `"${columnFor(f,)}"`;
     return allow;
 }
 
@@ -56,7 +57,7 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
 
     for (const [key, raw,] of Object.entries(q.filter ?? {},)) {
         if (!fieldKeys.has(key,) && key !== 'slug') continue; // ignore unknown fields
-        const col = `"${assertSafeIdentifier(key,)}"`;
+        const col = `"${assertSafeIdentifier(snakeCase(key,),)}"`;
         if (raw !== null && typeof raw === 'object' && 'op' in raw) {
             const { op, value, } = raw as { op: string; value: unknown; };
             const OPS: Record<string, string> = {
@@ -82,7 +83,7 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
         } else {
             const textCols = columnFields(typeDef,)
                 .filter((f,) => f.searchable && ['text', 'longtext', 'richtext', 'markdown', 'slug',].includes(f.type,))
-                .map((f,) => `"${assertSafeIdentifier(f.key,)}"`);
+                .map((f,) => `"${columnFor(f,)}"`);
             if (textCols.length > 0) {
                 params.push(`%${q.search}%`,);
                 clauses.push(`(${textCols.map((c,) => `${c} ILIKE $${params.length}`).join(' OR ',)})`,);
@@ -146,7 +147,7 @@ export async function create(
     if (typeDef.hasStatus) push('status', ctx.status ?? 'draft',);
     if (ctx.userId) push('created_by', ctx.userId,);
     for (const f of columnFields(typeDef,)) {
-        if (Object.prototype.hasOwnProperty.call(data, f.key,)) push(f.key, data[f.key],);
+        if (Object.prototype.hasOwnProperty.call(data, f.key,)) push(columnFor(f,), data[f.key],);
     }
     const r = await query<Record<string, unknown>>(
         `INSERT INTO ${table} (${cols.join(', ',)}) VALUES (${placeholders.join(', ',)}) RETURNING *`,
@@ -171,7 +172,7 @@ export async function update(
     if (typeDef.hasSlug && ctx.slug !== undefined) set('slug', ctx.slug,);
     if (typeDef.hasStatus && ctx.status !== undefined) set('status', ctx.status,);
     for (const f of columnFields(typeDef,)) {
-        if (Object.prototype.hasOwnProperty.call(data, f.key,)) set(f.key, data[f.key],);
+        if (Object.prototype.hasOwnProperty.call(data, f.key,)) set(columnFor(f,), data[f.key],);
     }
     if (sets.length === 0) return getById(typeDef, id,);
     vals.push(id,);
