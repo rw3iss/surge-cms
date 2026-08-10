@@ -781,6 +781,22 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                     {/* ─── Mobile overrides (≤768px) ─── */}
                     <h4 class="hero-options__subtitle">Mobile (≤768px)</h4>
                     <div class="hero-options__row">
+                        {/* Render-as-list toggle: when on, the paging-related mobile
+                            options below no longer apply and are hidden. */}
+                        <div class="hero-options__group">
+                            <Toggle
+                                checked={options().listOnMobile || false}
+                                onChange={(next,) => updateOptions({ listOnMobile: next, },)}
+                                ariaLabel="Render as list on mobile"
+                            />
+                            <span class="hero-options__label">Render as list on mobile</span>
+                            <Tooltip
+                                header="Render as list on mobile"
+                                content={<p>On phones (≤768px), stack the items as a plain vertical list instead of a swipeable carousel. Items-per-page, scroll-by and side-padding (mobile) don't apply then.</p>}
+                            />
+                        </div>
+
+                        <Show when={!options().listOnMobile}>
                         <div class="hero-options__group">
                             <span class="hero-options__label">Items per page</span>
                             <input
@@ -826,6 +842,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             />
                             <Tooltip header="Side padding (mobile)" content={<p>Arrow-gutter padding on a phone (any CSS length). Blank = same as desktop.</p>} />
                         </div>
+                        </Show>
                         <div class="hero-options__group">
                             <span class="hero-options__label">Item gap</span>
                             <input

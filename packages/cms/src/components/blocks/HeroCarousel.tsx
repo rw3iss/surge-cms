@@ -1,6 +1,7 @@
 import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, on, onCleanup, onMount, Show, } from 'solid-js';
 import { TEXT_ALIGN, toFlexAlign, } from '../../utils/cssAlign';
+import { previewBreakpoint, } from '../../stores/previewBreakpoint';
 import './HeroCarousel.scss';
 
 /** A slide is either a media/posts item (media backdrop + text overlay) or an
@@ -114,17 +115,36 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     // Initialized synchronously (client) to avoid a desktop→mobile flash, then
     // kept live on resize/rotation.
     const MOBILE_MQ = '(max-width: 768px)';
-    const [isMobile, setIsMobile,] = createSignal(
+    const [viewportMobile, setViewportMobile,] = createSignal(
         typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ,).matches,
     );
+    // The carousel's own rendered width — used ONLY to detect the admin's mobile
+    // PREVIEW (which caps the container width but doesn't fire real @media), never
+    // on the public site (a narrow desktop column would falsely read as mobile).
+    const [containerWidth, setContainerWidth,] = createSignal(0,);
     onMount(() => {
-        if (typeof window === 'undefined') return;
-        const mq = window.matchMedia(MOBILE_MQ,);
-        const update = () => setIsMobile(mq.matches,);
-        update();
-        mq.addEventListener('change', update,);
-        onCleanup(() => mq.removeEventListener('change', update,),);
+        if (typeof window !== 'undefined') {
+            const mq = window.matchMedia(MOBILE_MQ,);
+            const update = () => setViewportMobile(mq.matches,);
+            update();
+            mq.addEventListener('change', update,);
+            onCleanup(() => mq.removeEventListener('change', update,),);
+        }
+        if (containerRef && typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver((entries,) => {
+                for (const e of entries) setContainerWidth(e.contentRect.width,);
+            },);
+            ro.observe(containerRef,);
+            onCleanup(() => ro.disconnect(),);
+        }
     },);
+    // Mobile = the real viewport is narrow, OR the admin is simulating a
+    // breakpoint AND the (capped) carousel width is ≤768px. On the public site
+    // `previewBreakpoint()` is always '' so only the viewport matters.
+    const isMobile = () =>
+        viewportMobile() || (previewBreakpoint() !== '' && containerWidth() > 0 && containerWidth() <= 768);
+    // Render items as a plain vertical list (no track/arrows/dots) on mobile.
+    const isListMode = () => Boolean(props.options.listOnMobile,) && isMobile();
     /** Pick the mobile override when on a narrow viewport AND it's set (numbers:
      *  truthy; strings: non-empty), else the desktop value. */
     const pick = <T,>(mobile: T | undefined, base: T | undefined,): T | undefined =>
@@ -240,7 +260,7 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
 
     const startAutoScroll = () => {
         stopAutoScroll();
-        if (!props.options.autoScroll || !hasMultiple()) return;
+        if (!props.options.autoScroll || !hasMultiple() || isListMode()) return;
         const interval = props.options.autoScrollInterval || 3000;
         autoScrollTimer = setInterval(() => {
             if (!isPaused()) goNext();
@@ -255,7 +275,7 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     };
 
     createEffect(on(
-        () => [props.options.autoScroll, props.options.autoScrollInterval, props.options.repeat, props.items.length,],
+        () => [props.options.autoScroll, props.options.autoScrollInterval, props.options.repeat, props.items.length, isListMode(),],
         () => {
             startAutoScroll();
         },
@@ -301,17 +321,23 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     return (
         <div
             ref={containerRef}
-            class={`hero-carousel ${props.previewMode ? 'hero-carousel--preview' : ''}`}
+            class="hero-carousel"
+            classList={{
+                'hero-carousel--preview': Boolean(props.previewMode,),
+                'hero-carousel--list': isListMode(),
+            }}
             style={{
-                height: resolvedHeight(),
-                ...(props.minHeight ? { 'min-height': props.minHeight, } : {}),
+                // List mode: the container grows to fit the stacked items.
+                height: isListMode() ? 'auto' : resolvedHeight(),
+                ...(props.minHeight && !isListMode() ? { 'min-height': props.minHeight, } : {}),
                 // Slides read these to size to 1/N of the track width, minus gaps.
                 '--hero-per-page': String(perPage(),),
                 '--hero-gap': gap(),
                 // Arrows center within this side gutter (see .scss).
                 '--hero-side-padding': sidePadding() || '0px',
                 ...alignVars(),
-                ...(padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {}),
+                // No arrow gutter in list mode (no arrows).
+                ...(!isListMode() && padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {}),
             }}
             onMouseEnter={() => setIsPaused(true,)}
             onMouseLeave={() => setIsPaused(false,)}
@@ -333,8 +359,11 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                     style={{
                         // Advance by `(100% + gap) / perPage` per item so a gap
                         // between items doesn't drift the paging (see .scss basis).
-                        transform: `translateX(calc(-1 * ${currentIndex()} * (100% + ${gap()}) / ${perPage()}))`,
-                        transition: isTransitioning() ? 'transform 0.5s ease-in-out' : 'none',
+                        // List mode stacks the items (column) with no translate.
+                        transform: isListMode()
+                            ? 'none'
+                            : `translateX(calc(-1 * ${currentIndex()} * (100% + ${gap()}) / ${perPage()}))`,
+                        transition: isTransitioning() && !isListMode() ? 'transform 0.5s ease-in-out' : 'none',
                     }}
                 >
                     <For each={props.items}>
@@ -467,8 +496,8 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                 </div>
                 </div>
 
-                {/* Navigation arrows */}
-                <Show when={hasMultiple()}>
+                {/* Navigation arrows + dots — hidden in list mode (no paging). */}
+                <Show when={hasMultiple() && !isListMode()}>
                     <button
                         class="hero-carousel__arrow hero-carousel__arrow--prev"
                         onClick={goPrev}

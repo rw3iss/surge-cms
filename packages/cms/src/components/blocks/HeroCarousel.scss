@@ -74,6 +74,33 @@
     max-width: 100%;
   }
 
+  // ─── List mode (mobile "render as list") ───
+  // Stack the items as a plain vertical list: the track becomes a column, each
+  // item is full-width + natural-height, nothing is clipped, and there are no
+  // arrows/dots (hidden in the markup). The container height is `auto` (inline).
+  &--list {
+    overflow: visible;
+
+    .hero-carousel__viewport { overflow: visible; }
+
+    .hero-carousel__track {
+      flex-direction: column;
+      // Row gap between the stacked items (from --hero-gap; 0 by default).
+    }
+
+    .hero-carousel__slide {
+      flex: 0 0 auto;
+      width: 100%;
+      height: auto;
+
+      // Entity template items: show full content, no fixed height / inner scroll.
+      &--entity {
+        overflow: visible;
+        align-items: stretch;
+      }
+    }
+  }
+
   // ─── Media background ───
 
   &__media {

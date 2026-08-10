@@ -121,6 +121,10 @@ export interface HeroCarouselOptions {
     itemGap?: string;
     // ─── Mobile overrides (≤768px viewport). Each falls back to its desktop
     //     value above when unset, so a carousel only needs to set what differs. ───
+    /** On mobile, render the items as a plain vertical LIST instead of a
+     *  swipeable carousel. When on, the mobile items-per-page / scroll-by /
+     *  side-padding overrides no longer apply. */
+    listOnMobile?: boolean;
     itemsPerPageMobile?: number;
     scrollByMobile?: number;
     sidePaddingMobile?: string;
