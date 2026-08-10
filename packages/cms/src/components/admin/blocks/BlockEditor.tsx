@@ -134,18 +134,39 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
     },);
 
     /**
-     * Emit a block-list change while PRESERVING the window scroll position.
-     * EVERY block mutation (enable/disable, add, remove, move, group-slot pick,
-     * change-type, data edit, self-heal) flows through here — otherwise the
-     * editor + live-preview re-render resets scroll to the top. We restore the
-     * captured scrollY after the reconcile + reflow (rAF), then once more on the
-     * next frame to catch late layout (images / height changes). A block edit
-     * must NEVER move the scroll position.
+     * Emit a block-list change while KEEPING THE VIEWPORT STABLE. EVERY block
+     * mutation (enable/disable, add, remove, move, group-slot pick, change-type,
+     * data edit, self-heal) flows through here — otherwise the editor re-render
+     * jumps scroll to the top. A block edit must NEVER move the view.
+     *
+     * We anchor to the block being edited (the selected block): we record its
+     * top offset in the viewport before the change and, after the reconcile +
+     * reflow, scroll by the delta so THAT block stays exactly where it was —
+     * even when its own preview grows/shrinks (e.g. an entity/template block
+     * whose content collapses on a config change makes the whole page shorter,
+     * which would otherwise clamp scroll to the top). Falls back to restoring
+     * the absolute scrollY when there's no anchor. Re-applied over the next two
+     * frames to catch late layout (async previews, images).
      */
     const emitBlocks = (next: BlockData[],) => {
-        const y = window.scrollY;
+        const anchorId = selectedBlockId();
+        const anchorEl = anchorId ? document.getElementById(anchorId,) : null;
+        const prevTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
+        const prevY = window.scrollY;
+
         props.onBlocksChange(next,);
-        const restore = () => window.scrollTo(0, y,);
+
+        const restore = () => {
+            if (anchorId && prevTop != null) {
+                const el = document.getElementById(anchorId,);
+                if (el) {
+                    const delta = el.getBoundingClientRect().top - prevTop;
+                    if (delta !== 0) window.scrollBy(0, delta,);
+                    return;
+                }
+            }
+            window.scrollTo(0, prevY,);
+        };
         requestAnimationFrame(() => {
             restore();
             requestAnimationFrame(restore,);
