@@ -135,7 +135,9 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     // Ref-count of in-flight emitBlocks height pins (see below), so overlapping
     // edits don't release the <html> min-height pin while another still needs it.
+    // `pinnedHeight` is the shared floor for the current burst (only raised).
     let heightPins = 0;
+    let pinnedHeight = 0;
 
     /**
      * Emit a block-list change while KEEPING THE VIEWPORT STABLE. EVERY block
@@ -163,16 +165,22 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
         // Pin the document height across the reflow. On a type change the whole
         // list momentarily DETACHES — the page collapses to the viewport height,
-        // which clamps scrollY to 0 (the jump the user sees) — then reattaches
-        // ~80ms later. Forcing <html> min-height to the pre-change height keeps
-        // the scrollable area from shrinking, so the browser never clamps and
-        // the scroll position (and the edited block's on-screen spot) hold still.
+        // which clamps scrollY to 0 (the jump the user sees) — then reattaches.
+        // Forcing <html> min-height keeps the scroll area from shrinking so the
+        // browser never clamps. The floor is `max(scrollHeight, prevY + viewport)`
+        // so the CURRENT scroll offset can never be clamped away even if the
+        // collapse already began, and we only ever RAISE the shared pin (never
+        // lower it) — a nested self-heal emit that reads an already-collapsed
+        // height must not shrink a floor an outer emit set from the full height.
         const de = document.documentElement;
+        const floor = Math.max(de.scrollHeight, prevY + window.innerHeight,);
+        pinnedHeight = heightPins === 0 ? floor : Math.max(pinnedHeight, floor,);
         heightPins++;
-        de.style.minHeight = `${de.scrollHeight}px`;
+        de.style.minHeight = `${pinnedHeight}px`;
         const releasePin = () => {
             if (--heightPins <= 0) {
                 heightPins = 0;
+                pinnedHeight = 0;
                 de.style.minHeight = '';
             }
         };
@@ -180,9 +188,13 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         props.onBlocksChange(next,);
 
         // Belt-and-suspenders on top of the height pin: re-pin the edited block
-        // to its prior viewport position each frame until the layout settles
-        // (covers cases where content ABOVE the block legitimately changed
-        // height, and late async previews/images). Bounded by a safety cap.
+        // to its prior viewport position each frame. Runs for at least MIN_SETTLE_MS
+        // (NOT just "3 stable frames") so a LATE async reflow — e.g. an entity/
+        // carousel preview that resolves over the network ~200-500ms after the
+        // edit and re-collapses the page — is caught after the sync layout has
+        // already gone quiet. Capped at MAX_SETTLE_MS.
+        const MIN_SETTLE_MS = 500;
+        const MAX_SETTLE_MS = 1500;
         let settledFrames = 0;
         const startedAt = performance.now();
         const correct = () => {
@@ -207,7 +219,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         };
         const loop = () => {
             correct();
-            if (settledFrames < 3 && performance.now() - startedAt < 700) {
+            const elapsed = performance.now() - startedAt;
+            if (elapsed < MIN_SETTLE_MS || (settledFrames < 3 && elapsed < MAX_SETTLE_MS)) {
                 requestAnimationFrame(loop,);
             } else {
                 releasePin();
