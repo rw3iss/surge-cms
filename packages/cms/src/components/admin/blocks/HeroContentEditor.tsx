@@ -9,6 +9,7 @@ import type {
 } from '@sitesurge/types';
 import type { AppearanceSettings, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
+import { createStore, reconcile, } from 'solid-js/store';
 import { cms, } from '../../../services/cmsClient';
 import ResolvedHeroCarousel from '../../blocks/ResolvedHeroCarousel';
 import { renderEntityTemplateSlide, } from '../../blocks/BlockRenderer';
@@ -120,6 +121,15 @@ export interface HeroContentEditorProps {
 const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
     const toast = useToast();
     const [items, setItems,] = createSignal<HeroItem[]>([],);
+    // Mirror `items()` into a store keyed by `id` so editing ONE item merges into
+    // its existing proxy instead of replacing it — the item CARDS iterate this
+    // store, so a card (and its EntityBlockEdit panel + async selects) is never
+    // torn down/remounted on an edit. Without this, `<For each={items()}>` keys
+    // by reference and every edit recreates the row, which (a) resets the entity
+    // type <select> (its options re-fetch after the value binds, so it can't
+    // select) and (b) churns the DOM, jumping the page scroll.
+    const [storeItems, setStoreItems,] = createStore<HeroItem[]>([],);
+    createEffect(() => setStoreItems(reconcile(items(), { key: 'id', merge: true, },),),);
     const [options, setOptions,] = createSignal<HeroCarouselOptions>({ ...DEFAULT_OPTIONS, },);
     const [isDirty, setIsDirty,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
@@ -700,7 +710,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                 {/* ─── Item Cards ─── */}
                 <h3 class="hero-options__title">Carousel Items</h3>
                 <div class={`hero-editor__items ${draggingId() ? 'hero-editor__items--dragging' : ''}`}>
-                    <For each={items()}>
+                    <For each={storeItems}>
                         {(item,) => (
                                 <div
                                     class={`hero-item-card ${draggingId() === item.id ? 'hero-item-card--dragging' : ''}`}
