@@ -14,6 +14,7 @@ const fieldShape = z.object({
     unique: z.boolean().optional(),
     indexed: z.boolean().optional(),
     searchable: z.boolean().optional(),
+    filterable: z.boolean().optional().describe('Offer a filter dropdown of this field\'s distinct/enum values in selection UIs.'),
     defaultValue: z.unknown().optional(),
     options: z.record(z.string(), z.unknown(),).optional(),
     position: z.number().optional(),

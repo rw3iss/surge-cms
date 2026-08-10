@@ -13,6 +13,14 @@ import type { EntityFieldType, } from './fieldTypes';
  *  by feature modules) and their core fields are locked. */
 export type EntityOrigin = 'core' | 'custom';
 
+/** A label/value pair — an `enum` field's allowed option (label shown in UIs,
+ *  value stored in the DB), and the shape returned for a filterable field's
+ *  distinct values. */
+export interface EntityFieldOption {
+    label: string;
+    value: string;
+}
+
 /** One property on an entity type's schema. */
 export interface EntityFieldDef {
     id: string;
@@ -28,11 +36,17 @@ export interface EntityFieldDef {
     indexed: boolean;
     /** Included in the type's `search_vector` + the generic search filter. */
     searchable: boolean;
+    /** When true, selection UIs (entity search modals, the Data tab) offer a
+     *  dropdown of this field's distinct/enum values to filter results by. */
+    filterable: boolean;
     defaultValue?: unknown;
     /** Type-specific options. */
     options?: {
-        /** enum: allowed values. */
+        /** enum: allowed values (the raw stored values; backs the CHECK). */
         values?: string[];
+        /** enum: label/value pairs (label shown in UIs, value stored). The
+         *  backend derives `values` from these when present. */
+        enumOptions?: EntityFieldOption[];
         /** relation: target entity type key. */
         relationType?: string;
         /** relation: many-to-many (join table) vs single FK. */

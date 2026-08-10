@@ -3,6 +3,7 @@ import type {
     ContentBlockTemplateBlock,
     ContentBlockTemplateCreateBody,
     ContentBlockTemplateUpdateBody,
+    EntityFilterValuesResponse,
     EntityQuery,
     EntityRecord,
     EntityTypeCreateBody,
@@ -46,6 +47,13 @@ export class EntitiesModule extends ModuleBase {
     async count(type: string, query?: EntityQuery,): Promise<number> {
         const res = await this.list(type, { ...query, limit: 1, },);
         return res.meta.total ?? 0;
+    }
+
+    /** Distinct/enum values of a `filterable` field — for a filter dropdown. */
+    filterValues(type: string, field: string,): Promise<EntityFilterValuesResponse> {
+        return this.get<EntityFilterValuesResponse>(
+            '/entities/:type/fields/:field/values', { params: { type, field, }, },
+        );
     }
 }
 

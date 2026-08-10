@@ -115,6 +115,21 @@ export async function list(
     return { items: rowsRes.rows.map((r,) => mapEntityRow(typeDef, r,),), total, };
 }
 
+/** Distinct non-null values of one column-backed field, for a filter dropdown.
+ *  Capped so a high-cardinality column can't produce an unbounded list. */
+export async function distinctValues(
+    typeDef: EntityTypeDef,
+    field: { key: string; },
+    limit = 500,
+): Promise<string[]> {
+    const table = `"${assertSafeIdentifier(typeDef.tableName, 'table name',)}"`;
+    const col = `"${columnFor(field,)}"`;
+    const r = await query<{ v: unknown; }>(
+        `SELECT DISTINCT ${col} AS v FROM ${table} WHERE ${col} IS NOT NULL ORDER BY 1 LIMIT ${Math.max(1, Math.min(2000, limit,),)}`,
+    );
+    return r.rows.map((row,) => String(row.v,));
+}
+
 export async function getById(typeDef: EntityTypeDef, id: string,): Promise<EntityRecord | null> {
     const table = `"${assertSafeIdentifier(typeDef.tableName, 'table name',)}"`;
     const r = await query<Record<string, unknown>>(`SELECT * FROM ${table} WHERE id = $1`, [id,],);

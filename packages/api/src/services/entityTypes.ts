@@ -149,7 +149,26 @@ function normalizeFields(fields: EntityFieldDef[], forceCore: boolean,): EntityF
             core: forceCore ? true : Boolean(f.core,),
             required: Boolean(f.required,), unique: Boolean(f.unique,),
             indexed: Boolean(f.indexed,), searchable: Boolean(f.searchable,),
-            defaultValue: f.defaultValue, options: f.options, position: f.position ?? i,
+            filterable: Boolean(f.filterable,),
+            defaultValue: f.defaultValue, options: normalizeOptions(f,), position: f.position ?? i,
         };
     },);
+}
+
+/** For enum fields, keep `options.values` (the raw values backing the CHECK +
+ *  validation) in sync with the admin-authored `options.enumOptions` label/value
+ *  pairs, so the table generator and validator work off one source of truth. */
+function normalizeOptions(f: EntityFieldDef,): EntityFieldDef['options'] {
+    const opts = f.options;
+    if (f.type !== 'enum') return opts;
+    const enumOptions = opts?.enumOptions?.filter((o,) => o && o.value !== '' && o.value != null);
+    if (enumOptions && enumOptions.length) {
+        return { ...opts, enumOptions, values: enumOptions.map((o,) => String(o.value,)), };
+    }
+    // Back-compat: a field with only `values` (legacy comma-separated) gets
+    // enumOptions derived so the editor + filters have labels to show.
+    if (opts?.values?.length) {
+        return { ...opts, values: opts.values, enumOptions: opts.values.map((v,) => ({ label: v, value: v, })), };
+    }
+    return opts;
 }

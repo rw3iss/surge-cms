@@ -63,6 +63,9 @@ export const CACHE_KEYS = {
     entityPrefix: (type: string,) => `entity:${type}:`,
     entityList: (type: string, hash: string,) => `entity:${type}:list:${hash}`,
     entityRecord: (type: string, id: string,) => `entity:${type}:rec:${id}`,
+    // Distinct values of a filterable field — under the entity:<type>: prefix so
+    // it's dropped by invalidateEntityCache on any record write of that type.
+    entityFilterValues: (type: string, field: string,) => `entity:${type}:filtervals:${field}`,
     entityTypesAll: 'entity_types:all',
 
     // ── Content-block templates ──

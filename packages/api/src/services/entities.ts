@@ -4,13 +4,13 @@
  * The single business-logic home for CRUD on ANY entity type.
  */
 import { createHash, } from 'crypto';
-import { type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
+import { type EntityFieldOption, type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
 import * as repo from '../repositories/genericEntity.repo';
 import * as entityManager from '../entities/entityManager';
 import { getEntityDataProvider, } from '../entities/dataProviders';
 import { validateRecord, } from '../entities/columnMap';
 import { cache, CACHE_KEYS, } from './cache';
-import { NotFoundError, } from '../middleware/error';
+import { NotFoundError, ValidationError, } from '../middleware/error';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -128,4 +128,33 @@ export async function remove(typeKey: string, id: string,): Promise<void> {
 export async function count(typeKey: string, q: EntityQuery = {},): Promise<number> {
     const res = await list(typeKey, { ...q, limit: 1, },);
     return res.total;
+}
+
+/**
+ * Distinct/enum values of a `filterable` field, for a filter dropdown. Enum
+ * fields return their defined label/value options (no query); other filterable
+ * fields return DISTINCT column values (label = value). Cached aggressively
+ * under the entity:<type>: prefix, so it's invalidated on any record write.
+ */
+export async function getFilterValues(typeKey: string, fieldKey: string,): Promise<EntityFieldOption[]> {
+    const t = await requireType(typeKey,);
+    const field = t.fields.find((f,) => f.key === fieldKey,);
+    if (!field) throw new NotFoundError(`Field "${fieldKey}" on ${t.label}`,);
+    if (!field.filterable) throw new ValidationError(`Field "${fieldKey}" is not filterable`,);
+
+    // Enum: the allowed options are authoritative — no query, no per-type cost.
+    if (field.type === 'enum') {
+        const opts = field.options?.enumOptions
+            ?? (field.options?.values ?? []).map((v,) => ({ label: v, value: v, }));
+        return opts;
+    }
+
+    const key = CACHE_KEYS.entityFilterValues(typeKey, fieldKey,);
+    const cached = await cache.get<EntityFieldOption[]>(key,);
+    if (cached) return cached;
+    const values = await repo.distinctValues(t, field,);
+    const opts = values.map((v,) => ({ label: v, value: v, }));
+    // Long TTL — the entity:<type>: prefix invalidation on writes keeps it fresh.
+    await cache.set(key, opts, 3600,);
+    return opts;
 }

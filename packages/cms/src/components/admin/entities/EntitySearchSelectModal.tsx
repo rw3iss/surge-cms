@@ -21,6 +21,7 @@ import { Component, createEffect, createSignal, For, onMount, Show, } from 'soli
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
+import EntityFilterBar from './EntityFilterBar';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
 export type EntitySearchResult = EntityRecord | EntityRecord[] | EntityQuery;
@@ -69,6 +70,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const [filterOp, setFilterOp,] = createSignal<FilterOp>('eq',);
     const [filterValue, setFilterValue,] = createSignal('',);
 
+    // Filterable-field dropdowns (all modes): fieldKey → selected value.
+    const [barFilters, setBarFilters,] = createSignal<Record<string, string>>({},);
+
     let searchTimer: ReturnType<typeof setTimeout>;
 
     /** Column-backed, non-blocks fields, capped for width. */
@@ -99,7 +103,8 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         setPage(1,);
     };
 
-    const buildFilter = (): Record<string, EntityFilterValue> | undefined => {
+    /** The query-mode single clause (op + value), if set. */
+    const buildClause = (): Record<string, EntityFilterValue> | undefined => {
         if (props.mode !== 'query' || !filterField() || filterValue() === '') return undefined;
         const raw = filterValue();
         const value: unknown = filterOp() === 'in' ?
@@ -108,6 +113,17 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             Number(raw,) :
             raw;
         return { [filterField()]: { op: filterOp(), value, }, };
+    };
+
+    /** Combined filter: the filterable-field dropdowns (bare equality) merged
+     *  with the query-mode clause. Applied in every mode to narrow results. */
+    const buildFilter = (): Record<string, EntityFilterValue> | undefined => {
+        const bar = Object.fromEntries(
+            Object.entries(barFilters(),).filter(([, v,],) => v !== '' && v != null),
+        );
+        const clause = buildClause();
+        const merged: Record<string, EntityFilterValue> = { ...bar, ...(clause ?? {}), };
+        return Object.keys(merged,).length ? merged : undefined;
     };
 
     const buildQuery = (): EntityQuery => ({
@@ -158,8 +174,14 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         sortOrder();
         filterField();
         filterOp();
+        barFilters();
         void fetchRecords();
     },);
+
+    const onFilterBarChange = (next: Record<string, string>,) => {
+        setBarFilters(next,);
+        setPage(1,);
+    };
 
     const onSearchInput = (value: string,) => {
         setSearch(value,);
@@ -219,6 +241,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         </label>
                     </Show>
                 </div>
+
+                {/* Filterable-field dropdowns (all modes) — narrow the visible
+                    records by a field's distinct/enum values. In query mode they
+                    also fold into the saved query's filter. */}
+                <EntityFilterBar typeDef={typeDef()} value={barFilters()} onChange={onFilterBarChange} />
 
                 <Show when={props.mode === 'query'}>
                     <div class="entity-search-modal__query">

@@ -22,6 +22,7 @@ function mapField(r: any,): EntityFieldDef {
         unique: r.is_unique,
         indexed: r.indexed,
         searchable: r.searchable,
+        filterable: r.filterable ?? false,
         defaultValue: r.default_value ?? undefined,
         options: r.options ?? undefined,
         position: r.position,
@@ -117,16 +118,17 @@ export async function upsertField(entityTypeId: string, field: EntityFieldDef, c
     await q(client,).query(
         `INSERT INTO entity_fields
             (entity_type_id, key, label, type, core, required, is_unique, indexed, searchable,
-             default_value, options, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12)
+             filterable, default_value, options, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13)
          ON CONFLICT (entity_type_id, key) DO UPDATE SET
             label = EXCLUDED.label, type = EXCLUDED.type, required = EXCLUDED.required,
             is_unique = EXCLUDED.is_unique, indexed = EXCLUDED.indexed,
-            searchable = EXCLUDED.searchable, default_value = EXCLUDED.default_value,
+            searchable = EXCLUDED.searchable, filterable = EXCLUDED.filterable,
+            default_value = EXCLUDED.default_value,
             options = EXCLUDED.options, position = EXCLUDED.position, updated_at = NOW()`,
         [
             entityTypeId, field.key, field.label, field.type, field.core, field.required,
-            field.unique, field.indexed, field.searchable,
+            field.unique, field.indexed, field.searchable, field.filterable,
             field.defaultValue !== undefined ? JSON.stringify(field.defaultValue,) : null,
             field.options !== undefined ? JSON.stringify(field.options,) : null,
             field.position,

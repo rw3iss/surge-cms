@@ -9,7 +9,7 @@
  * Controlled: the parent owns the `fields` array and receives a new array on
  * every change via `onChange`.
  */
-import type { EntityFieldDef, EntityFieldType, } from '@sitesurge/types';
+import type { EntityFieldDef, EntityFieldOption, EntityFieldType, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
 import FormCheck from '../forms/FormCheck';
 import FormField from '../forms/FormField';
@@ -56,6 +56,29 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
         patch(id, { options: { ...(field?.options ?? {}), ...changes, }, },);
     };
 
+    /** The enum option rows for a field (label/value pairs). Falls back to
+     *  legacy `options.values` (label = value) so old enum fields still edit. */
+    const enumOptionsOf = (field: EntityFieldDef,): EntityFieldOption[] => {
+        if (field.options?.enumOptions?.length) return field.options.enumOptions;
+        if (field.options?.values?.length) return field.options.values.map((v,) => ({ label: v, value: v, }));
+        return [];
+    };
+
+    /** Persist enum rows: keep `enumOptions` (label/value) AND `values` (the raw
+     *  values, which back the DB CHECK) in sync. */
+    const setEnumOptions = (id: string, rows: EntityFieldOption[],) => {
+        patchOptions(id, { enumOptions: rows, values: rows.map((r,) => r.value), },);
+    };
+    const addEnumOption = (field: EntityFieldDef,) => {
+        setEnumOptions(field.id, [...enumOptionsOf(field,), { label: '', value: '', },],);
+    };
+    const updateEnumOption = (field: EntityFieldDef, idx: number, patch: Partial<EntityFieldOption>,) => {
+        setEnumOptions(field.id, enumOptionsOf(field,).map((r, i,) => (i === idx ? { ...r, ...patch, } : r)),);
+    };
+    const removeEnumOption = (field: EntityFieldDef, idx: number,) => {
+        setEnumOptions(field.id, enumOptionsOf(field,).filter((_, i,) => i !== idx),);
+    };
+
     const removeField = (id: string,) => {
         props.onChange(props.fields.filter((f,) => f.id !== id),);
     };
@@ -71,6 +94,7 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
             unique: false,
             indexed: false,
             searchable: false,
+            filterable: false,
             position: props.fields.length,
         };
         props.onChange([...props.fields, field,],);
@@ -100,6 +124,9 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
                                 </Show>
                                 <Show when={field.searchable}>
                                     <span class="schema-flag-badge">search</span>
+                                </Show>
+                                <Show when={field.filterable}>
+                                    <span class="schema-flag-badge">filter</span>
                                 </Show>
                                 <Show when={!field.core && !props.disabled}>
                                     <button
@@ -144,20 +171,52 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
                                 </FormField>
 
                                 <Show when={field.type === 'enum'}>
-                                    <FormField label="Enum values" hint="Comma-separated">
-                                        <input
-                                            type="text"
-                                            value={(field.options?.values ?? []).join(', ',)}
-                                            placeholder="draft, active, done"
-                                            onInput={(e,) =>
-                                                patchOptions(field.id, {
-                                                    values: e.currentTarget.value
-                                                        .split(',',)
-                                                        .map((v,) => v.trim())
-                                                        .filter(Boolean,),
-                                                },)}
-                                        />
-                                    </FormField>
+                                    <div class="schema-enum-editor">
+                                        <FormField
+                                            label="Enum values"
+                                            hint="Label is shown in UIs / filter options; value is stored in the database."
+                                        >
+                                            <div class="schema-enum-rows">
+                                                <For each={enumOptionsOf(field,)}>
+                                                    {(opt, i,) => (
+                                                        <div class="schema-enum-row">
+                                                            <input
+                                                                type="text"
+                                                                class="schema-enum-row__label"
+                                                                placeholder="Label"
+                                                                value={opt.label}
+                                                                onInput={(e,) =>
+                                                                    updateEnumOption(field, i(), { label: e.currentTarget.value, },)}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                class="schema-enum-row__value"
+                                                                placeholder="value"
+                                                                value={opt.value}
+                                                                onInput={(e,) =>
+                                                                    updateEnumOption(field, i(), { value: e.currentTarget.value, },)}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn--small btn--danger-ghost"
+                                                                aria-label="Remove value"
+                                                                onClick={() => removeEnumOption(field, i(),)}
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </For>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn--small btn--secondary"
+                                                    onClick={() => addEnumOption(field,)}
+                                                >
+                                                    + Add value
+                                                </button>
+                                            </div>
+                                        </FormField>
+                                    </div>
                                 </Show>
 
                                 <Show when={field.type === 'relation'}>
@@ -238,6 +297,12 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
                                     label="Searchable"
                                     checked={field.searchable}
                                     onChange={(v,) => patch(field.id, { searchable: v, },)}
+                                    plain
+                                />
+                                <FormCheck
+                                    label="Filterable"
+                                    checked={field.filterable}
+                                    onChange={(v,) => patch(field.id, { filterable: v, },)}
                                     plain
                                 />
                             </div>

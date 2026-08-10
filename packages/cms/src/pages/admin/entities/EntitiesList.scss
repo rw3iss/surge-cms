@@ -87,6 +87,99 @@
     }
 }
 
+// ─── Template list ───────────────────────────────────────────────────
+// Top-level "← All Entities" breadcrumb above the page header (the header's
+// own back link only returns to the single entity type).
+.entity-breadcrumb-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: $spacing-sm;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-light;
+    text-decoration: none;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+}
+
+.entity-template-rows {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+}
+
+.entity-template-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    padding: $spacing-md $spacing-lg;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-sm;
+
+    &__main { flex: 1 1 auto; min-width: 0; }
+
+    &__head {
+        display: flex;
+        align-items: baseline;
+        gap: $spacing-md;
+        flex-wrap: wrap;
+    }
+
+    // Only the name is a link; the mode sits beside it as a plain label.
+    &__title {
+        font-weight: 600;
+        font-size: $font-size-base;
+        color: var(--site-link, #{$primary-color});
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+
+    &__mode {
+        font-size: $font-size-sm;
+        color: $text-light;
+        text-transform: capitalize;
+    }
+
+    &__desc {
+        display: block;
+        margin-top: $spacing-xs;
+        color: $text-light;
+        font-size: $font-size-sm;
+        @include truncate;
+    }
+}
+
+// ─── Template editor: collapsible variable reference ─────────────────
+.template-vars-section {
+    // Breathing room above the reference (it sits under the block editor,
+    // which otherwise butts right up against this section).
+    margin-top: $spacing-xl;
+
+    &__toggle {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        width: 100%;
+        padding: $spacing-md $spacing-lg;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: $font-size-lg;
+        font-weight: 600;
+        color: var(--admin-page-text, #{$text-color});
+        text-align: left;
+    }
+
+    &__chevron {
+        font-size: 11px;
+        color: $text-light;
+    }
+}
+
 // ─── Schema editor ───────────────────────────────────────────────────
 .entity-schema {
     &__section {
@@ -172,6 +265,56 @@
         flex-wrap: wrap;
         align-items: center;
         margin-top: $spacing-sm;
+    }
+}
+
+// Enum value editor (label/value rows).
+.schema-enum-editor {
+    grid-column: 1 / -1;
+}
+.schema-enum-rows {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+}
+.schema-enum-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+
+    &__label { flex: 1 1 55%; }
+    &__value {
+        flex: 1 1 45%;
+        font-family: var(--admin-font-mono, monospace);
+    }
+}
+
+// Filter bar (filterable-field dropdowns) — used by the Data tab + entity
+// search modal to narrow results by a field's distinct/enum values.
+.entity-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 150px;
+    }
+
+    &__label {
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__clear {
+        align-self: center;
     }
 }
 

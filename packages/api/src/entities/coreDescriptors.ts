@@ -53,6 +53,7 @@ function coreFieldsFromDoc(doc: EntityDoc,): EntityFieldDef[] {
             unique: f.name === 'slug',
             indexed: false,
             searchable: ['title', 'name',].includes(f.name,),
+            filterable: false,
             position: i,
             options: f.type.includes("'",)
                 ? { values: f.type.split('|',).map((v,) => v.replace(/['"()]/g, '',).trim(),).filter(Boolean,), }
@@ -93,7 +94,7 @@ function coreType(opts: {
 function pf(key: string, type: EntityFieldType, extra: Partial<EntityFieldDef> = {},): EntityFieldDef {
     return {
         id: `core:product:${key}`, key, label: key, type, core: true,
-        required: false, unique: false, indexed: false, searchable: false, position: 0, ...extra,
+        required: false, unique: false, indexed: false, searchable: false, filterable: false, position: 0, ...extra,
     };
 }
 

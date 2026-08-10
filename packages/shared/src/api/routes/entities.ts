@@ -3,7 +3,7 @@
  * entity-type registry (schema management) + generic instance CRUD, plus the
  * content-block-template sub-resource.
  */
-import type { EntityFieldDef, EntityRecord, EntityTypeDef, } from '../../entities/types';
+import type { EntityFieldDef, EntityFieldOption, EntityRecord, EntityTypeDef, } from '../../entities/types';
 import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '../../entities/templates';
 
 // ── Entity types (schema) ──
@@ -37,6 +37,12 @@ export interface EntityListQuery {
 }
 export type EntityListResponse = EntityRecord[]; // pagination on meta
 export type EntityGetResponse = EntityRecord;
+
+/** Distinct/enum values for a filterable field, for a filter dropdown. */
+export interface EntityFilterValuesResponse {
+    field: string;
+    values: EntityFieldOption[];
+}
 export type EntityCreateBody = Record<string, unknown>;
 export type EntityUpdateBody = Record<string, unknown>;
 export type EntityMutateResponse = EntityRecord;

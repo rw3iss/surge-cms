@@ -12,6 +12,7 @@ import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { cms, } from '../../../services/cmsClient';
 import Pagination from '../common/Pagination';
 import SortTh from '../common/SortTh';
+import EntityFilterBar from './EntityFilterBar';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
 export interface EntityDataTableProps {
@@ -37,6 +38,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
     const [search, setSearch,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('',);
     const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>('desc',);
+    const [filters, setFilters,] = createSignal<Record<string, string>>({},);
     let searchTimer: ReturnType<typeof setTimeout>;
 
     const columns = createMemo<Column[]>(() => {
@@ -58,6 +60,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
             search: search(),
             sortBy: sortBy() || undefined,
             sortOrder: sortBy() ? sortOrder() : undefined,
+            filter: Object.keys(filters(),).length ? filters() : undefined,
         }),
     },);
 
@@ -65,6 +68,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         search();
         sortBy();
         sortOrder();
+        filters();
         list.resetPage();
     },);
 
@@ -107,6 +111,8 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                     </button>
                 </Show>
             </div>
+
+            <EntityFilterBar typeDef={props.type} value={filters()} onChange={setFilters} />
 
             <Show when={!list.loading()} fallback={<div class="empty-state">Loading…</div>}>
                 <Show

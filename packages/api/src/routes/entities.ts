@@ -36,6 +36,7 @@ const fieldSchema = z.object({
     unique: z.boolean().optional(),
     indexed: z.boolean().optional(),
     searchable: z.boolean().optional(),
+    filterable: z.boolean().optional(),
     defaultValue: z.unknown().optional(),
     options: z.record(z.string(), z.unknown(),).optional(),
     position: z.number().optional(),
@@ -175,6 +176,19 @@ export const entitiesRoutes = [
             await cbtSvc.replaceBlocks(params.id, body.blocks,);
             return { saved: true, };
         },
+    },),
+
+    // ── Filter values ──
+    // Registered BEFORE `/:type/:idOrSlug` so `/:type/fields/:field/values`
+    // isn't captured by the single-entity matcher.
+    defineRoute({
+        method: 'get', path: '/:type/fields/:field/values', auth: 'staff',
+        summary: 'Distinct/enum values of a filterable field (for a filter dropdown)',
+        input: { params: z.object({ type: z.string(), field: z.string(), },), },
+        handler: async ({ params, },) => ({
+            field: params.field,
+            values: await entitiesSvc.getFilterValues(params.type, params.field,),
+        }),
     },),
 
     // ── Instances (generic CRUD) ──
