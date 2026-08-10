@@ -542,6 +542,17 @@ html:not([data-active-outlines='show']) {
 }
 .block--carousel > .block__inner--full { height: 100%; }
 
+// A group block given an explicit height (e.g. a title-over-carousel column set
+// to height:100% so it fills its slot) must pass that height to its inner flex
+// container, so the group's own `justify-content` can vertically position /
+// center its children. The fixed `.block__inner` wrapper is otherwise
+// content-sized. Scoped to groups WITH a height, so default groups are untouched.
+.block--group.block--has-height > .block__inner {
+  height: 100%;
+
+  > .block--group { height: 100%; }
+}
+
 // ─── Shared page layout ───
 
 .page-wrapper {
