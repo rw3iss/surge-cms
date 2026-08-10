@@ -523,6 +523,21 @@ html:not([data-active-outlines='show']) {
   }
 }
 
+// ─── Carousel filling a stretched group slot ───
+// A carousel whose block style is height:100% should fill a stretched group
+// slot (align-self: stretch), not sit at its min-height. The fixed
+// `.block__inner--full` wrappers between the slot and the `.hero-carousel` are
+// `display:block` and collapse to content height, breaking the height:100%
+// cascade. These rules pass the height through. Scoped via `:has()` to
+// carousel-containing slots so other group layouts are untouched — and a no-op
+// for an auto-height slot (100% of an auto-height parent resolves to auto).
+.block--group_item > .block__inner--full:has(.block--carousel) {
+  height: 100%;
+
+  > .block--group_item { height: 100%; }
+}
+.block--carousel > .block__inner--full { height: 100%; }
+
 // ─── Shared page layout ───
 
 .page-wrapper {
