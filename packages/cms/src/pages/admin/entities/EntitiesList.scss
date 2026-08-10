@@ -358,12 +358,32 @@
     flex-direction: column;
     gap: $spacing-md;
     min-height: 320px;
+    padding: $spacing-lg;
+    font-family: var(--admin-font-body, inherit);
+    color: var(--admin-page-text, #{$text-color});
+
+    // Inputs + selects: the canonical admin field look, so the modal matches the
+    // rest of the admin instead of raw browser controls.
+    input[type='text'],
+    input[type='search'],
+    input[type='number'],
+    select {
+        @include admin-input;
+    }
+    select { @include admin-select-arrow; }
 
     &__header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: $spacing-md;
+
+        h2 {
+            margin: 0;
+            font-size: $font-size-lg;
+            font-weight: 700;
+            color: var(--admin-page-text, #{$text-color});
+        }
     }
 
     &__toolbar {
@@ -373,9 +393,38 @@
         flex-wrap: wrap;
     }
 
-    &__toolbar input { flex: 1 1 200px; }
+    &__toolbar input[type='search'] { flex: 1 1 220px; }
 
-    &__body { overflow: auto; max-height: 50vh; }
+    // "Limit" label + its (narrow) number field.
+    &__limit {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+
+        input { width: 72px; }
+    }
+
+    &__body {
+        overflow: auto;
+        max-height: 50vh;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+
+        // Comfortable, readable table cells inside the modal.
+        .admin-table {
+            th, td { padding: $spacing-sm $spacing-md; }
+            td {
+                font-size: $font-size-sm;
+                vertical-align: top;
+            }
+        }
+    }
 
     &__footer {
         display: flex;
@@ -394,7 +443,8 @@
     &__query {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: $spacing-md;
+        gap: $spacing-sm $spacing-md;
+        align-items: center;
     }
 
     tr.is-selected {

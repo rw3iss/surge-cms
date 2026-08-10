@@ -55,8 +55,14 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
         clauses.push(`"status" = $${params.length}`,);
     }
 
+    // Standard columns that can be filtered directly (present on every table;
+    // slug/status only when the type declares them).
+    const standardCols = new Set<string>(['id', 'createdAt', 'updatedAt',],);
+    if (typeDef.hasSlug) standardCols.add('slug',);
+    if (typeDef.hasStatus) standardCols.add('status',);
+
     for (const [key, raw,] of Object.entries(q.filter ?? {},)) {
-        if (!fieldKeys.has(key,) && key !== 'slug') continue; // ignore unknown fields
+        if (!fieldKeys.has(key,) && !standardCols.has(key,)) continue; // ignore unknown fields
         const col = `"${assertSafeIdentifier(snakeCase(key,),)}"`;
         if (raw !== null && typeof raw === 'object' && 'op' in raw) {
             const { op, value, } = raw as { op: string; value: unknown; };

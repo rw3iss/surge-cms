@@ -9,7 +9,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import type { EntityCaching, EntityRouting, EntityTypeDef, EntityTypeUpdateBody, } from '@sitesurge/types';
-import { Component, createSignal, onMount, Show, } from 'solid-js';
+import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import SchemaFieldEditor from '../../../components/admin/entities/SchemaFieldEditor';
 import EntityDataTable from '../../../components/admin/entities/EntityDataTable';
 import FormCheck from '../../../components/admin/forms/FormCheck';
@@ -31,6 +31,19 @@ const EntityDetail: Component = () => {
     const locked = () => {
         const d = draft();
         return !!d && (d.origin === 'core' || d.internal);
+    };
+
+    /** Standard columns every row of this type carries (not editable schema
+     *  fields). Shown read-only so operators know they exist + can filter/query
+     *  on them (e.g. `status = active`). */
+    const builtInFields = () => {
+        const d = draft();
+        if (!d) return [] as { key: string; type: string; }[];
+        const out: { key: string; type: string; }[] = [{ key: 'id', type: 'uuid', },];
+        if (d.hasSlug) out.push({ key: 'slug', type: 'slug', },);
+        if (d.hasStatus) out.push({ key: 'status', type: 'status (e.g. draft / active / archived)', },);
+        out.push({ key: 'created_at', type: 'datetime', }, { key: 'updated_at', type: 'datetime', },);
+        return out;
     };
 
     const load = async () => {
@@ -239,6 +252,28 @@ const EntityDetail: Component = () => {
                                     onInput={(e,) => patchCaching({ recordTtlSeconds: Number(e.currentTarget.value,) || 0, },)}
                                 />
                             </FormField>
+                        </div>
+                    </div>
+
+                    <div class="entity-schema__section">
+                        <h3 class="entity-schema__section-title">Built-in fields</h3>
+                        <p class="form-help-muted" style={{ 'margin-top': '-4px', 'margin-bottom': '12px', }}>
+                            Standard columns every {draft()!.label.toLowerCase()} row carries. Managed by the
+                            system — reference them in queries, filters and templates (e.g. <code>status</code>).
+                        </p>
+                        <div class="schema-field-list">
+                            <For each={builtInFields()}>
+                                {(f,) => (
+                                    <div class="schema-field schema-field--core">
+                                        <div class="schema-field__head">
+                                            <span class="schema-field__key">{f.key}</span>
+                                            <span class="schema-field__type">· {f.type}</span>
+                                            <span class="schema-field__spacer" />
+                                            <span class="badge badge--info">built-in</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </For>
                         </div>
                     </div>
 

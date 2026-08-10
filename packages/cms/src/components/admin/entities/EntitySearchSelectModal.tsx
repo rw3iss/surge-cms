@@ -40,12 +40,14 @@ const FILTER_OPS: FilterOp[] = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'i
 
 const PAGE_LIMIT = 10;
 
-/** Render an arbitrary field value as a short string for a table cell. */
+/** Render an arbitrary field value as a short string for a table cell. Rich-text
+ *  fields (e.g. a product description) are stripped of HTML for the preview. */
 function cell(value: unknown,): string {
     if (value == null) return '—';
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
     if (typeof value === 'object') return Array.isArray(value,) ? `[${value.length}]` : '{…}';
-    const s = String(value,);
+    let s = String(value,);
+    if (/<[a-z][\s\S]*>/i.test(s,)) s = s.replace(/<[^>]+>/g, ' ',).replace(/\s+/g, ' ',).trim();
     return s.length > 60 ? `${s.slice(0, 57,)}…` : s;
 }
 
@@ -90,6 +92,18 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         const def = typeDef();
         if (!def) return [] as string[];
         return def.fields.filter((f,) => f.type !== 'blocks' && f.type !== 'json').map((f,) => f.key);
+    };
+
+    /** Fields offered in the "Filter field" dropdown: the standard columns the
+     *  type carries (status/slug) first, then its schema fields — so you can
+     *  filter e.g. `status = active`. */
+    const filterFields = () => {
+        const def = typeDef();
+        if (!def) return [] as string[];
+        const std: string[] = [];
+        if (def.hasStatus) std.push('status',);
+        if (def.hasSlug) std.push('slug',);
+        return [...std, ...sortableFields().filter((k,) => k !== 'slug' && k !== 'status'),];
     };
 
     const currentSort = () => (sortBy() ? `${sortBy()}_${sortOrder()}` : '');
@@ -229,12 +243,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         onInput={(e,) => onSearchInput(e.currentTarget.value,)}
                     />
                     <Show when={props.mode === 'query'}>
-                        <label class="form-help-muted">
+                        <label class="entity-search-modal__limit">
                             Limit
                             <input
                                 type="number"
                                 min="1"
-                                style={{ width: '80px', 'margin-left': '6px', }}
                                 value={limit()}
                                 onInput={(e,) => setLimit(Math.max(1, Number(e.currentTarget.value,) || 1,),)}
                             />
@@ -249,13 +262,19 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
 
                 <Show when={props.mode === 'query'}>
                     <div class="entity-search-modal__query">
-                        <select value={filterField()} onChange={(e,) => setFilterField(e.currentTarget.value,)}>
+                        <select
+                            value={filterField()}
+                            onChange={(e,) => setFilterField(e.currentTarget.value,)}
+                        >
                             <option value="">Filter field…</option>
-                            <For each={sortableFields()}>
+                            <For each={filterFields()}>
                                 {(f,) => <option value={f}>{f}</option>}
                             </For>
                         </select>
-                        <select value={filterOp()} onChange={(e,) => setFilterOp(e.currentTarget.value as FilterOp,)}>
+                        <select
+                            value={filterOp()}
+                            onChange={(e,) => setFilterOp(e.currentTarget.value as FilterOp,)}
+                        >
                             <For each={FILTER_OPS}>
                                 {(op,) => <option value={op}>{op}</option>}
                             </For>
