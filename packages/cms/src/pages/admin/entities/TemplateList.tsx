@@ -7,6 +7,7 @@ import { A, useParams, } from '@solidjs/router';
 import type { ContentBlockTemplate, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import './EntitiesList.scss';
 
 const TemplateList: Component = () => {
     const params = useParams<{ type: string; }>();
@@ -24,6 +25,9 @@ const TemplateList: Component = () => {
     return (
         <div class="admin-page entity-templates-page">
             <Title>Templates — {params.type} - Admin</Title>
+            {/* Top-level breadcrumb back to the whole Entities list (the header's
+                own back link only goes to this one entity type). */}
+            <A href="/admin/entities" class="entity-breadcrumb-back">← All Entities</A>
             <div class="admin-header">
                 <A href={`/admin/entities/${params.type}`} class="admin-header__back">← {params.type}</A>
                 <h1>Content-block templates: {params.type}</h1>
@@ -36,16 +40,27 @@ const TemplateList: Component = () => {
                 when={(templates() ?? []).length > 0}
                 fallback={<div class="empty-state">No templates yet. Create one to render {params.type} records anywhere in the block system.</div>}
             >
-                <div class="entity-rows">
+                <div class="entity-template-rows">
                     <For each={templates() ?? []}>
                         {(t,) => (
-                            <A href={`/admin/entities/${params.type}/templates/${t.id}`} class="entity-row">
-                                <div class="entity-row__main">
-                                    <span class="entity-row__title">{t.name}</span>
-                                    <span class="entity-row__badge">{t.mode}{t.maxRecords ? ` · max ${t.maxRecords}` : ''}</span>
-                                    <Show when={t.description}><span class="entity-row__desc">{t.description}</span></Show>
+                            <div class="entity-template-row">
+                                <div class="entity-template-row__main">
+                                    <div class="entity-template-row__head">
+                                        <A
+                                            href={`/admin/entities/${params.type}/templates/${t.id}`}
+                                            class="entity-template-row__title"
+                                        >
+                                            {t.name}
+                                        </A>
+                                        <span class="entity-template-row__mode">
+                                            {t.mode}{t.maxRecords ? ` · max ${t.maxRecords}` : ''}
+                                        </span>
+                                    </div>
+                                    <Show when={t.description}>
+                                        <span class="entity-template-row__desc">{t.description}</span>
+                                    </Show>
                                 </div>
-                            </A>
+                            </div>
                         )}
                     </For>
                 </div>

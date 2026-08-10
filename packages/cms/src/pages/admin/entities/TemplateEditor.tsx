@@ -15,6 +15,7 @@ import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockE
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
 import { cms, } from '../../../services/cmsClient';
+import './EntitiesList.scss';
 
 const TemplateEditor: Component = () => {
     const params = useParams<{ type: string; id: string; }>();
@@ -29,6 +30,9 @@ const TemplateEditor: Component = () => {
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
     const [entityDef, setEntityDef,] = createSignal<EntityTypeDef | null>(null,);
+    // Variable reference is collapsed by default — it's a lookup aid, not
+    // primary content, so it shouldn't push the editor down on every visit.
+    const [varsOpen, setVarsOpen,] = createSignal(false,);
 
     onMount(async () => {
         try {
@@ -125,27 +129,35 @@ const TemplateEditor: Component = () => {
 
             <BlockEditor title="Template Blocks" blocks={blocks()} onBlocksChange={setBlocks} />
 
-            <section class="admin-section">
-                <header class="admin-section__header">
-                    <h2>Available variables for {params.type}</h2>
-                </header>
-                <p class="form-help-muted" style={{ padding: '0 1rem', }}>
-                    Use <code>{`{{${singularVar()}.<field>}}`}</code> inside any block to render the bound {params.type}.
-                </p>
-                <Show when={entityDef()}>
-                    <table class="admin-table">
-                        <thead><tr><th>Variable</th><th>Type</th></tr></thead>
-                        <tbody>
-                            <For each={entityDef()!.fields}>
-                                {(f,) => (
-                                    <tr>
-                                        <td><code>{`{{${singularVar()}.${f.key}}}`}</code></td>
-                                        <td>{f.type}{f.core ? ' (core)' : ''}</td>
-                                    </tr>
-                                )}
-                            </For>
-                        </tbody>
-                    </table>
+            <section class="admin-section template-vars-section">
+                <button
+                    type="button"
+                    class="template-vars-section__toggle"
+                    aria-expanded={varsOpen()}
+                    onClick={() => setVarsOpen(v => !v)}
+                >
+                    <span class="template-vars-section__chevron">{varsOpen() ? '▼' : '▶'}</span>
+                    <span>Available variables for {params.type}</span>
+                </button>
+                <Show when={varsOpen()}>
+                    <p class="form-help-muted" style={{ padding: '0 1rem', }}>
+                        Use <code>{`{{${singularVar()}.<field>}}`}</code> inside any block to render the bound {params.type}.
+                    </p>
+                    <Show when={entityDef()}>
+                        <table class="admin-table">
+                            <thead><tr><th>Variable</th><th>Type</th></tr></thead>
+                            <tbody>
+                                <For each={entityDef()!.fields}>
+                                    {(f,) => (
+                                        <tr>
+                                            <td><code>{`{{${singularVar()}.${f.key}}}`}</code></td>
+                                            <td>{f.type}{f.core ? ' (core)' : ''}</td>
+                                        </tr>
+                                    )}
+                                </For>
+                            </tbody>
+                        </table>
+                    </Show>
                 </Show>
             </section>
         </div>
