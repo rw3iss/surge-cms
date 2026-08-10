@@ -29,11 +29,12 @@ function lookup(scope: Scope, name: string): { found: boolean; value: unknown } 
     return { found: false, value: undefined };
 }
 
-/** Navigate a property off a value (EntityRef reads from `.data`). */
-function getProp(value: unknown, prop: string): unknown {
+/** Navigate a property or array index off a value (EntityRef reads from
+ *  `.data`; a numeric part indexes an array/object). */
+function getProp(value: unknown, prop: string | number): unknown {
     if (value == null) return undefined;
-    if (isEntityRef(value)) return value.data ? value.data[prop] : undefined;
-    if (typeof value === 'object') return (value as Record<string, unknown>)[prop];
+    if (isEntityRef(value)) return value.data ? (value.data as Record<string | number, unknown>)[prop] : undefined;
+    if (typeof value === 'object') return (value as Record<string | number, unknown>)[prop];
     return undefined;
 }
 
@@ -46,7 +47,10 @@ async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<
         case 'binary':
             return evalBinary(expr.op, expr.left, expr.right, scope, rt);
         case 'path': {
-            const [head, ...rest] = expr.parts;
+            // The head (first part) is always a variable name — the parser only
+            // ever emits index parts AFTER an identifier.
+            const head = String(expr.parts[0]);
+            const rest = expr.parts.slice(1);
             let val: unknown;
             const hit = lookup(scope, head);
             if (hit.found) {

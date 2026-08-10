@@ -15,14 +15,16 @@
 export type Expr = LiteralExpr | PathExpr | CallExpr | UnaryExpr | BinaryExpr;
 
 export interface LiteralExpr { kind: 'lit'; value: string | number | boolean | null; }
-/** Dotted variable path, e.g. `post.title` → parts `['post','title']`. */
-export interface PathExpr { kind: 'path'; parts: string[]; }
-/** Function call with optional trailing property access, e.g. `post(id).title`
+/** Dotted variable path with optional numeric/string index access, e.g.
+ *  `post.title` → parts `['post','title']`, `product.media[0].url` →
+ *  `['product','media',0,'url']`. A number part is an array/index access. */
+export interface PathExpr { kind: 'path'; parts: Array<string | number>; }
+/** Function call with optional trailing property/index access, e.g. `post(id).title`
  *  → name `post`, args `[id]`, props `['title']`. Empty `props` → whole entity.
  *  `named` holds keyword args (`{{form(id, title=false, columns=2)}}`) — parsed
  *  in any order; the evaluator attaches them as `options` on an EntityRef
  *  result so the renderer can tweak the output. */
-export interface CallExpr { kind: 'call'; name: string; args: Expr[]; props: string[]; named?: Record<string, Expr>; }
+export interface CallExpr { kind: 'call'; name: string; args: Expr[]; props: Array<string | number>; named?: Record<string, Expr>; }
 export interface UnaryExpr { kind: 'unary'; op: '!'; operand: Expr; }
 export interface BinaryExpr { kind: 'binary'; op: BinaryOp; left: Expr; right: Expr; }
 export type BinaryOp = '==' | '!=' | '>' | '<' | '>=' | '<=' | '&&' | '||';

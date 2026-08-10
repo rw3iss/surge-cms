@@ -954,6 +954,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
                 // inner .hero-carousel); undefined → the carousel's own default.
                 // Per-breakpoint height overrides come via the scoped @media CSS.
                 height={style().height as string | undefined}
+                minHeight={style().minHeight as string | undefined}
                 gutterWidth={appearance()?.gutterWidth}
                 align={style().textAlign}
                 valign={style().verticalAlign}

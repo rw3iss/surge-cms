@@ -21,7 +21,7 @@ type Tok =
 
 // `=` (single) is lexed for keyword args (`title=false`); two-char `==` is
 // matched first so equality still works.
-const OPS = ['==', '!=', '>=', '<=', '&&', '||', '>', '<', '!', '(', ')', ',', '.', '='];
+const OPS = ['==', '!=', '>=', '<=', '&&', '||', '>', '<', '!', '(', ')', ',', '.', '=', '[', ']'];
 
 function lex(src: string): Tok[] {
     const out: Tok[] = [];
@@ -181,13 +181,27 @@ class Parser {
         }
     }
 
-    private parsePropChain(): string[] {
-        const props: string[] = [];
-        while (this.eatOp('.')) {
-            const t = this.peek();
-            if (t.t !== 'ident') throw new TemplateParseError("Expected property name after '.'");
-            props.push(t.v);
-            this.next();
+    /** Trailing member (`.name`) + index (`[0]` / `['key']`) accessors, in any
+     *  order, e.g. `media[0].url`. A numeric index becomes a number part; the
+     *  evaluator's getProp reads it off arrays/objects. Index must be a literal
+     *  number or string (dynamic `[expr]` indices aren't supported). */
+    private parsePropChain(): Array<string | number> {
+        const props: Array<string | number> = [];
+        for (;;) {
+            if (this.eatOp('.')) {
+                const t = this.peek();
+                if (t.t !== 'ident') throw new TemplateParseError("Expected property name after '.'");
+                props.push(t.v);
+                this.next();
+            } else if (this.eatOp('[')) {
+                const t = this.peek();
+                if (t.t === 'num') { props.push(t.v); this.next(); }
+                else if (t.t === 'str') { props.push(t.v); this.next(); }
+                else throw new TemplateParseError("Expected a number or string index inside '[ ]'");
+                if (!this.eatOp(']')) throw new TemplateParseError("Expected ']' after index");
+            } else {
+                break;
+            }
         }
         return props;
     }

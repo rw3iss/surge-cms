@@ -704,6 +704,46 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             />
                             <span class="hero-options__label">Apply Site Gutter</span>
                         </div>
+
+                        {/* Items per page */}
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Items per page</span>
+                            <input
+                                type="number"
+                                class="input input--sm input--inline-number"
+                                min={1}
+                                step={1}
+                                value={options().itemsPerPage ?? 1}
+                                onChange={(e,) => {
+                                    const v = parseInt(e.currentTarget.value,);
+                                    updateOptions({ itemsPerPage: !isNaN(v,) && v >= 1 ? v : 1, },);
+                                }}
+                            />
+                            <Tooltip
+                                header="Items per page"
+                                content={<p>How many carousel items are visible at once (default 1). Higher values show a multi-item row that still pages through the rest.</p>}
+                            />
+                        </div>
+
+                        {/* Scroll by */}
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Scroll by</span>
+                            <input
+                                type="number"
+                                class="input input--sm input--inline-number"
+                                min={1}
+                                step={1}
+                                value={options().scrollBy ?? 1}
+                                onChange={(e,) => {
+                                    const v = parseInt(e.currentTarget.value,);
+                                    updateOptions({ scrollBy: !isNaN(v,) && v >= 1 ? v : 1, },);
+                                }}
+                            />
+                            <Tooltip
+                                header="Scroll by"
+                                content={<p>How many items to advance when paging left/right (default 1). Set it equal to “Items per page” to move a whole screenful at a time.</p>}
+                            />
+                        </div>
                     </div>
                 </div>
 

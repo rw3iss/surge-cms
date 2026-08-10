@@ -108,4 +108,10 @@ export interface HeroCarouselOptions {
     customHeight: boolean;
     height: string;
     applyGutter?: boolean;
+    /** How many items are visible at once (default 1). >1 shows a multi-item
+     *  row that's still paged through. (Per-breakpoint later; global for now.) */
+    itemsPerPage?: number;
+    /** How many items to advance per page (swipe/arrow). Default 1; set equal to
+     *  `itemsPerPage` to page a whole screenful at a time. */
+    scrollBy?: number;
 }

@@ -34,8 +34,10 @@
 
   &__slide {
     position: relative;
-    flex: 0 0 100%;
-    width: 100%;
+    // 1/N of the track width when the carousel shows N items per page
+    // (--hero-per-page defaults to 1 → full width, unchanged single-item view).
+    flex: 0 0 calc(100% / var(--hero-per-page, 1));
+    width: calc(100% / var(--hero-per-page, 1));
     // Fill the track's height (the track is flex:1 of the carousel box).
     height: auto;
     align-self: stretch;

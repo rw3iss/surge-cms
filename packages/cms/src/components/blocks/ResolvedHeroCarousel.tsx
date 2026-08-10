@@ -46,6 +46,7 @@ export interface ResolvedHeroCarouselProps {
     items: HeroItem[];
     options: HeroCarouselOptions;
     height?: string;
+    minHeight?: string;
     previewMode?: boolean;
     gutterWidth?: string;
     /** Block-style alignment (textAlign / verticalAlign) forwarded to slides. */
@@ -221,6 +222,7 @@ const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {
     return (
         <HeroCarousel
             items={finalItems()}
+            minHeight={props.minHeight}
             options={props.options}
             height={props.height}
             previewMode={props.previewMode}

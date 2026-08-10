@@ -12,6 +12,9 @@ export interface HeroCarouselProps {
     items: HeroSlide[];
     options: HeroCarouselOptions;
     height?: string;
+    /** Min-height for the carousel container (from the block style), so a
+     *  height:100% carousel that fills a stretched group slot still has a floor. */
+    minHeight?: string;
     previewMode?: boolean;
     gutterWidth?: string;
     /** Horizontal alignment from the block style (`textAlign`). Overrides the
@@ -108,7 +111,14 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     let touchDeltaX = 0;
 
     const itemCount = () => props.items.length;
-    const hasMultiple = () => itemCount() > 1;
+    // How many items are visible at once, and how many to advance per page.
+    // perPage is capped at the item count so a 2-item carousel set to "show 3"
+    // just shows 2. maxIndex is the last valid START index (so the final page is
+    // full — you can't scroll past the last screenful).
+    const perPage = () => Math.max(1, Math.min(itemCount() || 1, props.options.itemsPerPage || 1,),);
+    const step = () => Math.max(1, props.options.scrollBy || 1,);
+    const maxIndex = () => Math.max(0, itemCount() - perPage(),);
+    const hasMultiple = () => itemCount() > perPage();
 
     // Height precedence: the explicit "Custom Height" content setting wins, then
     // the block's style.height (passed as `height`), then the built-in default.
@@ -144,11 +154,14 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
         const count = itemCount();
         if (count === 0) return;
 
-        let target = index;
+        const max = maxIndex();
+        let target: number;
         if (props.options.repeat) {
-            target = ((index % count) + count) % count;
+            // Wrap by PAGE: past the last full page → back to the start, and vice
+            // versa (so the last screenful is always full for multi-item views).
+            target = index > max ? 0 : index < 0 ? max : index;
         } else {
-            target = Math.max(0, Math.min(count - 1, index,),);
+            target = Math.max(0, Math.min(max, index,),);
         }
 
         setIsTransitioning(true,);
@@ -156,8 +169,16 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
         setTimeout(() => setIsTransitioning(false,), 500,);
     };
 
-    const goNext = () => goTo(currentIndex() + 1,);
-    const goPrev = () => goTo(currentIndex() - 1,);
+    const goNext = () => goTo(currentIndex() + step(),);
+    const goPrev = () => goTo(currentIndex() - step(),);
+
+    /** Page start indices for the dots (0, step, 2·step, … ≤ maxIndex). */
+    const pages = () => {
+        const starts: number[] = [];
+        for (let i = 0; i <= maxIndex(); i += step()) starts.push(i,);
+        if (starts.length === 0) starts.push(0,);
+        return starts;
+    };
 
     // ─── Auto-scroll ───
 
@@ -209,7 +230,8 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
 
     const handleVideoRef = (el: HTMLVideoElement, item: HeroItem, index: number,) => {
         createEffect(() => {
-            const isActive = currentIndex() === index;
+            // A video is "active" when its slide is within the visible window.
+            const isActive = index >= currentIndex() && index < currentIndex() + perPage();
             if (isActive && item.autoplay) {
                 el.play().catch(() => {},);
             } else {
@@ -226,6 +248,9 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
             class={`hero-carousel ${props.previewMode ? 'hero-carousel--preview' : ''}`}
             style={{
                 height: resolvedHeight(),
+                ...(props.minHeight ? { 'min-height': props.minHeight, } : {}),
+                // Slides read this to size themselves to 1/N of the track width.
+                '--hero-per-page': String(perPage(),),
                 ...alignVars(),
                 ...(props.options.applyGutter && props.gutterWidth ? {
                     'padding-left': props.gutterWidth,
@@ -247,7 +272,7 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                     ref={trackRef}
                     class="hero-carousel__track"
                     style={{
-                        transform: `translateX(-${currentIndex() * 100}%)`,
+                        transform: `translateX(-${currentIndex() * (100 / perPage())}%)`,
                         transition: isTransitioning() ? 'transform 0.5s ease-in-out' : 'none',
                     }}
                 >
@@ -397,16 +422,19 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                         </svg>
                     </button>
 
-                    {/* Dots */}
+                    {/* Dots — one per PAGE (a screenful of `perPage` items),
+                        active when the current index falls in that page's span. */}
                     <div class="hero-carousel__dots">
-                        <For each={props.items}>
-                            {(_, i,) => (
+                        <For each={pages()}>
+                            {(start, i,) => (
                                 <button
                                     class={`hero-carousel__dot ${
-                                        currentIndex() === i() ? 'hero-carousel__dot--active' : ''
+                                        currentIndex() >= start && currentIndex() < start + step()
+                                            ? 'hero-carousel__dot--active'
+                                            : ''
                                     }`}
-                                    onClick={() => goTo(i(),)}
-                                    aria-label={`Go to slide ${i() + 1}`}
+                                    onClick={() => goTo(start,)}
+                                    aria-label={`Go to page ${i() + 1}`}
                                 />
                             )}
                         </For>
