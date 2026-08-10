@@ -210,14 +210,29 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
         setTimeout(() => setIsTransitioning(false,), 500,);
     };
 
-    const goNext = () => goTo(currentIndex() + step(),);
-    const goPrev = () => goTo(currentIndex() - step(),);
+    // Advance/retreat by a page, but SNAP to the last/first page before wrapping,
+    // so a partial final page (e.g. 11 items, 3 per page → items 9–10) is always
+    // reachable instead of being skipped straight to the wrap.
+    const goNext = () => {
+        const cur = currentIndex(), max = maxIndex();
+        if (cur >= max) goTo(props.options.repeat ? 0 : max,);
+        else goTo(Math.min(cur + step(), max,),);
+    };
+    const goPrev = () => {
+        const cur = currentIndex(), max = maxIndex();
+        if (cur <= 0) goTo(props.options.repeat ? max : 0,);
+        else goTo(Math.max(cur - step(), 0,),);
+    };
 
-    /** Page start indices for the dots (0, step, 2·step, … ≤ maxIndex). */
+    /** Page start indices for the dots (0, step, 2·step, …) plus the snapped last
+     *  page (maxIndex) when the final step doesn't land on it, so every item is
+     *  reachable via a dot. */
     const pages = () => {
         const starts: number[] = [];
-        for (let i = 0; i <= maxIndex(); i += step()) starts.push(i,);
+        const s = step(), max = maxIndex();
+        for (let i = 0; i <= max; i += s) starts.push(i,);
         if (starts.length === 0) starts.push(0,);
+        else if (starts[starts.length - 1] < max) starts.push(max,);
         return starts;
     };
 
@@ -473,17 +488,23 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                         active when the current index falls in that page's span. */}
                     <div class="hero-carousel__dots">
                         <For each={pages()}>
-                            {(start, i,) => (
-                                <button
-                                    class={`hero-carousel__dot ${
-                                        currentIndex() >= start && currentIndex() < start + step()
-                                            ? 'hero-carousel__dot--active'
-                                            : ''
-                                    }`}
-                                    onClick={() => goTo(start,)}
-                                    aria-label={`Go to page ${i() + 1}`}
-                                />
-                            )}
+                            {(start, i,) => {
+                                // Active over [thisStart, nextStart) so a snapped final
+                                // page (which can overlap the previous one) doesn't
+                                // light up two dots at once.
+                                const nextStart = () => pages()[i() + 1] ?? itemCount();
+                                return (
+                                    <button
+                                        class={`hero-carousel__dot ${
+                                            currentIndex() >= start && currentIndex() < nextStart()
+                                                ? 'hero-carousel__dot--active'
+                                                : ''
+                                        }`}
+                                        onClick={() => goTo(start,)}
+                                        aria-label={`Go to page ${i() + 1}`}
+                                    />
+                                );
+                            }}
                         </For>
                     </div>
                 </Show>
