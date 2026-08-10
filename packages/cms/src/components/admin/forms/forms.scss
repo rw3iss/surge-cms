@@ -33,12 +33,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    // Canonical small-bold form label. Matches `.form-group label`
-    // (which legacy block editors still use) so old + new render
-    // identically.
-    font-size: $font-size-sm;
-    font-weight: 600;
-    color: var(--admin-page-text, #{$text-color});
+    // CANONICAL admin field label — uppercase, bold, small, tracked. The one
+    // label style for the whole admin (settings, block editors, entity pages,
+    // schema/data). Broadened to legacy label patterns below so everything
+    // matches. Change it here and it changes everywhere.
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #{$text-light});
     margin: 0;
   }
 
@@ -77,6 +80,24 @@
     font-size: $font-size-xs;
     color: $text-light;
   }
+}
+
+// ─── Canonical admin field label, applied to the label patterns that predate
+// FormField so the ENTIRE admin reads consistently (uppercase-bold-small). New
+// forms should use <FormField>; these keep legacy markup in line.
+.form-group > label,
+.block-edit-form__field > span,
+.block-style-editor__label,
+.admin-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-text-muted, #{$text-light});
+  margin: 0 0 4px;
 }
 
 // Two-up row: pairs of stacked FormFields side by side (e.g. min/max width),

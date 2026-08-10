@@ -530,6 +530,16 @@
   padding-bottom: $spacing-md;
   border-bottom: 1px solid $border-color;
 
+  // Standardized STICKY page header across the whole admin — the title + Save/
+  // manage actions stay pinned while long edit/list pages scroll. The admin
+  // content scroll is the window, so top:0 pins to the viewport; a solid
+  // page-bg lets content pass cleanly underneath.
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--admin-page-bg, #{$background-dark});
+  padding-top: $spacing-md;
+
   h1 {
     margin: 0;
     // Grow to fill, but shrinkable (min-width:0) so a long title truncates

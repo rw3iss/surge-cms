@@ -3,6 +3,41 @@
 Where admin SCSS lives, when to share with the main site, and how to add
 new styles without breaking the rest.
 
+## Forms & field labels — MANDATORY, one style everywhere
+
+**Every admin form field uses the `FormField` component** (`components/admin/forms`)
+— never a raw `<label>` + `<input>`. `FormField` renders the ONE canonical field
+label used across the entire admin: **uppercase, bold (700), small
+(`$font-size-xs`), letter-spaced, muted** (`--admin-text-muted`). It supports an
+inline help `tooltip` and sub-text `hint`.
+
+```tsx
+import { FormField, FormSection } from '../../components/admin/forms';
+
+<FormSection title="Basics">
+  <FormField label="Title" tooltip="Shown in listings.">
+    <input type="text" value={title()} onInput={e => setTitle(e.currentTarget.value)} />
+  </FormField>
+</FormSection>
+```
+
+- The label style lives in `components/admin/forms/forms.scss` (`.admin-form-field__label`).
+  `FormField.tsx` self-imports that scss, so the labels are styled even when the
+  component is imported directly (not via the `../forms` barrel).
+- Legacy label patterns (`.form-group > label`, `.block-edit-form__field > span`,
+  `.block-style-editor__label`, `.admin-field-label`) are broadened to the SAME
+  canonical style in `forms.scss` — so old markup matches too. Prefer `FormField`
+  for anything new.
+- **Do NOT hand-roll a form field with an unstyled `<label>`.** If you catch a
+  page doing so (raw labels look large/unstyled), convert it to `FormField`.
+
+## Sticky page header
+
+Every edit/list page's `.admin-header` (the title + Save/manage actions row) is
+**sticky by default** (`position: sticky; top: 0` over the window scroll, solid
+`--admin-page-bg`). Just use `<div class="admin-header">…</div>` — no modifier
+needed. Keep primary actions (Save/Delete) in `.admin-header__actions`.
+
 ## File layout
 
 ```

@@ -15,6 +15,9 @@
  */
 import { Component, JSX, Show, } from 'solid-js';
 import Tooltip from '../common/Tooltip';
+// Self-load the shared form styles so labels are styled even when FormField is
+// imported directly (not via the `../forms` barrel). Vite dedupes the import.
+import './forms.scss';
 
 export interface FormFieldProps {
     label: string;
