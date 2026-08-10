@@ -83,7 +83,7 @@ const TemplateEditor: Component = () => {
     const singularVar = () => entityDef()?.singularVar ?? params.type;
 
     return (
-        <div class="mail-template-edit-page">
+        <div class="mail-template-edit-page admin-full-bleed">
             <Title>{isNew() ? 'New Template' : name() || 'Edit Template'} - Admin</Title>
             <div class="admin-header">
                 <A href={`/admin/entities/${params.type}/templates`} class="admin-header__back">← Templates</A>

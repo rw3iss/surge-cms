@@ -57,21 +57,60 @@
     height: auto;
     align-self: stretch;
 
-    // Entity item: its content-block template fills the slide (no media
-    // backdrop / text overlay). Center it and let over-tall content scroll
-    // within the slide's fixed height rather than blowing out the carousel.
+    // Entity item: its content-block template renders as the slide. STRETCH the
+    // template wrapper to the slide's full width+height (was center/center, which
+    // shrink-wrapped it and left a template's own width/height:100% unresolved —
+    // so it only ever filled the width). A natural-height card is re-centered by
+    // `__entity` below; a template that opts into a height fills the slide.
     &--entity {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
       overflow: auto;
     }
   }
 
-  // Wrapper around an entity slide's rendered template.
+  // Wrapper around an entity slide's rendered template. Fills the slide box so a
+  // template styled height:100% has a definite height to resolve against.
   &__entity {
     width: 100%;
     max-width: 100%;
+    height: 100%;
+    // Column so a natural-height card stays vertically centered while a
+    // full-height template (its root block sets a height) fills the slide.
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    // A template block rendered as a carousel slide is full-bleed: drop the site
+    // content-column cap so it fills the slide width, and make `.block__inner`
+    // the positioning context + content box so the template's own absolute /
+    // inset:0 layers AND its block padding land inside the PADDED content area,
+    // instead of escaping to fill the whole slide (which ignored the padding).
+    > .block {
+      width: 100%;
+
+      .block__inner {
+        position: relative;
+
+        &--contained {
+          max-width: none;
+          margin: 0;
+        }
+      }
+    }
+
+    // Only a template whose root block opts into a height fills the slide
+    // vertically (`.block--has-height` = an explicit style.height, e.g. 100%);
+    // a natural-height card template keeps its content height (centered above),
+    // so this never stretches card-style templates (e.g. product cards).
+    > .block--has-height {
+      height: 100%;
+
+      .block__inner {
+        height: 100%;
+      }
+    }
   }
 
   // ─── List mode (mobile "render as list") ───

@@ -640,6 +640,13 @@
   // ─── Preview body (wraps BlockPreview) ───
   &__preview-body {
     min-height: 30px;
+    // Positioning context for a block's inner content. Without this, a block
+    // whose markup uses `position:absolute; inset:0` (e.g. a custom-HTML block
+    // reproducing a full-bleed slide) resolves against the whole `.content-block`
+    // — which spans the header row — and paints UP over the header bar, hiding
+    // it and stealing its clicks. Anchoring to the body (which sits below the
+    // header) keeps that content within the preview area.
+    position: relative;
   }
 
   // ─── Edit mode body ───
@@ -704,6 +711,17 @@
 .content-block--group_item > .content-block__preview-body {
   padding: 0;
   background: transparent;
+}
+
+
+
+// Custom-HTML preview: the authored markup is arbitrary and may be full-bleed
+// or absolutely positioned, so clip it to the preview body — it can never spill
+// above the header bar or outside the block. Scoped to non-selected html blocks
+// (selected swaps in the inline code editor, which manages its own overflow) and
+// to groups/slots keep overflowing so their hover menus aren't clipped.
+.content-block--html:not(.content-block--selected) > .content-block__preview-body {
+  overflow: hidden;
 }
 
 
