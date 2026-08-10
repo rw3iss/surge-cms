@@ -744,6 +744,38 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 content={<p>How many items to advance when paging left/right (default 1). Set it equal to “Items per page” to move a whole screenful at a time.</p>}
                             />
                         </div>
+
+                        {/* Side padding (arrow gutter) */}
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Side padding</span>
+                            <input
+                                type="text"
+                                class="input input--sm input--inline-text"
+                                placeholder="e.g. 64px"
+                                value={options().sidePadding || ''}
+                                onChange={(e,) => updateOptions({ sidePadding: e.currentTarget.value.trim() || undefined, },)}
+                            />
+                            <Tooltip
+                                header="Side padding"
+                                content={<p>Horizontal space (any CSS length, e.g. <code>64px</code>) inset on both sides so the nav arrows sit in the gutter beside the items instead of on top of them.</p>}
+                            />
+                        </div>
+
+                        {/* Item gap */}
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Item gap</span>
+                            <input
+                                type="text"
+                                class="input input--sm input--inline-text"
+                                placeholder="e.g. 1rem"
+                                value={options().itemGap || ''}
+                                onChange={(e,) => updateOptions({ itemGap: e.currentTarget.value.trim() || undefined, },)}
+                            />
+                            <Tooltip
+                                header="Item gap"
+                                content={<p>Gap between visible items (any CSS length, e.g. <code>1rem</code>).</p>}
+                            />
+                        </div>
                     </div>
                 </div>
 

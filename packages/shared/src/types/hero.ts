@@ -114,4 +114,9 @@ export interface HeroCarouselOptions {
     /** How many items to advance per page (swipe/arrow). Default 1; set equal to
      *  `itemsPerPage` to page a whole screenful at a time. */
     scrollBy?: number;
+    /** Horizontal padding (any CSS length) inset on both sides, so the nav arrows
+     *  sit in the gutter beside the items instead of on top of them. */
+    sidePadding?: string;
+    /** Gap (any CSS length) between visible items, e.g. `1rem`. */
+    itemGap?: string;
 }

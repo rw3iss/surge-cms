@@ -119,6 +119,17 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     const step = () => Math.max(1, props.options.scrollBy || 1,);
     const maxIndex = () => Math.max(0, itemCount() - perPage(),);
     const hasMultiple = () => itemCount() > perPage();
+    // Gap between visible items (any CSS length). Feeds both the flex `gap` and
+    // the per-item translate distance `(100% + gap) / perPage`.
+    const gap = () => props.options.itemGap || '0px';
+    // Horizontal inset: the site gutter (if applied) + the arrow side-padding, so
+    // the nav arrows sit in the gutter beside the items, not over them.
+    const padInline = () => {
+        const gut = props.options.applyGutter && props.gutterWidth ? props.gutterWidth : null;
+        const side = props.options.sidePadding || null;
+        if (gut && side) return `calc(${gut} + ${side})`;
+        return side || gut || undefined;
+    };
 
     // Height precedence: the explicit "Custom Height" content setting wins, then
     // the block's style.height (passed as `height`), then the built-in default.
@@ -249,13 +260,13 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
             style={{
                 height: resolvedHeight(),
                 ...(props.minHeight ? { 'min-height': props.minHeight, } : {}),
-                // Slides read this to size themselves to 1/N of the track width.
+                // Slides read these to size to 1/N of the track width, minus gaps.
                 '--hero-per-page': String(perPage(),),
+                '--hero-gap': gap(),
+                // Arrows center within this side gutter (see .scss).
+                '--hero-side-padding': props.options.sidePadding || '0px',
                 ...alignVars(),
-                ...(props.options.applyGutter && props.gutterWidth ? {
-                    'padding-left': props.gutterWidth,
-                    'padding-right': props.gutterWidth,
-                } : {}),
+                ...(padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {}),
             }}
             onMouseEnter={() => setIsPaused(true,)}
             onMouseLeave={() => setIsPaused(false,)}
@@ -272,7 +283,9 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                     ref={trackRef}
                     class="hero-carousel__track"
                     style={{
-                        transform: `translateX(-${currentIndex() * (100 / perPage())}%)`,
+                        // Advance by `(100% + gap) / perPage` per item so a gap
+                        // between items doesn't drift the paging (see .scss basis).
+                        transform: `translateX(calc(-1 * ${currentIndex()} * (100% + ${gap()}) / ${perPage()}))`,
                         transition: isTransitioning() ? 'transform 0.5s ease-in-out' : 'none',
                     }}
                 >

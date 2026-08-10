@@ -30,14 +30,17 @@
     flex: 1 1 auto;
     min-height: 0;
     will-change: transform;
+    // Gap between visible items (0 by default → no change for single-item).
+    gap: var(--hero-gap, 0px);
   }
 
   &__slide {
     position: relative;
-    // 1/N of the track width when the carousel shows N items per page
-    // (--hero-per-page defaults to 1 → full width, unchanged single-item view).
-    flex: 0 0 calc(100% / var(--hero-per-page, 1));
-    width: calc(100% / var(--hero-per-page, 1));
+    // 1/N of the track width, minus the (N-1) gaps shared across the row, when
+    // the carousel shows N items per page (--hero-per-page defaults to 1 and
+    // --hero-gap to 0 → full width, unchanged single-item view).
+    flex: 0 0 calc((100% - (var(--hero-per-page, 1) - 1) * var(--hero-gap, 0px)) / var(--hero-per-page, 1));
+    width: calc((100% - (var(--hero-per-page, 1) - 1) * var(--hero-gap, 0px)) / var(--hero-per-page, 1));
     // Fill the track's height (the track is flex:1 of the carousel box).
     height: auto;
     align-self: stretch;
@@ -280,8 +283,11 @@
       height: 20px;
     }
 
-    &--prev { left: $spacing-md; }
-    &--next { right: $spacing-md; }
+    // Center the arrow within the side-padding gutter (40px arrow → offset by
+    // half the gutter minus half the arrow). Falls back to $spacing-md when the
+    // gutter is small/unset, keeping the default over-the-media placement.
+    &--prev { left: max(#{$spacing-md}, calc(var(--hero-side-padding, 0px) / 2 - 20px)); }
+    &--next { right: max(#{$spacing-md}, calc(var(--hero-side-padding, 0px) / 2 - 20px)); }
   }
 
   // On a narrow carousel (mobile site + resized admin preview): shrink the nav
