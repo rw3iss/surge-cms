@@ -133,20 +133,27 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         setStoreBlocks(reconcile(props.blocks, { key: 'id', merge: true, },),);
     },);
 
+    // Ref-count of in-flight emitBlocks height pins (see below), so overlapping
+    // edits don't release the <html> min-height pin while another still needs it.
+    let heightPins = 0;
+
     /**
      * Emit a block-list change while KEEPING THE VIEWPORT STABLE. EVERY block
      * mutation (enable/disable, add, remove, move, group-slot pick, change-type,
      * data edit, self-heal) flows through here — otherwise the editor re-render
      * jumps scroll to the top. A block edit must NEVER move the view.
      *
-     * We anchor to the block being edited (the selected block): we record its
-     * top offset in the viewport before the change and, after the reconcile +
-     * reflow, scroll by the delta so THAT block stays exactly where it was —
-     * even when its own preview grows/shrinks (e.g. an entity/template block
-     * whose content collapses on a config change makes the whole page shorter,
-     * which would otherwise clamp scroll to the top). Falls back to restoring
-     * the absolute scrollY when there's no anchor. Re-applied over the next two
-     * frames to catch late layout (async previews, images).
+     * Two mechanisms work together:
+     *   1. HEIGHT PIN — force <html> min-height to the current page height across
+     *      the reflow. A type change momentarily detaches the whole list, which
+     *      would collapse the page to the viewport and clamp scrollY to 0 (the
+     *      jump); pinning the height keeps the scroll area from shrinking so no
+     *      clamp happens. Released once the layout settles.
+     *   2. ANCHOR CORRECTION — record the edited (selected) block's viewport top
+     *      before the change and, each frame until layout settles, scroll by the
+     *      delta so THAT block stays exactly where it was (covers content above
+     *      it changing height + late async previews/images). Falls back to the
+     *      absolute scrollY when there's no selected block.
      */
     const emitBlocks = (next: BlockData[],) => {
         const anchorId = selectedBlockId();
@@ -154,23 +161,59 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         const prevTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
         const prevY = window.scrollY;
 
+        // Pin the document height across the reflow. On a type change the whole
+        // list momentarily DETACHES — the page collapses to the viewport height,
+        // which clamps scrollY to 0 (the jump the user sees) — then reattaches
+        // ~80ms later. Forcing <html> min-height to the pre-change height keeps
+        // the scrollable area from shrinking, so the browser never clamps and
+        // the scroll position (and the edited block's on-screen spot) hold still.
+        const de = document.documentElement;
+        heightPins++;
+        de.style.minHeight = `${de.scrollHeight}px`;
+        const releasePin = () => {
+            if (--heightPins <= 0) {
+                heightPins = 0;
+                de.style.minHeight = '';
+            }
+        };
+
         props.onBlocksChange(next,);
 
-        const restore = () => {
+        // Belt-and-suspenders on top of the height pin: re-pin the edited block
+        // to its prior viewport position each frame until the layout settles
+        // (covers cases where content ABOVE the block legitimately changed
+        // height, and late async previews/images). Bounded by a safety cap.
+        let settledFrames = 0;
+        const startedAt = performance.now();
+        const correct = () => {
             if (anchorId && prevTop != null) {
                 const el = document.getElementById(anchorId,);
-                if (el) {
-                    const delta = el.getBoundingClientRect().top - prevTop;
-                    if (delta !== 0) window.scrollBy(0, delta,);
-                    return;
+                if (!el) return; // still detached (collapse valley) — wait it out
+                const delta = el.getBoundingClientRect().top - prevTop;
+                if (Math.abs(delta,) > 0.5) {
+                    window.scrollBy(0, delta,);
+                    settledFrames = 0;
+                } else {
+                    settledFrames++;
+                }
+            } else {
+                if (Math.abs(window.scrollY - prevY,) > 0.5) {
+                    window.scrollTo(0, prevY,);
+                    settledFrames = 0;
+                } else {
+                    settledFrames++;
                 }
             }
-            window.scrollTo(0, prevY,);
         };
-        requestAnimationFrame(() => {
-            restore();
-            requestAnimationFrame(restore,);
-        },);
+        const loop = () => {
+            correct();
+            if (settledFrames < 3 && performance.now() - startedAt < 700) {
+                requestAnimationFrame(loop,);
+            } else {
+                releasePin();
+            }
+        };
+        requestAnimationFrame(loop,);
     };
 
     // Self-heal group slots: a `group` must always have at least `columns`
@@ -490,7 +533,6 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                         items.length = nextCols;
                     }
                     emitBlocks(flattenTree(tree,),);
-                    requestAnimationFrame(() => window.scrollTo(0, scrollY,),);
                     return;
                 }
             }
