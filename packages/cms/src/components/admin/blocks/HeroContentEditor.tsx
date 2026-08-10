@@ -777,6 +777,67 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             />
                         </div>
                     </div>
+
+                    {/* ─── Mobile overrides (≤768px) ─── */}
+                    <h4 class="hero-options__subtitle">Mobile (≤768px)</h4>
+                    <div class="hero-options__row">
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Items per page</span>
+                            <input
+                                type="number"
+                                class="input input--sm input--inline-number"
+                                min={1}
+                                step={1}
+                                placeholder="inherit"
+                                value={options().itemsPerPageMobile ?? ''}
+                                onChange={(e,) => {
+                                    const raw = e.currentTarget.value;
+                                    const v = parseInt(raw,);
+                                    updateOptions({ itemsPerPageMobile: raw === '' || isNaN(v,) ? undefined : Math.max(1, v,), },);
+                                }}
+                            />
+                            <Tooltip header="Items per page (mobile)" content={<p>Visible items at once on a phone (≤768px). Blank = same as desktop.</p>} />
+                        </div>
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Scroll by</span>
+                            <input
+                                type="number"
+                                class="input input--sm input--inline-number"
+                                min={1}
+                                step={1}
+                                placeholder="inherit"
+                                value={options().scrollByMobile ?? ''}
+                                onChange={(e,) => {
+                                    const raw = e.currentTarget.value;
+                                    const v = parseInt(raw,);
+                                    updateOptions({ scrollByMobile: raw === '' || isNaN(v,) ? undefined : Math.max(1, v,), },);
+                                }}
+                            />
+                            <Tooltip header="Scroll by (mobile)" content={<p>Items advanced per page on a phone. Blank = same as desktop.</p>} />
+                        </div>
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Side padding</span>
+                            <input
+                                type="text"
+                                class="input input--sm input--inline-text"
+                                placeholder="inherit"
+                                value={options().sidePaddingMobile || ''}
+                                onChange={(e,) => updateOptions({ sidePaddingMobile: e.currentTarget.value.trim() || undefined, },)}
+                            />
+                            <Tooltip header="Side padding (mobile)" content={<p>Arrow-gutter padding on a phone (any CSS length). Blank = same as desktop.</p>} />
+                        </div>
+                        <div class="hero-options__group">
+                            <span class="hero-options__label">Item gap</span>
+                            <input
+                                type="text"
+                                class="input input--sm input--inline-text"
+                                placeholder="inherit"
+                                value={options().itemGapMobile || ''}
+                                onChange={(e,) => updateOptions({ itemGapMobile: e.currentTarget.value.trim() || undefined, },)}
+                            />
+                            <Tooltip header="Item gap (mobile)" content={<p>Gap between items on a phone (any CSS length). Blank = same as desktop.</p>} />
+                        </div>
+                    </div>
                 </div>
 
                 {/* ─── Item Cards ─── */}

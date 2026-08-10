@@ -119,4 +119,10 @@ export interface HeroCarouselOptions {
     sidePadding?: string;
     /** Gap (any CSS length) between visible items, e.g. `1rem`. */
     itemGap?: string;
+    // ─── Mobile overrides (≤768px viewport). Each falls back to its desktop
+    //     value above when unset, so a carousel only needs to set what differs. ───
+    itemsPerPageMobile?: number;
+    scrollByMobile?: number;
+    sidePaddingMobile?: string;
+    itemGapMobile?: string;
 }

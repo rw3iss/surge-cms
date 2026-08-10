@@ -1,5 +1,5 @@
 import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, type JSX, on, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, type JSX, on, onCleanup, onMount, Show, } from 'solid-js';
 import { TEXT_ALIGN, toFlexAlign, } from '../../utils/cssAlign';
 import './HeroCarousel.scss';
 
@@ -110,26 +110,56 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     let touchStartX = 0;
     let touchDeltaX = 0;
 
+    // Track viewport-mobile (≤768px) so the mobile option overrides apply.
+    // Initialized synchronously (client) to avoid a desktop→mobile flash, then
+    // kept live on resize/rotation.
+    const MOBILE_MQ = '(max-width: 768px)';
+    const [isMobile, setIsMobile,] = createSignal(
+        typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ,).matches,
+    );
+    onMount(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia(MOBILE_MQ,);
+        const update = () => setIsMobile(mq.matches,);
+        update();
+        mq.addEventListener('change', update,);
+        onCleanup(() => mq.removeEventListener('change', update,),);
+    },);
+    /** Pick the mobile override when on a narrow viewport AND it's set (numbers:
+     *  truthy; strings: non-empty), else the desktop value. */
+    const pick = <T,>(mobile: T | undefined, base: T | undefined,): T | undefined =>
+        isMobile() && mobile != null && (mobile as unknown) !== '' ? mobile : base;
+
     const itemCount = () => props.items.length;
     // How many items are visible at once, and how many to advance per page.
     // perPage is capped at the item count so a 2-item carousel set to "show 3"
     // just shows 2. maxIndex is the last valid START index (so the final page is
     // full — you can't scroll past the last screenful).
-    const perPage = () => Math.max(1, Math.min(itemCount() || 1, props.options.itemsPerPage || 1,),);
-    const step = () => Math.max(1, props.options.scrollBy || 1,);
+    const perPage = () =>
+        Math.max(1, Math.min(itemCount() || 1, pick(props.options.itemsPerPageMobile, props.options.itemsPerPage,) || 1,),);
+    const step = () => Math.max(1, pick(props.options.scrollByMobile, props.options.scrollBy,) || 1,);
     const maxIndex = () => Math.max(0, itemCount() - perPage(),);
     const hasMultiple = () => itemCount() > perPage();
     // Gap between visible items (any CSS length). Feeds both the flex `gap` and
     // the per-item translate distance `(100% + gap) / perPage`.
-    const gap = () => props.options.itemGap || '0px';
+    const gap = () => pick(props.options.itemGapMobile, props.options.itemGap,) || '0px';
     // Horizontal inset: the site gutter (if applied) + the arrow side-padding, so
     // the nav arrows sit in the gutter beside the items, not over them.
+    const sidePadding = () => pick(props.options.sidePaddingMobile, props.options.sidePadding,) || null;
     const padInline = () => {
         const gut = props.options.applyGutter && props.gutterWidth ? props.gutterWidth : null;
-        const side = props.options.sidePadding || null;
+        const side = sidePadding();
         if (gut && side) return `calc(${gut} + ${side})`;
         return side || gut || undefined;
     };
+
+    // If the visible-count changes (e.g. a desktop→mobile resize reduces the
+    // number of pages) and leaves the current index past the last page, snap it
+    // back in-bounds so the track doesn't rest on empty space.
+    createEffect(() => {
+        const max = maxIndex();
+        if (currentIndex() > max) setCurrentIndex(max,);
+    },);
 
     // Height precedence: the explicit "Custom Height" content setting wins, then
     // the block's style.height (passed as `height`), then the built-in default.
@@ -264,7 +294,7 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                 '--hero-per-page': String(perPage(),),
                 '--hero-gap': gap(),
                 // Arrows center within this side gutter (see .scss).
-                '--hero-side-padding': props.options.sidePadding || '0px',
+                '--hero-side-padding': sidePadding() || '0px',
                 ...alignVars(),
                 ...(padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {}),
             }}

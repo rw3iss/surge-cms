@@ -397,6 +397,19 @@
     color: $text-light;
   }
 
+  // Sub-heading for the Mobile overrides section — a touch smaller than the
+  // section title, with a divider above to set the group apart.
+  &__subtitle {
+    margin: $spacing-sm 0 0;
+    padding-top: $spacing-sm;
+    border-top: 1px dashed $border-color;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: $text-light;
+  }
+
   &__row {
     display: flex;
     flex-wrap: wrap;
