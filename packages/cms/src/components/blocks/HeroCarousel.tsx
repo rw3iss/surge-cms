@@ -279,6 +279,9 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
             </Show>
 
             <Show when={itemCount() > 0}>
+                {/* Viewport clips the track at the CONTENT box (inside the side
+                    padding) so items don't peek into the arrow gutters. */}
+                <div class="hero-carousel__viewport">
                 <div
                     ref={trackRef}
                     class="hero-carousel__track"
@@ -416,6 +419,7 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                             </div>
                         )}
                     </For>
+                </div>
                 </div>
 
                 {/* Navigation arrows */}
