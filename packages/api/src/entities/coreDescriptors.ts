@@ -89,6 +89,43 @@ function coreType(opts: {
     };
 }
 
+/** Build one product field def (core, describing a shop_products column). */
+function pf(key: string, type: EntityFieldType, extra: Partial<EntityFieldDef> = {},): EntityFieldDef {
+    return {
+        id: `core:product:${key}`, key, label: key, type, core: true,
+        required: false, unique: false, indexed: false, searchable: false, position: 0, ...extra,
+    };
+}
+
+/** The `product` entity type — adopts `shop_products` (owned by the shop
+ *  feature). Media + tags are enriched by the Shop data provider (not columns),
+ *  so they're not declared fields but appear on every record. */
+function productDescriptor(): EntityTypeDef {
+    const fields: EntityFieldDef[] = [
+        pf('title', 'text', { required: true, searchable: true, indexed: true, position: 0, },),
+        pf('description', 'richtext', { position: 1, },),
+        pf('type', 'enum', { options: { values: ['physical', 'digital',], }, position: 2, },),
+        pf('meta_title', 'text', { position: 3, },),
+        pf('meta_description', 'longtext', { position: 4, },),
+        pf('shipping_type', 'text', { position: 5, },),
+        pf('use_default_shipping', 'boolean', { position: 6, },),
+        pf('shipping_cents', 'integer', { position: 7, },),
+        pf('rating_avg', 'number', { position: 8, },),
+        pf('rating_count', 'integer', { position: 9, },),
+    ];
+    return {
+        id: '', key: 'product', label: 'Product', labelPlural: 'Products',
+        singularVar: 'product', pluralVar: 'products',
+        description: 'A shop product (managed by the Shop feature). Records include `media` (array) + `tags` (array).',
+        origin: 'core', internal: true, ownerFeature: 'shop', tableName: 'shop_products',
+        hasSlug: true, hasStatus: true, searchable: false, revisioned: false,
+        routing: { detailEnabled: true, detailPrefix: '/shop', indexEnabled: true, indexPrefix: '/shop', },
+        caching: { indexEnabled: true, indexTtlSeconds: 60, recordEnabled: true, recordTtlSeconds: 60, },
+        adminListRoute: '/admin/shop/products', adminEditRoute: '/admin/shop/products/:id',
+        fields, createdAt: '', updatedAt: '',
+    };
+}
+
 /** All core descriptors (built fresh each call). */
 export function coreDescriptors(): EntityTypeDef[] {
     return [
@@ -106,6 +143,7 @@ export function coreDescriptors(): EntityTypeDef[] {
         coreType({ key: 'user', label: 'User', labelPlural: 'Users', singularVar: 'user', pluralVar: 'users',
             ownerFeature: 'users', tableName: 'users', hasStatus: false,
             adminListRoute: '/admin/users', adminEditRoute: '/admin/users', }),
+        productDescriptor(),
     ].filter((d,): d is EntityTypeDef => d !== null);
 }
 

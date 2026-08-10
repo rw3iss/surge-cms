@@ -75,6 +75,13 @@ async function bootRunningMode(): Promise<void> {
         const entityManager = await import('./entities/entityManager.js');
         await seedCoreEntityTypes();
         await entityManager.load();
+        // Feature-provided entity data layers (e.g. Shop → product media/tags).
+        const { isFeatureEnabledServer, } = await import('./services/settings.js');
+        if (await isFeatureEnabledServer('shop',)) {
+            const { registerEntityDataProvider, } = await import('./entities/dataProviders.js');
+            const { productEntityProvider, } = await import('./services/shop/productEntityProvider.js');
+            registerEntityDataProvider('product', productEntityProvider,);
+        }
     } catch (err) {
         logger.warn('Entity registry init skipped', { error: err, },);
     }

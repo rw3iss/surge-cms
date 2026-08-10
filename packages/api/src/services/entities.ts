@@ -7,6 +7,7 @@ import { createHash, } from 'crypto';
 import { type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
 import * as repo from '../repositories/genericEntity.repo';
 import * as entityManager from '../entities/entityManager';
+import { getEntityDataProvider, } from '../entities/dataProviders';
 import { validateRecord, } from '../entities/columnMap';
 import { cache, CACHE_KEYS, } from './cache';
 import { NotFoundError, } from '../middleware/error';
@@ -35,7 +36,8 @@ export async function list(
         const cached = await cache.get<{ items: EntityRecord[]; total: number; }>(key,);
         if (cached) return cached;
     }
-    const res = await repo.list(t, q,);
+    const provider = getEntityDataProvider(typeKey,);
+    const res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, q,);
     if (cacheable) await cache.set(key, res, t.caching.indexTtlSeconds,);
     return res;
 }
@@ -49,9 +51,12 @@ export async function get(typeKey: string, idOrSlug: string, opts: { admin?: boo
         const cached = await cache.get<EntityRecord>(key,);
         if (cached) return cached;
     }
-    const rec = UUID_RE.test(idOrSlug,)
-        ? (await repo.getById(t, idOrSlug,)) ?? (await repo.getBySlug(t, idOrSlug,))
-        : (await repo.getBySlug(t, idOrSlug,)) ?? (await repo.getById(t, idOrSlug,).catch(() => null));
+    const provider = getEntityDataProvider(typeKey,);
+    const byId = UUID_RE.test(idOrSlug,);
+    const getFirst = provider?.getById || provider?.getBySlug ? provider : { getById: (id: string,) => repo.getById(t, id,), getBySlug: (sl: string,) => repo.getBySlug(t, sl,), };
+    const rec = byId
+        ? (await getFirst.getById?.(idOrSlug,)) ?? (await getFirst.getBySlug?.(idOrSlug,).catch(() => null))
+        : (await getFirst.getBySlug?.(idOrSlug,)) ?? (await getFirst.getById?.(idOrSlug,).catch(() => null));
     if (!rec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
     if (cacheable) await cache.set(key, rec, t.caching.recordTtlSeconds,);
     return rec;
@@ -70,6 +75,12 @@ export async function create(
     ctx: { userId?: string; },
 ): Promise<EntityRecord> {
     const t = await requireType(typeKey,);
+    const provider = getEntityDataProvider(typeKey,);
+    if (provider?.create) {
+        const rec = await provider.create(body, ctx,);
+        await cache.invalidateEntityCache(typeKey,);
+        return rec;
+    }
     const data = validateRecord(t.fields, body,);
     const slug = resolveSlug(t, body, body.slug as string | undefined,);
     const rec = await repo.create(t, data, {
@@ -85,6 +96,12 @@ export async function update(
     body: Record<string, unknown>,
 ): Promise<EntityRecord> {
     const t = await requireType(typeKey,);
+    const provider = getEntityDataProvider(typeKey,);
+    if (provider?.update) {
+        const rec = await provider.update(id, body,);
+        await cache.invalidateEntityCache(typeKey,);
+        return rec;
+    }
     const data = validateRecord(t.fields, body, { partial: true, },);
     const rec = await repo.update(t, id, data, {
         slug: body.slug !== undefined ? resolveSlug(t, body, body.slug as string,) : undefined,
@@ -97,6 +114,12 @@ export async function update(
 
 export async function remove(typeKey: string, id: string,): Promise<void> {
     const t = await requireType(typeKey,);
+    const provider = getEntityDataProvider(typeKey,);
+    if (provider?.remove) {
+        await provider.remove(id,);
+        await cache.invalidateEntityCache(typeKey,);
+        return;
+    }
     const ok = await repo.remove(t, id,);
     if (!ok) throw new NotFoundError(`${t.label} "${id}"`,);
     await cache.invalidateEntityCache(typeKey,);
