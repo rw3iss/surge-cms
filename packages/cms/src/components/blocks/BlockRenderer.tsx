@@ -1002,28 +1002,40 @@ const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
         },
     );
 
+    const layout = () => settings()?.layout ?? 'stack';
+
     return (
         <Show when={resolved()} fallback={null}>
-            {(r) => (
-                <For each={r().items}>
-                    {(rec) => {
-                        const { singular, } = entityVars(r().entityType,);
-                        const mergedCtx = {
-                            ...(props.ctx ?? {}),
-                            [singular]: { kind: r().entityType, data: rec, id: String(rec.id ?? ''), },
-                        } as TplCtx;
-                        return (
-                            <For each={r().roots}>
-                                {(child) => (
-                                    <Show when={child.isVisible !== false}>
-                                        <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
-                                    </Show>
-                                )}
+            {(r) => {
+                const renderRecord = (rec: Record<string, unknown>,) => {
+                    const { singular, } = entityVars(r().entityType,);
+                    const mergedCtx = {
+                        ...(props.ctx ?? {}),
+                        [singular]: { kind: r().entityType, data: rec, id: String(rec.id ?? ''), },
+                    } as TplCtx;
+                    return (
+                        <For each={r().roots}>
+                            {(child) => (
+                                <Show when={child.isVisible !== false}>
+                                    <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
+                                </Show>
+                            )}
+                        </For>
+                    );
+                };
+                return (
+                    <Show
+                        when={layout() === 'carousel' && r().items.length > 1}
+                        fallback={<For each={r().items}>{(rec) => renderRecord(rec,)}</For>}
+                    >
+                        <div class="entity-carousel">
+                            <For each={r().items}>
+                                {(rec) => <div class="entity-carousel__item">{renderRecord(rec,)}</div>}
                             </For>
-                        );
-                    }}
-                </For>
-            )}
+                        </div>
+                    </Show>
+                );
+            }}
         </Show>
     );
 };

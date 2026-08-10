@@ -31,23 +31,28 @@ interface ProductMedia {
 async function loadMedia(productIds: string[],): Promise<Map<string, ProductMedia[]>> {
     const map = new Map<string, ProductMedia[]>();
     if (productIds.length === 0) return map;
+    // A product image is EITHER an uploaded media row (media_id) OR an external
+    // URL (external_url, e.g. Printify mockups) — LEFT JOIN + coalesce covers both.
     const r = await query<{
-        product_id: string; media_id: string; url: string; thumbnail_url: string | null;
-        alt: string | null; kind: string; mime_type: string; position: number;
+        product_id: string; media_id: string | null; media_url: string | null; external_url: string | null;
+        thumbnail_url: string | null; alt: string | null; kind: string; mime_type: string | null; position: number;
     }>(
-        `SELECT spm.product_id, spm.media_id, spm.kind, spm.position,
-                m.url, m.thumbnail_url, m.alt, m.mime_type
+        `SELECT spm.product_id, spm.media_id, spm.kind, spm.position, spm.external_url,
+                m.url AS media_url, m.thumbnail_url, m.alt, m.mime_type
          FROM shop_product_media spm
-         JOIN media m ON m.id = spm.media_id
+         LEFT JOIN media m ON m.id = spm.media_id
          WHERE spm.product_id = ANY($1)
          ORDER BY spm.position ASC`,
         [productIds,],
     );
     for (const row of r.rows) {
+        const url = row.media_url ?? row.external_url;
+        if (!url) continue; // skip a media row with neither source
         const arr = map.get(row.product_id,) ?? [];
         arr.push({
-            mediaId: row.media_id, url: row.url, thumbnailUrl: row.thumbnail_url, alt: row.alt,
-            kind: row.kind, mimeType: row.mime_type, position: row.position, isMain: row.position === 0,
+            mediaId: row.media_id ?? '', url, thumbnailUrl: row.thumbnail_url ?? url, alt: row.alt,
+            kind: row.kind, mimeType: row.mime_type ?? (row.kind === 'video' ? 'video/*' : 'image/*'),
+            position: row.position, isMain: row.position === 0,
         },);
         map.set(row.product_id, arr,);
     }

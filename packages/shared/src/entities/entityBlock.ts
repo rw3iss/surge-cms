@@ -24,4 +24,7 @@ export interface EntityBlockSettings {
      *  round-trip; the template remains the source of truth. */
     entityType: string;
     binding: EntityBinding;
+    /** How multiple resolved records lay out: a vertical `stack` (default) or a
+     *  swipeable `carousel` (each record's rendered template is a slide). */
+    layout?: 'stack' | 'carousel';
 }

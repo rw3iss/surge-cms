@@ -12,6 +12,7 @@ interface EntityCfg {
     templateId: string;
     entityType: string;
     binding: EntityBinding;
+    layout?: 'stack' | 'carousel';
 }
 
 const EntityBlockEdit: Component<{
@@ -108,6 +109,17 @@ const EntityBlockEdit: Component<{
                         Configure query…
                     </button>
                 </Show>
+
+                <label class="block-edit-form__field">
+                    <span>Layout (multiple records)</span>
+                    <select
+                        value={cfg().layout ?? 'stack'}
+                        onChange={(e,) => setCfg({ layout: e.currentTarget.value as 'stack' | 'carousel', },)}
+                    >
+                        <option value="stack">Stack (vertical)</option>
+                        <option value="carousel">Carousel (swipeable)</option>
+                    </select>
+                </label>
             </Show>
 
             <Show when={modalMode()}>

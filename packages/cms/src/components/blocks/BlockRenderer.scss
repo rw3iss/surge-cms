@@ -352,3 +352,30 @@
 
   &--lg { padding: 2rem; }
 }
+
+// Entity block "carousel" layout — a horizontal scroll-snap strip where each
+// resolved record's rendered template is a slide (e.g. product cards).
+.entity-carousel {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 4px 2px 18px;
+  scrollbar-width: thin;
+
+  &__item {
+    flex: 0 0 auto;
+    width: clamp(240px, 28%, 340px);
+    scroll-snap-align: start;
+
+    // The template's own blocks fill the slide.
+    > * { width: 100%; }
+  }
+
+  @media (max-width: 768px) {
+    gap: 1rem;
+    &__item { width: 82vw; max-width: 340px; scroll-snap-align: center; }
+  }
+}
