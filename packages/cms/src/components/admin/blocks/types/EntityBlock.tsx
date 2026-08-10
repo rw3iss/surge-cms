@@ -4,7 +4,7 @@
  * several entities / a query). Reuses the shared EntitySearchSelectModal.
  */
 import type { EntityBinding, EntityQuery, EntityRecord, } from '@sitesurge/types';
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
 
@@ -46,7 +46,14 @@ const EntityBlockEdit: Component<{
 
     const [modalMode, setModalMode,] = createSignal<'single' | 'multiple' | 'query' | null>(null,);
 
+    // Local Suspense boundary: changing the entity type re-fetches `templates`
+    // (a new resource key with no cached value → suspends). Without this, that
+    // suspension bubbles to the page-level Suspense, whose fallback empties the
+    // whole editor for a few frames — collapsing the page height and clamping
+    // scroll to the top. Containing it here keeps the reflow local (the panel
+    // just shows a tiny "Loading…"), so the page never collapses.
     return (
+        <Suspense fallback={<div class="block-edit-form entity-block-edit"><small class="form-help-muted">Loading…</small></div>}>
         <div class="block-edit-form entity-block-edit">
             <label class="block-edit-form__field">
                 <span>Entity type</span>
@@ -143,6 +150,7 @@ const EntityBlockEdit: Component<{
                 />
             </Show>
         </div>
+        </Suspense>
     );
 };
 

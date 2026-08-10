@@ -24,6 +24,21 @@ export interface RuntimeOptions {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Entity type keys that have 404'd this session. `{{ }}` refs to a type that
+ * doesn't exist (e.g. a stale `{{ for newsletters }}`) otherwise re-fetch and
+ * re-suspend on EVERY render — spamming the console with 404s and, because the
+ * per-render Suspense resource keeps going back to `pending`, collapsing the
+ * page (which clamps scroll to the top on any block edit). Module-level so it
+ * persists across per-render runtimes: after the first 404 we short-circuit to
+ * an empty result synchronously — no network call, no 404, no re-suspend.
+ */
+const knownMissingTypes = new Set<string>();
+function isNotFound(e: unknown,): boolean {
+    const x = e as { status?: number; code?: string; } | undefined;
+    return x?.status === 404 || x?.code === 'NOT_FOUND';
+}
+
 /** Fetch an entity by id (UUID) or slug, trying the likely method first and
  *  falling back to the other. Returns the raw entity object or null. */
 async function fetchEntity(kind: string, ref: string): Promise<Record<string, unknown> | null> {
@@ -156,21 +171,25 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
                 // `<type>Count` → count. Singular type key = plural minus trailing 's'.
                 if (name.endsWith('Count')) {
                     const singular = singularize(name.slice(0, -5));
+                    if (knownMissingTypes.has(singular)) return 0;
                     return memo(name, async () => {
                         try {
                             const r = await cms.entities.list(singular, { limit: 1 } as never);
                             return r.meta?.total ?? 0;
-                        } catch {
+                        } catch (e) {
+                            if (isNotFound(e)) knownMissingTypes.add(singular);
                             return 0;
                         }
                     });
                 }
                 const firstStr = typeof args[0] === 'string' ? args[0].trim() : '';
                 if (firstStr) {
+                    if (knownMissingTypes.has(name)) return entityRef(name, null, firstStr);
                     const data = await memo(`${name}:${firstStr}`, async () => {
                         try {
                             return (await cms.entities.getOne(name, firstStr)) as unknown as Record<string, unknown>;
-                        } catch {
+                        } catch (e) {
+                            if (isNotFound(e)) knownMissingTypes.add(name);
                             return null;
                         }
                     });
@@ -178,12 +197,14 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
                 }
                 // Collection: `{{ for recipes as r }}`.
                 const singular = singularize(name);
+                if (knownMissingTypes.has(singular)) return undefined;
                 const limit = typeof args[0] === 'number' ? (args[0] as number) : 20;
                 const items = await memo(`coll:${name}:${limit}`, async () => {
                     try {
                         const r = await cms.entities.list(singular, { limit } as never);
                         return (r.data ?? []) as unknown as Record<string, unknown>[];
-                    } catch {
+                    } catch (e) {
+                        if (isNotFound(e)) knownMissingTypes.add(singular);
                         return [];
                     }
                 });
