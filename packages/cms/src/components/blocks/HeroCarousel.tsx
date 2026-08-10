@@ -1,10 +1,15 @@
 import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, on, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, type JSX, on, onCleanup, Show, } from 'solid-js';
 import { TEXT_ALIGN, toFlexAlign, } from '../../utils/cssAlign';
 import './HeroCarousel.scss';
 
+/** A slide is either a media/posts item (media backdrop + text overlay) or an
+ *  entity item carrying a pre-rendered `contentNode` (its content-block template
+ *  rendered with the entity bound), which fills the whole slide. */
+export type HeroSlide = HeroItem & { contentNode?: JSX.Element; };
+
 export interface HeroCarouselProps {
-    items: HeroItem[];
+    items: HeroSlide[];
     options: HeroCarouselOptions;
     height?: string;
     previewMode?: boolean;
@@ -250,12 +255,15 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                         {(item, index,) => (
                             <div
                                 class="hero-carousel__slide"
+                                classList={{ 'hero-carousel__slide--entity': Boolean(item.contentNode), }}
                                 // No backdrop → the block-style color fills the
                                 // slide container directly.
                                 style={props.itemBackground && !hasBackdrop(item)
                                     ? { background: props.itemBackground, }
                                     : undefined}
                             >
+                                <Show when={item.contentNode} fallback={
+                                    <>
                                 {/* Background media */}
                                 <div class="hero-carousel__media">
                                     <Show when={item.mediaType === 'image'}>
@@ -361,6 +369,12 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                         </Show>
                                     </div>
                                 </div>
+                                    </>
+                                }>
+                                    {/* Entity item: its content-block template,
+                                        rendered with the entity bound, fills the slide. */}
+                                    <div class="hero-carousel__entity">{item.contentNode}</div>
+                                </Show>
                             </div>
                         )}
                     </For>

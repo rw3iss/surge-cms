@@ -8,14 +8,16 @@ import type {
     HeroTextConfig,
 } from '@sitesurge/types';
 import type { AppearanceSettings, } from '@sitesurge/types';
-import { Component, createEffect, createMemo, createResource, createSignal, For, Index, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ResolvedHeroCarousel from '../../blocks/ResolvedHeroCarousel';
+import { renderEntityTemplateSlide, } from '../../blocks/BlockRenderer';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
 import MediaSelectModal from '../media/MediaSelectModal';
 import MediaUploadModal from '../media/MediaUploadModal';
 import PostQueryEditor from './PostQueryEditor';
+import EntityBlockEdit from './types/EntityBlock';
 import Tooltip from '../common/Tooltip';
 import Toggle from '../common/Toggle';
 import './HeroContentEditor.scss';
@@ -30,6 +32,27 @@ function postsSummary(item: HeroItem,): string {
     if (pinned > 0) parts.push(`${pinned} specific`,);
     if (cfg.queryEnabled !== false) parts.push(`query · ${cfg.count ?? 5}`,);
     return parts.length ? parts.join(' + ',) : 'No posts configured';
+}
+
+/** One-line summary of an Entity item's binding, for its card preview. */
+function entitySummary(item: HeroItem,): string {
+    const cfg = item.entity;
+    if (!cfg?.entityType) return 'Not configured';
+    const type = cfg.entityType;
+    const b = cfg.binding;
+    if (!cfg.templateId) return `${type} · pick a template`;
+    switch (b?.mode) {
+        case 'single':
+            return b.ref ? `${type}: ${b.ref}` : `${type} · pick one`;
+        case 'list':
+            return `${type} · ${(b.refs ?? []).length} selected`;
+        case 'query':
+            return `${type} · query`;
+        case 'context':
+            return `${type} · current page`;
+        default:
+            return type;
+    }
 }
 
 const isValidHeight = (v: string,) => /^\d+(px|vw|vh|%)$/.test(v,);
@@ -198,15 +221,18 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
         markDirty();
     };
 
-    const addPostsItem = () => {
+    const addEntityItem = () => {
         const newItem: HeroItem = {
             id: genId(),
-            type: 'posts',
-            posts: { queryEnabled: true, count: 5, showEmptyMessage: true, pinnedPostIds: [], },
+            type: 'entity',
+            // Default to a specific-entity binding — the primary carousel use
+            // ("pick specific entities, each its own slide"). The operator can
+            // switch to a query in the item settings.
+            entity: { templateId: '', entityType: '', binding: { mode: 'single', ref: '', }, },
             order: items().length,
         };
         setItems(prev => [...prev, newItem,]);
-        // Open its settings immediately so the query options are visible.
+        // Open its settings immediately so the entity/template pickers are visible.
         setOpenSettings(prev => {
             const next = new Set(prev,);
             next.add(newItem.id,);
@@ -217,6 +243,19 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
     const updatePosts = (id: string, patch: Partial<HeroPostsConfig>,) => {
         updateItem(id, it => ({ ...it, posts: { ...(it.posts ?? {}), ...patch, }, }),);
+    };
+
+    /** EntityBlockEdit writes the whole `{ entity }` bag; lift `.entity` onto the item. */
+    const updateEntity = (id: string, data: Record<string, any>,) => {
+        updateItem(id, it => ({ ...it, entity: data.entity, }),);
+    };
+
+    /** Add-item dropdown dispatcher: minimal single control replacing the old
+     *  three buttons. Selecting an action fires it, then the select resets. */
+    const handleAddSelect = (value: string,) => {
+        if (value === 'media-select') setShowMediaSelect(true,);
+        else if (value === 'media-upload') setShowMediaUpload(true,);
+        else if (value === 'entity') addEntityItem();
     };
 
     // ─── Options update ───
@@ -543,6 +582,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                     previewMode={true}
                                     height={scaledHeight()}
                                     gutterWidth={gutterWidth()}
+                                    renderEntitySlide={renderEntityTemplateSlide}
                                 />
                             </div>
                         </Show>
@@ -665,11 +705,10 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 <div
                                     class={`hero-item-card ${draggingId() === item.id ? 'hero-item-card--dragging' : ''}`}
                                 >
-                                    {/* Preview — media thumbnail, or a labelled
-                                        card for a Posts item (which expands into
-                                        one slide per resolved post at render). */}
-                                    <Show
-                                        when={item.type === 'posts'}
+                                    {/* Preview — media thumbnail, or a labelled card
+                                        for a Posts/Entity item (which expands into one
+                                        slide per resolved record at render). */}
+                                    <Switch
                                         fallback={
                                             <div class="hero-item-card__preview">
                                                 <Show
@@ -694,13 +733,23 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                             </div>
                                         }
                                     >
-                                        <div class="hero-item-card__preview hero-item-card__preview--posts">
-                                            <span class="hero-item-card__posts-badge">Posts</span>
-                                            <span class="hero-item-card__posts-summary">
-                                                {postsSummary(item,)}
-                                            </span>
-                                        </div>
-                                    </Show>
+                                        <Match when={item.type === 'posts'}>
+                                            <div class="hero-item-card__preview hero-item-card__preview--posts">
+                                                <span class="hero-item-card__posts-badge">Posts</span>
+                                                <span class="hero-item-card__posts-summary">
+                                                    {postsSummary(item,)}
+                                                </span>
+                                            </div>
+                                        </Match>
+                                        <Match when={item.type === 'entity'}>
+                                            <div class="hero-item-card__preview hero-item-card__preview--posts">
+                                                <span class="hero-item-card__posts-badge">Entity</span>
+                                                <span class="hero-item-card__posts-summary">
+                                                    {entitySummary(item,)}
+                                                </span>
+                                            </div>
+                                        </Match>
+                                    </Switch>
 
                                     {/* Collapsible Settings */}
                                     <button
@@ -715,8 +764,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
                                     <Show when={isSettingsOpen(item.id,)}>
                                         <div class="hero-item-card__body">
-                                            <Show
-                                                when={item.type === 'posts'}
+                                            <Switch
                                                 fallback={
                                                     <>
                                                         {/* Object fit */}
@@ -765,13 +813,26 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                                     </>
                                                 }
                                             >
-                                                {/* Posts item: query settings. Each
-                                                    resolved post renders as its own slide. */}
-                                                <PostQueryEditor
-                                                    value={item.posts ?? {}}
-                                                    onChange={(patch,) => updatePosts(item.id, patch,)}
-                                                />
-                                            </Show>
+                                                {/* Posts item (legacy data): query
+                                                    settings. Each resolved post renders
+                                                    as its own slide. */}
+                                                <Match when={item.type === 'posts'}>
+                                                    <PostQueryEditor
+                                                        value={item.posts ?? {}}
+                                                        onChange={(patch,) => updatePosts(item.id, patch,)}
+                                                    />
+                                                </Match>
+                                                {/* Entity item: pick entity type →
+                                                    template → binding. Each resolved
+                                                    record renders as its own slide. */}
+                                                <Match when={item.type === 'entity'}>
+                                                    <EntityBlockEdit
+                                                        mode="edit"
+                                                        data={{ entity: item.entity, }}
+                                                        onUpdate={(d,) => updateEntity(item.id, d,)}
+                                                    />
+                                                </Match>
+                                            </Switch>
                                         </div>
                                     </Show>
 
@@ -824,29 +885,29 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                         )}
                     </For>
 
-                    {/* Add new item card */}
-                    <div class="hero-add-card">
+                    {/* Add new item — one minimal dropdown (Media / Entities). */}
+                    <div class="hero-add-card hero-add-card--compact">
                         <div class="hero-add-card__content">
-                            <span class="hero-add-card__icon">+</span>
-                            <span class="hero-add-card__label">Add Hero Item</span>
-                            <button
-                                class="btn btn--sm btn--secondary"
-                                onClick={() => setShowMediaSelect(true,)}
+                            <span class="hero-add-card__label">
+                                <span class="hero-add-card__icon">+</span> Add item
+                            </span>
+                            <select
+                                class="input input--sm input--select hero-add-card__select"
+                                value=""
+                                onChange={(e,) => {
+                                    handleAddSelect(e.currentTarget.value,);
+                                    e.currentTarget.value = '';
+                                }}
                             >
-                                Select Existing Media
-                            </button>
-                            <button
-                                class="btn btn--sm btn--outline"
-                                onClick={() => setShowMediaUpload(true,)}
-                            >
-                                Upload New Media
-                            </button>
-                            <button
-                                class="btn btn--sm btn--outline"
-                                onClick={addPostsItem}
-                            >
-                                Select Posts
-                            </button>
+                                <option value="" disabled>Choose…</option>
+                                <optgroup label="Media">
+                                    <option value="media-select">Select existing media</option>
+                                    <option value="media-upload">Upload new media</option>
+                                </optgroup>
+                                <optgroup label="Entities">
+                                    <option value="entity">Add entities (template)</option>
+                                </optgroup>
+                            </select>
                         </div>
                     </div>
                 </div>

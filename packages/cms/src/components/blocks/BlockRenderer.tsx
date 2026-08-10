@@ -1,6 +1,6 @@
-import type { Block, Campaign, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@sitesurge/types';
+import type { Block, Campaign, EntityRecord, Form, HeroCarouselOptions, HeroItem, Post, SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, type JSX, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
@@ -960,6 +960,7 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
                 contentPadding={contentPadding()}
                 contentMargin={contentMargin()}
                 itemBackground={itemBackground()}
+                renderEntitySlide={renderEntityTemplateSlide}
             />
         </Show>
     );
@@ -981,9 +982,35 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
 // and the subtree rendered ONCE PER record with the entity bound under its
 // singular variable (so template blocks use `{{post.title}}` etc.). List
 // bindings therefore render the template per item — the card/carousel pattern.
+/**
+ * Render a content-block template (`roots`) with a single entity record bound
+ * under its singular variable, so template blocks resolve `{{post.title}}` etc.
+ * Shared by the `entity` block (per-record) and the carousel's entity items
+ * (one slide per record) — injected into ResolvedHeroCarousel to keep that
+ * module free of a BlockRenderer import (no cycle).
+ */
+export function renderEntityTemplateSlide(
+    args: { roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx; },
+): JSX.Element {
+    const { singular, } = entityVars(args.entityType,);
+    const mergedCtx = {
+        ...(args.ctx ?? {}),
+        [singular]: { kind: args.entityType, data: args.record, id: String(args.record.id ?? ''), },
+    } as TplCtx;
+    return (
+        <For each={args.roots}>
+            {(child) => (
+                <Show when={child.isVisible !== false}>
+                    <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
+                </Show>
+            )}
+        </For>
+    );
+}
+
 const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const settings = () => (props.block.settings?.entity ?? null) as
-        | { templateId: string; entityType: string; binding: import('@sitesurge/types').EntityBinding; }
+        | import('@sitesurge/types').EntityBlockSettings
         | null;
 
     const [resolved] = createResource(
@@ -1007,22 +1034,13 @@ const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     return (
         <Show when={resolved()} fallback={null}>
             {(r) => {
-                const renderRecord = (rec: Record<string, unknown>,) => {
-                    const { singular, } = entityVars(r().entityType,);
-                    const mergedCtx = {
-                        ...(props.ctx ?? {}),
-                        [singular]: { kind: r().entityType, data: rec, id: String(rec.id ?? ''), },
-                    } as TplCtx;
-                    return (
-                        <For each={r().roots}>
-                            {(child) => (
-                                <Show when={child.isVisible !== false}>
-                                    <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
-                                </Show>
-                            )}
-                        </For>
-                    );
-                };
+                const renderRecord = (rec: Record<string, unknown>,) =>
+                    renderEntityTemplateSlide({
+                        roots: r().roots,
+                        entityType: r().entityType,
+                        record: rec as EntityRecord,
+                        ctx: props.ctx,
+                    },);
                 return (
                     <Show
                         when={layout() === 'carousel' && r().items.length > 1}

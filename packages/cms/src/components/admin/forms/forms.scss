@@ -100,6 +100,51 @@
   margin: 0 0 4px;
 }
 
+// ─── Generic block edit panel (entity/template block etc.) — one field per
+// row, label on top, control full width, single column with gaps. Used by the
+// `entity` block editor and any panel using `.block-edit-form`.
+.block-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  width: 100%;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+
+    > span { margin: 0; }
+
+    > input[type='text'],
+    > input[type='number'],
+    > input[type='search'],
+    > textarea,
+    > select {
+      @include admin-input;
+      width: 100%;
+    }
+
+    > select {
+      @include admin-select-arrow;
+    }
+
+    small,
+    .form-help-muted {
+      font-size: $font-size-xs;
+      color: $text-light;
+    }
+  }
+
+  // Action buttons (Select entity / Configure query) sit on their own row,
+  // left-aligned, full-ish width for tap targets.
+  > .btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
+
 // Two-up row: pairs of stacked FormFields side by side (e.g. min/max width),
 // collapsing to a single column when the panel/window is narrow. Shared so
 // every block editor lays paired fields out identically.

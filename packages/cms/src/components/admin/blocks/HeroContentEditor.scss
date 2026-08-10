@@ -342,6 +342,38 @@
     color: var(--admin-page-text, #{$text-color});
     margin-bottom: $spacing-xs;
   }
+
+  // Compact add tout: smaller footprint than a full item card — a single
+  // dropdown instead of stacked buttons, sized to its content.
+  &--compact {
+    width: 200px;
+    min-width: 200px;
+    min-height: 0;
+    align-self: stretch;
+
+    .hero-add-card__content {
+      justify-content: center;
+      gap: $spacing-sm;
+      padding: $spacing-md;
+      width: 100%;
+    }
+
+    .hero-add-card__label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0;
+    }
+
+    .hero-add-card__icon {
+      font-size: $font-size-lg;
+    }
+  }
+
+  &__select {
+    width: 100%;
+    max-width: 260px;
+  }
 }
 
 // ─── Carousel options ───

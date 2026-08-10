@@ -39,6 +39,22 @@
     // Fill the track's height (the track is flex:1 of the carousel box).
     height: auto;
     align-self: stretch;
+
+    // Entity item: its content-block template fills the slide (no media
+    // backdrop / text overlay). Center it and let over-tall content scroll
+    // within the slide's fixed height rather than blowing out the carousel.
+    &--entity {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+    }
+  }
+
+  // Wrapper around an entity slide's rendered template.
+  &__entity {
+    width: 100%;
+    max-width: 100%;
   }
 
   // ─── Media background ───

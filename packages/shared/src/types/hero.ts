@@ -1,3 +1,5 @@
+import type { EntityBlockSettings, } from '../entities/entityBlock';
+
 export interface HeroCarouselSettings {
     items: HeroItem[];
     options: HeroCarouselOptions;
@@ -9,9 +11,18 @@ export interface HeroItem {
      * Discriminates the item source. Absent = 'media' (all items saved
      * before posts-carousel support). A 'posts' item holds a post query
      * (`posts`) instead of media; at render time it expands into ONE
-     * slide per resolved post.
+     * slide per resolved post. An 'entity' item holds an entity binding +
+     * content-block template (`entity`) and expands into ONE slide per
+     * resolved entity record, each rendered via that template.
+     *
+     * NOTE: 'posts' is retained for backward compatibility with saved data;
+     * new carousels use 'entity' with the built-in `post` entity type
+     * instead. The add-item UI no longer offers 'posts'.
      */
-    type?: 'media' | 'posts';
+    type?: 'media' | 'posts' | 'entity';
+    // ─── Entity item (type='entity') ───
+    /** Entity binding + content-block template; each resolved record → a slide. */
+    entity?: EntityBlockSettings;
     // ─── Media item (type='media') ───
     mediaId?: string;
     mediaUrl?: string;
