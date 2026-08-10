@@ -4,7 +4,7 @@
  * several entities / a query). Reuses the shared EntitySearchSelectModal.
  */
 import type { EntityBinding, EntityQuery, EntityRecord, } from '@sitesurge/types';
-import { Component, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
 
@@ -46,6 +46,23 @@ const EntityBlockEdit: Component<{
 
     const [modalMode, setModalMode,] = createSignal<'single' | 'multiple' | 'query' | null>(null,);
 
+    // Re-apply the selected value AFTER the async option lists load. A native
+    // <select value={x}> whose matching <option> doesn't exist yet (resource
+    // still loading) falls back to the first option ("— select —") and isn't
+    // re-synced when the options arrive; these effects re-set it once they do.
+    let typeSelect: HTMLSelectElement | undefined;
+    let templateSelect: HTMLSelectElement | undefined;
+    createEffect(() => {
+        types();
+        const v = cfg().entityType;
+        if (typeSelect) typeSelect.value = v;
+    },);
+    createEffect(() => {
+        templates();
+        const v = cfg().templateId;
+        if (templateSelect) templateSelect.value = v;
+    },);
+
     // Local Suspense boundary: changing the entity type re-fetches `templates`
     // (a new resource key with no cached value → suspends). Without this, that
     // suspension bubbles to the page-level Suspense, whose fallback empties the
@@ -58,6 +75,7 @@ const EntityBlockEdit: Component<{
             <label class="block-edit-form__field">
                 <span>Entity type</span>
                 <select
+                    ref={typeSelect}
                     value={cfg().entityType}
                     onChange={(e,) => setCfg({ entityType: e.currentTarget.value, templateId: '', },)}
                 >
@@ -69,7 +87,7 @@ const EntityBlockEdit: Component<{
             <Show when={cfg().entityType}>
                 <label class="block-edit-form__field">
                     <span>Template</span>
-                    <select value={cfg().templateId} onChange={(e,) => setCfg({ templateId: e.currentTarget.value, },)}>
+                    <select ref={templateSelect} value={cfg().templateId} onChange={(e,) => setCfg({ templateId: e.currentTarget.value, },)}>
                         <option value="">— select —</option>
                         <For each={templates() ?? []}>
                             {(t,) => <option value={t.id}>{t.name} ({t.mode})</option>}

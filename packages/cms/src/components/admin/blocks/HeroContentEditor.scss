@@ -112,26 +112,21 @@
     }
   }
 
-  // Posts item: no media thumbnail — a labelled placeholder card. Uses
-  // the same 16:9 box (padding-top on &__preview) with an absolutely
-  // positioned centered stack.
+  // Posts / entity item: no media to preview (these expand into slides at
+  // render), so show a COMPACT labelled header instead of the full 16:9 media
+  // box — cancels the aspect-ratio padding and the absolute-centered stack.
   &__preview--posts {
+    padding-top: 0;
+    padding: $spacing-sm $spacing-md;
     background: linear-gradient(135deg, #2a2a4a, #1a1a2e);
-    display: block;
-
-    .hero-item-card__posts-badge,
-    .hero-item-card__posts-summary {
-      position: absolute;
-      left: 0;
-      right: 0;
-      text-align: center;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
   }
 
   &__posts-badge {
-    top: 50%;
-    transform: translateY(-100%);
-    font-size: $font-size-sm;
+    font-size: $font-size-xs;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -139,11 +134,9 @@
   }
 
   &__posts-summary {
-    top: 50%;
-    margin-top: 4px;
-    font-size: $font-size-xs;
+    font-size: 11px;
     color: rgba(255, 255, 255, 0.7);
-    padding: 0 $spacing-sm;
+    @include truncate;
   }
 
   // Collapsible settings toggle

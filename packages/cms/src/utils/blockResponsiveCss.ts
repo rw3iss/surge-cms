@@ -55,8 +55,10 @@ function declarationRecord(
 }
 
 /** Box-model props. For a carousel these stay on the carousel element (where the
- *  default height lands), while everything else targets the slide content. */
-const BOX_PROPS = new Set(['width', 'max-width', 'height', 'min-height', 'max-height',],);
+ *  default height lands), while everything else targets the slide content.
+ *  `margin` is here so `margin:auto` + a `max-width` centers the carousel ELEMENT
+ *  (on the slide content it did nothing). */
+const BOX_PROPS = new Set(['width', 'max-width', 'height', 'min-height', 'max-height', 'margin',],);
 
 /** Serialize a declaration record to `prop:value !important;` (skips empties). */
 function stringifyDecls(rec: Record<string, string | undefined>,): string {

@@ -60,6 +60,14 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // CarouselBlockRenderer) so the background media stays full-bleed —
     // hence the outer wrapper skips block-style padding for this type.
     const isCarousel = () => props.block.type === 'carousel';
+    // A "content" carousel shows entity/posts items (e.g. a products list) rather
+    // than media backdrops. It has no `.hero-carousel__content` text overlay, so
+    // its padding/margin belong on the carousel ELEMENT (inset the items / center
+    // the whole thing) — unlike a media hero, whose padding insets the overlay.
+    const isContentCarousel = () =>
+        isCarousel()
+        && (((props.block.settings?.items as Array<{ type?: string; }> | undefined) ?? [])
+            .some((i,) => i.type === 'entity' || i.type === 'posts'));
     // A carousel owns its height on the INNER `.hero-carousel` element — from its
     // block `style.height` (default) + per-breakpoint overrides, or the "Custom
     // Height" content setting. So the outer `.block` wrapper never takes an inline
@@ -103,8 +111,12 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         },
         // Carousel splits its block style across two elements: box props (height)
         // stay on the carousel element, padding/align/bg go to the slide content —
-        // so per-breakpoint overrides target the same element as each default.
-        isCarousel() ? { box: '.hero-carousel', content: '.hero-carousel__content', } : undefined,
+        // so per-breakpoint overrides target the same element as each default. A
+        // CONTENT carousel (products/entity list) has no slide-content overlay, so
+        // padding/margin go on the carousel element instead (inset items / center).
+        isCarousel()
+            ? { box: '.hero-carousel', content: isContentCarousel() ? '.hero-carousel' : '.hero-carousel__content', }
+            : undefined,
     );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
