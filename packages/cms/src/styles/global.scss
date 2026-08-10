@@ -534,7 +534,11 @@ html:not([data-active-outlines='show']) {
 .block--group_item > .block__inner--full:has(.block--carousel) {
   height: 100%;
 
+  // The nested slot-item wrapper + the carousel wrapper itself (which normally
+  // suppresses its own height so `.hero-carousel` owns it) must go height:100%
+  // so a stretched slot's height reaches `.hero-carousel`.
   > .block--group_item { height: 100%; }
+  .block--carousel { height: 100%; }
 }
 .block--carousel > .block__inner--full { height: 100%; }
 
