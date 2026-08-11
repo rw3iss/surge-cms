@@ -47,10 +47,21 @@ export function isCacheablePublicHtml(req: Request,): boolean {
     return true;
 }
 
-/** Cache-Control for an edge-cacheable anonymous public HTML document.
- *  Browser always revalidates (max-age=0) but the CDN serves a 60s edge copy
- *  and can serve stale for up to 10 min while it revalidates in the background. */
-export const PUBLIC_HTML_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=600';
+/** Cache-Control for an anonymous public HTML document.
+ *
+ *  `no-cache` = a shared cache (Cloudflare) / browser MAY store the document but
+ *  MUST revalidate with the origin before serving it. Crucially it NEVER serves a
+ *  STALE copy — which is what broke hard refreshes: the previous policy let the
+ *  CDN serve a stale HTML shell (with the PREVIOUS build's hashed `<script>` src)
+ *  for up to 10 min after a deploy; because the deploy replaces `dist/assets`
+ *  (old hashes gone), that shell's entry-module import 404s, the module never
+ *  runs, and #root keeps only the SSR body (a blank/minimal page) until a manual
+ *  reload fetched the fresh shell. Revalidating every time keeps the shell in
+ *  lockstep with the assets it references. (Hashed JS/CSS assets stay
+ *  `immutable`, 1y — they never change under a fixed hash.) If a heavier edge
+ *  micro-cache is wanted later, pair a short `s-maxage` with a Cloudflare
+ *  cache-purge on deploy so a stale shell is never served past a release. */
+export const PUBLIC_HTML_CACHE_CONTROL = 'no-cache';
 
 /** Apply the public-HTML edge-cache headers to a response.
  *  Also collapses `Vary` to just `Accept-Encoding`: the CORS middleware adds
