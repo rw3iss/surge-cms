@@ -53,6 +53,9 @@ export interface CheckoutTotals {
     shippingMethodLabel?: string;
     shippingOptions?: ShopShippingOption[];
     shippingQuoteFailed?: boolean;
+    /** Cart variant ids that no longer exist / are inactive (preview only) — the
+     *  storefront prunes these lines and notifies the buyer. */
+    unavailableVariantIds?: string[];
 }
 
 /** Display labels for Printify shipping methods, cheapest → fastest. */
@@ -104,14 +107,24 @@ interface ResolvedLine {
 
 // ─── Validation + total computation ───────────────────────────────
 
-/** Load + validate each cart line against the DB. Rejects inactive
- *  products, missing variants, bad qty, and insufficient inventory (409). */
-async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]> {
+/**
+ * Load + validate each cart line against the DB. Rejects bad qty and
+ * insufficient inventory (409). Missing / inactive variants: in STRICT mode
+ * (final checkout) they throw; in LENIENT mode (live preview) they're skipped
+ * and their ids collected in `unavailable`, so a stale cart (e.g. a variant
+ * whose id changed on resync) doesn't wedge the whole checkout — the storefront
+ * prunes those lines and tells the buyer.
+ */
+async function resolveLines(
+    items: CheckoutLineInput[],
+    opts: { lenient?: boolean; } = {},
+): Promise<{ lines: ResolvedLine[]; unavailable: string[]; }> {
     if (!items || items.length === 0) {
         throw new ValidationError('Cart is empty',);
     }
 
     const resolved: ResolvedLine[] = [];
+    const unavailable: string[] = [];
     const insufficient: { variantId: string; requested: number; available: number; }[] = [];
 
     for (const line of items) {
@@ -130,10 +143,12 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
             [line.variantId,],
         );
         if (result.rows.length === 0) {
+            if (opts.lenient) { unavailable.push(line.variantId,); continue; }
             throw new ValidationError(`Variant ${line.variantId} not found`,);
         }
         const row = result.rows[0];
         if (row.status !== 'active') {
+            if (opts.lenient) { unavailable.push(line.variantId,); continue; }
             throw new ValidationError(`Product for variant ${line.variantId} is not available`,);
         }
         if ((row.inventory_qty as number) < line.qty) {
@@ -174,7 +189,7 @@ async function resolveLines(items: CheckoutLineInput[],): Promise<ResolvedLine[]
             items: insufficient,
         },);
     }
-    return resolved;
+    return { lines: resolved, unavailable, };
 }
 
 /** Flat / free-threshold shipping from shop_settings. Zero when nothing in
@@ -327,10 +342,13 @@ function buildShipping(
     };
 }
 
-async function computeTotals(input: CheckoutPreviewInput,): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
+async function computeTotals(
+    input: CheckoutPreviewInput,
+    opts: { lenient?: boolean; } = {},
+): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
     const settings = await getShopSettings();
     const currency = settings.currency ?? 'usd';
-    const lines = await resolveLines(input.items,);
+    const { lines, unavailable, } = await resolveLines(input.items, opts,);
     const subtotalCents = lines.reduce((sum, l,) => sum + l.subtotalCents, 0,);
 
     // Printify lines get a provider quote (all methods) for the given address.
@@ -355,6 +373,7 @@ async function computeTotals(input: CheckoutPreviewInput,): Promise<{ lines: Res
             shippingMethodLabel: ship.methodLabel,
             shippingOptions: ship.options,
             shippingQuoteFailed: ship.quoteFailed,
+            unavailableVariantIds: unavailable.length ? unavailable : undefined,
         },
     };
 }
@@ -364,7 +383,9 @@ async function computeTotals(input: CheckoutPreviewInput,): Promise<{ lines: Res
 /** Live-total preview for the checkout page. Validates + computes totals
  *  WITHOUT creating an order or a PaymentIntent. */
 export async function previewCheckout(input: CheckoutPreviewInput,): Promise<CheckoutTotals> {
-    const { totals, } = await computeTotals(input,);
+    // Lenient: a stale/removed cart variant is reported (not thrown) so the
+    // storefront can prune it instead of the whole preview failing.
+    const { totals, } = await computeTotals(input, { lenient: true, },);
     return totals;
 }
 

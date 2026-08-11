@@ -942,3 +942,65 @@
     color: var(--site-text-muted, #6b7280);
     font-style: italic;
 }
+
+// Checkout: order-summary line items, two-step flow (Continue → Confirm), notice.
+.shop-checkout__form--hidden { display: none; }
+
+.shop-checkout__items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--site-border, #e5e7eb);
+}
+
+.shop-checkout__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    &-img {
+        width: 44px;
+        height: 44px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid var(--site-border, #e5e7eb);
+        flex: 0 0 auto;
+    }
+    &-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    &-name { font-size: 0.9rem; font-weight: 600; }
+    &-qty { font-size: 0.8rem; color: var(--site-text-muted, #6b7280); }
+    &-price { font-weight: 600; white-space: nowrap; }
+}
+
+.shop-checkout__notice {
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    color: #92400e;
+}
+
+.shop-checkout__continue-note {
+    margin: 10px 0 8px;
+    font-size: 0.85rem;
+    color: var(--site-text-muted, #6b7280);
+}
+
+// Confirm step review (replaces the form column).
+.shop-checkout__review {
+    &-lede { margin: 0 0 16px; color: var(--site-text-muted, #6b7280); }
+    &-block {
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--site-border, #e5e7eb);
+
+        h3 { margin: 0 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+        p { margin: 0; line-height: 1.5; }
+    }
+}
+
+.shop-checkout__edit { margin-top: 4px; }

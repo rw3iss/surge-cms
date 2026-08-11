@@ -470,36 +470,74 @@ export async function replaceProductStructure(
             }
         }
 
-        // ── Variants ── (dropping product's variants also SET NULLs any
-        // product_media.variant_id referencing them, per the FK.)
+        // ── Variants ──
+        // STABLE UUIDs: match incoming variants to existing rows by external_id
+        // (the provider's variant id, e.g. Printify) and UPDATE them in place,
+        // so a resync does NOT regenerate variant ids. Regenerating them would
+        // orphan any cart holding the old id (→ "Variant not found" at checkout)
+        // and NULL the order-item links. Only genuinely-removed variants are
+        // deleted; variants with no external_id (manually-authored products)
+        // fall back to insert-new (the prior behavior for that case).
         if (structure.variants !== undefined) {
-            await c.query(`DELETE FROM shop_variants WHERE product_id = $1`, [productId,],);
             const variants = structure.variants;
+            const existing = await c.query<{ id: string; external_id: string | null; }>(
+                `SELECT id, external_id FROM shop_variants WHERE product_id = $1`,
+                [productId,],
+            );
+            const byExternal = new Map<string, string>();
+            for (const row of existing.rows) {
+                if (row.external_id) byExternal.set(String(row.external_id,), row.id,);
+            }
+            const keptIds = new Set<string>();
+
             for (let i = 0; i < variants.length; i++) {
                 const v = variants[i];
-                await c.query(
-                    `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
-                                                inventory_qty, weight_grams, requires_shipping, shipping_cents,
-                                                option1, option2, option3, image_id, position, is_default, external_id)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-                    [
-                        productId,
-                        v.sku ?? null,
-                        v.priceCents ?? 0,
-                        v.compareAtPriceCents ?? null,
-                        v.inventoryQty ?? 0,
-                        v.weightGrams ?? null,
-                        v.requiresShipping ?? true,
-                        v.shippingCents ?? null,
-                        v.option1 ?? null,
-                        v.option2 ?? null,
-                        v.option3 ?? null,
-                        uuidOrNull(v.imageId ?? null,),
-                        v.position ?? i,
-                        v.isDefault ?? (variants.length === 1),
-                        v.externalId ?? null,
-                    ],
-                );
+                const cols = [
+                    v.sku ?? null,
+                    v.priceCents ?? 0,
+                    v.compareAtPriceCents ?? null,
+                    v.inventoryQty ?? 0,
+                    v.weightGrams ?? null,
+                    v.requiresShipping ?? true,
+                    v.shippingCents ?? null,
+                    v.option1 ?? null,
+                    v.option2 ?? null,
+                    v.option3 ?? null,
+                    uuidOrNull(v.imageId ?? null,),
+                    v.position ?? i,
+                    v.isDefault ?? (variants.length === 1),
+                    v.externalId ?? null,
+                ];
+                const existingId = v.externalId ? byExternal.get(String(v.externalId,),) : undefined;
+                if (existingId) {
+                    await c.query(
+                        `UPDATE shop_variants SET
+                            sku = $1, price_cents = $2, compare_at_price_cents = $3, inventory_qty = $4,
+                            weight_grams = $5, requires_shipping = $6, shipping_cents = $7,
+                            option1 = $8, option2 = $9, option3 = $10, image_id = $11, position = $12,
+                            is_default = $13, external_id = $14, updated_at = NOW()
+                         WHERE id = $15`,
+                        [...cols, existingId,],
+                    );
+                    keptIds.add(existingId,);
+                } else {
+                    const ins = await c.query<{ id: string; }>(
+                        `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
+                                                    inventory_qty, weight_grams, requires_shipping, shipping_cents,
+                                                    option1, option2, option3, image_id, position, is_default, external_id)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                             RETURNING id`,
+                        [productId, ...cols,],
+                    );
+                    keptIds.add(ins.rows[0].id,);
+                }
+            }
+
+            // Drop only the variants that are no longer present at the source
+            // (order-item / product-media FKs are ON DELETE SET NULL).
+            const removed = existing.rows.map((r,) => r.id).filter((id,) => !keptIds.has(id,));
+            if (removed.length > 0) {
+                await c.query(`DELETE FROM shop_variants WHERE id = ANY($1::uuid[])`, [removed,],);
             }
         }
 

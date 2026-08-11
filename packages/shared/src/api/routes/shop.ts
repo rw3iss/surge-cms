@@ -413,6 +413,9 @@ export interface ShopCheckoutTotals {
     /** True when a provider (Printify) shipping quote failed and a configured
      *  flat-rate fallback was applied — the storefront can note this. */
     shippingQuoteFailed?: boolean;
+    /** Cart variant ids no longer available (removed/inactive); the storefront
+     *  prunes these lines from the cart and notifies the buyer. */
+    unavailableVariantIds?: string[];
 }
 
 /** POST /shop/checkout/preview — the computed totals. */
