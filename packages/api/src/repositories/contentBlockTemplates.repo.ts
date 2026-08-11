@@ -21,6 +21,7 @@ interface TemplateRow {
     entity_type_key: string | null;
     mode: 'single' | 'list';
     max_records: number | null;
+    sample_record_ids: string[] | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -32,6 +33,7 @@ function mapTemplate(row: TemplateRow,): ContentBlockTemplate {
         entityTypeKey: row.entity_type_key,
         mode: row.mode,
         maxRecords: row.max_records,
+        sampleRecordIds: row.sample_record_ids ?? [],
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
     };
@@ -58,12 +60,13 @@ export interface CreateInput {
     entityTypeKey?: string | null;
     mode?: 'single' | 'list';
     maxRecords?: number | null;
+    sampleRecordIds?: string[] | null;
 }
 
 export async function create(input: CreateInput,): Promise<ContentBlockTemplate> {
     const r = await query<TemplateRow>(`
-        INSERT INTO content_block_templates (name, description, entity_type_key, mode, max_records)
-        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5)
+        INSERT INTO content_block_templates (name, description, entity_type_key, mode, max_records, sample_record_ids)
+        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[])
         RETURNING *
     `, [
         input.name,
@@ -71,6 +74,7 @@ export async function create(input: CreateInput,): Promise<ContentBlockTemplate>
         input.entityTypeKey ?? null,
         input.mode ?? null,
         input.maxRecords ?? null,
+        input.sampleRecordIds ?? null,
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -87,6 +91,11 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
     if (patch.entityTypeKey !== undefined) set('entity_type_key', patch.entityTypeKey ?? null,);
     if (patch.mode !== undefined) set('mode', patch.mode,);
     if (patch.maxRecords !== undefined) set('max_records', patch.maxRecords ?? null,);
+    if (patch.sampleRecordIds !== undefined) {
+        // Explicit ::text[] cast so pg types the array param in this dynamic SET.
+        values.push(patch.sampleRecordIds ?? null,);
+        fields.push(`sample_record_ids = $${values.length}::text[]`,);
+    }
     if (fields.length === 0) return findById(id,);
     values.push(id,);
     const r = await query<TemplateRow>(

@@ -55,6 +55,8 @@ export interface ContentBlockTemplateCreateBody {
     description?: string;
     mode?: 'single' | 'list';
     maxRecords?: number | null;
+    /** Preview-sample record ids (see ContentBlockTemplate.sampleRecordIds). */
+    sampleRecordIds?: string[] | null;
 }
 export type ContentBlockTemplateUpdateBody = Partial<ContentBlockTemplateCreateBody> & {
     blocks?: Array<Partial<ContentBlockTemplateBlock>>;

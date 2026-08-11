@@ -2,6 +2,7 @@ import { Component, onCleanup, onMount, Show, } from 'solid-js';
 import { BlockRenderer, } from '../../blocks/BlockRenderer';
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
+import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import type { BlockData, } from './ContentBlock';
 
 interface BlockPreviewProps {
@@ -98,7 +99,7 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
                     </div>
                 }
             >
-                <BlockRenderer block={renderBlock() as any} preview={true} />
+                <BlockRenderer block={renderBlock() as any} preview={true} templateContext={templatePreviewContext()} />
             </Show>
         </div>
     );

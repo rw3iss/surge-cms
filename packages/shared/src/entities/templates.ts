@@ -20,6 +20,10 @@ export interface ContentBlockTemplate {
     mode: 'single' | 'list';
     /** List mode only: cap on how many records a using block may bind/query. */
     maxRecords?: number | null;
+    /** Record ids used as the PREVIEW sample while editing this template in the
+     *  admin (so `{{entity.field}}` resolves against real data). Empty/absent =
+     *  auto-pick (single → first record; list → first N up to `maxRecords`). */
+    sampleRecordIds?: string[];
     createdAt: string;
     updatedAt: string;
 }

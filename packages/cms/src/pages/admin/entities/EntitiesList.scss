@@ -451,3 +451,41 @@
         background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
     }
 }
+
+// ── Content-block template: preview-sample chips (Binding section) ──
+// The record(s) loaded so a template's {{ }} variables preview real data while
+// editing. Chips list the sample; the buttons set/clear a custom override.
+.template-sample {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+    }
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        max-width: 240px;
+        padding: 3px 10px;
+        border: 1px solid $border-color;
+        border-radius: 999px;
+        background: $background-dark;
+        font-size: $font-size-xs;
+        color: var(--admin-page-text, #{$text-color});
+        @include truncate;
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+    }
+
+    &__note {
+        font-size: $font-size-xs;
+    }
+}
