@@ -76,15 +76,32 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const [barFilters, setBarFilters,] = createSignal<Record<string, string>>({},);
 
     let searchTimer: ReturnType<typeof setTimeout>;
+    let filterTimer: ReturnType<typeof setTimeout>;
 
-    /** Column-backed, non-blocks fields, capped for width. */
+    /** Debounced refetch when the clause VALUE changes (a text input) — field/op
+     *  are dropdowns and refetch immediately via the effect below. */
+    const onFilterValueInput = (value: string,) => {
+        setFilterValue(value,);
+        clearTimeout(filterTimer,);
+        filterTimer = setTimeout(() => {
+            setPage(1,);
+            void fetchRecords();
+        }, 300,);
+    };
+
+    /** Column-backed, non-blocks fields, capped for width, PLUS the standard
+     *  columns the type carries (status / slug) — which aren't schema fields but
+     *  every record has them, so they belong in the picker (visible + sortable,
+     *  matching the Data tab). */
     const columns = () => {
         const def = typeDef();
         if (!def) return [] as { key: string; label: string; }[];
         const cols = def.fields
             .filter((f,) => f.type !== 'blocks')
-            .slice(0, 5,)
+            .slice(0, 4,)
             .map((f,) => ({ key: f.key, label: f.label || f.key, }));
+        if (def.hasStatus && !cols.some((c,) => c.key === 'status')) cols.push({ key: 'status', label: 'Status', });
+        if (def.hasSlug && !cols.some((c,) => c.key === 'slug')) cols.push({ key: 'slug', label: 'Slug', });
         return cols;
     };
 
@@ -117,9 +134,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         setPage(1,);
     };
 
-    /** The query-mode single clause (op + value), if set. */
+    /** The single field/op/value clause (if set). Applied in EVERY mode: in
+     *  single/multiple it narrows the pickable records; in query it also folds
+     *  into the saved query. */
     const buildClause = (): Record<string, EntityFilterValue> | undefined => {
-        if (props.mode !== 'query' || !filterField() || filterValue() === '') return undefined;
+        if (!filterField() || filterValue() === '') return undefined;
         const raw = filterValue();
         const value: unknown = filterOp() === 'in' ?
             raw.split(',',).map((v,) => v.trim()) :
@@ -260,11 +279,14 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     also fold into the saved query's filter. */}
                 <EntityFilterBar typeDef={typeDef()} value={barFilters()} onChange={onFilterBarChange} />
 
-                <Show when={props.mode === 'query'}>
+                {/* Field / op / value clause — a live filter to narrow the
+                    pickable records (all modes), e.g. `status = active`. In query
+                    mode it also folds into the saved query. */}
+                <Show when={filterFields().length > 0}>
                     <div class="entity-search-modal__query">
                         <select
                             value={filterField()}
-                            onChange={(e,) => setFilterField(e.currentTarget.value,)}
+                            onChange={(e,) => { setFilterField(e.currentTarget.value,); setPage(1,); }}
                         >
                             <option value="">Filter field…</option>
                             <For each={filterFields()}>
@@ -273,7 +295,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         </select>
                         <select
                             value={filterOp()}
-                            onChange={(e,) => setFilterOp(e.currentTarget.value as FilterOp,)}
+                            onChange={(e,) => { setFilterOp(e.currentTarget.value as FilterOp,); setPage(1,); }}
                         >
                             <For each={FILTER_OPS}>
                                 {(op,) => <option value={op}>{op}</option>}
@@ -283,7 +305,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             type="text"
                             placeholder="Value (comma-separated for 'in')"
                             value={filterValue()}
-                            onInput={(e,) => setFilterValue(e.currentTarget.value,)}
+                            onInput={(e,) => onFilterValueInput(e.currentTarget.value,)}
                         />
                     </div>
                 </Show>
