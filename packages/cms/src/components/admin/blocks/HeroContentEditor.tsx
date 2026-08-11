@@ -745,19 +745,19 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             />
                         </div>
 
-                        {/* Side padding (arrow gutter) */}
+                        {/* Padding (arrow gutter + dot space) */}
                         <div class="hero-options__group">
-                            <span class="hero-options__label">Side padding</span>
+                            <span class="hero-options__label">Padding</span>
                             <input
                                 type="text"
                                 class="input input--sm input--inline-text"
-                                placeholder="e.g. 64px"
+                                placeholder="e.g. 0 64px 40px"
                                 value={options().sidePadding || ''}
                                 onChange={(e,) => updateOptions({ sidePadding: e.currentTarget.value.trim() || undefined, },)}
                             />
                             <Tooltip
-                                header="Side padding"
-                                content={<p>Horizontal space (any CSS length, e.g. <code>64px</code>) inset on both sides so the nav arrows sit in the gutter beside the items instead of on top of them.</p>}
+                                header="Padding"
+                                content={<p>Any CSS padding. <b>One value</b> (e.g. <code>64px</code>) insets the sides so the nav arrows sit in the gutter beside the items. <b>Multiple values</b> (e.g. <code>0 64px 40px</code> = top / sides / bottom) pad the whole carousel — use the <b>bottom</b> value to push the items up so the dots have room and don't sit over the cards.</p>}
                             />
                         </div>
 
@@ -832,7 +832,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                             <Tooltip header="Scroll by (mobile)" content={<p>Items advanced per page on a phone. Blank = same as desktop.</p>} />
                         </div>
                         <div class="hero-options__group">
-                            <span class="hero-options__label">Side padding</span>
+                            <span class="hero-options__label">Padding</span>
                             <input
                                 type="text"
                                 class="input input--sm input--inline-text"
@@ -840,7 +840,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 value={options().sidePaddingMobile || ''}
                                 onChange={(e,) => updateOptions({ sidePaddingMobile: e.currentTarget.value.trim() || undefined, },)}
                             />
-                            <Tooltip header="Side padding (mobile)" content={<p>Arrow-gutter padding on a phone (any CSS length). Blank = same as desktop.</p>} />
+                            <Tooltip header="Padding (mobile)" content={<p>Carousel padding on a phone — one value insets the sides, multiple values (e.g. <code>0 30px 40px</code>) pad the whole carousel (bottom = dot space). Blank = same as desktop.</p>} />
                         </div>
                         </Show>
                         <div class="hero-options__group">

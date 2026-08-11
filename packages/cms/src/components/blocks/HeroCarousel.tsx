@@ -163,12 +163,24 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     // Gap between visible items (any CSS length). Feeds both the flex `gap` and
     // the per-item translate distance `(100% + gap) / perPage`.
     const gap = () => pick(props.options.itemGapMobile, props.options.itemGap,) || '0px';
-    // Horizontal inset: the site gutter (if applied) + the arrow side-padding, so
-    // the nav arrows sit in the gutter beside the items, not over them.
+    // Carousel padding. A SINGLE value insets the sides only (the arrow gutter —
+    // legacy behavior). MULTIPLE values are a full CSS `padding` (e.g.
+    // `0 90px 40px` = top/sides/bottom) applied to the carousel box, so the
+    // BOTTOM value reserves space UNDER the slides where the dots sit — they no
+    // longer overlap the item cards.
     const sidePadding = () => pick(props.options.sidePaddingMobile, props.options.sidePadding,) || null;
+    const isMultiPad = () => { const s = sidePadding(); return !!s && /\s/.test(s.trim(),); };
+    /** Left/right component of the padding — centers the nav arrows in the gutter. */
+    const sidePadInline = () => {
+        const s = sidePadding();
+        if (!s) return '0px';
+        const parts = s.trim().split(/\s+/,);
+        return parts.length === 1 ? parts[0] : parts[1]; // 2/3-val → horizontal; 4-val → right
+    };
+    /** Single-value horizontal inset (+ optional site gutter) — legacy path. */
     const padInline = () => {
         const gut = props.options.applyGutter && props.gutterWidth ? props.gutterWidth : null;
-        const side = sidePadding();
+        const side = isMultiPad() ? null : sidePadding();
         if (gut && side) return `calc(${gut} + ${side})`;
         return side || gut || undefined;
     };
@@ -334,10 +346,16 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                 '--hero-per-page': String(perPage(),),
                 '--hero-gap': gap(),
                 // Arrows center within this side gutter (see .scss).
-                '--hero-side-padding': sidePadding() || '0px',
+                '--hero-side-padding': sidePadInline(),
                 ...alignVars(),
-                // No arrow gutter in list mode (no arrows).
-                ...(!isListMode() && padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {}),
+                // No arrow gutter / padding in list mode. A multi-value padding
+                // applies as a full `padding` (bottom reserves dot space); a
+                // single value keeps the legacy side-only inset (+ gutter).
+                ...(isListMode() ? {} : (
+                    isMultiPad()
+                        ? { padding: sidePadding()!, }
+                        : (padInline() ? { 'padding-left': padInline(), 'padding-right': padInline(), } : {})
+                )),
             }}
             onMouseEnter={() => setIsPaused(true,)}
             onMouseLeave={() => setIsPaused(false,)}
