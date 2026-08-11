@@ -177,7 +177,7 @@ const ShopOrderDetailInner: Component = () => {
 
                                     <div class="shop-order__totals">
                                         <div><span>Subtotal</span><span>{formatCents(o().subtotalCents, o().currency,)}</span></div>
-                                        <div><span>Shipping</span><span>{formatCents(o().shippingCents, o().currency,)}</span></div>
+                                        <div><span>Shipping{o().shippingMethod ? ` (${o().shippingMethod})` : ''}</span><span>{formatCents(o().shippingCents, o().currency,)}</span></div>
                                         <Show when={shipBd(o(),)}>
                                             {(bd,) => (
                                                 <>

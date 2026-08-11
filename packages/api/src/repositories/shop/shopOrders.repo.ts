@@ -31,6 +31,7 @@ export interface OrderCreateInput {
     subtotalCents: number;
     taxCents: number;
     shippingCents: number;
+    shippingMethod?: string | null;
     discountCents?: number;
     totalCents: number;
     currency: string;
@@ -44,9 +45,9 @@ export interface OrderCreateInput {
 export async function createOrder(client: PoolClient, input: OrderCreateInput,): Promise<ShopOrder> {
     const result = await client.query(
         `INSERT INTO shop_orders (order_number, user_id, customer_email, customer_name, status,
-                                  subtotal_cents, tax_cents, shipping_cents, discount_cents, total_cents,
+                                  subtotal_cents, tax_cents, shipping_cents, shipping_method, discount_cents, total_cents,
                                   currency, stripe_payment_intent_id, shipping_address, billing_address)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
              RETURNING *`,
         [
             input.orderNumber,
@@ -57,6 +58,7 @@ export async function createOrder(client: PoolClient, input: OrderCreateInput,):
             input.subtotalCents,
             input.taxCents,
             input.shippingCents,
+            input.shippingMethod ?? null,
             input.discountCents ?? 0,
             input.totalCents,
             input.currency,

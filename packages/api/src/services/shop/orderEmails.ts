@@ -18,6 +18,7 @@ import { config, } from '../../config';
 import { sendEmail, } from '../email';
 import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
+import { getNotificationSettings, notify, } from '../notifications';
 import { logger, } from '../../utils/logger';
 import type { ShopAddress, } from '@sitesurge/types';
 import type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
@@ -82,9 +83,10 @@ export function renderTotals(order: OrderDetail,): string {
         </tr>`;
     };
 
+    const shippingLabel = order.shippingMethod ? `Shipping (${order.shippingMethod})` : 'Shipping';
     const parts = [
         row('Subtotal', formatMoney(order.subtotalCents, c,),),
-        row('Shipping', formatMoney(order.shippingCents, c,),),
+        row(shippingLabel, formatMoney(order.shippingCents, c,),),
         row('Tax', formatMoney(order.taxCents, c,),),
     ];
     if (order.discountCents > 0) {
@@ -311,16 +313,27 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
         logger.error('Failed to send buyer order confirmation', { orderNumber: order.orderNumber, error: err, },);
     }
 
-    // Seller/admin notification → site contactEmail.
+    // Seller/admin notification. Primary path is the Notifications system
+    // (Settings → Notifications → "New shop order"): dispatch to every
+    // configured recipient/channel. If NO shop_order recipients are configured,
+    // fall back to the site contactEmail so the shop owner still gets notified
+    // (preserves the pre-Notifications behavior; avoids double-sending).
     try {
-        const seller = await getSellerEmail();
-        if (!seller) {
-            logger.warn('No site contactEmail set — skipping seller order notification', {
-                orderNumber: order.orderNumber,
-            },);
-        } else {
-            const mail = buildSellerNotification(order, ctx,);
-            await sendEmail({ to: seller, subject: mail.subject, html: mail.html, },);
+        const mail = buildSellerNotification(order, ctx,);
+        void notify('shop_order', { subject: mail.subject, html: mail.html, },);
+
+        const nset = await getNotificationSettings().catch(() => ({} as Record<string, { email?: { enabled: boolean; addresses: string[]; }; }>));
+        const emailCfg = nset['shop_order']?.email;
+        const hasConfiguredRecipients = Boolean(emailCfg?.enabled) && (emailCfg?.addresses?.length ?? 0) > 0;
+        if (!hasConfiguredRecipients) {
+            const seller = await getSellerEmail();
+            if (!seller) {
+                logger.warn('No shop_order notification recipients and no site contactEmail — skipping seller order notification', {
+                    orderNumber: order.orderNumber,
+                },);
+            } else {
+                await sendEmail({ to: seller, subject: mail.subject, html: mail.html, },);
+            }
         }
     } catch (err) {
         logger.error('Failed to send seller order notification', { orderNumber: order.orderNumber, error: err, },);

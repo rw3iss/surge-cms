@@ -14,4 +14,11 @@ export {
     syncProducts,
 } from './sync';
 export { testConnection, } from './client';
-export { submitOrderToPrintify, calcPrintifyShipping, pollOrderStatuses, } from './fulfillment';
+export {
+    getPrintifyShippingOptions,
+    PRINTIFY_SHIPPING_METHODS,
+    type PrintifyShippingMethod,
+    type PrintifyShippingQuote,
+    pollOrderStatuses,
+    submitOrderToPrintify,
+} from './fulfillment';

@@ -42,24 +42,57 @@ export function buildAddressTo(addr: ShopAddressLike | null, email: string, fall
 
 export interface PrintifyShipLine extends PrintifyLineItem {}
 
-/** Standard shipping cost (cents) for Printify line items to an address, or 0
- *  when Printify is off / no address / calc fails (never blocks checkout). */
-export async function calcPrintifyShipping(
+/** All shipping methods Printify can return, cheapest → fastest. */
+export const PRINTIFY_SHIPPING_METHODS = ['economy', 'standard', 'priority', 'express', 'printify_express',] as const;
+export type PrintifyShippingMethod = typeof PRINTIFY_SHIPPING_METHODS[number];
+
+export interface PrintifyShippingQuote {
+    /** True when Printify returned a usable quote. */
+    ok: boolean;
+    /** method id → cost in cents (only methods Printify offered for this cart). */
+    methods: Partial<Record<PrintifyShippingMethod, number>>;
+    /** Why a quote couldn't be produced (drives fallback + whether to alarm). */
+    reason?: 'no-lines' | 'no-config' | 'no-address' | 'api-error';
+    error?: string;
+}
+
+/**
+ * Retrieve the full set of Printify shipping options (all methods + costs, in
+ * cents) for a set of line items shipped to an address. Unlike the old
+ * `calcPrintifyShipping` (which swallowed every failure as $0), this SURFACES
+ * problems: an actual API error is logged with context and returned as
+ * `ok:false, reason:'api-error'` so the caller can fall back to a flat rate
+ * instead of silently shipping free. `no-address`/`no-config`/`no-lines` are
+ * expected (not logged as errors).
+ */
+export async function getPrintifyShippingOptions(
     lines: PrintifyShipLine[],
     addr: ShopAddressLike | null,
     email = 'checkout@example.com',
-): Promise<number> {
-    if (lines.length === 0) return 0;
+): Promise<PrintifyShippingQuote> {
+    if (lines.length === 0) return { ok: true, methods: {}, reason: 'no-lines', };
     const cfg = await getPrintifyConfig();
-    if (!cfg) return 0;
+    if (!cfg) return { ok: false, methods: {}, reason: 'no-config', };
     // Need at least a country + postal code to get a meaningful quote.
-    if (!addr || !addr.country || !addr.postalCode) return 0;
+    if (!addr || !addr.country || !addr.postalCode) return { ok: false, methods: {}, reason: 'no-address', };
     try {
         const rates = await calcShipping(cfg, lines, buildAddressTo(addr, email,),);
-        return rates.standard ?? 0;
+        const methods: Partial<Record<PrintifyShippingMethod, number>> = {};
+        for (const m of PRINTIFY_SHIPPING_METHODS) {
+            const v = (rates as Record<string, unknown>)[m];
+            if (typeof v === 'number' && v >= 0) methods[m] = v;
+        }
+        return { ok: Object.keys(methods,).length > 0, methods, };
     } catch (err) {
-        logger.warn(`Printify shipping calc failed: ${(err as Error).message}`,);
-        return 0;
+        logger.error('Printify shipping calc failed', {
+            error: (err as Error).message,
+            lineCount: lines.length,
+            firstProduct: lines[0]?.product_id,
+            firstVariant: lines[0]?.variant_id,
+            country: addr.country,
+            zip: addr.postalCode,
+        },);
+        return { ok: false, methods: {}, reason: 'api-error', error: (err as Error).message, };
     }
 }
 

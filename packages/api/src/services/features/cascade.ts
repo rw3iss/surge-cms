@@ -30,6 +30,7 @@ export interface UpdateSettingsInput {
     analytics?: { googleAnalyticsId?: string; facebookPixelId?: string; };
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
     adminChannel?: { activeTimeoutSeconds?: number; };
+    notifications?: import('@sitesurge/types').NotificationSettings;
     features?: Record<string, boolean>;
     enableDependencies?: boolean;
     disableDependents?: boolean;
@@ -71,6 +72,7 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
         analytics: data.analytics,
         theme: data.theme,
         admin_channel: data.adminChannel,
+        notifications: data.notifications,
     };
 
     for (const [key, value,] of Object.entries(settingsMap,)) {
@@ -184,6 +186,13 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
     try {
         const { invalidateAdminChannelConfig, } = await import('../adminChannel/config.js');
         invalidateAdminChannelConfig();
+    } catch { /* non-fatal */ }
+
+    // Drop the cached notification settings so a changed config applies at
+    // the next event.
+    try {
+        const { invalidateNotificationSettings, } = await import('../notifications/index.js');
+        invalidateNotificationSettings();
     } catch { /* non-fatal */ }
 
     await logAudit({

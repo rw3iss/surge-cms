@@ -186,6 +186,8 @@ export interface ShopOrder {
     subtotalCents: number;
     taxCents: number;
     shippingCents: number;
+    /** Human label of the shipping method applied (e.g. 'Standard', 'Express'). */
+    shippingMethod?: string | null;
     discountCents: number;
     totalCents: number;
     currency: string;

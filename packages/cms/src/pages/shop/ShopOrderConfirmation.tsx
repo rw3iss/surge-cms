@@ -122,7 +122,7 @@ const ShopOrderConfirmationInner: Component = () => {
                                         <span>{money(o().subtotalCents, o().currency,)}</span>
                                     </div>
                                     <div class="shop-order__total-row">
-                                        <span>Shipping</span>
+                                        <span>Shipping{o().shippingMethod ? ` (${o().shippingMethod})` : ''}</span>
                                         <span>{money(o().shippingCents, o().currency,)}</span>
                                     </div>
                                     <Show when={shipBd(o(),)}>

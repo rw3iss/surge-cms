@@ -21,6 +21,7 @@ import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { dispatchFormAction, } from './formActions';
+import { notify, } from './notifications';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 
 export type { FormFilters, } from '../repositories/forms.repo';
@@ -266,6 +267,14 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     await dispatchFormAction(form, questions, input.answers, {
         userId: input.userId ?? undefined,
         userEmail: input.userEmail,
+    },);
+
+    // Additive admin notification. Fire-and-forget.
+    void notify('form_submission', {
+        subject: `New form submission: ${form.title}`,
+        html: `<h2>New form submission</h2>`
+            + `<p>A visitor submitted the form <strong>${form.title}</strong>.</p>`
+            + `<p><a href="/admin/forms">View submissions in the admin</a></p>`,
     },);
 
     return { ok: true, message: form.successMessage || 'Form submitted successfully', };

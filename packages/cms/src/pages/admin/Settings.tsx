@@ -27,12 +27,14 @@ import { FEATURES, } from '../../config/features';
 const SiteHeaderEditor = lazy(() => import('../../components/admin/editors/SiteHeaderEditor'));
 const SiteFooterEditor = lazy(() => import('../../components/admin/editors/SiteFooterEditor'));
 const ApiKeysPanel = lazy(() => import('../../components/admin/settings/ApiKeysPanel'));
+const NotificationsPanel = lazy(() => import('./settings/NotificationsPanel'));
 const StripeKeysEditor = lazy(() => import('../../components/admin/StripeKeysEditor'));
 
 // ─── Tabs ───
 
 const TABS = [
     { id: 'general', label: 'General', },
+    { id: 'notifications', label: 'Notifications', },
     { id: 'appearance', label: 'Appearance', },
     { id: 'site-header', label: 'Site Header', },
     { id: 'site-footer', label: 'Site Footer', },
@@ -1700,6 +1702,11 @@ const AdminSettings: Component = () => {
                             </button>
                         </div>
                     </form>
+                </Show>
+
+                {/* ─── Notifications Tab ─── */}
+                <Show when={activeTab() === 'notifications'}>
+                    <NotificationsPanel />
                 </Show>
 
                 {/* ─── Appearance Tab ─── */}

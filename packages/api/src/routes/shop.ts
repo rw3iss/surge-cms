@@ -185,6 +185,7 @@ const checkoutLineSchema = z.object({
 const checkoutPreviewSchema = z.object({
     items: z.array(checkoutLineSchema,),
     shippingAddress: addressSchema.nullish(),
+    shippingMethod: z.string().optional(),
 },) satisfies z.ZodType<ShopCheckoutPreviewBody>;
 
 const checkoutSchema = z.object({
@@ -193,6 +194,7 @@ const checkoutSchema = z.object({
     customerName: z.string().nullish(),
     shippingAddress: addressSchema.nullish(),
     billingAddress: addressSchema.nullish(),
+    shippingMethod: z.string().optional(),
 },) satisfies z.ZodType<ShopCheckoutBody>;
 
 const orderListQuery = z.object({

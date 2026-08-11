@@ -9,7 +9,7 @@
  * Guest checkout is allowed: `ctx.userId` may be null → `uuidOrNull` on the
  * order's user_id FK. Orders are never cached.
  */
-import type { ShopAddress, ShopSettings, } from '@sitesurge/types';
+import type { ShopAddress, ShopSettings, ShopShippingOption, } from '@sitesurge/types';
 import Stripe from 'stripe';
 import { config, } from '../../config';
 import { query, transaction, } from '../../db';
@@ -17,7 +17,7 @@ import { ConflictError, ValidationError, } from '../../core/errors';
 import { logAudit, } from '../audit';
 import { logger, } from '../../utils/logger';
 import { getPaymentProvider, } from '../payment';
-import { calcPrintifyShipping, } from '../printify/fulfillment';
+import { getPrintifyShippingOptions, type PrintifyShippingQuote, } from '../printify/fulfillment';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
 import { generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
@@ -33,6 +33,8 @@ export interface CheckoutLineInput {
 export interface CheckoutPreviewInput {
     items: CheckoutLineInput[];
     shippingAddress?: ShopAddress | null;
+    /** Buyer-selected shipping method id (from the preview options). */
+    shippingMethod?: string;
 }
 
 export interface CheckoutInput extends CheckoutPreviewInput {
@@ -47,7 +49,21 @@ export interface CheckoutTotals {
     taxCents: number;
     totalCents: number;
     currency: string;
+    shippingMethod?: string;
+    shippingMethodLabel?: string;
+    shippingOptions?: ShopShippingOption[];
+    shippingQuoteFailed?: boolean;
 }
+
+/** Display labels for Printify shipping methods, cheapest → fastest. */
+const METHOD_LABELS: Record<string, string> = {
+    economy: 'Economy',
+    standard: 'Standard',
+    priority: 'Priority',
+    express: 'Express',
+    printify_express: 'Printify Express',
+};
+const METHOD_ORDER = ['economy', 'standard', 'priority', 'express', 'printify_express',];
 
 export interface CheckoutResult {
     clientSecret: string | null;
@@ -247,22 +263,99 @@ async function computeTax(
     }
 }
 
+/**
+ * The shop's configured flat-rate shipping (cents), used as the fallback when a
+ * provider (Printify) quote can't be produced — default $8.99 when unset.
+ */
+function fallbackFlatCents(settings: ShopSettings,): number {
+    const flat = settings.shipping?.flatCents;
+    return typeof flat === 'number' && flat > 0 ? flat : 899;
+}
+
+/**
+ * Build the selectable shipping options for a cart, pick the applied method, and
+ * return the resulting shipping cost. Combines native flat-rate shipping (for
+ * non-Printify physical lines) with the Printify quote (per method) for Printify
+ * lines. When the Printify quote fails outright, falls back to the configured
+ * flat rate and flags `quoteFailed` so the failure is surfaced (not silently $0).
+ */
+function buildShipping(
+    lines: ResolvedLine[],
+    subtotalCents: number,
+    settings: ShopSettings,
+    quote: PrintifyShippingQuote,
+    requestedMethod?: string,
+): { shippingCents: number; method?: string; methodLabel?: string; options: ShopShippingOption[]; quoteFailed: boolean; } {
+    const nativeShipping = computeShipping(lines, subtotalCents, settings,);
+    const anyPhysical = lines.some((l,) => l.requiresShipping,);
+    const hasPrintify = lines.some((l,) => l.externalProvider === 'printify' && l.requiresShipping,);
+    const options: ShopShippingOption[] = [];
+    let quoteFailed = false;
+
+    if (hasPrintify) {
+        if (quote.ok && Object.keys(quote.methods,).length > 0) {
+            for (const id of METHOD_ORDER) {
+                const c = (quote.methods as Record<string, number | undefined>)[id];
+                if (c == null) continue;
+                options.push({ id, label: METHOD_LABELS[id] ?? id, cents: nativeShipping + c, },);
+            }
+        } else if (quote.reason === 'no-address') {
+            // No shippable address yet — show a flat-rate estimate; it refines to
+            // real Printify methods once the buyer enters country + postal code.
+            options.push({ id: 'standard', label: 'Standard (estimate)', cents: nativeShipping + fallbackFlatCents(settings,), },);
+        } else {
+            // no-config / api-error → configured flat-rate fallback, surfaced so a
+            // broken product never ships free.
+            quoteFailed = true;
+            options.push({ id: 'standard', label: 'Standard', cents: nativeShipping + fallbackFlatCents(settings,), },);
+        }
+    } else if (anyPhysical) {
+        options.push({ id: 'standard', label: 'Standard', cents: nativeShipping, },);
+    }
+    // else: all-digital cart → no shipping options, shipping stays 0.
+
+    let chosen: ShopShippingOption | undefined;
+    if (requestedMethod) chosen = options.find((o,) => o.id === requestedMethod,);
+    if (!chosen) chosen = options.find((o,) => o.id === 'standard',) ?? options[0];
+
+    return {
+        shippingCents: chosen ? chosen.cents : 0,
+        method: chosen?.id,
+        methodLabel: chosen?.label,
+        options,
+        quoteFailed,
+    };
+}
+
 async function computeTotals(input: CheckoutPreviewInput,): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
     const settings = await getShopSettings();
     const currency = settings.currency ?? 'usd';
     const lines = await resolveLines(input.items,);
     const subtotalCents = lines.reduce((sum, l,) => sum + l.subtotalCents, 0,);
-    // Native flat shipping + Printify's address-based quote for Printify lines.
+
+    // Printify lines get a provider quote (all methods) for the given address.
     const printifyLines = lines
         .filter((l,) => l.externalProvider === 'printify' && l.requiresShipping && l.externalProductId && l.externalVariantId)
         .map((l,) => ({ product_id: l.externalProductId!, variant_id: Number(l.externalVariantId,), quantity: l.qty, }));
-    const shippingCents = computeShipping(lines, subtotalCents, settings,)
-        + await calcPrintifyShipping(printifyLines, input.shippingAddress ?? null,);
-    const taxCents = await computeTax(lines, shippingCents, currency, settings, input.shippingAddress,);
-    const totalCents = subtotalCents + shippingCents + taxCents;
+    const quote = await getPrintifyShippingOptions(printifyLines, input.shippingAddress ?? null,);
+
+    const ship = buildShipping(lines, subtotalCents, settings, quote, input.shippingMethod,);
+    const taxCents = await computeTax(lines, ship.shippingCents, currency, settings, input.shippingAddress,);
+    const totalCents = subtotalCents + ship.shippingCents + taxCents;
+
     return {
         lines,
-        totals: { subtotalCents, shippingCents, taxCents, totalCents, currency, },
+        totals: {
+            subtotalCents,
+            shippingCents: ship.shippingCents,
+            taxCents,
+            totalCents,
+            currency,
+            shippingMethod: ship.method,
+            shippingMethodLabel: ship.methodLabel,
+            shippingOptions: ship.options,
+            shippingQuoteFailed: ship.quoteFailed,
+        },
     };
 }
 
@@ -302,6 +395,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): 
             subtotalCents: totals.subtotalCents,
             taxCents: totals.taxCents,
             shippingCents: totals.shippingCents,
+            shippingMethod: totals.shippingMethodLabel ?? null,
             discountCents: 0,
             totalCents: totals.totalCents,
             currency: totals.currency,

@@ -10,6 +10,11 @@ import * as systemUpdate from '../services/systemUpdate';
 
 // ─── Schemas ──────────────────────────────────────────────────────────
 
+const notificationChannelSchema = z.object({
+    enabled: z.boolean(),
+    addresses: z.array(z.string(),),
+},);
+
 const settingsSchema = z.object({
     siteName: z.string().min(1,).max(255,).optional(),
     siteDescription: z.string().optional(),
@@ -29,6 +34,19 @@ const settingsSchema = z.object({
     adminChannel: z.object({
         activeTimeoutSeconds: z.coerce.number().int().min(5,).max(3600,).optional(),
     },).optional(),
+    /**
+     * Per-type notification channel config. Each type key maps to enable +
+     * recipient addresses per channel (email/sms/push). Sent by the
+     * Settings → Notifications tab.
+     */
+    notifications: z.record(
+        z.string(),
+        z.object({
+            email: notificationChannelSchema.optional(),
+            sms: notificationChannelSchema.optional(),
+            push: notificationChannelSchema.optional(),
+        },),
+    ).optional(),
     /**
      * Feature toggles. The admin Features panel sends this object; each
      * key writes a `<feature>_enabled` row in `site_settings`.

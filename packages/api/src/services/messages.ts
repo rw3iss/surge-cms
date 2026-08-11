@@ -16,6 +16,7 @@ import { logger, } from '../utils/logger';
 import { sanitize, } from '../utils/sanitize';
 import { logAudit, } from './audit';
 import { sendEmail, } from './email';
+import { notify, } from './notifications';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 
 export type { MessageFilters, } from '../repositories/messages.repo';
@@ -97,6 +98,17 @@ export async function submit(input: SubmitMessageInput,): Promise<ContactMessage
     } catch (emailError) {
         logger.warn('Failed to send email notification', { error: emailError, },);
     }
+
+    // Additive admin notification (separate from the legacy admin email
+    // above). Fire-and-forget.
+    void notify('contact_message', {
+        subject: `New contact message: ${subject || 'No Subject'}`,
+        html: `<h2>New contact message</h2>`
+            + `<p><strong>From:</strong> ${name} (${input.email})</p>`
+            + `<p><strong>Subject:</strong> ${subject || 'No Subject'}</p>`
+            + `<p><strong>Message:</strong></p>`
+            + `<p>${message.replace(/\n/g, '<br>',)}</p>`,
+    },);
 
     return created;
 }

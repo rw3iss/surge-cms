@@ -385,6 +385,17 @@ export interface ShopCheckoutLine {
 export interface ShopCheckoutPreviewBody {
     items: ShopCheckoutLine[];
     shippingAddress?: ShopAddress | null;
+    /** The shipping method the buyer picked (e.g. 'standard' | 'economy' |
+     *  'express'). Omit to let the server default (cheapest / standard). */
+    shippingMethod?: string;
+}
+
+/** One selectable shipping option: an id, a display label, and its total cost
+ *  (cents) for the whole cart (native flat shipping + provider quote). */
+export interface ShopShippingOption {
+    id: string;
+    label: string;
+    cents: number;
 }
 
 /** Server-computed totals (cents). */
@@ -394,6 +405,14 @@ export interface ShopCheckoutTotals {
     taxCents: number;
     totalCents: number;
     currency: string;
+    /** The applied shipping method id + label (present when shipping applies). */
+    shippingMethod?: string;
+    shippingMethodLabel?: string;
+    /** All selectable shipping options for this cart/address. */
+    shippingOptions?: ShopShippingOption[];
+    /** True when a provider (Printify) shipping quote failed and a configured
+     *  flat-rate fallback was applied — the storefront can note this. */
+    shippingQuoteFailed?: boolean;
 }
 
 /** POST /shop/checkout/preview — the computed totals. */
@@ -406,6 +425,8 @@ export interface ShopCheckoutBody {
     customerName?: string | null;
     shippingAddress?: ShopAddress | null;
     billingAddress?: ShopAddress | null;
+    /** The shipping method the buyer selected (from the preview options). */
+    shippingMethod?: string;
 }
 
 /** POST /shop/checkout — the PaymentIntent client secret + order refs. */

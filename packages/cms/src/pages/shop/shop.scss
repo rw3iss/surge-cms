@@ -903,3 +903,42 @@
 
     span:last-child { white-space: nowrap; }
 }
+
+// Checkout: shipping-method selector (multiple provider rates) + fallback note.
+.shop-checkout__shipping-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 8px);
+}
+
+.shop-checkout__shipping-methods-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--site-text-muted, #6b7280);
+    margin-bottom: 2px;
+}
+
+.shop-checkout__shipping-method {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+
+    input { margin: 0; }
+    &-name { flex: 1; }
+    &-price { font-weight: 600; white-space: nowrap; }
+}
+
+.shop-checkout__shipping-note {
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    color: var(--site-text-muted, #6b7280);
+    font-style: italic;
+}

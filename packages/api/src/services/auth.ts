@@ -10,6 +10,7 @@ import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 import { getUsersSettings, } from './settings';
 import { generateVerificationToken, sendVerificationEmail, } from './mail/verification';
+import { notify, } from './notifications';
 
 interface PatreonTokenResponse {
     access_token: string;
@@ -413,6 +414,16 @@ export async function registerMember(
     } catch (err) {
         logger.warn('Failed to audit member registration', { error: err, },);
     }
+
+    // Additive admin notification (separate from the member's own
+    // verification/welcome email). Fire-and-forget.
+    void notify('user_signup', {
+        subject: `New user signup: ${name || row.email}`,
+        html: `<h2>New user signup</h2>`
+            + `<p>A new member registered an account.</p>`
+            + `<p><strong>Name:</strong> ${name || '(none)'}</p>`
+            + `<p><strong>Email:</strong> ${row.email}</p>`,
+    },);
 
     return { userId: row.id, email: row.email, verificationRequired: requireEmailVerification, };
 }

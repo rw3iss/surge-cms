@@ -42,6 +42,7 @@ const ShopCheckoutInner: Component = () => {
 
     const [totals, setTotals,] = createSignal<ShopCheckoutTotals | null>(null,);
     const [shipping, setShipping,] = createSignal<{ useAdditionalItemRate?: boolean; additionalItemCents?: number; } | undefined>(undefined,);
+    const [shippingMethod, setShippingMethod,] = createSignal<string | undefined>(undefined,);
     const [previewing, setPreviewing,] = createSignal(false,);
     const [cardReady, setCardReady,] = createSignal(false,);
     const [placing, setPlacing,] = createSignal(false,);
@@ -81,13 +82,26 @@ const ShopCheckoutInner: Component = () => {
             const t = await cms.shop.checkout.preview({
                 items: lines(),
                 shippingAddress: shippingAddress(),
+                shippingMethod: shippingMethod(),
             },);
             setTotals(t,);
+            // Adopt the server-chosen method when we have none, or ours is no
+            // longer offered for this cart/address (e.g. address changed the set).
+            const opts = t.shippingOptions ?? [];
+            if (t.shippingMethod && (!shippingMethod() || !opts.some((o,) => o.id === shippingMethod()))) {
+                setShippingMethod(t.shippingMethod,);
+            }
         } catch {
             /* keep last totals; final total is authoritative on create */
         } finally {
             setPreviewing(false,);
         }
+    };
+
+    /** Pick a shipping method + re-price immediately. */
+    const selectShippingMethod = (id: string,) => {
+        setShippingMethod(id,);
+        void runPreview();
     };
 
     onMount(async () => {
@@ -147,6 +161,7 @@ const ShopCheckoutInner: Component = () => {
                 customerName: fullName() || undefined,
                 shippingAddress: shippingAddress(),
                 billingAddress: shippingAddress(),
+                shippingMethod: shippingMethod(),
             },);
 
             if (!clientSecret) {
@@ -321,23 +336,53 @@ const ShopCheckoutInner: Component = () => {
                             <Show when={totals()}>
                                 {(t,) => (
                                     <>
-                                        <div class="shop-checkout__total-row">
-                                            <span>Shipping</span>
-                                            <span>{money(t().shippingCents, t().currency,)}</span>
-                                        </div>
-                                        <Show when={shipBd()}>
-                                            {(bd,) => (
+                                        <Show
+                                            when={(t().shippingOptions?.length ?? 0) > 1}
+                                            fallback={
                                                 <>
-                                                    <div class="shop-checkout__total-row shop-checkout__total-sub">
-                                                        <span>First item shipping</span>
-                                                        <span>1 × {money(bd().firstItemCents, t().currency,)} = {money(bd().firstItemCents, t().currency,)}</span>
+                                                    <div class="shop-checkout__total-row">
+                                                        <span>Shipping{t().shippingMethodLabel ? ` (${t().shippingMethodLabel})` : ''}</span>
+                                                        <span>{money(t().shippingCents, t().currency,)}</span>
                                                     </div>
-                                                    <div class="shop-checkout__total-row shop-checkout__total-sub">
-                                                        <span>Additional items shipping</span>
-                                                        <span>{bd().additionalUnits} × {money(bd().additionalItemCents, t().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, t().currency,)}</span>
-                                                    </div>
+                                                    <Show when={shipBd()}>
+                                                        {(bd,) => (
+                                                            <>
+                                                                <div class="shop-checkout__total-row shop-checkout__total-sub">
+                                                                    <span>First item shipping</span>
+                                                                    <span>1 × {money(bd().firstItemCents, t().currency,)} = {money(bd().firstItemCents, t().currency,)}</span>
+                                                                </div>
+                                                                <div class="shop-checkout__total-row shop-checkout__total-sub">
+                                                                    <span>Additional items shipping</span>
+                                                                    <span>{bd().additionalUnits} × {money(bd().additionalItemCents, t().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, t().currency,)}</span>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </Show>
                                                 </>
-                                            )}
+                                            }
+                                        >
+                                            <div class="shop-checkout__shipping-methods">
+                                                <div class="shop-checkout__shipping-methods-label">Shipping method</div>
+                                                <For each={t().shippingOptions}>
+                                                    {(opt,) => (
+                                                        <label class="shop-checkout__shipping-method">
+                                                            <input
+                                                                type="radio"
+                                                                name="shipping-method"
+                                                                checked={shippingMethod() === opt.id}
+                                                                onChange={() => selectShippingMethod(opt.id,)}
+                                                            />
+                                                            <span class="shop-checkout__shipping-method-name">{opt.label}</span>
+                                                            <span class="shop-checkout__shipping-method-price">{money(opt.cents, t().currency,)}</span>
+                                                        </label>
+                                                    )}
+                                                </For>
+                                            </div>
+                                        </Show>
+                                        <Show when={t().shippingQuoteFailed}>
+                                            <p class="shop-checkout__shipping-note">
+                                                Live shipping rates are unavailable right now — a standard flat rate has been applied.
+                                            </p>
                                         </Show>
                                         <div class="shop-checkout__total-row">
                                             <span>Tax</span>
