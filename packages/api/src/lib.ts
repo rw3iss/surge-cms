@@ -125,6 +125,15 @@ async function bootRunningMode(): Promise<void> {
         logger.warn('Plugin boot skipped', { error: err, },);
     }
 
+    // Seed the CSP's Google-tag allowances from the saved Analytics ID so the
+    // gtag snippet (injected by the SSR) isn't blocked on the first request.
+    try {
+        const { syncAnalyticsCsp, } = await import('./services/analyticsCsp.js');
+        await syncAnalyticsCsp();
+    } catch (err) {
+        logger.warn('Analytics CSP init skipped', { error: err, },);
+    }
+
     // Resume any send jobs left 'running' by a previous crash (idempotent).
     try {
         const { resumeRunningJobs, } = await import('./services/mail/sendWorker.js');

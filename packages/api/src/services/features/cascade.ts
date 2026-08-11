@@ -169,6 +169,15 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
 
     await cache.invalidateSettingsCache();
 
+    // Keep the CSP's Google-tag allowances in step with the (possibly changed)
+    // Analytics ID, so the SSR-injected gtag snippet is never CSP-blocked and a
+    // cleared id removes the GA sources. Re-reads the saved value (source of
+    // truth) rather than trusting the partial `data`. Non-fatal.
+    try {
+        const { syncAnalyticsCsp, } = await import('../analyticsCsp.js');
+        await syncAnalyticsCsp();
+    } catch { /* non-fatal */ }
+
     await logAudit({
         userId: ctx.userId,
         action: 'update',

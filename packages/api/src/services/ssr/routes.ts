@@ -33,6 +33,8 @@ interface SiteMeta {
     description: string;
     logo?: string;
     favicon?: string;
+    /** Google tag / GA4 measurement id (Admin → Settings → General), if set. */
+    analyticsId?: string;
 }
 
 let siteMetaCache: SiteMeta | null = null;
@@ -46,7 +48,7 @@ async function getSiteMeta(): Promise<SiteMeta> {
     }
     try {
         const res = await query(
-            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo', 'favicon', 'site_branding')`,
+            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo', 'favicon', 'site_branding', 'analytics')`,
         );
         const map: Record<string, unknown> = {};
         for (const row of res.rows) map[row.key] = row.value;
@@ -55,11 +57,13 @@ async function getSiteMeta(): Promise<SiteMeta> {
         // in services/settings.ts getPublicSettings().
         const branding = map.site_branding as { favicon?: { url?: string; }; } | undefined;
         const favicon = branding?.favicon?.url || (map.favicon as string | undefined) || undefined;
+        const analytics = map.analytics as { googleAnalyticsId?: string; } | undefined;
         siteMetaCache = {
             name: (map.site_name as string) || FALLBACK_SITE_NAME,
             description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
             logo: (map.logo as string) || undefined,
             favicon,
+            analyticsId: analytics?.googleAnalyticsId || undefined,
         };
     } catch {
         siteMetaCache = {
@@ -75,6 +79,12 @@ async function getSiteMeta(): Promise<SiteMeta> {
  *  injector so the operator's favicon renders on first paint / for bots. */
 export async function getSiteFavicon(): Promise<string | undefined> {
     return (await getSiteMeta()).favicon;
+}
+
+/** The configured Google tag / GA4 measurement id (or undefined). Used by the
+ *  SSR head injector to emit the gtag snippet on public pages. */
+export async function getSiteAnalyticsId(): Promise<string | undefined> {
+    return (await getSiteMeta()).analyticsId;
 }
 
 /** Manually clear the site meta cache — call from settings update handlers. */

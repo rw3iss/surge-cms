@@ -15,6 +15,7 @@
  */
 import helmet from 'helmet';
 import type { RequestHandler } from 'express';
+import { GA_CONNECT_ORIGINS, GA_SCRIPT_ORIGINS, gtagInlineHash, normalizeGaId, } from '../utils/gtag';
 
 export interface PluginCspOrigins {
     connectSrc: string[];
@@ -38,6 +39,22 @@ const EMBED_FRAME_SRC = [
 
 let pluginOrigins: PluginCspOrigins = EMPTY;
 
+// Operator's Google tag / GA4 measurement id (Admin → Settings → General), or
+// null when unset. When set, the tag's origins + the deterministic sha256 of the
+// SSR-injected inline bootstrap join the CSP so the tag loads + beacons under the
+// strict script-src. Kept in sync by `services/analyticsCsp.syncAnalyticsCsp`.
+let analyticsGaId: string | null = null;
+
+/** GA additions to `script-src`: the loader origin + the inline bootstrap hash. */
+function analyticsScriptSrc(): string[] {
+    return analyticsGaId ? [...GA_SCRIPT_ORIGINS, gtagInlineHash(analyticsGaId,)] : [];
+}
+
+/** GA additions to `connect-src`: the collector beacon endpoints. */
+function analyticsConnectSrc(): string[] {
+    return analyticsGaId ? [...GA_CONNECT_ORIGINS] : [];
+}
+
 function buildDirectives(): Record<string, string[]> {
     return {
         defaultSrc: ["'self'"],
@@ -48,9 +65,11 @@ function buildDirectives(): Record<string, string[]> {
         // js.stripe.com must be in script-src (not just frame-src): the built-in
         // Stripe donation / subscription / shop-checkout forms load Stripe.js as a
         // SCRIPT. Core feature → always allowed, independent of any plugin.
-        scriptSrc: ["'self'", 'https://js.stripe.com', ...pluginOrigins.scriptSrc],
+        // Google tag (gtag.js) origins + the inline-bootstrap hash are added when
+        // an Analytics ID is configured.
+        scriptSrc: ["'self'", 'https://js.stripe.com', ...analyticsScriptSrc(), ...pluginOrigins.scriptSrc],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:', ...pluginOrigins.imgSrc],
-        connectSrc: ["'self'", 'https://api.stripe.com', ...pluginOrigins.connectSrc],
+        connectSrc: ["'self'", 'https://api.stripe.com', ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
         // js.stripe.com (Elements) + hooks.stripe.com (3-D Secure / redirects).
         frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', ...EMBED_FRAME_SRC, ...pluginOrigins.frameSrc],
     };
@@ -58,6 +77,15 @@ function buildDirectives(): Record<string, string[]> {
 
 // The current helmet CSP instance; rebuilt when plugin origins change.
 let cspMiddleware: RequestHandler = helmet.contentSecurityPolicy({ directives: buildDirectives() });
+
+/** Set (or clear) the Google tag id in the CSP and rebuild the middleware.
+ *  No-op when unchanged. `null`/invalid removes the GA sources. */
+export function setAnalyticsGaId(id: string | null | undefined): void {
+    const clean = normalizeGaId(id);
+    if (clean === analyticsGaId) return;
+    analyticsGaId = clean;
+    cspMiddleware = helmet.contentSecurityPolicy({ directives: buildDirectives() });
+}
 
 /** Replace the plugin-contributed CSP origins and rebuild the middleware. */
 export function setPluginCspOrigins(origins: Partial<PluginCspOrigins>): void {

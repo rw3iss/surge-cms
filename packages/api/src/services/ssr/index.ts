@@ -13,7 +13,8 @@ import path from 'path';
 import { cache, } from '../cache';
 import { logger, } from '../../utils/logger';
 import { buildMetaHtml, } from './metaBuilder';
-import { getSiteFavicon, isPublicRoute, resolveRouteMeta, } from './routes';
+import { getSiteAnalyticsId, getSiteFavicon, isPublicRoute, resolveRouteMeta, } from './routes';
+import { gtagSnippet, isValidGaId, } from '../../utils/gtag';
 
 const CACHE_TTL = 300; // 5 minutes
 
@@ -94,6 +95,12 @@ function injectMeta(template: string, metaHtml: string,): string {
     }
     // Otherwise inject right before </head>
     return template.replace('</head>', `        ${metaHtml}\n    </head>`,);
+}
+
+/** Insert an arbitrary HTML snippet just before </head> (once). */
+function injectHeadSnippet(html: string, snippet: string,): string {
+    if (!snippet || !html.includes('</head>',)) return html;
+    return html.replace('</head>', `    ${snippet}\n    </head>`,);
 }
 
 /**
@@ -197,7 +204,20 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
     }
     let html = injectMeta(template, metaHtml,);
 
-    // 5a. Inject the pre-rendered body when the resolver produced one.
+    // 5a. Google tag (gtag.js): inject the standard snippet into <head> when the
+    //     operator has set an Analytics ID. Public pages only (SSR runs for
+    //     public routes), so admin usage isn't tracked. The CSP is extended in
+    //     lockstep (services/analyticsCsp → middleware/csp). Non-fatal.
+    try {
+        const gaId = await getSiteAnalyticsId();
+        if (isValidGaId(gaId,)) html = injectHeadSnippet(html, gtagSnippet(gaId,),);
+    } catch (error) {
+        logger.error(`SSR: analytics injection failed for ${pathname}`, {
+            error: (error as Error).message,
+        },);
+    }
+
+    // 5b. Inject the pre-rendered body when the resolver produced one.
     //     Failures here are non-fatal — fall back to the default
     //     loading-shell template so the page still serves.
     try {

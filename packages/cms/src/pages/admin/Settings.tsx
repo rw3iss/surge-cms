@@ -1496,9 +1496,9 @@ const AdminSettings: Component = () => {
             siteDescription: siteDescription(),
             contactEmail: contactEmail() || undefined,
         };
-        if (analyticsId()) {
-            data.analytics = { googleAnalyticsId: analyticsId(), };
-        }
+        // Always send analytics (even empty) so CLEARING the field removes the
+        // tag — sending it only when non-empty made a cleared id un-clearable.
+        data.analytics = { googleAnalyticsId: analyticsId().trim(), };
 
         try {
             await cms.settings.update(data as any,);
