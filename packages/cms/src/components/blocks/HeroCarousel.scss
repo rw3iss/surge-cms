@@ -66,7 +66,11 @@
       display: flex;
       align-items: stretch;
       justify-content: center;
-      overflow: auto;
+      // Clip (don't scroll) — a card template that fills the slide must never
+      // show a per-slide scrollbar; its own layout is responsible for fitting
+      // (see the height chain + flex cards). Was `auto`, which surfaced a
+      // scrollbar whenever the card was a hair taller than the slide.
+      overflow: hidden;
     }
   }
 
@@ -107,8 +111,14 @@
     > .block--has-height {
       height: 100%;
 
-      .block__inner {
+      // Complete the height chain down to the template's OWN root element: block
+      // → block__inner → html-block. Without the `.html-block` link a template
+      // whose root is `height:100%` (e.g. a flex product card) couldn't resolve
+      // its height, so its image filled and pushed the caption past the slide.
+      .block__inner,
+      .html-block {
         height: 100%;
+        min-height: 0;
       }
     }
   }
