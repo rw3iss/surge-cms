@@ -30,6 +30,11 @@ function recordLabel(r: EntityRecord,): string {
     );
 }
 
+/** Pick the most illustrative sub-field for an array-of-objects example. */
+function preferredSub(keys: string[],): string {
+    return ['price', 'url', 'title', 'name', 'label',].find((k,) => keys.includes(k,)) ?? keys[0];
+}
+
 const TemplateEditor: Component = () => {
     const params = useParams<{ type: string; id: string; }>();
     const navigate = useNavigate();
@@ -146,6 +151,29 @@ const TemplateEditor: Component = () => {
         },);
     },);
     onCleanup(() => setTemplatePreviewContext(undefined,),);
+
+    // Variables present on the loaded sample record but NOT declared as schema
+    // fields — i.e. arrays/objects a data provider enriches onto every record
+    // (e.g. the Shop provider's product.media / product.tags / product.variants).
+    // Derived from real data so it's correct without a hardcoded per-type list.
+    const extraVars = () => {
+        const rec = sampleRecords()?.[0] as Record<string, unknown> | undefined;
+        if (!rec) return [] as Array<{ key: string; isArray: boolean; subKeys: string[]; }>;
+        const declared = new Set((entityDef()?.fields ?? []).map((f,) => f.key),);
+        const managed = new Set(['id', 'slug', 'status', 'createdAt', 'updatedAt',],);
+        return Object.entries(rec,)
+            .filter(([k, v,],) =>
+                !declared.has(k,) && !managed.has(k,)
+                && (Array.isArray(v,) || (v != null && typeof v === 'object'))
+            )
+            .map(([k, v,],) => {
+                const arr = Array.isArray(v,) ? v : null;
+                const first = arr && arr.length && arr[0] && typeof arr[0] === 'object'
+                    ? arr[0] as Record<string, unknown>
+                    : null;
+                return { key: k, isArray: !!arr, subKeys: first ? Object.keys(first,) : [], };
+            });
+    };
 
     // One-line description of the current sample source (auto vs custom).
     const sampleNote = (): string => {
@@ -283,6 +311,33 @@ const TemplateEditor: Component = () => {
                                         <tr>
                                             <td><code>{`{{${singularVar()}.${f.key}}}`}</code></td>
                                             <td>{f.type}{f.core ? ' (core)' : ''}</td>
+                                        </tr>
+                                    )}
+                                </For>
+                            </tbody>
+                        </table>
+                    </Show>
+
+                    <Show when={extraVars().length > 0}>
+                        <p class="form-help-muted" style={{ padding: '0.75rem 1rem 0', }}>
+                            Enriched variables (arrays/objects added to every record by the type's data provider):
+                        </p>
+                        <table class="admin-table">
+                            <thead><tr><th>Variable</th><th>Type</th></tr></thead>
+                            <tbody>
+                                <For each={extraVars()}>
+                                    {(v,) => (
+                                        <tr>
+                                            <td>
+                                                <code>{`{{${singularVar()}.${v.key}}}`}</code>
+                                                <Show when={v.isArray && v.subKeys.length > 0}>
+                                                    <div class="form-help-muted" style={{ 'font-size': '11px', 'margin-top': '2px', }}>
+                                                        e.g. <code>{`{{${singularVar()}.${v.key}[0].${preferredSub(v.subKeys,)}}}`}</code>
+                                                        {' · fields: '}{v.subKeys.join(', ',)}
+                                                    </div>
+                                                </Show>
+                                            </td>
+                                            <td>{v.isArray ? 'array' : 'object'}</td>
                                         </tr>
                                     )}
                                 </For>

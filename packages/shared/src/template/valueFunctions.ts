@@ -14,7 +14,7 @@
  *   if (v !== UNRESOLVED) return v;   // handled here
  *   // …runtime-specific names (post, posts, …)…
  */
-import { formatCurrency, formatDate, formatNumber, } from '../utils/format';
+import { formatDate, formatNumber, } from '../utils/format';
 import { truncate, } from '../utils/validation';
 
 /** Returned when `name` is not one of the shared value functions, so callers
@@ -23,6 +23,31 @@ import { truncate, } from '../utils/validation';
 export const UNRESOLVED: unique symbol = Symbol('template.unresolved',);
 
 const s = (v: unknown,): string => (v == null ? '' : String(v,));
+
+/**
+ * Template `{{ formatCurrency(value, showDecimals?, currency?) }}` — formats
+ * `value` as a currency amount in its MAJOR unit (i.e. `55` → `$55.00`, NOT
+ * cents). Always shows 2 decimals by default (even `.00`); pass `false` as the
+ * 2nd arg to hide them (`$55`). This is the operator-facing template helper and
+ * intentionally differs from the shared `utils/format.formatCurrency`, which is
+ * cents-based for app CODE. `currency` accepts a legacy string 2nd arg or an
+ * explicit 3rd arg (defaults to USD).
+ */
+function formatCurrencyMajor(value: number, showDecimals: boolean, currency: string,): string {
+    const digits = showDecimals ? 2 : 0;
+    const build = (cur: string,): string =>
+        new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: cur,
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits,
+        },).format(value,);
+    try {
+        return build(currency,);
+    } catch {
+        return build('USD',); // invalid currency code → fall back
+    }
+}
 
 /** Names of the shared value functions (for help/reference UIs). */
 export const VALUE_FUNCTION_NAMES = [
@@ -41,7 +66,20 @@ export function resolveValueFunction(name: string, args: unknown[],): unknown | 
         case 'trim': return s(args[0],).trim();
         case 'truncate': return truncate(s(args[0],), typeof args[1] === 'number' ? (args[1] as number) : 100,);
         case 'formatDate': return args[0] ? formatDate(args[0] as string | Date,) : '';
-        case 'formatCurrency': return formatCurrency(Number(args[0],) || 0, args[1] ? s(args[1],) : undefined,);
+        case 'formatCurrency': {
+            const value = Number(args[0],) || 0;
+            // 2nd arg: showDecimals (boolean, or the strings 'true'/'false' when
+            // the parser hands a bare identifier through), OR a legacy currency
+            // code string. 3rd arg: explicit currency code.
+            let showDecimals = true;
+            let currency = 'USD';
+            const a1 = args[1];
+            if (a1 === false || a1 === 'false') showDecimals = false;
+            else if (a1 === true || a1 === 'true') showDecimals = true;
+            else if (typeof a1 === 'string' && a1) currency = a1;
+            if (typeof args[2] === 'string' && args[2]) currency = args[2] as string;
+            return formatCurrencyMajor(value, showDecimals, currency,);
+        }
         case 'formatNumber': return formatNumber(Number(args[0],) || 0,);
         case 'default': return args[0] == null || args[0] === '' ? args[1] : args[0];
         case 'now': return new Date();

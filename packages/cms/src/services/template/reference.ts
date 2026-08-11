@@ -27,7 +27,7 @@ export const SYNTAX_EXAMPLES: SyntaxExample[] = [
     { title: 'Entity by id — property', code: "{{ campaign('the-id').title }}", desc: 'Fetch an entity by id (or slug) and read a property.' },
     { title: 'Entity by id — whole', code: "{{ form('the-id') }}", desc: 'No property → renders the whole entity (an interactive form, a post card, or — for `campaign` — the FULL campaign with its donation form; use `campaignLink(...)` for just the teaser card).' },
     { title: 'Render options (keyword args)', code: "{{ form('newsletter', title=false, columns=2, gap=16px) }}", desc: 'Whole-entity calls take optional keyword args (any order) that tweak the output. Forms: `title` (false / "" to hide, or a string to override), `columns` (1–8), and `gap` (any CSS length, e.g. `10px`, sets the space between fields). With `columns`, each field\'s own width still applies — a Full-width field spans all columns (its own row); Half-width fields take one column and pack side by side. Single column on mobile.' },
-    { title: 'Utility function', code: '{{ formatCurrency(campaign.goalAmountCents) }}', desc: 'Call a convenience function on a value.' },
+    { title: 'Utility function', code: '{{ formatCurrency(product.variants[0].price) }}', desc: 'Call a convenience function on a value — e.g. 55 → $55.00.' },
 ];
 
 export const LOGIC_EXAMPLES: SyntaxExample[] = [
@@ -77,7 +77,7 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
     {
         group: 'Value utilities',
         items: [
-            { sig: 'formatCurrency(cents, currency?)', desc: 'e.g. 100000 → $1,000.00.' },
+            { sig: 'formatCurrency(value, showDecimals?, currency?)', desc: 'Formats a currency amount (major unit, e.g. 55 → $55.00; 1234.5 → $1,234.50). Always shows 2 decimals; pass false to hide them (55 → $55). Default USD.' },
             { sig: 'formatDate(value)', desc: 'Localized date.' },
             { sig: 'formatNumber(n)', desc: 'Thousands-separated number.' },
             { sig: 'upper(text) / lower(text)', desc: 'Change case.' },
