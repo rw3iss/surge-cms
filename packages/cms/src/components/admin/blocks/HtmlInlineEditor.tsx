@@ -25,6 +25,7 @@ import {
     Show,
 } from 'solid-js';
 import { formatHtml, } from '../../../utils/codeFormat';
+import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import TemplatedContent from '../../blocks/TemplatedContent';
 
 const STORAGE_KEY = 'sitesurge.editor.blockHeights';
@@ -217,12 +218,16 @@ const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
                         {/* Render through TemplatedContent (same as the deselected
                             block + public output) so {{ … }} variable syntax
                             resolves to its real values here too, instead of showing
-                            the raw braces. */}
+                            the raw braces. The `entities` bag is the SAME sample the
+                            deselected preview uses (the template editor's sample
+                            record, or nothing on page/post editors) — without it,
+                            `{{entity.field}}` resolved to empty and the Preview
+                            rendered blank. */}
                         <Show
                             when={(props.content || '').trim()}
                             fallback={<p style={{ color: '#999', }}>No content yet.</p>}
                         >
-                            <TemplatedContent html={props.content} />
+                            <TemplatedContent html={props.content} entities={templatePreviewContext()} />
                         </Show>
                     </div>
                 </Show>

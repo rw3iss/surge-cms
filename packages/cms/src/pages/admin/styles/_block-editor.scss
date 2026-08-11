@@ -715,14 +715,13 @@
 
 
 
-// Custom-HTML preview: the authored markup is arbitrary and may be full-bleed
-// or absolutely positioned, so clip it to the preview body — it can never spill
-// above the header bar or outside the block. Scoped to non-selected html blocks
-// (selected swaps in the inline code editor, which manages its own overflow) and
-// to groups/slots keep overflowing so their hover menus aren't clipped.
-.content-block--html:not(.content-block--selected) > .content-block__preview-body {
-  overflow: hidden;
-}
+// NOTE: the custom-HTML preview body is NOT clipped (`overflow` stays visible).
+// The `position: relative` on `.content-block__preview-body` already anchors any
+// `position:absolute; inset:0` markup to the body (below the header bar), so it
+// can't paint over the header — WITHOUT clipping. Clipping was hiding legitimate
+// content that overflows a block's fixed height (e.g. a card whose text sits below
+// a full-height image): the author needs to SEE it while editing, and the public
+// site renders it un-clipped too, so the editor now matches.
 
 
 

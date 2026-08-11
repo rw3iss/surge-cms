@@ -117,7 +117,7 @@ function productDescriptor(): EntityTypeDef {
     return {
         id: '', key: 'product', label: 'Product', labelPlural: 'Products',
         singularVar: 'product', pluralVar: 'products',
-        description: 'A shop product (managed by the Shop feature). Records include `media` (array) + `tags` (array).',
+        description: 'A shop product (managed by the Shop feature). Records include `media` (array), `tags` (array), and `variants` (array; each has `price`/`priceCents`, `sku`, `option1`–`3`, `inventoryQty`, `isDefault`) — e.g. `{{product.variants[0].price}}`.',
         origin: 'core', internal: true, ownerFeature: 'shop', tableName: 'shop_products',
         hasSlug: true, hasStatus: true, searchable: false, revisioned: false,
         routing: { detailEnabled: true, detailPrefix: '/shop', indexEnabled: true, indexPrefix: '/shop', },
