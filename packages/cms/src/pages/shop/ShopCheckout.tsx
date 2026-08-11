@@ -487,7 +487,9 @@ const ShopCheckoutInner: Component = () => {
                                                 <>
                                                     <div class="shop-checkout__total-row">
                                                         <span>
-                                                            Shipping{!t().shippingEstimated && t().shippingMethodLabel
+                                                            Shipping{t().shippingEstimated
+                                                                ? ' (estimate)'
+                                                                : t().shippingMethodLabel
                                                                 ? ` (${t().shippingMethodLabel})`
                                                                 : ''}
                                                         </span>
