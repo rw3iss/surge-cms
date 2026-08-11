@@ -17,7 +17,7 @@ export type BlockStyleData = Omit<BlockStyle, 'createdAt' | 'updatedAt'>;
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'backgroundImage' | 'backgroundPosition' | 'textColor' | 'textAlign' | 'verticalAlign' | 'horizontalAlign' | 'fontFamily' | 'fontSize' | 'lineHeight' | 'width' | 'maxWidth' | 'minHeight' | 'height' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
+        'backgroundColor' | 'backgroundImage' | 'backgroundPosition' | 'textColor' | 'textAlign' | 'verticalAlign' | 'horizontalAlign' | 'fontFamily' | 'fontSize' | 'lineHeight' | 'width' | 'maxWidth' | 'minHeight' | 'height' | 'maxHeight' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
     >
 > = {
     backgroundColor: '',
@@ -34,6 +34,7 @@ export const BLOCK_STYLE_DEFAULTS: Required<
     maxWidth: '',
     minHeight: '',
     height: '',
+    maxHeight: '',
     padding: '',
     margin: '',
     gap: '',

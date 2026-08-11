@@ -25,6 +25,7 @@ const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string]> = [
     ['maxWidth', 'max_width',],
     ['minHeight', 'min_height',],
     ['height', 'height',],
+    ['maxHeight', 'max_height',],
     ['padding', 'padding',],
     ['margin', 'margin',],
     ['gap', 'gap',],

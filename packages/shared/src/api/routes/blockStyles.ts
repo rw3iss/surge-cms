@@ -39,6 +39,7 @@ export interface BlockStyleCreateBody {
     maxWidth?: string | null;
     minHeight?: string | null;
     height?: string | null;
+    maxHeight?: string | null;
     padding?: string | null;
     margin?: string | null;
     gap?: string | null;

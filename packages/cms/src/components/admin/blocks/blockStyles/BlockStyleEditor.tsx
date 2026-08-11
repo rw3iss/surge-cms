@@ -459,6 +459,28 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </div>
                 </div>
 
+                {/* Max Height (after Height) */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">
+                        Max Height
+                        <Tooltip
+                            header="CSS Max Height"
+                            content="Maximum height the block won't grow beyond. Any CSS length: px, vh, rem, em, % or calc(). Pair with an overflow value to scroll or clip overflowing content."
+                        />
+                    </label>
+                    <div class="block-style-editor__field-right">
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="text"
+                                class="block-style-editor__custom-input"
+                                value={sv('maxHeight') || ''}
+                                onChange={(e,) => update('maxHeight', e.currentTarget.value,)}
+                                placeholder="e.g. 400px, 80vh"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* Vertical Alignment (after Height) */}
                 <div class="block-style-editor__field">
                     <label class="block-style-editor__label">Vertical Alignment</label>

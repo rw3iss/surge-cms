@@ -25,6 +25,7 @@ export interface BlockStyle {
     maxWidth?: string; // CSS max-width value (same value space as width)
     minHeight?: string; // CSS min-height value
     height?: string; // CSS height value
+    maxHeight?: string; // CSS max-height value (same value space as min-height)
     padding?: string; // CSS padding value
     margin?: string; // CSS margin value
     gap?: string; // CSS gap value

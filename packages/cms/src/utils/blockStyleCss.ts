@@ -95,6 +95,7 @@ export function blockStyleLayoutCss(
         if (s.height && !opts.suppressHeight) out.height = s.height;
     }
     if (s.minHeight) out['min-height'] = s.minHeight;
+    if (s.maxHeight) out['max-height'] = s.maxHeight;
 
     // Horizontal alignment → a CSS var the block's item row/grid reads as its
     // justify-content (e.g. the social grid).

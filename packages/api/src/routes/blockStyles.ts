@@ -20,6 +20,7 @@ const blockStyleSchema = z.object({
     maxWidth: z.string().nullable().optional(),
     minHeight: z.string().nullable().optional(),
     height: z.string().nullable().optional(),
+    maxHeight: z.string().nullable().optional(),
     padding: z.string().nullable().optional(),
     margin: z.string().nullable().optional(),
     gap: z.string().nullable().optional(),
