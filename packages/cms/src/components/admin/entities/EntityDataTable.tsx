@@ -5,7 +5,7 @@
  * routes to the type's bespoke `adminEditRoute` (core types) or the generic
  * record editor.
  */
-import type { EntityQuery, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
+import type { EntityFilterValue, EntityQuery, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
@@ -24,6 +24,9 @@ interface Column {
     label: string;
 }
 
+type FilterOp = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in';
+const FILTER_OPS: FilterOp[] = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in',];
+
 /** Render an arbitrary field value as a short string for a table cell. */
 function cell(value: unknown,): string {
     if (value == null) return '—';
@@ -39,7 +42,47 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
     const [sortBy, setSortBy,] = createSignal('',);
     const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>('desc',);
     const [filters, setFilters,] = createSignal<Record<string, string>>({},);
+    // Field / op / value clause (matches the entity query modal), applied on top
+    // of the filterable-field dropdowns.
+    const [filterField, setFilterField,] = createSignal('',);
+    const [filterOp, setFilterOp,] = createSignal<FilterOp>('eq',);
+    const [filterValue, setFilterValue,] = createSignal('',);
     let searchTimer: ReturnType<typeof setTimeout>;
+    let filterTimer: ReturnType<typeof setTimeout>;
+
+    /** Fields offered in the "Filter field" dropdown: standard columns
+     *  (status/slug) first, then the type's non-blocks/json schema fields — so
+     *  you can filter e.g. `status = active`. Mirrors the entity search modal. */
+    const filterFields = createMemo<string[]>(() => {
+        const std: string[] = [];
+        if (props.type.hasStatus) std.push('status',);
+        if (props.type.hasSlug) std.push('slug',);
+        const schema = props.type.fields
+            .filter((f,) => f.type !== 'blocks' && f.type !== 'json' && f.key !== 'status' && f.key !== 'slug')
+            .map((f,) => f.key);
+        return [...std, ...schema,];
+    },);
+
+    /** Merge the filterable-field dropdowns (bare equality) with the field/op/value
+     *  clause into a single `EntityQuery.filter`. */
+    const buildFilter = (): Record<string, EntityFilterValue> | undefined => {
+        const merged: Record<string, EntityFilterValue> = { ...filters(), };
+        if (filterField() && filterValue() !== '') {
+            const raw = filterValue();
+            const value: unknown = filterOp() === 'in'
+                ? raw.split(',',).map((v,) => v.trim())
+                : /^-?\d+(\.\d+)?$/.test(raw,)
+                ? Number(raw,)
+                : raw;
+            merged[filterField()] = { op: filterOp(), value, };
+        }
+        return Object.keys(merged,).length ? merged : undefined;
+    };
+
+    const onFilterValueInput = (value: string,) => {
+        clearTimeout(filterTimer,);
+        filterTimer = setTimeout(() => setFilterValue(value,), 300,);
+    };
 
     const columns = createMemo<Column[]>(() => {
         const cols: Column[] = [];
@@ -60,7 +103,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
             search: search(),
             sortBy: sortBy() || undefined,
             sortOrder: sortBy() ? sortOrder() : undefined,
-            filter: Object.keys(filters(),).length ? filters() : undefined,
+            filter: buildFilter(),
         }),
     },);
 
@@ -69,6 +112,9 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         sortBy();
         sortOrder();
         filters();
+        filterField();
+        filterOp();
+        filterValue();
         list.resetPage();
     },);
 
@@ -113,6 +159,35 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
             </div>
 
             <EntityFilterBar typeDef={props.type} value={filters()} onChange={setFilters} />
+
+            {/* Field / op / value clause — narrow records by any built-in or
+                schema field, e.g. `status = active`. Mirrors the entity query modal. */}
+            <Show when={filterFields().length > 0}>
+                <div class="entity-search-modal__query">
+                    <select
+                        value={filterField()}
+                        onChange={(e,) => setFilterField(e.currentTarget.value,)}
+                    >
+                        <option value="">Filter field…</option>
+                        <For each={filterFields()}>
+                            {(f,) => <option value={f}>{f}</option>}
+                        </For>
+                    </select>
+                    <select
+                        value={filterOp()}
+                        onChange={(e,) => setFilterOp(e.currentTarget.value as FilterOp,)}
+                    >
+                        <For each={FILTER_OPS}>
+                            {(op,) => <option value={op}>{op}</option>}
+                        </For>
+                    </select>
+                    <input
+                        type="text"
+                        placeholder="Value (comma-separated for 'in')"
+                        onInput={(e,) => onFilterValueInput(e.currentTarget.value,)}
+                    />
+                </div>
+            </Show>
 
             <Show when={!list.loading()} fallback={<div class="empty-state">Loading…</div>}>
                 <Show

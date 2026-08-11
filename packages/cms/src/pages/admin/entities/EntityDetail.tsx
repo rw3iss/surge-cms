@@ -7,7 +7,7 @@
  *   Data   → the type's records (EntityDataTable).
  */
 import { Title, } from '@solidjs/meta';
-import { A, useParams, } from '@solidjs/router';
+import { A, useLocation, useParams, } from '@solidjs/router';
 import type { EntityCaching, EntityRouting, EntityTypeDef, EntityTypeUpdateBody, } from '@sitesurge/types';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import SchemaFieldEditor from '../../../components/admin/entities/SchemaFieldEditor';
@@ -22,11 +22,17 @@ const clone = <T,>(v: T,): T => JSON.parse(JSON.stringify(v,),);
 
 const EntityDetail: Component = () => {
     const params = useParams<{ type: string; }>();
+    const location = useLocation();
     const toast = useToast();
     const [draft, setDraft,] = createSignal<EntityTypeDef | null>(null,);
     const [loading, setLoading,] = createSignal(true,);
     const [saving, setSaving,] = createSignal(false,);
-    const [tab, setTab,] = createSignal<'schema' | 'data'>('schema',);
+    // The active tab is derived from the URL: `/admin/entities/:type/data` →
+    // Data, everything else (the bare `/admin/entities/:type`) → Schema. The tab
+    // buttons are real links, so the tab is deep-linkable + back-button-aware.
+    const schemaHref = () => `/admin/entities/${params.type}`;
+    const dataHref = () => `/admin/entities/${params.type}/data`;
+    const tab = () => (location.pathname.replace(/\/+$/, '',).endsWith('/data') ? 'data' : 'schema');
 
     const locked = () => {
         const d = draft();
@@ -110,18 +116,19 @@ const EntityDetail: Component = () => {
             </div>
 
             <div class="settings-tabs">
-                <button
+                <A
+                    href={schemaHref()}
+                    end
                     class={`settings-tabs__tab ${tab() === 'schema' ? 'settings-tabs__tab--active' : ''}`}
-                    onClick={() => setTab('schema',)}
                 >
                     Schema
-                </button>
-                <button
+                </A>
+                <A
+                    href={dataHref()}
                     class={`settings-tabs__tab ${tab() === 'data' ? 'settings-tabs__tab--active' : ''}`}
-                    onClick={() => setTab('data',)}
                 >
                     Data
-                </button>
+                </A>
             </div>
 
             <Show when={!loading() && draft()} fallback={<div class="empty-state">Loading…</div>}>

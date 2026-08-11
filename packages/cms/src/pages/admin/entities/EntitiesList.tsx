@@ -145,7 +145,10 @@ const EntitiesList: Component = () => {
                                             </Show>
                                         </A>
                                         <A href={`/admin/entities/${type.key}`} class="btn btn--small btn--secondary">
-                                            Edit schema
+                                            Schema
+                                        </A>
+                                        <A href={`/admin/entities/${type.key}/data`} class="btn btn--small btn--primary">
+                                            Data
                                         </A>
                                     </div>
                                 </div>

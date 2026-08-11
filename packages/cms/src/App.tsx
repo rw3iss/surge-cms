@@ -167,6 +167,7 @@ const App: Component = () => {
 										<Route path="/media" component={AdminMedia} />
 										<Route path="/entities" component={AdminEntitiesList} />
 										<Route path="/entities/:type" component={AdminEntityDetail} />
+											<Route path="/entities/:type/data" component={AdminEntityDetail} />
 										<Route path="/entities/:type/templates" component={AdminEntityTemplateList} />
 										<Route path="/entities/:type/templates/:id" component={AdminEntityTemplateEditor} />
 										<Route path="/entities/:type/:id" component={AdminEntityRecordEdit} />
