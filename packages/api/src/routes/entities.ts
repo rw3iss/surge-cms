@@ -233,6 +233,13 @@ export const entitiesRoutes = [
             return { deleted: true, };
         },
     },),
+    defineRoute({
+        method: 'post', path: '/:type/:id/copy', auth: 'staff',
+        summary: 'Duplicate an entity (deep copy incl. related content blocks)',
+        input: { params: typeIdParam, },
+        handler: async ({ params, userId, },) =>
+            reply(await entitiesSvc.copy(params.type, params.id, { userId, },), { status: 201, },),
+    },),
 ];
 
 function safeJson(s: string,): unknown {

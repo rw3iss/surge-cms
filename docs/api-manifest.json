@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-08T16:52:22.345Z",
-  "totalModules": 31,
-  "totalRoutes": 284,
+  "generatedAt": "2026-08-11T17:06:47.960Z",
+  "totalModules": 32,
+  "totalRoutes": 303,
   "modules": [
     {
       "module": "api-keys",
@@ -363,6 +363,145 @@
           "absolutePath": "/api/v1/dev/crons/:name",
           "auth": "admin",
           "summary": "Fetch a single cron job by name (null when unknown)."
+        }
+      ]
+    },
+    {
+      "module": "entities",
+      "mountPath": "/api/v1/entities",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/types",
+          "absolutePath": "/api/v1/entities/types",
+          "auth": "staff",
+          "summary": "List entity types"
+        },
+        {
+          "method": "GET",
+          "path": "/types/:key",
+          "absolutePath": "/api/v1/entities/types/:key",
+          "auth": "staff",
+          "summary": "Get an entity type"
+        },
+        {
+          "method": "POST",
+          "path": "/types",
+          "absolutePath": "/api/v1/entities/types",
+          "auth": "admin",
+          "summary": "Create a custom entity type"
+        },
+        {
+          "method": "PUT",
+          "path": "/types/:key",
+          "absolutePath": "/api/v1/entities/types/:key",
+          "auth": "admin",
+          "summary": "Update an entity type (schema/props)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/types/:key",
+          "absolutePath": "/api/v1/entities/types/:key",
+          "auth": "admin",
+          "summary": "Delete a custom entity type"
+        },
+        {
+          "method": "GET",
+          "path": "/:type/templates",
+          "absolutePath": "/api/v1/entities/:type/templates",
+          "auth": "staff",
+          "summary": "List content-block templates for a type"
+        },
+        {
+          "method": "GET",
+          "path": "/:type/templates/:id",
+          "absolutePath": "/api/v1/entities/:type/templates/:id",
+          "auth": "optional",
+          "summary": "Get a content-block template + its blocks"
+        },
+        {
+          "method": "POST",
+          "path": "/:type/templates",
+          "absolutePath": "/api/v1/entities/:type/templates",
+          "auth": "admin",
+          "summary": "Create a content-block template"
+        },
+        {
+          "method": "PUT",
+          "path": "/:type/templates/:id",
+          "absolutePath": "/api/v1/entities/:type/templates/:id",
+          "auth": "admin",
+          "summary": "Update a content-block template"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:type/templates/:id",
+          "absolutePath": "/api/v1/entities/:type/templates/:id",
+          "auth": "admin",
+          "summary": "Delete a content-block template"
+        },
+        {
+          "method": "GET",
+          "path": "/:type/templates/:id/blocks",
+          "absolutePath": "/api/v1/entities/:type/templates/:id/blocks",
+          "auth": "optional",
+          "summary": "Get a template's resolved blocks"
+        },
+        {
+          "method": "PUT",
+          "path": "/:type/templates/:id/blocks",
+          "absolutePath": "/api/v1/entities/:type/templates/:id/blocks",
+          "auth": "admin",
+          "summary": "Replace a template's blocks"
+        },
+        {
+          "method": "GET",
+          "path": "/:type/fields/:field/values",
+          "absolutePath": "/api/v1/entities/:type/fields/:field/values",
+          "auth": "staff",
+          "summary": "Distinct/enum values of a filterable field (for a filter dropdown)"
+        },
+        {
+          "method": "GET",
+          "path": "/:type",
+          "absolutePath": "/api/v1/entities/:type",
+          "auth": "optional",
+          "summary": "List/query entities of a type"
+        },
+        {
+          "method": "GET",
+          "path": "/:type/:idOrSlug",
+          "absolutePath": "/api/v1/entities/:type/:idOrSlug",
+          "auth": "optional",
+          "summary": "Get one entity by id or slug"
+        },
+        {
+          "method": "POST",
+          "path": "/:type",
+          "absolutePath": "/api/v1/entities/:type",
+          "auth": "staff",
+          "summary": "Create an entity"
+        },
+        {
+          "method": "PUT",
+          "path": "/:type/:id",
+          "absolutePath": "/api/v1/entities/:type/:id",
+          "auth": "staff",
+          "summary": "Update an entity"
+        },
+        {
+          "method": "DELETE",
+          "path": "/:type/:id",
+          "absolutePath": "/api/v1/entities/:type/:id",
+          "auth": "staff",
+          "summary": "Delete an entity"
+        },
+        {
+          "method": "POST",
+          "path": "/:type/:id/copy",
+          "absolutePath": "/api/v1/entities/:type/:id/copy",
+          "auth": "staff",
+          "summary": "Duplicate an entity (deep copy incl. related content blocks)"
         }
       ]
     },

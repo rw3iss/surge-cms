@@ -10,6 +10,7 @@ import { useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { cms, } from '../../../services/cmsClient';
+import { useToast, } from '../../common/toast';
 import Pagination from '../common/Pagination';
 import SortTh from '../common/SortTh';
 import EntityFilterBar from './EntityFilterBar';
@@ -38,6 +39,8 @@ function cell(value: unknown,): string {
 
 const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
     const navigate = useNavigate();
+    const toast = useToast();
+    const [copyingId, setCopyingId,] = createSignal<string | null>(null,);
     const [search, setSearch,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('',);
     const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>('desc',);
@@ -130,11 +133,25 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         searchTimer = setTimeout(() => setSearch(value,), 300,);
     };
 
-    const editRecord = (rec: EntityRecord,) => {
-        if (props.type.adminEditRoute) {
-            navigate(props.type.adminEditRoute.replace(':id', rec.id,),);
-        } else {
-            navigate(`/admin/entities/${props.type.key}/${rec.id}/edit`,);
+    const editRoute = (id: string,) =>
+        props.type.adminEditRoute
+            ? props.type.adminEditRoute.replace(':id', id,)
+            : `/admin/entities/${props.type.key}/${id}/edit`;
+
+    const editRecord = (rec: EntityRecord,) => navigate(editRoute(rec.id,),);
+
+    /** Deep-copy a record, then navigate into the clone's editor. The button
+     *  shows a spinner while the backend clones the base row + related blocks
+     *  and mints a fresh id + unique slug. */
+    const copyRecord = async (rec: EntityRecord,) => {
+        if (copyingId()) return;
+        setCopyingId(rec.id,);
+        try {
+            const created = await cms.entities.copy(props.type.key, rec.id,);
+            navigate(editRoute(created.id,),); // leaving the page unmounts the spinner
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Failed to copy record',);
+            setCopyingId(null,);
         }
     };
 
@@ -163,7 +180,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
             {/* Field / op / value clause — narrow records by any built-in or
                 schema field, e.g. `status = active`. Mirrors the entity query modal. */}
             <Show when={filterFields().length > 0}>
-                <div class="entity-search-modal__query">
+                <div class="entity-data-filter">
                     <select
                         value={filterField()}
                         onChange={(e,) => setFilterField(e.currentTarget.value,)}
@@ -223,12 +240,24 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                                                 <code class="schema-field__key">{String(rec.id,).slice(0, 8,)}</code>
                                             </td>
                                             <td>
-                                                <button
-                                                    class="btn btn--small btn--secondary"
-                                                    onClick={() => editRecord(rec,)}
-                                                >
-                                                    Edit
-                                                </button>
+                                                <div class="entity-row-actions">
+                                                    <button
+                                                        class="btn btn--small btn--secondary"
+                                                        onClick={() => editRecord(rec,)}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        class="btn btn--small btn--secondary"
+                                                        disabled={copyingId() === rec.id}
+                                                        onClick={() => copyRecord(rec,)}
+                                                    >
+                                                        <Show when={copyingId() === rec.id} fallback={'Copy'}>
+                                                            <span class="entity-copy-spinner" aria-hidden="true" />
+                                                            Copying…
+                                                        </Show>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     )}

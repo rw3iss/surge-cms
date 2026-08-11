@@ -50,7 +50,11 @@ function coreFieldsFromDoc(doc: EntityDoc,): EntityFieldDef[] {
             type: f.note === 'HTML body' ? 'richtext' : mapDocType(f.type,),
             core: true,
             required: false,
-            unique: f.name === 'slug',
+            // slug / email back real UNIQUE columns (pages/posts/campaigns/forms
+            // slug; users email) — flag them so the schema UI shows it and the
+            // record-copy engine suffixes them. Copy also derives uniqueness from
+            // the live DB constraints, so this is belt-and-suspenders.
+            unique: f.name === 'slug' || f.name === 'email',
             indexed: false,
             searchable: ['title', 'name',].includes(f.name,),
             filterable: false,

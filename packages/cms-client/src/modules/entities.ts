@@ -44,6 +44,12 @@ export class EntitiesModule extends ModuleBase {
         return this.mutate<{ deleted: boolean; }>('DELETE', '/entities/:type/:id', { params: { type, id, }, invalidates: ['entities',], },);
     }
 
+    /** Deep-duplicate a record (base row + related content blocks); returns the
+     *  clone, with unique columns (slug/email/…) suffixed so they don't collide. */
+    copy(type: string, id: string,): Promise<EntityRecord> {
+        return this.mutate<EntityRecord>('POST', '/entities/:type/:id/copy', { params: { type, id, }, invalidates: ['entities',], },);
+    }
+
     async count(type: string, query?: EntityQuery,): Promise<number> {
         const res = await this.list(type, { ...query, limit: 1, },);
         return res.meta.total ?? 0;

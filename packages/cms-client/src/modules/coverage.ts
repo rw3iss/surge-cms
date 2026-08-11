@@ -344,6 +344,31 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/plugins/:name/uninstall',
     'POST /api/v1/plugins/:name/action/:action',
 
+    // ── entities: types (schema registry) ──
+    'GET /api/v1/entities/types',
+    'GET /api/v1/entities/types/:key',
+    'POST /api/v1/entities/types',
+    'PUT /api/v1/entities/types/:key',
+    'DELETE /api/v1/entities/types/:key',
+
+    // ── entities: content-block templates ──
+    'GET /api/v1/entities/:type/templates',
+    'GET /api/v1/entities/:type/templates/:id',
+    'POST /api/v1/entities/:type/templates',
+    'PUT /api/v1/entities/:type/templates/:id',
+    'DELETE /api/v1/entities/:type/templates/:id',
+    'GET /api/v1/entities/:type/templates/:id/blocks',
+    'PUT /api/v1/entities/:type/templates/:id/blocks',
+
+    // ── entities: generic instance CRUD ──
+    'GET /api/v1/entities/:type/fields/:field/values',
+    'GET /api/v1/entities/:type',
+    'GET /api/v1/entities/:type/:idOrSlug',
+    'POST /api/v1/entities/:type',
+    'PUT /api/v1/entities/:type/:id',
+    'DELETE /api/v1/entities/:type/:id',
+    'POST /api/v1/entities/:type/:id/copy',
+
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',
     'GET /sitemap.xml',

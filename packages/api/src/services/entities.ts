@@ -9,6 +9,8 @@ import * as repo from '../repositories/genericEntity.repo';
 import * as entityManager from '../entities/entityManager';
 import { getEntityDataProvider, } from '../entities/dataProviders';
 import { validateRecord, } from '../entities/columnMap';
+import { copyRecord, } from '../entities/recordCopy';
+import { transaction, } from '../db/client';
 import { cache, CACHE_KEYS, } from './cache';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 
@@ -110,6 +112,28 @@ export async function update(
     if (!rec) throw new NotFoundError(`${t.label} "${id}"`,);
     await cache.invalidateEntityCache(typeKey,);
     return rec;
+}
+
+/**
+ * Deep-duplicate a record: clones the base row (unique columns re-suffixed so
+ * they can't collide) plus any registered related rows (a page/post's content
+ * blocks), all in one transaction. Returns the freshly-minted clone (admin view)
+ * so the caller can redirect the operator straight into editing it.
+ */
+export async function copy(typeKey: string, id: string, _ctx: { userId?: string; } = {},): Promise<EntityRecord> {
+    const t = await requireType(typeKey,);
+    const newId = await transaction((client,) => copyRecord(client, t, id,));
+    await cache.invalidateEntityCache(typeKey,);
+    // Core types keep their own caches alongside the generic entity cache.
+    const coreInvalidators: Record<string, () => Promise<void>> = {
+        page: () => cache.invalidatePageCache(),
+        post: () => cache.invalidatePostCache(),
+        campaign: () => cache.invalidateCampaignCache(),
+        form: () => cache.invalidateFormCache(),
+        user: () => cache.invalidateUserCache(),
+    };
+    await coreInvalidators[typeKey]?.();
+    return get(typeKey, newId, { admin: true, },);
 }
 
 export async function remove(typeKey: string, id: string,): Promise<void> {

@@ -489,3 +489,38 @@
         font-size: $font-size-xs;
     }
 }
+
+// ── Data tab: field/op/value filter clause (parity with the query modal) ──
+.entity-data-filter {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: $spacing-sm $spacing-md;
+    align-items: center;
+    margin-bottom: $spacing-md;
+
+    input, select { @include admin-input; }
+    select { @include admin-select-arrow; }
+}
+
+// ── Data tab: per-row action buttons (Edit / Copy) + copy spinner ──
+.entity-row-actions {
+    display: inline-flex;
+    gap: $spacing-xs;
+    align-items: center;
+}
+
+.entity-copy-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -1px;
+    animation: entity-copy-spin 0.6s linear infinite;
+}
+
+@keyframes entity-copy-spin {
+    to { transform: rotate(360deg); }
+}
