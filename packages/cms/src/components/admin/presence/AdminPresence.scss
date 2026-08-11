@@ -1,14 +1,21 @@
 // Admin Channel presence widget (sidebar) + same-page conflict banner.
 // Tokens (`$spacing-*`, `variables`) are auto-injected via the Vite SCSS config.
 
+// The widget lives in the (dark) sidebar, so it derives its colors from the
+// sidebar tokens: text = `--admin-sidebar-text`, and every surface/divider is a
+// low-alpha mix of that text over the sidebar background. This makes it match
+// the surrounding nav in BOTH dark and light admin themes. Square corners
+// (no radius) so it reads as part of the sidebar chrome, not a floating card.
+$presence-text: var(--admin-sidebar-text, white);
+
 .admin-presence {
     display: flex;
     flex-direction: column;
     margin-bottom: $spacing-sm;
-    border: 1px solid var(--admin-border, #{$border-color});
-    border-radius: $border-radius-md;
+    border-top: 1px solid color-mix(in srgb, #{$presence-text} 15%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, #{$presence-text} 15%, transparent);
     overflow: hidden;
-    background: var(--admin-bg-subtle, rgba(0, 0, 0, 0.03));
+    color: $presence-text;
 
     // ── Collapsed header (clickable count) ──
     &__header {
@@ -19,7 +26,7 @@
         padding: $spacing-xs $spacing-sm;
         border: none;
         background: transparent;
-        color: var(--admin-text, #{$text-color});
+        color: $presence-text;
         font: inherit;
         font-size: $font-size-xs;
         cursor: pointer;
@@ -27,7 +34,7 @@
         transition: background 0.12s ease;
 
         &:hover {
-            background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
+            background: color-mix(in srgb, #{$presence-text} 12%, transparent);
         }
     }
 
@@ -45,24 +52,23 @@
         justify-content: center;
         width: 18px;
         height: 18px;
-        border-radius: 50%;
         font-size: 15px;
         line-height: 1;
-        color: var(--admin-text-muted, #{$text-light});
+        color: color-mix(in srgb, #{$presence-text} 65%, transparent);
 
-        &:hover { background: rgba(0, 0, 0, 0.12); color: var(--admin-text, #{$text-color}); }
+        &:hover { background: color-mix(in srgb, #{$presence-text} 18%, transparent); color: #{$presence-text}; }
     }
 
-    // ── Status dot ──
+    // ── Status dot (kept circular — it's a status indicator) ──
     &__dot {
         flex: 0 0 auto;
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: $text-light;
+        background: color-mix(in srgb, #{$presence-text} 45%, transparent);
 
         &--active { background: #22c55e; box-shadow: 0 0 0 2px color-mix(in srgb, #22c55e 30%, transparent); }
-        &--idle { background: #9ca3af; }
+        &--idle { background: color-mix(in srgb, #{$presence-text} 40%, transparent); }
     }
 
     // ── Expanded list (renders ABOVE the header → grows upward) ──
@@ -71,13 +77,14 @@
         flex-direction: column;
         max-height: 240px;
         overflow-y: auto;
-        border-bottom: 1px solid var(--admin-border, #{$border-color});
+        background: color-mix(in srgb, #{$presence-text} 6%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, #{$presence-text} 15%, transparent);
     }
 
     &__empty {
         padding: $spacing-sm;
         font-size: $font-size-xs;
-        color: var(--admin-text-muted, #{$text-light});
+        color: color-mix(in srgb, #{$presence-text} 60%, transparent);
     }
 
     &__item {
@@ -86,7 +93,7 @@
         gap: 1px;
         padding: $spacing-xs $spacing-sm;
 
-        & + & { border-top: 1px solid color-mix(in srgb, var(--admin-border, #{$border-color}) 60%, transparent); }
+        & + & { border-top: 1px solid color-mix(in srgb, #{$presence-text} 10%, transparent); }
     }
 
     &__item-row {
@@ -98,36 +105,35 @@
 
     &__name {
         font-weight: 600;
-        color: var(--admin-text, #{$text-color});
+        color: $presence-text;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    &__you { color: var(--admin-text-muted, #{$text-light}); font-weight: 400; }
+    &__you { color: color-mix(in srgb, #{$presence-text} 60%, transparent); font-weight: 400; }
 
     &__role {
         padding: 0 5px;
-        border-radius: $border-radius-sm;
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
-        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 16%, transparent);
-        color: var(--site-primary, #{$primary-color});
+        background: color-mix(in srgb, #{$presence-text} 16%, transparent);
+        color: $presence-text;
     }
 
     &__ago {
         margin-left: auto;
         font-size: 10px;
-        color: var(--admin-text-muted, #{$text-light});
+        color: color-mix(in srgb, #{$presence-text} 55%, transparent);
         white-space: nowrap;
     }
 
     &__item-page {
         padding-left: 14px;
         font-size: 11px;
-        color: var(--admin-text-muted, #{$text-light});
+        color: color-mix(in srgb, #{$presence-text} 60%, transparent);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

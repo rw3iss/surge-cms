@@ -62,7 +62,7 @@ const AdminPresence: Component = () => {
                                     <span class="admin-presence__ago">{agoShort(u.lastActiveAt, adminChannel.nowTick(),)}</span>
                                 </div>
                                 <div class="admin-presence__item-page" title={u.page ?? ''}>
-                                    {pageLabel(u.page,)}
+                                    {u.pageLabel || pageLabel(u.page,)}
                                 </div>
                             </div>
                         )}

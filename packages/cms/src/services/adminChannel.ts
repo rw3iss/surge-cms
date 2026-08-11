@@ -32,6 +32,88 @@ const [currentPage, setCurrentPage,] = createSignal<string | null>(null,);
 // Ticks every few seconds so relative-time labels ("10s ago") stay fresh.
 const [nowTick, setNowTick,] = createSignal(Date.now(),);
 
+// ─── Page-label resolution ───────────────────────────────────────────────
+// The label shown for a user in the presence list. Primary source is the URL
+// (deterministic + always unique); we opportunistically enrich with the page's
+// document.title, but ONLY when the destination page actually SETS a title after
+// navigation (many editors don't, and their title stays stale) — the
+// `navTitleBaseline` guard prevents mislabeling a page with the previous one's.
+
+const SECTION_LABELS: Record<string, string> = {
+    '': 'Dashboard',
+    pages: 'Pages',
+    posts: 'Posts',
+    campaigns: 'Campaigns',
+    forms: 'Forms',
+    media: 'Media',
+    entities: 'Entities',
+    users: 'Users',
+    messages: 'Messages',
+    social: 'Social',
+    'mailing-lists': 'Mailing Lists',
+    'mail-templates': 'Mail Templates',
+    mail: 'Mail',
+    shop: 'Shop',
+    plugins: 'Plugins',
+    settings: 'Settings',
+    help: 'Help',
+};
+
+let navTitleBaseline = '';
+let sentLabel = '';
+let titleObserver: MutationObserver | null = null;
+let labelRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function adminSegments(path: string,): string[] {
+    return path.replace(/^\/admin\/?/, '',).split('/',).filter(Boolean,);
+}
+
+function sectionLabel(path: string,): string {
+    const seg = adminSegments(path,)[0] ?? '';
+    return SECTION_LABELS[seg] ?? (seg ? seg.charAt(0,).toUpperCase() + seg.slice(1,).replace(/-/g, ' ',) : 'Dashboard');
+}
+
+/** Does this segment look like an opaque id (uuid / number / long token)? */
+function idLike(seg: string,): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f-]{4,}$/i.test(seg,) || /^\d+$/.test(seg,) || seg.length >= 20;
+}
+
+/** Abbreviate an id-like segment to 8 chars; leave slugs/words intact. */
+function abbrevSeg(seg: string,): string {
+    return idLike(seg,) ? seg.replace(/-/g, '',).slice(0, 8,) : seg;
+}
+
+/** Deterministic path-based label — "Forms", "Forms: a1b2c3d4", "Shop: products/12". */
+function pathLabel(path: string,): string {
+    const segs = adminSegments(path,);
+    const section = sectionLabel(path,);
+    const rest = segs.slice(1,);
+    if (rest.length === 0) return section;
+    return `${section}: ${rest.map(abbrevSeg,).join('/',)}`;
+}
+
+/** The page-specific part of a document.title (before the " - Admin …" suffix),
+ *  or null if it's generic ("New X" / "Edit X") or empty. */
+function specificFromTitle(title: string,): string | null {
+    if (!title) return null;
+    const first = title.split(/\s+[–—-]\s+/,)[0]?.trim();
+    if (!first) return null;
+    if (/^(new|edit)\b/i.test(first,)) return null;
+    return first;
+}
+
+/** Best label for a page: an actively-set specific title, else the path label. */
+function labelFor(path: string,): string {
+    const title = typeof document !== 'undefined' ? document.title : '';
+    const fresh = title && title !== navTitleBaseline;
+    const specific = fresh ? specificFromTitle(title,) : null;
+    if (specific) {
+        const section = sectionLabel(path,);
+        return specific.toLowerCase().startsWith(section.toLowerCase(),) ? specific : `${section}: ${specific}`;
+    }
+    return pathLabel(path,);
+}
+
 let socket: WebSocket | null = null;
 let started = false;
 let intentionalClose = false;
@@ -99,7 +181,10 @@ function openSocket(): void {
         reconnectDelay = 1000;
         setConnected(true,);
         locallyActive = true;
-        send({ type: 'hello', page: currentPage(), },);
+        const label = labelFor(currentPage() ?? '',);
+        sentLabel = label;
+        navTitleBaseline = typeof document !== 'undefined' ? document.title : '';
+        send({ type: 'hello', page: currentPage(), label, },);
         send({ type: 'list', },);
         armIdleTimer();
     };
@@ -211,6 +296,20 @@ function connect(initialPage?: string,): void {
     intentionalClose = false;
     if (initialPage !== undefined) setCurrentPage(initialPage,);
     attachListeners();
+    // Re-resolve the label whenever the page updates its <title> (e.g. a name
+    // lands after an async fetch), so other users see the specific title.
+    if (typeof document !== 'undefined' && document.head && !titleObserver) {
+        let lastTitle = document.title;
+        titleObserver = new MutationObserver(() => {
+            if (document.title !== lastTitle) {
+                lastTitle = document.title;
+                pushPageLabel();
+            }
+        },);
+        // Watch the whole <head> subtree — @solidjs/meta swaps the <title> node
+        // rather than mutating its text, so observing the element alone misses it.
+        titleObserver.observe(document.head, { childList: true, characterData: true, subtree: true, },);
+    }
     openSocket();
     tickTimer = setInterval(() => setNowTick(Date.now(),), 5000,);
 }
@@ -224,6 +323,8 @@ function disconnect(): void {
     if (idleTimer) { clearTimeout(idleTimer,); idleTimer = null; }
     if (hiddenTimer) { clearTimeout(hiddenTimer,); hiddenTimer = null; }
     if (tickTimer) { clearInterval(tickTimer,); tickTimer = null; }
+    if (labelRefreshTimer) { clearTimeout(labelRefreshTimer,); labelRefreshTimer = null; }
+    if (titleObserver) { titleObserver.disconnect(); titleObserver = null; }
     try { socket?.close(); } catch { /* ignore */ }
     socket = null;
     setConnected(false,);
@@ -231,9 +332,28 @@ function disconnect(): void {
     setPresence([],);
 }
 
+/** Re-resolve MY label for the current page and push it if it changed. Called
+ *  after navigation + whenever the page sets/updates its <title>. */
+function pushPageLabel(): void {
+    const page = currentPage();
+    const label = labelFor(page ?? '',);
+    if (label === sentLabel) return;
+    sentLabel = label;
+    send({ type: 'navigate', page, label, },);
+}
+
 /** Report a navigation to a new admin page (also counts as activity). */
 function notifyNavigate(page: string,): void {
+    // Snapshot the outgoing title BEFORE the destination renders, so a page that
+    // never sets its own title can't be mislabeled with the previous page's.
+    navTitleBaseline = typeof document !== 'undefined' ? document.title : '';
     setCurrentPage(page,);
     registerActivity();
-    send({ type: 'navigate', page, },);
+    sentLabel = '';
+    // Immediate path-based label, then a short retry to pick up a title the
+    // destination sets on mount (async data → name may land later still, which
+    // the title observer catches).
+    pushPageLabel();
+    if (labelRefreshTimer) clearTimeout(labelRefreshTimer,);
+    labelRefreshTimer = setTimeout(pushPageLabel, 500,);
 }

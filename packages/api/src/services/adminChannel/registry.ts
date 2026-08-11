@@ -19,6 +19,8 @@ export interface AdminConnection {
     role: UserRole;
     /** Current admin path, or null before the first `hello`. */
     page: string | null;
+    /** Human label for `page`, resolved client-side (or null). */
+    pageLabel: string | null;
     /** Epoch ms of last activity (navigation / focus / input). */
     lastActiveAt: number;
     /** Last active/inactive signal the client reported (tab focus/idle). */
@@ -36,11 +38,12 @@ export function removeConnection(connectionId: string,): void {
     connections.delete(connectionId,);
 }
 
-/** Update a connection's page + mark it active (a navigation IS activity). */
-export function touch(connectionId: string, patch: { page?: string | null; } = {},): void {
+/** Update a connection's page/label + mark it active (a navigation IS activity). */
+export function touch(connectionId: string, patch: { page?: string | null; label?: string | null; } = {},): void {
     const c = connections.get(connectionId,);
     if (!c) return;
     if (patch.page !== undefined) c.page = patch.page;
+    if (patch.label !== undefined) c.pageLabel = patch.label;
     c.reportedActive = true;
     c.lastActiveAt = Date.now();
 }
@@ -81,6 +84,7 @@ export async function roster(): Promise<AdminPresenceUser[]> {
                 email: c.email,
                 role: c.role,
                 page: c.page,
+                pageLabel: c.pageLabel,
                 lastActiveAt: new Date(c.lastActiveAt,).toISOString(),
                 active,
                 _lastMs: c.lastActiveAt,
@@ -88,6 +92,7 @@ export async function roster(): Promise<AdminPresenceUser[]> {
         } else {
             if (c.lastActiveAt > existing._lastMs) {
                 existing.page = c.page;
+                existing.pageLabel = c.pageLabel;
                 existing._lastMs = c.lastActiveAt;
                 existing.lastActiveAt = new Date(c.lastActiveAt,).toISOString();
             }
@@ -103,5 +108,5 @@ export async function roster(): Promise<AdminPresenceUser[]> {
 /** A cheap signature of the roster, so the sweep only broadcasts on change. */
 export async function rosterSignature(): Promise<string> {
     const users = await roster();
-    return users.map((u,) => `${u.userId}:${u.active ? 1 : 0}:${u.page ?? ''}`).join('|',);
+    return users.map((u,) => `${u.userId}:${u.active ? 1 : 0}:${u.page ?? ''}:${u.pageLabel ?? ''}`).join('|',);
 }

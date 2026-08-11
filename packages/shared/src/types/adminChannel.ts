@@ -17,6 +17,9 @@ export interface AdminPresenceUser {
     role: UserRole;
     /** The admin path they're currently viewing (e.g. `/admin/pages/123`). */
     page: string | null;
+    /** A human label for `page` (e.g. "Forms: a1b2c3d4", "Shop: My Product"),
+     *  resolved client-side. Falls back to a path-derived label if absent. */
+    pageLabel?: string | null;
     /** ISO timestamp of their last activity (navigation / focus / input). */
     lastActiveAt: string;
     /** Derived by the server: reported-active AND within the idle timeout. */
@@ -27,8 +30,8 @@ export interface AdminPresenceUser {
 
 /** Messages the CLIENT sends to the channel. */
 export type AdminChannelClientMessage =
-    | { type: 'hello'; page: string | null; }
-    | { type: 'navigate'; page: string | null; }
+    | { type: 'hello'; page: string | null; label?: string | null; }
+    | { type: 'navigate'; page: string | null; label?: string | null; }
     | { type: 'active'; }
     | { type: 'inactive'; }
     | { type: 'list'; }

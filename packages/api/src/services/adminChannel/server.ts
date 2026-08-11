@@ -89,7 +89,7 @@ async function broadcastPresence(): Promise<void> {
     for (const ws of registry.allSockets()) {
         if (ws.readyState === WebSocket.OPEN) ws.send(payload,);
     }
-    lastSignature = users.map((u,) => `${u.userId}:${u.active ? 1 : 0}:${u.page ?? ''}`).join('|',);
+    lastSignature = users.map((u,) => `${u.userId}:${u.active ? 1 : 0}:${u.page ?? ''}:${u.pageLabel ?? ''}`).join('|',);
 }
 
 /** Heartbeat (drop dead sockets) + re-broadcast when active/idle state drifts. */
@@ -121,6 +121,7 @@ async function onConnection(ws: LiveSocket, user: AuthedUser,): Promise<void> {
         email: user.email,
         role: user.role,
         page: null,
+        pageLabel: null,
         lastActiveAt: Date.now(),
         reportedActive: true,
         socket: ws,
@@ -148,7 +149,7 @@ async function onConnection(ws: LiveSocket, user: AuthedUser,): Promise<void> {
             switch (msg.type) {
                 case 'hello':
                 case 'navigate':
-                    registry.touch(connectionId, { page: msg.page ?? null, },);
+                    registry.touch(connectionId, { page: msg.page ?? null, label: msg.label ?? null, },);
                     await broadcastPresence();
                     break;
                 case 'active':
