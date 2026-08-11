@@ -29,6 +29,7 @@ export interface UpdateSettingsInput {
     contactEmail?: string;
     analytics?: { googleAnalyticsId?: string; facebookPixelId?: string; };
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
+    adminChannel?: { activeTimeoutSeconds?: number; };
     features?: Record<string, boolean>;
     enableDependencies?: boolean;
     disableDependents?: boolean;
@@ -69,6 +70,7 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
         contact_email: data.contactEmail,
         analytics: data.analytics,
         theme: data.theme,
+        admin_channel: data.adminChannel,
     };
 
     for (const [key, value,] of Object.entries(settingsMap,)) {
@@ -176,6 +178,12 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
     try {
         const { syncAnalyticsCsp, } = await import('../analyticsCsp.js');
         await syncAnalyticsCsp();
+    } catch { /* non-fatal */ }
+
+    // Pick up a changed admin-channel idle timeout immediately.
+    try {
+        const { invalidateAdminChannelConfig, } = await import('../adminChannel/config.js');
+        invalidateAdminChannelConfig();
     } catch { /* non-fatal */ }
 
     await logAudit({

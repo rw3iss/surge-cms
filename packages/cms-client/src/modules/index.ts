@@ -30,6 +30,7 @@ import { PluginsModule, } from './plugins';
 import { FeedModule, } from './feed';
 import { SitemapModule, } from './sitemap';
 import { ContentBlockTemplatesModule, EntitiesModule, EntityTypesModule, } from './entities';
+import { AdminChannelModule, } from './adminChannel';
 
 export interface CmsModules {
     posts: PostsModule;
@@ -64,6 +65,7 @@ export interface CmsModules {
     entities: EntitiesModule;
     entityTypes: EntityTypesModule;
     contentBlockTemplates: ContentBlockTemplatesModule;
+    adminChannel: AdminChannelModule;
 }
 
 export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModules {
@@ -106,6 +108,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.entities = new EntitiesModule(core,);
     c.entityTypes = new EntityTypesModule(core,);
     c.contentBlockTemplates = new ContentBlockTemplatesModule(core,);
+    c.adminChannel = new AdminChannelModule(core,);
     return c as CmsClientCore & CmsModules;
 }
 
@@ -119,4 +122,5 @@ export {
     MailingListsModule, MailTemplatesModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,
+    AdminChannelModule,
 };

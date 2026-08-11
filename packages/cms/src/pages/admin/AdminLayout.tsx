@@ -1,8 +1,11 @@
 import { A, useLocation, useNavigate, } from '@solidjs/router';
 import { isAdminRole, isStaffRole, type AppearanceSettings, } from '@sitesurge/types';
-import { createEffect, createMemo, createResource, createSignal, For, ParentComponent, Show, } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, ParentComponent, Show, } from 'solid-js';
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
+import AdminPresence from '../../components/admin/presence/AdminPresence';
+import SamePageWarning from '../../components/admin/presence/SamePageWarning';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';
+import { adminChannel, } from '../../services/adminChannel';
 import SiteLogo from '../../components/common/branding/SiteLogo';
 import { cms, } from '../../services/cmsClient';
 import { swatchCssVars, } from '../../services/colorResolver';
@@ -112,6 +115,20 @@ const AdminLayout: ParentComponent = (props,) => {
         location.pathname;
         setSidebarOpen(false,);
     },);
+
+    // ── Admin Channel presence ──
+    // Connect once auth resolves to a staff user; disconnect on shell unmount.
+    createEffect(() => {
+        if (!auth.isLoading && isStaffRole(auth.user?.role,)) {
+            adminChannel.connect(location.pathname,);
+        }
+    },);
+    // Fan every admin navigation to the channel (also counts as activity).
+    createEffect(() => {
+        const path = location.pathname;
+        if (path.startsWith('/admin',)) adminChannel.notifyNavigate(path,);
+    },);
+    onCleanup(() => adminChannel.disconnect(),);
 
     // Site appearance settings flow into the admin shell as `--site-*`
     // CSS custom properties so admin chrome (Save buttons, focus rings,
@@ -259,6 +276,7 @@ const AdminLayout: ParentComponent = (props,) => {
                         </For>
                     </nav>
                     <div class="admin-layout__sidebar-footer">
+                        <AdminPresence />
                         <div class="admin-layout__user">
                             <Show
                                 when={!collapsed()}
@@ -307,6 +325,7 @@ const AdminLayout: ParentComponent = (props,) => {
                 </main>
                 <GlobalSearch />
                 <SessionExpiredModal />
+                <SamePageWarning />
             </div>
         </Show>
     );

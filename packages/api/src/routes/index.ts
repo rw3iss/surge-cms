@@ -1,5 +1,6 @@
 import { Router, } from 'express';
 import { buildRouter, registerModule, } from '../api/registry';
+import { adminChannelRoutes, } from './adminChannel';
 import { apiKeysRoutes, } from './apiKeys';
 import { auditRoutes, } from './audit';
 import { authRoutes, } from './auth';
@@ -31,6 +32,7 @@ import { utilsRoutes, } from './utils';
 
 const router = Router();
 
+router.use('/admin-channel', registerModule('admin-channel', adminChannelRoutes, { mountPath: '/api/v1/admin-channel', },),);
 router.use('/auth', registerModule('auth', authRoutes, { mountPath: '/api/v1/auth', },),);
 router.use('/block-styles', registerModule('block-styles', blockStylesRoutes, { mountPath: '/api/v1/block-styles', },),);
 router.use('/pages', registerModule('pages', pagesRoutes, { mountPath: '/api/v1/pages', },),);

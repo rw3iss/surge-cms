@@ -127,6 +127,8 @@ export interface SettingsUpdateBody {
     contactEmail?: string;
     analytics?: { googleAnalyticsId?: string; facebookPixelId?: string; };
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
+    /** Admin Channel presence: idle timeout (seconds) before a user shows idle. */
+    adminChannel?: { activeTimeoutSeconds?: number; };
     /** Feature toggles. Keys must exist in the registry; unknown keys 400. */
     features?: Record<string, boolean>;
     /** On enable: also enable any not-yet-enabled prerequisites. */

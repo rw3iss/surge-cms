@@ -180,6 +180,17 @@ export async function startServer(): Promise<Server> {
         }
     },);
 
+    // Admin Channel WebSocket (staff presence) — only once the instance is
+    // running (the upgrade handshake needs the DB for auth). Non-fatal.
+    if (mode === 'running') {
+        try {
+            const { attachAdminChannel, } = await import('./services/adminChannel/server.js');
+            attachAdminChannel(server,);
+        } catch (err) {
+            logger.warn('Admin Channel attach skipped', { error: (err as Error).message, },);
+        }
+    }
+
     const openSockets = new Set<import('net').Socket>();
     server.on('connection', (socket,) => {
         openSockets.add(socket,);

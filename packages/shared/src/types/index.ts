@@ -1,3 +1,4 @@
+export * from './adminChannel';
 export * from './blockStyle';
 export * from './campaign';
 export * from './content';

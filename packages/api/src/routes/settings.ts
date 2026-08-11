@@ -26,6 +26,9 @@ const settingsSchema = z.object({
         secondaryColor: z.string().optional(),
         accentColor: z.string().optional(),
     },).optional(),
+    adminChannel: z.object({
+        activeTimeoutSeconds: z.coerce.number().int().min(5,).max(3600,).optional(),
+    },).optional(),
     /**
      * Feature toggles. The admin Features panel sends this object; each
      * key writes a `<feature>_enabled` row in `site_settings`.

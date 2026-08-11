@@ -369,6 +369,9 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/entities/:type/:id',
     'POST /api/v1/entities/:type/:id/copy',
 
+    // ── admin-channel (staff presence; live updates over WS) ──
+    'GET /api/v1/admin-channel/presence',
+
     // ── feed / sitemap (raw, root-mounted) ──
     'GET /feed.xml',
     'GET /sitemap.xml',

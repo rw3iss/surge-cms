@@ -1,8 +1,21 @@
 {
-  "generatedAt": "2026-08-11T17:06:47.960Z",
-  "totalModules": 32,
-  "totalRoutes": 303,
+  "generatedAt": "2026-08-11T17:34:25.825Z",
+  "totalModules": 33,
+  "totalRoutes": 304,
   "modules": [
+    {
+      "module": "admin-channel",
+      "mountPath": "/api/v1/admin-channel",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/presence",
+          "absolutePath": "/api/v1/admin-channel/presence",
+          "auth": "staff",
+          "summary": "Current admin-channel presence (connected admin/editor users)"
+        }
+      ]
+    },
     {
       "module": "api-keys",
       "mountPath": "/api/v1/api-keys",

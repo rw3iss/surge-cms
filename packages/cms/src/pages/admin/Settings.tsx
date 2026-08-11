@@ -1423,6 +1423,7 @@ const AdminSettings: Component = () => {
     const [siteDescription, setSiteDescription,] = createSignal('',);
     const [contactEmail, setContactEmail,] = createSignal('',);
     const [analyticsId, setAnalyticsId,] = createSignal('',);
+    const [adminIdleTimeout, setAdminIdleTimeout,] = createSignal(60,);
     const [saving, setSaving,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
 
@@ -1453,6 +1454,10 @@ const AdminSettings: Component = () => {
         const analytics = getValue(s, 'analytics', null,);
         if (analytics && typeof analytics === 'object') {
             setAnalyticsId((analytics as any).googleAnalyticsId || '',);
+        }
+        const adminChannel = getValue(s, 'admin_channel', null,);
+        if (adminChannel && typeof adminChannel === 'object' && (adminChannel as any).activeTimeoutSeconds) {
+            setAdminIdleTimeout(Number((adminChannel as any).activeTimeoutSeconds,) || 60,);
         }
         // Feature flags — the admin GET /settings returns each as
         // `{ value: boolean, ... }`. `getValue` already unwraps that.
@@ -1499,6 +1504,7 @@ const AdminSettings: Component = () => {
         // Always send analytics (even empty) so CLEARING the field removes the
         // tag — sending it only when non-empty made a cleared id un-clearable.
         data.analytics = { googleAnalyticsId: analyticsId().trim(), };
+        data.adminChannel = { activeTimeoutSeconds: Math.min(3600, Math.max(5, Number(adminIdleTimeout()) || 60,),), };
 
         try {
             await cms.settings.update(data as any,);
@@ -1671,6 +1677,18 @@ const AdminSettings: Component = () => {
                                         type="text"
                                         value={analyticsId()}
                                         onInput={(e,) => setAnalyticsId(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Admin presence idle timeout (seconds)"
+                                    hint="How long before a connected admin/editor shows as idle to others (default 60)."
+                                >
+                                    <input
+                                        type="number"
+                                        min="5"
+                                        max="3600"
+                                        value={adminIdleTimeout()}
+                                        onInput={(e,) => setAdminIdleTimeout(Number(e.currentTarget.value,) || 60,)}
                                     />
                                 </FormField>
                             </section>

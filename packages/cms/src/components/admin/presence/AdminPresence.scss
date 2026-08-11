@@ -1,0 +1,178 @@
+// Admin Channel presence widget (sidebar) + same-page conflict banner.
+// Tokens (`$spacing-*`, `variables`) are auto-injected via the Vite SCSS config.
+
+.admin-presence {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: $spacing-sm;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    background: var(--admin-bg-subtle, rgba(0, 0, 0, 0.03));
+
+    // ── Collapsed header (clickable count) ──
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        width: 100%;
+        padding: $spacing-xs $spacing-sm;
+        border: none;
+        background: transparent;
+        color: var(--admin-text, #{$text-color});
+        font: inherit;
+        font-size: $font-size-xs;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.12s ease;
+
+        &:hover {
+            background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
+        }
+    }
+
+    &__status {
+        flex: 1;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        font-size: 15px;
+        line-height: 1;
+        color: var(--admin-text-muted, #{$text-light});
+
+        &:hover { background: rgba(0, 0, 0, 0.12); color: var(--admin-text, #{$text-color}); }
+    }
+
+    // ── Status dot ──
+    &__dot {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: $text-light;
+
+        &--active { background: #22c55e; box-shadow: 0 0 0 2px color-mix(in srgb, #22c55e 30%, transparent); }
+        &--idle { background: #9ca3af; }
+    }
+
+    // ── Expanded list (renders ABOVE the header → grows upward) ──
+    &__list {
+        display: flex;
+        flex-direction: column;
+        max-height: 240px;
+        overflow-y: auto;
+        border-bottom: 1px solid var(--admin-border, #{$border-color});
+    }
+
+    &__empty {
+        padding: $spacing-sm;
+        font-size: $font-size-xs;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__item {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        padding: $spacing-xs $spacing-sm;
+
+        & + & { border-top: 1px solid color-mix(in srgb, var(--admin-border, #{$border-color}) 60%, transparent); }
+    }
+
+    &__item-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: $font-size-xs;
+    }
+
+    &__name {
+        font-weight: 600;
+        color: var(--admin-text, #{$text-color});
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__you { color: var(--admin-text-muted, #{$text-light}); font-weight: 400; }
+
+    &__role {
+        padding: 0 5px;
+        border-radius: $border-radius-sm;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 16%, transparent);
+        color: var(--site-primary, #{$primary-color});
+    }
+
+    &__ago {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+    }
+
+    &__item-page {
+        padding-left: 14px;
+        font-size: 11px;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+// Collapsed sidebar: the count text is hidden; keep the widget compact.
+.admin-layout--collapsed .admin-presence {
+    &__status, &__close { display: none; }
+    &__header { justify-content: center; }
+}
+
+// ── Same-page conflict banner (fixed, bottom-right of the admin) ──
+.admin-samepage-warning {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1200;
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm;
+    max-width: 360px;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid #f59e0b;
+    border-radius: $border-radius-md;
+    background: #fffbeb;
+    color: #92400e;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+    font-size: $font-size-sm;
+    line-height: 1.4;
+
+    &__icon { font-size: 16px; line-height: 1.3; }
+    &__body { flex: 1; }
+
+    &__close {
+        flex: 0 0 auto;
+        margin: -2px -4px 0 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.7;
+
+        &:hover { opacity: 1; }
+    }
+}
