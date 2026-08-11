@@ -1004,3 +1004,11 @@
 }
 
 .shop-checkout__edit { margin-top: 4px; }
+
+// Checkout: caption under the shipping line when it's an un-calculated estimate.
+.shop-checkout__shipping-estimate-note {
+    margin: -2px 0 6px;
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--site-text-muted, #6b7280);
+}

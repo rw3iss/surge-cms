@@ -53,6 +53,9 @@ export interface CheckoutTotals {
     shippingMethodLabel?: string;
     shippingOptions?: ShopShippingOption[];
     shippingQuoteFailed?: boolean;
+    /** True when shipping is a flat-rate ESTIMATE because no address is entered
+     *  yet — the storefront captions "enter address to calculate". */
+    shippingEstimated?: boolean;
     /** Cart variant ids that no longer exist / are inactive (preview only) — the
      *  storefront prunes these lines and notifies the buyer. */
     unavailableVariantIds?: string[];
@@ -300,12 +303,13 @@ function buildShipping(
     settings: ShopSettings,
     quote: PrintifyShippingQuote,
     requestedMethod?: string,
-): { shippingCents: number; method?: string; methodLabel?: string; options: ShopShippingOption[]; quoteFailed: boolean; } {
+): { shippingCents: number; method?: string; methodLabel?: string; options: ShopShippingOption[]; quoteFailed: boolean; estimated: boolean; } {
     const nativeShipping = computeShipping(lines, subtotalCents, settings,);
     const anyPhysical = lines.some((l,) => l.requiresShipping,);
     const hasPrintify = lines.some((l,) => l.externalProvider === 'printify' && l.requiresShipping,);
     const options: ShopShippingOption[] = [];
     let quoteFailed = false;
+    let estimated = false;
 
     if (hasPrintify) {
         if (quote.ok && Object.keys(quote.methods,).length > 0) {
@@ -315,9 +319,11 @@ function buildShipping(
                 options.push({ id, label: METHOD_LABELS[id] ?? id, cents: nativeShipping + c, },);
             }
         } else if (quote.reason === 'no-address') {
-            // No shippable address yet — show a flat-rate estimate; it refines to
+            // No shippable address yet — show a flat-rate ESTIMATE; it refines to
             // real Printify methods once the buyer enters country + postal code.
-            options.push({ id: 'standard', label: 'Standard (estimate)', cents: nativeShipping + fallbackFlatCents(settings,), },);
+            // `estimated` lets the storefront caption "enter address to calculate".
+            estimated = true;
+            options.push({ id: 'standard', label: 'Standard', cents: nativeShipping + fallbackFlatCents(settings,), },);
         } else {
             // no-config / api-error → configured flat-rate fallback, surfaced so a
             // broken product never ships free.
@@ -339,6 +345,7 @@ function buildShipping(
         methodLabel: chosen?.label,
         options,
         quoteFailed,
+        estimated,
     };
 }
 
@@ -373,6 +380,7 @@ async function computeTotals(
             shippingMethodLabel: ship.methodLabel,
             shippingOptions: ship.options,
             shippingQuoteFailed: ship.quoteFailed,
+            shippingEstimated: ship.estimated,
             unavailableVariantIds: unavailable.length ? unavailable : undefined,
         },
     };

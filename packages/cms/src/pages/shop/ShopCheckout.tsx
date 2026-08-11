@@ -486,9 +486,18 @@ const ShopCheckoutInner: Component = () => {
                                             fallback={
                                                 <>
                                                     <div class="shop-checkout__total-row">
-                                                        <span>Shipping{t().shippingMethodLabel ? ` (${t().shippingMethodLabel})` : ''}</span>
+                                                        <span>
+                                                            Shipping{!t().shippingEstimated && t().shippingMethodLabel
+                                                                ? ` (${t().shippingMethodLabel})`
+                                                                : ''}
+                                                        </span>
                                                         <span>{money(t().shippingCents, t().currency,)}</span>
                                                     </div>
+                                                    <Show when={t().shippingEstimated}>
+                                                        <div class="shop-checkout__shipping-estimate-note">
+                                                            Enter your shipping address to calculate shipping
+                                                        </div>
+                                                    </Show>
                                                     <Show when={shipBd()}>
                                                         {(bd,) => (
                                                             <>
