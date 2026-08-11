@@ -161,9 +161,12 @@ async function cloneBaseRow(client: PoolClient, typeDef: EntityTypeDef, sourceId
 
 /**
  * Clone every row of a child table pointing at `oldParentId` so they point at
- * `newParentId`. When the child table self-nests via `parent_block_id`, an
- * old→new id map re-links the cloned subtree; parents are inserted before
- * children (ordered `parent_block_id NULLS FIRST`) so the self-FK is satisfied.
+ * `newParentId`. When the child table self-nests via `parent_block_id`, the
+ * cloned subtree is re-linked through an old→new id map in a SECOND pass:
+ * every clone is first inserted with a NULL `parent_block_id` (so the self-FK
+ * can't be violated by intra-batch insert order — a grandchild is never
+ * inserted before its parent), then each child is UPDATEd to its cloned parent.
+ * This is correct for arbitrary nesting depth (groups within groups).
  */
 async function cloneChildTable(
     client: PoolClient,
@@ -175,40 +178,31 @@ async function cloneChildTable(
     const cols = (await tableColumns(client, table,)).filter((c,) => !c.generated,);
     const names = cols.map((c,) => c.name,);
     const hasParent = names.includes('parent_block_id',);
-    const orderCol = names.includes('order') ? '"order"' : names.includes('sort_order') ? 'sort_order' : 'created_at';
 
     const src = await client.query(
         `SELECT id, ${hasParent ? 'parent_block_id' : 'NULL::uuid AS parent_block_id'}
-         FROM "${table}" WHERE "${fk}" = $1
-         ORDER BY ${hasParent ? 'parent_block_id NULLS FIRST, ' : ''}${orderCol} ASC`,
+         FROM "${table}" WHERE "${fk}" = $1`,
         [oldParentId,],
     );
     if (src.rows.length === 0) return;
 
-    // Pre-mint new ids so a child can reference its (already-inserted) parent.
     const idMap = new Map<string, string>();
     for (const r of src.rows) idMap.set(r.id as string, randomUUID(),);
 
-    // Columns copied verbatim from source (all except id / fk / parent, which we
-    // override, and created_at / updated_at, which default fresh).
+    // Columns copied verbatim (all except id / fk / parent — overridden — and
+    // created_at / updated_at, which default fresh).
     const OVERRIDE = new Set(['id', fk, 'created_at', 'updated_at',],);
     if (hasParent) OVERRIDE.add('parent_block_id',);
     const copyCols = names.filter((c,) => !OVERRIDE.has(c,));
 
+    // Pass 1 — insert every clone with a NULL parent (order-independent).
     for (const r of src.rows) {
-        const oldId = r.id as string;
-        const newId = idMap.get(oldId)!;
-        const newParent = hasParent
-            ? (r.parent_block_id ? idMap.get(r.parent_block_id as string,) ?? null : null)
-            : null;
-
         const insertCols = ['"id"', `"${fk}"`,];
         const selectExprs = ['$2', '$3',];
-        const params: unknown[] = [oldId, newId, newParentId,];
+        const params: unknown[] = [r.id, idMap.get(r.id as string), newParentId,];
         if (hasParent) {
             insertCols.push('"parent_block_id"',);
-            params.push(newParent,);
-            selectExprs.push(`$${params.length}::uuid`,);
+            selectExprs.push('NULL::uuid',);
         }
         for (const c of copyCols) {
             insertCols.push(`"${c}"`,);
@@ -219,6 +213,20 @@ async function cloneChildTable(
              SELECT ${selectExprs.join(', ',)} FROM "${table}" WHERE id = $1`,
             params,
         );
+    }
+
+    // Pass 2 — re-link cloned children to their cloned parents.
+    if (hasParent) {
+        for (const r of src.rows) {
+            const oldParent = r.parent_block_id as string | null;
+            if (!oldParent) continue;
+            const newParent = idMap.get(oldParent,);
+            if (!newParent) continue; // parent outside this record's set (defensive)
+            await client.query(
+                `UPDATE "${table}" SET parent_block_id = $1 WHERE id = $2`,
+                [newParent, idMap.get(r.id as string),],
+            );
+        }
     }
     logger.debug(`recordCopy: cloned ${src.rows.length} row(s) of ${table} → ${newParentId}`,);
 }
