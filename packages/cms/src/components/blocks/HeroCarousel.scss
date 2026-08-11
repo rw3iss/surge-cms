@@ -109,7 +109,12 @@
     // a natural-height card template keeps its content height (centered above),
     // so this never stretches card-style templates (e.g. product cards).
     > .block--has-height {
-      height: 100%;
+      // Fill the slide, overriding the template block's OWN inline height /
+      // max-height (a fixed `clamp(...)` / cap that mismatches the carousel). In
+      // a carousel the SLIDE height governs the card, so `!important` + the higher
+      // specificity here also beats the per-breakpoint responsive `@media` height.
+      height: 100% !important;
+      max-height: none !important;
 
       // Complete the height chain down to the template's OWN root element: block
       // → block__inner → html-block. Without the `.html-block` link a template
