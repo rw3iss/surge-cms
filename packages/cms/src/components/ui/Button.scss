@@ -17,6 +17,11 @@
     justify-content: center;
     gap: $spacing-xs;
     border-radius: $border-radius-md;
+    // Default size = md, so a BARE `.ui-button` (as produced by the `.btn`→
+    // `.ui-button` class sweep, without an explicit `--md`) is padded exactly
+    // like `.btn`. `--sm`/`--lg` override these below.
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-size-sm;
     // Display face + slightly tight tracking, matching `.btn`.
     font-family: var(--admin-font-display);
     font-weight: 600;
