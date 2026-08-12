@@ -1,6 +1,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
+import LoadingState from '../../components/admin/common/LoadingState';
 import { cms, } from '../../services/cmsClient';
 
 /** Shared style for the field labels in the message detail grid (was an
@@ -51,7 +52,7 @@ const AdminMessageView: Component = () => {
                 <A href="/admin/messages" class="btn btn--secondary">&larr; Back to Messages</A>
             </div>
 
-            <Show when={message()} fallback={<div class="empty-state">Loading...</div>}>
+            <Show when={message()} fallback={<LoadingState />}>
                 {(m: any,) => (
                     <div class="admin-form">
                         <div class="form-section">

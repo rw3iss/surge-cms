@@ -11,6 +11,7 @@
  */
 import type { MailingListSubscriber, SubscriberStatus, } from '@sitesurge/types';
 import { query, } from '../db';
+import { buildLimitOffset, } from './base.repo';
 import { generateUnsubscribeToken, } from '../services/mail/unsubscribe';
 
 interface DbRow {
@@ -76,10 +77,10 @@ export async function list(opts: ListSubscribersOpts,): Promise<ListSubscribersR
         `SELECT COUNT(*)::int AS n FROM mailing_list_subscribers WHERE ${where.join(' AND ',)}`,
         values,
     );
-    values.push(limit, offset,);
+    const limitClause = buildLimitOffset(values, limit, offset,);
     const dataRes = await query<DbRow>(
         `SELECT * FROM mailing_list_subscribers WHERE ${where.join(' AND ',)}
-         ORDER BY subscribed_at DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+         ORDER BY subscribed_at DESC ${limitClause}`,
         values,
     );
     return { items: dataRes.rows.map(map,), total: countRes.rows[0].n, };

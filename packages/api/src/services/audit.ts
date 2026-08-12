@@ -1,6 +1,6 @@
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
-import { uuidOrNull, } from '../utils/uuid';
+import { UUID_RE, uuidOrNull, } from '../utils/uuid';
 import type { ListResult, } from './types';
 
 export interface AuditListFilters {
@@ -110,7 +110,6 @@ interface AuditLogEntry {
     userAgent?: string;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function logAudit(entry: AuditLogEntry,): Promise<void> {
     try {

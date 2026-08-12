@@ -8,37 +8,12 @@ import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getPrintifyConfig, type PrintifyConfig, } from './config';
 import { calcShipping, createOrder, getOrder, type PrintifyLineItem, sendToProduction, } from './client';
+import { type AddressLike, toPrintifyAddress, } from '../shop/address';
 
-interface ShopAddressLike {
-    name?: string | null;
-    line1?: string | null;
-    line2?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string | null;
-    country?: string | null;
-    phone?: string | null;
-}
+type ShopAddressLike = AddressLike;
 
 /** Build Printify's address_to from a shop address + order email/name. */
-export function buildAddressTo(addr: ShopAddressLike | null, email: string, fallbackName?: string | null,): Record<string, unknown> {
-    const full = (addr?.name || fallbackName || '').trim();
-    const sp = full.indexOf(' ',);
-    const first = sp > 0 ? full.slice(0, sp,) : (full || 'Customer');
-    const last = sp > 0 ? full.slice(sp + 1,) : '';
-    return {
-        first_name: first,
-        last_name: last || '.',
-        email,
-        phone: addr?.phone || '',
-        country: (addr?.country || 'US').toUpperCase(),
-        region: addr?.state || '',
-        address1: addr?.line1 || '',
-        address2: addr?.line2 || '',
-        city: addr?.city || '',
-        zip: addr?.postalCode || '',
-    };
-}
+export const buildAddressTo = toPrintifyAddress;
 
 export interface PrintifyShipLine extends PrintifyLineItem {}
 

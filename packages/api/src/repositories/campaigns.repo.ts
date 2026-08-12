@@ -3,6 +3,7 @@ import { query, } from '../db';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 import {
+    buildLimitOffset,
     buildSortClause,
     deleteById,
     findByIdOrThrow,
@@ -141,7 +142,7 @@ export async function findCampaignDonations(
     campaignId: string,
     pagination: PaginationOptions,
 ): Promise<PaginatedResult<Record<string, unknown>>> {
-    const params = [campaignId,];
+    const params: unknown[] = [campaignId,];
 
     const countResult = await query(
         `SELECT COUNT(*) FROM donations WHERE campaign_id = $1 AND status = 'completed' AND visibility != 'hidden'`,
@@ -149,7 +150,7 @@ export async function findCampaignDonations(
     );
     const total = parseInt(countResult.rows[0].count, 10,);
 
-    const offset = (pagination.page - 1) * pagination.limit;
+    const limitClause = buildLimitOffset(params, pagination.limit, (pagination.page - 1) * pagination.limit,);
     const result = await query(
         `SELECT d.*,
             CASE WHEN d.visibility = 'anonymous' THEN 'Anonymous' ELSE d.donor_name END as donor_name,
@@ -157,8 +158,8 @@ export async function findCampaignDonations(
      FROM donations d
      WHERE d.campaign_id = $1 AND d.status = 'completed' AND d.visibility != 'hidden'
      ORDER BY d.created_at DESC
-     LIMIT $2 OFFSET $3`,
-        [campaignId, pagination.limit, offset,],
+     ${limitClause}`,
+        params,
     );
 
     const data = result.rows.map((row,) => ({
@@ -212,15 +213,14 @@ export async function findCampaignDonationsAdmin(
 
     const sortCol = ADMIN_DONATION_SORT[opts.sortBy ?? 'date'] ?? 'created_at';
     const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC';
-    const offset = (opts.page - 1) * opts.limit;
-    params.push(opts.limit, offset,);
+    const limitClause = buildLimitOffset(params, opts.limit, (opts.page - 1) * opts.limit,);
 
     const result = await query(
         `SELECT d.id, d.donor_name, d.donor_email, d.amount_cents, d.status,
                 d.message, d.visibility, d.user_id, d.created_at
              FROM donations d ${where}
              ORDER BY ${sortCol} ${sortDir}, d.created_at DESC
-             LIMIT $${params.length - 1} OFFSET $${params.length}`,
+             ${limitClause}`,
         params,
     );
 

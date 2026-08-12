@@ -1,6 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
+import EmptyState from '../../../components/admin/common/EmptyState';
+import LoadingState from '../../../components/admin/common/LoadingState';
 import type { ShopReview, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
@@ -66,10 +68,10 @@ const ShopReviewsInner: Component = () => {
                     <option value="rejected">Rejected</option>
                 </select>
             </div>
-            <Show when={!list.loading()} fallback={<div class="empty-state">Loading...</div>}>
+            <Show when={!list.loading()} fallback={<LoadingState />}>
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No reviews.</div>}
+                    fallback={<EmptyState message="No reviews." />}
                 >
                     <div class="shop-admin__reviews">
                         <For each={list.items()}>

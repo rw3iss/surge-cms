@@ -237,10 +237,10 @@
   position: relative;
   width: 64px;
   height: 64px;
-  border: 2px solid #d8d8d8;
+  border: 2px solid $border-color-strong;
   border-radius: $border-radius-sm;
   overflow: hidden;
-  background: #f6f6f6;
+  background: $background-dark;
   cursor: pointer;
   padding: 0;
   display: flex;
@@ -295,7 +295,7 @@
 .image-block-strip__add {
   width: 64px;
   height: 64px;
-  border: 2px dashed #c8c8c8;
+  border: 2px dashed $border-color-strong;
   border-radius: $border-radius-sm;
   background: transparent;
   color: $text-light;
@@ -323,9 +323,9 @@
 // ─── HTML inline editor ─────────────────────────────────────────────
 
 .html-inline-editor {
-  border: 1px solid #d8d8d8;
+  border: 1px solid $border-color-strong;
   border-radius: $border-radius-sm;
-  background: #fff;
+  background: var(--admin-input-bg, #fff);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -337,8 +337,8 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: #f6f6f6;
-  border-bottom: 1px solid #e5e5e5;
+  background: $background-dark;
+  border-bottom: 1px solid $border-color;
 }
 
 
@@ -353,10 +353,10 @@
   font-family: inherit;
   color: #555;
 
-  &:hover { background: #ececec; }
+  &:hover { background: $bg-muted; }
 
   &--active {
-    background: #fff;
+    background: var(--admin-panel-bg, #fff);
     border-color: $border-color;
     color: #111;
     font-weight: 600;
@@ -371,7 +371,7 @@
   font-size: $font-size-xs;
   padding: 4px 12px;
   border: 1px solid $border-color;
-  background: #fff;
+  background: var(--admin-panel-bg, #fff);
   border-radius: $border-radius-sm;
   cursor: pointer;
   font-family: inherit;
@@ -418,9 +418,9 @@
 // ─── Rich text inline editor ───────────────────────────────────────
 
 .rich-text-inline-editor {
-  border: 1px solid #d8d8d8;
+  border: 1px solid $border-color-strong;
   border-radius: $border-radius-sm;
-  background: #fff;
+  background: var(--admin-input-bg, #fff);
   min-height: 100px;
 
   // Tighter padding than the side-panel version — the block already
@@ -435,8 +435,8 @@
 .html-inline-editor__resizer {
   height: 8px;
   cursor: ns-resize;
-  background: #f0f0f0;
-  border-top: 1px solid #e0e0e0;
+  background: $bg-muted;
+  border-top: 1px solid $border-color;
   position: relative;
 
   &::after {
@@ -483,7 +483,7 @@
     border: 1px solid $border-color;
     border-radius: $border-radius-sm;
     font-size: $font-size-sm;
-    background: #fff;
+    background: var(--admin-input-bg, #fff);
   }
 
   &__dir {

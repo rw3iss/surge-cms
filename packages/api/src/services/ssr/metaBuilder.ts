@@ -3,6 +3,7 @@
  * Produces HTML <head> fragments for Open Graph, Twitter Card,
  * JSON-LD, and AEO tags based on the content type of the current route.
  */
+import { escapeHtml, } from '../../utils/html';
 
 export interface MetaTags {
     title: string;
@@ -34,25 +35,6 @@ export interface MetaTags {
      *  overwrite `#root` once it mounts, so this string only needs to
      *  be SEMANTICALLY correct — visual fidelity is not required. */
     body?: string;
-}
-
-function escapeHtml(str: unknown,): string {
-    if (str === null || str === undefined) return '';
-    // Coerce to ISO string for Date objects; toString() for everything else.
-    let s: string;
-    if (str instanceof Date) {
-        s = str.toISOString();
-    } else if (typeof str === 'string') {
-        s = str;
-    } else {
-        s = String(str,);
-    }
-    return s
-        .replace(/&/g, '&amp;',)
-        .replace(/</g, '&lt;',)
-        .replace(/>/g, '&gt;',)
-        .replace(/"/g, '&quot;',)
-        .replace(/'/g, '&#39;',);
 }
 
 function buildRobots(meta: MetaTags,): string {

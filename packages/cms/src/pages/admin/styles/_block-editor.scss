@@ -604,7 +604,7 @@
     top: 100%;
     right: 0;
     z-index: 20;
-    background: #fff;
+    background: var(--admin-panel-bg, #fff);
     border: 1px solid $border-color;
     border-radius: $border-radius-md;
     box-shadow: $shadow-lg;
@@ -1200,9 +1200,7 @@
 
 
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+// `@keyframes spin` is defined once in global.scss (keyframes are document-global).
 
 .block-text {
   &__preview {

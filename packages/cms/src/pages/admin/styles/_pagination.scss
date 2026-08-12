@@ -17,7 +17,7 @@
     min-width: 36px;
     height: 36px;
     padding: 0 10px;
-    background: #fff;
+    background: var(--admin-panel-bg, #fff);
     border: 1px solid $border-color;
     border-radius: $border-radius-sm;
     color: $text-color;

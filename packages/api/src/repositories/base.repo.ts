@@ -38,6 +38,18 @@ export function buildSortClause(
 }
 
 /**
+ * Append `LIMIT`/`OFFSET` placeholders to an existing param array and return
+ * the SQL fragment referencing them. For bespoke paginated queries that can't
+ * use `paginatedQuery` (custom per-row shaping, computed `ORDER BY`, etc.).
+ * Mutates `params` (pushes `limit` then `offset`). Call it AFTER all `WHERE`
+ * params are pushed so the placeholder numbers line up.
+ */
+export function buildLimitOffset(params: unknown[], limit: number, offset: number,): string {
+    params.push(limit, offset,);
+    return `LIMIT $${params.length - 1} OFFSET $${params.length}`;
+}
+
+/**
  * Executes a paginated query with count.
  */
 export async function paginatedQuery<T,>(

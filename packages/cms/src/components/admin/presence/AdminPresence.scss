@@ -157,7 +157,7 @@ $presence-text: var(--admin-sidebar-text, white);
     gap: $spacing-sm;
     max-width: 360px;
     padding: $spacing-sm $spacing-md;
-    border: 1px solid #f59e0b;
+    border: 1px solid $warning-color;
     border-radius: $border-radius-md;
     background: #fffbeb;
     color: #92400e;

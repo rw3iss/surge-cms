@@ -19,6 +19,7 @@ import { logger, } from '../../utils/logger';
 import { getPaymentProvider, } from '../payment';
 import { getPrintifyShippingOptions, type PrintifyShippingQuote, } from '../printify/fulfillment';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
+import { toStripeAddress, } from './address';
 import { generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
 import type { AuditContext, } from '../types';
@@ -262,14 +263,7 @@ async function computeTax(
                 quantity: l.qty,
             }),),
             customer_details: {
-                address: {
-                    line1: shippingAddress.line1 ?? undefined,
-                    line2: shippingAddress.line2 ?? undefined,
-                    city: shippingAddress.city ?? undefined,
-                    state: shippingAddress.state ?? undefined,
-                    postal_code: shippingAddress.postalCode ?? undefined,
-                    country: shippingAddress.country ?? 'US',
-                },
+                address: toStripeAddress(shippingAddress,),
                 address_source: 'shipping',
             },
             shipping_cost: shippingCents > 0 ? { amount: shippingCents, } : undefined,

@@ -20,7 +20,9 @@ import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
 import { getNotificationSettings, notify, } from '../notifications';
 import { logger, } from '../../utils/logger';
-import type { ShopAddress, } from '@sitesurge/types';
+import { formatCurrency, type ShopAddress, } from '@sitesurge/types';
+import { wrapEmailShell, } from '../mail/shell';
+import { formatAddressLines, } from './address';
 import type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
 
 /** Render context shared by every template. */
@@ -32,12 +34,11 @@ export interface OrderEmailContext {
 
 // ─── Formatting utilities ──────────────────────────────────────────
 
-/** Format a cent amount as a localized currency string. */
+/** Format a cent amount as a localized currency string. Delegates to the shared
+ *  `formatCurrency` (the one canonical cents→currency formatter); kept as a named
+ *  export because the email templates reference it. */
 export function formatMoney(cents: number, currency: string,): string {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: (currency || 'usd').toUpperCase(),
-    },).format(cents / 100,);
+    return formatCurrency(cents, (currency || 'usd').toUpperCase(),);
 }
 
 const MUTED = 'color:#6b7280;';
@@ -104,20 +105,7 @@ export function renderTotals(order: OrderDetail,): string {
 export function renderAddress(addr: ShopAddress | null | undefined, label: string,): string {
     if (!addr) return '';
 
-    const cityLine = [
-        addr.city,
-        [addr.state, addr.postalCode,].filter(Boolean,).join(' ',),
-    ].filter(Boolean,).join(', ',);
-
-    const lines = [
-        addr.name,
-        addr.line1,
-        addr.line2,
-        cityLine,
-        addr.country,
-        addr.phone,
-    ].filter((l,) => l && l.trim(),);
-
+    const lines = formatAddressLines(addr,);
     if (lines.length === 0) return '';
 
     const body = lines.map((l,) => `${l}`,).join('<br/>',);
@@ -127,17 +115,12 @@ export function renderAddress(addr: ShopAddress | null | undefined, label: strin
     </div>`;
 }
 
-/** Email shell — inline-styled, table-based, ~600px, email-client-safe. */
+/** Email shell — inline-styled, table-based, ~600px, email-client-safe.
+ *  Chrome (brand header + footer) is shop-specific; the DOCTYPE/centering
+ *  table skeleton is shared via `wrapEmailShell`. */
 export function wrapEmail(opts: { title: string; bodyHtml: string; businessName: string; },): string {
     const brand = opts.businessName || 'Our Shop';
-    return `<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f3f4f6;padding:24px 0;">
-        <tr>
-            <td align="center">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
-                    <tr>
+    const card = `<tr>
                         <td style="padding:20px 24px;border-bottom:1px solid #e5e7eb;">
                             <span style="font-size:18px;font-weight:bold;">${brand}</span>
                         </td>
@@ -152,13 +135,18 @@ export function wrapEmail(opts: { title: string; bodyHtml: string; businessName:
                         <td style="padding:16px 24px;border-top:1px solid #e5e7eb;${MUTED}font-size:12px;">
                             This is an automated message from ${brand}.
                         </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>`;
+                    </tr>`;
+    return wrapEmailShell({
+        docType: '<!DOCTYPE html>',
+        bodyHtml: card,
+        bg: '#f3f4f6',
+        font: '-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif',
+        color: '#111827',
+        outerPadding: '24px 0',
+        innerBorder: '',
+        innerRadius: '8px',
+        innerStyleExtra: 'overflow:hidden',
+    },);
 }
 
 /** Both addresses side by side (as a flow of blocks). Empty ones drop out. */

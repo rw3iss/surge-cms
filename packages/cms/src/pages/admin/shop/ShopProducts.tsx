@@ -1,6 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import EmptyState from '../../../components/admin/common/EmptyState';
+import LoadingState from '../../../components/admin/common/LoadingState';
 import type { ShopProduct, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
@@ -149,10 +151,10 @@ const ShopProductsInner: Component = () => {
                     <button class="btn btn--small btn--ghost" onClick={clear}>Clear</button>
                 </div>
             </Show>
-            <Show when={!list.loading()} fallback={<div class="empty-state">Loading...</div>}>
+            <Show when={!list.loading()} fallback={<LoadingState />}>
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No products found.</div>}
+                    fallback={<EmptyState message="No products found." />}
                 >
                     <div class="admin-table-container">
                         <table class="admin-table">

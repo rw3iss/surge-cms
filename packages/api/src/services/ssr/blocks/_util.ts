@@ -1,14 +1,5 @@
 export { sanitize, } from '../../../utils/sanitize';
-
-export function escapeHtml(s: unknown,): string {
-    if (s === null || s === undefined) return '';
-    return String(s,)
-        .replace(/&/g, '&amp;',)
-        .replace(/</g, '&lt;',)
-        .replace(/>/g, '&gt;',)
-        .replace(/"/g, '&quot;',)
-        .replace(/'/g, '&#39;',);
-}
+export { escapeHtml, } from '../../../utils/html';
 
 export function isoToReadable(iso: string | null | undefined,): string {
     if (!iso) return '';

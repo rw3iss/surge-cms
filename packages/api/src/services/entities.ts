@@ -14,7 +14,7 @@ import { transaction, } from '../db/client';
 import { cache, CACHE_KEYS, } from './cache';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID_RE, } from '../utils/uuid';
 
 function hashQuery(q: EntityQuery,): string {
     return createHash('sha1',).update(JSON.stringify(q,),).digest('hex',).slice(0, 16,);

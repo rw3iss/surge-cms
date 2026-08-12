@@ -1,6 +1,9 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { formatDateShort as formatDate, } from '@sitesurge/types';
+import EmptyState from '../../components/admin/common/EmptyState';
+import LoadingState from '../../components/admin/common/LoadingState';
 import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { FormField, } from '../../components/admin/forms';
@@ -8,11 +11,6 @@ import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
-
-function formatDate(iso: string | null | undefined,): string {
-    if (!iso) return '—';
-    return new Date(iso,).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', },);
-}
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -180,11 +178,11 @@ const AdminUsers: Component = () => {
 
             <Show
                 when={!list.loading()}
-                fallback={<div class="empty-state">Loading...</div>}
+                fallback={<LoadingState />}
             >
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No users found.</div>}
+                    fallback={<EmptyState message="No users found." />}
                 >
                     <div class="admin-table-container">
                         <table class="admin-table">

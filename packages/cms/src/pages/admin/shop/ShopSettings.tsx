@@ -1,5 +1,6 @@
 import { Title, } from '@solidjs/meta';
 import { Component, createSignal, For, Show, } from 'solid-js';
+import LoadingState from '../../../components/admin/common/LoadingState';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import { createStore, } from 'solid-js/store';
 import type { ShopAppearance, ShopSettings as ShopSettingsModel, } from '@sitesurge/types';
@@ -100,7 +101,7 @@ const ShopSettingsInner: Component = () => {
             </div>
             <ShopifyManagedBanner note="Storefront, checkout, and payment settings are controlled in Shopify while the plugin is enabled. These internal settings are inactive." />
 
-            <Show when={loaded.state !== 'pending'} fallback={<div class="empty-state">Loading...</div>}>
+            <Show when={loaded.state !== 'pending'} fallback={<LoadingState />}>
                 <div class="settings-tabs">
                     <For each={TABS}>
                         {(t,) => (

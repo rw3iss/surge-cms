@@ -196,6 +196,26 @@ html:not([data-active-outlines='show']) {
 .u-items-start   { align-items: flex-start; }
 .u-items-baseline{ align-items: baseline; }
 
+// Spacing utilities (map to the $spacing scale) — prefer these over repeated
+// inline `style={{ 'margin-bottom': '1rem' }}` objects.
+.u-mb-0  { margin-bottom: 0; }
+.u-mb-xs { margin-bottom: $spacing-xs; }
+.u-mb-sm { margin-bottom: $spacing-sm; }
+.u-mb-md { margin-bottom: $spacing-md; }
+.u-mb-lg { margin-bottom: $spacing-lg; }
+.u-mb-xl { margin-bottom: $spacing-xl; }
+.u-mt-0  { margin-top: 0; }
+.u-mt-xs { margin-top: $spacing-xs; }
+.u-mt-sm { margin-top: $spacing-sm; }
+.u-mt-md { margin-top: $spacing-md; }
+.u-mt-lg { margin-top: $spacing-lg; }
+.u-mt-xl { margin-top: $spacing-xl; }
+
+// Text utilities — the muted-small-caption combo re-typed inline everywhere.
+.u-text-muted { color: var(--admin-text-muted, #{$text-light}); }
+.u-text-sm    { font-size: $font-size-sm; }
+.u-text-xs    { font-size: $font-size-xs; }
+
 .truncate {
   @include truncate;
 }

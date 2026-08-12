@@ -443,7 +443,7 @@
 .revisions-panel {
   border: 1px solid $border-color;
   border-radius: $border-radius-md;
-  background: #fff;
+  background: var(--admin-panel-bg, #fff);
   margin-top: $spacing-md;
 
   &__header {

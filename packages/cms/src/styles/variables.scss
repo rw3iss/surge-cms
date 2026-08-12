@@ -11,6 +11,23 @@ $success-color: #10b981;
 $warning-color: #f59e0b;
 $error-color: #ef4444;
 
+// Extra neutral greys — near the base palette but distinct enough that
+// folding them into $border-color / $background-dark would visibly shift
+// the look, so they get their own tokens (used in the inline editors).
+$border-color-strong: #d8d8d8; // slightly darker hairline: 2px borders, editor frames
+$bg-muted: #f0f0f0;            // muted control surface: toolbars, resizer handle
+
+// Categorical stat-pill palette (dashboard stat-card icons). name → (bg, fg).
+// Iterated with `@each` so the six modifiers stay a single source of truth.
+$stat-pills: (
+  'blue': (#dbeafe, #2563eb),
+  'green': (#dcfce7, #16a34a),
+  'purple': (#f3e8ff, #9333ea),
+  'orange': (#ffedd5, #ea580c),
+  'red': (#fee2e2, #dc2626),
+  'teal': (#ccfbf1, #0d9488),
+);
+
 // Soft status bg/fg pairs for badges + alerts. Named tokens (previously raw
 // hex duplicated in _buttons-badges.scss) so status styling themes from here.
 $success-bg: #d4edda;
@@ -103,6 +120,18 @@ $z-index-modal: 1050;           // modal panels + fullscreen modal-like takeover
 $z-index-popover: 1060;         // popovers/menus that must sit ABOVE a modal
 $z-index-tooltip: 1070;         // tooltips
 $z-index-toast: 1080;           // transient toasts — top of the stack
+
+// Elevated admin card/panel surface — the shared recipe behind
+// `.settings-card`, `.stat-card`, `.connection-card`, etc. Themeable
+// via the --admin-panel-* vars (fallbacks reproduce the current look).
+// Deliberately omits padding + radius overrides so each card keeps its
+// own spacing/rounding; callers add `padding` and can override radius.
+@mixin admin-card {
+  background: var(--admin-panel-bg, #fff);
+  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
+  border: 1px solid var(--admin-panel-border, #{$border-color});
+  border-radius: $border-radius-lg;
+}
 
 // Mixins
 @mixin container {

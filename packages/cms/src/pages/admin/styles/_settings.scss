@@ -131,7 +131,7 @@
       left: 2px;
       width: 20px;
       height: 20px;
-      background: #fff;
+      background: var(--admin-input-bg, #fff);
       border-radius: 50%;
       box-shadow: $shadow-sm;
       transition: transform $transition-fast;
@@ -198,12 +198,12 @@
 // ─── Connection Cards ───
 
 .connection-card {
+  @include admin-card;
+  // Tighter rounding than the default card recipe.
+  border-radius: $border-radius-md;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  background: $background;
-  border-radius: $border-radius-md;
-  border: 1px solid $border-color;
   margin-bottom: $spacing-sm;
   overflow: hidden;
 
@@ -355,10 +355,7 @@
 }
 
 .settings-card {
-  background: var(--admin-panel-bg, #fff);
-  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
-  border: 1px solid var(--admin-panel-border, #{$border-color});
-  border-radius: $border-radius-lg;
+  @include admin-card;
   padding: $spacing-lg;
 
   h1, h2, h3, h4, h5, h6,

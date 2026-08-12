@@ -1,18 +1,15 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
+import { formatDateShort as formatDate, } from '@sitesurge/types';
+import EmptyState from '../../components/admin/common/EmptyState';
+import LoadingState from '../../components/admin/common/LoadingState';
 import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
-
-function formatDate(iso: string | null | undefined,): string {
-    if (!iso) return '—';
-    const d = new Date(iso,);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', },);
-}
 
 const AdminPages: Component = () => {
     const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
@@ -68,11 +65,11 @@ const AdminPages: Component = () => {
             </div>
             <Show
                 when={!list.loading()}
-                fallback={<div class="empty-state">Loading...</div>}
+                fallback={<LoadingState />}
             >
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No pages found.</div>}
+                    fallback={<EmptyState message="No pages found." />}
                 >
                     <div class="admin-table-container">
                         <table class="admin-table">

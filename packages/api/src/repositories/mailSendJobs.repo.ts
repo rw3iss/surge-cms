@@ -7,6 +7,7 @@
  */
 import type { MailSendJob, MailSendJobStatus, } from '@sitesurge/types';
 import { query, } from '../db';
+import { buildLimitOffset, } from './base.repo';
 
 interface DbRow {
     id: string;
@@ -157,6 +158,8 @@ export type JobWithListName = MailSendJob & { listName: string | null; };
  * without a second roundtrip.
  */
 export async function listRecent(limit = 50, offset = 0,): Promise<JobWithListName[]> {
+    const params: unknown[] = [];
+    const limitClause = buildLimitOffset(params, limit, offset,);
     const r = await query<DbRow>(
         `SELECT j.*,
                 l.name AS list_name,
@@ -165,8 +168,8 @@ export async function listRecent(limit = 50, offset = 0,): Promise<JobWithListNa
          LEFT JOIN mailing_lists  l ON l.id = j.list_id
          LEFT JOIN mail_templates t ON t.id = j.template_id
          ORDER BY j.created_at DESC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset,],
+         ${limitClause}`,
+        params,
     );
     return r.rows.map((row,) => ({ ...map(row,), listName: row.list_name ?? null, }),);
 }

@@ -2,6 +2,7 @@
 // See ADMIN_STYLES.md for the splitting rationale.
 
 @use 'sass:color';
+@use 'sass:list';
 @use '../../../styles/variables' as *;
 
 
@@ -133,8 +134,8 @@
   }
 
   &--warning {
-    background: #fff3cd;
-    color: #856404;
+    background: $warning-bg;
+    color: $warning-fg;
     border: 1px solid #ffc107;
   }
 
@@ -165,7 +166,7 @@
   }
 
   &--warning &__icon {
-    background: #856404;
+    background: $warning-fg;
     color: #fff;
   }
 
@@ -208,16 +209,13 @@
 
 
 .stat-card {
+  // Panel-text drives stat values; the muted label below uses a
+  // softer color via its own rule so it still feels secondary.
+  @include admin-card;
   display: flex;
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-lg;
-  background: var(--admin-panel-bg, white);
-  // Panel-text drives stat values; the muted label below uses a
-  // softer color via its own rule so it still feels secondary.
-  color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
-  border-radius: $border-radius-lg;
-  border: 1px solid var(--admin-panel-border, #{$border-color});
   text-decoration: none;
   transition: transform 0.15s, box-shadow 0.15s;
 
@@ -244,12 +242,12 @@
       height: 24px;
     }
 
-    &--blue { background: #dbeafe; color: #2563eb; }
-    &--green { background: #dcfce7; color: #16a34a; }
-    &--purple { background: #f3e8ff; color: #9333ea; }
-    &--orange { background: #ffedd5; color: #ea580c; }
-    &--red { background: #fee2e2; color: #dc2626; }
-    &--teal { background: #ccfbf1; color: #0d9488; }
+    @each $name, $pair in $stat-pills {
+      &--#{$name} {
+        background: list.nth($pair, 1);
+        color: list.nth($pair, 2);
+      }
+    }
   }
 
   &__content {

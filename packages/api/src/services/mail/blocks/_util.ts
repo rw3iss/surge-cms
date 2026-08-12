@@ -11,11 +11,7 @@
  */
 import type { EmailBlockNode, EmailRenderCtx, } from './index';
 
-export function escapeHtml(s: string,): string {
-    return s.replace(/[&<>"']/g, (c,) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    } as Record<string, string>)[c]!,);
-}
+export { escapeHtml, } from '../../../utils/html';
 
 export function inlineStyle(obj: Record<string, string | number | undefined>,): string {
     return Object.entries(obj,)

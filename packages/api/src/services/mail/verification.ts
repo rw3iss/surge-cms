@@ -18,6 +18,7 @@ import { loadMailRenderContext, } from './siteContext';
 import { renderStandaloneMail, } from './transactional';
 import { resolveMailTemplate, } from './templateRuntime';
 import { escapeHtml, } from './blocks/_util';
+import { wrapEmailShell, } from './shell';
 import type { FlatBlock, } from './renderer';
 
 const DEFAULT_SUBJECT = 'Verify your email address';
@@ -37,23 +38,22 @@ export function verificationUrl(token: string,): string {
  *  the verification email's blocks. Table-based, inline styles (email-safe). */
 function defaultVerificationHtml(name: string, siteName: string, url: string,): string {
     const greeting = name ? `Hi ${escapeHtml(name,)},` : 'Hi,';
-    return `<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:#333">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f5">
-<tr><td align="center" style="padding:32px 12px">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #e5e7eb">
-<tr><td style="padding:32px">
+    const card = `<tr><td style="padding:32px">
 <h1 style="margin:0 0 16px;font-size:22px;color:#111">Verify your email</h1>
 <p style="margin:0 0 12px;font-size:15px;line-height:1.5">${greeting}</p>
 <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Thanks for signing up for ${escapeHtml(siteName,)}. Please confirm your email address to activate your account.</p>
 <p style="margin:0 0 24px"><a href="${escapeHtml(url,)}" style="background:#111827;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">Verify email</a></p>
 <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5">Or paste this link into your browser:<br><a href="${escapeHtml(url,)}" style="color:#2563eb;word-break:break-all">${escapeHtml(url,)}</a></p>
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body></html>`;
+</td></tr>`;
+    return wrapEmailShell({
+        bodyHtml: card,
+        bg: '#f4f4f5',
+        font: 'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',
+        color: '#333',
+        outerPadding: '32px 12px',
+        innerBorder: '1px solid #e5e7eb',
+        innerRadius: '8px',
+    },);
 }
 
 /**

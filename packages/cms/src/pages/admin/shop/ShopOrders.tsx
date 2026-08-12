@@ -1,6 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
+import EmptyState from '../../../components/admin/common/EmptyState';
+import LoadingState from '../../../components/admin/common/LoadingState';
 import type { ShopOrder, } from '@sitesurge/types';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
@@ -49,10 +51,10 @@ const ShopOrdersInner: Component = () => {
                     <option value="refunded">Refunded</option>
                 </select>
             </div>
-            <Show when={!list.loading()} fallback={<div class="empty-state">Loading...</div>}>
+            <Show when={!list.loading()} fallback={<LoadingState />}>
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No orders found.</div>}
+                    fallback={<EmptyState message="No orders found." />}
                 >
                     <div class="admin-table-container">
                         <table class="admin-table">

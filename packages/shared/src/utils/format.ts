@@ -19,6 +19,17 @@ export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOpt
     },).format(d,);
 }
 
+/**
+ * Admin-standard short date ("Aug 12, 2026"), or an em-dash for a null/empty
+ * value. This is the single formatter behind the ~13 per-page `formatDate`
+ * copies that all did `toLocaleDateString({month:'short',day,year})` with a
+ * null → '—' guard.
+ */
+export function formatDateShort(date: Date | string | null | undefined,): string {
+    if (!date) return '—';
+    return formatDate(date, { month: 'short', day: 'numeric', year: 'numeric', },);
+}
+
 export function formatDateTime(date: Date | string,): string {
     return formatDate(date, {
         year: 'numeric',

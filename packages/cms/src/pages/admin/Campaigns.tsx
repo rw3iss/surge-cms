@@ -1,17 +1,15 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
+import { formatDateShort as formatDate, } from '@sitesurge/types';
+import EmptyState from '../../components/admin/common/EmptyState';
+import LoadingState from '../../components/admin/common/LoadingState';
 import Pagination from '../../components/admin/common/Pagination';
 import SortTh from '../../components/admin/common/SortTh';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
-
-function formatDate(iso: string | null | undefined,): string {
-    if (!iso) return '—';
-    return new Date(iso,).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', },);
-}
 
 function formatCurrency(cents: number | null | undefined,): string {
     if (cents === null || cents === undefined) return 'Open';
@@ -74,11 +72,11 @@ const AdminCampaigns: Component = () => {
             </div>
             <Show
                 when={!list.loading()}
-                fallback={<div class="empty-state">Loading...</div>}
+                fallback={<LoadingState />}
             >
                 <Show
                     when={list.items().length}
-                    fallback={<div class="empty-state">No campaigns found.</div>}
+                    fallback={<EmptyState message="No campaigns found." />}
                 >
                     <div class="admin-table-container">
                         <table class="admin-table">

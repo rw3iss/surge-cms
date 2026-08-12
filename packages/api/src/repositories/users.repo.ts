@@ -4,7 +4,7 @@ import { query, transaction, } from '../db';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
-import { findByIdOrThrow, PaginatedResult, PaginationOptions, updateById, } from './base.repo';
+import { buildLimitOffset, findByIdOrThrow, PaginatedResult, PaginationOptions, updateById, } from './base.repo';
 import { ilikeSearch, } from '../utils/queryBuilders';
 
 export interface UserFilters {
@@ -69,8 +69,7 @@ export async function findUsers(
     const countResult = await query(`SELECT COUNT(*) FROM users u ${whereClause}`, params,);
     const total = parseInt(countResult.rows[0].count, 10,);
 
-    const offset = (pagination.page - 1) * pagination.limit;
-    params.push(pagination.limit, offset,);
+    const limitClause = buildLimitOffset(params, pagination.limit, (pagination.page - 1) * pagination.limit,);
     const result = await query(
         `SELECT u.*,
             s.status as subscription_status,
@@ -81,7 +80,7 @@ export async function findUsers(
      LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
      ${whereClause}
      ORDER BY ${USER_SORT_COLUMNS[filters.sortBy || 'created_at'] || 'u.created_at'} ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+     ${limitClause}`,
         params,
     );
 
@@ -190,14 +189,15 @@ export async function findBans(pagination: PaginationOptions,): Promise<Paginate
     const countResult = await query('SELECT COUNT(*) FROM users_banned',);
     const total = parseInt(countResult.rows[0].count, 10,);
 
-    const offset = (pagination.page - 1) * pagination.limit;
+    const params: unknown[] = [];
+    const limitClause = buildLimitOffset(params, pagination.limit, (pagination.page - 1) * pagination.limit,);
     const result = await query(
         `SELECT ub.*, u.display_name as banned_by_name
      FROM users_banned ub
      LEFT JOIN users u ON ub.banned_by = u.id
      ORDER BY ub.created_at DESC
-     LIMIT $1 OFFSET $2`,
-        [pagination.limit, offset,],
+     ${limitClause}`,
+        params,
     );
 
     const data = result.rows.map((row,) => ({

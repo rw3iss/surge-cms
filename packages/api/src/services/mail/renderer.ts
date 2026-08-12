@@ -15,7 +15,7 @@
  */
 import { detectVariables, } from './variables';
 import { EmailBlockNode, EmailRenderCtx, renderNode, } from './blocks';
-import { escapeHtml, } from './blocks/_util';
+import { wrapEmailShell, } from './shell';
 
 export interface FlatBlock {
     /** Required at render time. Preview accepts blocks without IDs and
@@ -83,33 +83,24 @@ export function renderMailHtml(input: RenderInput,): RenderResult {
     const tree = buildTree(input.blocks,);
     const rows = tree.map((n,) => renderNode(n, ctx,),).join('\n',);
 
-    // Preheader: a single off-screen <div> at the very top of <body>.
-    // Most clients use the first ~80 visible chars; this is the trick
-    // for telling them what to show. Tokens survive into the final
-    // string so they substitute per-recipient.
-    const preheaderTag = input.preheader
-        ? `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${input.preheader}</div>`
-        : '';
-
-    const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="x-apple-disable-message-reformatting">
-<title>${escapeHtml(input.subject,)}</title>
-</head>
-<body style="margin:0;padding:0;background:${ctx.bgColor};font-family:${ctx.fontFamily};color:${ctx.textColor};-webkit-font-smoothing:antialiased">
-${preheaderTag}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${ctx.bgColor}">
-<tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:${ctx.bgColor === '#ffffff' ? '#ffffff' : ctx.bgColor};border:1px solid #eee;border-radius:6px">
-${rows}
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
+    // Preheader (off-screen first-line inbox preview) + the standard email
+    // shell are shared with the other transactional templates via
+    // `wrapEmailShell`. Variable tokens (`{{...}}`) survive into the output so
+    // they substitute per-recipient at send time.
+    const html = wrapEmailShell({
+        title: input.subject,
+        bodyHtml: rows,
+        bg: ctx.bgColor,
+        innerBg: ctx.bgColor,
+        font: ctx.fontFamily,
+        color: ctx.textColor,
+        bodyStyleExtra: ';-webkit-font-smoothing:antialiased',
+        outerPadding: '24px 12px',
+        innerBorder: '1px solid #eee',
+        innerRadius: '6px',
+        headExtra: '<meta name="x-apple-disable-message-reformatting">\n',
+        preheader: input.preheader,
+    },);
 
     const all = `${html} ${input.subject} ${input.preheader ?? ''}`;
     return {

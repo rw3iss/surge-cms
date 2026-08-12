@@ -9,6 +9,7 @@ vi.mock('../cache', () => ({
         get: (...a: unknown[]) => getMock(...a),
         set: (...a: unknown[]) => setMock(...a),
         invalidateShopProductCache: (...a: unknown[]) => invalidateProductMock(...a),
+        invalidateShopCatalogCache: (...a: unknown[]) => invalidateProductMock(...a),
         CACHE_KEYS: {
             shopProductsPrefix: 'shop:products:',
             shopProductSlug: (slug: string,) => `shop:product:slug:${slug}`,
@@ -19,10 +20,20 @@ vi.mock('../cache', () => ({
 vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 
 // transaction(cb) runs the callback with a fake client that records SQL.
+// It models `shop_variants` row count so the writer's "≥1-variant invariant"
+// (SELECT COUNT(*) → synthesize a default when zero) behaves like a real DB:
+// after N variant INSERTs the count is N, so no spurious default is synthesized
+// for a product that already supplied variants.
 const txnQueries: { sql: string; params?: unknown[]; }[] = [];
+let variantRowCount = 0;
 const fakeClient = {
     query: vi.fn(async (sql: string, params?: unknown[]) => {
         txnQueries.push({ sql, params, },);
+        if (/INSERT INTO shop_variants/.test(sql,)) variantRowCount++;
+        if (/DELETE FROM shop_variants/.test(sql,)) variantRowCount = 0;
+        if (/SELECT COUNT\(\*\)::int AS n FROM shop_variants/.test(sql,)) {
+            return { rows: [{ n: variantRowCount, },], };
+        }
         return { rows: [{ id: 'opt-1', },], };
     }),
 };
@@ -64,6 +75,7 @@ describe('shop products service', () => {
         setMock.mockReset();
         invalidateProductMock.mockReset();
         txnQueries.length = 0;
+        variantRowCount = 0;
         fakeClient.query.mockClear();
         findPublicProductsMock.mockClear();
         findAllProductsMock.mockClear();
@@ -102,11 +114,13 @@ describe('shop products service', () => {
         const variantInserts = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
         expect(optionInserts.length,).toBe(0,);
         expect(variantInserts.length,).toBe(1,);
-        // is_default true for the synthesized default variant. It's the
-        // second-to-last param now (external_id was appended as the last).
-        const params = variantInserts[0].params as unknown[];
-        expect(params[params.length - 2],).toBe(true,);
-        expect(params[params.length - 1],).toBe(null,); // external_id (native → null)
+        // The default is synthesized by the repo's "≥1-variant invariant" using
+        // literal SQL values — INSERT … (…, is_default, position) VALUES ($1, 0, 0, true, true, 0):
+        // is_default = true, product_id the only bound param.
+        const synth = variantInserts[0];
+        expect(synth.sql.replace(/\s+/g, ' ',),).toContain('is_default, position',);
+        expect(synth.sql.replace(/\s+/g, ' ',),).toContain('VALUES ($1, 0, 0, true, true, 0)',);
+        expect((synth.params as unknown[]).length,).toBe(1,); // only product_id is bound
     },);
 
     it('taxonomy-only update does NOT touch variants/options (no structure wipe)', async () => {

@@ -13,6 +13,7 @@
  */
 import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
+import { escapeHtml, } from '../utils/html';
 import { verifyUnsubscribeToken, } from './mail/unsubscribe';
 
 /** What the route needs to render: an HTTP status + a full HTML page. */
@@ -29,12 +30,6 @@ function page(title: string, body: string,): string {
     h1{font-size:1.4rem;margin-bottom:.5rem}
     .btn{display:inline-block;padding:.5rem 1rem;background:#3498cf;color:#fff;border-radius:6px;text-decoration:none;margin-top:.5rem}
 </style></head><body>${body}</body></html>`;
-}
-
-function escapeHtml(s: string,): string {
-    return s.replace(/[&<>"']/g, (c,) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    } as Record<string, string>)[c]!,);
 }
 
 /** GET /u/:token — unsubscribe a subscriber. */
