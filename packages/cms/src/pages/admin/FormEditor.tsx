@@ -389,7 +389,7 @@ const FormEditor: Component = () => {
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
                     <Show when={!isNew() && (form()?.submissionCount ?? 0) > 0}>
-                        <A href={`/admin/forms/${params.id}/submissions`} class="btn btn--secondary btn--small">
+                        <A href={`/admin/forms/${params.id}/submissions`} class="ui-button ui-button--secondary ui-button--sm">
                             View Responses ({form()?.submissionCount})
                         </A>
                     </Show>
@@ -682,7 +682,7 @@ const FormEditor: Component = () => {
                     <section class="form-section">
                         <div class="section-header">
                             <h2>Questions</h2>
-                            <button type="button" class="btn btn--secondary" onClick={addQuestion}>
+                            <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
                                 Add Question
                             </button>
                         </div>
@@ -913,7 +913,7 @@ const FormEditor: Component = () => {
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        class="btn btn--small btn--secondary"
+                                                        class="ui-button ui-button--sm ui-button--secondary"
                                                         onClick={() => addOption(index(),)}
                                                     >
                                                         Add Option
@@ -937,7 +937,7 @@ const FormEditor: Component = () => {
                         </div>
 
                         <Show when={questions().length > 0}>
-                            <button type="button" class="btn btn--secondary" onClick={addQuestion}>
+                            <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
                                 Add Another Question
                             </button>
                         </Show>

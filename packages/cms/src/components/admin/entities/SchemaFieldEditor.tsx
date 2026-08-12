@@ -131,7 +131,7 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
                                 <Show when={!field.core && !props.disabled}>
                                     <button
                                         type="button"
-                                        class="btn btn--small btn--danger"
+                                        class="ui-button ui-button--sm ui-button--danger"
                                         onClick={() => removeField(field.id,)}
                                         aria-label={`Remove ${field.key}`}
                                     >
@@ -209,7 +209,7 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
                                                 </For>
                                                 <button
                                                     type="button"
-                                                    class="btn btn--small btn--secondary"
+                                                    class="ui-button ui-button--sm ui-button--secondary"
                                                     onClick={() => addEnumOption(field,)}
                                                 >
                                                     + Add value
@@ -313,7 +313,7 @@ const SchemaFieldEditor: Component<SchemaFieldEditorProps> = (props,) => {
 
             <Show when={!props.disabled}>
                 <div>
-                    <button type="button" class="btn btn--secondary btn--small" onClick={addField}>
+                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={addField}>
                         + Add field
                     </button>
                 </div>

@@ -261,7 +261,7 @@ const AdminUserDetail: Component = () => {
                             <div class="settings-field">
                                 <label class="settings-field__label" />
                                 <button
-                                    class="btn btn--primary btn--small"
+                                    class="ui-button ui-button--primary ui-button--sm"
                                     disabled={saving()}
                                     onClick={handleSave}
                                 >
@@ -343,7 +343,7 @@ const AdminUserDetail: Component = () => {
                                 when={showPassword()}
                                 fallback={
                                     <button
-                                        class="btn btn--secondary btn--small"
+                                        class="ui-button ui-button--secondary ui-button--sm"
                                         onClick={() => setShowPassword(true,)}
                                     >
                                         Change Password
@@ -360,14 +360,14 @@ const AdminUserDetail: Component = () => {
                                         style={{ width: '220px', }}
                                     />
                                     <button
-                                        class="btn btn--primary btn--small"
+                                        class="ui-button ui-button--primary ui-button--sm"
                                         disabled={passwordSaving() || newPassword().length < 8}
                                         onClick={handlePasswordChange}
                                     >
                                         {passwordSaving() ? 'Saving...' : 'Set Password'}
                                     </button>
                                     <button
-                                        class="btn btn--secondary btn--small"
+                                        class="ui-button ui-button--secondary ui-button--sm"
                                         onClick={() => { setShowPassword(false,); setNewPassword('',); }}
                                     >
                                         Cancel
@@ -381,7 +381,7 @@ const AdminUserDetail: Component = () => {
                             <Show
                                 when={!user()?.isBanned}
                                 fallback={
-                                    <button class="btn btn--secondary btn--small" onClick={handleUnban}>
+                                    <button class="ui-button ui-button--secondary ui-button--sm" onClick={handleUnban}>
                                         Unban User
                                     </button>
                                 }
@@ -390,7 +390,7 @@ const AdminUserDetail: Component = () => {
                                     when={showBanForm()}
                                     fallback={
                                         <button
-                                            class="btn btn--danger btn--small"
+                                            class="ui-button ui-button--danger ui-button--sm"
                                             onClick={() => setShowBanForm(true,)}
                                         >
                                             Suspend User
@@ -413,11 +413,11 @@ const AdminUserDetail: Component = () => {
                                             onInput={(e,) => setBanExpiry(e.currentTarget.value,)}
                                             title="Expiry (leave empty for permanent)"
                                         />
-                                        <button class="btn btn--danger btn--small" onClick={handleBan}>
+                                        <button class="ui-button ui-button--danger ui-button--sm" onClick={handleBan}>
                                             Confirm Ban
                                         </button>
                                         <button
-                                            class="btn btn--secondary btn--small"
+                                            class="ui-button ui-button--secondary ui-button--sm"
                                             onClick={() => setShowBanForm(false,)}
                                         >
                                             Cancel

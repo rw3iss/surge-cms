@@ -168,7 +168,7 @@ const FontManagerPanel: Component = () => {
                         maxLength={255}
                     />
                     <button
-                        class="btn btn--primary btn--small"
+                        class="ui-button ui-button--primary ui-button--sm"
                         type="button"
                         disabled={!pendingFile() || uploading()}
                         onClick={onUpload}

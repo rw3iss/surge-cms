@@ -591,17 +591,17 @@ const SiteHeaderEditor: Component = () => {
 
                 <div class="site-header-editor__toolbar">
                     <button
-                        class="btn btn--primary btn--small"
+                        class="ui-button ui-button--primary ui-button--sm"
                         disabled={!isDirty() || saving()}
                         onClick={handleSave}
                     >
                         {saving() ? 'Saving...' : 'Save Header'}
                     </button>
-                    <button class="btn btn--secondary btn--small" onClick={addItem}>
+                    <button class="ui-button ui-button--secondary ui-button--sm" onClick={addItem}>
                         + Add Header Item
                     </button>
                     <button
-                        class="btn btn--ghost btn--small"
+                        class="ui-button ui-button--ghost ui-button--sm"
                         onClick={() => setShowSettings(!showSettings(),)}
                     >
                         {showSettings() ? 'Hide Settings' : 'Settings'}
@@ -922,14 +922,14 @@ const SiteHeaderEditor: Component = () => {
                         </div>
                         <div class="site-header-editor__settings-actions">
                             <button
-                                class="btn btn--primary btn--small"
+                                class="ui-button ui-button--primary ui-button--sm"
                                 disabled={!isDirty() || saving()}
                                 onClick={handleSave}
                             >
                                 {saving() ? 'Saving...' : 'Save Header'}
                             </button>
                             <button
-                                class="btn btn--secondary btn--small"
+                                class="ui-button ui-button--secondary ui-button--sm"
                                 onClick={() => setShowSettings(false,)}
                             >
                                 Cancel
@@ -946,14 +946,14 @@ const SiteHeaderEditor: Component = () => {
                             <div class="site-header-edit-panel">
                                 {/* Button bar */}
                                 <div class="site-header-edit-panel__actions">
-                                    <button class="btn btn--primary btn--small" onClick={handleSaveItem}>
+                                    <button class="ui-button ui-button--primary ui-button--sm" onClick={handleSaveItem}>
                                         Save Item
                                     </button>
-                                    <button class="btn btn--secondary btn--small" onClick={handleCancelEdit}>
+                                    <button class="ui-button ui-button--secondary ui-button--sm" onClick={handleCancelEdit}>
                                         Cancel
                                     </button>
                                     <div class="site-header-edit-panel__spacer" />
-                                    <button class="btn btn--ghost btn--small" onClick={handleResetItem}>
+                                    <button class="ui-button ui-button--ghost ui-button--sm" onClick={handleResetItem}>
                                         Reset Item
                                     </button>
                                 </div>
@@ -1076,7 +1076,7 @@ const SiteHeaderEditor: Component = () => {
                                                                 &darr;
                                                             </button>
                                                             <button
-                                                                class="btn btn--danger btn--small"
+                                                                class="ui-button ui-button--danger ui-button--sm"
                                                                 onClick={() => removeChild(idx(),)}
                                                                 title="Remove sub-item"
                                                             >
@@ -1086,7 +1086,7 @@ const SiteHeaderEditor: Component = () => {
                                                     </div>
                                                 )}
                                             </For>
-                                            <button class="btn btn--secondary btn--small" onClick={addChild}>
+                                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={addChild}>
                                                 + Add sub-item
                                             </button>
                                         </div>
@@ -1261,7 +1261,7 @@ const SiteHeaderEditor: Component = () => {
                                                             header="CSS Width"
                                                         />
                                                         <button
-                                                            class="btn btn--small btn--ghost"
+                                                            class="ui-button ui-button--sm ui-button--ghost"
                                                             onClick={() => {
                                                                 updateEditField('width', undefined,);
                                                                 setCustomWidth(false,);
@@ -1341,7 +1341,7 @@ const SiteHeaderEditor: Component = () => {
                                                         header="CSS Margin"
                                                     />
                                                     <button
-                                                        class="btn btn--small btn--ghost"
+                                                        class="ui-button ui-button--sm ui-button--ghost"
                                                         onClick={() => {
                                                             updateEditField('margin', undefined,);
                                                             setCustomMargin(false,);
@@ -1394,7 +1394,7 @@ const SiteHeaderEditor: Component = () => {
                                                         header="CSS Padding"
                                                     />
                                                     <button
-                                                        class="btn btn--small btn--ghost"
+                                                        class="ui-button ui-button--sm ui-button--ghost"
                                                         onClick={() => {
                                                             updateEditField('padding', undefined,);
                                                             setCustomPadding(false,);

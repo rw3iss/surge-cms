@@ -231,15 +231,15 @@ const ShopOrderDetailInner: Component = () => {
                                         <FormField label="Notes" class="form-field--block">
                                             <textarea rows={3} value={notes()} onInput={(e,) => setNotes(e.currentTarget.value,)} />
                                         </FormField>
-                                        <button class="btn btn--primary" onClick={saveChanges} disabled={busy()}>
+                                        <button class="ui-button ui-button--primary" onClick={saveChanges} disabled={busy()}>
                                             {busy() ? 'Saving...' : 'Save changes'}
                                         </button>
                                     </div>
 
                                     <div class="shop-order__panel">
                                         <h3>Actions</h3>
-                                        <button class="btn btn--secondary btn--small" onClick={resendReceipt}>Resend receipt</button>
-                                        <button class="btn btn--danger btn--small" onClick={refund} disabled={o().status === 'refunded'}>
+                                        <button class="ui-button ui-button--secondary ui-button--sm" onClick={resendReceipt}>Resend receipt</button>
+                                        <button class="ui-button ui-button--danger ui-button--sm" onClick={refund} disabled={o().status === 'refunded'}>
                                             Refund
                                         </button>
                                     </div>

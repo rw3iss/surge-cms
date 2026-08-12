@@ -1,4 +1,5 @@
 import { type JSX, Show, } from 'solid-js';
+import Button from '../../ui/Button';
 import ModalShell from './ModalShell';
 
 interface ConfirmModalProps {
@@ -36,16 +37,16 @@ export default function ConfirmModal(props: ConfirmModalProps,) {
                 </Show>
                 {props.children}
                 <div class="confirm-modal__actions">
-                    <button class="btn btn--secondary" onClick={props.onCancel} disabled={props.loading}>
+                    <Button variant="secondary" onClick={props.onCancel} disabled={props.loading}>
                         {props.cancelLabel || 'Cancel'}
-                    </button>
-                    <button
-                        class={`btn ${props.danger ? 'btn--danger' : 'btn--primary'}`}
+                    </Button>
+                    <Button
+                        variant={props.danger ? 'danger' : 'primary'}
                         onClick={props.onConfirm}
                         disabled={props.loading}
                     >
                         {props.loading ? (props.busyLabel || 'Working…') : (props.confirmLabel || 'Confirm')}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalShell>

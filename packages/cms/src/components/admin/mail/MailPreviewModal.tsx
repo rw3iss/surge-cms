@@ -103,7 +103,7 @@ const MailPreviewModal: Component<Props> = (p,) => {
                         <Show when={loading()}>
                             <span class="mail-preview-modal__loading">Rendering…</span>
                         </Show>
-                        <button type="button" class="btn btn--secondary" onClick={p.onClose}>Close</button>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={p.onClose}>Close</button>
                     </footer>
                 </div>
             </div>

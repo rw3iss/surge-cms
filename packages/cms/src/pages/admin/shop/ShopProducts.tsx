@@ -108,7 +108,7 @@ const ShopProductsInner: Component = () => {
             <Title>Shop Products - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Products</h1>
-                <A href="/admin/shop/products/new" class="btn btn--primary">New Product</A>
+                <A href="/admin/shop/products/new" class="ui-button ui-button--primary">New Product</A>
             </div>
             <PrintifySyncBar onSynced={() => list.refetch()} />
             <div class="admin-filter-bar">
@@ -139,16 +139,16 @@ const ShopProductsInner: Component = () => {
             <Show when={selected().size > 0}>
                 <div class="admin-list-page__bulk-bar">
                     <span class="admin-list-page__bulk-count">{selected().size} selected</span>
-                    <button class="btn btn--small btn--secondary" onClick={() => runBulk('status', 'active',)}>
+                    <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => runBulk('status', 'active',)}>
                         Activate
                     </button>
-                    <button class="btn btn--small btn--secondary" onClick={() => runBulk('status', 'archived',)}>
+                    <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => runBulk('status', 'archived',)}>
                         Archive
                     </button>
-                    <button class="btn btn--small btn--danger" onClick={() => runBulk('delete',)}>
+                    <button class="ui-button ui-button--sm ui-button--danger" onClick={() => runBulk('delete',)}>
                         Delete
                     </button>
-                    <button class="btn btn--small btn--ghost" onClick={clear}>Clear</button>
+                    <button class="ui-button ui-button--sm ui-button--ghost" onClick={clear}>Clear</button>
                 </div>
             </Show>
             <Show when={!list.loading()} fallback={<LoadingState />}>
@@ -228,7 +228,7 @@ const ShopProductsInner: Component = () => {
                                             <td>
                                                 <A
                                                     href={`/admin/shop/products/${p.id}`}
-                                                    class="btn btn--small btn--secondary"
+                                                    class="ui-button ui-button--sm ui-button--secondary"
                                                 >
                                                     Edit
                                                 </A>
@@ -266,7 +266,7 @@ const ShopifyProductsInner: Component = () => {
             <div class="admin-header">
                 <h1>Products</h1>
                 <Show when={shopifyAdminUrl()}>
-                    <a href={`${shopifyAdminUrl()}/products`} target="_blank" rel="noopener" class="btn btn--secondary">
+                    <a href={`${shopifyAdminUrl()}/products`} target="_blank" rel="noopener" class="ui-button ui-button--secondary">
                         Manage in Shopify ↗
                     </a>
                 </Show>
@@ -290,7 +290,7 @@ const ShopifyProductsInner: Component = () => {
                                                 </Show>
                                             </td>
                                             <td>
-                                                <A href={`/shop/${p.slug}`} class="btn btn--small btn--secondary">View</A>
+                                                <A href={`/shop/${p.slug}`} class="ui-button ui-button--sm ui-button--secondary">View</A>
                                             </td>
                                         </tr>
                                     )}

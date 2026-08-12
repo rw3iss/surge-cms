@@ -1,11 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, For, Show, } from 'solid-js';
+import { Component, createEffect, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
-import EmptyState from '../../components/admin/common/EmptyState';
-import LoadingState from '../../components/admin/common/LoadingState';
-import Pagination from '../../components/admin/common/Pagination';
-import SortTh from '../../components/admin/common/SortTh';
+import DataTable from '../../components/admin/common/DataTable';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
@@ -41,7 +38,7 @@ const AdminPages: Component = () => {
             <Title>Pages - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Pages</h1>
-                <A href="/admin/pages/new" class="btn btn--primary">New Page</A>
+                <A href="/admin/pages/new" class="ui-button ui-button--primary">New Page</A>
             </div>
             <div class="admin-filter-bar">
                 <input
@@ -63,77 +60,39 @@ const AdminPages: Component = () => {
                     <option value="deleted">Deleted</option>
                 </select>
             </div>
-            <Show
-                when={!list.loading()}
-                fallback={<LoadingState />}
-            >
-                <Show
-                    when={list.items().length}
-                    fallback={<EmptyState message="No pages found." />}
-                >
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <SortTh label="Title" field="title" current={currentSort()} onSort={handleSort} />
-                                    <th>Slug</th>
-                                    <SortTh label="Status" field="status" current={currentSort()} onSort={handleSort} />
-                                    {/* `field="date"` maps to the backend's date_asc /
-                                        date_desc sort tokens, which order by
-                                        created_at. The other date column below
-                                        uses field="updated" → updated_at. */}
-                                    <SortTh label="Created" field="date" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Modified" field="updated" current={currentSort()} onSort={handleSort} />
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={list.items()}>
-                                    {(page: any,) => (
-                                        <tr>
-                                            <td>
-                                                <A href={`/admin/pages/${page.id}`} class="table-link">
-                                                    {page.title}
-                                                </A>
-                                            </td>
-                                            <td>/{page.slug}</td>
-                                            <td>
-                                                <span class={`badge ${getStatusBadgeClass(page.status,)}`}>
-                                                    {page.status}
-                                                </span>
-                                            </td>
-                                            <td>{formatDate(page.createdAt,)}</td>
-                                            <td>{formatDate(page.updatedAt,)}</td>
-                                            <td>
-                                                <A href={`/admin/pages/${page.id}`} class="btn btn--small btn--secondary">
-                                                    Edit
-                                                </A>
-                                                <a
-                                                    href={page.status === 'published' ?
-                                                        `/${page.slug}` :
-                                                        `/${page.slug}?preview=admin`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="btn btn--small btn--ghost"
-                                                >
-                                                    View
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
-                </Show>
-            </Show>
+            <DataTable
+                items={list.items()}
+                loading={list.loading()}
+                emptyMessage="No pages found."
+                sort={{ current: currentSort(), onSort: handleSort, }}
+                pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
+                columns={[
+                    { header: 'Title', sortField: 'title', cell: (page: any,) => <A href={`/admin/pages/${page.id}`} class="table-link">{page.title}</A>, },
+                    { header: 'Slug', cell: (page: any,) => `/${page.slug}`, },
+                    { header: 'Status', sortField: 'status', cell: (page: any,) => <span class={`badge ${getStatusBadgeClass(page.status,)}`}>{page.status}</span>, },
+                    // `field="date"` maps to the backend's date_asc / date_desc sort
+                    // tokens, which order by created_at. The Modified column uses
+                    // field="updated" → updated_at.
+                    { header: 'Created', sortField: 'date', cell: (page: any,) => formatDate(page.createdAt,), },
+                    { header: 'Modified', sortField: 'updated', cell: (page: any,) => formatDate(page.updatedAt,), },
+                    {
+                        header: 'Actions',
+                        cell: (page: any,) => (
+                            <>
+                                <A href={`/admin/pages/${page.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
+                                <a
+                                    href={page.status === 'published' ? `/${page.slug}` : `/${page.slug}?preview=admin`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="ui-button ui-button--sm ui-button--ghost"
+                                >
+                                    View
+                                </a>
+                            </>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 };

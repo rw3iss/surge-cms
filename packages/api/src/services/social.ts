@@ -275,18 +275,47 @@ export async function fetchFacebookPosts(maxResults = 10,): Promise<FetchedPost[
 
 /**
  * Provider registry (Open/Closed): maps each supported platform to its
- * fetcher. Both the sync and live-feed dispatch look a platform up here
- * instead of branching in a switch — adding a provider is one entry.
+ * fetcher plus optional read-sync hooks. Both the sync and live-feed
+ * dispatch look a platform up here instead of branching in a switch —
+ * adding a provider (or its incremental-sync semantics) is one entry.
  * Platforms without a fetcher (patreon/tiktok) are simply absent, so a
  * lookup miss drives the existing unsupported-platform fallback.
+ *
+ * The optional hooks keep `syncSocialPosts` fully provider-agnostic:
+ *   - `isSyncEnabled(conn)` — gate read-sync per connection (X: paid
+ *     'api' mode only; free mode skips read-sync entirely). Absent → always on.
+ *   - `readCursor(conn)` — read the incremental watermark passed to `fetch`
+ *     (X: `since_id` / `lastTweetId`). Absent → no cursor.
+ *   - `writeCursor(platform, newest)` — persist the newest-seen id as the
+ *     next cursor after a successful sync. Absent → no watermark written.
  */
 interface SocialProvider {
-    fetch: (maxResults?: number,) => Promise<FetchedPost[]>;
+    fetch: (maxResults?: number, cursor?: string,) => Promise<FetchedPost[]>;
+    isSyncEnabled?: (conn: ConnectionSettings | null,) => boolean;
+    readCursor?: (conn: ConnectionSettings | null,) => string | undefined;
+    writeCursor?: (platform: SocialPlatform, newest: string,) => Promise<void>;
 }
 
 const PROVIDERS: Partial<Record<SocialPlatform, SocialProvider>> = {
     youtube: { fetch: fetchYouTubeVideos, },
-    twitter: { fetch: fetchTwitterPosts, },
+    twitter: {
+        fetch: fetchTwitterPosts,
+        // X is capture-first: the free path (compose / manual paste) never runs
+        // read-sync. Only pull from the paid read API when the operator has
+        // explicitly opted into 'api' mode (a Basic-tier bearer token).
+        isSyncEnabled: (conn,) => conn?.settings?.twitterMode === 'api',
+        // Paid X path: pull only tweets newer than the last synced id to stay
+        // under the Basic-tier read cap.
+        readCursor: (conn,) => conn?.settings?.lastTweetId as string | undefined,
+        writeCursor: async (platform, newest,) => {
+            await query(
+                `UPDATE social_connections
+                 SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('lastTweetId', $2::text)
+                 WHERE provider = 'twitter'`,
+                [platform, newest,],
+            ).catch(() => {});
+        },
+    },
     instagram: { fetch: fetchInstagramPosts, },
     facebook: { fetch: fetchFacebookPosts, },
 };
@@ -435,28 +464,26 @@ export async function syncSocialPosts(platform: SocialPlatform, force = false,):
         return 0;
     }
 
-    // X is capture-first by default: the free path uses compose/manual, which
-    // don't run through here. Only sync-read from the paid API when the operator
-    // has explicitly opted into 'api' mode (a Basic-tier bearer token).
-    if (platform === 'twitter' && settings?.settings?.twitterMode !== 'api') {
-        logger.info('Skipping twitter read-sync: connection is in free mode (use compose / manual capture)',);
-        return 0;
-    }
-
-    const maxResults = settings?.autoPublishCount || 10;
-
     const provider = PROVIDERS[platform];
     if (!provider) {
         logger.warn(`Unsupported platform: ${platform}`,);
         return 0;
     }
 
-    // Paid X path: pull only tweets newer than the last synced id to stay under
-    // the Basic-tier read cap.
-    const sinceId = platform === 'twitter' ? (settings?.settings?.lastTweetId as string | undefined) : undefined;
-    const posts = platform === 'twitter'
-        ? await fetchTwitterPosts(maxResults, sinceId,)
-        : await provider.fetch(maxResults,);
+    // Provider-gated read-sync: e.g. X is capture-first and only reads from the
+    // paid API in 'api' mode — free mode uses compose/manual (which don't run
+    // through here). Providers without the hook always read-sync.
+    if (provider.isSyncEnabled && !provider.isSyncEnabled(settings,)) {
+        logger.info(`Skipping ${platform} read-sync: provider read-sync is disabled for this connection`,);
+        return 0;
+    }
+
+    const maxResults = settings?.autoPublishCount || 10;
+
+    // Incremental cursor (e.g. X `since_id`) — pull only records newer than the
+    // last synced watermark when the provider tracks one.
+    const cursor = provider.readCursor?.(settings,);
+    const posts = await provider.fetch(maxResults, cursor,);
 
     let synced = 0;
     let newestId: string | undefined;
@@ -471,19 +498,14 @@ export async function syncSocialPosts(platform: SocialPlatform, force = false,):
         }
     }
 
-    // Update last_synced_at (+ lastTweetId watermark for the paid X path).
+    // Update last_synced_at (+ the provider's incremental watermark, if any).
     if (synced > 0) {
         await query(
             `UPDATE social_connections SET last_synced_at = NOW() WHERE provider = $1`,
             [platform,],
         ).catch(() => {});
-        if (platform === 'twitter' && newestId) {
-            await query(
-                `UPDATE social_connections
-                 SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('lastTweetId', $2::text)
-                 WHERE provider = 'twitter'`,
-                [platform, newestId,],
-            ).catch(() => {});
+        if (provider.writeCursor && newestId) {
+            await provider.writeCursor(platform, newestId,);
         }
     }
 

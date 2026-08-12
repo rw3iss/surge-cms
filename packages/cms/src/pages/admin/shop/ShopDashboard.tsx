@@ -81,7 +81,7 @@ const ShopDashboardInner: Component = () => {
             <div class="admin-header">
                 <h1>Shop</h1>
                 <Show when={!isShopifyActive()}>
-                    <A href="/admin/shop/products/new" class="btn btn--primary">New Product</A>
+                    <A href="/admin/shop/products/new" class="ui-button ui-button--primary">New Product</A>
                 </Show>
             </div>
 

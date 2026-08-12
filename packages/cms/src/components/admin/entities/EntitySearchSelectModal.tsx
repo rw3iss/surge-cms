@@ -251,7 +251,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             <div class="entity-search-modal">
                 <div class="entity-search-modal__header">
                     <h2>{title()}</h2>
-                    <button type="button" class="btn btn--small btn--ghost" onClick={props.onClose}>Close</button>
+                    <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={props.onClose}>Close</button>
                 </div>
 
                 <div class="entity-search-modal__toolbar">
@@ -364,7 +364,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                                     <td>
                                                         <button
                                                             type="button"
-                                                            class="btn btn--small btn--primary"
+                                                            class="ui-button ui-button--sm ui-button--primary"
                                                             onClick={() => props.onSelect(rec,)}
                                                         >
                                                             Select
@@ -375,7 +375,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                                     <td>
                                                         <button
                                                             type="button"
-                                                            class="btn btn--small btn--ghost"
+                                                            class="ui-button ui-button--sm ui-button--ghost"
                                                             disabled={!isSelected(rec,) && atMax()}
                                                             onClick={() => toggleSelect(rec,)}
                                                         >
@@ -402,7 +402,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         <div style={{ display: 'flex', gap: '4px', }}>
                             <button
                                 type="button"
-                                class="btn btn--small btn--ghost"
+                                class="ui-button ui-button--sm ui-button--ghost"
                                 disabled={page() <= 1}
                                 onClick={() => setPage(page() - 1,)}
                             >
@@ -413,7 +413,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             </span>
                             <button
                                 type="button"
-                                class="btn btn--small btn--ghost"
+                                class="ui-button ui-button--sm ui-button--ghost"
                                 disabled={page() >= totalPages()}
                                 onClick={() => setPage(page() + 1,)}
                             >
@@ -423,7 +423,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         <Show when={props.mode === 'multiple'}>
                             <button
                                 type="button"
-                                class="btn btn--primary btn--small"
+                                class="ui-button ui-button--primary ui-button--sm"
                                 disabled={selected().length === 0}
                                 onClick={confirmMultiple}
                             >
@@ -431,7 +431,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             </button>
                         </Show>
                         <Show when={props.mode === 'query'}>
-                            <button type="button" class="btn btn--primary btn--small" onClick={confirmQuery}>
+                            <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={confirmQuery}>
                                 Use query
                             </button>
                         </Show>

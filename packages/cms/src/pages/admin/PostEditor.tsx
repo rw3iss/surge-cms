@@ -312,7 +312,7 @@ const AdminPostEditor: Component = () => {
                             <div class="post-banner-field__actions">
                                 <button
                                     type="button"
-                                    class="btn btn--small btn--secondary"
+                                    class="ui-button ui-button--sm ui-button--secondary"
                                     onClick={() => setShowImageSelect(true,)}
                                 >
                                     Select Media
@@ -327,7 +327,7 @@ const AdminPostEditor: Component = () => {
                                 <Show when={featuredImage()}>
                                     <button
                                         type="button"
-                                        class="btn btn--small btn--danger"
+                                        class="ui-button ui-button--sm ui-button--danger"
                                         onClick={() => { setFeaturedImage('',); editor.markDirty(); }}
                                         title="Remove banner image"
                                     >

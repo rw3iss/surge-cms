@@ -95,7 +95,7 @@ const ApiKeysPanel: Component = () => {
                             <code style={{ 'word-break': 'break-all', flex: '1', }}>{createdKey()}</code>
                             <button
                                 type="button"
-                                class="btn btn--secondary btn--sm"
+                                class="ui-button ui-button--secondary ui-button--sm"
                                 onClick={() =>
                                     void navigator.clipboard
                                         .writeText(createdKey()!,)
@@ -145,7 +145,7 @@ const ApiKeysPanel: Component = () => {
 
                     <button
                         type="submit"
-                        class="btn btn--primary"
+                        class="ui-button ui-button--primary"
                         disabled={creating() || !name().trim() || scopes().length === 0}
                     >
                         {creating() ? 'Creating…' : 'Create key'}
@@ -192,7 +192,7 @@ const ApiKeysPanel: Component = () => {
                                             <td>
                                                 <Show when={!k.revokedAt}>
                                                     <button
-                                                        class="btn btn--danger btn--sm"
+                                                        class="ui-button ui-button--danger ui-button--sm"
                                                         onClick={() => handleRevoke(k,)}
                                                     >
                                                         Revoke

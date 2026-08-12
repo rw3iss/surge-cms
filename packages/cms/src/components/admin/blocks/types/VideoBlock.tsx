@@ -92,7 +92,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                             <input type="file" accept="video/*" onChange={handleFileUpload} />
                             <button
                                 type="button"
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() => setShowPicker(true,)}
                             >
                                 Select Existing

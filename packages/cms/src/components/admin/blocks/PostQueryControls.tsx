@@ -205,7 +205,7 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
                             );
                         }}
                     </For>
-                    <button type="button" class="btn btn--secondary btn--small" onClick={openPicker}>
+                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={openPicker}>
                         + Select posts
                     </button>
                 </div>
@@ -237,7 +237,7 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
                                     {(o,) => <option value={o.value}>{o.label}</option>}
                                 </For>
                             </select>
-                            <button type="button" class="btn btn--secondary btn--small" onClick={() => void loadPickerPosts()}>
+                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => void loadPickerPosts()}>
                                 Apply
                             </button>
                         </div>
@@ -269,8 +269,8 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
                         </div>
                         <div class="post-picker__actions">
                             <span class="post-picker__count">{pickerSelected().size} selected</span>
-                            <button class="btn btn--secondary" onClick={cancelPicker} type="button">Cancel</button>
-                            <button class="btn btn--primary" onClick={acceptPicker} type="button">Accept</button>
+                            <button class="ui-button ui-button--secondary" onClick={cancelPicker} type="button">Cancel</button>
+                            <button class="ui-button ui-button--primary" onClick={acceptPicker} type="button">Accept</button>
                         </div>
                     </div>
                 </div>

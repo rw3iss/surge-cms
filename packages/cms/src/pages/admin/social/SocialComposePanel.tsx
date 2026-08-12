@@ -116,7 +116,7 @@ const SocialComposePanel: Component = () => {
                 </For>
                 <button
                     type="button"
-                    class="social-compose__media-add btn btn--small btn--secondary"
+                    class="social-compose__media-add ui-button ui-button--sm ui-button--secondary"
                     onClick={() => setShowMediaModal(true,)}
                 >
                     + Add media
@@ -175,7 +175,7 @@ const SocialComposePanel: Component = () => {
 
             <div class="social-compose__actions">
                 <button
-                    class="btn btn--primary"
+                    class="ui-button ui-button--primary"
                     disabled={busy() || overLimit()}
                     onClick={publish}
                 >

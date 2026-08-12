@@ -49,7 +49,7 @@ const AdminMessageView: Component = () => {
         <div>
             <Title>Message - Admin - RW</Title>
             <div class="admin-header">
-                <A href="/admin/messages" class="btn btn--secondary">&larr; Back to Messages</A>
+                <A href="/admin/messages" class="ui-button ui-button--secondary">&larr; Back to Messages</A>
             </div>
 
             <Show when={message()} fallback={<LoadingState />}>
@@ -127,17 +127,17 @@ const AdminMessageView: Component = () => {
 
                             <div class="u-flex-row">
                                 <Show when={m().status !== 'replied'}>
-                                    <button class="btn btn--primary" onClick={() => handleStatusChange('replied',)}>
+                                    <button class="ui-button ui-button--primary" onClick={() => handleStatusChange('replied',)}>
                                         Mark as Replied
                                     </button>
                                 </Show>
                                 <Show when={m().status !== 'archived'}>
-                                    <button class="btn btn--secondary" onClick={() => handleStatusChange('archived',)}>
+                                    <button class="ui-button ui-button--secondary" onClick={() => handleStatusChange('archived',)}>
                                         Archive
                                     </button>
                                 </Show>
                                 <Show when={m().status !== 'spam'}>
-                                    <button class="btn btn--secondary" onClick={() => handleStatusChange('spam',)}>
+                                    <button class="ui-button ui-button--secondary" onClick={() => handleStatusChange('spam',)}>
                                         Mark as Spam
                                     </button>
                                 </Show>

@@ -32,7 +32,7 @@ const TemplateList: Component = () => {
                 <A href={`/admin/entities/${params.type}`} class="admin-header__back">← {params.type}</A>
                 <h1>Content-block templates: {params.type}</h1>
                 <div class="admin-header__actions">
-                    <A href={`/admin/entities/${params.type}/templates/new`} class="btn btn--primary">+ New template</A>
+                    <A href={`/admin/entities/${params.type}/templates/new`} class="ui-button ui-button--primary">+ New template</A>
                 </div>
             </div>
 

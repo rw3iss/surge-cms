@@ -120,7 +120,7 @@ const ShopCollectionsInner: Component = () => {
             <Title>Shop Collections - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Collections</h1>
-                <button class="btn btn--primary" onClick={openNew}>New Collection</button>
+                <button class="ui-button ui-button--primary" onClick={openNew}>New Collection</button>
             </div>
             <ShopifyManagedBanner note="Collections are managed in Shopify while the plugin is enabled; the storefront reads Shopify collections." />
 
@@ -153,8 +153,8 @@ const ShopCollectionsInner: Component = () => {
                                         </td>
                                         <td>
                                             <div class="table-actions">
-                                                <button class="btn btn--small btn--secondary" onClick={() => openEdit(c,)}>Edit</button>
-                                                <button class="btn btn--small btn--danger" onClick={() => remove(c,)}>Delete</button>
+                                                <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => openEdit(c,)}>Edit</button>
+                                                <button class="ui-button ui-button--sm ui-button--danger" onClick={() => remove(c,)}>Delete</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -228,8 +228,8 @@ const ShopCollectionsInner: Component = () => {
                             </FormField>
                         </div>
                         <div class="confirm-modal__actions">
-                            <button class="btn btn--secondary" onClick={() => setDraft(null,)}>Cancel</button>
-                            <button class="btn btn--primary" onClick={save} disabled={saving()}>
+                            <button class="ui-button ui-button--secondary" onClick={() => setDraft(null,)}>Cancel</button>
+                            <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                                 {saving() ? 'Saving...' : 'Save'}
                             </button>
                         </div>

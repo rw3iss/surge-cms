@@ -162,7 +162,7 @@ const CmsUpdatePanel: Component = () => {
 
             <div class="u-flex-row u-flex-wrap" style={{ 'margin-top': '0.75rem', }}>
                 <button
-                    class="btn btn--primary"
+                    class="ui-button ui-button--primary"
                     onClick={() => setConfirmOpen(true,)}
                     disabled={busy() || !info()?.updateAvailable}
                 >
@@ -172,7 +172,7 @@ const CmsUpdatePanel: Component = () => {
                     </Switch>
                 </button>
                 <button
-                    class="btn btn--secondary btn--small"
+                    class="ui-button ui-button--secondary ui-button--sm"
                     onClick={check}
                     disabled={busy() || checking()}
                 >

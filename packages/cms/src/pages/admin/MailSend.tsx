@@ -231,12 +231,12 @@ const MailSend: Component = () => {
                     />
 
                     <div class="form-actions">
-                        <button type="button" class="btn btn--secondary" onClick={() => setShowPreview(true,)} disabled={draft.blocks.length === 0}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)} disabled={draft.blocks.length === 0}>
                             Preview
                         </button>
                         <button
                             type="button"
-                            class="btn btn--primary"
+                            class="ui-button ui-button--primary"
                             disabled={!canConfirm()}
                             onClick={() => setSearchParams({ step: '2', },)}
                         >
@@ -261,16 +261,16 @@ const MailSend: Component = () => {
                     </Show>
 
                     <div class="send-confirm-preview">
-                        <button type="button" class="btn btn--secondary" onClick={() => setShowPreview(true,)}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)}>
                             Open preview…
                         </button>
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" class="btn btn--secondary" onClick={() => setSearchParams({ step: '1', },)}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setSearchParams({ step: '1', },)}>
                             ← Back
                         </button>
-                        <button type="button" class="btn btn--primary" onClick={handleSend} disabled={sending()}>
+                        <button type="button" class="ui-button ui-button--primary" onClick={handleSend} disabled={sending()}>
                             {sending() ? 'Scheduling…' : `Send to ${selectedList()?.subscriberCount ?? 0} recipients`}
                         </button>
                     </div>

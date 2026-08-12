@@ -358,10 +358,10 @@ function SiteColorsPanel() {
                     </Show>
 
                     <div class="site-colors-editor__actions">
-                        <button class="btn btn--primary btn--small" onClick={handleAcceptEdit}>
+                        <button class="ui-button ui-button--primary ui-button--sm" onClick={handleAcceptEdit}>
                             Accept
                         </button>
-                        <button class="btn btn--secondary btn--small" onClick={cancelEditing}>
+                        <button class="ui-button ui-button--secondary ui-button--sm" onClick={cancelEditing}>
                             Cancel
                         </button>
                         <button
@@ -413,10 +413,10 @@ function SiteColorsPanel() {
                                     </Show>
                                 </div>
                                 <div class="confirm-modal__actions">
-                                    <button class="btn btn--secondary" onClick={cancelDelete}>
+                                    <button class="ui-button ui-button--secondary" onClick={cancelDelete}>
                                         Cancel
                                     </button>
-                                    <button class="btn btn--danger" onClick={confirmDelete} disabled={deleteLoading()}>
+                                    <button class="ui-button ui-button--danger" onClick={confirmDelete} disabled={deleteLoading()}>
                                         Delete swatch
                                     </button>
                                 </div>
@@ -601,7 +601,7 @@ function BreakpointsEditor(props: {
                                             <td style={{ 'white-space': 'nowrap', }}>
                                                 <button
                                                     type="button"
-                                                    class="btn btn--small btn--secondary"
+                                                    class="ui-button ui-button--sm ui-button--secondary"
                                                     onClick={() => startEdit(bp,)}
                                                     title="Edit layout overrides for this breakpoint"
                                                     style={{ 'margin-right': '4px', }}
@@ -610,7 +610,7 @@ function BreakpointsEditor(props: {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn--small btn--danger"
+                                                    class="ui-button ui-button--sm ui-button--danger"
                                                     onClick={() => remove(i(),)}
                                                     title="Remove breakpoint"
                                                 >
@@ -623,7 +623,7 @@ function BreakpointsEditor(props: {
                             </tbody>
                         </table>
                     </Show>
-                    <button type="button" class="btn btn--secondary btn--small" onClick={add}>+ Add breakpoint</button>
+                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={add}>+ Add breakpoint</button>
             </div>
 
             {/* ── Right: per-breakpoint LAYOUT editor (its own section, shown while editing) ── */}
@@ -651,8 +651,8 @@ function BreakpointsEditor(props: {
                             </For>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', 'margin-top': '0.75rem', }}>
-                            <button type="button" class="btn btn--small btn--primary" onClick={saveLayout}>Save</button>
-                            <button type="button" class="btn btn--small btn--secondary" onClick={() => setEditingId(null,)}>Cancel</button>
+                            <button type="button" class="ui-button ui-button--sm ui-button--primary" onClick={saveLayout}>Save</button>
+                            <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={() => setEditingId(null,)}>Cancel</button>
                         </div>
                         <p class="form-help-muted" style={{ margin: '0.5rem 0 0', 'font-size': '0.75rem', }}>
                             "Save Appearance" (top) still persists everything.
@@ -778,7 +778,7 @@ function AppearancePanel() {
         <div class="appearance-panel">
             <div class="appearance-panel__action-bar">
                 <button
-                    class="btn btn--primary"
+                    class="ui-button ui-button--primary"
                     disabled={!isDirty() || saving()}
                     onClick={handleSave}
                 >
@@ -905,11 +905,11 @@ function AppearancePanel() {
                         tooltip="The base font size in pixels. All rem-based sizing throughout the site scales from this value. Default: 16px."
                     >
                         <div class="u-flex-row">
-                            <button class="btn btn--secondary btn--small" onClick={() => { setFontSize(Math.max(10, fontSize() - 1,),); markDirty(); }}>-</button>
+                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={() => { setFontSize(Math.max(10, fontSize() - 1,),); markDirty(); }}>-</button>
                             <span style={{ 'min-width': '40px', 'text-align': 'center', 'font-weight': '600', 'font-size': '0.875rem', }}>
                                 {fontSize()}px
                             </span>
-                            <button class="btn btn--secondary btn--small" onClick={() => { setFontSize(Math.min(32, fontSize() + 1,),); markDirty(); }}>+</button>
+                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={() => { setFontSize(Math.min(32, fontSize() + 1,),); markDirty(); }}>+</button>
                         </div>
                     </ThemeField>
 
@@ -1109,7 +1109,7 @@ function BrandingMediaField(props: {
                 </Show>
                 <button
                     type="button"
-                    class="btn btn--small btn--secondary"
+                    class="ui-button ui-button--sm ui-button--secondary"
                     onClick={() => setShowSelect(true,)}
                 >
                     Select Media
@@ -1124,7 +1124,7 @@ function BrandingMediaField(props: {
                 <Show when={props.value.url}>
                     <button
                         type="button"
-                        class="btn btn--small btn--danger"
+                        class="ui-button ui-button--sm ui-button--danger"
                         onClick={() => props.onChange({ mediaId: undefined, url: undefined, },)}
                         title={`Remove ${props.label}`}
                     >
@@ -1234,7 +1234,7 @@ function AdminAppearancePanel() {
     return (
         <div class="appearance-panel">
             <div class="appearance-panel__action-bar">
-                <button class="btn btn--primary" onClick={handleSave} disabled={!isDirty() || saving()}>
+                <button class="ui-button ui-button--primary" onClick={handleSave} disabled={!isDirty() || saving()}>
                     {saving() ? 'Saving...' : 'Save Admin Appearance'}
                 </button>
                 <Show when={success()}>
@@ -1697,7 +1697,7 @@ const AdminSettings: Component = () => {
                         </div>
 
                         <div class="form-actions">
-                            <button type="submit" class="btn btn--primary" disabled={saving()}>
+                            <button type="submit" class="ui-button ui-button--primary" disabled={saving()}>
                                 {saving() ? 'Saving...' : 'Save Settings'}
                             </button>
                         </div>

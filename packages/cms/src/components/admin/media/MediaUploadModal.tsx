@@ -86,7 +86,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                     <Show when={!file()}>
                         <div class="media-upload-modal__dropzone">
                             <p>Select a file to upload</p>
-                            <button type="button" class="btn btn--primary" onClick={() => fileInputRef?.click()}>
+                            <button type="button" class="ui-button ui-button--primary" onClick={() => fileInputRef?.click()}>
                                 Select File
                             </button>
                             <input
@@ -152,8 +152,8 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                         </div>
                     </Show>
                     <Show when={!uploading() && !success()}>
-                        <button type="button" class="btn btn--secondary" onClick={props.onClose}>Cancel</button>
-                        <button type="button" class="btn btn--primary" onClick={handleUpload} disabled={!file()}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose}>Cancel</button>
+                        <button type="button" class="ui-button ui-button--primary" onClick={handleUpload} disabled={!file()}>
                             Upload
                         </button>
                     </Show>

@@ -254,7 +254,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <div class="block-style-editor__bg-row">
                                 <span class="block-style-editor__bg-none">None</span>
                                 <button
-                                    class="btn btn--small btn--secondary"
+                                    class="ui-button ui-button--sm ui-button--secondary"
                                     onClick={() => setShowBgSelect(true,)}
                                 >
                                     Select Media
@@ -275,7 +275,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 alt="Background preview"
                             />
                             <button
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() => setShowBgSelect(true,)}
                             >
                                 Change
@@ -287,7 +287,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 Upload
                             </button>
                             <button
-                                class="btn btn--small btn--danger"
+                                class="ui-button ui-button--sm ui-button--danger"
                                 onClick={() => update('backgroundImage', '',)}
                             >
                                 Remove
@@ -693,7 +693,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             placeholder="Template name..."
                         />
                         <button
-                            class="btn btn--small btn--primary"
+                            class="ui-button ui-button--sm ui-button--primary"
                             onClick={handleSaveTemplate}
                             disabled={saving() || !templateName()}
                         >
@@ -702,13 +702,13 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </div>
                     <div class="block-style-editor__template-row block-style-editor__template-row--secondary">
                         <Show when={props.onCopyTemplate}>
-                            <button class="btn btn--small btn--secondary" onClick={() => props.onCopyTemplate?.()}>
+                            <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => props.onCopyTemplate?.()}>
                                 Copy to New
                             </button>
                         </Show>
                         <Show when={props.onSetDefault && props.style.id && !props.style.isDefault}>
                             <button
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() => setShowDefaultConfirm(true,)}
                                 disabled={settingDefault()}
                             >
@@ -716,7 +716,7 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             </button>
                         </Show>
                         <div class="block-style-editor__template-spacer" />
-                        <button class="btn btn--small btn--ghost" onClick={handleReset}>Reset Styles</button>
+                        <button class="ui-button ui-button--sm ui-button--ghost" onClick={handleReset}>Reset Styles</button>
                     </div>
                 </div>
             </Show>

@@ -1,11 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, For, Show, } from 'solid-js';
+import { Component, createEffect, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
-import EmptyState from '../../components/admin/common/EmptyState';
-import LoadingState from '../../components/admin/common/LoadingState';
-import Pagination from '../../components/admin/common/Pagination';
-import SortTh from '../../components/admin/common/SortTh';
+import DataTable from '../../components/admin/common/DataTable';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
@@ -47,7 +44,7 @@ const AdminForms: Component = () => {
             <Title>Forms - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Forms</h1>
-                <A href="/admin/forms/new" class="btn btn--primary">New Form</A>
+                <A href="/admin/forms/new" class="ui-button ui-button--primary">New Form</A>
             </div>
             <div class="admin-filter-bar">
                 <select
@@ -62,67 +59,30 @@ const AdminForms: Component = () => {
                     <option value="archived">Archived</option>
                 </select>
             </div>
-            <Show
-                when={!list.loading()}
-                fallback={<LoadingState />}
-            >
-                <Show
-                    when={list.items().length}
-                    fallback={<EmptyState message="No forms found." />}
-                >
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <SortTh label="Title" field="title" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Status" field="status" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Submissions" field="submission_count" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Modified" field="updated_at" current={currentSort()} onSort={handleSort} />
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={list.items()}>
-                                    {(form: any,) => (
-                                        <tr>
-                                            <td>
-                                                <A href={`/admin/forms/${form.id}`} class="table-link">
-                                                    {form.title}
-                                                </A>
-                                            </td>
-                                            <td>
-                                                <span class={`badge ${getStatusBadgeClass(form.status,)}`}>
-                                                    {form.status}
-                                                </span>
-                                            </td>
-                                            <td>{form.submissionCount || 0}</td>
-                                            <td>{formatDate(form.updatedAt,)}</td>
-                                            <td>
-                                                <A href={`/admin/forms/${form.id}`} class="btn btn--small">Edit</A>
-                                                <Show when={form.submissionCount > 0}>
-                                                    <A
-                                                        href={`/admin/forms/${form.id}/submissions`}
-                                                        class="btn btn--small btn--secondary"
-                                                    >
-                                                        Responses
-                                                    </A>
-                                                </Show>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
-                </Show>
-            </Show>
+            <DataTable
+                items={list.items()}
+                loading={list.loading()}
+                emptyMessage="No forms found."
+                sort={{ current: currentSort(), onSort: handleSort, }}
+                pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
+                columns={[
+                    { header: 'Title', sortField: 'title', cell: (form: any,) => <A href={`/admin/forms/${form.id}`} class="table-link">{form.title}</A>, },
+                    { header: 'Status', sortField: 'status', cell: (form: any,) => <span class={`badge ${getStatusBadgeClass(form.status,)}`}>{form.status}</span>, },
+                    { header: 'Submissions', sortField: 'submission_count', cell: (form: any,) => form.submissionCount || 0, },
+                    { header: 'Modified', sortField: 'updated_at', cell: (form: any,) => formatDate(form.updatedAt,), },
+                    {
+                        header: 'Actions',
+                        cell: (form: any,) => (
+                            <>
+                                <A href={`/admin/forms/${form.id}`} class="ui-button ui-button--sm">Edit</A>
+                                <Show when={form.submissionCount > 0}>
+                                    <A href={`/admin/forms/${form.id}/submissions`} class="ui-button ui-button--sm ui-button--secondary">Responses</A>
+                                </Show>
+                            </>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 };

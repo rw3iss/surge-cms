@@ -112,13 +112,13 @@ const MailTemplateEdit: Component = () => {
                 <h1>{isNew() ? 'New Mail Template' : name() || '…'}</h1>
                 <div class="admin-header__actions">
                     <Show when={!isNew()}>
-                        <button type="button" class="btn btn--secondary" onClick={() => setShowPreview(true,)}>Preview</button>
-                        <button type="button" class="btn btn--danger" onClick={handleDelete}>Delete</button>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)}>Preview</button>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
                     </Show>
                     <Show when={isNew()}>
-                        <button type="button" class="btn btn--secondary" onClick={() => setShowPreview(true,)} disabled={blocks().length === 0}>Preview</button>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)} disabled={blocks().length === 0}>Preview</button>
                     </Show>
-                    <button type="button" class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                    <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
                         {saving() ? 'Saving…' : 'Save'}
                     </button>
                 </div>

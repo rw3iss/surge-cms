@@ -152,8 +152,8 @@ const FormSubmissions: Component = () => {
                     </Show>
                 </h1>
                 <div class="admin-header__actions">
-                    <A href={`/admin/forms/${params.id}`} class="btn btn--secondary btn--small">Edit Form</A>
-                    <A href="/admin/forms" class="btn btn--ghost btn--small">Back to Forms</A>
+                    <A href={`/admin/forms/${params.id}`} class="ui-button ui-button--secondary ui-button--sm">Edit Form</A>
+                    <A href="/admin/forms" class="ui-button ui-button--ghost ui-button--sm">Back to Forms</A>
                 </div>
             </div>
 
@@ -218,14 +218,14 @@ const FormSubmissions: Component = () => {
                     <Show
                         when={selectMode()}
                         fallback={
-                            <button class="btn btn--secondary btn--small" onClick={() => setSelectMode(true,)}>Edit / select</button>
+                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={() => setSelectMode(true,)}>Edit / select</button>
                         }
                     >
-                        <button class="btn btn--ghost btn--small" onClick={exitSelect}>Done</button>
-                        <button class="btn btn--ghost btn--small" onClick={selectAll} disabled={selected().size === allSubs().length}>Select all</button>
-                        <button class="btn btn--ghost btn--small" onClick={deselectAll} disabled={selected().size === 0}>Deselect all</button>
+                        <button class="ui-button ui-button--ghost ui-button--sm" onClick={exitSelect}>Done</button>
+                        <button class="ui-button ui-button--ghost ui-button--sm" onClick={selectAll} disabled={selected().size === allSubs().length}>Select all</button>
+                        <button class="ui-button ui-button--ghost ui-button--sm" onClick={deselectAll} disabled={selected().size === 0}>Deselect all</button>
                         <span style={{ 'font-size': '0.85rem', color: 'var(--admin-text-muted, #6b7280)', }}>{selected().size} selected</span>
-                        <button class="btn btn--danger btn--small" disabled={selected().size === 0} onClick={() => setPending({ type: 'bulk', },)}>
+                        <button class="ui-button ui-button--danger ui-button--sm" disabled={selected().size === 0} onClick={() => setPending({ type: 'bulk', },)}>
                             Delete selected
                         </button>
                     </Show>
@@ -276,7 +276,7 @@ const FormSubmissions: Component = () => {
                                         </For>
                                         <td style={{ 'text-align': 'right', 'white-space': 'nowrap', }}>
                                             <button
-                                                class="btn btn--danger btn--small"
+                                                class="ui-button ui-button--danger ui-button--sm"
                                                 title="Delete submission"
                                                 onClick={() => setPending({ type: 'single', id: sub.id, },)}
                                             >
@@ -293,9 +293,9 @@ const FormSubmissions: Component = () => {
                 {/* Pager (pages of 20) */}
                 <Show when={totalPages() > 1}>
                     <div class="u-flex-row u-gap-sm" style={{ 'align-items': 'center', 'justify-content': 'center', 'margin-top': '1rem', }}>
-                        <button class="btn btn--ghost btn--small" disabled={page() <= 1} onClick={() => setPage((p,) => Math.max(1, p - 1,),)}>← Prev</button>
+                        <button class="ui-button ui-button--ghost ui-button--sm" disabled={page() <= 1} onClick={() => setPage((p,) => Math.max(1, p - 1,),)}>← Prev</button>
                         <span style={{ 'font-size': '0.85rem', }}>Page {page()} of {totalPages()}</span>
-                        <button class="btn btn--ghost btn--small" disabled={page() >= totalPages()} onClick={() => setPage((p,) => Math.min(totalPages(), p + 1,),)}>Next →</button>
+                        <button class="ui-button ui-button--ghost ui-button--sm" disabled={page() >= totalPages()} onClick={() => setPage((p,) => Math.min(totalPages(), p + 1,),)}>Next →</button>
                     </div>
                 </Show>
             </Show>

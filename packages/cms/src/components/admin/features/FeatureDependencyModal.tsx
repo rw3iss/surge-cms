@@ -48,7 +48,7 @@ const FeatureDependencyModal: Component<Props> = (p,) => {
                 <For each={chainLabels()}>{(l,) => <li>{l}</li>}</For>
             </ul>
             <div class="modal-actions">
-                <button type="button" class="btn btn--secondary" onClick={p.onCancel}>Cancel</button>
+                <button type="button" class="ui-button ui-button--secondary" onClick={p.onCancel}>Cancel</button>
                 <button
                     type="button"
                     class={`btn ${p.mode === 'enable' ? 'btn--primary' : 'btn--danger'}`}

@@ -69,7 +69,7 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
                                     </Show>
                                 </div>
                                 <button
-                                    class="btn btn--small btn--secondary"
+                                    class="ui-button ui-button--sm ui-button--secondary"
                                     onClick={() => handleRestore(rev.version,)}
                                 >
                                     Restore

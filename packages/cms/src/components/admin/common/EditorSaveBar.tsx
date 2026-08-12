@@ -25,20 +25,20 @@ const EditorSaveBar: Component<EditorSaveBarProps> = (props,) => {
         <div class="editor-save-bar">
             <div class="editor-save-bar__main">
                 <button
-                    class="btn btn--primary"
+                    class="ui-button ui-button--primary"
                     onClick={() => props.onSave()}
                     disabled={props.saving || props.canSave === false}
                 >
                     {props.saving ? 'Saving...' : (props.saveLabel || 'Save')}
                 </button>
-                <button class="btn btn--secondary" onClick={props.onCancel}>
+                <button class="ui-button ui-button--secondary" onClick={props.onCancel}>
                     {props.cancelLabel || 'Cancel'}
                 </button>
                 {props.extraActions}
             </div>
             <Show when={props.showDelete !== false && props.onDelete}>
                 <button
-                    class="btn btn--danger"
+                    class="ui-button ui-button--danger"
                     onClick={props.onDelete}
                     disabled={props.deleting}
                 >

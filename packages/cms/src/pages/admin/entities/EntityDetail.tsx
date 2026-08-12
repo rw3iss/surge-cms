@@ -109,7 +109,7 @@ const EntityDetail: Component = () => {
                     <A href="/admin/entities" class="table-link">Entities</A> / {draft()?.label || params.type}
                 </h1>
                 <Show when={tab() === 'schema' && draft()}>
-                    <button class="btn btn--primary" onClick={save} disabled={saving()}>
+                    <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                         {saving() ? 'Saving…' : 'Save schema'}
                     </button>
                 </Show>
@@ -293,7 +293,7 @@ const EntityDetail: Component = () => {
                     </div>
 
                     <div class="entity-schema__save-bar">
-                        <button class="btn btn--primary" onClick={save} disabled={saving()}>
+                        <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                             {saving() ? 'Saving…' : 'Save schema'}
                         </button>
                     </div>

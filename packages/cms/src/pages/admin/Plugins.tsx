@@ -54,11 +54,11 @@ const AdminPlugins: Component = () => {
             <div class="admin-header">
                 <h1>Plugins</h1>
                 <div class="admin-header__actions">
-                    <button class="btn btn-secondary" disabled={!!busy()} onClick={() => run('__rescan__', () => cms.plugins.rescan(),)}>
+                    <button class="ui-button btn-secondary" disabled={!!busy()} onClick={() => run('__rescan__', () => cms.plugins.rescan(),)}>
                         {busy() === '__rescan__' ? 'Scanning…' : 'Rescan folder'}
                     </button>
-                    <button class="btn btn-secondary" onClick={() => setShowMarket(true,)}>Marketplace</button>
-                    <button class="btn btn-primary" disabled={!!busy()} onClick={() => fileInput?.click()}>
+                    <button class="ui-button btn-secondary" onClick={() => setShowMarket(true,)}>Marketplace</button>
+                    <button class="ui-button btn-primary" disabled={!!busy()} onClick={() => fileInput?.click()}>
                         {busy() === '__upload__' ? 'Uploading…' : 'Upload .zip'}
                     </button>
                     <input ref={fileInput} type="file" accept=".zip,application/zip" style={{ display: 'none', }} onChange={onUpload} />
@@ -92,21 +92,21 @@ const AdminPlugins: Component = () => {
                                         <td><span class={`badge ${s.cls}`}>{s.label}</span></td>
                                         <td class="admin-table__actions">
                                             <Show when={!p.installed}>
-                                                <button class="btn btn-sm btn-primary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.install(p.name,),)}>Install</button>
+                                                <button class="ui-button btn-sm btn-primary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.install(p.name,),)}>Install</button>
                                             </Show>
                                             <Show when={p.installed && !p.enabled}>
-                                                <button class="btn btn-sm btn-success" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.enable(p.name,),)}>Enable</button>
+                                                <button class="ui-button btn-sm btn-success" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.enable(p.name,),)}>Enable</button>
                                             </Show>
                                             <Show when={p.enabled}>
-                                                <button class="btn btn-sm btn-secondary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.disable(p.name,),)}>Disable</button>
+                                                <button class="ui-button btn-sm btn-secondary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.disable(p.name,),)}>Disable</button>
                                             </Show>
                                             <Show when={p.updateAvailable}>
-                                                <button class="btn btn-sm btn-warning" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.update(p.name,),)}>Update</button>
+                                                <button class="ui-button btn-sm btn-warning" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.update(p.name,),)}>Update</button>
                                             </Show>
                                             <Show when={p.installed && p.hasUpdateHook && !p.updateAvailable}>
-                                                <button class="btn btn-sm btn-secondary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.update(p.name,),)} title="Re-run this plugin's update() hook (e.g. re-fetch its bundle)">Re-sync</button>
+                                                <button class="ui-button btn-sm btn-secondary" disabled={busy() === p.name} onClick={() => run(p.name, () => cms.plugins.update(p.name,),)} title="Re-run this plugin's update() hook (e.g. re-fetch its bundle)">Re-sync</button>
                                             </Show>
-                                            <A href={`/admin/plugins/${p.name}`} class="btn btn-sm btn-secondary">Configure</A>
+                                            <A href={`/admin/plugins/${p.name}`} class="ui-button btn-sm btn-secondary">Configure</A>
                                         </td>
                                     </tr>
                                 );
@@ -153,7 +153,7 @@ const MarketplaceModal: Component<{ onClose: () => void; onChanged: () => void; 
                                         <div class="text-muted text-sm">{m.description}</div>
                                     </div>
                                     <Show when={!m.installed} fallback={<span class="badge badge--muted">installed</span>}>
-                                        <button class="btn btn-sm btn-primary" onClick={() => install(m.id,)}>Install</button>
+                                        <button class="ui-button btn-sm btn-primary" onClick={() => install(m.id,)}>Install</button>
                                     </Show>
                                 </div>
                             )}

@@ -160,7 +160,7 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
                         <Show when={!disabled}>
                             <button
                                 type="button"
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() => setPicker({ key, kind: 'media', },)}
                             >
                                 Select
@@ -181,7 +181,7 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
                         <Show when={!disabled && field.options?.relationType}>
                             <button
                                 type="button"
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() =>
                                     setPicker({ key, kind: 'relation', relationType: field.options!.relationType, },)}
                             >

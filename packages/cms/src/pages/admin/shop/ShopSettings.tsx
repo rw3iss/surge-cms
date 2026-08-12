@@ -95,7 +95,7 @@ const ShopSettingsInner: Component = () => {
             <Title>Shop Settings - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Shop Settings</h1>
-                <button class="btn btn--primary" onClick={save} disabled={saving()}>
+                <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                     {saving() ? 'Saving...' : 'Save'}
                 </button>
             </div>

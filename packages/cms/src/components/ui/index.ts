@@ -16,5 +16,6 @@ export { Checkbox, type CheckboxProps, } from './Checkbox';
 export { FormField, type FormFieldProps, } from './FormField';
 export { FormSection, type FormSectionProps, } from './FormSection';
 export { Alert, type AlertProps, type AlertTone, } from './Alert';
+export { Badge, statusToVariant, type BadgeProps, type BadgeVariant, type BadgeSize, } from './Badge';
 export { Spinner, type SpinnerProps, } from './Spinner';
 export { Tabs, type TabsProps, type TabItem, } from './Tabs';

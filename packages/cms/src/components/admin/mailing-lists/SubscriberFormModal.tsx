@@ -87,16 +87,16 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
                         />
                     </FormField>
                     <Show when={isEditing() && p.subscriber?.status === 'pending_confirmation'}>
-                        <button type="button" class="btn btn--small btn--secondary" onClick={handleForceConfirm}>
+                        <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={handleForceConfirm}>
                             Force Confirm
                         </button>
                     </Show>
                     <div class="modal-actions">
                         <Show when={isEditing()}>
-                            <button type="button" class="btn btn--danger" onClick={handleRemove}>Remove</button>
+                            <button type="button" class="ui-button ui-button--danger" onClick={handleRemove}>Remove</button>
                         </Show>
-                        <button type="button" class="btn btn--secondary" onClick={p.onClose}>Cancel</button>
-                        <button type="button" class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={p.onClose}>Cancel</button>
+                        <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
                             {saving() ? 'Saving…' : 'Save'}
                         </button>
                     </div>

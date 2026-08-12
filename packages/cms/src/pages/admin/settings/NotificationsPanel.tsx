@@ -107,7 +107,7 @@ const NotificationsPanel: Component = () => {
             <div class="admin-header">
                 <h2 class="settings-subheading">Notifications</h2>
                 <div class="admin-header__actions">
-                    <button class="btn btn--primary" onClick={handleSave} disabled={saving() || loading()}>
+                    <button class="ui-button ui-button--primary" onClick={handleSave} disabled={saving() || loading()}>
                         {saving() ? 'Saving...' : 'Save Notifications'}
                     </button>
                 </div>

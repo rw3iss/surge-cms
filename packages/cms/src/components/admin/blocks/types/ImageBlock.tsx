@@ -198,14 +198,14 @@ const ImageBlock: Component<ImageBlockProps> = (props,) => {
                                 <div class="image-block-source">
                                     <button
                                         type="button"
-                                        class="btn btn--small btn--secondary"
+                                        class="ui-button ui-button--sm ui-button--secondary"
                                         onClick={() => setShowSelect(true,)}
                                     >
                                         Select Media
                                     </button>
                                     <button
                                         type="button"
-                                        class="btn btn--small btn--secondary"
+                                        class="ui-button ui-button--sm ui-button--secondary"
                                         onClick={() => setShowUpload(true,)}
                                     >
                                         Upload New

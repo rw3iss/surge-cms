@@ -192,9 +192,9 @@ const TemplateEditor: Component = () => {
                 <h1>{isNew() ? `New ${params.type} template` : name() || '…'}</h1>
                 <div class="admin-header__actions">
                     <Show when={!isNew()}>
-                        <button type="button" class="btn btn--danger" onClick={handleDelete}>Delete</button>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
                     </Show>
-                    <button type="button" class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                    <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
                         {saving() ? 'Saving…' : 'Save'}
                     </button>
                 </div>
@@ -249,13 +249,13 @@ const TemplateEditor: Component = () => {
                                     </Show>
                                 </div>
                                 <div class="template-sample__actions">
-                                    <button type="button" class="btn btn--small" onClick={() => setSampleModalOpen(true,)}>
+                                    <button type="button" class="ui-button ui-button--sm" onClick={() => setSampleModalOpen(true,)}>
                                         {sampleRecordIds().length > 0 ? 'Change' : 'Set'} sample{mode() === 'list' ? 's' : ''}…
                                     </button>
                                     <Show when={sampleRecordIds().length > 0}>
                                         <button
                                             type="button"
-                                            class="btn btn--small btn--ghost"
+                                            class="ui-button ui-button--sm ui-button--ghost"
                                             onClick={() => setSampleRecordIds([],)}
                                         >
                                             Use auto

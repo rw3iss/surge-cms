@@ -1,3 +1,4 @@
+import { ValidationError, } from '../../core/errors';
 import { InstagramOAuthProvider, } from './instagram';
 import type { OAuthProvider, } from './types';
 
@@ -8,10 +9,24 @@ interface OAuthCredentials {
     appSecret: string;
 }
 
-const OAUTH_PROVIDERS = new Set(['instagram',]);
+/**
+ * Provider registry (Open/Closed): maps a provider key to a factory that
+ * builds its `OAuthProvider`. Registering a new provider is one entry here —
+ * `getOAuthProvider`/`isOAuthProvider` stay closed for modification.
+ */
+type OAuthProviderFactory = (credentials: OAuthCredentials, redirectUri: string,) => OAuthProvider;
+
+const OAUTH_PROVIDERS: Record<string, OAuthProviderFactory> = {
+    instagram: (credentials, redirectUri,) =>
+        new InstagramOAuthProvider({
+            appId: credentials.appId,
+            appSecret: credentials.appSecret,
+            redirectUri,
+        },),
+};
 
 export function isOAuthProvider(provider: string,): boolean {
-    return OAUTH_PROVIDERS.has(provider,);
+    return Object.prototype.hasOwnProperty.call(OAUTH_PROVIDERS, provider,);
 }
 
 export function getOAuthProvider(
@@ -19,14 +34,9 @@ export function getOAuthProvider(
     credentials: OAuthCredentials,
     redirectUri: string,
 ): OAuthProvider {
-    switch (provider) {
-        case 'instagram':
-            return new InstagramOAuthProvider({
-                appId: credentials.appId,
-                appSecret: credentials.appSecret,
-                redirectUri,
-            },);
-        default:
-            throw new Error(`OAuth provider "${provider}" is not supported`,);
+    const factory = OAUTH_PROVIDERS[provider];
+    if (!factory) {
+        throw new ValidationError(`OAuth provider "${provider}" is not supported`,);
     }
+    return factory(credentials, redirectUri,);
 }

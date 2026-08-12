@@ -70,7 +70,7 @@ const UrlLinkBlock: Component<UrlLinkBlockProps> = (props,) => {
                     </div>
                     <div class="form-group" style={{ 'align-self': 'flex-end', }}>
                         <button
-                            class="btn btn--secondary btn--small"
+                            class="ui-button ui-button--secondary ui-button--sm"
                             onClick={fetchPreview}
                             disabled={fetching() || !props.data.url}
                         >

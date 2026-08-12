@@ -120,17 +120,17 @@ const EntityBlockEdit: Component<{
                 </label>
 
                 <Show when={cfg().binding.mode === 'single'}>
-                    <button type="button" class="btn btn--small" onClick={() => setModalMode('single',)}>
+                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('single',)}>
                         {(cfg().binding as { ref?: string; }).ref ? `Entity: ${(cfg().binding as { ref: string; }).ref}` : 'Select entity…'}
                     </button>
                 </Show>
                 <Show when={cfg().binding.mode === 'list'}>
-                    <button type="button" class="btn btn--small" onClick={() => setModalMode('multiple',)}>
+                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('multiple',)}>
                         Select entities ({((cfg().binding as { refs?: string[]; }).refs ?? []).length})
                     </button>
                 </Show>
                 <Show when={cfg().binding.mode === 'query'}>
-                    <button type="button" class="btn btn--small" onClick={() => setModalMode('query',)}>
+                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('query',)}>
                         Configure query…
                     </button>
                 </Show>

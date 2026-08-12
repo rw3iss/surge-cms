@@ -61,24 +61,24 @@ const AdminPluginConfig: Component = () => {
 
                         <div class="plugin-detail-actions">
                             <Show when={!p().installed}>
-                                <button class="btn btn-primary" disabled={!!busy()} onClick={() => run('install', () => cms.plugins.install(p().name,),)}>
+                                <button class="ui-button btn-primary" disabled={!!busy()} onClick={() => run('install', () => cms.plugins.install(p().name,),)}>
                                     {busy() === 'install' ? 'Installing…' : 'Install'}
                                 </button>
                             </Show>
                             <Show when={p().installed && !p().enabled}>
-                                <button class="btn btn-success" disabled={!!busy()} onClick={() => run('enable', () => cms.plugins.enable(p().name,),)}>Enable</button>
+                                <button class="ui-button btn-success" disabled={!!busy()} onClick={() => run('enable', () => cms.plugins.enable(p().name,),)}>Enable</button>
                             </Show>
                             <Show when={p().enabled}>
-                                <button class="btn btn-secondary" disabled={!!busy()} onClick={() => run('disable', () => cms.plugins.disable(p().name,),)}>Disable</button>
+                                <button class="ui-button btn-secondary" disabled={!!busy()} onClick={() => run('disable', () => cms.plugins.disable(p().name,),)}>Disable</button>
                             </Show>
                             <Show when={p().updateAvailable}>
-                                <button class="btn btn-warning" disabled={!!busy()} onClick={() => run('update', () => cms.plugins.update(p().name,),)}>Update to v{p().version}</button>
+                                <button class="ui-button btn-warning" disabled={!!busy()} onClick={() => run('update', () => cms.plugins.update(p().name,),)}>Update to v{p().version}</button>
                             </Show>
                             {/* Re-sync: a plugin that implements update() can be
                                 refreshed on demand (e.g. re-fetch its vendor bundle)
                                 even when no version bump is pending. */}
                             <Show when={p().installed && p().hasUpdateHook && !p().updateAvailable}>
-                                <button class="btn btn-secondary" disabled={!!busy()} onClick={() => run('update', () => cms.plugins.update(p().name,),)}>
+                                <button class="ui-button btn-secondary" disabled={!!busy()} onClick={() => run('update', () => cms.plugins.update(p().name,),)}>
                                     {busy() === 'update' ? 'Updating…' : 'Re-sync / Update'}
                                 </button>
                             </Show>

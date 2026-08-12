@@ -1625,7 +1625,7 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                 <div class="footer-editor__group-items">
                     <div class="footer-editor__group-items-head">
                         <span>Group items</span>
-                        <button type="button" class="btn btn--small btn--secondary" onClick={addChild}>+ Add item</button>
+                        <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addChild}>+ Add item</button>
                     </div>
                     <Show when={children().length === 0}>
                         <p class="footer-editor__hint">No items in this group yet — add one.</p>

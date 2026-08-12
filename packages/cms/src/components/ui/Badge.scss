@@ -1,0 +1,52 @@
+@use '../../styles/variables' as *;
+
+// `.ui-badge` mirrors the legacy admin `.badge`
+// (`pages/admin/styles/_buttons-badges.scss`) so it can drop-in replace
+// hand-rolled `<span class="badge …">`. Variant mapping for a later rename:
+//   .badge--success → .ui-badge--success
+//   .badge--warning → .ui-badge--warning
+//   .badge--info    → .ui-badge--info
+//   .badge--error   → .ui-badge--danger
+//   .badge--muted   → .ui-badge--neutral
+//   .badge--small   → .ui-badge--sm
+.ui-badge {
+    display: inline-block;
+    padding: 2px $spacing-sm;
+    border-radius: $border-radius-full;
+    font-size: $font-size-xs;
+    font-weight: 500;
+    text-transform: capitalize;
+    white-space: nowrap;
+    line-height: 1.4;
+
+    &--success {
+        background: $success-bg;
+        color: $success-fg;
+    }
+
+    &--warning {
+        background: $warning-bg;
+        color: $warning-fg;
+    }
+
+    &--info {
+        background: $info-bg;
+        color: $info-fg;
+    }
+
+    &--danger {
+        background: $error-bg;
+        color: $error-fg;
+    }
+
+    &--neutral {
+        background: $background-dark;
+        color: $text-light;
+    }
+
+    // Compact size — mirrors `.badge--small`.
+    &--sm {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+    }
+}

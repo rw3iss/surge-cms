@@ -2,10 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
-import EmptyState from '../../components/admin/common/EmptyState';
-import LoadingState from '../../components/admin/common/LoadingState';
-import Pagination from '../../components/admin/common/Pagination';
-import SortTh from '../../components/admin/common/SortTh';
+import DataTable from '../../components/admin/common/DataTable';
 import { FormField, } from '../../components/admin/forms';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
@@ -93,9 +90,9 @@ const AdminUsers: Component = () => {
             <div class="admin-header">
                 <h1>Users</h1>
                 <div class="admin-header__actions">
-                    <A href="/admin/users/settings" class="btn btn--secondary">Settings</A>
+                    <A href="/admin/users/settings" class="ui-button ui-button--secondary">Settings</A>
                     <button
-                        class="btn btn--primary"
+                        class="ui-button ui-button--primary"
                         onClick={() => { setShowForm(!showForm(),); if (!showForm()) resetForm(); }}
                     >
                         {showForm() ? 'Cancel' : 'Add User'}
@@ -133,10 +130,10 @@ const AdminUsers: Component = () => {
                                 </FormField>
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn btn--primary" disabled={formSaving()}>
+                                <button type="submit" class="ui-button ui-button--primary" disabled={formSaving()}>
                                     {formSaving() ? 'Creating...' : 'Create User'}
                                 </button>
-                                <button type="button" class="btn btn--secondary" onClick={() => { setShowForm(false,); resetForm(); }}>
+                                <button type="button" class="ui-button ui-button--secondary" onClick={() => { setShowForm(false,); resetForm(); }}>
                                     Cancel
                                 </button>
                             </div>
@@ -176,71 +173,33 @@ const AdminUsers: Component = () => {
                 </select>
             </div>
 
-            <Show
-                when={!list.loading()}
-                fallback={<LoadingState />}
-            >
-                <Show
-                    when={list.items().length}
-                    fallback={<EmptyState message="No users found." />}
-                >
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <SortTh label="Email" field="email" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Name" field="display_name" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Role" field="role" current={currentSort()} onSort={handleSort} />
-                                    <th>Provider</th>
-                                    <th>Subscription</th>
-                                    <th>Status</th>
-                                    <SortTh label="Joined" field="created_at" current={currentSort()} onSort={handleSort} />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={list.items()}>
-                                    {(user: any,) => {
-                                        const status = statusBadge(user,);
-                                        return (
-                                            <tr
-                                                style={{ cursor: 'pointer', }}
-                                                onClick={() => navigate(`/admin/users/${user.id}`,)}
-                                            >
-                                                <td>{user.email}</td>
-                                                <td>{user.displayName || '—'}</td>
-                                                <td>
-                                                    <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>
-                                                </td>
-                                                <td>{user.authProvider}</td>
-                                                <td>
-                                                    {user.subscription ?
-                                                        (
-                                                            <span class={`badge ${user.subscription.status === 'active' ? 'badge--success' : 'badge--muted'}`}>
-                                                                {user.subscription.planName}
-                                                            </span>
-                                                        ) :
-                                                        '—'}
-                                                </td>
-                                                <td>
-                                                    <span class={`badge ${status.class}`}>{status.label}</span>
-                                                </td>
-                                                <td>{formatDate(user.createdAt,)}</td>
-                                            </tr>
-                                        );
-                                    }}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
-                </Show>
-            </Show>
+            <DataTable
+                items={list.items()}
+                loading={list.loading()}
+                emptyMessage="No users found."
+                sort={{ current: currentSort(), onSort: handleSort, }}
+                onRowClick={(user: any,) => navigate(`/admin/users/${user.id}`,)}
+                pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
+                columns={[
+                    { header: 'Email', sortField: 'email', cell: (user: any,) => user.email, },
+                    { header: 'Name', sortField: 'display_name', cell: (user: any,) => user.displayName || '—', },
+                    { header: 'Role', sortField: 'role', cell: (user: any,) => <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>, },
+                    { header: 'Provider', cell: (user: any,) => user.authProvider, },
+                    {
+                        header: 'Subscription',
+                        cell: (user: any,) =>
+                            user.subscription
+                                ? (
+                                    <span class={`badge ${user.subscription.status === 'active' ? 'badge--success' : 'badge--muted'}`}>
+                                        {user.subscription.planName}
+                                    </span>
+                                )
+                                : '—',
+                    },
+                    { header: 'Status', cell: (user: any,) => { const s = statusBadge(user,); return <span class={`badge ${s.class}`}>{s.label}</span>; }, },
+                    { header: 'Joined', sortField: 'created_at', cell: (user: any,) => formatDate(user.createdAt,), },
+                ]}
+            />
         </div>
     );
 };

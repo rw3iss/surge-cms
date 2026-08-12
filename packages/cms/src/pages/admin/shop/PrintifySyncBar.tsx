@@ -62,7 +62,7 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                         )}
                     </Show>
                 </div>
-                <button class="btn btn--primary btn--small" onClick={sync} disabled={busy()}>
+                <button class="ui-button ui-button--primary ui-button--sm" onClick={sync} disabled={busy()}>
                     {busy() ? 'Syncing…' : 'Sync from Printify'}
                 </button>
 

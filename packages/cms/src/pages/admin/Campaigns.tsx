@@ -1,11 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, For, Show, } from 'solid-js';
+import { Component, createEffect, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
-import EmptyState from '../../components/admin/common/EmptyState';
-import LoadingState from '../../components/admin/common/LoadingState';
-import Pagination from '../../components/admin/common/Pagination';
-import SortTh from '../../components/admin/common/SortTh';
+import DataTable from '../../components/admin/common/DataTable';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
@@ -55,7 +52,7 @@ const AdminCampaigns: Component = () => {
             <Title>Campaigns - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Campaigns</h1>
-                <A href="/admin/campaigns/new" class="btn btn--primary">New Campaign</A>
+                <A href="/admin/campaigns/new" class="ui-button ui-button--primary">New Campaign</A>
             </div>
             <div class="admin-filter-bar">
                 <select
@@ -70,63 +67,22 @@ const AdminCampaigns: Component = () => {
                     <option value="cancelled">Cancelled</option>
                 </select>
             </div>
-            <Show
-                when={!list.loading()}
-                fallback={<LoadingState />}
-            >
-                <Show
-                    when={list.items().length}
-                    fallback={<EmptyState message="No campaigns found." />}
-                >
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <SortTh label="Title" field="title" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Goal" field="goal_amount_cents" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Raised" field="current_amount_cents" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Donors" field="donor_count" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Status" field="status" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Modified" field="updated_at" current={currentSort()} onSort={handleSort} />
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={list.items()}>
-                                    {(c: any,) => (
-                                        <tr>
-                                            <td>
-                                                <A href={`/admin/campaigns/${c.id}`} class="table-link">
-                                                    {c.title}
-                                                </A>
-                                            </td>
-                                            <td>{formatCurrency(c.goalAmountCents,)}</td>
-                                            <td>{formatCurrency(c.currentAmountCents,)}</td>
-                                            <td>{c.donorCount || 0}</td>
-                                            <td>
-                                                <span class={`badge ${getStatusBadgeClass(c.status,)}`}>
-                                                    {c.status}
-                                                </span>
-                                            </td>
-                                            <td>{formatDate(c.updatedAt,)}</td>
-                                            <td>
-                                                <A href={`/admin/campaigns/${c.id}`} class="btn btn--small">Edit</A>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
-                </Show>
-            </Show>
+            <DataTable
+                items={list.items()}
+                loading={list.loading()}
+                emptyMessage="No campaigns found."
+                sort={{ current: currentSort(), onSort: handleSort, }}
+                pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
+                columns={[
+                    { header: 'Title', sortField: 'title', cell: (c: any,) => <A href={`/admin/campaigns/${c.id}`} class="table-link">{c.title}</A>, },
+                    { header: 'Goal', sortField: 'goal_amount_cents', cell: (c: any,) => formatCurrency(c.goalAmountCents,), },
+                    { header: 'Raised', sortField: 'current_amount_cents', cell: (c: any,) => formatCurrency(c.currentAmountCents,), },
+                    { header: 'Donors', sortField: 'donor_count', cell: (c: any,) => c.donorCount || 0, },
+                    { header: 'Status', sortField: 'status', cell: (c: any,) => <span class={`badge ${getStatusBadgeClass(c.status,)}`}>{c.status}</span>, },
+                    { header: 'Modified', sortField: 'updated_at', cell: (c: any,) => formatDate(c.updatedAt,), },
+                    { header: 'Actions', cell: (c: any,) => <A href={`/admin/campaigns/${c.id}`} class="ui-button ui-button--sm">Edit</A>, },
+                ]}
+            />
         </div>
     );
 };

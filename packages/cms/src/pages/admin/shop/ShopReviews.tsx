@@ -96,12 +96,12 @@ const ShopReviewsInner: Component = () => {
                                     <Show when={r.body}><p>{r.body}</p></Show>
                                     <div class="shop-admin__review-actions">
                                         <Show when={r.status !== 'approved'}>
-                                            <button class="btn btn--small btn--secondary" onClick={() => moderate(r, 'approved',)}>Approve</button>
+                                            <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => moderate(r, 'approved',)}>Approve</button>
                                         </Show>
                                         <Show when={r.status !== 'rejected'}>
-                                            <button class="btn btn--small btn--secondary" onClick={() => moderate(r, 'rejected',)}>Reject</button>
+                                            <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => moderate(r, 'rejected',)}>Reject</button>
                                         </Show>
-                                        <button class="btn btn--small btn--danger" onClick={() => remove(r,)}>Delete</button>
+                                        <button class="ui-button ui-button--sm ui-button--danger" onClick={() => remove(r,)}>Delete</button>
                                     </div>
                                 </div>
                             )}

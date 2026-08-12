@@ -110,17 +110,17 @@ const MailJob: Component = () => {
                 <h1>Send Job</h1>
                 <div class="admin-header__actions">
                     <Show when={job()?.status === 'running' || job()?.status === 'pending'}>
-                        <button type="button" class="btn btn--danger" onClick={handleCancel} disabled={busy()}>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleCancel} disabled={busy()}>
                             {job()?.status === 'pending' ? 'Stop' : 'Cancel'}
                         </button>
                     </Show>
                     <Show when={job()?.status === 'cancelled'}>
-                        <button type="button" class="btn btn--primary" onClick={handleRetry} disabled={busy()}>
+                        <button type="button" class="ui-button ui-button--primary" onClick={handleRetry} disabled={busy()}>
                             Resume
                         </button>
                     </Show>
                     <Show when={(job()?.failedCount ?? 0) > 0 && (job()?.status === 'completed' || job()?.status === 'failed')}>
-                        <button type="button" class="btn btn--secondary" onClick={handleRetry} disabled={busy()}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={handleRetry} disabled={busy()}>
                             Retry failed
                         </button>
                     </Show>

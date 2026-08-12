@@ -102,7 +102,7 @@ const EntitiesList: Component = () => {
             <Title>Entities - Admin</Title>
             <div class="admin-header">
                 <h1>Entities</h1>
-                <button class="btn btn--primary" onClick={() => setShowCreate(true,)}>New entity type</button>
+                <button class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New entity type</button>
             </div>
 
             <Show when={!loading()} fallback={<div class="empty-state">Loading…</div>}>
@@ -138,16 +138,16 @@ const EntitiesList: Component = () => {
                                     </div>
 
                                     <div class="entity-type-row__actions">
-                                        <A href={`/admin/entities/${type.key}/templates`} class="btn btn--small btn--ghost">
+                                        <A href={`/admin/entities/${type.key}/templates`} class="ui-button ui-button--sm ui-button--ghost">
                                             Templates
                                             <Show when={templateCounts()[type.key]}>
                                                 {' '}({templateCounts()[type.key]})
                                             </Show>
                                         </A>
-                                        <A href={`/admin/entities/${type.key}`} class="btn btn--small btn--secondary">
+                                        <A href={`/admin/entities/${type.key}`} class="ui-button ui-button--sm ui-button--secondary">
                                             Schema
                                         </A>
-                                        <A href={`/admin/entities/${type.key}/data`} class="btn btn--small btn--primary">
+                                        <A href={`/admin/entities/${type.key}/data`} class="ui-button ui-button--sm ui-button--primary">
                                             Data
                                         </A>
                                     </div>
@@ -212,10 +212,10 @@ const EntitiesList: Component = () => {
                         />
                     </div>
                     <div style={{ display: 'flex', 'justify-content': 'flex-end', gap: '0.5rem', }}>
-                        <button class="btn btn--secondary" onClick={() => setShowCreate(false,)} disabled={saving()}>
+                        <button class="ui-button ui-button--secondary" onClick={() => setShowCreate(false,)} disabled={saving()}>
                             Cancel
                         </button>
-                        <button class="btn btn--primary" onClick={submitCreate} disabled={saving()}>
+                        <button class="ui-button ui-button--primary" onClick={submitCreate} disabled={saving()}>
                             {saving() ? 'Creating…' : 'Create'}
                         </button>
                     </div>

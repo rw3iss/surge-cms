@@ -67,7 +67,7 @@ const AdminUsersSettings: Component = () => {
                 <A href="/admin/users" class="admin-header__back">← Users</A>
                 <h1>Users Settings</h1>
                 <div class="admin-header__actions">
-                    <button class="btn btn--primary" onClick={save} disabled={saving() || !loaded()}>
+                    <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || !loaded()}>
                         {saving() ? 'Saving…' : 'Save'}
                     </button>
                 </div>

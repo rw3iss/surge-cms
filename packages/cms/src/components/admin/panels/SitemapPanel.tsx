@@ -48,7 +48,7 @@ const SitemapPanel: Component = () => {
             </p>
             <div class="u-flex-row u-flex-wrap">
                 <button
-                    class="btn btn--secondary"
+                    class="ui-button ui-button--secondary"
                     onClick={regenerate}
                     disabled={busy()}
                 >
@@ -58,7 +58,7 @@ const SitemapPanel: Component = () => {
                     href="/sitemap.xml"
                     target="_blank"
                     rel="noopener"
-                    class="btn btn--ghost btn--small"
+                    class="ui-button ui-button--ghost ui-button--sm"
                 >
                     View /sitemap.xml ↗
                 </a>

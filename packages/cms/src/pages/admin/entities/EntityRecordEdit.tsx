@@ -117,15 +117,15 @@ const EntityRecordEdit: Component = () => {
                 </h1>
                 <div style={{ display: 'flex', gap: '0.5rem', }}>
                     <Show when={isEditing()}>
-                        <button class="btn btn--primary" onClick={save} disabled={saving() || loading()}>
+                        <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || loading()}>
                             {saving() ? 'Saving…' : 'Save'}
                         </button>
                     </Show>
                     <Show when={!isEditing() && !isNew()}>
-                        <A href={`/admin/entities/${params.type}/${params.id}/edit`} class="btn btn--primary">
+                        <A href={`/admin/entities/${params.type}/${params.id}/edit`} class="ui-button ui-button--primary">
                             Edit
                         </A>
-                        <button class="btn btn--danger" onClick={() => setConfirmDelete(true,)}>Delete</button>
+                        <button class="ui-button ui-button--danger" onClick={() => setConfirmDelete(true,)}>Delete</button>
                     </Show>
                 </div>
             </div>

@@ -392,7 +392,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                     when={config}
                     fallback={
                         <button
-                            class="btn btn--sm btn--ghost"
+                            class="ui-button ui-button--sm ui-button--ghost"
                             onClick={() => {
                                 updateItem(item.id, it => ({
                                     ...it,
@@ -472,7 +472,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                     when={action}
                     fallback={
                         <button
-                            class="btn btn--sm btn--ghost"
+                            class="ui-button ui-button--sm ui-button--ghost"
                             onClick={() => {
                                 updateItem(item.id, it => ({
                                     ...it,
@@ -605,7 +605,7 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                     <div class="hero-options__row">
                         <Show when={!props.hideHeader}>
                             <button
-                                class="btn btn--primary btn--small"
+                                class="ui-button ui-button--primary ui-button--sm"
                                 disabled={!isDirty() || saving()}
                                 onClick={handleSave}
                             >

@@ -37,7 +37,7 @@ function SecretField(props: {
                     <code class="secret-readview__value">{props.masked}</code>
                     <button
                         type="button"
-                        class="btn btn--small btn--secondary"
+                        class="ui-button ui-button--sm ui-button--secondary"
                         onClick={() => props.setChanging(true,)}
                     >
                         Change
@@ -287,21 +287,21 @@ const ConnectionsPanel: Component = () => {
                                 <div class="connection-card__actions">
                                     <Show when={!isEditing()}>
                                         <button
-                                            class="btn btn--small btn--secondary"
+                                            class="ui-button ui-button--sm ui-button--secondary"
                                             onClick={() => startEditing(provider.id,)}
                                         >
                                             {conn() ? 'Edit' : 'Setup'}
                                         </button>
                                         <Show when={isConnected()}>
                                             <button
-                                                class="btn btn--small"
+                                                class="ui-button ui-button--sm"
                                                 disabled={syncing() === provider.id}
                                                 onClick={() => handleSyncNow(provider.id,)}
                                             >
                                                 {syncing() === provider.id ? 'Syncing…' : 'Sync now'}
                                             </button>
                                             <button
-                                                class="btn btn--small btn--danger"
+                                                class="ui-button ui-button--sm ui-button--danger"
                                                 onClick={() => handleDisconnect(provider.id,)}
                                             >
                                                 Disconnect
@@ -503,12 +503,12 @@ const ConnectionsPanel: Component = () => {
                                     </Show>
                                     </div>
                                     <div class="form-actions u-flex-row">
-                                        <button class="btn btn--primary btn--small" onClick={handleSaveConnection}>
+                                        <button class="ui-button ui-button--primary ui-button--sm" onClick={handleSaveConnection}>
                                             Save
                                         </button>
                                         <Show when={provider.oauth && (conn()?.credentials?.hasAppSecret || appSecret())}>
                                             <button
-                                                class="btn btn--small"
+                                                class="ui-button ui-button--sm"
                                                 style={{ background: '#1877f2', color: '#fff', }}
                                                 onClick={() => handleOAuthConnect(provider.id,)}
                                                 disabled={oauthLoading()}
@@ -517,7 +517,7 @@ const ConnectionsPanel: Component = () => {
                                                     isConnected() ? 'Reconnect' : `Authorize ${provider.name}`}
                                             </button>
                                         </Show>
-                                        <button class="btn btn--secondary btn--small" onClick={cancelEditing}>
+                                        <button class="ui-button ui-button--secondary ui-button--sm" onClick={cancelEditing}>
                                             Cancel
                                         </button>
                                     </div>

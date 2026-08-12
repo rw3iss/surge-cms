@@ -276,8 +276,8 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                         onChange={setLinkNewWindow}
                         label="New window"
                     />
-                    <button type="button" class="btn btn--primary btn--small" onClick={insertLink}>Insert</button>
-                    <button type="button" class="btn btn--secondary btn--small" onClick={() => setShowLinkDialog(false,)}>Cancel</button>
+                    <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={insertLink}>Insert</button>
+                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setShowLinkDialog(false,)}>Cancel</button>
                 </div>
             </Show>
 

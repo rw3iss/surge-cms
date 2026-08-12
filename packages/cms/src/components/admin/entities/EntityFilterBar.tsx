@@ -83,7 +83,7 @@ const EntityFilterBar: Component<EntityFilterBarProps> = (props,) => {
                 <Show when={hasActive()}>
                     <button
                         type="button"
-                        class="btn btn--small btn--ghost entity-filter-bar__clear"
+                        class="ui-button ui-button--sm ui-button--ghost entity-filter-bar__clear"
                         onClick={() => props.onChange({},)}
                     >
                         Clear filters

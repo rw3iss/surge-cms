@@ -93,7 +93,7 @@ const DocumentBlock: Component<DocumentBlockProps> = (props,) => {
                             />
                             <button
                                 type="button"
-                                class="btn btn--small btn--secondary"
+                                class="ui-button ui-button--sm ui-button--secondary"
                                 onClick={() => setShowPicker(true,)}
                             >
                                 Select Existing

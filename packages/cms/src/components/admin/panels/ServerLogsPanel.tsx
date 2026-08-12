@@ -58,7 +58,7 @@ const ServerLogsPanel: Component = () => {
                     <Show when={open()}>
                         <button
                             type="button"
-                            class="btn btn--small btn--secondary"
+                            class="ui-button ui-button--sm ui-button--secondary"
                             onClick={() => void load()}
                             disabled={loading()}
                         >

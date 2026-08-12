@@ -130,10 +130,10 @@ const MailingListEdit: Component = () => {
                 <h1>{isNew() ? 'New Mailing List' : name() || '…'}</h1>
                 <div class="admin-header__actions">
                     <Show when={!isNew()}>
-                        <A href={`/admin/mail/send?list=${params.id}`} class="btn btn--secondary">Send to this list</A>
-                        <button type="button" class="btn btn--danger" onClick={handleDelete}>Delete</button>
+                        <A href={`/admin/mail/send?list=${params.id}`} class="ui-button ui-button--secondary">Send to this list</A>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
                     </Show>
-                    <button type="button" class="btn btn--primary" onClick={handleSave} disabled={saving()}>
+                    <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
                         {saving() ? 'Saving…' : 'Save'}
                     </button>
                 </div>
@@ -217,11 +217,11 @@ const MailingListEdit: Component = () => {
                                 onInput={(e,) => setSearch(e.currentTarget.value,)}
                             />
                             <Show when={selectedIds().size > 0}>
-                                <button type="button" class="btn btn--small btn--danger" onClick={bulkDelete}>
+                                <button type="button" class="ui-button ui-button--sm ui-button--danger" onClick={bulkDelete}>
                                     Remove {selectedIds().size}
                                 </button>
                             </Show>
-                            <button type="button" class="btn btn--small btn--primary" onClick={() => setShowAdd(true,)}>
+                            <button type="button" class="ui-button ui-button--sm ui-button--primary" onClick={() => setShowAdd(true,)}>
                                 + Add Subscriber
                             </button>
                         </div>
@@ -264,7 +264,7 @@ const MailingListEdit: Component = () => {
                                                     <td>
                                                         <button
                                                             type="button"
-                                                            class="btn btn--small btn--secondary"
+                                                            class="ui-button ui-button--sm ui-button--secondary"
                                                             onClick={() => setEditingSub(s,)}
                                                         >Edit</button>
                                                     </td>

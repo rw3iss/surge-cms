@@ -53,8 +53,8 @@ const MailingLists: Component = () => {
             <div class="admin-header">
                 <h1>Mailing Lists</h1>
                 <div class="admin-header__actions">
-                    <A href="/admin/mail/send" class="btn btn--secondary">Send a Message…</A>
-                    <A href="/admin/mailing-lists/new" class="btn btn--primary">+ New List</A>
+                    <A href="/admin/mail/send" class="ui-button ui-button--secondary">Send a Message…</A>
+                    <A href="/admin/mailing-lists/new" class="ui-button ui-button--primary">+ New List</A>
                 </div>
             </div>
 
@@ -87,7 +87,7 @@ const MailingLists: Component = () => {
                                                 <td>{l.subscriberCount ?? 0}</td>
                                                 <td>{l.isEnabled ? <span class="badge badge--success">Enabled</span> : <span class="badge">Disabled</span>}</td>
                                                 <td>
-                                                    <A href={`/admin/mailing-lists/${l.id}`} class="btn btn--small btn--secondary">Edit</A>
+                                                    <A href={`/admin/mailing-lists/${l.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
                                                 </td>
                                             </tr>
                                         )}
@@ -103,7 +103,7 @@ const MailingLists: Component = () => {
                 <header class="admin-section__header">
                     <h2>Mail Templates</h2>
                     <div class="admin-section__actions">
-                        <A href="/admin/mail-templates/new" class="btn btn--small btn--primary">+ New Template</A>
+                        <A href="/admin/mail-templates/new" class="ui-button ui-button--sm ui-button--primary">+ New Template</A>
                     </div>
                 </header>
                 <Show when={!templates.loading} fallback={<p>Loading…</p>}>
@@ -131,7 +131,7 @@ const MailingLists: Component = () => {
                                                 <td>{t.isEnabled ? <span class="badge badge--success">Enabled</span> : <span class="badge">Disabled</span>}</td>
                                                 <td>{new Date(t.updatedAt,).toLocaleDateString()}</td>
                                                 <td>
-                                                    <A href={`/admin/mail-templates/${t.id}`} class="btn btn--small btn--secondary">Edit</A>
+                                                    <A href={`/admin/mail-templates/${t.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
                                                 </td>
                                             </tr>
                                         )}
@@ -182,7 +182,7 @@ const MailingLists: Component = () => {
                                                 <td>{j.sentCount + j.failedCount}/{j.totalRecipients}</td>
                                                 <td>{formatTimestamp(j.startedAt,)}</td>
                                                 <td>
-                                                    <A href={`/admin/mail/jobs/${j.id}`} class="btn btn--small btn--secondary">View</A>
+                                                    <A href={`/admin/mail/jobs/${j.id}`} class="ui-button ui-button--sm ui-button--secondary">View</A>
                                                 </td>
                                             </tr>
                                         )}

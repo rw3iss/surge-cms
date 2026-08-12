@@ -130,7 +130,7 @@ const StripeKeysEditor: Component<Props> = (props,) => {
                                 </dl>
                             </Show>
                             <div class="shop-stripe__footer">
-                                <button class="btn btn--small btn--secondary" onClick={recheck} disabled={rechecking()}>
+                                <button class="ui-button ui-button--sm ui-button--secondary" onClick={recheck} disabled={rechecking()}>
                                     {rechecking() ? 'Checking…' : 'Recheck'}
                                 </button>
                             </div>
@@ -177,7 +177,7 @@ const StripeKeysEditor: Component<Props> = (props,) => {
             </Show>
 
             <div class="shop-stripe-keys__actions">
-                <button class="btn btn--primary btn--small" onClick={save} disabled={saving()}>
+                <button class="ui-button ui-button--primary ui-button--sm" onClick={save} disabled={saving()}>
                     {saving() ? 'Saving…' : 'Save'}
                 </button>
             </div>

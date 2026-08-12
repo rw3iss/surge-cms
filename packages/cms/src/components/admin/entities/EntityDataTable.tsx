@@ -166,7 +166,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                 />
                 <Show when={!props.type.adminEditRoute}>
                     <button
-                        class="btn btn--primary"
+                        class="ui-button ui-button--primary"
                         style={{ 'margin-left': 'auto', }}
                         onClick={() => navigate(`/admin/entities/${props.type.key}/new/edit`,)}
                     >
@@ -242,13 +242,13 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                                             <td>
                                                 <div class="entity-row-actions">
                                                     <button
-                                                        class="btn btn--small btn--secondary"
+                                                        class="ui-button ui-button--sm ui-button--secondary"
                                                         onClick={() => editRecord(rec,)}
                                                     >
                                                         Edit
                                                     </button>
                                                     <button
-                                                        class="btn btn--small btn--secondary"
+                                                        class="ui-button ui-button--sm ui-button--secondary"
                                                         disabled={copyingId() === rec.id}
                                                         onClick={() => copyRecord(rec,)}
                                                     >

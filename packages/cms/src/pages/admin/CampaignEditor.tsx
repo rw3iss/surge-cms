@@ -284,7 +284,7 @@ const CampaignEditor: Component = () => {
                                     <div class="form-group">
                                         <button
                                             type="button"
-                                            class="btn btn--secondary btn--small"
+                                            class="ui-button ui-button--secondary ui-button--sm"
                                             disabled={gbLoadingList()}
                                             onClick={loadGbCampaigns}
                                         >
@@ -492,14 +492,14 @@ const CampaignEditor: Component = () => {
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn--primary" disabled={saving()}>
+                        <button type="submit" class="ui-button ui-button--primary" disabled={saving()}>
                             {saving() ? 'Saving...' : 'Save Campaign'}
                         </button>
-                        <button type="button" class="btn btn--secondary" onClick={() => navigate('/admin/campaigns',)}>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={() => navigate('/admin/campaigns',)}>
                             Cancel
                         </button>
                         <Show when={!isNew()}>
-                            <button type="button" class="btn btn--danger" onClick={handleDelete}>
+                            <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
                                 Delete
                             </button>
                         </Show>

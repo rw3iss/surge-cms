@@ -147,7 +147,7 @@ const AdminMedia: Component = () => {
             <Title>Media - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Media Library</h1>
-                <label class="btn btn--primary">
+                <label class="ui-button ui-button--primary">
                     Upload File
                     <input
                         type="file"
@@ -268,20 +268,20 @@ const AdminMedia: Component = () => {
                                             </div>
                                             <div class="media-grid__actions">
                                                 <button
-                                                    class="btn btn--small btn--secondary"
+                                                    class="ui-button ui-button--sm ui-button--secondary"
                                                     onClick={(e,) => startEdit(m, e,)}
                                                 >
                                                     Edit
                                                 </button>
                                                 <button
-                                                    class="btn btn--small btn--secondary"
+                                                    class="ui-button ui-button--sm ui-button--secondary"
                                                     onClick={(e,) => handleDownload(m, e,)}
                                                     title="Download"
                                                 >
                                                     &#8595;
                                                 </button>
                                                 <button
-                                                    class="btn btn--small btn--danger"
+                                                    class="ui-button ui-button--sm ui-button--danger"
                                                     onClick={(e,) => handleDelete(m.id, e,)}
                                                 >
                                                     Delete
@@ -305,13 +305,13 @@ const AdminMedia: Component = () => {
                                         />
                                         <div class="media-grid__edit-actions">
                                             <button
-                                                class="btn btn--small btn--primary"
+                                                class="ui-button ui-button--sm ui-button--primary"
                                                 onClick={saveEdit}
                                                 disabled={saving()}
                                             >
                                                 {saving() ? 'Saving...' : 'Save'}
                                             </button>
-                                            <button class="btn btn--small btn--secondary" onClick={cancelEdit}>
+                                            <button class="ui-button ui-button--sm ui-button--secondary" onClick={cancelEdit}>
                                                 Cancel
                                             </button>
                                         </div>
@@ -361,7 +361,7 @@ const AdminMedia: Component = () => {
                             </div>
 
                             <div class="media-modal__footer">
-                                <button class="btn btn--secondary" onClick={closeModal}>Close</button>
+                                <button class="ui-button ui-button--secondary" onClick={closeModal}>Close</button>
                                 <div class="media-modal__meta">
                                     <span>{m().title || m().originalName}</span>
                                     <span class="media-modal__meta-details">
@@ -369,7 +369,7 @@ const AdminMedia: Component = () => {
                                         {new Date(m().createdAt,).toLocaleDateString()}
                                     </span>
                                 </div>
-                                <button class="btn btn--primary" onClick={(e,) => handleDownload(m(), e,)}>
+                                <button class="ui-button ui-button--primary" onClick={(e,) => handleDownload(m(), e,)}>
                                     Download
                                 </button>
                             </div>

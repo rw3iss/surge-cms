@@ -124,12 +124,12 @@ const AdminConnections: Component = () => {
                                         </button>
                                         <A
                                             href={`/admin/connections/${provider.id}`}
-                                            class="btn btn--small btn--secondary"
+                                            class="ui-button ui-button--sm ui-button--secondary"
                                         >
                                             Edit
                                         </A>
                                         <button
-                                            class="btn btn--small btn--danger"
+                                            class="ui-button ui-button--sm ui-button--danger"
                                             onClick={() => handleDisconnect(provider.id,)}
                                         >
                                             Disconnect
@@ -138,7 +138,7 @@ const AdminConnections: Component = () => {
                                     <Show when={!conn()}>
                                         <A
                                             href={`/admin/connections/${provider.id}`}
-                                            class="btn btn--small btn--primary"
+                                            class="ui-button ui-button--sm ui-button--primary"
                                         >
                                             Connect
                                         </A>

@@ -119,7 +119,7 @@ const SocialPostsPanel: Component = () => {
                         disabled={!canManualAdd()}
                         onInput={(e,) => setUrl(e.currentTarget.value,)}
                     />
-                    <button type="submit" class="btn btn--primary btn--small" disabled={busy() || !canManualAdd()}>
+                    <button type="submit" class="ui-button ui-button--primary ui-button--sm" disabled={busy() || !canManualAdd()}>
                         {busy() ? 'Adding…' : 'Add post'}
                     </button>
                 </form>

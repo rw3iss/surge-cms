@@ -104,8 +104,8 @@ const MediaPickerModal: Component<MediaPickerModalProps> = (props,) => {
                     </Show>
                 </div>
                 <div class="media-picker__footer">
-                    <button class="btn btn--secondary" onClick={props.onClose}>Cancel</button>
-                    <button class="btn btn--primary" onClick={handleConfirm} disabled={!selected()}>
+                    <button class="ui-button ui-button--secondary" onClick={props.onClose}>Cancel</button>
+                    <button class="ui-button ui-button--primary" onClick={handleConfirm} disabled={!selected()}>
                         Select
                     </button>
                 </div>

@@ -146,10 +146,10 @@ const AdminConnectionEditor: Component = () => {
                     </Show>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn--primary" onClick={handleSave}>
+                    <button class="ui-button ui-button--primary" onClick={handleSave}>
                         {connection() ? 'Save Changes' : 'Connect'}
                     </button>
-                    <button class="btn btn--secondary" onClick={() => navigate('/admin/connections',)}>Cancel</button>
+                    <button class="ui-button ui-button--secondary" onClick={() => navigate('/admin/connections',)}>Cancel</button>
                 </div>
             </div>
         </div>

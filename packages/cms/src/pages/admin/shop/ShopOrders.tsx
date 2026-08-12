@@ -116,7 +116,7 @@ const ShopifyOrdersInner: Component = () => {
             <div class="admin-header">
                 <h1>Orders</h1>
                 <Show when={shopifyAdminUrl()}>
-                    <a href={`${shopifyAdminUrl()}/orders`} target="_blank" rel="noopener" class="btn btn--secondary">
+                    <a href={`${shopifyAdminUrl()}/orders`} target="_blank" rel="noopener" class="ui-button ui-button--secondary">
                         Manage in Shopify ↗
                     </a>
                 </Show>

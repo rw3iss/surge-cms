@@ -28,7 +28,7 @@ const ShopifyManagedBanner: Component<{ note?: string; }> = (props,) => {
                         || 'Products, orders, and checkout are served from your connected Shopify store. The internal shop is overridden while this plugin is enabled.'}
                 </div>
                 <Show when={shopifyAdminUrl()}>
-                    <a href={shopifyAdminUrl()} target="_blank" rel="noopener" class="btn btn--secondary btn--small">
+                    <a href={shopifyAdminUrl()} target="_blank" rel="noopener" class="ui-button ui-button--secondary ui-button--sm">
                         Open Shopify admin ↗
                     </a>
                 </Show>

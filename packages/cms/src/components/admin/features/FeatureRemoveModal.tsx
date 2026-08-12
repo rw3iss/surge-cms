@@ -50,10 +50,10 @@ const FeatureRemoveModal: Component<Props> = (p,) => {
                 />
             </label>
             <div class="modal-actions">
-                <button type="button" class="btn btn--secondary" onClick={p.onCancel}>Cancel</button>
+                <button type="button" class="ui-button ui-button--secondary" onClick={p.onCancel}>Cancel</button>
                 <button
                     type="button"
-                    class="btn btn--danger"
+                    class="ui-button ui-button--danger"
                     disabled={!matches()}
                     onClick={() => { void p.onConfirm(); }}
                 >

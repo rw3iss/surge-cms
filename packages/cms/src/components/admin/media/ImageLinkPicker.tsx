@@ -69,7 +69,7 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
             </Show>
 
             <div class="image-link-picker__actions">
-                <button type="button" class="btn btn--secondary btn--small" onClick={() => setShowSelect(true,)}>
+                <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setShowSelect(true,)}>
                     Select Media
                 </button>
                 <button type="button" class="btn btn--outline btn--small" onClick={() => setShowUpload(true,)}>
@@ -78,7 +78,7 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
                 <Show when={hasMedia()}>
                     <button
                         type="button"
-                        class="btn btn--danger btn--small"
+                        class="ui-button ui-button--danger ui-button--sm"
                         onClick={clearMedia}
                         title="Remove selected media image"
                     >

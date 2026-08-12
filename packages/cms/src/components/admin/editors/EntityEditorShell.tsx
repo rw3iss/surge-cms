@@ -98,7 +98,7 @@ export function EntityEditorShell<TEntity,>(
                     <Show when={!e.isNew() && e.entity()}>
                         <Show when={e.isDeleted()}>
                             <button
-                                class="btn btn--secondary btn--small"
+                                class="ui-button ui-button--secondary ui-button--sm"
                                 onClick={() => e.setShowRestoreConfirm(true,)}
                                 disabled={e.restoring()}
                             >
@@ -106,17 +106,17 @@ export function EntityEditorShell<TEntity,>(
                             </button>
                         </Show>
                         <Show when={!e.isDeleted() && (e.isDirty() || props.status() === 'draft')}>
-                            <button class="btn btn--ghost btn--small" onClick={() => e.setShowPreview(true,)}>
+                            <button class="ui-button ui-button--ghost ui-button--sm" onClick={() => e.setShowPreview(true,)}>
                                 {props.labels.previewLabel}
                             </button>
                         </Show>
                         <Show when={props.status() === 'published'}>
-                            <a href={props.publicUrl()} target="_blank" class="btn btn--secondary btn--small">
+                            <a href={props.publicUrl()} target="_blank" class="ui-button ui-button--secondary ui-button--sm">
                                 {props.labels.viewLabel}
                             </a>
                         </Show>
                     </Show>
-                    <button class="btn btn--primary btn--small" onClick={e.handleSave} disabled={e.saving()}>
+                    <button class="ui-button ui-button--primary ui-button--sm" onClick={e.handleSave} disabled={e.saving()}>
                         {e.saving() ? 'Saving...' : props.labels.saveLabel}
                     </button>
                 </div>

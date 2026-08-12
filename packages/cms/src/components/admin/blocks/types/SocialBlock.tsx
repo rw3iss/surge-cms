@@ -319,7 +319,7 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
             </div>
             <button
                 type="button"
-                class="btn btn--small btn--secondary"
+                class="ui-button ui-button--sm ui-button--secondary"
                 onClick={() => setShowModal(true,)}
                 disabled={!props.provider}
                 title="Open advanced post search"
@@ -329,7 +329,7 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
             <Show when={props.item.postId}>
                 <button
                     type="button"
-                    class="btn btn--small btn--ghost"
+                    class="ui-button ui-button--sm ui-button--ghost"
                     onClick={() => props.onClear()}
                     title="Clear this slot"
                 >

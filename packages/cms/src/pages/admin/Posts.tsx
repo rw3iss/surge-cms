@@ -1,11 +1,8 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, For, Show, } from 'solid-js';
+import { Component, createEffect, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
-import EmptyState from '../../components/admin/common/EmptyState';
-import LoadingState from '../../components/admin/common/LoadingState';
-import Pagination from '../../components/admin/common/Pagination';
-import SortTh from '../../components/admin/common/SortTh';
+import DataTable from '../../components/admin/common/DataTable';
 import { useBulkActions, } from '../../hooks/useBulkActions';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
@@ -47,7 +44,7 @@ const AdminPosts: Component = () => {
             <Title>Posts - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Posts</h1>
-                <A href="/admin/posts/new" class="btn btn--primary">New Post</A>
+                <A href="/admin/posts/new" class="ui-button ui-button--primary">New Post</A>
             </div>
             <div class="admin-filter-bar">
                 <input
@@ -70,106 +67,49 @@ const AdminPosts: Component = () => {
                     <option value="deleted">Deleted</option>
                 </select>
             </div>
-            <Show when={bulk.selectedCount() > 0}>
-                <div class="admin-list-page__bulk-bar">
-                    <span class="admin-list-page__bulk-count">
-                        {bulk.selectedCount()} selected
-                    </span>
-                    <button class="btn btn--small btn--secondary" onClick={() => bulk.applyStatus('published',)}>
-                        Publish
-                    </button>
-                    <button class="btn btn--small btn--secondary" onClick={() => bulk.applyStatus('draft',)}>
-                        Unpublish
-                    </button>
-                    <button class="btn btn--small btn--danger" onClick={() => bulk.applyDelete()}>
-                        Delete
-                    </button>
-                    <button class="btn btn--small btn--ghost" onClick={() => bulk.clear()}>
-                        Clear
-                    </button>
-                </div>
-            </Show>
-            <Show
-                when={!list.loading()}
-                fallback={<LoadingState />}
-            >
-                <Show
-                    when={list.items().length}
-                    fallback={<EmptyState message="No posts found." />}
-                >
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ width: '40px', }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={bulk.allSelected(list.items(),)}
-                                            onChange={() => bulk.toggleAll(list.items(),)}
-                                        />
-                                    </th>
-                                    <SortTh label="Title" field="title" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Status" field="status" current={currentSort()} onSort={handleSort} />
-                                    <th>Blocks</th>
-                                    <SortTh label="Published" field="date" current={currentSort()} onSort={handleSort} />
-                                    <SortTh label="Modified" field="updated" current={currentSort()} onSort={handleSort} />
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={list.items()}>
-                                    {(post: any,) => (
-                                        <tr>
-                                            <td onClick={(e,) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={bulk.isSelected(post.id,)}
-                                                    onChange={() => bulk.toggle(post.id,)}
-                                                />
-                                            </td>
-                                            <td>
-                                                <A href={`/admin/posts/${post.id}`} class="table-link">
-                                                    {post.title}
-                                                </A>
-                                            </td>
-                                            <td>
-                                                <span class={`badge ${getStatusBadgeClass(post.status,)}`}>
-                                                    {post.status}
-                                                </span>
-                                            </td>
-                                            <td>{post.blockCount || 0}</td>
-                                            <td>{formatDate(post.publishedAt,)}</td>
-                                            <td>{formatDate(post.updatedAt,)}</td>
-                                            <td>
-                                                <A href={`/admin/posts/${post.id}`} class="btn btn--small btn--secondary">
-                                                    Edit
-                                                </A>
-                                                <a
-                                                    href={post.status === 'published' ?
-                                                        `/posts/${post.slug}` :
-                                                        `/posts/${post.slug}?preview=admin`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="btn btn--small btn--ghost"
-                                                >
-                                                    View
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
-                </Show>
-            </Show>
+            <DataTable
+                items={list.items()}
+                loading={list.loading()}
+                emptyMessage="No posts found."
+                sort={{ current: currentSort(), onSort: handleSort, }}
+                bulk={{
+                    selectedCount: bulk.selectedCount,
+                    isSelected: bulk.isSelected,
+                    toggle: bulk.toggle,
+                    allSelected: bulk.allSelected,
+                    toggleAll: bulk.toggleAll,
+                    clear: bulk.clear,
+                    actions: [
+                        { label: 'Publish', onClick: () => bulk.applyStatus('published',), },
+                        { label: 'Unpublish', onClick: () => bulk.applyStatus('draft',), },
+                        { label: 'Delete', variant: 'danger', onClick: () => bulk.applyDelete(), },
+                    ],
+                }}
+                pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
+                columns={[
+                    { header: 'Title', sortField: 'title', cell: (post: any,) => <A href={`/admin/posts/${post.id}`} class="table-link">{post.title}</A>, },
+                    { header: 'Status', sortField: 'status', cell: (post: any,) => <span class={`badge ${getStatusBadgeClass(post.status,)}`}>{post.status}</span>, },
+                    { header: 'Blocks', cell: (post: any,) => post.blockCount || 0, },
+                    { header: 'Published', sortField: 'date', cell: (post: any,) => formatDate(post.publishedAt,), },
+                    { header: 'Modified', sortField: 'updated', cell: (post: any,) => formatDate(post.updatedAt,), },
+                    {
+                        header: 'Actions',
+                        cell: (post: any,) => (
+                            <>
+                                <A href={`/admin/posts/${post.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
+                                <a
+                                    href={post.status === 'published' ? `/posts/${post.slug}` : `/posts/${post.slug}?preview=admin`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="ui-button ui-button--sm ui-button--ghost"
+                                >
+                                    View
+                                </a>
+                            </>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 };

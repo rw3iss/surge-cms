@@ -121,7 +121,7 @@ const ShopCategoriesInner: Component = () => {
             <Title>Shop Categories - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Categories</h1>
-                <button class="btn btn--primary" onClick={openNew}>New Category</button>
+                <button class="ui-button ui-button--primary" onClick={openNew}>New Category</button>
             </div>
             <ShopifyManagedBanner note="Categories map to Shopify collections while Shopify is enabled; internal categories aren't used on the storefront." />
 
@@ -162,8 +162,8 @@ const ShopCategoriesInner: Component = () => {
                                         <td>{(categories() || []).find((p,) => p.id === c.parentId,)?.name || '—'}</td>
                                         <td>
                                             <div class="table-actions">
-                                                <button class="btn btn--small btn--secondary" onClick={() => openEdit(c,)}>Edit</button>
-                                                <button class="btn btn--small btn--danger" onClick={() => remove(c,)}>Delete</button>
+                                                <button class="ui-button ui-button--sm ui-button--secondary" onClick={() => openEdit(c,)}>Edit</button>
+                                                <button class="ui-button ui-button--sm ui-button--danger" onClick={() => remove(c,)}>Delete</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -209,8 +209,8 @@ const ShopCategoriesInner: Component = () => {
                             </FormField>
                         </div>
                         <div class="confirm-modal__actions">
-                            <button class="btn btn--secondary" onClick={() => setDraft(null,)}>Cancel</button>
-                            <button class="btn btn--primary" onClick={save} disabled={saving()}>
+                            <button class="ui-button ui-button--secondary" onClick={() => setDraft(null,)}>Cancel</button>
+                            <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                                 {saving() ? 'Saving...' : 'Save'}
                             </button>
                         </div>

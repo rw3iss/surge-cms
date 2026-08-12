@@ -18,7 +18,7 @@ const ShopGuard: ParentComponent = (props,) => (
                     Settings &rarr; Features to manage products, orders, and
                     checkout.
                 </p>
-                <A href="/admin/settings" class="btn btn--primary">Go to Settings</A>
+                <A href="/admin/settings" class="ui-button ui-button--primary">Go to Settings</A>
             </div>
         }
     >
