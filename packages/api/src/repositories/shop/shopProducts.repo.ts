@@ -244,7 +244,7 @@ export async function createProduct(data: Record<string, unknown>, userId: strin
             data.status || 'draft',
             data.metaTitle ?? null,
             data.metaDescription ?? null,
-            data.shippingType || 'flat',
+            data.shippingType || 'calculated',
             data.useDefaultShipping ?? true,
             // created_by is a UUID FK; synthetic actors → NULL.
             uuidOrNull(userId,),
