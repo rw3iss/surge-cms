@@ -776,6 +776,45 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                 content={<p>Gap between visible items (any CSS length, e.g. <code>1rem</code>).</p>}
                             />
                         </div>
+
+                        {/* Show dots */}
+                        <div class="hero-options__group">
+                            <Toggle
+                                checked={options().showDots !== false}
+                                onChange={(next,) => updateOptions({ showDots: next, },)}
+                                ariaLabel="Show navigation dots"
+                            />
+                            <span class="hero-options__label">Show navigation dots</span>
+                            <Tooltip
+                                header="Navigation dots"
+                                content={<p>Show the pager dots under the carousel. Turn off to hide the dots entirely.</p>}
+                            />
+                        </div>
+
+                        {/* Dot color */}
+                        <Show when={options().showDots !== false}>
+                            <div class="hero-options__group">
+                                <span class="hero-options__label">Dot color</span>
+                                <input
+                                    type="color"
+                                    class="input input--sm input--color"
+                                    value={options().dotColor || '#ffffff'}
+                                    onInput={(e,) => updateOptions({ dotColor: e.currentTarget.value, },)}
+                                    aria-label="Dot color"
+                                />
+                                <input
+                                    type="text"
+                                    class="input input--sm input--inline-text"
+                                    placeholder="#ffffff"
+                                    value={options().dotColor || ''}
+                                    onChange={(e,) => updateOptions({ dotColor: e.currentTarget.value.trim() || undefined, },)}
+                                />
+                                <Tooltip
+                                    header="Dot color"
+                                    content={<p>Color of the pager dots (any CSS color — hex, <code>rgb()</code>, or a name). Defaults to white; set a darker color so the dots show on a light background.</p>}
+                                />
+                            </div>
+                        </Show>
                     </div>
 
                     {/* ─── Mobile overrides (≤768px) ─── */}

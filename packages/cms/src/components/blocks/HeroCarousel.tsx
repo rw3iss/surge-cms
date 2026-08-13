@@ -532,28 +532,37 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                     </button>
 
                     {/* Dots — one per PAGE (a screenful of `perPage` items),
-                        active when the current index falls in that page's span. */}
-                    <div class="hero-carousel__dots">
-                        <For each={pages()}>
-                            {(start, i,) => {
-                                // Active over [thisStart, nextStart) so a snapped final
-                                // page (which can overlap the previous one) doesn't
-                                // light up two dots at once.
-                                const nextStart = () => pages()[i() + 1] ?? itemCount();
-                                return (
-                                    <button
-                                        class={`hero-carousel__dot ${
-                                            currentIndex() >= start && currentIndex() < nextStart()
-                                                ? 'hero-carousel__dot--active'
-                                                : ''
-                                        }`}
-                                        onClick={() => goTo(start,)}
-                                        aria-label={`Go to page ${i() + 1}`}
-                                    />
-                                );
-                            }}
-                        </For>
-                    </div>
+                        active when the current index falls in that page's span.
+                        Hidden entirely when `showDots` is false; color driven by
+                        `dotColor` via the `--carousel-dot-color` custom property. */}
+                    <Show when={props.options.showDots !== false}>
+                        <div
+                            class="hero-carousel__dots"
+                            style={props.options.dotColor
+                                ? { '--carousel-dot-color': props.options.dotColor, }
+                                : undefined}
+                        >
+                            <For each={pages()}>
+                                {(start, i,) => {
+                                    // Active over [thisStart, nextStart) so a snapped final
+                                    // page (which can overlap the previous one) doesn't
+                                    // light up two dots at once.
+                                    const nextStart = () => pages()[i() + 1] ?? itemCount();
+                                    return (
+                                        <button
+                                            class={`hero-carousel__dot ${
+                                                currentIndex() >= start && currentIndex() < nextStart()
+                                                    ? 'hero-carousel__dot--active'
+                                                    : ''
+                                            }`}
+                                            onClick={() => goTo(start,)}
+                                            aria-label={`Go to page ${i() + 1}`}
+                                        />
+                                    );
+                                }}
+                            </For>
+                        </div>
+                    </Show>
                 </Show>
             </Show>
         </div>

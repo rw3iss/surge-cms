@@ -119,6 +119,11 @@ export interface HeroCarouselOptions {
     sidePadding?: string;
     /** Gap (any CSS length) between visible items, e.g. `1rem`. */
     itemGap?: string;
+    /** Show the pager dots under the carousel. Defaults to true (omitted = shown)
+     *  so existing carousels are unchanged; set false to hide the dots entirely. */
+    showDots?: boolean;
+    /** Color of the pager dots (any CSS color). Defaults to white. */
+    dotColor?: string;
     // ─── Mobile overrides (≤768px viewport). Each falls back to its desktop
     //     value above when unset, so a carousel only needs to set what differs. ───
     /** On mobile, render the items as a plain vertical LIST instead of a

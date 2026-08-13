@@ -554,6 +554,13 @@ textarea.input--sm {
   width: 100px;
 }
 
+// Compact native color swatch (sits beside the hex text input).
+.input--color {
+  width: 40px;
+  padding: 2px;
+  cursor: pointer;
+}
+
 .input--error {
   border-color: $error-color;
   &:focus {

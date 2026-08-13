@@ -428,17 +428,21 @@
     height: 8px;
     border-radius: 50%;
     border: none;
-    background: rgba(255, 255, 255, 0.5);
+    // Color is set via the `--carousel-dot-color` custom property (block option),
+    // defaulting to white. Opacity — not rgba — conveys the inactive/hover/active
+    // states so ANY dot color works, not just white.
+    background: var(--carousel-dot-color, #fff);
+    opacity: 0.5;
     cursor: pointer;
-    transition: background 0.2s, transform 0.15s;
+    transition: opacity 0.2s, transform 0.15s;
     padding: 0;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.8);
+      opacity: 0.8;
     }
 
     &--active {
-      background: #fff;
+      opacity: 1;
       transform: scale(1.25);
     }
   }
