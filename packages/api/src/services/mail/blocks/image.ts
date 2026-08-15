@@ -20,9 +20,12 @@ export const renderImage: BlockEmailRenderer = (node,) => {
     const valid = imgs.filter((i,) => i.url,);
     if (valid.length === 0) return '';
 
-    // Honor a max-width set on the block's style (the style panel). Without it,
-    // the image filled the full 600px column regardless of the configured cap.
-    const maxW = typeof node.style?.maxWidth === 'string' ? String(node.style.maxWidth,).trim() : '';
+    // Honor a max-width from the Image block's item-width control
+    // (`settings.itemMaxWidth`) or the style panel (`style.maxWidth`). Without
+    // it, the image filled the full 600px column regardless of the cap.
+    const itemMax = typeof node.settings?.itemMaxWidth === 'string' ? String(node.settings.itemMaxWidth,).trim() : '';
+    const styleMax = typeof node.style?.maxWidth === 'string' ? String(node.style.maxWidth,).trim() : '';
+    const maxW = itemMax || styleMax;
     const pxMatch = maxW.match(/^(\d+)(?:px)?$/,);
     const widthAttr = pxMatch ? pxMatch[1] : '600'; // Outlook ignores max-width; uses this
     const align = String((node.style as Record<string, unknown> | undefined)?.textAlign ?? '',);
