@@ -13,8 +13,10 @@
  *   - The send worker, which calls this once per job and substitutes
  *     per-recipient variables over the result before each send.
  */
+import type { SiteBreakpoint, } from '@sitesurge/types';
 import { detectVariables, } from './variables';
 import { EmailBlockNode, EmailRenderCtx, renderNode, } from './blocks';
+import { buildEmailResponsiveCss, } from './blocks/responsiveCss';
 import { wrapEmailShell, } from './shell';
 
 export interface FlatBlock {
@@ -39,6 +41,8 @@ export interface RenderInput {
     textColor?: string;
     bgColor?: string;
     linkColor?: string;
+    /** Named responsive breakpoints — emit an `@media` rule per block override. */
+    breakpoints?: SiteBreakpoint[];
 }
 
 export interface RenderResult {
@@ -80,8 +84,21 @@ export function renderMailHtml(input: RenderInput,): RenderResult {
         linkColor: input.linkColor ?? '#3498cf',
     };
 
-    const tree = buildTree(input.blocks,);
+    // Only ENABLED blocks render — a block flagged `settings.disabled` is kept
+    // in the DB but excluded from both the preview and the sent email (dropping
+    // it from the flat list also drops its whole subtree, since children are
+    // only reached through their parent). Matches the public renderer.
+    const enabledBlocks = input.blocks.filter(
+        (b,) => !((b.settings as { disabled?: unknown; } | undefined)?.disabled),
+    );
+
+    const tree = buildTree(enabledBlocks,);
     const rows = tree.map((n,) => renderNode(n, ctx,),).join('\n',);
+
+    // Per-breakpoint @media overrides for any block with `style.breakpoints`,
+    // scoped by `data-block-id`. Injected into the head so clients that honor
+    // <style> apply the responsive tweaks; the inline base stays authoritative.
+    const responsiveCss = buildEmailResponsiveCss(enabledBlocks, input.breakpoints ?? [], input.palette,);
 
     // Preheader (off-screen first-line inbox preview) + the standard email
     // shell are shared with the other transactional templates via
@@ -98,7 +115,7 @@ export function renderMailHtml(input: RenderInput,): RenderResult {
         outerPadding: '24px 12px',
         innerBorder: '1px solid #eee',
         innerRadius: '6px',
-        headExtra: '<meta name="x-apple-disable-message-reformatting">\n',
+        headExtra: `<meta name="x-apple-disable-message-reformatting">\n${responsiveCss}`,
         preheader: input.preheader,
     },);
 

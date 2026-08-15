@@ -110,5 +110,7 @@ export function renderNode(node: EmailBlockNode, ctx: EmailRenderCtx,): string {
     const style = { ...cellStyleFromBlock(node, ctx,), ...(out.cellStyle ?? {}), };
     const styleAttr = inlineStyle(style,);
     const styleStr = styleAttr ? ` style="${styleAttr}"` : '';
-    return `<tr><td${styleStr}>${out.content}</td></tr>`;
+    // `data-block-id` lets the head `<style>` scope per-breakpoint @media rules
+    // to this block (see buildEmailResponsiveCss).
+    return `<tr><td data-block-id="${node.id}"${styleStr}>${out.content}</td></tr>`;
 }

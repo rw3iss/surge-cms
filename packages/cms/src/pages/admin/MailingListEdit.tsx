@@ -25,6 +25,9 @@ const MailingListEdit: Component = () => {
 
     const [name, setName,] = createSignal('',);
     const [slug, setSlug,] = createSignal('',);
+    // Once the user manually edits the slug, stop auto-syncing it from the name.
+    // Clearing the slug re-enables the sync (empty slug → follow the name again).
+    const [slugEdited, setSlugEdited,] = createSignal(false,);
     const [description, setDescription,] = createSignal('',);
     const [isEnabled, setIsEnabled,] = createSignal(true,);
     const [registeredUsersOnly, setRegisteredUsersOnly,] = createSignal(false,);
@@ -155,7 +158,8 @@ const MailingListEdit: Component = () => {
                                     value={name()}
                                     onInput={(e,) => {
                                         setName(e.currentTarget.value,);
-                                        if (isNew() && !slug()) setSlug(slugify(e.currentTarget.value,),);
+                                        // Live-sync the slug from the name until the user edits it.
+                                        if (isNew() && !slugEdited()) setSlug(slugify(e.currentTarget.value,),);
                                     }}
                                 />
                             </FormField>
@@ -167,7 +171,12 @@ const MailingListEdit: Component = () => {
                                 <input
                                     type="text"
                                     value={slug()}
-                                    onInput={(e,) => setSlug(slugify(e.currentTarget.value,),)}
+                                    onInput={(e,) => {
+                                        const v = slugify(e.currentTarget.value,);
+                                        setSlug(v,);
+                                        // Manual edit decouples from the name; clearing re-couples.
+                                        setSlugEdited(v.length > 0,);
+                                    }}
                                     placeholder="newsletter"
                                 />
                             </FormField>

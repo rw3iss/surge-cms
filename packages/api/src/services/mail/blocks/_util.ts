@@ -99,9 +99,13 @@ export function cellStyleFromBlock(
     // Font size.
     if (s.fontSize) out['font-size'] = String(s.fontSize,);
 
-    // Vertical sizing.
+    // Sizing. (Image blocks apply maxWidth to the <img> itself; here it caps
+    // the cell for other block types.)
     if (s.width) out.width = String(s.width,);
     if (s.height) out.height = String(s.height,);
+    if (s.maxWidth && node.blockType !== 'image' && node.blockType !== 'gallery') {
+        out['max-width'] = String(s.maxWidth,);
+    }
 
     // Vertical-align inside cell (top by default; explicit override only).
     if (s.verticalAlign && s.verticalAlign !== 'top') {

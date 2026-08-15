@@ -150,6 +150,15 @@ export async function preview(input: PreviewInput,) {
     // overrides from the preview form's variable inputs.
     const ctx = buildSampleContext(input.variables ?? {},);
 
+    // Make the preview a REAL representation: use the actual (cached) site
+    // values for `site.*` rather than the static catalog samples ("SiteSurge"),
+    // unless the operator explicitly overrode them in the preview form.
+    const overrides = input.variables ?? {};
+    const site = (ctx.site && typeof ctx.site === 'object' ? ctx.site : {}) as Record<string, unknown>;
+    if (overrides['site.name'] === undefined) site.name = renderCtx.siteName;
+    if (overrides['site.url'] === undefined) site.url = renderCtx.siteUrl;
+    ctx.site = site;
+
     return {
         html: await resolveMailTemplate(result.html, ctx,),
         subject: await resolveMailTemplate(result.subject, ctx,),
