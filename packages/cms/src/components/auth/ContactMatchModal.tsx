@@ -1,7 +1,7 @@
 import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import { Portal, } from 'solid-js/web';
-import type { ContactFieldsInput, } from '@sitesurge/types';
+import { type ContactFieldsInput, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import './ContactMatchModal.scss';
@@ -133,13 +133,32 @@ export const ContactMatchModal: Component = () => {
                                 {(f,) => (
                                     <label class="contact-match-modal__field">
                                         <span class="contact-match-modal__label">{f.label}</span>
-                                        <input
-                                            class="contact-match-modal__input"
-                                            type="text"
-                                            maxLength={255}
-                                            value={(fields[f.key] as string) ?? ''}
-                                            onInput={(ev,) => setFields(f.key, ev.currentTarget.value,)}
-                                        />
+                                        <Show
+                                            when={f.key === 'timeZone'}
+                                            fallback={
+                                                <input
+                                                    class="contact-match-modal__input"
+                                                    type="text"
+                                                    maxLength={255}
+                                                    value={(fields[f.key] as string) ?? ''}
+                                                    onInput={(ev,) => setFields(f.key, ev.currentTarget.value,)}
+                                                />
+                                            }
+                                        >
+                                            <select
+                                                class="contact-match-modal__input"
+                                                value={(fields.timeZone as string) ?? ''}
+                                                onChange={(ev,) => setFields('timeZone', ev.currentTarget.value,)}
+                                            >
+                                                <option value="">Select timezone…</option>
+                                                <Show when={fields.timeZone && !isKnownTimeZone(fields.timeZone as string,)}>
+                                                    <option value={fields.timeZone as string}>{fields.timeZone as string}</option>
+                                                </Show>
+                                                <For each={TIMEZONES}>
+                                                    {(tz,) => <option value={tz.value}>{tz.label}</option>}
+                                                </For>
+                                            </select>
+                                        </Show>
                                     </label>
                                 )}
                             </For>

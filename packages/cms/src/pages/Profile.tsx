@@ -1,6 +1,6 @@
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
-import { formatCurrency, } from '@sitesurge/types';
+import { formatCurrency, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
 import type { ContactMessage, PaymentsDonationsResponse, ShopOrder, } from '@sitesurge/types';
 
 type UserDonation = PaymentsDonationsResponse[number];
@@ -441,14 +441,20 @@ const Profile: Component = () => {
                                 </div>
                                 <label class="profile__field">
                                     <span class="profile__label">Timezone</span>
-                                    <input
+                                    <select
                                         class="profile__input"
-                                        type="text"
-                                        maxLength={255}
                                         value={timeZone()}
-                                        onInput={(ev,) => setTimeZone(ev.currentTarget.value,)}
-                                        placeholder="e.g. America/New_York"
-                                    />
+                                        onChange={(ev,) => setTimeZone(ev.currentTarget.value,)}
+                                    >
+                                        <option value="">Select timezone…</option>
+                                        {/* Preserve an existing custom/imported value not in the list. */}
+                                        <Show when={timeZone() && !isKnownTimeZone(timeZone(),)}>
+                                            <option value={timeZone()}>{timeZone()}</option>
+                                        </Show>
+                                        <For each={TIMEZONES}>
+                                            {(tz,) => <option value={tz.value}>{tz.label}</option>}
+                                        </For>
+                                    </select>
                                 </label>
                             </Show>
 
