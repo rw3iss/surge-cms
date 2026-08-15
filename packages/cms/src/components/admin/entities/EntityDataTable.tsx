@@ -155,6 +155,19 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         }
     };
 
+    // Pagination bar, reused above AND below the table. `alwaysShow` keeps it
+    // (with the "N of M" record count) visible even on a single page.
+    const pager = () => (
+        <Pagination
+            page={list.page()}
+            totalPages={list.totalPages()}
+            total={list.total()}
+            limit={list.limit()}
+            onPageChange={list.setPage}
+            alwaysShow
+        />
+    );
+
     return (
         <div>
             <div class="admin-filter-bar">
@@ -211,6 +224,9 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                     when={list.items().length}
                     fallback={<div class="empty-state">No {props.type.labelPlural.toLowerCase()} found.</div>}
                 >
+                    {/* Top pager (mirrors the bottom): record count + paging,
+                        directly below the filter area. */}
+                    {pager()}
                     <div class="admin-table-container">
                         <table class="admin-table">
                             <thead>
@@ -265,13 +281,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination
-                        page={list.page()}
-                        totalPages={list.totalPages()}
-                        total={list.total()}
-                        limit={list.limit()}
-                        onPageChange={list.setPage}
-                    />
+                    {pager()}
                 </Show>
             </Show>
         </div>

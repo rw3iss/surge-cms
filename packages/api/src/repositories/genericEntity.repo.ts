@@ -72,10 +72,20 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
             if (op === 'in' && Array.isArray(value,)) {
                 params.push(value,);
                 clauses.push(`${col} = ANY($${params.length})`,);
+            } else if ((op === 'eq' || op === 'ne') && typeof value === 'string') {
+                // String equality is case-insensitive (`firstName = beth` matches
+                // "Beth"). LOWER on both sides + a text cast so it works on any
+                // column type; avoids ILIKE's wildcard interpretation of % / _.
+                params.push(value,);
+                clauses.push(`LOWER(${col}::text) ${op === 'eq' ? '=' : '<>'} LOWER($${params.length})`,);
             } else if (OPS[op]) {
                 params.push(op === 'like' ? `%${value}%` : value,);
                 clauses.push(`${col} ${OPS[op]} $${params.length}`,);
             }
+        } else if (typeof raw === 'string') {
+            // Bare-value equality (filter dropdowns) — also case-insensitive.
+            params.push(raw,);
+            clauses.push(`LOWER(${col}::text) = LOWER($${params.length})`,);
         } else {
             params.push(raw,);
             clauses.push(`${col} = $${params.length}`,);

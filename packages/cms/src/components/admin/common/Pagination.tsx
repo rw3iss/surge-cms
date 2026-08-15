@@ -7,11 +7,14 @@ export interface PaginationProps {
     limit?: number;
     onPageChange: (page: number,) => void;
     maxButtons?: number;
+    /** Render the bar even for a single page (shows the "N of M" count on the
+     *  right and a lone, active page button). Default: hide when totalPages<=1. */
+    alwaysShow?: boolean;
 }
 
 /**
  * Pagination controls with page number buttons and prev/next.
- * Renders nothing if totalPages <= 1.
+ * Renders nothing if totalPages <= 1 (unless `alwaysShow` is set).
  */
 const Pagination: Component<PaginationProps> = (props,) => {
     const maxButtons = () => props.maxButtons || 7;
@@ -44,7 +47,7 @@ const Pagination: Component<PaginationProps> = (props,) => {
     };
 
     return (
-        <Show when={props.totalPages > 1}>
+        <Show when={props.totalPages > 1 || props.alwaysShow}>
             <nav class="pagination" aria-label="Pagination">
                 <button
                     class="pagination__btn"
