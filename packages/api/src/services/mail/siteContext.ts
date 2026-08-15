@@ -6,6 +6,7 @@
  */
 import type { SiteBreakpoint, } from '@sitesurge/types';
 import { query, } from '../../db';
+import { config, } from '../../config';
 
 /** Fallback breakpoint (matches the appearance default) for installs whose
  *  `site_appearance` row predates the breakpoints feature. */
@@ -42,9 +43,19 @@ export async function loadMailRenderContext(): Promise<MailRenderContext> {
         ? appearance!.breakpoints!
         : DEFAULT_BREAKPOINTS;
 
+    // `{{site.url}}` — prefer an explicit `site_url` setting, else fall back to
+    // the configured public base URL (same one the working unsubscribe links
+    // use). Without this, `site_url` is usually blank → `{{site.url}}` rendered
+    // empty and `<a href="{{site.url}}">` links were dead.
+    const siteUrl = (
+        (settings.site_url as string | undefined)
+        || (config.frontendUrl as string | undefined)
+        || ''
+    ).replace(/\/+$/, '',);
+
     return {
         siteName: (settings.site_name as string) ?? 'Site',
-        siteUrl: (settings.site_url as string) ?? '',
+        siteUrl,
         palette,
         breakpoints,
     };

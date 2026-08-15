@@ -29,6 +29,7 @@ import type {
     ListSubscribeBody,
     MailingListCreateBody,
     MailingListSubscriberCreateBody,
+    MailingListSubscriberUpdateBody,
     MailingListSubscribersBulkDeleteBody,
     MailingListSubscribersQuery,
 } from '@sitesurge/types';
@@ -51,6 +52,14 @@ const subscriberAdminSchema = z.object({
     phone: z.string().optional(),
     customFields: z.record(z.string(), z.unknown(),).optional(),
 },) satisfies z.ZodType<MailingListSubscriberCreateBody>;
+
+const subscriberUpdateSchema = z.object({
+    name: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    status: z.enum(['subscribed', 'pending_confirmation', 'unsubscribed', 'bounced', 'complained',],).optional(),
+    customFields: z.record(z.string(), z.unknown(),).optional(),
+},) satisfies z.ZodType<MailingListSubscriberUpdateBody>;
 
 const subscribersQuery = z.object({
     limit: z.coerce.number().int().min(1,).optional(),
@@ -131,9 +140,9 @@ export const mailingListsRoutes = [
 
     defineRoute({
         method: 'put', path: '/:id/subscribers/:subId', auth: 'admin',
-        summary: 'Update a subscriber.',
-        input: { params: subIdParams, },
-        handler: ({ params, body, },) => mailingLists.updateSubscriber(params.subId, body as Record<string, unknown>,),
+        summary: 'Update a subscriber (name/phone/email/status).',
+        input: { params: subIdParams, body: subscriberUpdateSchema, },
+        handler: ({ params, body, },) => mailingLists.updateSubscriber(params.subId, body,),
     },),
 
     defineRoute({

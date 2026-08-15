@@ -122,12 +122,14 @@ export interface MailingListSubscriberIdParams {
     subId: string;
 }
 
-/** Body for PUT /mailing-lists/:id/subscribers/:subId. The route layer
- *  forwards the raw body to the repo, which only honors these columns. */
+/** Body for PUT /mailing-lists/:id/subscribers/:subId. `status` lets an admin
+ *  manually change a subscriber's state (e.g. re-subscribe / unsubscribe); the
+ *  service routes it through setStatus so the timestamp columns stay correct. */
 export interface MailingListSubscriberUpdateBody {
     name?: string;
     phone?: string;
     email?: string;
+    status?: SubscriberStatus;
     customFields?: Record<string, unknown>;
 }
 

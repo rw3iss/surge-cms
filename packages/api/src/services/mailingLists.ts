@@ -13,6 +13,7 @@ import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { sendEmail, } from './email';
 import { config, } from '../config';
+import type { MailingListSubscriberUpdateBody, } from '@sitesurge/types';
 import type { AuditContext, } from './types';
 import { uuidOrNull, } from '../utils/uuid';
 
@@ -129,10 +130,21 @@ export async function addSubscriber(listId: string, input: SubscriberAdminInput,
     return { subscriber: created, created: true, };
 }
 
-export async function updateSubscriber(subId: string, patch: Record<string, unknown>,) {
-    const updated = await subs.update(subId, patch,);
-    if (!updated) throw new NotFoundError('Subscriber',);
-    return updated;
+export async function updateSubscriber(subId: string, patch: MailingListSubscriberUpdateBody,) {
+    const { status, ...fields } = patch;
+    // Field updates (name/phone/email/customFields) go through the plain update.
+    if (Object.keys(fields,).length > 0) {
+        const updated = await subs.update(subId, fields,);
+        if (!updated) throw new NotFoundError('Subscriber',);
+    }
+    // A manual status change routes through setStatus so the matching timestamp
+    // column (confirmed_at / unsubscribed_at / …) is stamped — a raw column
+    // update would leave those stale.
+    if (status) await subs.setStatus(subId, status,);
+
+    const result = await subs.findById(subId,);
+    if (!result) throw new NotFoundError('Subscriber',);
+    return result;
 }
 
 export async function removeSubscriber(subId: string,): Promise<void> {

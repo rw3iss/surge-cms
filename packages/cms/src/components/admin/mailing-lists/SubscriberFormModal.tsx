@@ -4,11 +4,20 @@
  * (rather than co-located on the page) so future surfaces — bulk
  * import preview, public profile edit — can reuse it.
  */
-import { Component, createSignal, Show, } from 'solid-js';
+import { Component, createSignal, For, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import type { MailingListSubscriber, } from '@sitesurge/types';
+import type { MailingListSubscriber, SubscriberStatus, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { FormField, } from '../forms';
+
+/** Statuses an admin can set from the edit modal (readable label + value). */
+const STATUS_OPTIONS: { value: SubscriberStatus; label: string; }[] = [
+    { value: 'subscribed', label: 'Subscribed', },
+    { value: 'unsubscribed', label: 'Unsubscribed', },
+    { value: 'pending_confirmation', label: 'Pending confirmation', },
+    { value: 'bounced', label: 'Bounced', },
+    { value: 'complained', label: 'Complained', },
+];
 
 interface SubscriberFormModalProps {
     listId: string;
@@ -26,6 +35,7 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
     const [email, setEmail,] = createSignal(p.subscriber?.email ?? '',);
     const [name, setName,] = createSignal(p.subscriber?.name ?? '',);
     const [phone, setPhone,] = createSignal(p.subscriber?.phone ?? '',);
+    const [status, setStatus,] = createSignal<SubscriberStatus>(p.subscriber?.status ?? 'subscribed',);
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
 
@@ -35,7 +45,10 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
         try {
             const data = { email: email(), name: name() || undefined, phone: phone() || undefined, };
             if (isEditing()) {
-                await cms.mailingLists.updateSubscriber(p.listId, p.subscriber!.id, data as any,);
+                // Only send status when the admin actually changed it (setStatus
+                // re-stamps the timestamp column each time).
+                const patch = status() !== p.subscriber!.status ? { ...data, status: status(), } : data;
+                await cms.mailingLists.updateSubscriber(p.listId, p.subscriber!.id, patch as any,);
             } else {
                 await cms.mailingLists.addSubscriber(p.listId, data as any,);
             }
@@ -86,6 +99,18 @@ const SubscriberFormModal: Component<SubscriberFormModalProps> = (p,) => {
                             onInput={(e,) => setPhone(e.currentTarget.value,)}
                         />
                     </FormField>
+                    <Show when={isEditing()}>
+                        <FormField
+                            label="Status"
+                            hint="Manually change the subscription status (e.g. re-subscribe or unsubscribe)."
+                        >
+                            <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as SubscriberStatus,)}>
+                                <For each={STATUS_OPTIONS}>
+                                    {(o,) => <option value={o.value}>{o.label}</option>}
+                                </For>
+                            </select>
+                        </FormField>
+                    </Show>
                     <Show when={isEditing() && p.subscriber?.status === 'pending_confirmation'}>
                         <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={handleForceConfirm}>
                             Force Confirm

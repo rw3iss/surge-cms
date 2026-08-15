@@ -105,14 +105,19 @@
     background: var(--admin-panel-bg, #fff);
     padding: 1.25rem 1.5rem;
     border-radius: 8px;
+    // Uniform spacing between the title, fields, force-confirm button, and the
+    // action row (they had none before and sat flush against each other).
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
 
-    h3 { margin: 0 0 1rem; }
+    h3 { margin: 0; }
 
     .modal-actions {
         display: flex;
         gap: 0.5rem;
         justify-content: flex-end;
-        margin-top: 1rem;
+        margin-top: 0.4rem;
         flex-wrap: wrap;
 
         .btn--danger { margin-right: auto; }
