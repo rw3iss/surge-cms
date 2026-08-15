@@ -204,21 +204,29 @@ const MailSend: Component = () => {
                 <Show when={draft.listId}>
                     <section class="admin-section">
                         <header class="admin-section__header"><h2>Message details</h2></header>
+                        <p class="form-help-muted" style={{ margin: '0 0 12px', }}>
+                            <span class="admin-form-field__required" aria-hidden="true">*</span> Required.
+                            From name / email and reply-to fall back to the site's configured defaults.
+                        </p>
                         <div class="form-grid">
-                            <div class="form-group form-group--full">
-                                <label>Subject <small class="form-help-muted">(supports {`{{variables}}`})</small></label>
+                            <FormField
+                                label="Subject"
+                                labelSuffix={'(supports {{variables}})'}
+                                required
+                                class="form-group--full"
+                            >
                                 <input type="text" value={draft.subject} onInput={(e,) => setDraft('subject', e.currentTarget.value,)} />
-                            </div>
-                            <FormField label="Preheader" class="form-group--full">
+                            </FormField>
+                            <FormField label="Preheader" class="form-group--full" hint="Inbox preview text shown after the subject. Optional.">
                                 <input type="text" value={draft.preheader} onInput={(e,) => setDraft('preheader', e.currentTarget.value,)} />
                             </FormField>
-                            <FormField label="From name">
+                            <FormField label="From name" hint="Optional — defaults to the site name.">
                                 <input type="text" value={draft.fromName} onInput={(e,) => setDraft('fromName', e.currentTarget.value,)} />
                             </FormField>
-                            <FormField label="From email">
+                            <FormField label="From email" hint="Optional — defaults to the site's configured sender address.">
                                 <input type="email" value={draft.fromEmail} onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)} />
                             </FormField>
-                            <FormField label="Reply-to" class="form-group--full">
+                            <FormField label="Reply-to" class="form-group--full" hint="Optional — replies go here; defaults to the From email if blank.">
                                 <input type="email" value={draft.replyTo} onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)} />
                             </FormField>
                         </div>

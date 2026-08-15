@@ -21,6 +21,11 @@ import './forms.scss';
 
 export interface FormFieldProps {
     label: string;
+    /** Lighter, normal-case text after the label (e.g. "(supports {{variables}})").
+     *  Not uppercased/tracked like the label — it reads as a soft annotation. */
+    labelSuffix?: string | JSX.Element;
+    /** Mark the field required — shows a `*` after the label. */
+    required?: boolean;
     /** Optional inline help icon next to the label. Plain string or JSX. */
     tooltip?: string | JSX.Element;
     /** Tooltip header. Defaults to the label text when omitted. */
@@ -39,6 +44,12 @@ const FormField: Component<FormFieldProps> = (props,) => {
         <div class={`admin-form-field ${props.inline ? 'admin-form-field--inline' : ''} ${props.class || ''}`}>
             <label class="admin-form-field__label">
                 <span class="admin-form-field__label-text">{props.label}</span>
+                <Show when={props.required}>
+                    <span class="admin-form-field__required" aria-hidden="true" title="Required">*</span>
+                </Show>
+                <Show when={props.labelSuffix}>
+                    <span class="admin-form-field__label-suffix">{props.labelSuffix}</span>
+                </Show>
                 <Show when={props.tooltip}>
                     <Tooltip header={props.tooltipHeader || props.label} content={props.tooltip!} />
                 </Show>

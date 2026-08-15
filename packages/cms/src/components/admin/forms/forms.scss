@@ -49,6 +49,22 @@
     line-height: 1.2;
   }
 
+  // Soft annotation after the label (e.g. "(supports {{variables}})"): lighter
+  // weight, normal case/tracking so it doesn't compete with the label.
+  &__label-suffix {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 0.7;
+  }
+
+  // Required marker (`*`) — small accent so required fields stand out.
+  &__required {
+    color: var(--site-primary, #{$error-color});
+    font-weight: 700;
+    line-height: 1;
+  }
+
   &__control {
     display: flex;
     flex-direction: column;
