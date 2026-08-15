@@ -131,6 +131,51 @@ function productDescriptor(): EntityTypeDef {
     };
 }
 
+/** Build one contact field def (core, describing a ce_contact column). */
+function cf(key: string, type: EntityFieldType, extra: Partial<EntityFieldDef> = {}, position = 0,): EntityFieldDef {
+    return {
+        id: `core:contact:${key}`, key, label: key, type, core: true,
+        required: false, unique: false, indexed: false, searchable: false, filterable: false, position, ...extra,
+    };
+}
+
+/**
+ * The `contact` entity type — a CRM contact, owned by the `contacts` feature and
+ * adopting the migration-created `ce_contact` table. `userId` links a contact to
+ * a registered user (set on match/link, NULL on import). The type is NOT
+ * type-level searchable, so the generic repo searches via per-field ILIKE across
+ * the fields flagged `searchable` (name/email/phones) — good partial matching for
+ * a CRM. Column names are the snake_case of these camelCase keys.
+ */
+export function contactDescriptor(): EntityTypeDef {
+    const fields: EntityFieldDef[] = [
+        cf('userId', 'relation', { label: 'Linked user', options: { relationType: 'user', }, filterable: true, }, 0,),
+        cf('firstName', 'text', { label: 'First name', searchable: true, filterable: true, }, 1,),
+        cf('lastName', 'text', { label: 'Last name', searchable: true, filterable: true, }, 2,),
+        cf('email', 'text', { label: 'Email', searchable: true, indexed: true, }, 3,),
+        cf('mobilePhone', 'text', { label: 'Mobile phone', searchable: true, }, 4,),
+        cf('primaryPhone', 'text', { label: 'Primary phone', searchable: true, }, 5,),
+        cf('streetAddress1', 'text', { label: 'Street address 1', }, 6,),
+        cf('streetAddress2', 'text', { label: 'Street address 2', }, 7,),
+        cf('city', 'text', { label: 'City', filterable: true, }, 8,),
+        cf('zip', 'text', { label: 'Zip', }, 9,),
+        cf('state', 'text', { label: 'State / region', filterable: true, }, 10,),
+        cf('country', 'text', { label: 'Country', filterable: true, }, 11,),
+        cf('timeZone', 'text', { label: 'Time zone', }, 12,),
+    ];
+    return {
+        id: '', key: 'contact', label: 'Contact', labelPlural: 'Contacts',
+        singularVar: 'contact', pluralVar: 'contacts',
+        description: 'A CRM contact (managed by the Contacts feature). May be linked to a registered user via `userId`.',
+        origin: 'core', internal: true, ownerFeature: 'contacts', tableName: 'ce_contact',
+        hasSlug: false, hasStatus: false, searchable: false, revisioned: false,
+        routing: { detailEnabled: false, detailPrefix: '', indexEnabled: false, indexPrefix: '', },
+        caching: { indexEnabled: false, indexTtlSeconds: 30, recordEnabled: false, recordTtlSeconds: 30, },
+        adminListRoute: '/admin/entities/contact/data', adminEditRoute: '',
+        fields, createdAt: '', updatedAt: '',
+    };
+}
+
 /** All core descriptors (built fresh each call). */
 export function coreDescriptors(): EntityTypeDef[] {
     return [
@@ -149,6 +194,7 @@ export function coreDescriptors(): EntityTypeDef[] {
             ownerFeature: 'users', tableName: 'users', hasStatus: false,
             adminListRoute: '/admin/users', adminEditRoute: '/admin/users', }),
         productDescriptor(),
+        contactDescriptor(),
     ].filter((d,): d is EntityTypeDef => d !== null);
 }
 

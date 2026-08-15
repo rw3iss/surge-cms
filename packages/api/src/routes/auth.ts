@@ -44,6 +44,7 @@ import {
 } from '../services/auth';
 import { isFeatureEnabledServer, } from '../services/settings';
 import * as usersService from '../services/users';
+import * as contactsService from '../services/contacts';
 import { avatarUpload, } from './users';
 import { logger, } from '../utils/logger';
 
@@ -74,6 +75,15 @@ const updateProfileSchema = z.object({
     bio: z.string().max(250,).nullish(),
     locationCity: z.string().max(100,).nullish(),
     locationState: z.string().max(100,).nullish(),
+    // Contacts (CRM) fields — not user columns; mirrored onto the linked
+    // contact row when the `contacts` feature is enabled.
+    mobilePhone: z.string().max(255,).nullish(),
+    primaryPhone: z.string().max(255,).nullish(),
+    streetAddress1: z.string().max(255,).nullish(),
+    streetAddress2: z.string().max(255,).nullish(),
+    zip: z.string().max(255,).nullish(),
+    country: z.string().max(255,).nullish(),
+    timeZone: z.string().max(255,).nullish(),
 },) satisfies z.ZodType<AuthUpdateProfileBody>;
 
 // `refreshToken` is optional: when omitted the handler falls back to the
@@ -373,7 +383,25 @@ export const authRoutes = [
             if (!(await isFeatureEnabledServer('users',))) {
                 throw new ForbiddenError('User profiles are not enabled.',);
             }
-            const updated = await usersService.update(user.id, body, audit(),);
+            // Split base user columns from CRM contact fields (the latter are
+            // NOT columns on `users` — they mirror onto the linked contact row).
+            const { mobilePhone, primaryPhone, streetAddress1, streetAddress2, zip, country, timeZone, ...base } = body;
+            const updated = await usersService.update(user.id, base, audit(),);
+
+            // When Contacts (CRM) is on, ensure this user has a contact row and
+            // mirror the saved profile + contact fields onto it (redundant name/
+            // city/state included by design).
+            if (await isFeatureEnabledServer('contacts',)) {
+                await contactsService.upsertForUser(
+                    { id: user.id, email: user.email, },
+                    {
+                        firstName: base.firstName, lastName: base.lastName, email: user.email,
+                        mobilePhone, primaryPhone, streetAddress1, streetAddress2,
+                        city: base.locationCity, zip, state: base.locationState, country, timeZone,
+                    },
+                    user.id,
+                );
+            }
             return { user: updated, };
         },
     },),

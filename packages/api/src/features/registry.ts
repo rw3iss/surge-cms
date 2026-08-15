@@ -11,7 +11,7 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins' | 'social';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -175,6 +175,26 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             'plugins',
             'plugin_migrations',
         ],
+        onUninstall: async () => {},
+    },
+    contacts: {
+        key: 'contacts',
+        label: 'Contacts',
+        description: 'CRM: manage contacts/leads separate from registered users; link them on sign-up.',
+        defaultEnabled: false,
+        requires: ['users'],
+        migrations: [
+            '090_create_contacts.sql',
+        ],
+        // Owns the ce_contact table (the `contact` entity type adopts it), so
+        // the feature is uninstallable — dropped on uninstall.
+        tables: ['ce_contact'],
+        // Register the `contact` entity type inside the enable txn so it exists
+        // immediately (the post-commit seedCoreEntityTypes reloads the manager).
+        onEnable: async (client) => {
+            const { scaffoldCoreType, contactDescriptor, } = await import('../entities/coreDescriptors.js');
+            await scaffoldCoreType(contactDescriptor(), client,);
+        },
         onUninstall: async () => {},
     },
 };

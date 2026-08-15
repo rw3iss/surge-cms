@@ -178,6 +178,8 @@ async function computePublicFeatures(
         shop: { enabled: settings.shop_enabled === true, },
         // Plugins is opt-in. Disabled until the admin installs the feature.
         plugins: { enabled: settings.plugins_enabled === true, },
+        // Contacts (CRM) is opt-in. Requires `users`. Disabled until enabled.
+        contacts: { enabled: settings.contacts_enabled === true, },
     };
 }
 

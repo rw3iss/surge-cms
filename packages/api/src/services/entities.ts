@@ -20,6 +20,21 @@ function hashQuery(q: EntityQuery,): string {
     return createHash('sha1',).update(JSON.stringify(q,),).digest('hex',).slice(0, 16,);
 }
 
+/**
+ * Types holding PII that must NEVER be read through the generic (optional-auth)
+ * entities API by a non-staff caller. Other internal types (post/page/product/…)
+ * ARE meant to be publicly readable (entity blocks render them on public pages),
+ * so this is a targeted denylist, not a blanket `internal` block. Guarded reads
+ * throw NotFound (not 403) so the type's existence isn't revealed.
+ */
+const PRIVATE_TYPES = new Set(['contact', 'user',]);
+
+function guardPrivateRead(typeKey: string, admin: boolean | undefined,): void {
+    if (PRIVATE_TYPES.has(typeKey,) && !admin) {
+        throw new NotFoundError(`Entity type "${typeKey}"`,);
+    }
+}
+
 async function requireType(typeKey: string,) {
     await entityManager.ready();
     return entityManager.requireType(typeKey,);
@@ -31,6 +46,7 @@ export async function list(
     q: EntityQuery = {},
     opts: { admin?: boolean; } = {},
 ): Promise<{ items: EntityRecord[]; total: number; }> {
+    guardPrivateRead(typeKey, opts.admin,);
     const t = await requireType(typeKey,);
     const cacheable = Boolean(t.caching?.indexEnabled,) && !opts.admin;
     const key = CACHE_KEYS.entityList(typeKey, hashQuery(q,),);
@@ -46,6 +62,7 @@ export async function list(
 
 /** Get one record by id OR slug. */
 export async function get(typeKey: string, idOrSlug: string, opts: { admin?: boolean; } = {},): Promise<EntityRecord> {
+    guardPrivateRead(typeKey, opts.admin,);
     const t = await requireType(typeKey,);
     const cacheable = Boolean(t.caching?.recordEnabled,) && !opts.admin && UUID_RE.test(idOrSlug,);
     const key = CACHE_KEYS.entityRecord(typeKey, idOrSlug,);

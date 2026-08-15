@@ -29,7 +29,17 @@ const Profile: Component = () => {
     const [bio, setBio,] = createSignal('',);
     const [city, setCity,] = createSignal('',);
     const [stateRegion, setStateRegion,] = createSignal('',);
+    // Contacts (CRM) fields — only shown/saved when the `contacts` feature is on.
+    const [mobilePhone, setMobilePhone,] = createSignal('',);
+    const [primaryPhone, setPrimaryPhone,] = createSignal('',);
+    const [streetAddress1, setStreetAddress1,] = createSignal('',);
+    const [streetAddress2, setStreetAddress2,] = createSignal('',);
+    const [zip, setZip,] = createSignal('',);
+    const [country, setCountry,] = createSignal('',);
+    const [timeZone, setTimeZone,] = createSignal('',);
+    const [contactLoaded, setContactLoaded,] = createSignal(false,);
     const [avatarUrl, setAvatarUrl,] = createSignal<string | undefined>(undefined,);
+    const showContact = () => isFeatureEnabled('contacts',);
     const [status, setStatus,] = createSignal<'idle' | 'saving' | 'success' | 'error'>('idle',);
     const [error, setError,] = createSignal('',);
     const [initialized, setInitialized,] = createSignal(false,);
@@ -85,6 +95,29 @@ const Profile: Component = () => {
         }
     },);
 
+    // Prefill the CRM contact fields from the user's linked contact (once), when
+    // the Contacts feature is enabled. Non-fatal — no contact yet is fine.
+    createEffect(() => {
+        if (!showContact() || !auth.isAuthenticated || contactLoaded()) return;
+        setContactLoaded(true,);
+        void (async () => {
+            try {
+                const { contact, } = await cms.contacts.mine();
+                if (!contact) return;
+                setMobilePhone(contact.mobilePhone ?? '',);
+                setPrimaryPhone(contact.primaryPhone ?? '',);
+                setStreetAddress1(contact.streetAddress1 ?? '',);
+                setStreetAddress2(contact.streetAddress2 ?? '',);
+                setZip(contact.zip ?? '',);
+                setCountry(contact.country ?? '',);
+                setTimeZone(contact.timeZone ?? '',);
+                // Fill city/state from the contact only if the profile left them blank.
+                if (!city().trim() && contact.city) setCity(contact.city,);
+                if (!stateRegion().trim() && contact.state) setStateRegion(contact.state,);
+            } catch { /* no linked contact / feature off — ignore */ }
+        })();
+    },);
+
     const initials = createMemo(() => {
         const u = auth.user;
         const base = `${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim() || u?.displayName || u?.email || '';
@@ -102,6 +135,17 @@ const Profile: Component = () => {
                 bio: bio().trim() || null,
                 locationCity: city().trim() || null,
                 locationState: stateRegion().trim() || null,
+                // Contact fields are only meaningful with the Contacts feature on;
+                // sending them when off is harmless (the backend ignores them).
+                ...(showContact() ? {
+                    mobilePhone: mobilePhone().trim() || null,
+                    primaryPhone: primaryPhone().trim() || null,
+                    streetAddress1: streetAddress1().trim() || null,
+                    streetAddress2: streetAddress2().trim() || null,
+                    zip: zip().trim() || null,
+                    country: country().trim() || null,
+                    timeZone: timeZone().trim() || null,
+                } : {}),
             },);
             await auth.refreshUser();
             setStatus('success',);
@@ -292,6 +336,58 @@ const Profile: Component = () => {
                                 <span class="profile__counter">{bio().length}/{BIO_MAX}</span>
                             </label>
 
+                            {/* ── Contact info (Contacts/CRM feature) ── */}
+                            <Show when={showContact()}>
+                                <div class="profile__row">
+                                    <label class="profile__field">
+                                        <span class="profile__label">Mobile phone</span>
+                                        <input
+                                            class="profile__input"
+                                            type="tel"
+                                            maxLength={255}
+                                            value={mobilePhone()}
+                                            onInput={(ev,) => setMobilePhone(ev.currentTarget.value,)}
+                                            placeholder="Mobile phone"
+                                        />
+                                    </label>
+                                    <label class="profile__field">
+                                        <span class="profile__label">Primary phone</span>
+                                        <input
+                                            class="profile__input"
+                                            type="tel"
+                                            maxLength={255}
+                                            value={primaryPhone()}
+                                            onInput={(ev,) => setPrimaryPhone(ev.currentTarget.value,)}
+                                            placeholder="Primary phone"
+                                        />
+                                    </label>
+                                </div>
+                                <div class="profile__row">
+                                    <label class="profile__field">
+                                        <span class="profile__label">Street address 1</span>
+                                        <input
+                                            class="profile__input"
+                                            type="text"
+                                            maxLength={255}
+                                            value={streetAddress1()}
+                                            onInput={(ev,) => setStreetAddress1(ev.currentTarget.value,)}
+                                            placeholder="Street address"
+                                        />
+                                    </label>
+                                    <label class="profile__field">
+                                        <span class="profile__label">Street address 2</span>
+                                        <input
+                                            class="profile__input"
+                                            type="text"
+                                            maxLength={255}
+                                            value={streetAddress2()}
+                                            onInput={(ev,) => setStreetAddress2(ev.currentTarget.value,)}
+                                            placeholder="Apt, suite, unit (optional)"
+                                        />
+                                    </label>
+                                </div>
+                            </Show>
+
                             <div class="profile__row">
                                 <label class="profile__field">
                                     <span class="profile__label">City</span>
@@ -316,6 +412,45 @@ const Profile: Component = () => {
                                     />
                                 </label>
                             </div>
+
+                            {/* ── More contact info (Contacts/CRM feature) ── */}
+                            <Show when={showContact()}>
+                                <div class="profile__row">
+                                    <label class="profile__field">
+                                        <span class="profile__label">Zip code</span>
+                                        <input
+                                            class="profile__input"
+                                            type="text"
+                                            maxLength={255}
+                                            value={zip()}
+                                            onInput={(ev,) => setZip(ev.currentTarget.value,)}
+                                            placeholder="Zip / postal code"
+                                        />
+                                    </label>
+                                    <label class="profile__field">
+                                        <span class="profile__label">Country</span>
+                                        <input
+                                            class="profile__input"
+                                            type="text"
+                                            maxLength={255}
+                                            value={country()}
+                                            onInput={(ev,) => setCountry(ev.currentTarget.value,)}
+                                            placeholder="Country"
+                                        />
+                                    </label>
+                                </div>
+                                <label class="profile__field">
+                                    <span class="profile__label">Timezone</span>
+                                    <input
+                                        class="profile__input"
+                                        type="text"
+                                        maxLength={255}
+                                        value={timeZone()}
+                                        onInput={(ev,) => setTimeZone(ev.currentTarget.value,)}
+                                        placeholder="e.g. America/New_York"
+                                    />
+                                </label>
+                            </Show>
 
                             <Show when={error()}>
                                 <div class="profile__error">{error()}</div>

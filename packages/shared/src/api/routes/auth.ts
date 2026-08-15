@@ -146,6 +146,16 @@ export interface AuthUpdateProfileBody {
     bio?: string | null;
     locationCity?: string | null;
     locationState?: string | null;
+    // Contacts (CRM) fields — only meaningful when the `contacts` feature is
+    // enabled. They are NOT stored on the users table; the PUT /auth/me handler
+    // mirrors them (plus name/city/state) onto the user's linked contact row.
+    mobilePhone?: string | null;
+    primaryPhone?: string | null;
+    streetAddress1?: string | null;
+    streetAddress2?: string | null;
+    zip?: string | null;
+    country?: string | null;
+    timeZone?: string | null;
 }
 
 /** PUT /auth/me — the updated user, wrapped. */

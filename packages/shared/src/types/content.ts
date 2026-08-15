@@ -387,6 +387,14 @@ export interface SiteFeatures {
      * site loads enabled plugins' public widgets. Disabled by default.
      */
     plugins: { enabled: boolean; };
+    /**
+     * Contacts (CRM) feature module. When enabled, the admin sidebar exposes
+     * a Contacts area (the `contact` entity's data table) under Users, the
+     * public /profile page shows contact fields, and new registrations are
+     * matched/linked against imported contacts by email. Requires `users`.
+     * Disabled by default.
+     */
+    contacts: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */

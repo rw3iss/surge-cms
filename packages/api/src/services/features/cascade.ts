@@ -195,6 +195,17 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
         invalidateNotificationSettings();
     } catch { /* non-fatal */ }
 
+    // A feature toggle may have enabled/disabled a feature that owns a core
+    // entity type (contacts→contact, shop→product). Re-seed core entity types
+    // (feature-gated, idempotent) and reload the EntityManager so the new type
+    // is queryable immediately — no server restart needed.
+    if (data.features) {
+        try {
+            const { seedCoreEntityTypes, } = await import('../../entities/coreDescriptors.js');
+            await seedCoreEntityTypes();
+        } catch { /* non-fatal */ }
+    }
+
     await logAudit({
         userId: ctx.userId,
         action: 'update',

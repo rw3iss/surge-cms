@@ -369,6 +369,11 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/entities/:type/:id',
     'POST /api/v1/entities/:type/:id/copy',
 
+    // ── contacts (CRM; member-facing match/link, feature-gated) ──
+    'GET /api/v1/contacts/me',
+    'GET /api/v1/contacts/me/match',
+    'POST /api/v1/contacts/me/link',
+
     // ── admin-channel (staff presence; live updates over WS) ──
     'GET /api/v1/admin-channel/presence',
 

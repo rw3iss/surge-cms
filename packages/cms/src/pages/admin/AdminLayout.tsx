@@ -64,7 +64,7 @@ interface NavItem {
      * without a feature (Dashboard, Pages, Media, Users, Settings)
      * always render — they're core CMS surfaces.
      */
-    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop' | 'plugins' | 'social';
+    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts';
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -76,6 +76,9 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/media', label: 'Media', icon: 'media', },
     { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
+    // Contacts (CRM) — aliases to the `contact` entity's Data table. Shown under
+    // Users, only when the `contacts` feature is enabled.
+    { path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
     { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },

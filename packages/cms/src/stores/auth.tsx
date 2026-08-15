@@ -1,7 +1,8 @@
 import { UnauthorizedError, } from '@sitesurge/client';
-import { isAdminRole, type User, } from '@sitesurge/types';
+import { type Contact, isAdminRole, type User, } from '@sitesurge/types';
 import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
 import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
+import { isFeatureEnabled, } from './siteSettings';
 
 interface AuthState {
     user: User | null;
@@ -30,6 +31,12 @@ interface AuthContextValue extends AuthState {
     /** Imperative trigger for the API interceptor — call when a 401
      * comes back from a non-auth endpoint. */
     markSessionExpired: () => void;
+    /** An unlinked CRM contact matching the signed-in member's email, when the
+     * Contacts feature is on — drives the one-time "we have your info" modal.
+     * Null when nothing to offer / already handled. */
+    contactPrompt: Contact | null;
+    /** Close the contact-match modal (the modal links the contact itself). */
+    dismissContactPrompt: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>();
@@ -38,8 +45,13 @@ export const AuthProvider: ParentComponent = (props,) => {
     const [user, setUser,] = createSignal<User | null>(null,);
     const [isLoading, setIsLoading,] = createSignal(true,);
     const [sessionExpired, setSessionExpired,] = createSignal(false,);
+    const [contactPrompt, setContactPrompt,] = createSignal<Contact | null>(null,);
+    // Guards the one-shot contact-match check per signed-in session.
+    let contactChecked = false;
 
     const isAuthenticated = () => !!user();
+
+    const dismissContactPrompt = () => setContactPrompt(null,);
 
     const isLocalhost = () => {
         const host = window.location.hostname;
@@ -116,6 +128,9 @@ export const AuthProvider: ParentComponent = (props,) => {
             // 401 from a request that raced with the login response would
             // otherwise re-trigger it).
             setSessionExpired(false,);
+            // A different user may be signing in — allow a fresh contact check.
+            contactChecked = false;
+            setContactPrompt(null,);
             setUser(res.user,);
         } finally {
             setIsLoading(false,);
@@ -143,6 +158,8 @@ export const AuthProvider: ParentComponent = (props,) => {
             // An explicit logout is not a "session expired" event — close
             // the modal if it happened to be up.
             setSessionExpired(false,);
+            contactChecked = false;
+            setContactPrompt(null,);
         }
     };
 
@@ -213,6 +230,24 @@ export const AuthProvider: ParentComponent = (props,) => {
         }
     },);
 
+    // One-time "we have your info" check: when a signed-in MEMBER lands with the
+    // Contacts feature on, ask the backend for an unlinked contact matching their
+    // email. Reactive to both `user()` and the (async-loaded) feature flag, so it
+    // fires as soon as both are known. Staff never see the prompt.
+    createEffect(() => {
+        const u = user();
+        if (!u || u.role !== 'member') return;
+        if (!isFeatureEnabled('contacts',)) return;
+        if (contactChecked) return;
+        contactChecked = true;
+        void (async () => {
+            try {
+                const { contact, } = await suppressUnauthorized(() => cms.contacts.match(),);
+                if (contact) setContactPrompt(contact,);
+            } catch { /* feature off / no match — ignore */ }
+        })();
+    },);
+
     // Wire the API client's 401 handler. We do this once at provider
     // setup so no other site code has to know about the seam.
     setUnauthorizedHandler(() => {
@@ -259,6 +294,10 @@ export const AuthProvider: ParentComponent = (props,) => {
         verifySession,
         dismissSessionExpired,
         markSessionExpired,
+        get contactPrompt() {
+            return contactPrompt();
+        },
+        dismissContactPrompt,
     };
 
     return (

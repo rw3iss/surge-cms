@@ -7,6 +7,7 @@ import { authRoutes, } from './auth';
 import { blockStylesRoutes, } from './blockStyles';
 import { campaignsRoutes, } from './campaigns';
 import { connectionsRoutes, } from './connections';
+import { contactsRoutes, } from './contacts';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
 import { entitiesRoutes, } from './entities';
@@ -65,5 +66,6 @@ router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1
 router.use('/lists', registerModule('lists', listsPublicRoutes, { mountPath: '/api/v1/lists', },),);
 router.use('/shop', registerModule('shop', shopRoutes, { mountPath: '/api/v1/shop', feature: 'shop', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
+router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 
 export default router;

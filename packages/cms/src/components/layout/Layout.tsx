@@ -7,6 +7,7 @@ import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
 import { appearanceCssVars, appearanceGlobalCss, } from '../../utils/appearanceStyle';
+import { ContactMatchModal, } from '../auth/ContactMatchModal';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -186,6 +187,11 @@ export const Layout: ParentComponent = (props,) => {
             <main class="layout__main">
                 {props.children}
             </main>
+
+            {/* One-time CRM contact-match prompt (member side); self-gates on the
+                auth store's contactPrompt + the Contacts feature. */}
+            <ContactMatchModal />
+
 
             <Footer
                 siteName={dynamicSiteName()}
