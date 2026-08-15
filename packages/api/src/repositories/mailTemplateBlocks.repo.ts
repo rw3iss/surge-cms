@@ -10,6 +10,7 @@
  * `populateBlockStyles` — the renderer ingests the fully-inlined
  * style props and doesn't have to know about the indirection.
  */
+import { randomUUID, } from 'crypto';
 import { query, getPool, } from '../db';
 import * as blockStyleResolution from '../services/blockStyleResolution';
 
@@ -95,6 +96,56 @@ export interface SaveBlockInput {
  * transaction so a failed save can't leave the template with half
  * the new blocks and half the old ones.
  */
+/**
+ * Deep-copy every block of `srcTemplateId` into `newTemplateId`, preserving the
+ * parent/child tree with fresh ids. Because `parent_block_id` self-references
+ * with a FK, clones are inserted with a NULL parent first, then relinked via an
+ * old→new id map (avoids any insert-ordering FK violation for deep nesting).
+ * `settings`/`style` (incl. `style.id` block-style refs) are copied verbatim.
+ */
+export async function cloneInto(srcTemplateId: string, newTemplateId: string,): Promise<void> {
+    const src = await findByTemplate(srcTemplateId,);
+    if (src.length === 0) return;
+    const idMap = new Map<string, string>();
+    for (const b of src) idMap.set(b.id, randomUUID(),);
+
+    const pool = getPool();
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN',);
+        for (const b of src) {
+            await client.query(
+                `INSERT INTO mail_template_blocks
+                    (id, template_id, parent_block_id, block_type, position, settings, style)
+                 VALUES ($1, $2, NULL, $3::block_type, $4, $5::jsonb, $6::jsonb)`,
+                [
+                    idMap.get(b.id,),
+                    newTemplateId,
+                    b.blockType,
+                    b.position,
+                    JSON.stringify(b.settings ?? {},),
+                    JSON.stringify(b.style ?? {},),
+                ],
+            );
+        }
+        // Relink children to their cloned parents.
+        for (const b of src) {
+            if (b.parentBlockId && idMap.has(b.parentBlockId,)) {
+                await client.query(
+                    `UPDATE mail_template_blocks SET parent_block_id = $1 WHERE id = $2`,
+                    [idMap.get(b.parentBlockId,), idMap.get(b.id,),],
+                );
+            }
+        }
+        await client.query('COMMIT',);
+    } catch (err) {
+        await client.query('ROLLBACK',);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
 export async function replaceAll(
     templateId: string,
     blocks: SaveBlockInput[],

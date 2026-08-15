@@ -108,6 +108,13 @@ export const mailTemplatesRoutes = [
     },),
 
     defineRoute({
+        method: 'post', path: '/:id/copy', auth: 'admin',
+        summary: 'Clone a template (meta + block tree) into a new template.',
+        input: { params: idParams, },
+        handler: async ({ params, audit, },) => reply(await mailTemplates.copy(params.id, audit(),), { status: 201, },),
+    },),
+
+    defineRoute({
         method: 'put', path: '/:id/blocks', auth: 'admin',
         summary: 'Replace a template\'s whole block tree (transactional).',
         input: {

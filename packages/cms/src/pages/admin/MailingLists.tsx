@@ -4,14 +4,33 @@
  * section is a placeholder until Phase 3 wires the template editor.
  */
 import { Title, } from '@solidjs/meta';
-import { A, } from '@solidjs/router';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { A, useNavigate, } from '@solidjs/router';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { MailSendJob, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
+import { useToast, } from '../../components/common/toast';
 
 type JobWithListName = MailSendJob & { listName: string | null; };
 
 const MailingLists: Component = () => {
+    const navigate = useNavigate();
+    const toast = useToast();
+    const [copyingId, setCopyingId,] = createSignal<string | null>(null,);
+
+    /** Clone a template (meta + blocks) and jump into editing the copy. */
+    const copyTemplate = async (id: string,): Promise<void> => {
+        if (copyingId()) return;
+        setCopyingId(id,);
+        try {
+            const created = await cms.mailTemplates.copy(id,);
+            toast.success('Template cloned',);
+            navigate(`/admin/mail-templates/${created.id}`,); // leaving unmounts the spinner
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Failed to clone template',);
+            setCopyingId(null,);
+        }
+    };
+
     const [lists,] = createResource(async () => {
         try {
             return await cms.mailingLists.list();
@@ -131,7 +150,17 @@ const MailingLists: Component = () => {
                                                 <td>{t.isEnabled ? <span class="badge badge--success">Enabled</span> : <span class="badge">Disabled</span>}</td>
                                                 <td>{new Date(t.updatedAt,).toLocaleDateString()}</td>
                                                 <td>
-                                                    <A href={`/admin/mail-templates/${t.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
+                                                    <div style={{ display: 'flex', gap: '6px', }}>
+                                                        <A href={`/admin/mail-templates/${t.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
+                                                        <button
+                                                            type="button"
+                                                            class="ui-button ui-button--sm ui-button--secondary"
+                                                            disabled={copyingId() === t.id}
+                                                            onClick={() => copyTemplate(t.id,)}
+                                                        >
+                                                            {copyingId() === t.id ? 'Copying…' : 'Copy'}
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         )}

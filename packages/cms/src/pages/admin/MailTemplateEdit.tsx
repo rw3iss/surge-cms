@@ -19,10 +19,13 @@ import Tooltip from '../../components/admin/common/Tooltip';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { cms, } from '../../services/cmsClient';
+import { useToast, } from '../../components/common/toast';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
     const navigate = useNavigate();
+    const toast = useToast();
+    const [copying, setCopying,] = createSignal(false,);
     const isNew = () => params.id === 'new';
 
     const [name, setName,] = createSignal('',);
@@ -101,6 +104,20 @@ const MailTemplateEdit: Component = () => {
         navigate('/admin/mailing-lists',);
     };
 
+    /** Clone this template (its saved state + blocks) and open the copy. */
+    const handleCopy = async (): Promise<void> => {
+        if (copying()) return;
+        setCopying(true,);
+        try {
+            const created = await cms.mailTemplates.copy(params.id,);
+            toast.success('Template cloned',);
+            navigate(`/admin/mail-templates/${created.id}`,);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Failed to clone template',);
+            setCopying(false,);
+        }
+    };
+
     const previewBlocks = (): unknown[] => editorToBackend(blocks(),);
 
     return (
@@ -113,6 +130,9 @@ const MailTemplateEdit: Component = () => {
                 <div class="admin-header__actions">
                     <Show when={!isNew()}>
                         <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)}>Preview</button>
+                        <button type="button" class="ui-button ui-button--secondary" onClick={handleCopy} disabled={copying()}>
+                            {copying() ? 'Copying…' : 'Copy'}
+                        </button>
                         <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
                     </Show>
                     <Show when={isNew()}>

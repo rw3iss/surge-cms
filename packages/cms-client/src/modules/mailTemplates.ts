@@ -2,7 +2,7 @@ import type {
     MailTemplateVariablesResponse, MailTemplateListResponse, MailTemplateGetResponse,
     MailTemplateCreateBody, MailTemplateCreateResponse, MailTemplateUpdateBody, MailTemplateUpdateResponse,
     MailTemplatePreviewBody, MailTemplatePreviewResponse, MailTemplateBlocksReplaceBody,
-    MailTemplateBlocksReplaceResponse, MailTemplateDeleteResponse,
+    MailTemplateBlocksReplaceResponse, MailTemplateDeleteResponse, MailTemplateCopyResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -43,6 +43,11 @@ export class MailTemplatesModule extends ModuleBase {
     /** DELETE /mail-templates/:id. */
     remove(id: string,): Promise<MailTemplateDeleteResponse> {
         return this.mutate<MailTemplateDeleteResponse>('DELETE', '/mail-templates/:id', { params: { id, }, invalidates: ['mailTemplates',], },);
+    }
+
+    /** POST /mail-templates/:id/copy — clone a template (meta + blocks). */
+    copy(id: string,): Promise<MailTemplateCopyResponse> {
+        return this.mutate<MailTemplateCopyResponse>('POST', '/mail-templates/:id/copy', { params: { id, }, invalidates: ['mailTemplates',], },);
     }
 
     /** POST /mail-templates/preview — render HTML + detect tokens (idempotent). */

@@ -125,6 +125,12 @@ export type MailTemplateUpdateBody = Partial<MailTemplateCreateBody>;
 /** PUT /mail-templates/:id — the updated template (meta only). */
 export type MailTemplateUpdateResponse = MailTemplate;
 
+// ─── POST /mail-templates/:id/copy ────────────────────────────────────
+
+/** POST /mail-templates/:id/copy — the cloned template (meta only; blocks are
+ *  duplicated server-side). Redirect the operator into editing it. */
+export type MailTemplateCopyResponse = MailTemplate;
+
 // ─── DELETE /mail-templates/:id ───────────────────────────────────────
 
 /** DELETE /mail-templates/:id — `{ ok: true }`. */

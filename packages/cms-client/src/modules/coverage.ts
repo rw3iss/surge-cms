@@ -230,6 +230,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/mail-templates/:id',
     'PUT /api/v1/mail-templates/:id',
     'DELETE /api/v1/mail-templates/:id',
+    'POST /api/v1/mail-templates/:id/copy',
     'PUT /api/v1/mail-templates/:id/blocks',
 
     // ── payments ──

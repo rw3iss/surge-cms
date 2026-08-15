@@ -82,6 +82,47 @@ export async function create(input: TemplateInput, ctx: AuditContext,): Promise<
     return created;
 }
 
+/**
+ * Clone a template: copy its meta + full block tree into a brand-new template
+ * with a distinct name (a `-N` suffix — `name` isn't DB-unique, but this keeps
+ * clones distinguishable) and a fresh id. Returns the new template so the caller
+ * can redirect the operator straight into editing it.
+ */
+export async function copy(id: string, ctx: AuditContext,): Promise<MailTemplate> {
+    const src = await templates.findById(id,);
+    if (!src) throw new NotFoundError('Template',);
+
+    // Distinct name: `${name}-1`, `-2`, … (skip any that already exist).
+    const names = new Set((await templates.list()).map((t,) => t.name,),);
+    let n = 1;
+    let name = `${src.name}-${n}`;
+    while (names.has(name,)) { n += 1; name = `${src.name}-${n}`; }
+
+    const created = await templates.create({
+        name,
+        description: src.description,
+        isEnabled: src.isEnabled,
+        subject: src.subject,
+        preheader: src.preheader,
+        fromName: src.fromName,
+        fromEmail: src.fromEmail,
+        replyTo: src.replyTo,
+        createdBy: uuidOrNull(ctx.userId,),
+    },);
+    await templateBlocks.cloneInto(id, created.id,);
+    await cache.invalidateMailTemplatesCache();
+    await logAudit({
+        userId: ctx.userId,
+        action: 'create',
+        entityType: 'mail_template',
+        entityId: created.id,
+        newValues: { clonedFrom: id, name, } as Record<string, unknown>,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    return created;
+}
+
 export async function update(id: string, patch: Partial<TemplateInput>, ctx: AuditContext,): Promise<MailTemplate> {
     const updated = await templates.update(id, patch,);
     if (!updated) throw new NotFoundError('Template',);
