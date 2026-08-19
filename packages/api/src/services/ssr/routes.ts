@@ -98,6 +98,7 @@ async function getSiteMeta(): Promise<SiteMeta> {
             postsTitle?: string;
             alternateName?: string;
             areaServed?: string;
+            publicEmail?: string;
         };
         siteMetaCache = {
             homeTitle: seo.homeTitle || undefined,
@@ -112,7 +113,11 @@ async function getSiteMeta(): Promise<SiteMeta> {
             googleSiteVerification: analytics?.googleSiteVerification || undefined,
             bingSiteVerification: analytics?.bingSiteVerification || undefined,
             sameAs,
-            contactEmail: (map.contact_email as string) || undefined,
+            // Deliberately NOT `contact_email`: that is the operator's inbox for
+            // form notifications and is often a personal address. Publishing an
+            // address in schema.org is only appropriate when it was chosen for
+            // publication, so this is a separate, opt-in field.
+            contactEmail: seo.publicEmail || undefined,
         };
     } catch {
         siteMetaCache = {
