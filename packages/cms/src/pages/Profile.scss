@@ -31,11 +31,11 @@
 
     &__avatar {
         position: relative;
-        // The profile photo is this page's primary identity element, so it is
-        // rendered large (160px) with a soft-square 20% radius rather than a
+        // The profile photo is this page's primary identity element: rendered
+        // large and PORTRAIT (160x200) with a soft-square radius, rather than a
         // small circular thumbnail.
         width: 160px;
-        height: 160px;
+        height: 200px;
         flex-shrink: 0;
         border-radius: 20%;
         border: 2px solid var(--site-border, #e5e7eb);

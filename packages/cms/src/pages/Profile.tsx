@@ -1,6 +1,9 @@
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
-import { formatCurrency, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
+import {
+    COUNTRIES, formatCurrency, isKnownCountry, isKnownTimeZone, isKnownUsState,
+    normalizeCountry, normalizeUsState, TIMEZONES, US_STATES,
+} from '@sitesurge/types';
 import type { ContactMessage, PaymentsDonationsResponse, ShopOrder, } from '@sitesurge/types';
 
 type UserDonation = PaymentsDonationsResponse[number];
@@ -43,6 +46,18 @@ const Profile: Component = () => {
     // so the input must not appear (nor be sent on save).
     const [contactOptionalFields, setContactOptionalFields,] = createSignal<string[]>([],);
     const hasDateOfBirth = () => contactOptionalFields().includes('dateOfBirth',);
+    /**
+     * The State control is a dropdown of US states, but only for the US — every
+     * other country gets a free-text "Region" instead (their subdivisions don't
+     * fit a USPS list). An unset country defaults to the dropdown, since US is
+     * the overwhelmingly common case here; an unrecognised country string is
+     * treated as non-US, because we can't claim it's American.
+     */
+    const isUnitedStates = () => {
+        const raw = country().trim();
+        if (!raw) return true;
+        return normalizeCountry(raw,) === 'US';
+    };
     const [contactLoaded, setContactLoaded,] = createSignal(false,);
     const [avatarUrl, setAvatarUrl,] = createSignal<string | undefined>(undefined,);
     const showContact = () => isFeatureEnabled('contacts',);
@@ -96,7 +111,8 @@ const Profile: Component = () => {
             setLastName(u.lastName ?? '',);
             setBio(u.bio ?? '',);
             setCity(u.locationCity ?? '',);
-            setStateRegion(u.locationState ?? '',);
+            // 'Pennsylvania' → 'PA' so the dropdown selects it; unknown kept raw.
+            setStateRegion(normalizeUsState(u.locationState,) ?? (u.locationState ?? ''),);
             setAvatarUrl(u.avatarUrl,);
             setInitialized(true,);
         }
@@ -117,12 +133,16 @@ const Profile: Component = () => {
                 setStreetAddress1(contact.streetAddress1 ?? '',);
                 setStreetAddress2(contact.streetAddress2 ?? '',);
                 setZip(contact.zip ?? '',);
-                setCountry(contact.country ?? '',);
+                // Legacy rows hold alpha-3 ('USA') or names; map onto the alpha-2
+                // codes the dropdown uses, keeping anything unrecognised as-is.
+                const rawCountry = contact.country ?? '';
+                setCountry(normalizeCountry(rawCountry,) ?? rawCountry,);
                 setTimeZone(contact.timeZone ?? '',);
                 setDateOfBirth(contact.dateOfBirth ?? '',);
                 // Fill city/state from the contact only if the profile left them blank.
                 if (!city().trim() && contact.city) setCity(contact.city,);
                 if (!stateRegion().trim() && contact.state) setStateRegion(contact.state,);
+                setStateRegion((prev,) => normalizeUsState(prev,) ?? prev);
             } catch { /* no linked contact / feature off — ignore */ }
         })();
     },);
@@ -441,15 +461,37 @@ const Profile: Component = () => {
                                     />
                                 </label>
                                 <label class="profile__field">
-                                    <span class="profile__label">State / Region</span>
-                                    <input
-                                        class="profile__input"
-                                        type="text"
-                                        maxLength={100}
-                                        value={stateRegion()}
-                                        onInput={(ev,) => setStateRegion(ev.currentTarget.value,)}
-                                        placeholder="State or region"
-                                    />
+                                    <span class="profile__label">
+                                        {isUnitedStates() ? 'State' : 'Region'}
+                                    </span>
+                                    <Show
+                                        when={isUnitedStates()}
+                                        fallback={
+                                            <input
+                                                class="profile__input"
+                                                type="text"
+                                                maxLength={100}
+                                                value={stateRegion()}
+                                                onInput={(ev,) => setStateRegion(ev.currentTarget.value,)}
+                                                placeholder="Region / province"
+                                            />
+                                        }
+                                    >
+                                        <select
+                                            class="profile__input"
+                                            value={stateRegion()}
+                                            onChange={(ev,) => setStateRegion(ev.currentTarget.value,)}
+                                        >
+                                            <option value="">Select state…</option>
+                                            {/* Keep a stored value that isn't a USPS code selectable. */}
+                                            <Show when={stateRegion() && !isKnownUsState(stateRegion(),)}>
+                                                <option value={stateRegion()}>{stateRegion()}</option>
+                                            </Show>
+                                            <For each={US_STATES}>
+                                                {(st,) => <option value={st.value}>{st.label}</option>}
+                                            </For>
+                                        </select>
+                                    </Show>
                                 </label>
                             </div>
 
@@ -469,14 +511,20 @@ const Profile: Component = () => {
                                     </label>
                                     <label class="profile__field">
                                         <span class="profile__label">Country</span>
-                                        <input
+                                        <select
                                             class="profile__input"
-                                            type="text"
-                                            maxLength={255}
                                             value={country()}
-                                            onInput={(ev,) => setCountry(ev.currentTarget.value,)}
-                                            placeholder="Country"
-                                        />
+                                            onChange={(ev,) => setCountry(ev.currentTarget.value,)}
+                                        >
+                                            <option value="">Select country…</option>
+                                            {/* Keep an unrecognised stored value selectable. */}
+                                            <Show when={country() && !isKnownCountry(country(),)}>
+                                                <option value={country()}>{country()}</option>
+                                            </Show>
+                                            <For each={COUNTRIES}>
+                                                {(c,) => <option value={c.value}>{c.label}</option>}
+                                            </For>
+                                        </select>
                                     </label>
                                 </div>
                                 <div class="profile__row">
