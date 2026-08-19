@@ -37,6 +37,12 @@ const Profile: Component = () => {
     const [zip, setZip,] = createSignal('',);
     const [country, setCountry,] = createSignal('',);
     const [timeZone, setTimeZone,] = createSignal('',);
+    const [dateOfBirth, setDateOfBirth,] = createSignal('',);
+    // Admin-added custom contact fields this install actually has. Only fields
+    // listed here are rendered — a stock install has no `dateOfBirth` column,
+    // so the input must not appear (nor be sent on save).
+    const [contactOptionalFields, setContactOptionalFields,] = createSignal<string[]>([],);
+    const hasDateOfBirth = () => contactOptionalFields().includes('dateOfBirth',);
     const [contactLoaded, setContactLoaded,] = createSignal(false,);
     const [avatarUrl, setAvatarUrl,] = createSignal<string | undefined>(undefined,);
     const showContact = () => isFeatureEnabled('contacts',);
@@ -44,6 +50,7 @@ const Profile: Component = () => {
     const [error, setError,] = createSignal('',);
     const [initialized, setInitialized,] = createSignal(false,);
     let avatarInput: HTMLInputElement | undefined;
+    const [removingAvatar, setRemovingAvatar,] = createSignal(false,);
 
     const showOrders = () => isFeatureEnabled('shop',);
     const showMessages = () => isFeatureEnabled('messages',);
@@ -102,7 +109,8 @@ const Profile: Component = () => {
         setContactLoaded(true,);
         void (async () => {
             try {
-                const { contact, } = await cms.contacts.mine();
+                const { contact, optionalFields, } = await cms.contacts.mine();
+                setContactOptionalFields(optionalFields ?? [],);
                 if (!contact) return;
                 setMobilePhone(contact.mobilePhone ?? '',);
                 setPrimaryPhone(contact.primaryPhone ?? '',);
@@ -111,6 +119,7 @@ const Profile: Component = () => {
                 setZip(contact.zip ?? '',);
                 setCountry(contact.country ?? '',);
                 setTimeZone(contact.timeZone ?? '',);
+                setDateOfBirth(contact.dateOfBirth ?? '',);
                 // Fill city/state from the contact only if the profile left them blank.
                 if (!city().trim() && contact.city) setCity(contact.city,);
                 if (!stateRegion().trim() && contact.state) setStateRegion(contact.state,);
@@ -145,6 +154,7 @@ const Profile: Component = () => {
                     zip: zip().trim() || null,
                     country: country().trim() || null,
                     timeZone: timeZone().trim() || null,
+                    ...(hasDateOfBirth() ? { dateOfBirth: dateOfBirth() || null, } : {}),
                 } : {}),
             },);
             await auth.refreshUser();
@@ -157,7 +167,8 @@ const Profile: Component = () => {
     };
 
     const onAvatarChange = async (e: Event,) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
         if (!file) return;
         setError('',);
         try {
@@ -166,6 +177,25 @@ const Profile: Component = () => {
             await auth.refreshUser();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Avatar upload failed.',);
+        } finally {
+            // Clear the input so re-picking the SAME file fires `change` again.
+            input.value = '';
+        }
+    };
+
+    /** Remove the photo. The backend also deletes the stored file from the CDN. */
+    const onAvatarRemove = async () => {
+        if (!avatarUrl() || removingAvatar()) return;
+        setRemovingAvatar(true,);
+        setError('',);
+        try {
+            await cms.auth.removeAvatar();
+            setAvatarUrl(undefined,);
+            await auth.refreshUser();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Could not remove your photo.',);
+        } finally {
+            setRemovingAvatar(false,);
         }
     };
 
@@ -295,6 +325,16 @@ const Profile: Component = () => {
                                 <div class="profile__identity">
                                     <span class="profile__display-name">{auth.user?.displayName}</span>
                                     <span class="profile__email">{auth.user?.email}</span>
+                                    <Show when={avatarUrl()}>
+                                        <button
+                                            type="button"
+                                            class="profile__avatar-remove"
+                                            onClick={onAvatarRemove}
+                                            disabled={removingAvatar()}
+                                        >
+                                            {removingAvatar() ? 'Removing…' : 'Remove photo'}
+                                        </button>
+                                    </Show>
                                 </div>
                             </div>
 
@@ -439,23 +479,38 @@ const Profile: Component = () => {
                                         />
                                     </label>
                                 </div>
-                                <label class="profile__field">
-                                    <span class="profile__label">Timezone</span>
-                                    <select
-                                        class="profile__input"
-                                        value={timeZone()}
-                                        onChange={(ev,) => setTimeZone(ev.currentTarget.value,)}
-                                    >
-                                        <option value="">Select timezone…</option>
-                                        {/* Preserve an existing custom/imported value not in the list. */}
-                                        <Show when={timeZone() && !isKnownTimeZone(timeZone(),)}>
-                                            <option value={timeZone()}>{timeZone()}</option>
-                                        </Show>
-                                        <For each={TIMEZONES}>
-                                            {(tz,) => <option value={tz.value}>{tz.label}</option>}
-                                        </For>
-                                    </select>
-                                </label>
+                                <div class="profile__row">
+                                    <label class="profile__field">
+                                        <span class="profile__label">Timezone</span>
+                                        <select
+                                            class="profile__input"
+                                            value={timeZone()}
+                                            onChange={(ev,) => setTimeZone(ev.currentTarget.value,)}
+                                        >
+                                            <option value="">Select timezone…</option>
+                                            {/* Preserve an existing custom/imported value not in the list. */}
+                                            <Show when={timeZone() && !isKnownTimeZone(timeZone(),)}>
+                                                <option value={timeZone()}>{timeZone()}</option>
+                                            </Show>
+                                            <For each={TIMEZONES}>
+                                                {(tz,) => <option value={tz.value}>{tz.label}</option>}
+                                            </For>
+                                        </select>
+                                    </label>
+                                    {/* Custom field — rendered only where the `contact` entity
+                                        type defines it (see `optionalFields`). */}
+                                    <Show when={hasDateOfBirth()}>
+                                        <label class="profile__field">
+                                            <span class="profile__label">Date of birth</span>
+                                            <input
+                                                class="profile__input"
+                                                type="date"
+                                                value={dateOfBirth()}
+                                                onInput={(ev,) => setDateOfBirth(ev.currentTarget.value,)}
+                                            />
+                                        </label>
+                                    </Show>
+                                </div>
                             </Show>
 
                             <Show when={error()}>

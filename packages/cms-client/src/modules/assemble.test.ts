@@ -58,9 +58,9 @@ describe('module assembly', () => {
         expect(typeof cms.sitemap.regenerate,).toBe('function',);
     },);
 
-    it('exports a complete coverage registry (294 + 8 = 302 manifest routes)', () => {
+    it('exports a complete coverage registry (295 + 8 = 303 manifest routes)', () => {
         const unique = new Set(ROUTE_COVERAGE,);
         expect(unique.size,).toBe(ROUTE_COVERAGE.length,); // no duplicates
-        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(302,);
+        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(303,);
     },);
 },);

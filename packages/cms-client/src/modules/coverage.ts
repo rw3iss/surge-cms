@@ -149,6 +149,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/auth/me',
     'PUT /api/v1/auth/me',
     'POST /api/v1/auth/me/avatar',
+    'DELETE /api/v1/auth/me/avatar',
     'GET /api/v1/auth/patreon',
     'POST /api/v1/auth/patreon/sync',
     'GET /api/v1/auth/autologin',

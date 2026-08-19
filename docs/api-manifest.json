@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-11T17:34:25.825Z",
-  "totalModules": 33,
-  "totalRoutes": 304,
+  "generatedAt": "2026-08-19T18:27:28.178Z",
+  "totalModules": 34,
+  "totalRoutes": 309,
   "modules": [
     {
       "module": "admin-channel",
@@ -142,7 +142,14 @@
           "path": "/me/avatar",
           "absolutePath": "/api/v1/auth/me/avatar",
           "auth": "user",
-          "summary": "Upload the current user's own avatar (resized to 256×256 webp). Gated by `users`."
+          "summary": "Upload the current user's own avatar (resized to 512×512 webp, stored on the CDN). Gated by `users`."
+        },
+        {
+          "method": "DELETE",
+          "path": "/me/avatar",
+          "absolutePath": "/api/v1/auth/me/avatar",
+          "auth": "user",
+          "summary": "Remove the current user's avatar (also deletes the stored file). Gated by `users`."
         },
         {
           "method": "POST",
@@ -336,6 +343,33 @@
           "absolutePath": "/api/v1/connections/:provider",
           "auth": "admin",
           "summary": "Disconnect: clear tokens (keep app creds), stop cron, bust cache."
+        }
+      ]
+    },
+    {
+      "module": "contacts",
+      "mountPath": "/api/v1/contacts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/me",
+          "absolutePath": "/api/v1/contacts/me",
+          "auth": "user",
+          "summary": "The CRM contact linked to the current user (for profile prefill), or null"
+        },
+        {
+          "method": "GET",
+          "path": "/me/match",
+          "absolutePath": "/api/v1/contacts/me/match",
+          "auth": "user",
+          "summary": "Find an unlinked CRM contact matching the current user's email"
+        },
+        {
+          "method": "POST",
+          "path": "/me/link",
+          "absolutePath": "/api/v1/contacts/me/link",
+          "auth": "user",
+          "summary": "Link a matching CRM contact to the current user (+ optional profile import)"
         }
       ]
     },
@@ -825,6 +859,13 @@
           "summary": "Delete a template."
         },
         {
+          "method": "POST",
+          "path": "/:id/copy",
+          "absolutePath": "/api/v1/mail-templates/:id/copy",
+          "auth": "admin",
+          "summary": "Clone a template (meta + block tree) into a new template."
+        },
+        {
           "method": "PUT",
           "path": "/:id/blocks",
           "absolutePath": "/api/v1/mail-templates/:id/blocks",
@@ -891,7 +932,7 @@
           "path": "/:id/subscribers/:subId",
           "absolutePath": "/api/v1/mailing-lists/:id/subscribers/:subId",
           "auth": "admin",
-          "summary": "Update a subscriber."
+          "summary": "Update a subscriber (name/phone/email/status)."
         },
         {
           "method": "DELETE",

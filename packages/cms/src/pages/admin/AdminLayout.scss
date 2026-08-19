@@ -11,6 +11,12 @@
 
 // ─── Shared (used by admin AND main site) ───────────────────────────
 @use '../../styles/shared/modals';
+// `.ui-button` is used as a bare class on plain <button>/<A> elements in ~78
+// admin files that never import the Button component. Without this @use those
+// rules only shipped in Button.tsx's lazy CSS chunk — which those pages never
+// requested — so buttons rendered as unstyled plain text until some unrelated
+// chunk happened to pull Button in.
+@use '../../styles/shared/ui-button';
 
 // ─── Admin chrome ───────────────────────────────────────────────────
 @use './styles/admin-typography';

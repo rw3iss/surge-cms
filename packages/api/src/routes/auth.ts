@@ -84,6 +84,9 @@ const updateProfileSchema = z.object({
     zip: z.string().max(255,).nullish(),
     country: z.string().max(255,).nullish(),
     timeZone: z.string().max(255,).nullish(),
+    // Admin-added custom contact field. `<input type="date">` submits either a
+    // bare `yyyy-mm-dd` or '' when cleared, so accept both (and null).
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected yyyy-mm-dd',).or(z.literal('',)).nullish(),
 },) satisfies z.ZodType<AuthUpdateProfileBody>;
 
 // `refreshToken` is optional: when omitted the handler falls back to the
@@ -385,7 +388,10 @@ export const authRoutes = [
             }
             // Split base user columns from CRM contact fields (the latter are
             // NOT columns on `users` — they mirror onto the linked contact row).
-            const { mobilePhone, primaryPhone, streetAddress1, streetAddress2, zip, country, timeZone, ...base } = body;
+            const {
+                mobilePhone, primaryPhone, streetAddress1, streetAddress2, zip, country, timeZone,
+                dateOfBirth, ...base
+            } = body;
             const updated = await usersService.update(user.id, base, audit(),);
 
             // When Contacts (CRM) is on, ensure this user has a contact row and
@@ -398,6 +404,9 @@ export const authRoutes = [
                         firstName: base.firstName, lastName: base.lastName, email: user.email,
                         mobilePhone, primaryPhone, streetAddress1, streetAddress2,
                         city: base.locationCity, zip, state: base.locationState, country, timeZone,
+                        // Admin-added custom field — only written where the column
+                        // exists; the service drops unknown keys.
+                        ...(dateOfBirth !== undefined ? { dateOfBirth, } : {}),
                     },
                     user.id,
                 );
@@ -408,7 +417,7 @@ export const authRoutes = [
 
     defineRoute({
         method: 'post', path: '/me/avatar', auth: 'user',
-        summary: 'Upload the current user\'s own avatar (resized to 256×256 webp). Gated by `users`.',
+        summary: 'Upload the current user\'s own avatar (resized to 512×512 webp, stored on the CDN). Gated by `users`.',
         pre: [avatarUpload.single('avatar',),],
         handler: async ({ user, req, audit, },) => {
             if (!user) throw new UnauthorizedError('Not authenticated',);
@@ -418,6 +427,19 @@ export const authRoutes = [
             const file = req.file;
             if (!file) throw new AppError(400, 'BAD_REQUEST', 'No file uploaded',);
             const updated = await usersService.setAvatar(user.id, file.path, audit(),);
+            return { user: updated, };
+        },
+    },),
+
+    defineRoute({
+        method: 'delete', path: '/me/avatar', auth: 'user',
+        summary: 'Remove the current user\'s avatar (also deletes the stored file). Gated by `users`.',
+        handler: async ({ user, audit, },) => {
+            if (!user) throw new UnauthorizedError('Not authenticated',);
+            if (!(await isFeatureEnabledServer('users',))) {
+                throw new ForbiddenError('User profiles are not enabled.',);
+            }
+            const updated = await usersService.clearAvatar(user.id, audit(),);
             return { user: updated, };
         },
     },),

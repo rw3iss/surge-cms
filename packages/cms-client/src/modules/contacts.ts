@@ -1,5 +1,5 @@
 import type {
-    ContactLinkBody, ContactLinkResponse, ContactMatchResponse,
+    ContactLinkBody, ContactLinkResponse, ContactMatchResponse, ContactMineResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -12,9 +12,10 @@ import { ModuleBase, } from './base';
 export class ContactsModule extends ModuleBase {
     protected readonly module = 'contacts';
 
-    /** GET /contacts/me — the contact linked to me (for profile prefill), or null. */
-    mine(): Promise<ContactMatchResponse> {
-        return this.get<ContactMatchResponse>('/contacts/me', { options: { cache: false, }, },);
+    /** GET /contacts/me — the contact linked to me (for profile prefill), or
+     *  null, plus which admin-added optional fields this install has. */
+    mine(): Promise<ContactMineResponse> {
+        return this.get<ContactMineResponse>('/contacts/me', { options: { cache: false, }, },);
     }
 
     /** GET /contacts/me/match — unlinked contact for my email (never cached). */

@@ -41,7 +41,12 @@ export const contactsRoutes = [
         handler: async ({ user, },) => {
             if (!user) throw new UnauthorizedError('Not authenticated',);
             const contact = await contactsService.getLinkedForUser(user.id,);
-            return { contact, };
+            // `optionalFields` tells the profile page which admin-added custom
+            // contact fields this install actually has, so it can render them
+            // conditionally. The entity-type schema route is staff-only, so a
+            // member has no other way to find out.
+            const optionalFields = await contactsService.getOptionalFields();
+            return { contact, optionalFields, };
         },
     },),
     defineRoute({

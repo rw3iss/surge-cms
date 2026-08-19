@@ -22,6 +22,9 @@ export interface Contact {
     state: string | null;
     country: string | null;
     timeZone: string | null;
+    /** Admin-added custom field. Present only on installs whose `contact`
+     *  entity type defines it — see `ContactMineResponse.optionalFields`. */
+    dateOfBirth?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -41,6 +44,16 @@ export interface ContactFieldsInput {
     state?: string | null;
     country?: string | null;
     timeZone?: string | null;
+    dateOfBirth?: string | null;
+}
+
+/** GET /contacts/me — the caller's linked contact (null when they have none),
+ *  plus which admin-added optional fields this install has, so the profile page
+ *  can render them conditionally. (The entity-type schema route is staff-only,
+ *  so a member cannot inspect the schema directly.) */
+export interface ContactMineResponse {
+    contact: Contact | null;
+    optionalFields: string[];
 }
 
 /** GET /contacts/me/match — the unlinked contact matching the caller's email,

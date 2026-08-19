@@ -35,6 +35,8 @@ export interface Contact {
     state: string | null;
     country: string | null;
     timeZone: string | null;
+    /** OPTIONAL — present only when the install added this custom field. */
+    dateOfBirth?: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -53,10 +55,11 @@ export interface ContactFields {
     state?: string | null;
     country?: string | null;
     timeZone?: string | null;
+    dateOfBirth?: string | null;
 }
 
-/** camelCase field key → ce_contact column. */
-const FIELD_COLUMN: Record<keyof ContactFields, string> = {
+/** camelCase field key → ce_contact column. Always present (migration 090). */
+const CORE_FIELD_COLUMN: Record<string, string> = {
     firstName: 'first_name',
     lastName: 'last_name',
     email: 'email',
@@ -71,9 +74,68 @@ const FIELD_COLUMN: Record<keyof ContactFields, string> = {
     timeZone: 'time_zone',
 };
 
-const SELECT = `id, user_id, first_name, last_name, email, mobile_phone, primary_phone,
-    street_address1, street_address2, city, zip, state, country, time_zone,
-    created_at, updated_at`;
+/**
+ * Fields an operator may ADD to the `contact` entity type that the profile page
+ * knows how to render. They are not in migration 090, so they exist only where
+ * the schema editor added them — every read/write must therefore be gated on the
+ * column actually existing, or installs without it would get a SQL error.
+ */
+const OPTIONAL_FIELD_COLUMN: Record<string, string> = {
+    dateOfBirth: 'date_of_birth',
+};
+
+const BASE_SELECT = ['id', 'user_id', ...Object.values(CORE_FIELD_COLUMN,), 'created_at', 'updated_at',];
+
+/** Cached set of optional field keys whose column exists on `ce_contact`. */
+let optionalFieldsCache: string[] | null = null;
+
+/** Which optional fields this install actually has. Cached after first read. */
+export async function getOptionalFields(): Promise<string[]> {
+    if (optionalFieldsCache) return optionalFieldsCache;
+    const cols = Object.values(OPTIONAL_FIELD_COLUMN,);
+    const r = await query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'ce_contact' AND column_name = ANY($1::text[])`,
+        [cols,],
+    );
+    const present = new Set(r.rows.map((row,) => row.column_name as string),);
+    optionalFieldsCache = Object.entries(OPTIONAL_FIELD_COLUMN,)
+        .filter(([, col,],) => present.has(col,))
+        .map(([key,],) => key);
+    return optionalFieldsCache;
+}
+
+/** Reset the cache (used after a schema change adds/removes a contact field). */
+export function invalidateOptionalFields(): void {
+    optionalFieldsCache = null;
+}
+
+/** The full camel→column map for THIS install (core + present optional fields). */
+async function fieldColumns(): Promise<Record<string, string>> {
+    const optional = await getOptionalFields();
+    const map = { ...CORE_FIELD_COLUMN, };
+    for (const key of optional) map[key] = OPTIONAL_FIELD_COLUMN[key]!;
+    return map;
+}
+
+/**
+ * SELECT expression per optional field. `date_of_birth` is a DATE column, and
+ * node-postgres would hand back a JS Date (which serialises to a full ISO
+ * timestamp, and shifts by timezone). `<input type="date">` wants a bare
+ * `yyyy-mm-dd`, so format it in SQL and keep it a string end to end.
+ */
+const OPTIONAL_FIELD_SELECT: Record<string, string> = {
+    dateOfBirth: `to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth`,
+};
+
+/** The SELECT list for THIS install. */
+async function selectList(): Promise<string> {
+    const optional = await getOptionalFields();
+    return [
+        ...BASE_SELECT,
+        ...optional.map((k,) => OPTIONAL_FIELD_SELECT[k] ?? OPTIONAL_FIELD_COLUMN[k]!),
+    ].join(', ',);
+}
 
 function clean(v: string | null | undefined,): string | null {
     if (v == null) return null;
@@ -83,13 +145,16 @@ function clean(v: string | null | undefined,): string | null {
 
 /** The subset of provided ContactFields as {column: value}, trimmed. Absent
  *  keys are omitted (so a partial upsert only touches provided fields). */
-function toColumns(fields: ContactFields,): { cols: string[]; values: unknown[]; } {
+async function toColumns(fields: ContactFields,): Promise<{ cols: string[]; values: unknown[]; }> {
+    const map = await fieldColumns();
     const cols: string[] = [];
     const values: unknown[] = [];
-    for (const [key, col,] of Object.entries(FIELD_COLUMN,) as [keyof ContactFields, string][]) {
-        if (fields[key] !== undefined) {
+    const bag = fields as Record<string, string | null | undefined>;
+    for (const [key, col,] of Object.entries(map,)) {
+        if (bag[key] !== undefined) {
             cols.push(col,);
-            values.push(clean(fields[key],),);
+            // `date` columns take null or an ISO yyyy-mm-dd string; `clean` gives us both.
+            values.push(clean(bag[key],),);
         }
     }
     return { cols, values, };
@@ -102,7 +167,7 @@ export async function matchByEmail(email: string,): Promise<Contact | null> {
     const e = clean(email,);
     if (!e) return null;
     const r = await query(
-        `SELECT ${SELECT} FROM ce_contact
+        `SELECT ${await selectList()} FROM ce_contact
          WHERE user_id IS NULL AND LOWER(email) = LOWER($1)
          ORDER BY created_at ASC LIMIT 1`,
         [e,],
@@ -113,14 +178,14 @@ export async function matchByEmail(email: string,): Promise<Contact | null> {
 /** The contact already linked to this user, if any. */
 export async function getLinkedForUser(userId: string,): Promise<Contact | null> {
     const r = await query(
-        `SELECT ${SELECT} FROM ce_contact WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1`,
+        `SELECT ${await selectList()} FROM ce_contact WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1`,
         [userId,],
     );
     return r.rows[0] ? mapRow<Contact>(r.rows[0],) : null;
 }
 
 async function getById(id: string,): Promise<Contact | null> {
-    const r = await query(`SELECT ${SELECT} FROM ce_contact WHERE id = $1`, [id,],);
+    const r = await query(`SELECT ${await selectList()} FROM ce_contact WHERE id = $1`, [id,],);
     return r.rows[0] ? mapRow<Contact>(r.rows[0],) : null;
 }
 
@@ -147,14 +212,14 @@ export async function linkAndImport(
     if (!target) return null;
 
     // Apply edits + link in one UPDATE.
-    const { cols, values, } = toColumns(opts.fields ?? {},);
+    const { cols, values, } = await toColumns(opts.fields ?? {},);
     const setParts = cols.map((c, i,) => `${c} = $${i + 1}`,);
     setParts.push(`user_id = $${cols.length + 1}`,);
     const params = [...values, user.id, target.id,];
     const r = await query(
         `UPDATE ce_contact SET ${setParts.join(', ',)}, updated_at = NOW()
          WHERE id = $${cols.length + 2}
-         RETURNING ${SELECT}`,
+         RETURNING ${await selectList()}`,
         params,
     );
     const linked = mapRow<Contact>(r.rows[0],);
@@ -189,27 +254,27 @@ export async function upsertForUser(
     const merged: ContactFields = { email: user.email, ...fields, };
 
     if (existing) {
-        const { cols, values, } = toColumns(merged,);
+        const { cols, values, } = await toColumns(merged,);
         const setParts = cols.map((c, i,) => `${c} = $${i + 1}`,);
         setParts.push(`user_id = $${cols.length + 1}`,);
         const params = [...values, user.id, existing.id,];
         const r = await query(
             `UPDATE ce_contact SET ${setParts.join(', ',)}, updated_at = NOW()
              WHERE id = $${cols.length + 2}
-             RETURNING ${SELECT}`,
+             RETURNING ${await selectList()}`,
             params,
         );
         return mapRow<Contact>(r.rows[0],);
     }
 
-    const { cols, values, } = toColumns(merged,);
+    const { cols, values, } = await toColumns(merged,);
     const allCols = ['user_id', ...cols, 'created_by',];
     const allVals = [user.id, ...values, createdBy ?? user.id,];
     const placeholders = allVals.map((_, i,) => `$${i + 1}`,);
     const r = await query(
         `INSERT INTO ce_contact (${allCols.join(', ',)})
          VALUES (${placeholders.join(', ',)})
-         RETURNING ${SELECT}`,
+         RETURNING ${await selectList()}`,
         allVals,
     );
     return mapRow<Contact>(r.rows[0],);

@@ -156,6 +156,9 @@ export interface AuthUpdateProfileBody {
     zip?: string | null;
     country?: string | null;
     timeZone?: string | null;
+    /** Admin-added custom contact field; mirrored onto the linked contact row
+     *  when the `contacts` feature is on AND the column exists. */
+    dateOfBirth?: string | null;
 }
 
 /** PUT /auth/me — the updated user, wrapped. */

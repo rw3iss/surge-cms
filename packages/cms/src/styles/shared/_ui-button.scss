@@ -1,0 +1,175 @@
+// `.ui-button` — the canonical button, used as a BARE class on plain
+// <button>/<A> elements across ~78 admin files that never import the Button
+// component, AND by the <Button> component itself (which the setup flow uses,
+// outside the admin layout). It therefore lives in `styles/shared/` and is
+// pulled in by BOTH AdminLayout.scss and components/ui/Button.scss.
+//
+// Why a partial and not just Button.scss: vite's sass `additionalData` prelude
+// (which supplies `sass:color` + variables) is applied only to scss ENTRIES,
+// not to files reached via `@use`. So Button.scss cannot be @use'd (its
+// `color.adjust` calls would fail) and cannot declare `sass:color` itself
+// (that would collide with the prelude). A partial that declares its own
+// dependencies works from both directions.
+
+@use 'sass:color';
+@use '../variables' as *;
+
+
+// `.ui-button` is THE canonical admin button. It is a standalone class that
+// works identically on a `<button>` and on an `<a>`/`<A>` link, and is styled
+// to visually match the legacy admin `.btn` (see
+// `pages/admin/styles/_buttons-badges.scss`) so a later `.btn` → `.ui-button`
+// rename is near-zero-visual. Metrics/colors mirror `.btn`:
+//   .btn            → .ui-button.ui-button--md   (default)
+//   .btn--small/-sm → .ui-button--sm
+//   .btn--primary   → .ui-button--primary
+//   .btn--secondary → .ui-button--secondary
+//   .btn--ghost     → .ui-button--ghost
+//   .btn--danger    → .ui-button--danger
+.ui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-xs;
+    border-radius: $border-radius-md;
+    // Default size = md, so a BARE `.ui-button` (as produced by the `.btn`→
+    // `.ui-button` class sweep, without an explicit `--md`) is padded exactly
+    // like `.btn`. `--sm`/`--lg` override these below.
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-size-sm;
+    // Display face + slightly tight tracking, matching `.btn`.
+    font-family: var(--admin-font-display);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: $line-height-base;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+    user-select: none;
+    // Anchors inherit their parent's text color; pin it so <a> == <button>.
+    color: inherit;
+    transition: background $transition-fast, color $transition-fast, opacity $transition-fast;
+
+    &:focus-visible {
+        outline: 2px solid var(--site-primary, #{$primary-color});
+        outline-offset: 2px;
+    }
+
+    &:disabled,
+    &.is-loading {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    // ─── Sizes (padding/font mirror `.btn` steps) ──────────────────────
+    &--sm {
+        padding: $spacing-xs $spacing-sm; // 4px 8px  → .btn--small
+        font-size: $font-size-xs;
+    }
+
+    &--md {
+        padding: $spacing-sm $spacing-md; // 8px 16px → .btn (default)
+        font-size: $font-size-sm;
+    }
+
+    &--lg {
+        padding: $spacing-md $spacing-lg; // 16px 24px (no `.btn` equivalent)
+        font-size: $font-size-base;
+    }
+
+    &--block {
+        width: 100%;
+    }
+
+    // ─── Variants ──────────────────────────────────────────────────────
+    &--primary {
+        background: var(--site-primary, #{$primary-color});
+        color: var(--site-button-text, #fff);
+
+        &:not(:disabled):hover {
+            filter: brightness(0.9);
+            color: var(--site-button-text, #fff);
+        }
+    }
+
+    &--secondary {
+        background: $background;
+        color: var(--admin-page-text, #{$text-color});
+        border: 1px solid var(--site-primary, #{$border-color});
+
+        &:not(:disabled):hover {
+            background: $background-dark;
+        }
+    }
+
+    &--ghost {
+        background: transparent;
+        color: var(--site-primary, #{$text-light});
+
+        &:not(:disabled):hover {
+            background: rgba(0, 0, 0, 0.05);
+            filter: brightness(0.9);
+        }
+    }
+
+    &--danger {
+        background: $error-color;
+        color: #fff;
+
+        &:not(:disabled):hover {
+            background: color.adjust($error-color, $lightness: -10%);
+            color: #fff;
+        }
+    }
+
+    &--success {
+        background: $success-color;
+        color: #fff;
+
+        &:not(:disabled):hover {
+            background: color.adjust($success-color, $lightness: -10%);
+            color: #fff;
+        }
+    }
+
+    &--warning {
+        background: $warning-color;
+        color: #fff;
+
+        &:not(:disabled):hover {
+            background: color.adjust($warning-color, $lightness: -10%);
+            color: #fff;
+        }
+    }
+
+    // ─── Parts ─────────────────────────────────────────────────────────
+    &__label {
+        display: inline-block;
+    }
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1em;
+        height: 1em;
+    }
+
+    &__spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: ui-button-spin 0.6s linear infinite;
+        margin-left: $spacing-sm;
+    }
+}
+
+@keyframes ui-button-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

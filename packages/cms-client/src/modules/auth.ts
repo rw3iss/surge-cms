@@ -86,6 +86,12 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
         return super.uploadForm<AuthAvatarResponse>('/auth/me/avatar', form,);
     }
 
+    /** DELETE /auth/me/avatar — remove the caller's own avatar (also deletes
+     *  the stored file from the CDN). */
+    removeAvatar(): Promise<AuthAvatarResponse> {
+        return this.mutate<AuthAvatarResponse>('DELETE', '/auth/me/avatar',);
+    }
+
     /** GET /auth/patreon — Patreon OAuth authorization URL + CSRF state. */
     patreonStart(): Promise<AuthPatreonResponse> {
         return this.get<AuthPatreonResponse>('/auth/patreon',);
