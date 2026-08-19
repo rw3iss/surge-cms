@@ -221,7 +221,12 @@ export function createApp(mode: AppMode = 'running',): Express {
      */
     app.use((req, res, next,) => {
         if (/^\/(sw\.js|workbox-[^/]+\.js|registerSW\.js|manifest\.webmanifest)$/.test(req.path,)) {
-            res.set('Cache-Control', 'no-cache, must-revalidate',);
+            // An EXPLICIT max-age=0 rather than bare `no-cache`: Cloudflare's
+            // "Browser Cache TTL" fills in its own max-age (4h) when the origin
+            // supplies none, and `no-cache` carries no max-age — so the header
+            // came back out of the edge as `max-age=14400`. Stating 0 leaves
+            // nothing for the edge to fill in.
+            res.set('Cache-Control', 'public, max-age=0, must-revalidate',);
         }
         next();
     },);
