@@ -53,19 +53,27 @@ function buildRobots(meta: MetaTags,): string {
 export function buildMetaHtml(meta: MetaTags,): string {
     const siteName = meta.siteName || 'RW';
     const locale = meta.locale || 'en_US';
-    // Title format: "{Site Name} - {Page Title}"
+    // Title format: "{Page Title} | {Site Name}" — the page's own words FIRST.
+    //
+    // This used to be "{Site Name} - {Page Title}". Search engines truncate the
+    // title around 60 characters and weight the leading words most, so leading
+    // with the brand spent the most valuable part of every listing repeating
+    // the same string, and pushed article headlines toward the cut-off. Brand
+    // as a suffix is the near-universal convention for exactly that reason.
     const pageTitle = (meta.title || '').trim();
     let title: string;
-    if (!pageTitle) {
+    if (!pageTitle || pageTitle === siteName) {
         title = siteName;
     } else if (
-        pageTitle === siteName ||
+        // Already carries the brand (either order) — leave it alone.
         pageTitle.startsWith(`${siteName} -`,) ||
-        pageTitle.startsWith(`${siteName} |`,)
+        pageTitle.startsWith(`${siteName} |`,) ||
+        pageTitle.endsWith(`| ${siteName}`,) ||
+        pageTitle.endsWith(`- ${siteName}`,)
     ) {
         title = pageTitle;
     } else {
-        title = `${siteName} - ${pageTitle}`;
+        title = `${pageTitle} | ${siteName}`;
     }
     const lines: string[] = [];
 

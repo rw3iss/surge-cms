@@ -66,6 +66,9 @@ export function buildOrganizationSchema(org: {
      * the audience signals the new site does not have yet.
      */
     sameAs?: string[];
+    /** Another name the outlet is known by (e.g. a regional brand). Helps
+     *  searches for EITHER name resolve to the same entity. */
+    alternateName?: string;
     /** Free-text service area, e.g. "Philadelphia, Pennsylvania" — a locality
      *  signal for "news near me"-style queries. */
     areaServed?: string;
@@ -79,6 +82,7 @@ export function buildOrganizationSchema(org: {
         url: org.url,
         ...(org.logo ? { logo: org.logo, } : {}),
         ...(org.description ? { description: org.description, } : {}),
+        ...(org.alternateName ? { alternateName: org.alternateName, } : {}),
         ...(sameAs.length ? { sameAs, } : {}),
         ...(org.areaServed ? { areaServed: org.areaServed, } : {}),
         ...(org.email ? { email: org.email, } : {}),

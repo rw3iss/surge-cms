@@ -27,6 +27,13 @@ import {
 } from './schema';
 
 const FALLBACK_SITE_NAME = 'RW';
+/**
+ * Titles for the two routes with no editable page behind them. Operators can
+ * override via the `seo` settings row (homeTitle / postsTitle); these defaults
+ * only describe the site generically, since the CMS ships to many installs.
+ */
+const DEFAULT_HOME_TITLE = 'Home';
+const DEFAULT_POSTS_TITLE = 'News';
 const FALLBACK_SITE_DESCRIPTION = 'Independent journalism for the people';
 
 interface SiteMeta {
@@ -42,6 +49,14 @@ interface SiteMeta {
     /** Canonical profile URLs (social accounts) for schema.org `sameAs`. */
     sameAs?: string[];
     contactEmail?: string;
+    /** Editable SEO copy (Admin → the `seo` settings row). */
+    homeTitle?: string;
+    postsTitle?: string;
+    /** Other names the outlet trades under — emitted as schema.org
+     *  `alternateName`, which helps searches for either name resolve here. */
+    alternateName?: string;
+    /** e.g. "Philadelphia, Pennsylvania" — a locality signal. */
+    areaServed?: string;
 }
 
 let siteMetaCache: SiteMeta | null = null;
@@ -57,7 +72,7 @@ async function getSiteMeta(): Promise<SiteMeta> {
         const res = await query(
             `SELECT key, value FROM site_settings
              WHERE key IN ('site_name', 'site_description', 'logo', 'favicon',
-                           'site_branding', 'analytics', 'social_links', 'contact_email')`,
+                           'site_branding', 'analytics', 'social_links', 'contact_email', 'seo')`,
         );
         const map: Record<string, unknown> = {};
         for (const row of res.rows) map[row.key] = row.value;
@@ -78,7 +93,17 @@ async function getSiteMeta(): Promise<SiteMeta> {
         const sameAs = Object.values(social,)
             .map((v,) => (v ?? '').trim())
             .filter((v,) => v.startsWith('http',));
+        const seo = (map.seo ?? {}) as {
+            homeTitle?: string;
+            postsTitle?: string;
+            alternateName?: string;
+            areaServed?: string;
+        };
         siteMetaCache = {
+            homeTitle: seo.homeTitle || undefined,
+            postsTitle: seo.postsTitle || undefined,
+            alternateName: seo.alternateName || undefined,
+            areaServed: seo.areaServed || undefined,
             name: (map.site_name as string) || FALLBACK_SITE_NAME,
             description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
             logo: (map.logo as string) || undefined,
@@ -125,6 +150,88 @@ function publisherLogo(site: SiteMeta,): string {
     return site.logo || `${siteUrl()}/icons/icon-512x512.png`;
 }
 
+
+/**
+ * Load a page's visible blocks, resolve `{{ }}` templates, and assemble them
+ * into a tree so container blocks (group / group_item) recurse.
+ *
+ * Shared by the dynamic-page route AND the home route. The home route used to
+ * emit only the site name + tagline — about 58 characters — because it never
+ * looked at the homepage's blocks at all. On a block-built homepage that meant
+ * crawlers saw an essentially empty document, with none of the words the site
+ * actually wants to rank for. Errors fall back to an empty list so SSR degrades
+ * to a title-only body rather than failing the request.
+ */
+async function loadPageBlocks(
+    pageId: string,
+    templateEntity: Parameters<typeof resolveContentForSsr>[1],
+): Promise<ReturnType<typeof assembleSsrBlockTree>> {
+    let flatBlocks: SsrBlockInput[] = [];
+    try {
+        const blocksRes = await query<{
+            id: string;
+            parent_block_id: string | null;
+            type: string;
+            title: string | null;
+            content: string | null;
+            settings: Record<string, unknown> | null;
+        }>(
+            // Include id + parent_block_id and order by parent first so the tree
+            // assembler can nest children (group/group_item).
+            `SELECT id, parent_block_id, type, title, content, settings FROM blocks
+             WHERE page_id = $1 AND is_visible = true
+             ORDER BY parent_block_id NULLS FIRST, "order" ASC`,
+            [pageId,],
+        );
+        flatBlocks = blocksRes.rows.map((r,) => ({
+            id: r.id,
+            parentBlockId: r.parent_block_id,
+            type: r.type,
+            title: r.title,
+            content: r.content,
+            settings: r.settings,
+        }),);
+    } catch {
+        return assembleSsrBlockTree([],);
+    }
+
+    flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
+        ...b,
+        content: await resolveContentForSsr(b.content, templateEntity,),
+    }),),);
+    return assembleSsrBlockTree(flatBlocks,);
+}
+
+
+/**
+ * The home page's indexable body. Renders the CMS homepage's blocks when one is
+ * configured (`pages.is_homepage`), so the words on the page are actually in the
+ * HTML; falls back to the site name + tagline when there is no homepage row.
+ */
+async function buildHomeBody(siteName: string, siteDescription: string,): Promise<string> {
+    try {
+        const res = await query(
+            `SELECT id, title, description, show_title
+             FROM pages WHERE is_homepage = true AND status = 'published' LIMIT 1`,
+        );
+        const row = res.rows[0];
+        if (!row) return buildGenericBody(siteName, siteDescription,);
+        const page = mapRow(row,) as any;
+        const blocks = await loadPageBlocks(page.id, { page, },);
+        const body = buildPageBody({
+            // The homepage's own <h1> is the site name — the page title is
+            // usually something internal like "home".
+            title: siteName,
+            showTitle: true,
+            description: page.description || siteDescription,
+            blocks,
+        },);
+        return body || buildGenericBody(siteName, siteDescription,);
+    } catch {
+        return buildGenericBody(siteName, siteDescription,);
+    }
+}
+
 /**
  * Resolve a URL path to its meta tags by looking up the content in the DB.
  * Returns null if the path is not a known public route (let the SPA handle it).
@@ -149,11 +256,15 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     const SITE_NAME = site.name;
     const SITE_DESCRIPTION = site.description;
     const logo = publisherLogo(site,);
+    const HOME_TITLE = site.homeTitle || DEFAULT_HOME_TITLE;
+    const POSTS_TITLE = site.postsTitle || DEFAULT_POSTS_TITLE;
 
     // ─── Home ───
     if (path === '/' || path === '') {
         return {
-            title: 'Home',
+            // A homepage title is the site's single most important; "Home" says
+            // nothing. Lead with what the outlet covers and where.
+            title: HOME_TITLE,
             description: SITE_DESCRIPTION ||
                 'Independent, community-focused journalism covering the stories that matter.',
             canonical: url,
@@ -171,6 +282,8 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     description: SITE_DESCRIPTION,
                     sameAs: site.sameAs,
                     email: site.contactEmail,
+                    alternateName: site.alternateName,
+                    areaServed: site.areaServed,
                 },),
                 buildWebSiteSchema({
                     name: SITE_NAME,
@@ -178,7 +291,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     description: SITE_DESCRIPTION,
                 },),
             ],
-            body: buildGenericBody(SITE_NAME, SITE_DESCRIPTION,),
+            body: await buildHomeBody(SITE_NAME, SITE_DESCRIPTION,),
         };
     }
 
@@ -204,16 +317,16 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         ).catch(() => null,);
         const count = countRes?.rows[0]?.count || 0;
         return {
-            title: 'Blog',
+            title: POSTS_TITLE,
             description: `Latest news, stories, and investigative reporting from ${SITE_NAME}.`,
             canonical: url,
             type: 'website',
             image: logo,
             siteName: SITE_NAME,
-            aeoSummary: `Browse the latest blog posts, news articles, and reporting from ${SITE_NAME}.`,
+            aeoSummary: `Browse the latest news articles, commentary, and reporting from ${SITE_NAME}.`,
             aeoEntityType: 'Blog',
             jsonLd: buildCollectionPageSchema({
-                name: 'Blog',
+                name: POSTS_TITLE,
                 description: `Latest news and articles from ${SITE_NAME}`,
                 url,
                 itemCount: count,
