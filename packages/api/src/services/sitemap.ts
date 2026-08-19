@@ -73,25 +73,41 @@ export async function buildSitemap(): Promise<string> {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
-    // Static / always-on routes
-    xml += urlEntry(`${SITE_URL}/`, undefined, 'daily', 1.0,);
-    xml += urlEntry(`${SITE_URL}/donate`, undefined, 'weekly', 0.8,);
-    xml += urlEntry(`${SITE_URL}/contact`, undefined, 'monthly', 0.6,);
-    xml += urlEntry(`${SITE_URL}/posts`, undefined, 'daily', 0.8,);
-    xml += urlEntry(`${SITE_URL}/join`, undefined, 'monthly', 0.7,);
+    // De-duplicate: the CMS pages list can contain slugs that also appear in
+    // the static block below (e.g. an editable /contact or /donate page), which
+    // previously emitted the same <loc> twice — a validation warning in Search
+    // Console and wasted crawl budget.
+    const seen = new Set<string>();
+    const addUrl = (
+        loc: string,
+        lastmod?: string,
+        changefreq?: string,
+        priority?: number,
+    ): void => {
+        if (seen.has(loc,)) return;
+        seen.add(loc,);
+        xml += urlEntry(loc, lastmod, changefreq, priority,);
+    };
+
+    // Static / always-on routes. NOTE: /join is deliberately absent — it is
+    // marked `noindex,nofollow` by services/ssr/routes.ts, and listing a
+    // noindex URL in the sitemap is a direct contradiction crawlers report.
+    addUrl(`${SITE_URL}/`, undefined, 'daily', 1.0,);
+    addUrl(`${SITE_URL}/donate`, undefined, 'weekly', 0.8,);
+    addUrl(`${SITE_URL}/contact`, undefined, 'monthly', 0.6,);
+    addUrl(`${SITE_URL}/posts`, undefined, 'daily', 0.8,);
 
     for (const page of pagesResult.rows) {
-        xml += urlEntry(`${SITE_URL}/${page.slug}`, page.updated_at, 'weekly', 0.8,);
+        addUrl(`${SITE_URL}/${page.slug}`, page.updated_at, 'weekly', 0.8,);
     }
     for (const post of postsResult.rows) {
-        xml += urlEntry(`${SITE_URL}/posts/${post.slug}`, post.updated_at, 'weekly', 0.7,);
+        addUrl(`${SITE_URL}/posts/${post.slug}`, post.updated_at, 'weekly', 0.7,);
     }
     for (const campaign of campaignsResult.rows) {
-        xml += urlEntry(`${SITE_URL}/campaigns/${campaign.slug}`, campaign.updated_at, 'weekly', 0.6,);
+        addUrl(`${SITE_URL}/campaigns/${campaign.slug}`, campaign.updated_at, 'weekly', 0.6,);
     }
-    for (const form of formsResult.rows) {
-        xml += urlEntry(`${SITE_URL}/forms/${form.slug}`, form.updated_at, 'monthly', 0.5,);
-    }
+    // Form pages are `noindex` too (services/ssr/routes.ts), so they are not
+    // listed here.
 
     xml += '</urlset>';
     return xml;

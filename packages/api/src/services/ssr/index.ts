@@ -87,14 +87,26 @@ async function loadTemplate(distDir: string,): Promise<string | null> {
     }
 }
 
-/** Inject meta HTML into the template's <head> */
+/**
+ * Inject meta HTML into the template's <head>.
+ *
+ * The static template carries a placeholder <title> for the no-SSR/dev case.
+ * Our meta block emits the REAL <title>, and the placeholder sits earlier in
+ * the head — so both shipped, and browsers/Google honour the FIRST one. The
+ * site was consequently branding itself as the template's default in search
+ * results. Strip any pre-existing <title> whenever we're supplying one.
+ */
 function injectMeta(template: string, metaHtml: string,): string {
+    const html = metaHtml.includes('<title',)
+        ? template.replace(/[ \t]*<title>[\s\S]*?<\/title>\s*\n?/i, '',)
+        : template;
+
     // If the template has the explicit marker, replace it
-    if (template.includes(META_INJECTION_MARKER,)) {
-        return template.replace(META_INJECTION_MARKER, metaHtml,);
+    if (html.includes(META_INJECTION_MARKER,)) {
+        return html.replace(META_INJECTION_MARKER, metaHtml,);
     }
     // Otherwise inject right before </head>
-    return template.replace('</head>', `        ${metaHtml}\n    </head>`,);
+    return html.replace('</head>', `        ${metaHtml}\n    </head>`,);
 }
 
 /** Insert an arbitrary HTML snippet just before </head> (once). */

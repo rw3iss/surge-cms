@@ -28,6 +28,10 @@ export interface MetaTags {
     aeoSummary?: string;
     aeoEntityType?: string;
     jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+    /** Search Console / Bing Webmaster ownership tokens. Emitted on every page
+     *  (the verifier may fetch any URL), harmless when unset. */
+    googleSiteVerification?: string;
+    bingSiteVerification?: string;
     /** Optional pre-rendered HTML to inject into the page body
      *  (replaces the SPA's loading shell on first paint). Used by the
      *  progressive-enhancement SSR layer so bots see real content
@@ -164,6 +168,15 @@ export function buildMetaHtml(meta: MetaTags,): string {
     if (meta.aeoEntityType) {
         lines.push(`<meta name="entity-type" content="${escapeHtml(meta.aeoEntityType,)}" />`,);
     }
+    if (meta.googleSiteVerification) {
+        lines.push(
+            `<meta name="google-site-verification" content="${escapeHtml(meta.googleSiteVerification,)}" />`,
+        );
+    }
+    if (meta.bingSiteVerification) {
+        lines.push(`<meta name="msvalidate.01" content="${escapeHtml(meta.bingSiteVerification,)}" />`,);
+    }
+
     if (meta.jsonLd) {
         lines.push(`<meta name="ai-structured-data" content="true" />`,);
     }

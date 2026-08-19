@@ -18,6 +18,7 @@ import { registerModule, } from './api/registry';
 import routes from './routes';
 import { setupRoutes, } from './routes/setup';
 import { sitemapRoutes, } from './routes/sitemap';
+import { robotsRoutes, } from './routes/robots';
 import { feedRoutes, } from './routes/feed';
 import { unsubscribeRoutes, } from './routes/unsubscribe';
 import { logger, } from './utils/logger';
@@ -161,6 +162,11 @@ export function createApp(mode: AppMode = 'running',): Express {
         const sitemapRouter = registerModule('sitemap', sitemapRoutes, { mountPath: '', },);
         app.use(sitemapRouter,);
         app.use(`/api/${config.apiVersion}`, sitemapRouter,);
+        // robots.txt is generated (not static) so its `Sitemap:` line follows
+        // this install's domain. Mounted here — ahead of express.static — so it
+        // takes precedence over any stale public/robots.txt on disk.
+        const robotsRouter = registerModule('robots', robotsRoutes, { mountPath: '', },);
+        app.use(robotsRouter,);
         // The feed router has one '/' route; mounting it at '/feed.xml'
         // (and the /api/v1 alias) preserves the canonical external URLs.
         // registerModule once records the canonical mountPath in the

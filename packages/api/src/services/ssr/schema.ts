@@ -57,7 +57,21 @@ export function buildOrganizationSchema(org: {
     url: string;
     logo?: string;
     description?: string;
+    /**
+     * Canonical profile URLs for this outlet (social accounts, Wikipedia, etc).
+     * `sameAs` is how a search engine ties a site to the OTHER properties that
+     * share its name, which is what consolidates them into one brand entity.
+     * It matters most when the brand name is contested — several unrelated
+     * companies also trade as "Surge Media" — because the social profiles carry
+     * the audience signals the new site does not have yet.
+     */
+    sameAs?: string[];
+    /** Free-text service area, e.g. "Philadelphia, Pennsylvania" — a locality
+     *  signal for "news near me"-style queries. */
+    areaServed?: string;
+    email?: string;
 },): Record<string, unknown> {
+    const sameAs = (org.sameAs ?? []).filter(Boolean,);
     return {
         '@context': 'https://schema.org',
         '@type': 'NewsMediaOrganization',
@@ -65,6 +79,37 @@ export function buildOrganizationSchema(org: {
         url: org.url,
         ...(org.logo ? { logo: org.logo, } : {}),
         ...(org.description ? { description: org.description, } : {}),
+        ...(sameAs.length ? { sameAs, } : {}),
+        ...(org.areaServed ? { areaServed: org.areaServed, } : {}),
+        ...(org.email ? { email: org.email, } : {}),
+    };
+}
+
+/**
+ * WebSite node with a SearchAction — makes the site eligible for Google's
+ * sitelinks search box, and reinforces the site name Google shows in results
+ * (which is otherwise inferred, and was being taken from the template default).
+ */
+export function buildWebSiteSchema(site: {
+    name: string;
+    url: string;
+    description?: string;
+},): Record<string, unknown> {
+    const base = site.url.replace(/\/+$/, '',);
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: site.name,
+        url: base,
+        ...(site.description ? { description: site.description, } : {}),
+        potentialAction: {
+            '@type': 'SearchAction',
+            target: {
+                '@type': 'EntryPoint',
+                urlTemplate: `${base}/search?q={search_term_string}`,
+            },
+            'query-input': 'required name=search_term_string',
+        },
     };
 }
 

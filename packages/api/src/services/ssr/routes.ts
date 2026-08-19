@@ -21,6 +21,7 @@ import {
     buildDonationSchema,
     buildOrganizationSchema,
     buildWebPageSchema,
+    buildWebSiteSchema,
     stripHtml,
     truncateText,
 } from './schema';
@@ -35,6 +36,12 @@ interface SiteMeta {
     favicon?: string;
     /** Google tag / GA4 measurement id (Admin → Settings → General), if set. */
     analyticsId?: string;
+    /** Search Console / Bing Webmaster ownership tokens, emitted as meta tags. */
+    googleSiteVerification?: string;
+    bingSiteVerification?: string;
+    /** Canonical profile URLs (social accounts) for schema.org `sameAs`. */
+    sameAs?: string[];
+    contactEmail?: string;
 }
 
 let siteMetaCache: SiteMeta | null = null;
@@ -48,7 +55,9 @@ async function getSiteMeta(): Promise<SiteMeta> {
     }
     try {
         const res = await query(
-            `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_description', 'logo', 'favicon', 'site_branding', 'analytics')`,
+            `SELECT key, value FROM site_settings
+             WHERE key IN ('site_name', 'site_description', 'logo', 'favicon',
+                           'site_branding', 'analytics', 'social_links', 'contact_email')`,
         );
         const map: Record<string, unknown> = {};
         for (const row of res.rows) map[row.key] = row.value;
@@ -57,13 +66,28 @@ async function getSiteMeta(): Promise<SiteMeta> {
         // in services/settings.ts getPublicSettings().
         const branding = map.site_branding as { favicon?: { url?: string; }; } | undefined;
         const favicon = branding?.favicon?.url || (map.favicon as string | undefined) || undefined;
-        const analytics = map.analytics as { googleAnalyticsId?: string; } | undefined;
+        const analytics = map.analytics as {
+            googleAnalyticsId?: string;
+            googleSiteVerification?: string;
+            bingSiteVerification?: string;
+        } | undefined;
+        // `sameAs` ties this site to the outlet's other profiles so search
+        // engines resolve them to ONE brand entity — the main lever available
+        // when several unrelated companies share the site's name.
+        const social = (map.social_links ?? {}) as Record<string, string | undefined>;
+        const sameAs = Object.values(social,)
+            .map((v,) => (v ?? '').trim())
+            .filter((v,) => v.startsWith('http',));
         siteMetaCache = {
             name: (map.site_name as string) || FALLBACK_SITE_NAME,
             description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
             logo: (map.logo as string) || undefined,
             favicon,
             analyticsId: analytics?.googleAnalyticsId || undefined,
+            googleSiteVerification: analytics?.googleSiteVerification || undefined,
+            bingSiteVerification: analytics?.bingSiteVerification || undefined,
+            sameAs,
+            contactEmail: (map.contact_email as string) || undefined,
         };
     } catch {
         siteMetaCache = {
@@ -106,6 +130,19 @@ function publisherLogo(site: SiteMeta,): string {
  * Returns null if the path is not a known public route (let the SPA handle it).
  */
 export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | null> {
+    const resolved = await resolveRouteMetaInner(pathname,);
+    if (!resolved) return null;
+    // Ownership tokens ride on every page: the verifier may fetch any URL, and
+    // the home page alone isn't guaranteed to be the one it checks.
+    const s = await getSiteMeta();
+    return {
+        ...resolved,
+        ...(s.googleSiteVerification ? { googleSiteVerification: s.googleSiteVerification, } : {}),
+        ...(s.bingSiteVerification ? { bingSiteVerification: s.bingSiteVerification, } : {}),
+    };
+}
+
+async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null> {
     const path = pathname.split('?',)[0].replace(/\/+$/, '',) || '/';
     const url = `${siteUrl()}${path === '/' ? '' : path}`;
     const site = await getSiteMeta();
@@ -126,12 +163,21 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
             aeoSummary:
                 `${SITE_NAME} — ${SITE_DESCRIPTION}. Independent journalism, investigative reporting, and community stories.`,
             aeoEntityType: 'NewsMediaOrganization',
-            jsonLd: buildOrganizationSchema({
-                name: SITE_NAME,
-                url: siteUrl(),
-                logo,
-                description: SITE_DESCRIPTION,
-            },),
+            jsonLd: [
+                buildOrganizationSchema({
+                    name: SITE_NAME,
+                    url: siteUrl(),
+                    logo,
+                    description: SITE_DESCRIPTION,
+                    sameAs: site.sameAs,
+                    email: site.contactEmail,
+                },),
+                buildWebSiteSchema({
+                    name: SITE_NAME,
+                    url: siteUrl(),
+                    description: SITE_DESCRIPTION,
+                },),
+            ],
             body: buildGenericBody(SITE_NAME, SITE_DESCRIPTION,),
         };
     }
@@ -186,9 +232,18 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
     if (postMatch) {
         const slug = postMatch[1];
         const res = await query(
-            `SELECT id, title, slug, excerpt, content, featured_image, author, published_at,
-                    updated_at, categories, tags, meta_title, meta_description
-             FROM posts WHERE slug = $1 AND status = 'published'`,
+            // `posts.author` is the legacy free-text column and is empty on
+            // modern rows — the real author is `author_id -> users.display_name`
+            // (services/feed.ts already joins it this way). Without the join the
+            // byline, `article:author` and the NewsArticle `author` node were all
+            // blank, which costs a news site real credibility signals.
+            `SELECT p.id, p.title, p.slug, p.excerpt, p.content, p.featured_image,
+                    COALESCE(NULLIF(BTRIM(p.author), ''), u.display_name) AS author,
+                    p.published_at, p.updated_at, p.categories, p.tags,
+                    p.meta_title, p.meta_description
+             FROM posts p
+             LEFT JOIN users u ON u.id = p.author_id
+             WHERE p.slug = $1 AND p.status = 'published'`,
             [slug,],
         ).catch(() => null,);
         const row = res?.rows[0];
