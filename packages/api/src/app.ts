@@ -203,6 +203,28 @@ export function createApp(mode: AppMode = 'running',): Express {
         fallthrough: false,
     },),);
     app.use(createSsrMiddleware(distDir,),);
+    /**
+     * Never cache the service-worker entry points.
+     *
+     * Everything under /assets is content-hashed, so it is safe (and correct) to
+     * cache immutably — a new build simply produces new filenames. `sw.js` and
+     * its workbox runtime are the opposite: they keep the SAME filename while
+     * their contents change every deploy, and they carry the precache manifest
+     * that decides which asset versions users are served.
+     *
+     * With no Cache-Control from the origin, a CDN applies its own default
+     * (Cloudflare's is 4 hours). The worker then keeps serving the PREVIOUS
+     * build's precached CSS/JS from Cache Storage until that expires, which is
+     * why a deploy could appear to need a hard refresh. `no-cache` means
+     * "revalidate before use", so an update is picked up on the next visit.
+     * The PWA is registerType:'autoUpdate', so discovery is all it needs.
+     */
+    app.use((req, res, next,) => {
+        if (/^\/(sw\.js|workbox-[^/]+\.js|registerSW\.js|manifest\.webmanifest)$/.test(req.path,)) {
+            res.set('Cache-Control', 'no-cache, must-revalidate',);
+        }
+        next();
+    },);
     app.use(express.static(distDir, { index: false, },),);
     // Express 5 / path-to-regexp 8 no longer accept the bare '*' string route;
     // a RegExp catch-all matches every GET path with identical behavior.
