@@ -14,8 +14,31 @@ export function camelToSnake(str: string,): string {
 }
 
 /**
+ * Columns that must NEVER reach an API response, stripped for every table.
+ *
+ * `mapRow` is the single funnel every DB row passes through on its way to a
+ * client, which makes it the one place a deny-list can't be forgotten. This
+ * exists because `SELECT *` (via `findByIdOrThrow`/`updateById`) and the login
+ * query both mapped the whole `users` row, so `passwordHash` — and the
+ * single-use `verificationToken`, which would let a caller verify someone
+ * else's email — were being serialised into auth responses.
+ *
+ * Server code that legitimately needs these reads the RAW row before mapping
+ * (e.g. `bcrypt.compare(password, dbUser.password_hash)` in services/auth),
+ * so stripping them here costs nothing.
+ *
+ * Guarded by `utils/mapRow.test.ts` — add a column here, never a new exception.
+ */
+export const SENSITIVE_COLUMNS: ReadonlySet<string> = new Set([
+    'password_hash',
+    'verification_token',
+    'stripe_customer_id',
+],);
+
+/**
  * Maps a database row with snake_case keys to a camelCase typed object.
- * Handles Date conversions for fields ending in _at.
+ * Handles Date conversions for fields ending in _at, and drops any
+ * `SENSITIVE_COLUMNS` outright.
  */
 export function mapRow<T,>(row: Record<string, unknown>,): T {
     if (!row) return row as T;
@@ -23,6 +46,7 @@ export function mapRow<T,>(row: Record<string, unknown>,): T {
     const mapped: Record<string, unknown> = {};
 
     for (const [key, value,] of Object.entries(row,)) {
+        if (SENSITIVE_COLUMNS.has(key,)) continue;
         const camelKey = snakeToCamel(key,);
 
         // Convert timestamp strings to Date objects for _at fields
