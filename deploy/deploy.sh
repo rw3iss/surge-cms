@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Manual deploy — Surge Media demo → https://surge.ryanweiss.net
+# Manual deploy — Surge Media production → https://surgemedia.us
 #
 # Ships the current working tree of THIS project to the production server:
 # rsync source → build on server → restart the systemd service → health-check.
@@ -9,13 +9,17 @@
 # Usage:  ./deploy/deploy.sh
 # Env:    SURGE_SSH   ssh target      (default: rw3iss@216.158.233.15)
 #         SURGE_REMOTE remote path    (default: /var/www/surge-media)
-#         SURGE_HOST  public host     (default: surge.ryanweiss.net)
+#         SURGE_HOST  public host     (default: surgemedia.us)
 #
 set -euo pipefail
 
 SERVER="${SURGE_SSH:-rw3iss@216.158.233.15}"
 REMOTE="${SURGE_REMOTE:-/var/www/surge-media}"
-HOST="${SURGE_HOST:-surge.ryanweiss.net}"
+# The health check MUST target the host this script actually deploys to.
+# It used to default to surge.ryanweiss.net, which resolves to the LEGACY box
+# (162.35.181.92) — a different server entirely — so the check passed by
+# reaching an unrelated instance and told us nothing about the deploy.
+HOST="${SURGE_HOST:-surgemedia.us}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
