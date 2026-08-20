@@ -1,7 +1,13 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
-import { deriveFieldKeys, type Form, type FormActionType, type FormCreateBody, } from '@sitesurge/types';
+import {
+    deriveFieldKeys,
+    type Form,
+    type FormActionType,
+    type FormCreateBody,
+    parseEmailList,
+} from '@sitesurge/types';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import RichTextEditor from '../../components/admin/editors/RichTextEditor';
@@ -60,6 +66,7 @@ const FormEditor: Component = () => {
     const [action, setAction,] = createSignal<FormActionType>('submit',);
     const [mailingListId, setMailingListId,] = createSignal('',);
     const [emailTo, setEmailTo,] = createSignal('',);
+    const [emailToError, setEmailToError,] = createSignal('',);
     const [emailSubject, setEmailSubject,] = createSignal('',);
     const [emailBody, setEmailBody,] = createSignal('',);
     // subscribe/email: also store the submission (default off).
@@ -94,6 +101,38 @@ const FormEditor: Component = () => {
         const lists = mailingLists();
         if (mailingListSelect && lists && lists.length) mailingListSelect.value = id;
     },);
+
+    /**
+     * Validate the comma-separated "Send to" list on blur (not while typing —
+     * a half-typed address is not an error yet).
+     *
+     * Entries containing `{{ }}` are skipped: the field accepts template tokens
+     * like `{{email}}` that only resolve to an address at send time, so they
+     * cannot be checked here. Everything else must be a literal address, and the
+     * split/trim/validate is the SAME shared helper the backend sends with.
+     */
+    const validateEmailTo = (): boolean => {
+        const raw = emailTo().trim();
+        if (!raw) {
+            setEmailToError('',); // empty is allowed; the action just won't send
+            return true;
+        }
+        const literals = raw
+            .split(/[,;]/,)
+            .map((p,) => p.trim())
+            .filter((p,) => p && !p.includes('{{',));
+        const { invalid, } = parseEmailList(literals.join(',',),);
+        if (invalid.length) {
+            setEmailToError(
+                invalid.length === 1
+                    ? `"${invalid[0]}" is not a valid email address.`
+                    : `Not valid email addresses: ${invalid.map((e,) => `"${e}"`).join(', ',)}.`,
+            );
+            return false;
+        }
+        setEmailToError('',);
+        return true;
+    };
 
     /** Variable tokens available in the email template, derived from the current
      *  questions (matches the backend's deriveFieldKeys). */
@@ -284,6 +323,14 @@ const FormEditor: Component = () => {
         const pollTypes = ['radio', 'checkbox', 'select',];
         if (questions().some(q => pollTypes.includes(q.type,) && q.options.length < 2)) {
             setError('Poll questions must have at least 2 options',);
+            return;
+        }
+
+        // Re-check on save as well as on blur: a bad address could otherwise be
+        // saved by hitting Save straight from the field, and the send would then
+        // drop that recipient silently.
+        if (action() === 'email' && !validateEmailTo()) {
+            setError('Please correct the "Send to" address list.',);
             return;
         }
 
@@ -608,12 +655,22 @@ const FormEditor: Component = () => {
                         {/* Email settings */}
                         <Show when={action() === 'email'}>
                             <div class="form-subaction">
-                                <FormField label="Send to">
+                                <FormField
+                                    label="Send to"
+                                    hint="One address, or several separated by commas. Each recipient gets their own copy."
+                                    error={emailToError()}
+                                >
                                     <input
                                         type="text"
                                         value={emailTo()}
-                                        onInput={(e,) => { setEmailTo(e.currentTarget.value,); markDirty(); }}
-                                        placeholder="admin@example.com  (or a variable like {{email}})"
+                                        onInput={(e,) => {
+                                            setEmailTo(e.currentTarget.value,);
+                                            // Clear a stale error as soon as they start fixing it.
+                                            if (emailToError()) setEmailToError('',);
+                                            markDirty();
+                                        }}
+                                        onBlur={validateEmailTo}
+                                        placeholder="admin@example.com, editor@example.com  (or {{email}})"
                                     />
                                 </FormField>
                                 <FormField label="Subject">

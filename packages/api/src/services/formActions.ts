@@ -18,6 +18,7 @@ import type { Form, FormActionConfig, FormQuestion, TemplateRuntime, } from '@si
 import {
     deriveFieldKeys,
     formatAnswerValue,
+    parseEmailList,
     renderTemplateToString,
     resolveValueFunction,
     UNRESOLVED,
@@ -39,7 +40,6 @@ export interface FormActor {
     userEmail?: string;
 }
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** Flatten an answer value to a display string (shared with CSV export). */
 const formatValue = formatAnswerValue;
@@ -175,17 +175,54 @@ async function runEmail(
     const rawCtx = buildContext(form, questions, answers, false,);
     const htmlCtx = buildContext(form, questions, answers, true,);
 
-    const to = (await renderTpl(cfg.emailTo || '', rawCtx,)).trim();
-    if (!to || !EMAIL_RE.test(to,)) {
-        logger.warn('form email action: recipient missing/invalid after render', { form: form.id, to, },);
+    // "Send to" accepts a comma- (or semicolon-) separated list. Parsed with the
+    // SAME shared helper the form editor validates with, so what the admin was
+    // told is valid is exactly what gets mailed.
+    const rendered = (await renderTpl(cfg.emailTo || '', rawCtx,)).trim();
+    const { emails: recipients, invalid, } = parseEmailList(rendered,);
+
+    if (invalid.length) {
+        // Don't fail the whole action for one bad entry — mail everyone valid
+        // and record the rest, since a dropped notification is otherwise silent.
+        logger.warn('form email action: skipping invalid recipient(s)', {
+            form: form.id,
+            invalid,
+        },);
+    }
+    if (recipients.length === 0) {
+        logger.warn('form email action: no valid recipient after render', {
+            form: form.id,
+            to: rendered,
+        },);
         return;
     }
+
     const subject = (await renderTpl(cfg.emailSubject || '', rawCtx,)).trim()
         || `New submission: ${form.title}`;
     const body = (await renderTpl(cfg.emailBody || '', htmlCtx,)).trim()
         || '<p>A form was submitted.</p>';
 
-    await sendEmail({ to, subject, html: body, },);
+    // One message PER recipient rather than a single multi-recipient message:
+    // recipients never see each other's addresses, and one rejected address
+    // can't take the rest of the notifications down with it.
+    const failed: string[] = [];
+    for (const to of recipients) {
+        try {
+            await sendEmail({ to, subject, html: body, },);
+        } catch (e) {
+            failed.push(to,);
+            logger.warn('form email action: send failed for recipient', {
+                form: form.id,
+                to,
+                error: (e as Error).message,
+            },);
+        }
+    }
+    if (failed.length && failed.length === recipients.length) {
+        // Every recipient failed — surface it to the caller's catch so the
+        // dispatch log records the action as failed rather than succeeded.
+        throw new Error(`form email action: all ${failed.length} recipient(s) failed`,);
+    }
 }
 
 /**

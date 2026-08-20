@@ -396,3 +396,27 @@
     white-space: nowrap;
   }
 }
+
+
+// Validation state for FormField. The message replaces the hint, and the
+// control itself is outlined so the error is findable without reading.
+.admin-form-field {
+    &__error {
+        display: block;
+        margin-top: 4px;
+        font-size: $font-size-xs;
+        color: $error-color;
+    }
+
+    &--invalid {
+        input,
+        textarea,
+        select {
+            border-color: $error-color;
+
+            &:focus {
+                outline-color: $error-color;
+            }
+        }
+    }
+}

@@ -32,6 +32,9 @@ export interface FormFieldProps {
     tooltipHeader?: string;
     /** Sub-text rendered under the control in muted style. */
     hint?: string;
+    /** Validation message. When set, the field is styled invalid and this
+     *  replaces the hint (an error is more urgent than help text). */
+    error?: string;
     /** Single-row layout: label on the left, control on the right. */
     inline?: boolean;
     /** Optional explicit class on the outer wrapper for ad-hoc tweaks. */
@@ -41,7 +44,11 @@ export interface FormFieldProps {
 
 const FormField: Component<FormFieldProps> = (props,) => {
     return (
-        <div class={`admin-form-field ${props.inline ? 'admin-form-field--inline' : ''} ${props.class || ''}`}>
+        <div
+            class={`admin-form-field ${props.inline ? 'admin-form-field--inline' : ''} ${
+                props.error ? 'admin-form-field--invalid' : ''
+            } ${props.class || ''}`}
+        >
             <label class="admin-form-field__label">
                 <span class="admin-form-field__label-text">{props.label}</span>
                 <Show when={props.required}>
@@ -56,7 +63,11 @@ const FormField: Component<FormFieldProps> = (props,) => {
             </label>
             <div class="admin-form-field__control">
                 {props.children}
-                <Show when={props.hint}>
+                <Show when={props.error}>
+                    {/* role=alert so the message is announced when it appears. */}
+                    <span class="admin-form-field__error" role="alert">{props.error}</span>
+                </Show>
+                <Show when={props.hint && !props.error}>
                     <span class="admin-form-field__hint">{props.hint}</span>
                 </Show>
             </div>

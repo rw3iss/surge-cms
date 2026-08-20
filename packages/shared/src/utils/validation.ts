@@ -82,3 +82,45 @@ export function truncate(text: string, maxLength: number, suffix = '...',): stri
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength - suffix.length,).trim() + suffix;
 }
+
+/** The result of parsing a user-entered, comma-separated recipient list. */
+export interface EmailListResult {
+    /** Valid, trimmed, de-duplicated addresses, in the order first seen. */
+    emails: string[];
+    /** Entries that are not valid addresses, trimmed, in input order. */
+    invalid: string[];
+}
+
+/**
+ * Parse a comma-separated list of email addresses.
+ *
+ * Shared deliberately: the form editor validates the "Send to" field with this
+ * on blur, and the backend splits the very same string with it at send time. A
+ * second implementation on either side would eventually disagree, and the way
+ * that fails is silent — the UI accepts a list the sender then drops.
+ *
+ * Semicolons are accepted as separators too, since Outlook produces them and
+ * pasting from a mail client is the obvious way to fill this field in.
+ * Duplicates are collapsed case-insensitively so a recipient can't be mailed
+ * twice by a typo.
+ */
+export function parseEmailList(raw: string | null | undefined,): EmailListResult {
+    const emails: string[] = [];
+    const invalid: string[] = [];
+    const seen = new Set<string>();
+
+    for (const part of (raw ?? '').split(/[,;]/,)) {
+        const entry = part.trim();
+        if (!entry) continue; // tolerate trailing/duplicate separators
+        if (!isValidEmail(entry,)) {
+            invalid.push(entry,);
+            continue;
+        }
+        const key = entry.toLowerCase();
+        if (seen.has(key,)) continue;
+        seen.add(key,);
+        emails.push(entry,);
+    }
+
+    return { emails, invalid, };
+}
