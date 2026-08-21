@@ -35,6 +35,7 @@ import {
 const SSR_SINGLE_KINDS: ReadonlySet<string> = new Set([
     'post',
     'campaign',
+    'event',
     'form',
     'page',
     'media',
@@ -59,6 +60,13 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
         case 'post':
             return `<a class="ssr-entity ssr-entity--post" href="/posts/${g('slug',)}"><h3>${g('title',)}</h3>`
                 + (data.excerpt ? `<p>${g('excerpt',)}</p>` : '') + '</a>';
+        case 'event':
+            // Emits the indexable facts: title, when, where.
+            return `<a class="ssr-entity ssr-entity--event" href="/events/${g('slug',)}">`
+                + `<h3>${g('title',)}</h3>`
+                + (g('startsAt',) ? `<p class="ssr-entity__when">${g('startsAt',)}</p>` : '')
+                + (g('location',) ? `<p class="ssr-entity__where">${g('location',)}</p>` : '')
+                + `</a>`;
         case 'campaign':
         case 'campaignLink':
             return `<a class="ssr-entity ssr-entity--campaign" href="/campaigns/${g('slug',)}"><h3>${g('title',)}</h3>`

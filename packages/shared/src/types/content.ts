@@ -45,6 +45,7 @@ export interface Page {
 }
 
 export type BlockType =
+    | 'event'
     | 'rich_text'
     | 'text'
     | 'post'

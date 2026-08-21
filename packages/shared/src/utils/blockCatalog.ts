@@ -19,6 +19,7 @@ export const ALL_BLOCK_TYPES = [
     'gallery',
     'social',
     'campaign',
+    'event',
     'hero',
     'html',
     'document',

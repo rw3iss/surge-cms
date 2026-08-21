@@ -19,6 +19,7 @@ import { renderHero, } from './hero';
 import { renderImage, } from './image';
 import { renderDocument, } from './document';
 import { renderUrlLink, } from './urlLink';
+import { renderEventBlock, } from './event';
 
 export interface SsrBlockInput {
     type: string;
@@ -85,6 +86,9 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     carousel: notIndexable,
     gallery: notIndexable,
     campaign: notIndexable,
+    // An events block carries title/date/location — strong local-relevance
+    // signal, so it IS indexed rather than treated as a dynamic shell.
+    event: renderEventBlock,
     post: notIndexable,
     spacer: notIndexable,
     // No SSR output (was the `default:` fallthrough).

@@ -39,6 +39,7 @@ import {
 const MAIL_SINGLE_KINDS: ReadonlySet<string> = new Set([
     'post',
     'campaign',
+    'event',
     'form',
 ]);
 

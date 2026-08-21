@@ -50,6 +50,11 @@ async function fetchEntity(kind: string, ref: string): Promise<Record<string, un
                     return (mode === 'id' ? await cms.posts.getById(ref) : await cms.posts.getBySlug(ref)) as unknown as Record<string, unknown>;
                 case 'campaign':
                     return (mode === 'id' ? await cms.campaigns.getById(ref) : await cms.campaigns.getBySlug(ref)) as unknown as Record<string, unknown>;
+                case 'event':
+                    // The events endpoint resolves an id OR a slug on the same
+                    // path, so both modes hit it and the caller's fallback
+                    // ordering still applies.
+                    return (await cms.events.getOne(ref)) as unknown as Record<string, unknown>;
                 case 'form':
                     return (mode === 'id' ? await cms.forms.getById(ref) : await cms.forms.getBySlug(ref)) as unknown as Record<string, unknown>;
                 case 'page':

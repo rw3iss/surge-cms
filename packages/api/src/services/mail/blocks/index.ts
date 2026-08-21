@@ -22,6 +22,7 @@ import { renderVideo, } from './video';
 import { renderSocial, } from './social';
 import { renderForm, } from './form';
 import { renderCampaign, } from './campaign';
+import { renderEvent, } from './event';
 import { renderPostList, } from './postList';
 import { renderCarousel, } from './carousel';
 import { renderDocument, } from './document';
@@ -76,6 +77,7 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     social: renderSocial,
     form: renderForm,
     campaign: renderCampaign,
+    event: renderEvent,
     post: renderPostList,
     post_list: renderPostList,
     carousel: renderCarousel,
