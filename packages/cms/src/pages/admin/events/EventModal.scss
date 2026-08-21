@@ -111,3 +111,27 @@
 
     &__spacer { flex: 1; }
 }
+
+.event-registrants {
+    border-top: 1px solid var(--admin-border, #e5e7eb);
+    padding-top: 12px;
+    margin-top: 4px;
+
+    &__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+
+        h3 { margin: 0; font-size: 0.95rem; }
+    }
+
+    &__pager {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        font-size: 0.82rem;
+    }
+}

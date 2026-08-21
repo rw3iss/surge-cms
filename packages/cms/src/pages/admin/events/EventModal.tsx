@@ -18,6 +18,7 @@ import {
 } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
 import Toggle from '../../../components/admin/common/Toggle';
+import RegistrantsTable from './RegistrantsTable';
 import { cms, } from '../../../services/cmsClient';
 import './EventModal.scss';
 
@@ -445,6 +446,15 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                 + Add another price
                             </button>
                         </div>
+                    </Show>
+
+                    {/* Only meaningful once the event exists and can have
+                        attendees — a new event has no occurrence to list. */}
+                    <Show when={!isNew() && registrationEnabled() && props.event}>
+                        <RegistrantsTable
+                            eventId={props.event!.id}
+                            occurrenceDate={props.event!.startsAt.slice(0, 10,)}
+                        />
                     </Show>
 
                     <FormField label="Status">
