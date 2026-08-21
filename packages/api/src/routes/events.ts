@@ -41,6 +41,17 @@ const eventBody = z.object({
     url: z.string().max(500,).nullish(),
     featuredImage: z.string().max(500,).nullish(),
     status: z.enum(['draft', 'published', 'cancelled',],).optional(),
+    // NOTE: zod STRIPS unknown keys, so anything absent here never reaches the
+    // service — a field added to the type and the table is silently dropped
+    // until it is also declared on this schema.
+    timezone: z.string().max(64,).nullish(),
+    recurrenceRule: z.string().max(255,).nullish(),
+    recurrenceUntil: isoDate.nullish(),
+    registrationEnabled: z.boolean().optional(),
+    registrationFields: z.array(z.string().max(50,),).optional(),
+    showRegistrantCount: z.boolean().optional(),
+    ticketingEnabled: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown(),).optional(),
 },) satisfies z.ZodType<EventsCreateBody>;
 
 const subscribeBody = z.object({

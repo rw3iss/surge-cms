@@ -157,11 +157,20 @@ export async function update(
     const map: Record<string, string> = {
         title: 'title', description: 'description', startsAt: 'startsAt',
         endsAt: 'endsAt', allDay: 'allDay', location: 'location', url: 'url',
-        featuredImage: 'featuredImage', status: 'status',
+        featuredImage: 'featuredImage', status: 'status', timezone: 'timezone',
+        recurrenceRule: 'recurrenceRule', recurrenceUntil: 'recurrenceUntil',
+        registrationEnabled: 'registrationEnabled',
+        registrationFields: 'registrationFields',
+        showRegistrantCount: 'showRegistrantCount',
+        ticketingEnabled: 'ticketingEnabled', metadata: 'metadata',
     };
     for (const [key, col,] of Object.entries(map,)) {
         const v = (patch as Record<string, unknown>)[key];
-        if (v !== undefined) dbPatch[col] = v;
+        if (v === undefined) continue;
+        // jsonb columns must be sent as JSON text, not a JS object/array.
+        dbPatch[col] = (col === 'registrationFields' || col === 'metadata')
+            ? JSON.stringify(v,)
+            : v;
     }
     if (patch.slug && patch.slug !== existing.slug) {
         dbPatch.slug = await uniqueSlug(patch.slug, id,);
