@@ -8,3 +8,4 @@ export * from './timezones';
 export * from './countries';
 export * from './usStates';
 export * from './breakpoints';
+export * from './recurrence';
