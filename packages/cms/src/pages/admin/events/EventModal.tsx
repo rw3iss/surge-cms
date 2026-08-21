@@ -11,7 +11,7 @@
  *
  * "All day" and "multi-day" are therefore mutually exclusive in the UI.
  */
-import { Component, For, Show, createEffect, createMemo, createSignal, } from 'solid-js';
+import { Component, For, Index, Show, createEffect, createMemo, createSignal, } from 'solid-js';
 import type { CalendarEvent, CalendarEventInput, EventTicketTier, } from '@sitesurge/types';
 import {
     EVENT_REGISTRATION_FIELDS, generateSlug, isKnownTimeZone, TIMEZONES,
@@ -32,7 +32,23 @@ export interface EventModalProps {
     defaultTimezone?: string;
     defaultCurrency?: string;
     onClose: () => void;
-    onSaved: (event: CalendarEvent,) => void;
+    /**
+     * `keepOpen` is set when the server changed the slug under us: the event IS
+     * saved, but closing would hide the correction, so the caller should refresh
+     * and leave the modal up instead, showing `notice`.
+     */
+    onSaved: (
+        event: CalendarEvent,
+        opts?: { keepOpen?: boolean; notice?: string; },
+    ) => void;
+    /**
+     * Message shown above the slug field. Owned by the PARENT because switching
+     * from `/events/new` to `/events/:id` remounts this component — a signal in
+     * here would be wiped exactly when the message matters.
+     */
+    notice?: string;
+    /** Called when the user edits the slug, so a stale notice can be dropped. */
+    onDismissNotice?: () => void;
     onDeleted?: (id: string,) => void;
 }
 
@@ -206,6 +222,21 @@ const EventModal: Component<EventModalProps> = (props,) => {
                     position: i,
                 }),),);
             }
+            // The server owns slug uniqueness, so what we asked for and what was
+            // stored can differ ("summer-gala" → "summer-gala-1"). Show the real
+            // slug rather than closing on a value that is no longer true.
+            const requested = body.slug;
+            if (requested && saved.slug !== requested) {
+                setSlug(saved.slug,);
+                setSlugTouched(true,);
+                props.onSaved(saved, {
+                    keepOpen: true,
+                    notice: `"${requested}" was already taken, `
+                        + `so this event was saved as "${saved.slug}".`,
+                },);
+                return;
+            }
+
             props.onSaved(saved,);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Could not save the event.',);
@@ -233,6 +264,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
             open
             size="lg"
             showClose
+            // A stray click on the backdrop must not discard a part-filled form:
+            // this modal holds a lot of state, so it closes only via Cancel or ✕.
+            dismissOnBackdrop={false}
             onClose={props.onClose}
             ariaLabel={isNew() ? 'New event' : 'Edit event'}
             class="event-modal"
@@ -254,11 +288,21 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         />
                     </FormField>
 
+                    <Show when={props.notice}>
+                        <div class="alert alert--warning">{props.notice}</div>
+                    </Show>
+
                     <FormField label="URL slug" hint="Used in the event's public address.">
                         <div class="event-modal__slug">
                             <input
                                 type="text" value={slug()}
-                                onInput={(e,) => { setSlug(e.currentTarget.value,); setSlugTouched(true,); }}
+                                onInput={(e,) => {
+                                    setSlug(e.currentTarget.value,);
+                                    setSlugTouched(true,);
+                                    // The notice describes the value that was just
+                                    // replaced; keeping it would misdescribe this one.
+                                    props.onDismissNotice?.();
+                                }}
                                 placeholder="community-town-hall"
                             />
                             <Show when={slug()}>
@@ -271,7 +315,10 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         </div>
                     </FormField>
 
-                    <FormField label="Description">
+                    <FormField
+                        label="Description"
+                        hint="Markdown supported — **bold**, *italic*, [links](/x), lists, > quotes, `code`."
+                    >
                         <textarea
                             rows={3} value={description()}
                             onInput={(e,) => setDescription(e.currentTarget.value,)}
@@ -421,36 +468,46 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                 Leave a quantity empty for unlimited. A zero-priced tier with a
                                 quantity is how you run a free event with a capacity limit.
                             </p>
-                            <For each={tiers()}>
+                            {/*
+                              * <Index>, not <For>: <For> is keyed by item IDENTITY, and
+                              * updateTier replaces the object on every keystroke — so each
+                              * character rebuilt the row and the field lost focus. <Index>
+                              * keys by POSITION, so the inputs are never recreated.
+                              *
+                              * State is committed on `change` (which fires on blur/Enter),
+                              * not on `input`, so typing is never interrupted mid-value —
+                              * "12.50" is no longer read as 1 → 12 → 12.5 → 12.50.
+                              */}
+                            <Index each={tiers()}>
                                 {(tier, i,) => (
                                     <div class="event-modal__tier">
                                         <input
                                             type="text" placeholder="Item name"
-                                            value={tier.name ?? ''}
-                                            onInput={(e,) => updateTier(i(), { name: e.currentTarget.value, },)}
+                                            value={tier().name ?? ''}
+                                            onChange={(e,) => updateTier(i, { name: e.currentTarget.value, },)}
                                         />
                                         <input
                                             type="number" min="0" step="0.01" placeholder="0.00"
-                                            value={((tier.priceCents ?? 0) / 100).toFixed(2,)}
-                                            onInput={(e,) => updateTier(i(), {
+                                            value={((tier().priceCents ?? 0) / 100).toFixed(2,)}
+                                            onChange={(e,) => updateTier(i, {
                                                 priceCents: Math.round(Number(e.currentTarget.value || 0,) * 100,),
                                             },)}
                                         />
                                         <input
                                             type="number" min="0" placeholder="Unlimited"
-                                            value={tier.quantityAvailable ?? ''}
-                                            onInput={(e,) => updateTier(i(), {
+                                            value={tier().quantityAvailable ?? ''}
+                                            onChange={(e,) => updateTier(i, {
                                                 quantityAvailable: e.currentTarget.value === ''
                                                     ? null : Number(e.currentTarget.value,),
                                             },)}
                                         />
                                         <button
                                             type="button" class="ui-button ui-button--sm ui-button--danger"
-                                            onClick={() => removeTier(i(),)}
+                                            onClick={() => removeTier(i,)}
                                         >✕</button>
                                     </div>
                                 )}
-                            </For>
+                            </Index>
                             <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addTier}>
                                 + Add another price
                             </button>

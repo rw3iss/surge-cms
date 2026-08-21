@@ -4,6 +4,7 @@
  */
 import { Component, For, Show, } from 'solid-js';
 import type { EventOccurrence, } from '@sitesurge/types';
+import { stripMarkdown, } from '@sitesurge/types';
 import './EventList.scss';
 
 export interface EventListProps {
@@ -26,6 +27,12 @@ function formatWhen(occ: EventOccurrence,): string {
     if (occ.event.allDay) return `${date} · All day`;
     const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', },);
     return `${date} · ${time}`;
+}
+
+/** A single line of plain text for the list, Markdown removed. */
+function excerpt(description: string | null | undefined, max = 120,): string {
+    const text = stripMarkdown(description,);
+    return text.length > max ? `${text.slice(0, max - 1,).trimEnd()}…` : text;
 }
 
 const EventList: Component<EventListProps> = (props,) => {
@@ -79,6 +86,14 @@ const EventList: Component<EventListProps> = (props,) => {
                                     </span>
                                     <Show when={occ.event.location}>
                                         <span class="event-list__meta">{occ.event.location}</span>
+                                    </Show>
+                                    {/* The brief view is a <button>, so it cannot hold
+                                        rendered block HTML — Markdown is reduced to a
+                                        one-line plain-text excerpt instead. */}
+                                    <Show when={excerpt(occ.event.description,)}>
+                                        <span class="event-list__excerpt">
+                                            {excerpt(occ.event.description,)}
+                                        </span>
                                     </Show>
                                 </button>
                             </li>

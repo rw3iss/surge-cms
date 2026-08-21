@@ -7,6 +7,7 @@
  */
 import type { CalendarEvent, CalendarEventInput, EventStatus, } from '@sitesurge/types';
 import { generateSlug, } from '@sitesurge/types';
+import crypto from 'crypto';
 import { NotFoundError, ValidationError, } from '../../core/errors';
 import * as repo from '../../repositories/events.repo';
 import { logAudit, } from '../audit';
@@ -87,16 +88,45 @@ export function normalizeRegistrationFields(fields: string[],): string[] {
     return out;
 }
 
-/** A unique slug derived from the title, suffixed only if it collides. */
+/**
+ * A unique slug derived from the title, suffixed only if it collides.
+ *
+ * The first collision becomes `-1`, then `-2`, and so on: `events` has a UNIQUE
+ * index on `slug`, so without this a second "Summer Gala" would be a 500 rather
+ * than a saved event.
+ *
+ * The probe is capped. Past the cap a random suffix ends it — an unbounded loop
+ * against the database is a worse failure than a slightly ugly URL, and only a
+ * pathological catalogue reaches it.
+ */
+const SLUG_PROBE_LIMIT = 200;
+
 async function uniqueSlug(base: string, exceptId?: string,): Promise<string> {
     const root = generateSlug(base,) || 'event';
-    let candidate = root;
-    let n = 1;
-    while (await repo.slugExists(candidate, exceptId,)) {
-        n += 1;
-        candidate = `${root}-${n}`;
+    if (!(await repo.slugExists(root, exceptId,))) return root;
+
+    for (let n = 1; n <= SLUG_PROBE_LIMIT; n += 1) {
+        const candidate = `${root}-${n}`;
+        if (!(await repo.slugExists(candidate, exceptId,))) return candidate;
     }
-    return candidate;
+    return `${root}-${crypto.randomUUID().slice(0, 8,)}`;
+}
+
+/** `events.slug` is the only UNIQUE column on the table, so a 23505 here is a
+ *  slug race and nothing else. */
+function isSlugCollision(e: unknown,): boolean {
+    return (e as { code?: string; }).code === '23505';
+}
+
+/** Re-probe and retry a write that lost a slug race. */
+async function withSlugRetry<T>(write: () => Promise<T>, attempts = 3,): Promise<T> {
+    for (let i = 1; ; i += 1) {
+        try {
+            return await write();
+        } catch (e) {
+            if (i >= attempts || !isSlugCollision(e,)) throw e;
+        }
+    }
 }
 
 // ─── Writes ───────────────────────────────────────────────────────
@@ -109,15 +139,20 @@ export async function create(
     if (!input.title?.trim()) throw new ValidationError('Title is required',);
     if (!input.startsAt) throw new ValidationError('startsAt is required',);
 
-    const slug = await uniqueSlug(input.slug || input.title,);
-    const event = await repo.createEvent({
-        ...input,
-        slug,
-        // Left undefined so the repository's own default applies.
-        ...(input.registrationFields
-            ? { registrationFields: normalizeRegistrationFields(input.registrationFields,), }
-            : {}),
-    }, ctx.userId,);
+    // Probe-then-insert is not atomic: two simultaneous saves can both find the
+    // same suffix free. `slug` is UNIQUE, so the loser gets a constraint error —
+    // re-probing and retrying turns a 500 into the next free suffix.
+    const event = await withSlugRetry(async () => {
+        const slug = await uniqueSlug(input.slug || input.title,);
+        return repo.createEvent({
+            ...input,
+            slug,
+            // Left undefined so the repository's own default applies.
+            ...(input.registrationFields
+                ? { registrationFields: normalizeRegistrationFields(input.registrationFields,), }
+                : {}),
+        }, ctx.userId,);
+    },);
 
     await logAudit({
         userId: ctx.userId,
@@ -165,11 +200,15 @@ export async function update(
             ? JSON.stringify(v,)
             : v;
     }
-    if (patch.slug && patch.slug !== existing.slug) {
-        dbPatch.slug = await uniqueSlug(patch.slug, id,);
-    }
-
-    const updated = await repo.updateEvent(id, dbPatch,);
+    // Renaming into a taken slug de-duplicates the same way a create does, and
+    // re-probes if it loses the race. `exceptId` keeps an event from colliding
+    // with itself.
+    const updated = await withSlugRetry(async () => {
+        if (patch.slug && patch.slug !== existing.slug) {
+            dbPatch.slug = await uniqueSlug(patch.slug, id,);
+        }
+        return repo.updateEvent(id, dbPatch,);
+    },);
     if (!updated) throw new NotFoundError('Event',);
 
     await logAudit({

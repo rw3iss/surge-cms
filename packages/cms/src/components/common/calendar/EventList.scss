@@ -89,3 +89,17 @@
         color: var(--site-text-muted, #{$text-light});
     }
 }
+
+// One-line plain-text summary under an event in the list. Clamped rather than
+// truncated in JS alone so a long word cannot widen the column.
+.event-list__excerpt {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--admin-text-muted, #{$text-light});
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

@@ -29,6 +29,20 @@ const AdminEvents: Component = () => {
     const [refreshKey, setRefreshKey,] = createSignal(0,);
     /** Remembered so "Add Event" can pre-fill the day the user picked. */
     const [pickedDate, setPickedDate,] = createSignal<string | null>(null,);
+    /**
+     * "The slug was changed" notice.
+     *
+     * `/events/new` and `/events/:id` are SEPARATE route definitions that happen
+     * to share this component, so moving between them REMOUNTS it — a plain
+     * signal is wiped at exactly the moment the message is needed. The message
+     * therefore travels in the router's location state, which survives, and the
+     * signal only covers the in-place case (editing an event that is already at
+     * its own URL, where no navigation occurs).
+     */
+    const [localNotice, setLocalNotice,] = createSignal('',);
+    const [noticeDismissed, setNoticeDismissed,] = createSignal(false,);
+    const routeNotice = () => (location.state as { slugNotice?: string; } | null)?.slugNotice ?? '';
+    const slugNotice = () => (noticeDismissed() ? '' : (localNotice() || routeNotice()));
 
     // Site defaults feed a new event's timezone/currency.
     const defaults = createMemo(() => {
@@ -65,8 +79,36 @@ const AdminEvents: Component = () => {
         navigate('/admin/events/new',);
     };
     const openEvent = (occ: EventOccurrence,) => navigate(`/admin/events/${occ.event.id}`,);
-    const closeModal = () => navigate('/admin/events',);
+    const closeModal = () => { setLocalNotice('',); navigate('/admin/events',); };
     const afterWrite = () => { closeModal(); setRefreshKey((k,) => k + 1); };
+
+    /**
+     * A save whose slug the server had to de-duplicate stays open so the user
+     * sees the corrected value. The event exists now, so the URL moves to its
+     * edit route — that keeps the address honest and makes the next save an
+     * update rather than a second create.
+     */
+    const afterSave = (
+        saved: CalendarEvent,
+        opts?: { keepOpen?: boolean; notice?: string; },
+    ) => {
+        setRefreshKey((k,) => k + 1);
+        if (!opts?.keepOpen) { setLocalNotice('',); closeModal(); return; }
+
+        setEditing(saved,);
+        setNoticeDismissed(false,);
+        if (params.id) {
+            // Already at this event's URL: nothing remounts, so a signal holds.
+            setLocalNotice(opts.notice ?? '',);
+            return;
+        }
+        // Crossing from the `/new` route to the `/:id` route remounts this
+        // component, so the message goes with the navigation, not in a signal.
+        navigate(`/admin/events/${saved.id}`, {
+            replace: true,
+            state: { slugNotice: opts.notice ?? '', },
+        },);
+    };
 
     return (
         <div class="admin-events admin-full-bleed">
@@ -109,8 +151,10 @@ const AdminEvents: Component = () => {
                     defaultDate={pickedDate()}
                     defaultTimezone={defaults().timezone}
                     defaultCurrency={defaults().currency}
+                    notice={slugNotice()}
+                    onDismissNotice={() => { setLocalNotice('',); setNoticeDismissed(true,); }}
                     onClose={closeModal}
-                    onSaved={afterWrite}
+                    onSaved={afterSave}
                     onDeleted={afterWrite}
                 />
             </Show>

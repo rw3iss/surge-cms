@@ -9,7 +9,9 @@ import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, For, Show, createResource, createSignal, } from 'solid-js';
 import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
-import { describeRecurrence, formatCurrency, parseRecurrenceRule, } from '@sitesurge/types';
+import {
+    describeRecurrence, formatCurrency, parseRecurrenceRule, renderMarkdown, stripMarkdown,
+} from '@sitesurge/types';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import './EventDetail.scss';
@@ -149,7 +151,10 @@ const EventDetailPage: Component = () => {
                             <Title>{ev().title}</Title>
                             <SeoHead
                                 title={ev().title}
-                                description={ev().description ?? `${ev().title} — ${when()}`}
+                                // A meta description is plain text: Markdown
+                                // syntax in a search result reads as noise.
+                                description={stripMarkdown(ev().description,)
+                                    || `${ev().title} — ${when()}`}
                                 image={ev().featuredImage ?? undefined}
                             />
 
@@ -177,7 +182,12 @@ const EventDetailPage: Component = () => {
                                 </Show>
 
                                 <Show when={ev().description}>
-                                    <div class="event-detail__body">{ev().description}</div>
+                                    {/* renderMarkdown escapes before it formats, so its
+                                        output is safe to inject as-is. */}
+                                    <div
+                                        class="event-detail__body rich-text"
+                                        innerHTML={renderMarkdown(ev().description,)}
+                                    />
                                 </Show>
 
                                 <Show when={ev().url}>
