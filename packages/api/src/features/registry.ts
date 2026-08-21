@@ -11,7 +11,7 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -195,6 +195,30 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             const { scaffoldCoreType, contactDescriptor, } = await import('../entities/coreDescriptors.js');
             await scaffoldCoreType(contactDescriptor(), client,);
         },
+        onUninstall: async () => {},
+    },
+
+    events: {
+        key: 'events',
+        label: 'Events & Calendar',
+        description:
+            'Publish events on a calendar, with a public /events page and email + desktop notifications for subscribers.',
+        defaultEnabled: false,
+        // Notifications go to registered users as well as plain email
+        // addresses, and subscriber rows reference users(id).
+        requires: ['users'],
+        migrations: [
+            '091_create_events.sql',
+        ],
+        // Reverse-dropped on uninstall, so children first.
+        tables: [
+            'events',
+            'event_subscribers',
+            'event_push_subscriptions',
+            'event_notifications_sent',
+        ],
+        settingsKeys: ['events'],
+        onEnable: async () => {},
         onUninstall: async () => {},
     },
 };

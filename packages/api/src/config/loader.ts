@@ -18,6 +18,7 @@ export interface Config {
     port: number;
     apiVersion: string;
     frontendUrl: string;
+    webPush: { publicKey: string; privateKey: string; subject: string; };
     corsOrigins: string[];
 
     database: {
@@ -187,6 +188,15 @@ function build(parsed: EnvVars,): Config {
             // because re-sends regenerate them.
             unsubscribeSecret: parsed.MAIL_UNSUBSCRIBE_SECRET || parsed.JWT_SECRET || '',
             listFrom: parsed.MAIL_LIST_FROM,
+        },
+
+        // Web Push (VAPID). Empty strings when unset — callers treat falsy as
+        // "push disabled" rather than throwing, so the events module degrades
+        // to email-only on installs that never configured keys.
+        webPush: {
+            publicKey: parsed.WEB_PUSH_PUBLIC_KEY ?? '',
+            privateKey: parsed.WEB_PUSH_PRIVATE_KEY ?? '',
+            subject: parsed.WEB_PUSH_SUBJECT ?? '',
         },
 
         dataDir: parsed.DATA_DIR,

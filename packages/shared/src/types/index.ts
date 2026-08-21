@@ -11,3 +11,4 @@ export * from './shop';
 export * from './siteHeader';
 export * from './user';
 export * from './plugin';
+export * from './event';

@@ -63,3 +63,4 @@ export * from './routes/shop';
 export * from './routes/utils';
 export * from './routes/plugins';
 export * from './routes/contacts';
+export * from './routes/events';

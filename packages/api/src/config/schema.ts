@@ -55,6 +55,11 @@ export const envSchema = z.object({
     MAIL_SEND_CONCURRENCY: z.string().transform(Number,).prefault('10',),
     MAIL_SEND_DELAY_MS: z.string().transform(Number,).prefault('50',),
     MAIL_UNSUBSCRIBE_SECRET: z.string().optional(),
+    // Web Push (VAPID) for the events module's desktop notifications. All
+    // optional: without them push is skipped and the module runs email-only.
+    WEB_PUSH_PUBLIC_KEY: z.string().optional(),
+    WEB_PUSH_PRIVATE_KEY: z.string().optional(),
+    WEB_PUSH_SUBJECT: z.string().optional(),
 
     DATA_DIR: z.string().default('./data',),
     PLUGINS_DIR: z.string().default('./plugins',),
