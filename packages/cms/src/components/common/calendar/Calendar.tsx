@@ -10,6 +10,7 @@
  */
 import { Component, For, Show, createMemo, } from 'solid-js';
 import type { EventOccurrence, } from '@sitesurge/types';
+import { dateKey, monthGridDays, WEEKDAYS, } from './calendarGrid';
 import './Calendar.scss';
 
 export interface CalendarProps {
@@ -28,32 +29,10 @@ export interface CalendarProps {
     onSelectOccurrence?: (occ: EventOccurrence,) => void;
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat',];
-
-/** `YYYY-MM-DD` for a UTC date, matching the server's occurrence key. */
-function key(d: Date,): string {
-    return d.toISOString().slice(0, 10,);
-}
-
-/**
- * The 42 cells a month grid renders: the month itself plus the leading and
- * trailing days needed to fill whole weeks. Fixed at six rows so the grid
- * doesn't change height between months, which is visually jarring.
- */
-function gridDays(year: number, month: number,): Date[] {
-    const first = new Date(Date.UTC(year, month - 1, 1,),);
-    const start = new Date(first,);
-    start.setUTCDate(start.getUTCDate() - first.getUTCDay(),);
-    return Array.from({ length: 42, }, (_, i,) => {
-        const d = new Date(start,);
-        d.setUTCDate(d.getUTCDate() + i,);
-        return d;
-    },);
-}
 
 const Calendar: Component<CalendarProps> = (props,) => {
     const mode = () => props.mode ?? 'public';
-    const days = createMemo(() => gridDays(props.year, props.month,),);
+    const days = createMemo(() => monthGridDays(props.year, props.month,),);
 
     /** Bucket once per render rather than filtering the whole list per cell. */
     const byDate = createMemo(() => {
@@ -67,7 +46,7 @@ const Calendar: Component<CalendarProps> = (props,) => {
         return out;
     },);
 
-    const todayKey = key(new Date(),);
+    const todayKey = dateKey(new Date(),);
 
     return (
         <div class={`calendar calendar--${mode()}`}>
@@ -78,7 +57,7 @@ const Calendar: Component<CalendarProps> = (props,) => {
             <div class="calendar__grid">
                 <For each={days()}>
                     {(day,) => {
-                        const k = key(day,);
+                        const k = dateKey(day,);
                         const inMonth = day.getUTCMonth() + 1 === props.month;
                         const items = () => byDate()[k] ?? [];
                         return (

@@ -77,7 +77,7 @@
 
         &--cancelled {
             background: $error-color;
-            color: #fff;
+            color: var(--site-button-text, #fff);
             padding: 1px 6px;
             border-radius: 999px;
         }

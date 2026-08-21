@@ -4,36 +4,7 @@
     padding: var(--site-page-padding, 24px) var(--site-gutter, 20px);
 
     &__head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-
+        margin-bottom: 14px;
         h1 { margin: 0; }
     }
-
-    &__nav {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    &__month {
-        font-weight: 600;
-        min-width: 160px;
-        text-align: center;
-    }
-
-    &__layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 24px;
-        align-items: start;
-
-        @media (max-width: 1000px) { grid-template-columns: 1fr; }
-    }
-
-    &__calendar { min-width: 0; }
 }

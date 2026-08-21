@@ -1,42 +1,9 @@
+// The calendar layout/toolbar now live in CalendarPage.scss; this file styles
+// only the admin page's own chrome.
 .admin-events {
-    &__toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 12px 0;
-        flex-wrap: wrap;
-
-        select {
-            padding: 6px 10px;
-            border: 1px solid var(--admin-border, #{$border-color});
-            border-radius: $border-radius-md;
-            font-size: $font-size-sm;
-        }
-    }
-
-    &__loading {
-        font-size: $font-size-xs;
-        color: var(--admin-text-muted, #{$text-light});
-    }
-
-    // Calendar takes the bulk of the width; the list is a fixed-ish column so
-    // it stays readable rather than stretching on wide screens.
-    &__layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 20px;
-        align-items: start;
-
-        @media (max-width: 1100px) {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    &__calendar { min-width: 0; }
-
-    &__hint {
-        margin: 8px 0 0;
-        font-size: $font-size-xs;
-        color: var(--admin-text-muted, #{$text-light});
+    // Admin surfaces use the admin token set rather than the site palette.
+    .calendar-page__nav-btn,
+    .calendar-page__today {
+        border-color: var(--admin-border, #e5e7eb);
     }
 }

@@ -14,6 +14,7 @@ import type {
 import {
     applyOverrides,
     expandOccurrences,
+    monthGridWindow as sharedMonthGridWindow,
     parseRecurrenceRule,
 } from '@sitesurge/types';
 
@@ -116,13 +117,12 @@ export function groupByDate(occurrences: EventOccurrence[],): Record<string, Eve
  * The window covering the month `year`/`month` (1-indexed) PLUS the leading and
  * trailing days the grid shows from adjacent months — otherwise events in those
  * visible cells would be missing.
+ *
+ * Delegates to the SHARED geometry so the server and the calendar UI can never
+ * disagree about which window a month view covers; this wrapper only converts
+ * the ISO strings to the Dates the expander works in.
  */
 export function monthGridWindow(year: number, month: number,): ExpandWindow {
-    const first = new Date(Date.UTC(year, month - 1, 1,),);
-    const from = new Date(first,);
-    from.setUTCDate(from.getUTCDate() - first.getUTCDay(),); // back to Sunday
-
-    const to = new Date(from,);
-    to.setUTCDate(to.getUTCDate() + 42,); // 6 rows × 7 days, the max a grid shows
-    return { from, to, };
+    const { from, to, } = sharedMonthGridWindow(year, month,);
+    return { from: new Date(from,), to: new Date(to,), };
 }

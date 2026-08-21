@@ -1,0 +1,65 @@
+// Shell shared by the admin and public calendar pages. Layout lives here so the
+// two surfaces cannot drift; each page styles only its own chrome.
+.calendar-page {
+    &__toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+
+        select {
+            padding: 6px 10px;
+            border: 1px solid var(--site-border, #e5e7eb);
+            border-radius: var(--site-radius, 8px);
+            font-size: 0.875rem;
+        }
+    }
+
+    &__month {
+        font-weight: 600;
+        min-width: 160px;
+        text-align: center;
+    }
+
+    &__nav-btn,
+    &__today {
+        padding: 5px 12px;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 8px);
+        background: var(--site-bg, #fff);
+        cursor: pointer;
+        font-size: 0.875rem;
+        line-height: 1.4;
+
+        &:hover { border-color: var(--site-primary, #e63946); }
+        &:focus-visible {
+            outline: 2px solid var(--site-primary, #e63946);
+            outline-offset: 2px;
+        }
+    }
+
+    &__loading {
+        font-size: 0.78rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    // Calendar takes the bulk of the width; the list stays a readable column
+    // rather than stretching on wide screens.
+    &__layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 22px;
+        align-items: start;
+
+        @media (max-width: 1050px) { grid-template-columns: 1fr; }
+    }
+
+    &__calendar { min-width: 0; }
+
+    &__hint {
+        margin: 8px 0 0;
+        font-size: 0.78rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+}

@@ -9,15 +9,22 @@ import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, For, Show, createResource, createSignal, } from 'solid-js';
 import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
-import { currencySymbol, describeRecurrence, parseRecurrenceRule, } from '@sitesurge/types';
+import { describeRecurrence, formatCurrency, parseRecurrenceRule, } from '@sitesurge/types';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import './EventDetail.scss';
 
-/** Minor units → display, e.g. 1500 → "$15.00". Free reads as "Free". */
+/**
+ * Minor units → display, e.g. 1500 → "$15.00". Free reads as "Free".
+ *
+ * Delegates to the shared `formatCurrency` (Intl) rather than hand-rolling
+ * symbol + toFixed(2): that got zero-decimal currencies wrong (2500 JPY is ¥25,
+ * not ¥25.00) and dropped thousands separators. The site's Default Currency
+ * picker offers JPY, so both were reachable.
+ */
 function money(cents: number, currency: string,): string {
     if (cents === 0) return 'Free';
-    return `${currencySymbol(currency,)}${(cents / 100).toFixed(2,)}`;
+    return formatCurrency(cents, currency,);
 }
 
 const EventDetailPage: Component = () => {

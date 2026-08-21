@@ -51,7 +51,7 @@
 
         &--today .calendar__day-number {
             background: var(--site-primary, #{$primary-color});
-            color: #fff;
+            color: var(--site-button-text, #fff);
             border-radius: 50%;
         }
 

@@ -1,41 +1,16 @@
 .event-modal {
-    background: #fff;
-    border-radius: $border-radius-lg;
-    width: min(720px, 100%);
-    max-height: 90vh;
+    // Overlay, sizing, shadow, Portal and the ✕ come from ModalShell
+    // (.modal-shell--lg); only the modal's own interior is styled here.
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-
-    &__overlay {
-        position: fixed;
-        inset: 0;
-        background: var(--modal-overlay-bg, rgba(0, 0, 0, 0.5));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        z-index: 1000;
-    }
+    max-height: 90vh;
 
     &__head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px 20px;
+        // Right padding leaves room for ModalShell's own ✕ button.
+        padding: 16px 52px 16px 20px;
         border-bottom: 1px solid var(--admin-border, #{$border-color});
 
         h2 { margin: 0; font-size: $font-size-lg; }
-    }
-
-    &__close {
-        background: none;
-        border: none;
-        font-size: 24px;
-        line-height: 1;
-        cursor: pointer;
-        color: var(--admin-text-muted, #{$text-light});
-        &:hover { color: var(--admin-text, #{$text-color}); }
     }
 
     // The body scrolls, so the header and the save bar stay reachable on a

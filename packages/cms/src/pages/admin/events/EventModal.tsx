@@ -17,6 +17,7 @@ import {
     EVENT_REGISTRATION_FIELDS, generateSlug, isKnownTimeZone, TIMEZONES,
 } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
+import ModalShell from '../../../components/admin/common/ModalShell';
 import Toggle from '../../../components/admin/common/Toggle';
 import RegistrantsTable from './RegistrantsTable';
 import { cms, } from '../../../services/cmsClient';
@@ -225,11 +226,19 @@ const EventModal: Component<EventModalProps> = (props,) => {
     };
 
     return (
-        <div class="event-modal__overlay" onClick={(e,) => e.target === e.currentTarget && props.onClose()}>
-            <div class="event-modal" role="dialog" aria-modal="true">
+        // ModalShell supplies the overlay, Portal, backdrop dismiss, Escape
+        // handling and the ✕ — all of which the hand-rolled version lacked.
+        // Every other admin modal uses it, so this one now behaves the same.
+        <ModalShell
+            open
+            size="lg"
+            showClose
+            onClose={props.onClose}
+            ariaLabel={isNew() ? 'New event' : 'Edit event'}
+            class="event-modal"
+        >
                 <header class="event-modal__head">
                     <h2>{isNew() ? 'New Event' : 'Edit Event'}</h2>
-                    <button type="button" class="event-modal__close" onClick={props.onClose} aria-label="Close">×</button>
                 </header>
 
                 <div class="event-modal__body">
@@ -409,8 +418,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
                     <Show when={registrationEnabled() && ticketingEnabled()}>
                         <div class="event-modal__tiers">
                             <p class="form-help-muted">
-                                Leave a quantity empty for unlimited. A £0/$0 tier with a quantity is
-                                how you run a free event with a capacity limit.
+                                Leave a quantity empty for unlimited. A zero-priced tier with a
+                                quantity is how you run a free event with a capacity limit.
                             </p>
                             <For each={tiers()}>
                                 {(tier, i,) => (
@@ -479,8 +488,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         {saving() ? 'Saving…' : 'Save Event'}
                     </button>
                 </footer>
-            </div>
-        </div>
+        </ModalShell>
     );
 };
 
