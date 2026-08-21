@@ -236,6 +236,9 @@ export async function getPublicSettings(): Promise<SiteSettings> {
         analytics: settings.analytics as SiteSettings['analytics'],
         theme: settings.theme as SiteSettings['theme'],
         appearance: settings.site_appearance as SiteSettings['appearance'],
+        // Authoring defaults (timezone/currency). Public because the admin
+        // forms that consume them load through the same projection.
+        defaults: (settings.defaults as SiteSettings['defaults']) || {},
         features,
     };
 

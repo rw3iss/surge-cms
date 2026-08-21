@@ -76,6 +76,7 @@ const AdminPlugins = lazy(() => import('./pages/admin/Plugins'));
 const AdminPluginConfig = lazy(() => import('./pages/admin/PluginConfig'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
 const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
+const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -139,6 +140,11 @@ const App: Component = () => {
 										<Route path="/pages/:id/preview" component={AdminPagePreview} />
 										<Route path="/pages/:id" component={AdminPageEditor} />
 										<Route path="/posts" component={AdminPosts} />
+										{/* Events: the calendar page renders for all three, and the
+										    modal is driven by the URL so an event is linkable. */}
+										<Route path="/events" component={AdminEvents} />
+										<Route path="/events/new" component={AdminEvents} />
+										<Route path="/events/:id" component={AdminEvents} />
 										<Route path="/posts/:id/preview" component={AdminPostPreview} />
 										<Route path="/posts/new" component={AdminPostEditor} />
 										<Route path="/posts/:id" component={AdminPostEditor} />

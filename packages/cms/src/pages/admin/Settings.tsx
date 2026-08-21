@@ -16,6 +16,7 @@ import { cms, } from '../../services/cmsClient';
 import { FeatureCascadeError, } from '@sitesurge/client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import type { BreakpointLayout, SiteBreakpoint, SiteSwatch, } from '@sitesurge/types';
+import { CURRENCIES, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
 import { reloadSiteSettings, } from '../../stores/siteSettings';
 import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';
@@ -1425,6 +1426,10 @@ const AdminSettings: Component = () => {
     const [siteDescription, setSiteDescription,] = createSignal('',);
     const [contactEmail, setContactEmail,] = createSignal('',);
     const [analyticsId, setAnalyticsId,] = createSignal('',);
+    // Site-wide authoring defaults. Pre-fill authoring forms (e.g. a new
+    // event's timezone) rather than each form guessing.
+    const [defaultTimezone, setDefaultTimezone,] = createSignal('',);
+    const [defaultCurrency, setDefaultCurrency,] = createSignal('USD',);
     const [adminIdleTimeout, setAdminIdleTimeout,] = createSignal(60,);
     const [saving, setSaving,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
@@ -1456,6 +1461,11 @@ const AdminSettings: Component = () => {
         const analytics = getValue(s, 'analytics', null,);
         if (analytics && typeof analytics === 'object') {
             setAnalyticsId((analytics as any).googleAnalyticsId || '',);
+        }
+        const defaults = getValue(s, 'defaults', null,);
+        if (defaults && typeof defaults === 'object') {
+            setDefaultTimezone((defaults as any).timezone || '',);
+            setDefaultCurrency((defaults as any).currency || 'USD',);
         }
         const adminChannel = getValue(s, 'admin_channel', null,);
         if (adminChannel && typeof adminChannel === 'object' && (adminChannel as any).activeTimeoutSeconds) {
@@ -1506,6 +1516,10 @@ const AdminSettings: Component = () => {
         // Always send analytics (even empty) so CLEARING the field removes the
         // tag — sending it only when non-empty made a cleared id un-clearable.
         data.analytics = { googleAnalyticsId: analyticsId().trim(), };
+        data.defaults = {
+            timezone: defaultTimezone() || undefined,
+            currency: defaultCurrency() || 'USD',
+        };
         data.adminChannel = { activeTimeoutSeconds: Math.min(3600, Math.max(5, Number(adminIdleTimeout()) || 60,),), };
 
         try {
@@ -1692,6 +1706,44 @@ const AdminSettings: Component = () => {
                                         value={adminIdleTimeout()}
                                         onInput={(e,) => setAdminIdleTimeout(Number(e.currentTarget.value,) || 60,)}
                                     />
+                                </FormField>
+                            </section>
+
+                            <section class="settings-card">
+                                <h3 class="settings-card__title">Defaults</h3>
+                                <p class="settings-card__lede">
+                                    Used to pre-fill authoring forms — changing them does not alter
+                                    existing content.
+                                </p>
+                                <FormField
+                                    label="Default Timezone"
+                                    hint="New events start in this zone."
+                                >
+                                    <select
+                                        value={defaultTimezone()}
+                                        onChange={(e,) => setDefaultTimezone(e.currentTarget.value,)}
+                                    >
+                                        <option value="">Not set</option>
+                                        <Show when={defaultTimezone() && !isKnownTimeZone(defaultTimezone(),)}>
+                                            <option value={defaultTimezone()}>{defaultTimezone()}</option>
+                                        </Show>
+                                        <For each={TIMEZONES}>
+                                            {(tz,) => <option value={tz.value}>{tz.label}</option>}
+                                        </For>
+                                    </select>
+                                </FormField>
+                                <FormField
+                                    label="Default Currency"
+                                    hint="Used for ticket prices and other priced content."
+                                >
+                                    <select
+                                        value={defaultCurrency()}
+                                        onChange={(e,) => setDefaultCurrency(e.currentTarget.value,)}
+                                    >
+                                        <For each={CURRENCIES}>
+                                            {(c,) => <option value={c.code}>{c.code} — {c.label}</option>}
+                                        </For>
+                                    </select>
                                 </FormField>
                             </section>
                         </div>

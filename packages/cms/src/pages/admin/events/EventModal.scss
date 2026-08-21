@@ -1,0 +1,113 @@
+.event-modal {
+    background: #fff;
+    border-radius: $border-radius-lg;
+    width: min(720px, 100%);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+
+    &__overlay {
+        position: fixed;
+        inset: 0;
+        background: var(--modal-overlay-bg, rgba(0, 0, 0, 0.5));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 1000;
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+        h2 { margin: 0; font-size: $font-size-lg; }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+        color: var(--admin-text-muted, #{$text-light});
+        &:hover { color: var(--admin-text, #{$text-color}); }
+    }
+
+    // The body scrolls, so the header and the save bar stay reachable on a
+    // small screen no matter how many optional sections are open.
+    &__body {
+        padding: 16px 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+
+        @media (max-width: 560px) { grid-template-columns: 1fr; }
+    }
+
+    &__toggles {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    &__slug {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        input { flex: 1; }
+    }
+
+    &__checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+    }
+
+    &__check {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: $font-size-sm;
+        cursor: pointer;
+    }
+
+    &__tiers {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--admin-border, #{$border-color});
+        border-radius: $border-radius-md;
+        background: var(--admin-bg-subtle, #{$background});
+    }
+
+    &__tier {
+        display: grid;
+        // name / price / quantity / remove
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 6px;
+        align-items: center;
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--admin-border, #{$border-color});
+    }
+
+    &__spacer { flex: 1; }
+}

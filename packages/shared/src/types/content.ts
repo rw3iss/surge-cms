@@ -331,6 +331,9 @@ export interface SiteSettings {
      * touch the backend.
      */
     features?: SiteFeatures;
+    /** Site-wide defaults set in Settings → General. Used to pre-fill authoring
+     *  forms (e.g. a new event's timezone) rather than hard-coding a guess. */
+    defaults?: SiteDefaults;
 }
 
 /**
@@ -345,6 +348,14 @@ export interface SiteSettings {
  * AND a connected account before they flip on. The shape is the same
  * for both kinds so consumer code stays uniform.
  */
+/** Operator-set defaults surfaced publicly so authoring UIs can pre-fill. */
+export interface SiteDefaults {
+    /** IANA zone, e.g. `America/New_York`. */
+    timezone?: string;
+    /** ISO 4217, e.g. `USD`. */
+    currency?: string;
+}
+
 export interface SiteFeatures {
     patreon: { enabled: boolean; };
     posts: { enabled: boolean; };
