@@ -449,3 +449,78 @@ export async function countSoldByTier(
     for (const r of res.rows) if (r.tier_id) out[r.tier_id] = Number(r.sold,);
     return out;
 }
+
+// ─── Registrations ────────────────────────────────────────────────
+
+const REG_SELECT = `id, event_id, to_char(occurrence_date, 'YYYY-MM-DD') AS occurrence_date,
+    user_id, email, name, phone, fields, status, order_id, created_at`;
+
+export async function upsertRegistration(input: {
+    eventId: string;
+    occurrenceDate: string;
+    userId?: string | null;
+    email: string;
+    name?: string | null;
+    phone?: string | null;
+    fields?: Record<string, unknown>;
+},): Promise<import('@sitesurge/types').EventRegistration> {
+    // Re-submitting the form updates rather than duplicating, and un-cancels a
+    // previously cancelled registration — the person is telling us they're
+    // coming after all.
+    const res = await query(
+        `INSERT INTO event_registrations
+            (event_id, occurrence_date, user_id, email, name, phone, fields, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'registered')
+         ON CONFLICT (event_id, occurrence_date, LOWER(email)) DO UPDATE
+            SET name = COALESCE(EXCLUDED.name, event_registrations.name),
+                phone = COALESCE(EXCLUDED.phone, event_registrations.phone),
+                fields = EXCLUDED.fields,
+                user_id = COALESCE(EXCLUDED.user_id, event_registrations.user_id),
+                status = 'registered',
+                updated_at = NOW()
+         RETURNING ${REG_SELECT}`,
+        [
+            input.eventId, input.occurrenceDate, input.userId ?? null,
+            input.email.toLowerCase(), input.name ?? null, input.phone ?? null,
+            JSON.stringify(input.fields ?? {},),
+        ],
+    );
+    return mapRow(res.rows[0],);
+}
+
+export async function countRegistrations(
+    eventId: string,
+    occurrenceDate: string,
+): Promise<number> {
+    const res = await query<{ count: number; }>(
+        `SELECT COUNT(*)::int AS count FROM event_registrations
+          WHERE event_id = $1 AND occurrence_date = $2 AND status = 'registered'`,
+        [eventId, occurrenceDate,],
+    );
+    return Number(res.rows[0]?.count ?? 0,);
+}
+
+/** Paged attendee list for the admin table. */
+export async function findRegistrations(
+    eventId: string,
+    occurrenceDate: string,
+    pagination: { page?: number; limit?: number; } = {},
+): Promise<{ data: import('@sitesurge/types').EventRegistration[]; total: number; }> {
+    const page = Math.max(1, pagination.page ?? 1,);
+    const limit = Math.min(200, Math.max(1, pagination.limit ?? 50,),);
+    const countRes = await query<{ count: number; }>(
+        `SELECT COUNT(*)::int AS count FROM event_registrations
+          WHERE event_id = $1 AND occurrence_date = $2`,
+        [eventId, occurrenceDate,],
+    );
+    const res = await query(
+        `SELECT ${REG_SELECT} FROM event_registrations
+          WHERE event_id = $1 AND occurrence_date = $2
+          ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+        [eventId, occurrenceDate, limit, (page - 1) * limit,],
+    );
+    return {
+        data: mapRows(res.rows,),
+        total: Number(countRes.rows[0]?.count ?? 0,),
+    };
+}

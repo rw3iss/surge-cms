@@ -54,7 +54,11 @@ const EventDetailPage: Component = () => {
         if (!ev || submitting()) return;
         setSubmitting(true,); setRegError('',);
         try {
-            await cms.events.subscribe({ email: email().trim(), eventId: ev.id, notifyEmail: true, },);
+            await cms.events.register(ev.id, {
+                email: email().trim(),
+                name: name().trim() || undefined,
+                phone: phone().trim() || undefined,
+            },);
             setRegistered(true,);
         } catch (err) {
             setRegError(err instanceof Error ? err.message : 'Could not complete your registration.',);

@@ -383,6 +383,8 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/events',
     'PUT /api/v1/events/:id',
     'DELETE /api/v1/events/:id',
+    'POST /api/v1/events/:id/register',
+    'GET /api/v1/events/:id/registrations',
     'GET /api/v1/events/:id/tiers',
     'PUT /api/v1/events/:id/tiers',
     'PUT /api/v1/events/:id/occurrences/:date',

@@ -591,3 +591,84 @@ export async function replaceTiers(
     },);
     return saved;
 }
+
+// ─── Attendee registration ────────────────────────────────────────
+
+/**
+ * Register an attendee for one occurrence.
+ *
+ * Distinct from `subscribe`, which only signs someone up for NOTIFICATIONS.
+ * Conflating the two would mean a "Register" button that never told the
+ * organiser who was actually coming.
+ */
+export async function register(input: {
+    eventId: string;
+    occurrenceDate?: string;
+    email: string;
+    name?: string;
+    phone?: string;
+    fields?: Record<string, unknown>;
+    userId?: string;
+},): Promise<import('@sitesurge/types').EventRegistration> {
+    const event = await getByIdOrSlug(input.eventId,);
+    if (!event.registrationEnabled) {
+        throw new ValidationError('Registration is not open for this event.',);
+    }
+    const settings = await getSettings();
+    if (!settings.allowRegistration) {
+        throw new ValidationError('Event registration is disabled for this site.',);
+    }
+    const email = (input.email || '').trim();
+    if (!isValidEmail(email,)) throw new ValidationError('A valid email address is required',);
+
+    // Default to the event's own start date, which is the only occurrence a
+    // non-recurring event has.
+    const occurrenceDate = input.occurrenceDate || event.startsAt.slice(0, 10,);
+
+    const registration = await repo.upsertRegistration({
+        eventId: event.id,
+        occurrenceDate,
+        userId: input.userId ?? null,
+        email,
+        name: input.name ?? null,
+        phone: input.phone ?? null,
+        fields: input.fields ?? {},
+    },);
+
+    // Confirmation is best-effort: a mail failure must not lose the registration.
+    try {
+        const when = new Date(event.startsAt,).toLocaleString('en-US', {
+            dateStyle: 'full', timeStyle: 'short',
+        },);
+        await sendEmail({
+            to: email,
+            subject: `You're registered: ${event.title}`,
+            html: `<h2>You're registered</h2>
+                <p><strong>${event.title}</strong></p>
+                <p>${when}</p>
+                ${event.location ? `<p>${event.location}</p>` : ''}
+                <p><a href="${eventUrl(event,)}">View the event</a></p>`,
+        },);
+    } catch (e) {
+        logger.warn('event registration: confirmation email failed', {
+            event: event.id, error: (e as Error).message,
+        },);
+    }
+    return registration;
+}
+
+/** How many people are registered for an occurrence. */
+export async function registrantCount(
+    eventId: string,
+    occurrenceDate: string,
+): Promise<number> {
+    return repo.countRegistrations(eventId, occurrenceDate,);
+}
+
+export async function listRegistrations(
+    eventId: string,
+    occurrenceDate: string,
+    pagination: { page?: number; limit?: number; } = {},
+) {
+    return repo.findRegistrations(eventId, occurrenceDate, pagination,);
+}

@@ -73,6 +73,20 @@ export class EventsModule extends ModuleBase {
         },);
     }
 
+    /** POST /events/:id/register — attendee registration (NOT the notification
+     *  subscribe; this is what tells the organiser who is coming). */
+    register(id: string, body: {
+        email: string; name?: string; phone?: string;
+        occurrenceDate?: string; fields?: Record<string, unknown>;
+    },): Promise<{ registration: unknown; }> {
+        return this.mutate('POST', '/events/:id/register', { params: { id, }, body, },);
+    }
+
+    /** GET /events/:id/registrations — paged attendee list (staff). */
+    registrations(id: string, query: { occurrenceDate: string; page?: number; limit?: number; },) {
+        return this.getPaged('/events/:id/registrations', { params: { id, }, query, },);
+    }
+
     settings(): Promise<EventsSettings> {
         return this.get<EventsSettings>('/events/settings',);
     }

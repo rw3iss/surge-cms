@@ -192,6 +192,53 @@ export const eventsRoutes = [
         },
     },),
 
+    // ─── Attendee registration ───
+    defineRoute({
+        method: 'post', path: '/:id/register', auth: 'optional',
+        summary: 'Register an attendee for an occurrence of this event.',
+        input: {
+            params: z.object({ id: z.string().min(1,), },),
+            body: z.object({
+                email: z.string().email(),
+                name: z.string().max(255,).optional(),
+                phone: z.string().max(255,).optional(),
+                occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,).optional(),
+                fields: z.record(z.string(), z.unknown(),).optional(),
+            },),
+        },
+        handler: async ({ params, body, user, },) => ({
+            registration: await events.register({
+                eventId: params.id, ...body, userId: user?.id,
+            },),
+        }),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/registrations', auth: 'staff',
+        summary: 'Paged attendee list for an occurrence.',
+        input: {
+            params: z.object({ id: z.string().uuid(), },),
+            query: z.object({
+                occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,),
+                page: z.coerce.number().int().min(1,).optional(),
+                limit: z.coerce.number().int().min(1,).max(200,).optional(),
+            },),
+        },
+        handler: async ({ params, query, },) => {
+            const { data, total, } = await events.listRegistrations(
+                params.id, query.occurrenceDate, query,
+            );
+            return reply(data, {
+                meta: {
+                    page: query.page ?? 1,
+                    limit: query.limit ?? 50,
+                    total,
+                    totalPages: Math.ceil(total / (query.limit ?? 50),),
+                },
+            },);
+        },
+    },),
+
     // ─── Reads ───
     defineRoute({
         method: 'get', path: '/', auth: 'optional',
