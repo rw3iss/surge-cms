@@ -180,6 +180,9 @@ async function computePublicFeatures(
         plugins: { enabled: settings.plugins_enabled === true, },
         // Contacts (CRM) is opt-in. Requires `users`. Disabled until enabled.
         contacts: { enabled: settings.contacts_enabled === true, },
+        // Events & calendar is opt-in. Requires `users`. Gates the admin Events
+        // area, the public /events pages, and the subscriber notification routes.
+        events: { enabled: settings.events_enabled === true, },
     };
 }
 
