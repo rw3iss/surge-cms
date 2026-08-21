@@ -32,6 +32,7 @@ import { SitemapModule, } from './sitemap';
 import { ContentBlockTemplatesModule, EntitiesModule, EntityTypesModule, } from './entities';
 import { AdminChannelModule, } from './adminChannel';
 import { ContactsModule, } from './contacts';
+import { EventsModule, } from './events';
 
 export interface CmsModules {
     posts: PostsModule;
@@ -68,6 +69,7 @@ export interface CmsModules {
     contentBlockTemplates: ContentBlockTemplatesModule;
     adminChannel: AdminChannelModule;
     contacts: ContactsModule;
+    events: EventsModule;
 }
 
 export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModules {
@@ -112,6 +114,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.contentBlockTemplates = new ContentBlockTemplatesModule(core,);
     c.adminChannel = new AdminChannelModule(core,);
     c.contacts = new ContactsModule(core,);
+    c.events = new EventsModule(core,);
     return c as CmsClientCore & CmsModules;
 }
 

@@ -372,6 +372,20 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/entities/:type/:id/copy',
 
     // ── contacts (CRM; member-facing match/link, feature-gated) ──
+    'GET /api/v1/events',
+    'GET /api/v1/events/calendar',
+    'GET /api/v1/events/settings',
+    'PUT /api/v1/events/settings',
+    'POST /api/v1/events/subscribe',
+    'POST /api/v1/events/unsubscribe',
+    'POST /api/v1/events/push/subscribe',
+    'GET /api/v1/events/:idOrSlug',
+    'POST /api/v1/events',
+    'PUT /api/v1/events/:id',
+    'DELETE /api/v1/events/:id',
+    'GET /api/v1/events/:id/tiers',
+    'PUT /api/v1/events/:id/tiers',
+    'PUT /api/v1/events/:id/occurrences/:date',
     'GET /api/v1/contacts/me',
     'GET /api/v1/contacts/me/match',
     'POST /api/v1/contacts/me/link',
@@ -391,6 +405,8 @@ export const ROUTE_COVERAGE: string[] = [
  * no consumer-facing client surface.
  */
 export const INTENTIONALLY_UNEXPOSED: string[] = [
+    // Crawler endpoint served as plain text; nothing in the SDK consumes it.
+    'GET /robots.txt',
     // Plugin browser bundles: loaded via dynamic import() by the SPA, not the SDK.
     'GET /api/v1/plugins/:name/client.js',
     'GET /api/v1/plugins/:name/assets/:file',

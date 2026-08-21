@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-19T18:27:28.178Z",
-  "totalModules": 34,
-  "totalRoutes": 309,
+  "generatedAt": "2026-08-21T13:41:43.631Z",
+  "totalModules": 36,
+  "totalRoutes": 324,
   "modules": [
     {
       "module": "admin-channel",
@@ -549,6 +549,110 @@
           "absolutePath": "/api/v1/entities/:type/:id/copy",
           "auth": "staff",
           "summary": "Duplicate an entity (deep copy incl. related content blocks)"
+        }
+      ]
+    },
+    {
+      "module": "events",
+      "mountPath": "/api/v1/events",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/events/settings",
+          "auth": "public",
+          "summary": "Public events settings (notification toggles + VAPID public key)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/events/settings",
+          "auth": "admin",
+          "summary": "Update the events module settings."
+        },
+        {
+          "method": "POST",
+          "path": "/subscribe",
+          "absolutePath": "/api/v1/events/subscribe",
+          "auth": "optional",
+          "summary": "Subscribe to one event, or to all events when eventId is omitted."
+        },
+        {
+          "method": "POST",
+          "path": "/unsubscribe",
+          "absolutePath": "/api/v1/events/unsubscribe",
+          "auth": "public",
+          "summary": "Unsubscribe using the token from a notification email."
+        },
+        {
+          "method": "POST",
+          "path": "/push/subscribe",
+          "absolutePath": "/api/v1/events/push/subscribe",
+          "auth": "optional",
+          "summary": "Register a browser Web Push endpoint for desktop notifications."
+        },
+        {
+          "method": "GET",
+          "path": "/calendar",
+          "absolutePath": "/api/v1/events/calendar",
+          "auth": "optional",
+          "summary": "Occurrences in a date window, with recurring series expanded."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/tiers",
+          "absolutePath": "/api/v1/events/:id/tiers",
+          "auth": "optional",
+          "summary": "Ticket tiers for an occurrence, with sold/remaining counts."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/tiers",
+          "absolutePath": "/api/v1/events/:id/tiers",
+          "auth": "staff",
+          "summary": "Replace an event's ticket tiers."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/occurrences/:date",
+          "absolutePath": "/api/v1/events/:id/occurrences/:date",
+          "auth": "staff",
+          "summary": "Cancel or restore one date of a recurring series."
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/events",
+          "auth": "optional",
+          "summary": "List events in a date range. Anonymous callers see published only."
+        },
+        {
+          "method": "GET",
+          "path": "/:idOrSlug",
+          "absolutePath": "/api/v1/events/:idOrSlug",
+          "auth": "optional",
+          "summary": "A single event by id or slug."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/events",
+          "auth": "staff",
+          "summary": "Create an event."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "absolutePath": "/api/v1/events/:id",
+          "auth": "staff",
+          "summary": "Update an event."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "absolutePath": "/api/v1/events/:id",
+          "auth": "staff",
+          "summary": "Delete an event."
         }
       ]
     },
@@ -1522,6 +1626,19 @@
           "absolutePath": "/api/v1/posts/:id/blocks/reorder",
           "auth": "staff",
           "summary": "Reorder a post's content blocks."
+        }
+      ]
+    },
+    {
+      "module": "robots",
+      "mountPath": "",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/robots.txt",
+          "absolutePath": "/robots.txt",
+          "auth": "public",
+          "summary": "robots.txt with this install's canonical sitemap URL."
         }
       ]
     },

@@ -64,7 +64,7 @@ interface NavItem {
      * without a feature (Dashboard, Pages, Media, Users, Settings)
      * always render — they're core CMS surfaces.
      */
-    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts';
+    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -73,15 +73,19 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/posts', label: 'Posts', icon: 'posts', feature: 'posts', },
     { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
     { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
-    { path: '/admin/media', label: 'Media', icon: 'media', },
-    { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
+    // Events sits with the other content-authoring areas, after Forms.
+    { path: '/admin/events', label: 'Events', icon: 'campaigns', feature: 'events', },
+    { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
     // Contacts (CRM) — aliases to the `contact` entity's Data table. Shown under
     // Users, only when the `contacts` feature is enabled.
     { path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
+    // Media + Entities are tools rather than content areas, so they sit below
+    // the day-to-day authoring items.
+    { path: '/admin/media', label: 'Media', icon: 'media', },
+    { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
-    { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     { path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', adminOnly: true, },
     { path: '/admin/plugins', label: 'Plugins', icon: 'developer', feature: 'plugins', adminOnly: true, },
     { path: '/admin/settings', label: 'Settings', icon: 'settings', adminOnly: true, },
