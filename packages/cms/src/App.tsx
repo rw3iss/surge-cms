@@ -76,7 +76,10 @@ const AdminPlugins = lazy(() => import('./pages/admin/Plugins'));
 const AdminPluginConfig = lazy(() => import('./pages/admin/PluginConfig'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
 const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
+const EventsPage = lazy(() => import('./pages/Events'));
+const EventDetailPage = lazy(() => import('./pages/EventDetail'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
+const AdminEventSettings = lazy(() => import('./pages/admin/events/EventSettings'));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -124,6 +127,9 @@ const App: Component = () => {
 										<Route path="/profile" component={ProfilePage} />
 										{/* Dynamic page route - must be last among
 											single-segment paths. */}
+										{/* Declared before the /:slug catch-all, or DynamicPage swallows them. */}
+										<Route path="/events" component={EventsPage} />
+										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/:slug" component={DynamicPage} />
 										{/* Catch-all 404 lives INSIDE Layout so the
 											public Header/Footer + theme tokens
@@ -144,6 +150,7 @@ const App: Component = () => {
 										    modal is driven by the URL so an event is linkable. */}
 										<Route path="/events" component={AdminEvents} />
 										<Route path="/events/new" component={AdminEvents} />
+										<Route path="/events/settings" component={AdminEventSettings} />
 										<Route path="/events/:id" component={AdminEvents} />
 										<Route path="/posts/:id/preview" component={AdminPostPreview} />
 										<Route path="/posts/new" component={AdminPostEditor} />

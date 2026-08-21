@@ -97,12 +97,34 @@ export interface EventsSettings {
     reminderHoursBefore: number;
     /** Public VAPID key, handed to the browser to create a push subscription. */
     vapidPublicKey?: string;
+    /**
+     * Public base path for the calendar, e.g. `/events`. Validated against
+     * existing page slugs and reserved routes on save.
+     */
+    eventsUrl: string;
+    /** Master switch: without it, per-event registration cannot be turned on. */
+    allowRegistration: boolean;
+    /**
+     * Allow charging for events. Implies `allowRegistration` — you cannot sell a
+     * ticket to someone who hasn't told you who they are, so the service forces
+     * it on rather than letting the two contradict.
+     */
+    allowTicketing: boolean;
 }
 
 export const DEFAULT_EVENTS_SETTINGS: EventsSettings = {
     notifyOnPublish: true,
     reminderHoursBefore: 24,
+    eventsUrl: '/events',
+    allowRegistration: true,
+    allowTicketing: false,
 };
+
+/** Paths the events calendar may not take over. */
+export const RESERVED_EVENT_PATHS = [
+    '/admin', '/api', '/login', '/join', '/profile', '/search', '/shop',
+    '/posts', '/donate', '/contact', '/subscribe', '/forms', '/campaigns',
+];
 
 // ─── Recurrence, registration & ticketing ─────────────────────────
 
