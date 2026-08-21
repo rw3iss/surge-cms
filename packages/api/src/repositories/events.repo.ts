@@ -8,6 +8,21 @@ import type {
 import { query, } from '../db';
 import { mapRow, mapRows, buildUpdateSet, camelToSnake, } from '../utils/mapRow';
 
+/**
+ * `mapRow` turns every `*_at` column into a Date, but `CalendarEvent` declares
+ * these as ISO strings (they cross the wire as JSON). Left alone the type lies
+ * at runtime — `event.startsAt.slice(...)` threw in the registration path.
+ * Normalise once here so the repo's output actually matches its declared type.
+ */
+function toIsoFields(row: CalendarEvent,): CalendarEvent {
+    const out = { ...row, } as unknown as Record<string, unknown>;
+    for (const k of ['startsAt', 'endsAt', 'recurrenceUntil', 'createdAt', 'updatedAt',]) {
+        const v = out[k];
+        if (v instanceof Date) out[k] = v.toISOString();
+    }
+    return out as unknown as CalendarEvent;
+}
+
 const SELECT = `id, title, slug, description, starts_at, ends_at, all_day, location,
     url, featured_image, status, timezone, recurrence_rule, recurrence_until,
     registration_enabled, registration_fields, show_registrant_count,
@@ -81,17 +96,17 @@ export async function findEvents(
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, (page - 1) * limit,],
     );
-    return { data: mapRows<CalendarEvent>(res.rows,), total, };
+    return { data: mapRows<CalendarEvent>(res.rows,).map((r,) => toIsoFields(r,)), total, };
 }
 
 export async function findById(id: string,): Promise<CalendarEvent | null> {
     const res = await query(`SELECT ${SELECT} FROM events WHERE id = $1`, [id,],);
-    return res.rows[0] ? mapRow<CalendarEvent>(res.rows[0],) : null;
+    return res.rows[0] ? toIsoFields(mapRow<CalendarEvent>(res.rows[0],),) : null;
 }
 
 export async function findBySlug(slug: string,): Promise<CalendarEvent | null> {
     const res = await query(`SELECT ${SELECT} FROM events WHERE slug = $1`, [slug,],);
-    return res.rows[0] ? mapRow<CalendarEvent>(res.rows[0],) : null;
+    return res.rows[0] ? toIsoFields(mapRow<CalendarEvent>(res.rows[0],),) : null;
 }
 
 /** True when `slug` is taken by a row other than `exceptId`. */
@@ -139,7 +154,7 @@ export async function createEvent(
             createdBy ?? null,
         ],
     );
-    return mapRow<CalendarEvent>(res.rows[0],);
+    return toIsoFields(mapRow<CalendarEvent>(res.rows[0],),);
 }
 
 export async function updateEvent(
@@ -154,7 +169,7 @@ export async function updateEvent(
          RETURNING ${SELECT}`,
         [...values, id,],
     );
-    return res.rows[0] ? mapRow<CalendarEvent>(res.rows[0],) : null;
+    return res.rows[0] ? toIsoFields(mapRow<CalendarEvent>(res.rows[0],),) : null;
 }
 
 export async function deleteEvent(id: string,): Promise<boolean> {
