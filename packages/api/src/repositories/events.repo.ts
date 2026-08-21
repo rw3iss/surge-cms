@@ -1,12 +1,17 @@
 /**
  * Events data access. SQL lives here; business rules live in services/events.ts.
  */
-import type { CalendarEvent, CalendarEventInput, EventSubscriber, } from '@sitesurge/types';
+import type {
+    CalendarEvent, CalendarEventInput, EventOccurrenceOverride,
+    EventSubscriber, EventTicketTier,
+} from '@sitesurge/types';
 import { query, } from '../db';
 import { mapRow, mapRows, buildUpdateSet, camelToSnake, } from '../utils/mapRow';
 
 const SELECT = `id, title, slug, description, starts_at, ends_at, all_day, location,
-    url, featured_image, status, created_by, created_at, updated_at`;
+    url, featured_image, status, timezone, recurrence_rule, recurrence_until,
+    registration_enabled, registration_fields, show_registrant_count,
+    ticketing_enabled, metadata, created_by, created_at, updated_at`;
 
 export interface EventFilters {
     /** Inclusive lower bound on starts_at. */
@@ -106,8 +111,11 @@ export async function createEvent(
 ): Promise<CalendarEvent> {
     const res = await query(
         `INSERT INTO events (title, slug, description, starts_at, ends_at, all_day,
-                             location, url, featured_image, status, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                             location, url, featured_image, status, timezone,
+                             recurrence_rule, recurrence_until, registration_enabled,
+                             registration_fields, show_registrant_count,
+                             ticketing_enabled, metadata, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
          RETURNING ${SELECT}`,
         [
             input.title,
@@ -120,6 +128,14 @@ export async function createEvent(
             input.url ?? null,
             input.featuredImage ?? null,
             input.status ?? 'published',
+            input.timezone ?? null,
+            input.recurrenceRule ?? null,
+            input.recurrenceUntil ?? null,
+            input.registrationEnabled ?? false,
+            JSON.stringify(input.registrationFields ?? ['name', 'email',],),
+            input.showRegistrantCount ?? false,
+            input.ticketingEnabled ?? false,
+            JSON.stringify(input.metadata ?? {},),
             createdBy ?? null,
         ],
     );
@@ -294,3 +310,142 @@ export async function findEventsNeedingReminder(hoursBefore: number,): Promise<C
 }
 
 export { camelToSnake, };
+
+// ─── Occurrence overrides ─────────────────────────────────────────
+
+const OVERRIDE_SELECT = `id, event_id, to_char(occurrence_date, 'YYYY-MM-DD') AS occurrence_date,
+    status, starts_at_override, ends_at_override, title_override`;
+
+/** Overrides for a set of events, grouped by event id — one query for a whole
+ *  calendar render rather than one per event. */
+export async function findOverridesForEvents(
+    eventIds: string[],
+): Promise<Map<string, EventOccurrenceOverride[]>> {
+    const out = new Map<string, EventOccurrenceOverride[]>();
+    if (eventIds.length === 0) return out;
+    const res = await query(
+        `SELECT ${OVERRIDE_SELECT} FROM event_occurrence_overrides WHERE event_id = ANY($1::uuid[])`,
+        [eventIds,],
+    );
+    for (const row of mapRows<EventOccurrenceOverride>(res.rows,)) {
+        const list = out.get(row.eventId,);
+        if (list) list.push(row,);
+        else out.set(row.eventId, [row,],);
+    }
+    return out;
+}
+
+/** Upsert a per-date exception. Re-cancelling the same date updates it. */
+export async function upsertOverride(input: {
+    eventId: string;
+    occurrenceDate: string;
+    status?: 'cancelled' | 'moved' | null;
+    startsAtOverride?: string | null;
+    endsAtOverride?: string | null;
+    titleOverride?: string | null;
+},): Promise<EventOccurrenceOverride> {
+    const res = await query(
+        `INSERT INTO event_occurrence_overrides
+            (event_id, occurrence_date, status, starts_at_override, ends_at_override, title_override)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (event_id, occurrence_date) DO UPDATE
+            SET status = EXCLUDED.status,
+                starts_at_override = EXCLUDED.starts_at_override,
+                ends_at_override = EXCLUDED.ends_at_override,
+                title_override = EXCLUDED.title_override
+         RETURNING ${OVERRIDE_SELECT}`,
+        [
+            input.eventId, input.occurrenceDate, input.status ?? null,
+            input.startsAtOverride ?? null, input.endsAtOverride ?? null,
+            input.titleOverride ?? null,
+        ],
+    );
+    return mapRow<EventOccurrenceOverride>(res.rows[0],);
+}
+
+export async function deleteOverride(eventId: string, occurrenceDate: string,): Promise<boolean> {
+    const res = await query(
+        `DELETE FROM event_occurrence_overrides WHERE event_id = $1 AND occurrence_date = $2`,
+        [eventId, occurrenceDate,],
+    );
+    return (res.rowCount ?? 0) > 0;
+}
+
+// ─── Ticket tiers ─────────────────────────────────────────────────
+
+const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position`;
+
+export async function findTiers(eventId: string,): Promise<EventTicketTier[]> {
+    const res = await query(
+        `SELECT ${TIER_SELECT} FROM event_ticket_tiers WHERE event_id = $1 ORDER BY position, name`,
+        [eventId,],
+    );
+    return mapRows<EventTicketTier>(res.rows,);
+}
+
+export async function findTierById(id: string,): Promise<EventTicketTier | null> {
+    const res = await query(`SELECT ${TIER_SELECT} FROM event_ticket_tiers WHERE id = $1`, [id,],);
+    return res.rows[0] ? mapRow<EventTicketTier>(res.rows[0],) : null;
+}
+
+/**
+ * Replace an event's tiers in one transaction.
+ *
+ * Tiers carrying an `id` are UPDATED in place rather than deleted and
+ * reinserted — an issued ticket references its tier, and recreating rows would
+ * orphan those references (and lose the sold counts they're joined on).
+ */
+export async function replaceTiers(
+    eventId: string,
+    tiers: Array<{
+        id?: string; name: string; priceCents: number; currency: string;
+        quantityAvailable: number | null; position: number;
+    }>,
+): Promise<EventTicketTier[]> {
+    const keptIds = tiers.map((t,) => t.id).filter(Boolean,) as string[];
+    await query(
+        keptIds.length
+            ? `DELETE FROM event_ticket_tiers WHERE event_id = $1 AND id <> ALL($2::uuid[])`
+            : `DELETE FROM event_ticket_tiers WHERE event_id = $1`,
+        keptIds.length ? [eventId, keptIds,] : [eventId,],
+    );
+
+    for (const [i, t,] of tiers.entries()) {
+        if (t.id) {
+            await query(
+                `UPDATE event_ticket_tiers
+                    SET name = $1, price_cents = $2, currency = $3,
+                        quantity_available = $4, position = $5, updated_at = NOW()
+                  WHERE id = $6 AND event_id = $7`,
+                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId,],
+            );
+        } else {
+            await query(
+                `INSERT INTO event_ticket_tiers
+                    (event_id, name, price_cents, currency, quantity_available, position)
+                 VALUES ($1,$2,$3,$4,$5,$6)`,
+                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i,],
+            );
+        }
+    }
+    return findTiers(eventId,);
+}
+
+/** Tickets already issued per tier for one occurrence. Refunded/cancelled do
+ *  NOT count against inventory — that seat is available again. */
+export async function countSoldByTier(
+    eventId: string,
+    occurrenceDate: string,
+): Promise<Record<string, number>> {
+    const res = await query<{ tier_id: string; sold: number; }>(
+        `SELECT tier_id, COUNT(*)::int AS sold
+           FROM event_tickets
+          WHERE event_id = $1 AND occurrence_date = $2
+            AND status IN ('valid', 'checked_in')
+          GROUP BY tier_id`,
+        [eventId, occurrenceDate,],
+    );
+    const out: Record<string, number> = {};
+    for (const r of res.rows) if (r.tier_id) out[r.tier_id] = Number(r.sold,);
+    return out;
+}

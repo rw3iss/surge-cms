@@ -110,6 +110,74 @@ export const eventsRoutes = [
             },),
     },),
 
+
+    // ─── Calendar (occurrence-expanded) ───
+    // Declared before /:idOrSlug so the literal path isn't swallowed by it.
+    defineRoute({
+        method: 'get', path: '/calendar', auth: 'optional',
+        summary: 'Occurrences in a date window, with recurring series expanded.',
+        input: {
+            query: z.object({
+                from: isoDate,
+                to: isoDate,
+                search: z.string().max(200,).optional(),
+            },),
+        },
+        handler: async ({ query, user, },) => {
+            const admin = isStaffRole(user?.role,);
+            return events.listOccurrences({ ...query, admin, },);
+        },
+    },),
+
+    // ─── Ticket tiers ───
+    defineRoute({
+        method: 'get', path: '/:id/tiers', auth: 'optional',
+        summary: 'Ticket tiers for an occurrence, with sold/remaining counts.',
+        input: {
+            params: z.object({ id: z.string().uuid(), },),
+            query: z.object({ occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,), },),
+        },
+        handler: ({ params, query, },) => events.listTiers(params.id, query.occurrenceDate,),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/:id/tiers', auth: 'staff',
+        summary: 'Replace an event\'s ticket tiers.',
+        input: {
+            params: z.object({ id: z.string().uuid(), },),
+            body: z.object({
+                tiers: z.array(z.object({
+                    id: z.string().uuid().optional(),
+                    name: z.string().min(1,).max(255,),
+                    // 0 is valid: a free tier with a cap is a limited free event.
+                    priceCents: z.number().int().min(0,),
+                    currency: z.string().length(3,).default('USD',),
+                    quantityAvailable: z.number().int().min(0,).nullable(),
+                    position: z.number().int().min(0,).default(0,),
+                },),),
+            },),
+        },
+        handler: ({ params, body, audit, },) =>
+            events.replaceTiers(params.id, body.tiers, audit(),),
+    },),
+
+    // ─── Per-date exceptions ───
+    defineRoute({
+        method: 'put', path: '/:id/occurrences/:date', auth: 'staff',
+        summary: 'Cancel or restore one date of a recurring series.',
+        input: {
+            params: z.object({
+                id: z.string().uuid(),
+                date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,),
+            },),
+            body: z.object({ status: z.enum(['cancelled',],).nullable(), },),
+        },
+        handler: async ({ params, body, audit, },) => {
+            await events.setOccurrenceStatus(params.id, params.date, body.status, audit(),);
+            return { ok: true, };
+        },
+    },),
+
     // ─── Reads ───
     defineRoute({
         method: 'get', path: '/', auth: 'optional',

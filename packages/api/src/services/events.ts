@@ -20,6 +20,7 @@ import crypto from 'crypto';
 import { config, } from '../config';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import * as repo from '../repositories/events.repo';
+import { expandEvents, } from './events/occurrences';
 import { logAudit, } from './audit';
 import { sendEmail, } from './email';
 import * as settingsService from './settings';
@@ -426,3 +427,110 @@ export async function runReminderSweep(): Promise<{ checked: number; }> {
 }
 
 export type { CalendarEvent, EventStatus, };
+
+// ─── Calendar (occurrence-expanded reads) ─────────────────────────
+
+/**
+ * The calendar view: every occurrence falling inside the window, with recurring
+ * series expanded and per-date overrides applied.
+ *
+ * `admin` controls two things at once — visibility of drafts, and whether
+ * cancelled dates are retained (so the admin can see a cancellation) or
+ * filtered (so the public never does).
+ */
+export async function listOccurrences(opts: {
+    from: string;
+    to: string;
+    admin?: boolean;
+    search?: string;
+},): Promise<import('@sitesurge/types').EventOccurrence[]> {
+    const from = new Date(opts.from,);
+    const to = new Date(opts.to,);
+
+    // Pull candidate events with a generous lower bound: a series that STARTED
+    // long before the window can still produce occurrences inside it, so the
+    // usual `starts_at >= from` filter would wrongly exclude it.
+    const { data, } = await repo.findEvents({
+        status: opts.admin ? undefined : 'published',
+        to: opts.to,
+        search: opts.search,
+    }, { page: 1, limit: 500, },);
+
+    const overrides = await repo.findOverridesForEvents(data.map((e,) => e.id),);
+    return expandEvents(data, overrides, { from, to, }, { includeCancelled: opts.admin, },);
+}
+
+/** Cancel (or un-cancel) a single date of a recurring series. */
+export async function setOccurrenceStatus(
+    eventId: string,
+    occurrenceDate: string,
+    status: 'cancelled' | null,
+    ctx: AuditContext,
+): Promise<void> {
+    const event = await repo.findById(eventId,);
+    if (!event) throw new NotFoundError('Event',);
+
+    if (status === null) await repo.deleteOverride(eventId, occurrenceDate,);
+    else await repo.upsertOverride({ eventId, occurrenceDate, status, },);
+
+    await logAudit({
+        userId: ctx.userId,
+        action: 'update',
+        entityType: 'event',
+        entityId: eventId,
+        newValues: { occurrenceDate, status, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+}
+
+// ─── Ticket tiers ─────────────────────────────────────────────────
+
+/** Tiers with live sold/remaining counts for one occurrence. Remaining is null
+ *  for an unlimited tier, and never negative. */
+export async function listTiers(
+    eventId: string,
+    occurrenceDate: string,
+): Promise<import('@sitesurge/types').EventTicketTier[]> {
+    const [tiers, sold,] = await Promise.all([
+        repo.findTiers(eventId,),
+        repo.countSoldByTier(eventId, occurrenceDate,),
+    ],);
+    return tiers.map((t,) => {
+        const used = sold[t.id] ?? 0;
+        return {
+            ...t,
+            sold: used,
+            remaining: t.quantityAvailable === null
+                ? null
+                : Math.max(0, t.quantityAvailable - used,),
+        };
+    },);
+}
+
+export async function replaceTiers(
+    eventId: string,
+    tiers: Array<{
+        id?: string; name: string; priceCents: number; currency: string;
+        quantityAvailable: number | null; position: number;
+    }>,
+    ctx: AuditContext,
+): Promise<import('@sitesurge/types').EventTicketTier[]> {
+    const event = await repo.findById(eventId,);
+    if (!event) throw new NotFoundError('Event',);
+    for (const t of tiers) {
+        if (!t.name?.trim()) throw new ValidationError('Every ticket tier needs a name',);
+        if (t.priceCents < 0) throw new ValidationError('Ticket price cannot be negative',);
+    }
+    const saved = await repo.replaceTiers(eventId, tiers,);
+    await logAudit({
+        userId: ctx.userId,
+        action: 'update',
+        entityType: 'event',
+        entityId: eventId,
+        newValues: { tiers: saved.length, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    return saved;
+}
