@@ -395,6 +395,13 @@ export interface SiteFeatures {
      * Disabled by default.
      */
     contacts: { enabled: boolean; };
+    /**
+     * Events & Calendar feature module. When enabled, the admin sidebar exposes
+     * an Events area (calendar + event list), the public `/events` page and
+     * event detail pages activate, and subscribers can receive email/desktop
+     * notifications. Requires `users`. Disabled by default.
+     */
+    events: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */

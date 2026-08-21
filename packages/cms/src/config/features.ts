@@ -8,7 +8,7 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -29,6 +29,7 @@ export const FEATURES: FeatureConfig[] = [
     { key: 'shop',          label: 'Shop',          description: 'Products, cart, orders, and Stripe checkout.', requires: ['users',], },
     { key: 'plugins',       label: 'Plugins',       description: 'Install and manage external plugins & extensions.', },
     { key: 'contacts',      label: 'Contacts (CRM)', description: 'Manage contacts/leads separate from users; link them on sign-up.', requires: ['users',], },
+    { key: 'events',        label: 'Events & Calendar', description: 'Publish events on a calendar, with a public /events page and subscriber notifications.', requires: ['users',], },
 ];
 
 export function getFeature(key: FeatureKey,): FeatureConfig {

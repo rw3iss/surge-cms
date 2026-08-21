@@ -8,6 +8,7 @@ import { blockStylesRoutes, } from './blockStyles';
 import { campaignsRoutes, } from './campaigns';
 import { connectionsRoutes, } from './connections';
 import { contactsRoutes, } from './contacts';
+import { eventsRoutes, } from './events';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
 import { entitiesRoutes, } from './entities';
@@ -67,5 +68,7 @@ router.use('/lists', registerModule('lists', listsPublicRoutes, { mountPath: '/a
 router.use('/shop', registerModule('shop', shopRoutes, { mountPath: '/api/v1/shop', feature: 'shop', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
+// `feature: 'events'` makes every route here 404 while the module is disabled.
+router.use('/events', registerModule('events', eventsRoutes, { mountPath: '/api/v1/events', feature: 'events', },),);
 
 export default router;
