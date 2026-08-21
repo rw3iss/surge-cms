@@ -58,11 +58,11 @@ describe('module assembly', () => {
         expect(typeof cms.sitemap.regenerate,).toBe('function',);
     },);
 
-    it('exports a registry with no duplicates, covering 320 of 326 manifest routes', () => {
+    it('exports a registry with no duplicates, covering 321 of 327 manifest routes', () => {
         const unique = new Set(ROUTE_COVERAGE,);
         expect(unique.size,).toBe(ROUTE_COVERAGE.length,); // no duplicates
-        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(320,);
-        // 320 of the manifest's 324. The gap is the 6 long-standing uncovered
+        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(321,);
+        // 321 of the manifest's 327. The gap is the 6 long-standing uncovered
         // routes that `npm run check:drift` reports by name (shop reorder,
         // printify sync, dashboard/payments admin reads) — pre-existing, and
         // tracked there rather than silently absorbed here.

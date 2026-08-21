@@ -18,6 +18,11 @@ import { createSignal, } from 'solid-js';
 const STORAGE_KEY = 'sitesurge.shop.cart';
 
 export interface CartItem {
+    /**
+     * Unique line key. For a real product this is the shop variant id; for an
+     * event ticket it is a synthetic `event:<eventId>:<date>:<tierId>` key, so
+     * the SAME tier on two different dates is two separate lines.
+     */
     variantId: string;
     productId: string;
     slug: string;
@@ -26,6 +31,24 @@ export interface CartItem {
     priceCents: number;
     image?: string | null;
     qty: number;
+    /**
+     * Discriminates a VIRTUAL event-ticket line from a real catalogue product.
+     * Tickets deliberately aren't shop_products rows — a product per event/tier
+     * would pollute the catalogue, sitemap, search and the Printify sync — so
+     * the cart carries enough to re-resolve them at checkout, where price and
+     * remaining inventory are re-read from the server.
+     */
+    kind?: 'product' | 'event_ticket';
+    eventId?: string;
+    occurrenceDate?: string;
+    tierId?: string;
+}
+
+/** Stable cart key for an event-ticket line. */
+export function ticketLineKey(
+    eventId: string, occurrenceDate: string, tierId: string,
+): string {
+    return `event:${eventId}:${occurrenceDate}:${tierId}`;
 }
 
 function hydrate(): CartItem[] {

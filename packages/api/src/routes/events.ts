@@ -239,6 +239,37 @@ export const eventsRoutes = [
         },
     },),
 
+    // ─── Ticket purchase ───
+    defineRoute({
+        method: 'post', path: '/tickets/purchase', auth: 'optional',
+        summary: 'Buy tickets. Free orders confirm immediately; paid ones return a total for payment.',
+        input: {
+            body: z.object({
+                email: z.string().email(),
+                name: z.string().max(255,).optional(),
+                phone: z.string().max(255,).optional(),
+                lines: z.array(z.object({
+                    kind: z.literal('event_ticket',).optional(),
+                    eventId: z.string().uuid(),
+                    occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,),
+                    tierId: z.string().uuid(),
+                    quantity: z.number().int().min(1,).max(50,),
+                    // Sent for display only; the server re-reads both from the DB.
+                    name: z.string().optional(),
+                    priceCents: z.number().optional(),
+                    currency: z.string().optional(),
+                },),).min(1,),
+            },),
+        },
+        handler: ({ body, user, },) => events.purchaseTickets({
+            lines: body.lines as never,
+            email: body.email,
+            name: body.name,
+            phone: body.phone,
+            userId: user?.id,
+        },),
+    },),
+
     // ─── Reads ───
     defineRoute({
         method: 'get', path: '/', auth: 'optional',

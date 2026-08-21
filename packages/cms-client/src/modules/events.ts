@@ -87,6 +87,23 @@ export class EventsModule extends ModuleBase {
         return this.getPaged('/events/:id/registrations', { params: { id, }, query, },);
     }
 
+    /** POST /events/tickets/purchase — free orders confirm immediately; paid
+     *  ones come back with a total for the payment step. Price and inventory
+     *  are re-resolved server-side, so the cart's figures are display-only. */
+    purchaseTickets(body: {
+        email: string; name?: string; phone?: string;
+        lines: Array<{
+            eventId: string; occurrenceDate: string; tierId: string; quantity: number;
+        }>;
+    },): Promise<{
+        status: 'confirmed' | 'payment_required';
+        totalCents: number; currency: string;
+        registrationId?: string;
+        tickets?: Array<{ code: string; tierName: string; }>;
+    }> {
+        return this.mutate('POST', '/events/tickets/purchase', { body, },);
+    }
+
     settings(): Promise<EventsSettings> {
         return this.get<EventsSettings>('/events/settings',);
     }
