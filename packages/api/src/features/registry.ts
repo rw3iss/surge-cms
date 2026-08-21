@@ -96,6 +96,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '035_create_mail_send_recipients.sql',
             '036_seed_mailing_lists_feature_setting.sql',
             '037_add_send_job_template_snapshot.sql',
+            '078_mail_recipient_sending_status.sql',
         ],
     },
     shop: {
@@ -118,6 +119,11 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '049_create_shop_order_items.sql',
             '071_shop_shipping.sql',
             '072_shop_review_helpful.sql',
+            '075_shop_external_source.sql',
+            '076_shop_order_fulfillment.sql',
+            '081_shop_product_position.sql',
+            '088_add_order_shipping_method.sql',
+            '089_shop_shipping_default_calculated.sql',
         ],
         // Creation order — uninstall drops in reverse. CASCADE FKs make the
         // exact order safe regardless (child/m2m tables drop with their parent).
