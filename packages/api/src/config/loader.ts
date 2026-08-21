@@ -125,6 +125,20 @@ export interface Config {
 }
 
 let _snapshot: Config | null = null;
+
+/** Trim, drop empties, and de-duplicate an origin list (order preserved). */
+function dedupe(values: string[],): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const v of values) {
+        const t = (v ?? '').trim().replace(/\/+$/, '',);
+        if (!t || seen.has(t,)) continue;
+        seen.add(t,);
+        out.push(t,);
+    }
+    return out;
+}
+
 /** True after a parse error — the snapshot uses defaults but we surface
  * this to callers (notably the installation detector). */
 let _parseFailed = false;
@@ -135,7 +149,14 @@ function build(parsed: EnvVars,): Config {
         port: parsed.PORT,
         apiVersion: parsed.API_VERSION,
         frontendUrl: parsed.FRONTEND_URL,
-        corsOrigins: parsed.CORS_ORIGINS,
+        // The site's OWN origin is always allowed. CORS_ORIGINS defaults to
+        // `http://localhost:3000`, so an install that sets FRONTEND_URL but not
+        // CORS_ORIGINS rejected requests from its own frontend — the browser
+        // sends `Origin: <FRONTEND_URL>`, which wasn't in the list, and the
+        // resulting "Not allowed by CORS" throw surfaced to users as a 500 on
+        // login. Deriving it here means a new install works from FRONTEND_URL
+        // alone; CORS_ORIGINS stays the way to authorise ADDITIONAL origins.
+        corsOrigins: dedupe([...parsed.CORS_ORIGINS, parsed.FRONTEND_URL,],),
 
         database: {
             url: parsed.DATABASE_URL,
