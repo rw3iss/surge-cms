@@ -215,13 +215,19 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         requires: ['users'],
         migrations: [
             '091_create_events.sql',
+            '092_event_system.sql',
         ],
         // Reverse-dropped on uninstall, so children first.
+        // Reverse-dropped on uninstall, so parents last.
         tables: [
             'events',
             'event_subscribers',
             'event_push_subscriptions',
             'event_notifications_sent',
+            'event_occurrence_overrides',
+            'event_ticket_tiers',
+            'event_registrations',
+            'event_tickets',
         ],
         settingsKeys: ['events'],
         onEnable: async () => {},
