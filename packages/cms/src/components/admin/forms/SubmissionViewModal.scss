@@ -4,7 +4,13 @@
 // Read view of one form submission. Mirrors the form's own layout — label
 // above answer — so an admin reads it the way the submitter filled it in.
 .submission-view {
+  // .modal-shell intentionally ships no padding — each modal styles its own
+  // interior — so without this the content sits flush against the panel edge.
+  padding: $spacing-lg;
+
   &__head {
+    // Keep the title clear of the shell's absolutely-positioned ✕.
+    padding-right: $spacing-xl;
     padding-bottom: $spacing-md;
     border-bottom: 1px solid var(--admin-border, #{$border-color});
     margin-bottom: $spacing-md;
