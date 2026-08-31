@@ -18,7 +18,6 @@ const PostsPage = lazy(() => import('./pages/Posts'));
 // DonatePage removed — /donate now uses DynamicPage via the /:slug route
 const SubscribePage = lazy(() => import('./pages/Subscribe'));
 const CampaignPage = lazy(() => import('./pages/Campaign'));
-const ContactPage = lazy(() => import('./pages/Contact'));
 const FormPage = lazy(() => import('./pages/Form'));
 const ShopIndexPage = lazy(() => import('./pages/shop/ShopIndex'));
 const ShopProductPage = lazy(() => import('./pages/shop/ShopProduct'));
@@ -118,7 +117,6 @@ const App: Component = () => {
 										<Route path="/shop/categories/:slug" component={ShopCategoryPage} />
 										<Route path="/shop/orders/:number" component={ShopOrderConfirmationPage} />
 										<Route path="/shop/:slug" component={ShopProductPage} />
-										<Route path="/contact" component={ContactPage} />
 										<Route path="/forms/:slug" component={FormPage} />
 										<Route path="/search" component={SearchPage} />
 										{/* Self-service user profile. The page self-guards:

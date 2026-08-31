@@ -472,26 +472,9 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     }
 
     // ─── Static routes (no auth needed) ───
-    if (path === '/contact') {
-        const description = `Get in touch with ${SITE_NAME}. Send us a message, question, or story tip.`;
-        return {
-            title: 'Contact',
-            description,
-            canonical: url,
-            type: 'website',
-            image: logo,
-            siteName: SITE_NAME,
-            aeoSummary: `Contact page for ${SITE_NAME} — send a message or story tip to our team.`,
-            aeoEntityType: 'ContactPage',
-            jsonLd: buildWebPageSchema({
-                name: 'Contact',
-                description: `Contact ${SITE_NAME}`,
-                url,
-                publisherName: SITE_NAME,
-            },),
-            body: buildGenericBody('Contact', description,),
-        };
-    }
+    // NOTE: /contact is deliberately NOT here — it is a CMS page now, so it
+    // falls through to the dynamic-page branch and takes its title,
+    // description and indexable body from the page and its blocks.
     if (path === '/shop') {
         const description = `Support independent journalism with official ${SITE_NAME} merchandise.`;
         return {
