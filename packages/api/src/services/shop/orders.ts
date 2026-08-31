@@ -15,6 +15,8 @@ import { logAudit, } from '../audit';
 import { logger, } from '../../utils/logger';
 import * as repo from '../../repositories/shop/shopOrders.repo';
 import { sendBuyerReceipt, sendOrderStatusEmail, } from './orderEmails';
+import { getShopSettings, } from './settings';
+import { getPublicSettings, } from '../settings';
 import type { AuditContext, ListResult, PaginationOpts, } from '../types';
 
 export type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
@@ -168,6 +170,38 @@ export async function resendReceipt(id: string, ctx: AuditContext,): Promise<{ m
         userAgent: ctx.userAgent,
     },);
     return { message: 'Receipt sent', };
+}
+
+// ─── Receipt ───────────────────────────────────────────────────────
+
+/**
+ * Build the receipt PDF for an order.
+ *
+ * Rendered on demand rather than stored: a receipt must always describe the
+ * order as it stands now (status, tracking, refunds), and a cached copy would
+ * quietly go stale.
+ */
+export async function buildReceipt(
+    order: repo.OrderDetail,
+): Promise<{ pdf: Buffer; filename: string; }> {
+    // `receipt.js` pulls in PDFKit, which loads its font metrics at import
+    // time. Deferring it keeps that cost off boot for the many installs that
+    // never sell anything.
+    const [{ renderOrderReceipt, receiptFilename, }, settings, site,] = await Promise.all([
+        import('./receipt.js'),
+        getShopSettings().catch(() => null),
+        getPublicSettings().catch(() => null),
+    ],);
+
+    const pdf = await renderOrderReceipt(
+        order as never,
+        settings,
+        {
+            siteName: (site as { siteName?: string; } | null)?.siteName,
+            siteUrl: config.frontendUrl,
+        },
+    );
+    return { pdf, filename: receiptFilename(order.orderNumber,), };
 }
 
 // ─── Digital download ──────────────────────────────────────────────

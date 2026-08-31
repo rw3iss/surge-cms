@@ -672,13 +672,54 @@
 
 // ── Order confirmation ─────────────────────────────────────────────
 .shop-order {
+    // Order number + status on the left, receipt button on the right of the
+    // same row. Wraps to two stacked rows on narrow screens rather than
+    // squeezing the button against the status.
+    &__headline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm $spacing-lg;
+        margin: $spacing-sm 0 0;
+    }
+
+    &__headline-meta {
+        margin: 0;
+        min-width: 0;
+    }
+
+    &__receipt {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
     &__status {
         text-transform: capitalize;
         font-weight: 600;
 
-        &--paid, &--delivered { color: #047857; }
+        &--paid, &--delivered, &--shipped, &--fulfilled { color: #047857; }
         &--pending { color: #b45309; }
-        &--cancelled, &--refunded { color: #b91c1c; }
+        &--cancelled, &--refunded, &--failed { color: #b91c1c; }
+    }
+
+    // Shown while the payment webhook has not landed yet, so a `pending`
+    // status reads as "in progress" rather than "something went wrong".
+    &__status-wait {
+        display: inline-block;
+        margin-left: $spacing-sm;
+        font-size: $font-size-sm;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__download-error {
+        margin: $spacing-sm 0 0;
+        padding: $spacing-sm $spacing-md;
+        border: 1px solid #fecaca;
+        border-radius: var(--site-radius, 6px);
+        background: #fef2f2;
+        color: #b91c1c;
+        font-size: $font-size-sm;
     }
 
     &__items {

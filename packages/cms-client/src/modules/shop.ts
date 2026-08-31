@@ -61,6 +61,7 @@ import type {
     ShopStripeStatusResponse,
     ShopTagListResponse,
 } from '@sitesurge/types';
+import type { QueryOptions, } from '../core/types';
 import { ModuleBase, } from './base';
 
 /**
@@ -226,9 +227,20 @@ export class ShopModule extends ModuleBase {
         get: (id: string,): Promise<ShopOrderResponse> =>
             this.get<ShopOrderResponse>('/shop/orders/:id', { params: { id, }, },),
 
-        /** GET /shop/orders/number/:orderNumber — confirmation-page detail. */
-        getByNumber: (orderNumber: string,): Promise<ShopOrderByNumberResponse> =>
-            this.get<ShopOrderByNumberResponse>('/shop/orders/number/:orderNumber', { params: { orderNumber, }, },),
+        /**
+         * GET /shop/orders/number/:orderNumber — confirmation-page detail.
+         *
+         * `options` is exposed so a caller polling for a payment to settle can
+         * pass `{ cache: false }`; without it every poll would be served from
+         * the SWR cache and the status would never appear to change.
+         */
+        getByNumber: (
+            orderNumber: string,
+            options?: QueryOptions,
+        ): Promise<ShopOrderByNumberResponse> =>
+            this.get<ShopOrderByNumberResponse>('/shop/orders/number/:orderNumber', {
+                params: { orderNumber, }, options,
+            },),
 
         /** PATCH /shop/orders/:id (admin) — status/fulfillment/tracking/notes/refund. */
         update: (id: string, body: ShopOrderUpdateBody,): Promise<ShopOrderUpdateResponse> =>
@@ -248,6 +260,18 @@ export class ShopModule extends ModuleBase {
             this.get<{ url: string; }>('/shop/orders/:orderNumber/download/:token', {
                 params: { orderNumber, token, },
             },),
+
+        /**
+         * Absolute URL of the order's receipt PDF.
+         *
+         * A URL rather than a fetch on purpose: the endpoint replies with
+         * `Content-Disposition: attachment`, so letting the browser navigate to
+         * it gives a normal "save file" with the right filename. Fetching the
+         * bytes here would mean hand-rolling an object URL and re-deriving the
+         * filename on the client.
+         */
+        receiptUrl: (orderNumber: string,): string =>
+            `${this.core.config.apiBase}/shop/orders/${encodeURIComponent(orderNumber,)}/receipt`,
     };
 
     /** Settings — the shop config + appearance (two site_settings rows).

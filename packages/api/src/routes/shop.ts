@@ -649,6 +649,25 @@ export const shopRoutes = [
         },
     },),
 
+    // Receipt PDF. Reachable by order number like the confirmation page it is
+    // linked from — the receipt exposes nothing the page does not already show.
+    defineRoute({
+        method: 'get', path: '/orders/:orderNumber/receipt', auth: 'optional', raw: true,
+        summary: 'Download an order receipt as a PDF (by order number, like the confirmation view).',
+        input: { params: orderNumberParams, },
+        handler: async ({ params, user, apiKey, res, },) => {
+            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            const order = await orders.getByNumber(params.orderNumber, isAdmin,);
+            if (!order) throw new NotFoundError('Order',);
+
+            const { pdf, filename, } = await orders.buildReceipt(order,);
+            res.setHeader('Content-Type', 'application/pdf',);
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`,);
+            res.setHeader('Content-Length', String(pdf.length,),);
+            res.send(pdf,);
+        },
+    },),
+
     // Token-gated digital download → resolved file URL (JSON).
     defineRoute({
         method: 'get', path: '/orders/:orderNumber/download/:token', auth: 'public',

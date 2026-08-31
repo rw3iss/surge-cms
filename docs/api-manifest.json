@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-21T19:06:30.096Z",
+  "generatedAt": "2026-08-31T19:46:57.516Z",
   "totalModules": 36,
-  "totalRoutes": 327,
+  "totalRoutes": 328,
   "modules": [
     {
       "module": "admin-channel",
@@ -2167,6 +2167,13 @@
           "absolutePath": "/api/v1/shop/orders/number/:orderNumber",
           "auth": "optional",
           "summary": "Fetch an order by its human order number (public confirmation view; limited fields for anonymous callers)."
+        },
+        {
+          "method": "GET",
+          "path": "/orders/:orderNumber/receipt",
+          "absolutePath": "/api/v1/shop/orders/:orderNumber/receipt",
+          "auth": "optional",
+          "summary": "Download an order receipt as a PDF (by order number, like the confirmation view)."
         },
         {
           "method": "GET",

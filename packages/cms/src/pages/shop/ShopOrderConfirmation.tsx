@@ -1,25 +1,59 @@
 import { A, useParams, } from '@solidjs/router';
 import type { ShopOrderDetail, } from '@sitesurge/types';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import ShopStoreGuard from './ShopStoreGuard';
 import { money, shipBreakdown, } from './shopFormat';
 import './shop.scss';
 
+/**
+ * Statuses that need no further waiting. Anything else (notably `pending`) is
+ * a payment the webhook has not confirmed yet, so the page keeps checking.
+ */
+const SETTLED_STATUSES = new Set(['paid', 'delivered', 'shipped', 'fulfilled', 'refunded', 'cancelled', 'failed',],);
+
+/** How often to re-check an unsettled order, and for how long before giving up. */
+const POLL_MS = 4000;
+const POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
 const ShopOrderConfirmationInner: Component = () => {
     const params = useParams<{ number: string, }>();
+    const [downloadError, setDownloadError,] = createSignal('',);
 
-    const [order] = createResource(
+    const [order, { refetch, },] = createResource(
         () => params.number,
         async (num,) => {
             try {
-                return await cms.shop.orders.getByNumber(num,) as ShopOrderDetail;
+                // `cache: false`: the SWR cache would otherwise serve the same
+                // stale `pending` order to every poll.
+                return await cms.shop.orders.getByNumber(num, { cache: false, },) as ShopOrderDetail;
             } catch {
                 return null;
             }
         },
     );
+
+    /**
+     * Stripe confirms the payment out of band, so an order that was just paid
+     * can still read `pending` when this page first loads — which looked to the
+     * buyer like the payment had not gone through until they refreshed.
+     *
+     * Poll until the status settles, then stop. The timeout matters: without it
+     * an order that genuinely stays pending (a failed webhook, an abandoned
+     * bank redirect) would poll this endpoint forever in an open tab.
+     */
+    createEffect(() => {
+        const o = order();
+        if (!o || SETTLED_STATUSES.has(o.status,)) return;
+
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+            if (Date.now() - startedAt > POLL_TIMEOUT_MS) { clearInterval(timer,); return; }
+            void refetch();  // fetcher passes cache:false, so this hits the network
+        }, POLL_MS,);
+        onCleanup(() => clearInterval(timer,),);
+    },);
 
     const [shopCfg] = createResource(async () => {
         try { return await cms.shop.settings.getPublic(); } catch { return null; }
@@ -29,12 +63,21 @@ const ShopOrderConfirmationInner: Component = () => {
         return shipBreakdown(o.shippingCents, units, shopCfg()?.settings?.shipping,);
     };
 
+    /**
+     * Resolve a digital item's download.
+     *
+     * The failure path is shown rather than swallowed: when a product is
+     * flagged digital but has no file attached the endpoint 404s, and the old
+     * empty `catch` made the button look simply broken.
+     */
     const download = async (token: string,) => {
+        setDownloadError('',);
         try {
             const { url, } = await cms.shop.orders.downloadUrl(params.number, token,);
-            if (url) window.open(url, '_blank', 'noopener',);
+            if (url) { window.open(url, '_blank', 'noopener',); return; }
+            setDownloadError('That download is not available yet. Please contact us and we\'ll send your file.',);
         } catch {
-            /* ignore */
+            setDownloadError('That download is not available yet. Please contact us and we\'ll send your file.',);
         }
     };
 
@@ -55,10 +98,28 @@ const ShopOrderConfirmationInner: Component = () => {
                         <>
                             <header class="page-header shop-store__header">
                                 <h1>Thank you!</h1>
-                                <p>
-                                    Order <strong>{o().orderNumber}</strong> — status{' '}
-                                    <span class={`shop-order__status shop-order__status--${o().status}`}>{o().status}</span>
-                                </p>
+                                {/* Order + status on the left, receipt on the right of the SAME row. */}
+                                <div class="shop-order__headline">
+                                    <p class="shop-order__headline-meta">
+                                        Order <strong>{o().orderNumber}</strong> — status{' '}
+                                        <span class={`shop-order__status shop-order__status--${o().status}`}>
+                                            {o().status}
+                                        </span>
+                                        <Show when={!SETTLED_STATUSES.has(o().status,)}>
+                                            <span class="shop-order__status-wait">
+                                                Confirming your payment…
+                                            </span>
+                                        </Show>
+                                    </p>
+                                    <a
+                                        class="btn btn--secondary shop-order__receipt"
+                                        href={cms.shop.orders.receiptUrl(o().orderNumber,)}
+                                        target="_blank"
+                                        rel="noopener"
+                                    >
+                                        Download receipt
+                                    </a>
+                                </div>
                                 <Show when={o().trackingNumber}>
                                     <p class="shop-order__tracking">
                                         Tracking: {o().carrier ? `${o().carrier} · ` : ''}
@@ -70,6 +131,10 @@ const ShopOrderConfirmationInner: Component = () => {
                                     </p>
                                 </Show>
                             </header>
+
+                            <Show when={downloadError()}>
+                                <p class="shop-order__download-error">{downloadError()}</p>
+                            </Show>
 
                             <div class="shop-order__items">
                                 <For each={o().items}>
