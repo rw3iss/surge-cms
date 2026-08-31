@@ -45,23 +45,18 @@ const MUTED = 'color:#6b7280;';
 const CELL = 'padding:8px 12px;border-bottom:1px solid #e5e7eb;';
 const CELL_R = 'padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;';
 
-/** HTML line-items table. Each row: title (+ variant) × qty, muted SKU, an
- *  optional token-gated download link for digital items, right-aligned line
- *  subtotal. */
+/** HTML line-items table. Each row: title (+ variant) × qty, muted SKU,
+ *  right-aligned line subtotal. */
 export function renderItemsTable(order: OrderDetail,): string {
     const currency = order.currency || 'usd';
-    const base = config.frontendUrl ?? '';
 
     const rows = order.items.map((item,) => {
         const name = `${item.title}${item.variantTitle ? ` — ${item.variantTitle}` : ''}`;
         const sku = item.sku
             ? `<br/><span style="${MUTED}font-size:12px;">SKU: ${item.sku}</span>`
             : '';
-        const download = item.isDigital && item.downloadToken
-            ? `<br/><a href="${base}/shop/orders/${order.orderNumber}/download/${item.downloadToken}" style="color:#e63946;">Download</a>`
-            : '';
         return `<tr>
-            <td style="${CELL}">${name} × ${item.quantity}${sku}${download}</td>
+            <td style="${CELL}">${name} × ${item.quantity}${sku}</td>
             <td style="${CELL_R}">${formatMoney(item.subtotalCents, currency,)}</td>
         </tr>`;
     },).join('',);
@@ -157,6 +152,39 @@ function renderAddresses(order: OrderDetail,): string {
     return `<div style="display:block;margin-top:8px;">${shipping}${billing}</div>`;
 }
 
+/**
+ * Absolute URL of the order's receipt PDF.
+ *
+ * Points at the API route, not an app route: the endpoint replies with
+ * `Content-Disposition: attachment`, so the link downloads a real file straight
+ * from the email. (The token-gated digital-download endpoint is NOT usable
+ * here — it returns JSON for the storefront to act on, so a buyer clicking it
+ * from an inbox would just see raw JSON.)
+ */
+export function receiptLink(order: OrderDetail, frontendUrl: string,): string {
+    const base = (frontendUrl || config.frontendUrl || '').replace(/\/+$/, '',);
+    return `${base}/api/v1/shop/orders/${encodeURIComponent(order.orderNumber,)}/receipt`;
+}
+
+/** A prominent "download your receipt" call to action. */
+export function renderReceiptButton(order: OrderDetail, frontendUrl: string,): string {
+    // Inline styles only, and a table-free anchor: email clients drop
+    // stylesheets, and a padded inline-block is the most widely supported
+    // button that still degrades to a plain link where it isn't.
+    const style = [
+        'display:inline-block',
+        'padding:10px 18px',
+        'background:#e63946',
+        'color:#ffffff',
+        'text-decoration:none',
+        'border-radius:6px',
+        'font-weight:600',
+    ].join(';',);
+    return `<p style="margin:20px 0;">`
+        + `<a href="${receiptLink(order, frontendUrl,)}" style="${style};">`
+        + `Download receipt (PDF)</a></p>`;
+}
+
 // ─── Templates ─────────────────────────────────────────────────────
 
 export interface BuiltEmail {
@@ -171,6 +199,7 @@ export function buildBuyerConfirmation(order: OrderDetail, ctx: OrderEmailContex
         ${renderItemsTable(order,)}
         ${renderTotals(order,)}
         ${renderAddresses(order,)}
+        ${renderReceiptButton(order, ctx.frontendUrl,)}
     `;
     return {
         subject: `Thank you for your order ${order.orderNumber}`,

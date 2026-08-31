@@ -13,7 +13,9 @@ const getPublicSettingsMock = vi.fn();
 vi.mock('../settings', () => ({ getPublicSettings: (...a: unknown[]) => getPublicSettingsMock(...a), }),);
 
 import {
+    buildBuyerConfirmation,
     buildStatusUpdate,
+    receiptLink,
     renderAddress,
     renderItemsTable,
     sendOrderPlacedEmails,
@@ -58,7 +60,7 @@ function order(overrides: Partial<OrderDetail> = {}): OrderDetail {
 }
 
 describe('orderEmails — formatting utilities', () => {
-    it('renderItemsTable includes variant title, qty, and a digital download link', () => {
+    it('renderItemsTable includes variant title and qty', () => {
         const o = order({
             items: [
                 {
@@ -71,7 +73,33 @@ describe('orderEmails — formatting utilities', () => {
         const html = renderItemsTable(o,);
         expect(html,).toContain('E-Book — PDF',);
         expect(html,).toContain('× 3',);
-        expect(html,).toContain('/shop/orders/SS-1001/download/tok123',);
+        // The per-item token link is gone: it pointed at an endpoint that
+        // returns JSON, so clicking it from an inbox showed raw JSON, and it
+        // rendered even for a "digital" product with no file attached.
+        expect(html,).not.toContain('/download/tok123',);
+    },);
+
+    it('receiptLink points at the API receipt route, not an app route', () => {
+        const url = receiptLink(order(), 'https://shop.example.com',);
+        expect(url,).toBe('https://shop.example.com/api/v1/shop/orders/SS-1001/receipt',);
+    },);
+
+    it('receiptLink tolerates a trailing slash on the site URL', () => {
+        expect(receiptLink(order(), 'https://shop.example.com/',),)
+            .toBe('https://shop.example.com/api/v1/shop/orders/SS-1001/receipt',);
+    },);
+
+    it('receiptLink escapes an order number so the URL cannot be broken', () => {
+        const url = receiptLink(order({ orderNumber: 'SS 10/01', } as Partial<OrderDetail>,), 'https://x.com',);
+        expect(url,).toBe('https://x.com/api/v1/shop/orders/SS%2010%2F01/receipt',);
+    },);
+
+    it('the buyer confirmation carries the receipt download button', () => {
+        const { html, } = buildBuyerConfirmation(order(), {
+            businessName: 'Surge Media', frontendUrl: 'https://shop.example.com', currency: 'usd',
+        },);
+        expect(html,).toContain('Download receipt (PDF)',);
+        expect(html,).toContain('/api/v1/shop/orders/SS-1001/receipt',);
     },);
 
     it('renderItemsTable shows SKU for physical items when present', () => {
