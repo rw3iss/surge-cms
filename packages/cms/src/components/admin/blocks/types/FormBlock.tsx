@@ -33,7 +33,7 @@ const FormBlock: Component<FormBlockProps> = (props,) => {
                 <div class="form-group">
                     <EntitySearchSelect
                         label="Form"
-                        placeholder="Search forms by name..."
+                        placeholder="No form assigned yet — search forms by name..."
                         selectedTitle={props.data.title}
                         selectedId={props.data.formId}
                         fetchItems={async () => {
@@ -47,6 +47,12 @@ const FormBlock: Component<FormBlockProps> = (props,) => {
                                 title: form.title,
                                 slug: form.slug,
                             },);
+                        }}
+                        onClear={() => {
+                            // Drop the cached title/slug too — leaving them would
+                            // make the panel claim a form that is no longer bound.
+                            const { formId: _id, title: _t, slug: _s, ...rest } = props.data;
+                            props.onUpdate(rest,);
                         }}
                         emptyMessage="No forms found"
                     />

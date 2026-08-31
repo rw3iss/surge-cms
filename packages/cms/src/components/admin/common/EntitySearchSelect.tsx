@@ -22,6 +22,15 @@ export interface EntitySearchSelectProps {
     fetchItems: () => Promise<EntitySearchItem[]>;
     /** Called when an item is selected */
     onSelect: (item: EntitySearchItem,) => void;
+    /**
+     * Clear the current selection.
+     *
+     * Passing this switches the control to a two-state UI: once something is
+     * selected it shows a read-only chip with an ✕ instead of a text box. A
+     * caller that omits it keeps the plain search input, so existing call sites
+     * are unaffected.
+     */
+    onClear?: () => void;
     /** Optional message when no items match the search */
     emptyMessage?: string;
 }
@@ -77,11 +86,46 @@ const EntitySearchSelect: Component<EntitySearchSelectProps> = (props,) => {
         }
     };
 
+    /**
+     * What to call the current selection.
+     *
+     * Falls back to looking the id up in the fetched list: a block created
+     * through the API or MCP stores only the id, so `selectedTitle` is often
+     * absent and the panel would otherwise show an empty box that gave no hint
+     * anything was assigned.
+     */
+    const selectedItem = () => items().find((i,) => i.id === props.selectedId);
+    const selectedLabel = () =>
+        props.selectedTitle || selectedItem()?.title || props.selectedId || '';
+
+    /** Chip mode only when the caller opted in by supplying `onClear`. */
+    const showChip = () => Boolean(props.selectedId) && Boolean(props.onClear);
+
     return (
         <div class="entity-search" ref={containerRef} style={{ position: 'relative', }}>
             <Show when={props.label}>
                 <label>{props.label}</label>
             </Show>
+
+            <Show when={showChip()}>
+                <div class="entity-search__selected">
+                    <span class="entity-search__selected-title">{selectedLabel()}</span>
+                    <Show when={selectedItem()?.slug}>
+                        <span class="entity-search__selected-slug">/{selectedItem()!.slug}</span>
+                    </Show>
+                    <button
+                        type="button"
+                        class="entity-search__clear"
+                        aria-label={`Remove ${selectedLabel()}`}
+                        title="Remove"
+                        onClick={() => { setSearch('',); props.onClear?.(); }}
+                    >
+                        &times;
+                    </button>
+                </div>
+            </Show>
+
+            <Show when={!showChip()}>
             <input
                 ref={inputRef}
                 type="text"
@@ -95,7 +139,8 @@ const EntitySearchSelect: Component<EntitySearchSelectProps> = (props,) => {
                 placeholder={props.placeholder || 'Search...'}
                 autocomplete="off"
             />
-            <Show when={showDropdown()}>
+            </Show>
+            <Show when={showDropdown() && !showChip()}>
                 {/* Render via Portal so the dropdown escapes any containing-
                     block created by an ancestor's transform / will-change /
                     contain. Without this the popover gets clipped inside

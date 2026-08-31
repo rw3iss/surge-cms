@@ -712,16 +712,6 @@
         color: var(--site-text-muted, #6b7280);
     }
 
-    &__download-error {
-        margin: $spacing-sm 0 0;
-        padding: $spacing-sm $spacing-md;
-        border: 1px solid #fecaca;
-        border-radius: var(--site-radius, 6px);
-        background: #fef2f2;
-        color: #b91c1c;
-        font-size: $font-size-sm;
-    }
-
     &__items {
         margin: $spacing-lg 0;
     }

@@ -59,3 +59,54 @@
     text-align: center;
   }
 }
+
+// ─── Selected chip ───
+// Shown instead of the search box once something is bound, so the panel states
+// WHAT is assigned rather than presenting an empty input that reads as "none".
+.entity-search {
+  &__selected {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-sm $spacing-sm $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: $background-dark;
+    min-height: 38px;
+  }
+
+  &__selected-title {
+    font-weight: 600;
+    color: var(--admin-text, #{$text-color});
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__selected-slug {
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: $font-size-sm;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__clear {
+    margin-left: auto;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: $border-radius-sm;
+    background: none;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background: $border-color; color: $error-color; }
+  }
+}

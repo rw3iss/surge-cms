@@ -1,6 +1,6 @@
 import { A, useParams, } from '@solidjs/router';
 import type { ShopOrderDetail, } from '@sitesurge/types';
-import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createResource, For, onCleanup, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import ShopStoreGuard from './ShopStoreGuard';
@@ -19,7 +19,6 @@ const POLL_TIMEOUT_MS = 2 * 60 * 1000;
 
 const ShopOrderConfirmationInner: Component = () => {
     const params = useParams<{ number: string, }>();
-    const [downloadError, setDownloadError,] = createSignal('',);
 
     const [order, { refetch, },] = createResource(
         () => params.number,
@@ -61,24 +60,6 @@ const ShopOrderConfirmationInner: Component = () => {
     const shipBd = (o: ShopOrderDetail,) => {
         const units = o.items.filter((i,) => !i.isDigital).reduce((s, i,) => s + i.quantity, 0,);
         return shipBreakdown(o.shippingCents, units, shopCfg()?.settings?.shipping,);
-    };
-
-    /**
-     * Resolve a digital item's download.
-     *
-     * The failure path is shown rather than swallowed: when a product is
-     * flagged digital but has no file attached the endpoint 404s, and the old
-     * empty `catch` made the button look simply broken.
-     */
-    const download = async (token: string,) => {
-        setDownloadError('',);
-        try {
-            const { url, } = await cms.shop.orders.downloadUrl(params.number, token,);
-            if (url) { window.open(url, '_blank', 'noopener',); return; }
-            setDownloadError('That download is not available yet. Please contact us and we\'ll send your file.',);
-        } catch {
-            setDownloadError('That download is not available yet. Please contact us and we\'ll send your file.',);
-        }
     };
 
     return (
@@ -132,10 +113,6 @@ const ShopOrderConfirmationInner: Component = () => {
                                 </Show>
                             </header>
 
-                            <Show when={downloadError()}>
-                                <p class="shop-order__download-error">{downloadError()}</p>
-                            </Show>
-
                             <div class="shop-order__items">
                                 <For each={o().items}>
                                     {(item,) => (
@@ -146,15 +123,6 @@ const ShopOrderConfirmationInner: Component = () => {
                                                     <span class="shop-order__item-variant">{item.variantTitle}</span>
                                                 </Show>
                                                 <span class="shop-order__item-qty">Qty: {item.quantity}</span>
-                                                <Show when={item.isDigital && item.downloadToken && (o().status === 'paid' || o().status === 'delivered')}>
-                                                    <button
-                                                        type="button"
-                                                        class="shop-order__download"
-                                                        onClick={() => download(item.downloadToken!,)}
-                                                    >
-                                                        Download
-                                                    </button>
-                                                </Show>
                                             </div>
                                             <span class="shop-order__item-price">{money(item.subtotalCents, o().currency,)}</span>
                                         </div>
