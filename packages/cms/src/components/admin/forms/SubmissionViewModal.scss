@@ -1,0 +1,115 @@
+// No @use here: a component stylesheet imported from a .tsx is a Vite ENTRY,
+// and the build's `additionalData` prelude already supplies sass:color and the
+// variables. Re-declaring them is a duplicate-namespace build error.
+// Read view of one form submission. Mirrors the form's own layout — label
+// above answer — so an admin reads it the way the submitter filled it in.
+.submission-view {
+  &__head {
+    padding-bottom: $spacing-md;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+    margin-bottom: $spacing-md;
+
+    h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+  }
+
+  &__index {
+    color: var(--admin-text-muted, #{$text-light});
+    font-weight: 500;
+  }
+
+  &__meta {
+    margin: 4px 0 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__body {
+    // Long submissions scroll inside the panel rather than pushing the
+    // footer's Delete button off-screen.
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  &__field {
+    padding: $spacing-md 0;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+    &:last-child { border-bottom: none; }
+  }
+
+  // The one canonical admin field label (see forms.scss): uppercase, bold,
+  // small, letter-spaced, muted.
+  &__label {
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--admin-text-muted, #{$text-light});
+    margin-bottom: 4px;
+  }
+
+  &__hint {
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+    margin-bottom: 4px;
+  }
+
+  &__value {
+    font-size: 0.95rem;
+    color: var(--admin-text, #{$text-color});
+    // A pasted URL or a long unbroken string must not widen the modal.
+    overflow-wrap: anywhere;
+
+    a { color: var(--site-primary, #{$primary-color}); }
+
+    &--long {
+      // The submitter's own line breaks are content, not incidental.
+      white-space: pre-wrap;
+      background: var(--admin-bg-subtle, #{$background-dark});
+      border: 1px solid var(--admin-border, #{$border-color});
+      border-radius: $border-radius-md;
+      padding: $spacing-sm $spacing-md;
+      line-height: 1.55;
+    }
+
+    &--blank {
+      color: var(--admin-text-muted, #{$text-light});
+      font-style: italic;
+    }
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    border: 1px solid var(--admin-border, #{$border-color});
+    font-size: $font-size-sm;
+  }
+
+  &__empty {
+    color: var(--admin-text-muted, #{$text-light});
+    font-style: italic;
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding-top: $spacing-md;
+    margin-top: $spacing-md;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+  }
+
+  &__close {
+    margin-left: auto;
+  }
+}

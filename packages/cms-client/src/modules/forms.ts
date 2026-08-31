@@ -8,6 +8,7 @@ import type {
     FormSubmissionDeleteResponse, FormSubmissionsBulkDeleteResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
+import type { QueryOptions, } from '../core/types';
 import { ModuleBase, } from './base';
 
 /** /forms namespace — public list/submit + admin CRUD, questions, CSV export. */
@@ -45,8 +46,21 @@ export class FormsModule extends ModuleBase {
     }
 
     /** GET /forms/:id/submissions (admin) — submission rows, paginated. */
-    listSubmissions(id: string, query?: FormSubmissionsQuery,): Promise<Paginated<FormSubmissionsResponse[number]>> {
-        return this.getPaged<FormSubmissionsResponse[number]>('/forms/:id/submissions', { params: { id, }, query: query as Record<string, unknown>, },);
+    /**
+     * GET /forms/:id/submissions (staff).
+     *
+     * `options` lets an inbox-style caller pass `{ cache: false }`: submissions
+     * arrive from the public site at any moment, so a cached page can show an
+     * admin a list that is missing entries the server already has.
+     */
+    listSubmissions(
+        id: string,
+        query?: FormSubmissionsQuery,
+        options?: QueryOptions,
+    ): Promise<Paginated<FormSubmissionsResponse[number]>> {
+        return this.getPaged<FormSubmissionsResponse[number]>('/forms/:id/submissions', {
+            params: { id, }, query: query as Record<string, unknown>, options,
+        },);
     }
 
     /** DELETE /forms/:id/submissions/:submissionId (staff) — delete one. */

@@ -4,6 +4,8 @@ import { Component, createMemo, createResource, createSignal, For, Show, } from 
 import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
+import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
+import SubmissionViewModal from '../../components/admin/forms/SubmissionViewModal';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
  *  (were four identical inline objects). */
@@ -33,7 +35,10 @@ const FormSubmissions: Component = () => {
     // summary aggregation and the client-paginated table below.
     const [submissions, { refetch: refetchSubs, },] = createResource(() => params.id, async (id,) => {
         try {
-            const res = await cms.forms.listSubmissions(id, { limit: 500, } as any,);
+            // `cache: false`: submissions arrive from the public site at any
+            // time, so a cached read shows an admin an inbox that is already
+            // out of date — and a stale empty list after a delete.
+            const res = await cms.forms.listSubmissions(id, { limit: 500, } as any, { cache: false, },);
             return res.data;
         } catch {
             return [];
@@ -50,6 +55,8 @@ const FormSubmissions: Component = () => {
     const [selected, setSelected,] = createSignal<Set<string>>(new Set(),);
     const [pending, setPending,] = createSignal<{ type: 'single'; id: string; } | { type: 'bulk'; } | null>(null,);
     const [deleting, setDeleting,] = createSignal(false,);
+    /** The submission open in the read view, with its 1-based list position. */
+    const [viewing, setViewing,] = createSignal<{ sub: any; index: number; } | null>(null,);
 
     const allSubs = createMemo(() => (submissions() || []) as any[],);
     const totalPages = createMemo(() => Math.max(1, Math.ceil(allSubs().length / PAGE_SIZE,),),);
@@ -70,6 +77,9 @@ const FormSubmissions: Component = () => {
                 await cms.forms.deleteSubmission(params.id, pd.id,);
                 setSelected((prev,) => { const n = new Set(prev,); n.delete(pd.id,); return n; },);
                 toast.success('Submission deleted.',);
+                // The record is gone; leaving its read view open would show a
+                // submission that no longer exists.
+                if (viewing()?.sub?.id === pd.id) setViewing(null,);
             } else {
                 const ids = [...selected(),];
                 const res = await cms.forms.bulkDeleteSubmissions(params.id, ids,);
@@ -157,11 +167,15 @@ const FormSubmissions: Component = () => {
                 </div>
             </div>
 
-            {/* Summary statistics */}
+            {/* Summary statistics — collapsed by default: the per-submission
+                table is what an admin comes here for, and the aggregate pushed
+                it below the fold on any form with more than a few questions. */}
             <Show when={stats()}>
-                <div class="admin-form" style={{ 'margin-bottom': '2rem', }}>
-                    <div class="form-section">
-                        <h2>Summary ({(submissions() || []).length} submission{(submissions() || []).length !== 1 ? 's' : ''})</h2>
+                <div style={{ 'margin-bottom': '2rem', }}>
+                    <CollapsiblePanel
+                        title="Summary"
+                        subtitle={`${(submissions() || []).length} submission${(submissions() || []).length !== 1 ? 's' : ''}`}
+                    >
                         <For each={stats()!}>
                             {(q: any,) => (
                                 <div style={{ 'margin-bottom': '1.5rem', }}>
@@ -205,7 +219,7 @@ const FormSubmissions: Component = () => {
                                 </div>
                             )}
                         </For>
-                    </div>
+                    </CollapsiblePanel>
                 </div>
             </Show>
 
@@ -276,6 +290,17 @@ const FormSubmissions: Component = () => {
                                         </For>
                                         <td style={{ 'text-align': 'right', 'white-space': 'nowrap', }}>
                                             <button
+                                                class="ui-button ui-button--secondary ui-button--sm"
+                                                title="View submission"
+                                                style={{ 'margin-right': '6px', }}
+                                                onClick={() => setViewing({
+                                                    sub,
+                                                    index: (page() - 1) * PAGE_SIZE + idx() + 1,
+                                                },)}
+                                            >
+                                                View
+                                            </button>
+                                            <button
                                                 class="ui-button ui-button--danger ui-button--sm"
                                                 title="Delete submission"
                                                 onClick={() => setPending({ type: 'single', id: sub.id, },)}
@@ -299,6 +324,15 @@ const FormSubmissions: Component = () => {
                     </div>
                 </Show>
             </Show>
+
+            <SubmissionViewModal
+                open={viewing() !== null}
+                form={form() as any}
+                submission={viewing()?.sub ?? null}
+                index={viewing()?.index}
+                onClose={() => setViewing(null,)}
+                onDelete={(id,) => setPending({ type: 'single', id, },)}
+            />
 
             <ConfirmModal
                 open={pending() !== null}
