@@ -32,6 +32,7 @@ rsync -az --delete \
   --exclude '**/dist' \
   --exclude '.env' --exclude '**/.env' --exclude '**/.env.local' \
   --exclude 'packages/api/uploads' --exclude 'packages/api/data' \
+  --exclude '.playwright-mcp' \
   --exclude '.pageloop' --exclude '.agents' --exclude '.continue' \
   --exclude 'skills' --exclude 'skills-lock.json' --exclude 'pageloop.json' \
   -e ssh ./ "$SERVER:$REMOTE/"
