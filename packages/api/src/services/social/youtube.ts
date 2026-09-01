@@ -74,6 +74,51 @@ export function classifyVideo(video: {
     return 'video';
 }
 
+/** A real channel id: `UC` + 22 chars. Anything else is a handle or username. */
+export function isChannelId(value: string,): boolean {
+    return /^UC[\w-]{22}$/.test(value.trim(),);
+}
+
+/**
+ * Turn what an operator actually pastes into a channel id.
+ *
+ * People copy the handle from the channel page (`frank.scales`, `@frank.scales`,
+ * or the full `youtube.com/@frank.scales` URL) because that is what YouTube
+ * shows them — the `UC…` id is not visible anywhere in the normal UI. Feeding a
+ * handle to `search.list?channelId=` silently returns nothing, so resolve it
+ * first.
+ *
+ * Returns null when the handle doesn't exist, so the caller can say so instead
+ * of syncing an empty channel forever.
+ */
+export async function resolveChannelId(
+    raw: string,
+    apiKey: string,
+): Promise<string | null> {
+    const value = raw.trim().replace(/^https?:\/\/(www\.)?youtube\.com\//i, '',).replace(/\/.*$/, '',);
+    if (!value) return null;
+    if (isChannelId(value,)) return value;
+
+    const handle = value.startsWith('@',) ? value : `@${value}`;
+    try {
+        // forHandle is the modern lookup; forUsername still resolves the old
+        // /user/<name> vanity URLs that predate handles.
+        for (const param of [`forHandle=${encodeURIComponent(handle,)}`,
+            `forUsername=${encodeURIComponent(value.replace(/^@/, '',),)}`,]) {
+            const res = await fetch(`${API}/channels?part=id&${param}&key=${apiKey}`,);
+            if (!res.ok) continue;
+            const data = await res.json() as { items?: Array<{ id?: string; }>; };
+            const id = data.items?.[0]?.id;
+            if (id) return id;
+        }
+    } catch (e) {
+        logger.warn('youtube: channel handle lookup failed', { error: (e as Error).message, },);
+        return null;
+    }
+    logger.warn('youtube: no channel found for handle', { handle, },);
+    return null;
+}
+
 /**
  * Credentials for the YouTube connection: the saved row wins, env is fallback.
  * Returns null when neither supplies both parts.
@@ -90,8 +135,13 @@ export async function resolveCredentials(): Promise<YouTubeCredentials | null> {
     }
 
     const apiKey = String(saved.apiKey || config.social.youtube.apiKey || '',).trim();
-    const channelId = String(saved.channelId || config.social.youtube.channelId || '',).trim();
-    if (!apiKey || !channelId) return null;
+    const configured = String(saved.channelId || config.social.youtube.channelId || '',).trim();
+    if (!apiKey || !configured) return null;
+
+    // Accept a handle here rather than forcing the operator to hunt for the
+    // UC id: resolve once per fetch and let the caller work in ids.
+    const channelId = await resolveChannelId(configured, apiKey,);
+    if (!channelId) return null;
     return { apiKey, channelId, };
 }
 

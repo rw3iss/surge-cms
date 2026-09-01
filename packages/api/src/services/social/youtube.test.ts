@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 
 vi.mock('../../db', () => ({ query: vi.fn().mockResolvedValue({ rows: [], },), }),);
 
-const { classifyVideo, parseIsoDuration, } = await import('./youtube');
+const { classifyVideo, isChannelId, parseIsoDuration, } = await import('./youtube');
 
 /**
  * Classification is the whole point of the second API call — if it is wrong,
@@ -75,4 +75,22 @@ describe('classifyVideo', () => {
     it('does not call a zero-length video a short', () => {
         expect(classifyVideo({ contentDetails: { duration: 'PT0S', }, },),).toBe('video',);
     });
+},);
+
+describe('isChannelId', () => {
+    it('accepts a real channel id', () => {
+        expect(isChannelId('UC1s0XOR5JHrnlfThwG3lVJA',),).toBe(true,);
+    },);
+
+    it('rejects the handle people actually paste', () => {
+        // This is the whole point: a handle fed to search.list?channelId=
+        // returns nothing at all, with no error.
+        expect(isChannelId('frank.scales',),).toBe(false,);
+        expect(isChannelId('@frank.scales',),).toBe(false,);
+    },);
+
+    it('rejects a UC-prefixed string of the wrong length', () => {
+        expect(isChannelId('UCtoolshort',),).toBe(false,);
+        expect(isChannelId('UC1s0XOR5JHrnlfThwG3lVJAextra',),).toBe(false,);
+    },);
 },);
