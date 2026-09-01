@@ -212,12 +212,18 @@
         }
       }
 
-      // When a row height is set, make cards fill their slot via flex column.
-      // height: 100% works here because the parent slot has a definite height
-      // (var(--social-row-height)). When --social-row-height is unset, the
-      // parent height is auto, so height: 100% resolves to auto too — no harm.
+      // Card height in a row.
+      //
+      // This rule targets the same element as the `> *` rule above but is MORE
+      // SPECIFIC (.social-block__grid--row .social-embed beats
+      // .social-block__grid--row > *), so a bare `height: 100%` here silently
+      // overrode --social-item-height and left every card at auto — which is
+      // why "Item height" appeared to do nothing in the row layout.
+      //
+      // Resolving the vars here instead keeps the old behaviour (100% when
+      // neither is set) while letting an explicit item height win.
       .social-embed {
-        height: 100%;
+        height: var(--social-item-height, var(--social-row-height, 100%));
         display: flex;
         flex-direction: column;
         // Kill the base card's auto margins — in a flex row they'd absorb the

@@ -191,7 +191,24 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         />
                     </FormField>
 
+                    {/* Pinning is opt-in. Showing 20 empty pickers for a block
+                        that is going to auto-fill anyway buried every other
+                        setting; the toggle keeps the default case to one line. */}
+                    <div class="form-group">
+                        <Toggle
+                            label="Specific posts"
+                            checked={Boolean(props.data.usePinned,)}
+                            onChange={(v,) => update({ usePinned: v || undefined, },)}
+                            ariaLabel="Choose specific posts"
+                        />
+                        <p class="form-help-muted">
+                            Off: automatically shows the latest posts. On: shows only the
+                            posts you pick below.
+                        </p>
+                    </div>
+
                     {/* Per-slot pickers */}
+                    <Show when={props.data.usePinned}>
                     <div class="form-group">
                         <label>Posts</label>
                         <div class="social-slot-list">
@@ -209,6 +226,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                             </Index>
                         </div>
                     </div>
+                    </Show>
 
                     {/* Show comments — preserved from old SocialMedia editor */}
                     <div class="form-group">

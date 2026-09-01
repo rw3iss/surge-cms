@@ -777,18 +777,38 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const rowPadding = () => (settings().rowPadding as string) || undefined;
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
-    // Auto-feed only fires when no slots are pinned. If the operator
-    // hand-picked posts, render those exclusively (no API fetch).
-    const useAutoFeed = () => filledItems().length === 0;
+    /** Content kind (YouTube: short | live | video); undefined = any. */
+    const kind = () => (settings().kind as string) || undefined;
+
+    /**
+     * Pinning is explicit now (`usePinned`), not inferred from whether any slot
+     * happens to be filled. Inferring meant a half-filled slot list silently
+     * switched the block out of auto-feed mode.
+     *
+     * Legacy blocks predate the flag, so filled slots still imply pinning for
+     * them — otherwise an existing hand-curated block would start auto-feeding.
+     */
+    const usePinned = () => (settings().usePinned === undefined
+        ? filledItems().length > 0
+        : Boolean(settings().usePinned,));
+    const useAutoFeed = () => !usePinned();
 
     const [posts,] = createResource(
-        () => useAutoFeed() ? `${provider()}:${limit()}` : '',
+        () => useAutoFeed() ? `${provider()}:${limit()}:${kind() ?? ''}` : '',
         async (key,) => {
             if (!key) return [];
             const p = provider();
             if (!p) return [];
             try {
-                const { data, } = await cms.social.listPosts({ platform: p, limit: limit(), },);
+                // The kind filter has to reach the FEED, not just the admin
+                // picker: a block set to "Shorts" that renders every kind is
+                // not doing what the panel says.
+                const { data, } = await cms.social.platformPosts(p, {
+                    limit: limit(),
+                    sort: 'date',
+                    sortDir: 'desc',
+                    ...(kind() ? { kind: kind(), } : {}),
+                } as any,);
                 return (data ?? []) as SocialPost[];
             } catch {
                 return [];
