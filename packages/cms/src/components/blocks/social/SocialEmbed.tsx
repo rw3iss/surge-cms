@@ -9,6 +9,13 @@ interface SocialEmbedProps {
     content?: string;
     thumbnailUrl?: string;
     authorName?: string;
+    /**
+     * Content kind. A YouTube Short is a 9:16 video; rendering it in the 16:9
+     * box pillarboxes it to a sliver, and YouTube collapses its control set
+     * (fullscreen included) once the player is that small — which is why
+     * auto-pulled Shorts looked and behaved differently from hand-embedded ones.
+     */
+    mediaKind?: 'short' | 'live' | 'video' | null;
 }
 
 const PLATFORM_COLORS: Record<SocialPlatform, string> = {
@@ -59,13 +66,21 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                 <Switch fallback={<PostCard {...props} url={platformUrl()} />}>
                     {/* YouTube: iframe embed works well at 16:9 */}
                     <Match when={props.platform === 'youtube'}>
-                        <div class="social-embed__iframe-wrapper social-embed__iframe-wrapper--16x9">
+                        <div
+                            class={`social-embed__iframe-wrapper social-embed__iframe-wrapper--${
+                                props.mediaKind === 'short' ? '9x16' : '16x9'
+                            }`}
+                        >
                             <iframe
                                 src={`https://www.youtube.com/embed/${props.externalId}`}
                                 width="100%"
-                                style="aspect-ratio:16/9"
+                                style={props.mediaKind === 'short'
+                                    ? 'aspect-ratio:9/16'
+                                    : 'aspect-ratio:16/9'}
                                 frameborder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                // web-share matches what a hand-written embed carries; without
+                                // it the player drops its share affordance.
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowfullscreen
                                 loading="lazy"
                                 title={props.content || 'YouTube video'}

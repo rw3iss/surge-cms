@@ -187,6 +187,8 @@ export interface SocialPost {
     isHidden?: boolean;
     /** Manual ordering within a platform's feed (lower = earlier). */
     sortOrder?: number;
+    /** Content kind for providers that classify (YouTube: short | live | video). */
+    mediaKind?: 'short' | 'live' | 'video' | null;
 }
 
 export interface Media {

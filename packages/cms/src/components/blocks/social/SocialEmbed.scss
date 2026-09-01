@@ -431,3 +431,20 @@
     height: 100%;
   }
 }
+
+// Vertical (9:16) player for a YouTube Short. The 16:9 wrapper pillarboxes a
+// Short to a sliver, and YouTube drops controls — fullscreen included — once
+// the player gets that small, which is why auto-pulled Shorts behaved
+// differently from hand-written embeds.
+.social-embed__iframe-wrapper--9x16 {
+  width: 100%;
+  height: 100%;
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 9 / 16;
+    border: 0;
+    display: block;
+  }
+}

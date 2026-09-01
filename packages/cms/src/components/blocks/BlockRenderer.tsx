@@ -772,6 +772,8 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const rowHeight = () => (settings().rowHeight as string) || undefined;
     const itemWidth = () => (settings().itemWidth as string) || undefined;
     const itemHeight = () => (settings().itemHeight as string) || undefined;
+    /** Gap between items, any CSS length. Falls back to the block style's gap. */
+    const itemGap = () => (settings().itemGap as string) || undefined;
     // Padding INSIDE the horizontal scroll row (row layout only) — set via the
     // block's main Edit properties, independent of the block-style padding.
     const rowPadding = () => (settings().rowPadding as string) || undefined;
@@ -840,7 +842,12 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         ...((layout() === 'row' && rowPadding())
                             ? { padding: rowPadding(), }
                             : (blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {})),
-                        ...(blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {}),
+                        // The block's own Item gap wins over the style panel's gap:
+                        // it is the more specific control and the one next to the
+                        // width/height fields it pairs with.
+                        ...(itemGap()
+                            ? { gap: itemGap(), }
+                            : (blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {})),
                         // rowHeight only constrains card height in the row layout;
                         // the outer block dimensions are left to the block style system.
                         ...(layout() === 'row' && rowHeight() ? { '--social-row-height': rowHeight(), } : {}),
@@ -862,6 +869,9 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                         content={item.content || ''}
                                         thumbnailUrl={item.thumbnailUrl}
                                         authorName={item.authorName}
+                                        // A pinned slot has no stored kind, so fall back to
+                                        // whatever the block is configured to show.
+                                        mediaKind={(item as { mediaKind?: any; }).mediaKind ?? kind() as any}
                                     />
                                 )}
                             </For>
@@ -876,6 +886,7 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                     content={post.content}
                                     thumbnailUrl={post.thumbnailUrl}
                                     authorName={post.authorName}
+                                    mediaKind={(post as { mediaKind?: any; }).mediaKind ?? kind() as any}
                                 />
                             )}
                         </For>

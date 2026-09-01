@@ -182,6 +182,18 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         />
                     </FormField>
 
+                    <FormField
+                        label="Item gap"
+                        hint="Optional. Any CSS length (e.g. 16px, 1.5rem, clamp(8px, 2vw, 24px)). Space between items, in every layout."
+                    >
+                        <input
+                            type="text"
+                            value={props.data.itemGap || ''}
+                            onChange={(e,) => update({ itemGap: e.currentTarget.value || undefined, },)}
+                            placeholder="e.g. 1.5rem"
+                        />
+                    </FormField>
+
                     <FormField label="Item height" hint="Optional. Any CSS height (e.g. 320px). Makes every post the same height.">
                         <input
                             type="text"
