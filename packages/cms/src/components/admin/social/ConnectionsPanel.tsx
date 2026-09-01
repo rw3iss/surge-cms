@@ -84,6 +84,8 @@ const ConnectionsPanel: Component = () => {
     const [accessToken, setAccessToken,] = createSignal('',);
     const [accessSecret, setAccessSecret,] = createSignal('',);
     const [apiKey, setApiKey,] = createSignal('',);
+    /** YouTube channel id — public, so a plain input rather than a SecretField. */
+    const [channelId, setChannelId,] = createSignal('',);
     const [apiSecret, setApiSecret,] = createSignal('',);
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
@@ -153,6 +155,7 @@ const ConnectionsPanel: Component = () => {
             if (accessToken()) credentials.accessToken = accessToken();
             if (accessSecret()) credentials.accessSecret = accessSecret();
             if (apiKey()) credentials.apiKey = apiKey();
+            if (channelId().trim()) credentials.channelId = channelId().trim();
             if (apiSecret()) credentials.apiSecret = apiSecret();
         }
 
@@ -351,7 +354,9 @@ const ConnectionsPanel: Component = () => {
                                                             help={`API access token for ${provider.name}`}
                                                         />
                                                         <SecretField
-                                                            label="API Key (optional)"
+                                                            label={provider.id === 'youtube'
+                                                                ? 'API Key'
+                                                                : 'API Key (optional)'}
                                                             value={apiKey}
                                                             setValue={setApiKey}
                                                             hasSaved={Boolean(conn()?.credentials?.hasApiKey,)}
@@ -359,7 +364,26 @@ const ConnectionsPanel: Component = () => {
                                                             changing={changingApiKey}
                                                             setChanging={setChangingApiKey}
                                                             placeholder="API key if required"
+                                                            help={provider.id === 'youtube'
+                                                                ? 'A YouTube Data API v3 key is enough to read a channel — no OAuth needed.'
+                                                                : undefined}
                                                         />
+                                                        {/* Reading a channel needs the key AND the channel id;
+                                                            without the id there is nothing to sync. */}
+                                                        <Show when={provider.id === 'youtube'}>
+                                                            <FormField
+                                                                label="Channel ID"
+                                                                hint="The channel to sync, e.g. UCxxxxxxxxxxxxxxxxxxxxxx."
+                                                            >
+                                                                <input
+                                                                    type="text"
+                                                                    value={channelId()
+                                                                        || String(conn()?.credentials?.channelId ?? '',)}
+                                                                    onInput={(e,) => setChannelId(e.currentTarget.value,)}
+                                                                    placeholder="UC..."
+                                                                />
+                                                            </FormField>
+                                                        </Show>
                                                     </>
                                                 }
                                             >

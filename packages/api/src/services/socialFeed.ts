@@ -83,8 +83,13 @@ export async function listPlatformPosts(opts: {
     sortDir?: string;
     /** Admin listings pass true to include hidden posts (for curation). */
     includeHidden?: boolean;
+    /** Narrow to one content kind (YouTube: short | live | video). */
+    kind?: string;
 },): Promise<SocialListResult> {
-    const { platform, page, limit, search, sort = 'date', sortDir = 'desc', includeHidden = false, } = opts;
+    const {
+        platform, page, limit, search, sort = 'date', sortDir = 'desc',
+        includeHidden = false, kind,
+    } = opts;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = ['platform = $1',];
@@ -94,6 +99,10 @@ export async function listPlatformPosts(opts: {
     if (search && search.trim()) {
         params.push(`%${search.trim()}%`,);
         conditions.push(`(content ILIKE $${params.length} OR author_name ILIKE $${params.length})`,);
+    }
+    if (kind && kind.trim()) {
+        params.push(kind.trim(),);
+        conditions.push(`media_kind = $${params.length}`,);
     }
     const where = `WHERE ${conditions.join(' AND ',)}`;
 
@@ -108,7 +117,7 @@ export async function listPlatformPosts(opts: {
 
     // Skip cache when search is active or hidden posts are included (both are
     // query-/caller-specific and must not populate the public post cache).
-    const cacheKey = (search || includeHidden)
+    const cacheKey = (search || includeHidden || kind)
         ? null
         : cache.CACHE_KEYS.socialPlatform(platform, page, limit, sort, sortDir,);
     if (cacheKey) {

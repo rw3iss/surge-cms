@@ -121,7 +121,22 @@ function hasUsableCredentials(provider: string, creds: Record<string, unknown>,)
         // X posting needs the full OAuth 1.0a user-context set.
         return Boolean(creds.apiKey && creds.apiSecret && creds.accessToken && creds.accessSecret,);
     }
-    // facebook / tiktok / patreon / youtube: an access token is enough.
+    if (provider === 'youtube') {
+        // Reading a channel's public uploads through the YouTube Data API needs
+        // an API KEY, not OAuth — requiring accessToken here is why saving a
+        // valid key still displayed "Not connected".
+        //
+        // The channel id is required as well, deliberately: a key with no
+        // channel has nothing to sync, and reporting "Connected" for a
+        // configuration that can only ever return zero posts is the more
+        // confusing failure. Env vars count as configured, so an install that
+        // set YOUTUBE_* before this UI existed keeps working.
+        const hasCredential = Boolean(creds.apiKey || creds.accessToken)
+            || Boolean(config.social.youtube.apiKey,);
+        const hasChannel = Boolean(creds.channelId) || Boolean(config.social.youtube.channelId,);
+        return hasCredential && hasChannel;
+    }
+    // facebook / tiktok / patreon: an access token is enough.
     return Boolean(creds.accessToken,);
 }
 

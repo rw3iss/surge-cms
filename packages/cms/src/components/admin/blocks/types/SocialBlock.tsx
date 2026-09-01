@@ -115,6 +115,23 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                     </select>
                 </FormField>
 
+                {/* YouTube classifies its items, so an operator can pin the
+                    block to Shorts / live / full videos. Other providers don't
+                    report a kind, so the control would be a no-op there. */}
+                <Show when={provider() === 'youtube'}>
+                    <FormField label="Content type">
+                        <select
+                            value={(props.data.kind as string) || ''}
+                            onChange={(e,) => update({ kind: e.currentTarget.value || undefined, },)}
+                        >
+                            <option value="">All</option>
+                            <option value="short">Shorts</option>
+                            <option value="video">Full videos</option>
+                            <option value="live">Live / streams</option>
+                        </select>
+                    </FormField>
+                </Show>
+
                 <Show when={provider()}>
                     {/* Count */}
                     <FormField label="Number of posts" hint="Leave slots empty to auto-fill from recent posts; pick specific posts to pin.">
@@ -183,6 +200,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                                     <SocialSlotRow
                                         item={item()}
                                         provider={provider()}
+                                        kind={props.data.kind as string | undefined}
                                         index={idx}
                                         onChange={(patch,) => updateItem(idx, patch,)}
                                         onClear={() => clearItem(idx,)}
@@ -211,6 +229,8 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
 interface SocialSlotRowProps {
     item: SocialItem;
     provider: string;
+    /** Content kind filter, applied server-side. */
+    kind?: string;
     index: number;
     onChange: (patch: Partial<SocialItem>,) => void;
     onClear: () => void;
@@ -218,6 +238,7 @@ interface SocialSlotRowProps {
 
 const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
     const [search, setSearch,] = createSignal('',);
+    let searchTimer: number | undefined;
     const [showDropdown, setShowDropdown,] = createSignal(false,);
     const [showModal, setShowModal,] = createSignal(false,);
     const [recent, setRecent,] = createSignal<SocialPost[]>([],);
@@ -231,7 +252,16 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
         if (!props.provider) return;
         setLoading(true,);
         try {
-            const res = await cms.social.platformPosts(props.provider, { limit: 10, sort: 'date', sortDir: 'desc', } as any,);
+            // Search and kind go to the SERVER: the picker used to fetch 10
+            // recent posts and filter those in the browser, so searching could
+            // not find anything outside the newest ten.
+            const res = await cms.social.platformPosts(props.provider, {
+                limit: 25,
+                sort: 'date',
+                sortDir: 'desc',
+                ...(search().trim() ? { search: search().trim(), } : {}),
+                ...(props.kind ? { kind: props.kind, } : {}),
+            } as any,);
             setRecent((res.data || []) as unknown as SocialPost[],);
         } catch { /* ignore — bus toasts; recent list just stays empty */ } finally { setLoading(false,); }
     };
@@ -250,7 +280,10 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
     onMount(() => {
         document.addEventListener('mousedown', handleClickOutside,);
     },);
-    onCleanup(() => document.removeEventListener('mousedown', handleClickOutside,),);
+    onCleanup(() => {
+        document.removeEventListener('mousedown', handleClickOutside,);
+        if (searchTimer !== undefined) clearTimeout(searchTimer,);
+    },);
 
     const filtered = createMemo(() => {
         const q = search().toLowerCase().trim();
@@ -285,7 +318,15 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                     placeholder={display() ? '' : 'Search posts… (or leave blank for auto-feed)'}
                     value={search() || display()}
                     onFocus={onFocus}
-                    onInput={(e,) => { setSearch(e.currentTarget.value,); setShowDropdown(true,); }}
+                    onInput={(e,) => {
+                        setSearch(e.currentTarget.value,);
+                        setShowDropdown(true,);
+                        // Re-query the server, debounced: the client-side
+                        // filter below only narrows what was already fetched,
+                        // so without this a search can't reach older posts.
+                        if (searchTimer !== undefined) clearTimeout(searchTimer,);
+                        searchTimer = window.setTimeout(() => void loadRecent(), 300,);
+                    }}
                 />
                 <Show when={showDropdown()}>
                     <div class="social-slot-row__dropdown">

@@ -77,42 +77,12 @@ export async function mirrorRemoteMedia(
 
 export type { FetchedPost, } from './social/types';
 
-export async function fetchYouTubeVideos(maxResults = 10,): Promise<FetchedPost[]> {
-    if (!config.social.youtube.apiKey || !config.social.youtube.channelId) {
-        logger.warn('YouTube configuration not set',);
-        return [];
-    }
+// YouTube lives in its own module: it needs a second API call to classify
+// shorts/live/full, and reads its credentials from the saved connection.
+// Imported (not just re-exported) because the provider registry below uses it.
+import { fetchYouTubeVideos, } from './social/youtube';
 
-    try {
-        const response = await fetch(
-            `https://www.googleapis.com/youtube/v3/search?key=${config.social.youtube.apiKey}&channelId=${config.social.youtube.channelId}&part=snippet&order=date&maxResults=${maxResults}&type=video`,
-        );
-
-        if (!response.ok) {
-            throw new Error(`YouTube API error: ${response.statusText}`,);
-        }
-
-        const data = await response.json() as any;
-
-        return data.items.map((item: Record<string, unknown>,) => {
-            const snippet = item.snippet as Record<string, unknown>;
-            const id = (item.id as Record<string, unknown>).videoId as string;
-
-            return {
-                id,
-                content: snippet.title as string,
-                mediaUrl: `https://www.youtube.com/watch?v=${id}`,
-                thumbnailUrl: (snippet.thumbnails as Record<string, Record<string, string>>)?.high?.url,
-                authorName: snippet.channelTitle as string,
-                publishedAt: new Date(snippet.publishedAt as string,),
-                rawData: item,
-            };
-        },);
-    } catch (error) {
-        logger.error('Error fetching YouTube videos', { error, },);
-        return [];
-    }
-}
+export { fetchYouTubeVideos, };
 
 export async function fetchTwitterPosts(maxResults = 10, sinceId?: string,): Promise<FetchedPost[]> {
     if (!config.social.twitter.bearerToken || !config.social.twitter.username) {
@@ -376,8 +346,9 @@ export async function upsertSocialPost(
     await query(
         `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url,
                            author_name, author_avatar, likes, comments, shares,
-                           published_at, fetched_at, raw_data, source, post_url, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15)
+                           published_at, fetched_at, raw_data, source, post_url, created_by,
+                           media_kind)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16)
      ON CONFLICT (platform, external_id) DO UPDATE SET
        content = EXCLUDED.content,
        media_url = EXCLUDED.media_url,
@@ -386,7 +357,10 @@ export async function upsertSocialPost(
        comments = EXCLUDED.comments,
        shares = EXCLUDED.shares,
        fetched_at = NOW(),
-       raw_data = EXCLUDED.raw_data`,
+       raw_data = EXCLUDED.raw_data,
+       -- COALESCE so a re-sync that could not classify (videos.list failed)
+       -- doesn't wipe a kind we already knew.
+       media_kind = COALESCE(EXCLUDED.media_kind, social_posts.media_kind)`,
         [
             platform,
             post.id,
@@ -403,6 +377,8 @@ export async function upsertSocialPost(
             source,
             postUrl,
             createdBy,
+            // Providers that classify their items put the kind on rawData.
+            (post.rawData as { mediaKind?: string; } | undefined)?.mediaKind ?? null,
         ],
     );
 }

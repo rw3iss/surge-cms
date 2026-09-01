@@ -158,6 +158,11 @@ export interface SocialPlatformPostsQuery {
     sortDir?: string;
     /** Admin-only: include hidden posts (for curation). Ignored for anon. */
     includeHidden?: boolean;
+    /**
+     * Narrow to one content kind, for providers that classify their items.
+     * YouTube: `short` | `live` | `video`. Ignored by providers that don't.
+     */
+    kind?: 'short' | 'live' | 'video';
 }
 
 /** GET /social/posts/:platform — stored posts for one platform. Page

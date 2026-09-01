@@ -29,6 +29,8 @@ const platformPostsQuery = z.object({
     sort: z.string().optional(),
     sortDir: z.string().optional(),
     includeHidden: z.coerce.boolean().optional(),
+    /** Content kind, for providers that classify (YouTube: short|live|video). */
+    kind: z.enum(['short', 'live', 'video',],).optional(),
 },);
 
 const feedQuery = z.object({
@@ -213,6 +215,7 @@ export const socialRoutes = [
                 search: query.search,
                 sort: query.sort,
                 sortDir: query.sortDir,
+                kind: query.kind,
                 // Hidden posts are only visible to an authenticated admin (for
                 // curation); anonymous callers always get the public view.
                 includeHidden: Boolean(query.includeHidden && userId,),
