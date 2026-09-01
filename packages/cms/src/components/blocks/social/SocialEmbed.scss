@@ -192,7 +192,13 @@
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scroll-snap-type: x proximity;
-      padding: var(--site-block-padding, 0);
+      // NO default padding here. The site default is applied once, on the block
+      // wrapper, via `.block--default-pad` — which the renderer adds only when
+      // "Use default block padding" is on. Hardcoding it here ignored that
+      // toggle entirely (padding stayed after switching it off) and
+      // double-padded every block that had it on. An explicit Row Padding still
+      // arrives as an inline style and lands INSIDE the scroller.
+      padding: 0;
       max-width: 100%;
       width: 100%;
       // Horizontal Alignment (--block-h-align) drives distribution when the
