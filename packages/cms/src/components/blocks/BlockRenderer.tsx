@@ -829,6 +829,13 @@ const SocialBlock: Component<{ block: Block; }> = (props,) => {
                 }
             >
                 <div
+                    // The resolved alignment as an attribute, so the stylesheet can
+                    // branch on it statically. It cannot branch on --block-h-align:
+                    // `safe` is only valid with POSITIONAL values, and
+                    // `justify-content: safe var(--x)` resolving to `safe space-between`
+                    // is invalid at computed-value time — which silently resets the
+                    // property to `normal` rather than falling back.
+                    data-h-align={toFlexAlign((props.block.style as any)?.horizontalAlign, '',) || undefined}
                     class={`${FEED_LAYOUT_CLASS[layout()] || FEED_LAYOUT_CLASS.grid}${
                         !snapScroll() ? ' social-block__grid--no-snap' : ''
                     }${itemHeight() ? ' social-block__grid--fixed-height' : ''}${

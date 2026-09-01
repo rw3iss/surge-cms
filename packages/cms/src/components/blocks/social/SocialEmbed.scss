@@ -199,6 +199,20 @@
       // cards fit; defaults to flex-start (packed, scrolls when they overflow).
       justify-content: var(--block-h-align, flex-start);
 
+      // ...but plain `center` on a SCROLL container puts the leading items in
+      // the container's overflow, and overflow on the start side cannot be
+      // scrolled to — so on a narrow screen the first cards were simply
+      // unreachable.
+      //
+      // `safe` is the CSS answer: it behaves as the requested alignment while
+      // everything fits, and falls back to `start` the moment content
+      // overflows. Written per-value rather than as `safe var(--block-h-align)`
+      // because `safe` is invalid with distribution values (space-between and
+      // friends), and an invalid var() substitution resets the property to
+      // `normal` instead of falling back to the declaration above.
+      &[data-h-align='center'] { justify-content: safe center; }
+      &[data-h-align='flex-end'] { justify-content: safe flex-end; }
+
       > * {
         flex: 0 0 var(--social-item-width, 280px);
         min-width: 0;
