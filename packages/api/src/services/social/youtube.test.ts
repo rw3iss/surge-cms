@@ -32,12 +32,21 @@ describe('classifyVideo', () => {
         expect(classifyVideo({ contentDetails: { duration: 'PT60S', }, },),).toBe('short',);
     });
 
-    it('calls a 61s video a full video — the boundary is inclusive at 60', () => {
-        expect(classifyVideo({ contentDetails: { duration: 'PT61S', }, },),).toBe('video',);
+    it('calls a 1-2 minute clip a short — YouTube raised the ceiling to 3 min', () => {
+        // Regression: a 60s cut-off reported a whole Shorts channel as videos.
+        expect(classifyVideo({ contentDetails: { duration: 'PT1M1S', }, },),).toBe('short',);
+        expect(classifyVideo({ contentDetails: { duration: 'PT1M38S', }, },),).toBe('short',);
+        expect(classifyVideo({ contentDetails: { duration: 'PT2M10S', }, },),).toBe('short',);
+    });
+
+    it('puts the boundary at 3 minutes inclusive', () => {
+        expect(classifyVideo({ contentDetails: { duration: 'PT3M', }, },),).toBe('short',);
+        expect(classifyVideo({ contentDetails: { duration: 'PT3M1S', }, },),).toBe('video',);
     });
 
     it('calls a long video a video', () => {
         expect(classifyVideo({ contentDetails: { duration: 'PT12M30S', }, },),).toBe('video',);
+        expect(classifyVideo({ contentDetails: { duration: 'PT6M27S', }, },),).toBe('video',);
     });
 
     it('treats an in-progress broadcast as live', () => {

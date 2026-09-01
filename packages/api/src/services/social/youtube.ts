@@ -39,12 +39,20 @@ export interface YouTubeFetchOptions {
 const API = 'https://www.googleapis.com/youtube/v3';
 
 /**
- * A Short is not a distinct resource in the API — the accepted heuristic is a
- * video of 60 seconds or less. Treat this as a heuristic, not a guarantee:
- * YouTube has raised the limit before (15s → 60s → 3m for some accounts), so a
- * long-form video under a minute will also land here.
+ * A Short is not a distinct resource in the API, so this is a duration
+ * heuristic — and the threshold has to track YouTube's product, not folklore.
+ *
+ * YouTube raised the Shorts ceiling from 60s to **3 minutes** in late 2024. A
+ * 60s cut-off therefore reports a channel of 1–2 minute Shorts as ordinary
+ * videos, which is exactly what it did for the first real channel this ran
+ * against (every clip 1m01s–1m38s classified as `video`, Shorts filter empty).
+ *
+ * The trade is explicit: a genuine long-form video under 3 minutes will be
+ * called a Short. That is the less damaging error — a short clip filed as a
+ * video is invisible to the Shorts filter, whereas the reverse merely puts an
+ * extra item in a list the operator is already curating.
  */
-const SHORT_MAX_SECONDS = 60;
+const SHORT_MAX_SECONDS = 180;
 
 /** ISO-8601 duration (`PT1M5S`) → seconds. Returns null when unparseable. */
 export function parseIsoDuration(iso: string | null | undefined,): number | null {
