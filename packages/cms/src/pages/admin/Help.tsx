@@ -8,6 +8,21 @@ interface HelpTopic { path: string; title: string; desc: string; }
 /** Admin documentation index. New help topics get added here as the CMS grows. */
 const TOPICS: HelpTopic[] = [
     {
+        path: '/admin/help/sdk',
+        title: 'Headless usage & SDK',
+        desc: 'Talk to this CMS from your own app — connecting, auth modes, and what the typed client returns.',
+    },
+    {
+        path: '/admin/help/sdk/modules',
+        title: 'Creating a feature module',
+        desc: 'Add an installable feature at the code level: registry entry, migrations, repo/service/routes, DTOs.',
+    },
+    {
+        path: '/admin/help/sdk/permissions',
+        title: 'Permissions in a module',
+        desc: 'Declare and check granular permissions from backend code, and how precedence resolves.',
+    },
+    {
         path: '/admin/help/variables-and-functions',
         title: 'Variables & Functions',
         desc: 'The {{ … }} template syntax for content blocks — variables, entity lookups, if/for logic, and every function + entity schema.',

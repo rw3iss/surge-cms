@@ -70,6 +70,18 @@ Packages are scoped **`@sitesurge/*`** (`@sitesurge/types` = shared, `@sitesurge
 ## Block-type registry
 - Block types enumerate **once** as `ALL_BLOCK_TYPES` in `@sitesurge/types` (`packages/shared/src/utils/blockCatalog.ts`), compile-time exhaustiveness-checked against the `BlockType` union. Each consumer provides a per-type render registry keyed `Record<BlockType, …>`: **SSR/SEO** in `packages/api/src/services/ssr/blocks/` (`SSR_BLOCK_RENDERERS` + `renderBlockForSeo` dispatcher; emitters per type, `notIndexable` = naming comment, `notRendered` = empty) and **email** in `packages/api/src/services/mail/blocks/` (`RENDERERS`). Coverage tests (`ssr/blocks/blocks.test.ts`, `mail/blocks/coverage.test.ts`) guard that every catalog type has a strategy, so adding a `BlockType` fails to compile/test until each registry declares an arm. Known SSR limitation: `ssr/routes.ts` feeds a flat block list, so a `group`'s nested children are not walked in SSR (groups emit nothing) — deferred follow-up.
 
+## Permissions (required for new features)
+
+**Any new feature module — or any addition to an existing one — must check that a permission exists for each read or write action that should be gated.** If the feature has no suitable permission, add one rather than falling back to a role check.
+
+- Declare it in `packages/api/src/services/permissions/catalog.ts`: `CORE_PERMISSIONS` for always-on behaviour, or `FEATURE_PERMISSIONS[<featureKey>]` so it registers only when that feature is enabled. Boot registers the catalog for enabled features, so a newly enabled feature's permissions appear in the admin without a restart.
+- Check it with the manager, never with a hand-rolled role comparison: `can(subject, key)`, `requirePermission(subject, key)` (throws 403), `check()` (returns the deciding reason), `permissionsFor(subject)`. Import from `services/permissions`.
+- Key format is `feature:action` (`posts:write`, `shop.orders:refund`). Pick defaults that PRESERVE today's behaviour — a permission that silently removes access from existing users is a regression, not a feature. Tightening is the operator's decision, made in Settings → Permissions.
+- Precedence is fixed: sysadmin → user grant → role grant → the permission's own default. An unknown key DENIES, so a typo fails closed.
+- Permissions layer ON TOP of the route auth tier; they do not replace it. Keep the tier (`staff`/`admin`/…) and narrow within it.
+
+Full model: `docs/sdk/permissions.md`; in-admin reference at `/admin/help/sdk/permissions`.
+
 ## Admin styles
 
 - **Forms: ALWAYS use the `FormField` component** (`components/admin/forms`) for admin form fields — never a raw `<label>`+`<input>`. It renders the ONE canonical field label used across the whole admin: **uppercase, bold, small, letter-spaced, muted** (`.admin-form-field__label` in `forms.scss`; broadened to `.form-group > label` / `.block-edit-form__field > span` / `.block-style-editor__label` so legacy markup matches). `FormField` self-imports its scss (styled even when imported directly). Supports `tooltip` (inline help) + `hint` (sub-text). Do NOT generate forms with unstyled labels.

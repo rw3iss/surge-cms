@@ -9,6 +9,15 @@ import { createClient } from '@sitesurge/client';
 const cms = createClient({ baseUrl: 'https://cms.example.com', auth: { apiKey: 'ssk_…' } });
 ```
 
+## Guides
+
+- [headless.md](headless.md) — connecting from your own app, auth modes, what the client returns
+- [feature-modules.md](feature-modules.md) — building an installable feature at the code level
+- [permissions.md](permissions.md) — declaring and checking granular permissions
+- [entities.md](entities.md) — the generic entity system
+
+In-admin versions of the first three live at `/admin/help/sdk`.
+
 ## Reference
 
 - [Generic Entities](./entities.md) — the entity-type registry, generic instance

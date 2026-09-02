@@ -126,3 +126,49 @@
 
   &__type { font-family: var(--admin-font-mono, monospace); font-size: 12px; color: var(--site-primary, #{$primary-color}); }
 }
+
+// SDK doc extras: sibling nav, callouts, and bullet lists. The three SDK pages
+// read as one guide, so each links to the others inline.
+.help-doc {
+  &__siblings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-xl;
+  }
+
+  &__sibling {
+    padding: 4px 12px;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    font-size: $font-size-sm;
+    text-decoration: none;
+    color: $text-color;
+
+    &:hover { border-color: var(--site-primary, #{$primary-color}); }
+
+    &--current {
+      background: var(--site-primary, #{$primary-color});
+      border-color: var(--site-primary, #{$primary-color});
+      color: #fff;
+    }
+  }
+
+  // The things that bite, set apart from ordinary prose.
+  &__note {
+    margin: $spacing-sm 0;
+    padding: $spacing-sm $spacing-md;
+    border-left: 3px solid var(--site-primary, #{$primary-color});
+    background: $background-dark;
+    border-radius: 0 $border-radius-md $border-radius-md 0;
+    line-height: 1.55;
+  }
+
+  &__list {
+    margin: $spacing-sm 0;
+    padding-left: $spacing-xl;
+    line-height: 1.6;
+
+    li { margin-bottom: 4px; }
+  }
+}
