@@ -68,6 +68,23 @@ async function bootRunningMode(): Promise<void> {
         // Don't crash — surface the error and continue serving /health.
     }
 
+    // Register permissions for the core plus every ENABLED feature, so a
+    // feature turned on since the last boot has its permissions in the admin.
+    // Idempotent, and it never overwrites an operator's edited rule (see
+    // registerPermissions).
+    try {
+        const { registerPermissions, } = await import('./services/permissions/index.js');
+        const { permissionsForFeatures, } = await import('./services/permissions/catalog.js');
+        const { enabledFeatureKeys, } = await import('./services/settings.js');
+        const enabled = await enabledFeatureKeys().catch(() => [] as string[]);
+        const { registered, } = await registerPermissions(permissionsForFeatures(enabled,),);
+        logger.info(`Registered ${registered} permission(s).`,);
+    } catch (err) {
+        // A permission catalog that fails to register must not stop the server:
+        // every check falls back to its default, which is today's role behaviour.
+        logger.warn('Permission registration skipped', { error: err, },);
+    }
+
     // Register the core entity types (idempotent) + warm the EntityManager
     // metadata cache so the generic entity system + template registry resolve.
     try {

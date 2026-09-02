@@ -28,6 +28,7 @@ import { FEATURES, } from '../../config/features';
 const SiteHeaderEditor = lazy(() => import('../../components/admin/editors/SiteHeaderEditor'));
 const SiteFooterEditor = lazy(() => import('../../components/admin/editors/SiteFooterEditor'));
 const ApiKeysPanel = lazy(() => import('../../components/admin/settings/ApiKeysPanel'));
+const PermissionsPanel = lazy(() => import('../../components/admin/settings/PermissionsPanel'));
 const NotificationsPanel = lazy(() => import('./settings/NotificationsPanel'));
 const StripeKeysEditor = lazy(() => import('../../components/admin/StripeKeysEditor'));
 
@@ -41,6 +42,7 @@ const TABS = [
     { id: 'site-footer', label: 'Site Footer', },
     { id: 'payments', label: 'Payments', },
     { id: 'api-keys', label: 'API Keys', },
+    { id: 'permissions', label: 'Permissions', },
     { id: 'admin', label: 'Admin', },
 ] as const;
 
@@ -1807,6 +1809,10 @@ const AdminSettings: Component = () => {
                 </Show>
 
                 {/* ─── API Keys Tab ─── */}
+                <Show when={activeTab() === 'permissions'}>
+                    <PermissionsPanel />
+                </Show>
+
                 <Show when={activeTab() === 'api-keys'}>
                     <ApiKeysPanel />
                 </Show>

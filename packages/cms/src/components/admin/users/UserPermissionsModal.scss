@@ -1,0 +1,88 @@
+// No @use: imported from a .tsx, so it is a Vite entry and the build's
+// additionalData prelude already supplies sass:color + the variables.
+.user-permissions {
+  padding: $spacing-lg;
+
+  &__head {
+    padding-right: $spacing-xl; // clear of the shell's absolute ✕
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+    h2 { margin: 0; font-size: 1.1rem; }
+  }
+
+  &__meta {
+    margin: 4px 0 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__search {
+    margin: $spacing-md 0;
+    width: 100%;
+  }
+
+  &__body {
+    // Long catalogs scroll inside the panel so Close stays reachable.
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__info { flex: 1 1 auto; min-width: 0; }
+
+  &__label { font-weight: 600; font-size: 0.92rem; }
+
+  &__key {
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 0.72rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__state {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 120px;
+  }
+
+  &__badge {
+    padding: 1px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    &--yes { background: $success-bg; color: $success-fg; }
+    &--no  { background: $error-bg; color: $error-fg; }
+  }
+
+  &__source {
+    font-size: 0.68rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: $spacing-md;
+    margin-top: $spacing-md;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+  }
+}

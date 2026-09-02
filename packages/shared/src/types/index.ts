@@ -12,3 +12,4 @@ export * from './siteHeader';
 export * from './user';
 export * from './plugin';
 export * from './event';
+export * from './permission';

@@ -3,6 +3,7 @@ import { A, useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
 import DataTable from '../../components/admin/common/DataTable';
+import UserPermissionsModal from '../../components/admin/users/UserPermissionsModal';
 import { FormField, } from '../../components/admin/forms';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
@@ -46,6 +47,8 @@ const AdminUsers: Component = () => {
 
     // Add user form
     const [showForm, setShowForm,] = createSignal(false,);
+    /** The user whose permissions modal is open. */
+    const [permUser, setPermUser,] = createSignal<any>(null,);
     const [formEmail, setFormEmail,] = createSignal('',);
     const [formName, setFormName,] = createSignal('',);
     const [formPassword, setFormPassword,] = createSignal('',);
@@ -198,7 +201,27 @@ const AdminUsers: Component = () => {
                     },
                     { header: 'Status', cell: (user: any,) => { const s = statusBadge(user,); return <span class={`badge ${s.class}`}>{s.label}</span>; }, },
                     { header: 'Joined', sortField: 'created_at', cell: (user: any,) => formatDate(user.createdAt,), },
+                    {
+                        header: 'Permissions',
+                        cell: (user: any,) => (
+                            <button
+                                type="button"
+                                class="ui-button ui-button--secondary ui-button--sm"
+                                // The row itself navigates to the user detail page, so a
+                                // button inside it has to stop the click bubbling.
+                                onClick={(e,) => { e.stopPropagation(); setPermUser(user,); }}
+                            >
+                                Manage
+                            </button>
+                        ),
+                    },
                 ]}
+            />
+
+            <UserPermissionsModal
+                open={permUser() !== null}
+                user={permUser()}
+                onClose={() => setPermUser(null,)}
             />
         </div>
     );

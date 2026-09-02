@@ -46,6 +46,19 @@ export async function isFeatureEnabledServer(key: FeatureKey,): Promise<boolean>
     return row === true || row === 'true';
 }
 
+/**
+ * Every feature key that is currently on.
+ *
+ * Resolved through `isFeatureEnabledServer` so an absent row falls back to the
+ * registry default, exactly as a single check would — a second reading of
+ * "is it enabled" is how boot-time wiring drifts from route-time guards.
+ */
+export async function enabledFeatureKeys(): Promise<FeatureKey[]> {
+    const keys = Object.keys(FEATURE_REGISTRY,) as FeatureKey[];
+    const flags = await Promise.all(keys.map((k,) => isFeatureEnabledServer(k,)),);
+    return keys.filter((_, i,) => flags[i]);
+}
+
 /** List every settings row. Useful for boot-time hydration of admin
  *  panels that surface multiple keys at once. */
 export async function list(): Promise<Array<{ key: string; value: unknown; }>> {

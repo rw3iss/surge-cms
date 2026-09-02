@@ -14,6 +14,7 @@ import { AuditModule, } from './audit';
 import { DashboardModule, } from './dashboard';
 import { AuthModule, } from './auth';
 import { ApiKeysModule, } from './apiKeys';
+import { PermissionsModule, } from './permissions';
 import { ConnectionsModule, } from './connections';
 import { BlockStylesModule, } from './blockStyles';
 import { FontsModule, } from './fonts';
@@ -49,6 +50,7 @@ export interface CmsModules {
     dashboard: DashboardModule;
     auth: AuthModule;
     apiKeys: ApiKeysModule;
+    permissions: PermissionsModule;
     connections: ConnectionsModule;
     blockStyles: BlockStylesModule;
     fonts: FontsModule;
@@ -94,6 +96,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     // AuthModule failed to forward would now be a compile error.
     c.auth = new AuthModule(core,);
     c.apiKeys = new ApiKeysModule(core,);
+    c.permissions = new PermissionsModule(core,);
     c.connections = new ConnectionsModule(core,);
     c.blockStyles = new BlockStylesModule(core,);
     c.fonts = new FontsModule(core,);

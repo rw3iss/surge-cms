@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-01T16:52:14.404Z",
-  "totalModules": 36,
-  "totalRoutes": 328,
+  "generatedAt": "2026-09-02T09:37:52.109Z",
+  "totalModules": 37,
+  "totalRoutes": 336,
   "modules": [
     {
       "module": "admin-channel",
@@ -1439,6 +1439,68 @@
           "absolutePath": "/api/v1/payments/publishable-key",
           "auth": "public",
           "summary": "Resolved Stripe publishable key for a payment context (default | shop | donations)."
+        }
+      ]
+    },
+    {
+      "module": "permissions",
+      "mountPath": "/api/v1/permissions",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/permissions",
+          "auth": "admin",
+          "summary": "List every registered permission with its rule and grants."
+        },
+        {
+          "method": "GET",
+          "path": "/me",
+          "absolutePath": "/api/v1/permissions/me",
+          "auth": "user",
+          "summary": "The calling user's resolved permissions."
+        },
+        {
+          "method": "GET",
+          "path": "/user/:key",
+          "absolutePath": "/api/v1/permissions/user/:key",
+          "auth": "admin",
+          "summary": "Resolved permissions + explicit grants for one user."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/permissions",
+          "auth": "admin",
+          "summary": "Create a permission by hand."
+        },
+        {
+          "method": "PUT",
+          "path": "/:key",
+          "absolutePath": "/api/v1/permissions/:key",
+          "auth": "admin",
+          "summary": "Update a permission's rule (default access + roles)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:key",
+          "absolutePath": "/api/v1/permissions/:key",
+          "auth": "admin",
+          "summary": "Delete a hand-made permission (system ones are refused)."
+        },
+        {
+          "method": "POST",
+          "path": "/:key/grants",
+          "absolutePath": "/api/v1/permissions/:key/grants",
+          "auth": "admin",
+          "summary": "Grant or deny a permission to a role or user."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:key/grants",
+          "absolutePath": "/api/v1/permissions/:key/grants",
+          "auth": "admin",
+          "summary": "Remove a grant, falling back to the permission's default."
         }
       ]
     },
