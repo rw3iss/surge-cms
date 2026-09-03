@@ -1,0 +1,93 @@
+// No @use: imported from a .tsx, so the build's additionalData prelude already
+// supplies sass:color + the variables.
+.md-editor {
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+  overflow: hidden;
+  background: $background;
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+    background: var(--admin-bg-subtle, #{$background-dark});
+    flex-wrap: wrap;
+  }
+
+  &__tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  &__tool {
+    min-width: 30px;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: $border-radius-sm;
+    background: none;
+    color: var(--admin-text, #{$text-color});
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: $background;
+      border-color: var(--admin-border, #{$border-color});
+    }
+
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+
+  &__tabs { display: flex; gap: 2px; }
+
+  &__tab {
+    padding: 3px 12px;
+    border: 1px solid transparent;
+    border-radius: $border-radius-sm;
+    background: none;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 0.78rem;
+    cursor: pointer;
+
+    &--active {
+      background: $background;
+      border-color: var(--admin-border, #{$border-color});
+      color: var(--admin-text, #{$text-color});
+      font-weight: 600;
+    }
+  }
+
+  // Two-class selector (.md-editor .md-editor__input) to outrank the admin
+  // shell's `…__main textarea { max-width: $admin-form-max-width }`. Without it
+  // the editor is capped at form width and leaves most of the column empty —
+  // the opposite of what a full-page writing surface is for.
+  & &__input {
+    width: 100%;
+    max-width: none;
+    border: none;
+    outline: none;
+    resize: vertical;
+    padding: $spacing-md;
+    // Monospace: markdown is source, and proportional type hides the alignment
+    // that makes lists and tables readable while writing.
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    background: $background;
+    color: var(--admin-text, #{$text-color});
+  }
+
+  &__preview {
+    padding: $spacing-md;
+    overflow-y: auto;
+  }
+
+  &__empty {
+    color: var(--admin-text-muted, #{$text-light});
+    font-style: italic;
+  }
+}

@@ -3,6 +3,7 @@ import { buildRouter, registerModule, } from '../api/registry';
 import { adminChannelRoutes, } from './adminChannel';
 import { apiKeysRoutes, } from './apiKeys';
 import { permissionsRoutes, } from './permissions';
+import { wikiRoutes, } from './wiki';
 import { auditRoutes, } from './audit';
 import { authRoutes, } from './auth';
 import { blockStylesRoutes, } from './blockStyles';
@@ -58,6 +59,7 @@ router.use('/health', registerModule('health', healthRoutes, { mountPath: '/api/
 router.use('/sitemap', buildRouter(sitemapRoutes,),);
 router.use('/api-keys', registerModule('api-keys', apiKeysRoutes, { mountPath: '/api/v1/api-keys', },),);
 router.use('/permissions', registerModule('permissions', permissionsRoutes, { mountPath: '/api/v1/permissions', },),);
+router.use('/wiki', registerModule('wiki', wikiRoutes, { mountPath: '/api/v1/wiki', feature: 'wiki', },),);
 router.use('/audit', registerModule('audit', auditRoutes, { mountPath: '/api/v1/audit', },),);
 router.use('/dashboard', registerModule('dashboard', dashboardRoutes, { mountPath: '/api/v1/dashboard', },),);
 router.use('/dev', registerModule('dev', devRoutes, { mountPath: '/api/v1/dev', },),);

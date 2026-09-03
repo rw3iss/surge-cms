@@ -11,7 +11,8 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
+    | 'wiki';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -74,6 +75,15 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         // Core-ish module (social_connections / social_posts are base tables),
         // so it defaults ON and is not uninstallable.
         defaultEnabled: true,
+    },
+    wiki: {
+        key: 'wiki',
+        label: 'Wiki',
+        description: 'Internal/public wiki: markdown pages in a tree, with search.',
+        defaultEnabled: false,
+        migrations: ['095_create_wiki.sql',],
+        tables: ['wiki_pages',],
+        settingsKeys: ['wiki_*',],
     },
     users: {
         key: 'users',

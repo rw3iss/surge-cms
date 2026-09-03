@@ -1,0 +1,187 @@
+// Public wiki. Uses the --site-* theme tokens so an operator's appearance
+// settings carry through.
+.wiki-page {
+  max-width: var(--site-max-width, 900px);
+  margin: 0 auto;
+  padding: $spacing-xl var(--site-gutter, #{$container-padding}) $spacing-3xl;
+  color: var(--site-text, #{$text-color});
+
+  &__back {
+    display: inline-block;
+    margin-bottom: $spacing-md;
+    color: var(--site-link, var(--site-primary, #{$primary-color}));
+    text-decoration: none;
+    font-size: $font-size-sm;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  &__header { margin-bottom: $spacing-lg; }
+
+  &__lead,
+  &__muted {
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__dates {
+    font-size: $font-size-sm;
+    color: var(--site-text-muted, #6b7280);
+    margin: 4px 0 0;
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: $spacing-sm;
+  }
+
+  &__tag {
+    padding: 1px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--site-border, #{$border-color});
+    font-size: $font-size-sm;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__body { margin-top: $spacing-lg; }
+
+  &__children {
+    margin-top: $spacing-2xl;
+    padding-top: $spacing-lg;
+    border-top: 1px solid var(--site-border, #{$border-color});
+
+    h2 { font-size: 1.1rem; margin: 0 0 $spacing-sm; }
+    ul { padding-left: $spacing-xl; }
+    li { margin-bottom: 4px; }
+    a { color: var(--site-link, var(--site-primary, #{$primary-color})); }
+  }
+
+  &__notfound { text-align: center; padding: $spacing-3xl 0; }
+}
+
+.wiki-search {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-xl;
+
+  &__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--site-border, #{$border-color});
+    border-radius: var(--site-radius, 8px);
+    font-size: $font-size-base;
+  }
+
+  &__btn { flex: 0 0 auto; }
+}
+
+.wiki-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--site-border, #{$border-color});
+  border-radius: var(--site-radius, 8px);
+  overflow: hidden;
+
+  &__children { list-style: none; margin: 0; padding: 0; }
+
+  &__item { border-bottom: 1px solid var(--site-border, #{$border-color}); }
+  &__item:last-child { border-bottom: none; }
+  &__children &__item:last-child { border-bottom: none; }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: 10px $spacing-md;
+
+    &:hover { background: var(--site-bg-subtle, #f9fafb); }
+  }
+
+  &__chev {
+    width: 20px;
+    flex: 0 0 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--site-text-muted, #6b7280);
+
+    &:disabled { cursor: default; opacity: 0.35; }
+  }
+
+  &__link {
+    font-weight: 600;
+    color: var(--site-text, #{$text-color});
+    text-decoration: none;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__count {
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--site-bg-subtle, #f3f4f6);
+    font-size: 0.7rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__spacer { flex: 1 1 auto; }
+
+  &__dates {
+    font-size: 0.75rem;
+    color: var(--site-text-muted, #6b7280);
+    white-space: nowrap;
+
+    // The dates are secondary; on a phone the title matters more than knowing
+    // when it changed.
+    @media (max-width: $breakpoint-sm) { display: none; }
+  }
+
+  &__dot { margin: 0 6px; opacity: 0.6; }
+}
+
+.wiki-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  &__count { margin-bottom: $spacing-lg; }
+
+  &__item {
+    padding: $spacing-md 0;
+    border-bottom: 1px solid var(--site-border, #{$border-color});
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--site-link, var(--site-primary, #{$primary-color}));
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  &__excerpt {
+    margin: 6px 0;
+    line-height: 1.6;
+    color: var(--site-text, #{$text-color});
+
+    // ts_headline wraps the matched terms; this is what makes a result
+    // scannable without opening it.
+    mark {
+      background: rgba(250, 204, 21, 0.4);
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+  }
+
+  &__meta {
+    font-size: 0.75rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+}

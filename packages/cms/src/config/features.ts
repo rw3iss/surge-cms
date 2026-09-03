@@ -8,7 +8,8 @@
 
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
+    | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
+    | 'wiki';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -18,6 +19,11 @@ export interface FeatureConfig {
 }
 
 export const FEATURES: FeatureConfig[] = [
+    {
+        key: 'wiki',
+        label: 'Wiki',
+        description: 'Markdown wiki pages in a tree, with public search.',
+    },
     { key: 'patreon',       label: 'Patreon',       description: 'Patreon OAuth + membership tier sync.', },
     { key: 'users',         label: 'Users',         description: 'Registered users, member tiers, gated content.', },
     { key: 'posts',         label: 'Posts',         description: 'Blog posts with rich content blocks.', },

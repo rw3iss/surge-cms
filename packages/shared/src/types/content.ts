@@ -379,6 +379,7 @@ export interface SiteFeatures {
      * management area. Admins can always sign in regardless — this
      * only gates user-facing registration UI.
      */
+    wiki: { enabled: boolean; };
     users: { enabled: boolean; };
     /**
      * Mailing Lists feature module. When enabled, the admin sidebar

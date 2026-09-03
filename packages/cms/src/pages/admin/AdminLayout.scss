@@ -40,6 +40,7 @@
 @use './styles/mailing-lists';
 @use './styles/shop';
 @use './styles/social-hub';
+@use './styles/permission-chip';
 @use '../../components/admin/features/features';
 // `.toggle-control` styling now lives with the component (components/ui/Toggle.scss,
 // imported by Toggle.tsx) so it loads in the setup flow too — no global @use here.

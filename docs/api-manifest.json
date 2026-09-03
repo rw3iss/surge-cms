@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-02T09:37:52.109Z",
-  "totalModules": 37,
-  "totalRoutes": 336,
+  "generatedAt": "2026-09-03T00:18:29.473Z",
+  "totalModules": 38,
+  "totalRoutes": 343,
   "modules": [
     {
       "module": "admin-channel",
@@ -2574,6 +2574,61 @@
           "absolutePath": "/api/v1/utils/url-preview",
           "auth": "admin",
           "summary": "SSRF-guarded link unfurl: fetch a URL and return its OpenGraph/basic meta."
+        }
+      ]
+    },
+    {
+      "module": "wiki",
+      "mountPath": "/api/v1/wiki",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/wiki",
+          "auth": "optional",
+          "summary": "List wiki pages the caller may view (flat; build the tree client-side)."
+        },
+        {
+          "method": "GET",
+          "path": "/search",
+          "absolutePath": "/api/v1/wiki/search",
+          "auth": "optional",
+          "summary": "Search wiki titles + content; returns scored hits with highlighted excerpts."
+        },
+        {
+          "method": "GET",
+          "path": "/child-counts",
+          "absolutePath": "/api/v1/wiki/child-counts",
+          "auth": "staff",
+          "summary": "Map of parent id → number of children."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/wiki",
+          "auth": "staff",
+          "summary": "Create a wiki page."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "absolutePath": "/api/v1/wiki/:id",
+          "auth": "staff",
+          "summary": "Update a wiki page."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "absolutePath": "/api/v1/wiki/:id",
+          "auth": "staff",
+          "summary": "Delete a page. mode=orphan promotes children to roots; cascade removes the subtree."
+        },
+        {
+          "method": "GET",
+          "path": "/:ref",
+          "absolutePath": "/api/v1/wiki/:ref",
+          "auth": "optional",
+          "summary": "Fetch one page by slug or id."
         }
       ]
     }

@@ -2,23 +2,25 @@ import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import { FEATURES, } from '../../config/features';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 
 /**
  * Site features rendered in the dashboard panel. Order matches the
  * Settings → Features section so the experience reads consistently.
  */
-const DASHBOARD_FEATURES: Array<{ key: 'posts' | 'campaigns' | 'forms' | 'messages' | 'social' | 'users' | 'mailing_lists' | 'shop' | 'plugins'; label: string; }> = [
-    { key: 'posts', label: 'Posts', },
-    { key: 'campaigns', label: 'Campaigns', },
-    { key: 'forms', label: 'Forms', },
-    { key: 'messages', label: 'Messages', },
-    { key: 'social', label: 'Social', },
-    { key: 'users', label: 'Users', },
-    { key: 'mailing_lists', label: 'Mailing Lists', },
-    { key: 'shop', label: 'Shop', },
-    { key: 'plugins', label: 'Plugins', },
-];
+/**
+ * Derived from the shared frontend catalog rather than hand-listed.
+ *
+ * This used to be a FOURTH copy of the feature list, unguarded by the parity
+ * test that covers the other three — so Contacts and Events were live, toggled
+ * in Settings, and simply absent here. Deriving it means a new feature can
+ * never go missing from this panel again.
+ *
+ * `patreon` is filtered out: it is an auth/integration switch rather than a
+ * site module, and Settings groups it separately.
+ */
+const DASHBOARD_FEATURES = FEATURES.filter((f,) => f.key !== 'patreon');
 
 const AdminDashboard: Component = () => {
     const [stats, { refetch: refetchStats, },] = createResource(async () => {

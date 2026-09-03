@@ -95,36 +95,3 @@
     color: var(--admin-text-muted, #{$text-light});
   }
 }
-
-// A role toggle, and (with a modifier) an allow/deny exception chip.
-.permission-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--admin-border, #{$border-color});
-  background: transparent;
-  color: var(--admin-text-muted, #{$text-light});
-  font-size: $font-size-sm;
-  cursor: pointer;
-
-  &--on {
-    background: var(--site-primary, #{$primary-color});
-    border-color: var(--site-primary, #{$primary-color});
-    color: #fff;
-  }
-
-  &--allow { background: $success-bg; color: $success-fg; border-color: $success-border; cursor: default; }
-  &--deny  { background: $error-bg; color: $error-fg; border-color: $error-border; cursor: default; }
-
-  &__x {
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0 0 0 2px;
-  }
-}

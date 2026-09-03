@@ -76,6 +76,8 @@ const NAV_ITEMS: NavItem[] = [
     // Events sits with the other content-authoring areas, after Forms.
     { path: '/admin/events', label: 'Events', icon: 'campaigns', feature: 'events', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
+    // Wiki sits directly above Users, per the module's design.
+    { path: '/admin/wiki', label: 'Wiki', icon: 'pages', feature: 'wiki', },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
     // Contacts (CRM) — aliases to the `contact` entity's Data table. Shown under
     // Users, only when the `contacts` feature is enabled.

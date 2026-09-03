@@ -173,6 +173,7 @@ async function computePublicFeatures(
     return {
         patreon: { enabled: patreonAdminEnabled && patreonConnected, },
         posts: { enabled: moduleEnabled('posts_enabled',), },
+        wiki: { enabled: moduleEnabled('wiki_enabled',), },
         campaigns: { enabled: moduleEnabled('campaigns_enabled',), },
         forms: { enabled: moduleEnabled('forms_enabled',), },
         messages: { enabled: moduleEnabled('messages_enabled',), },

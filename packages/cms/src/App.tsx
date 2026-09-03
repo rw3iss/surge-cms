@@ -67,6 +67,13 @@ const AdminHelpSdkModules = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkModules, })));
 const AdminHelpSdkPermissions = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkPermissions, })));
+const AdminWiki = lazy(() => import('./pages/admin/Wiki'));
+const AdminWikiEditor = lazy(() => import('./pages/admin/WikiEditor'));
+const WikiIndexPage = lazy(() => import('./pages/Wiki'));
+const WikiSearchPage = lazy(() =>
+    import('./pages/Wiki').then((m) => ({ default: m.WikiSearch, })));
+const WikiPageViewPage = lazy(() =>
+    import('./pages/Wiki').then((m) => ({ default: m.WikiPageView, })));
 const AdminShopDashboard = lazy(() => import('./pages/admin/shop/ShopDashboard'));
 const AdminShopProducts = lazy(() => import('./pages/admin/shop/ShopProducts'));
 const AdminShopProductEditor = lazy(() => import('./pages/admin/shop/ShopProductEditor'));
@@ -131,6 +138,9 @@ const App: Component = () => {
 										{/* Dynamic page route - must be last among
 											single-segment paths. */}
 										{/* Declared before the /:slug catch-all, or DynamicPage swallows them. */}
+										<Route path="/wiki" component={WikiIndexPage} />
+										<Route path="/wiki/search" component={WikiSearchPage} />
+										<Route path="/wiki/:ref" component={WikiPageViewPage} />
 										<Route path="/events" component={EventsPage} />
 										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/:slug" component={DynamicPage} />
@@ -206,6 +216,8 @@ const App: Component = () => {
 										<Route path="/help/sdk" component={AdminHelpSdk} />
 										<Route path="/help/sdk/modules" component={AdminHelpSdkModules} />
 										<Route path="/help/sdk/permissions" component={AdminHelpSdkPermissions} />
+										<Route path="/wiki" component={AdminWiki} />
+										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>
 
 									{/* Setup wizard — outside the main Layout so it can render its own chrome. */}

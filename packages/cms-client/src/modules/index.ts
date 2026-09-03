@@ -15,6 +15,7 @@ import { DashboardModule, } from './dashboard';
 import { AuthModule, } from './auth';
 import { ApiKeysModule, } from './apiKeys';
 import { PermissionsModule, } from './permissions';
+import { WikiModule, } from './wiki';
 import { ConnectionsModule, } from './connections';
 import { BlockStylesModule, } from './blockStyles';
 import { FontsModule, } from './fonts';
@@ -51,6 +52,7 @@ export interface CmsModules {
     auth: AuthModule;
     apiKeys: ApiKeysModule;
     permissions: PermissionsModule;
+    wiki: WikiModule;
     connections: ConnectionsModule;
     blockStyles: BlockStylesModule;
     fonts: FontsModule;
@@ -97,6 +99,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.auth = new AuthModule(core,);
     c.apiKeys = new ApiKeysModule(core,);
     c.permissions = new PermissionsModule(core,);
+    c.wiki = new WikiModule(core,);
     c.connections = new ConnectionsModule(core,);
     c.blockStyles = new BlockStylesModule(core,);
     c.fonts = new FontsModule(core,);

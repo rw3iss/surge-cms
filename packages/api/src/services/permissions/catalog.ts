@@ -164,6 +164,33 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         { key: 'social:read', feature: 'social', label: 'View social posts', action: 'read', defaultRoles: STAFF, },
         { key: 'social:write', feature: 'social', label: 'Compose and manage social posts', action: 'write', defaultRoles: STAFF, },
     ],
+    wiki: [
+        {
+            key: 'wiki:read',
+            feature: 'wiki',
+            label: 'View the wiki',
+            description: 'Read wiki pages. Individual pages can restrict themselves further.',
+            action: 'read',
+            // A wiki is public by default; a page locks itself down via its own
+            // view roles rather than the whole wiki being closed.
+            defaultAccess: 'everyone',
+        },
+        {
+            key: 'wiki:write',
+            feature: 'wiki',
+            label: 'Create and edit wiki pages',
+            description: 'Widen this to let non-admins contribute from the client-side editor.',
+            action: 'write',
+            defaultRoles: ADMIN,
+        },
+        {
+            key: 'wiki:delete',
+            feature: 'wiki',
+            label: 'Delete wiki pages',
+            action: 'delete',
+            defaultRoles: ADMIN,
+        },
+    ],
     plugins: [
         { key: 'plugins:manage', feature: 'plugins', label: 'Install and configure plugins', action: 'write', defaultRoles: ADMIN, },
     ],

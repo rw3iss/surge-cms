@@ -24,6 +24,7 @@ import { FEATURE_REGISTRY, } from './registry';
 
 const SHARED_CONTENT = path.resolve(__dirname, '../../../shared/src/types/content.ts',);
 const CMS_FEATURES = path.resolve(__dirname, '../../../cms/src/config/features.ts',);
+const CMS_DASHBOARD = path.resolve(__dirname, '../../../cms/src/pages/admin/Dashboard.tsx',);
 
 /** Keys declared in the shared `SiteFeatures` interface. */
 function sharedFeatureKeys(): string[] {
@@ -41,6 +42,17 @@ function cmsFeatureKeys(): string[] {
     return [...body.matchAll(/\{\s*key:\s*'([a-z_]+)'/g,),].map((m,) => m[1]);
 }
 
+/**
+ * The dashboard's "Site Features" panel was a FOURTH hand-maintained copy, and
+ * it silently fell behind (Contacts and Events were live but unlisted). It now
+ * derives from the frontend catalog; this pins that it keeps doing so, because
+ * re-hardcoding the list is the exact regression that caused the drift.
+ */
+function dashboardDerivesFeatures(): boolean {
+    const src = fs.readFileSync(CMS_DASHBOARD, 'utf8',);
+    return /const DASHBOARD_FEATURES\s*=\s*FEATURES\b/.test(src,);
+}
+
 describe('feature catalog parity', () => {
     const registryKeys = Object.keys(FEATURE_REGISTRY,).sort();
 
@@ -52,6 +64,10 @@ describe('feature catalog parity', () => {
 
     it('shared SiteFeatures matches the backend registry', () => {
         expect(sharedFeatureKeys().sort(),).toEqual(registryKeys,);
+    },);
+
+    it('the dashboard derives its feature list instead of hardcoding one', () => {
+        expect(dashboardDerivesFeatures(),).toBe(true,);
     },);
 
     it('the frontend catalog matches the backend registry', () => {
