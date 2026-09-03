@@ -42,6 +42,27 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'settings.backup:download',
+        feature: 'core',
+        label: 'Download a database backup',
+        description:
+            'Download a full dump of the site database. The dump contains every '
+            + 'password hash, API-key hash and customer record, so this is effectively '
+            + 'read access to every secret the CMS holds.',
+        action: 'read',
+        defaultRoles: ADMIN,
+    },
+    {
+        key: 'settings.backup:restore',
+        feature: 'core',
+        label: 'Restore a database backup',
+        description:
+            'Replace the entire live database with an uploaded dump. Overwrites all '
+            + 'content AND all user accounts, including the account performing it.',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'settings:read',
         feature: 'core',
         label: 'View settings',

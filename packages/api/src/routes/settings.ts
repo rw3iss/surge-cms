@@ -1,6 +1,12 @@
 import { z, } from 'zod';
+import multer from 'multer';
+import { tmpdir, } from 'os';
+import { rm, } from 'fs/promises';
 import type { PaymentCredentialsUpdateBody, SettingsUpdateBody, } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
+import { ForbiddenError, ValidationError, } from '../core/errors';
+import { requirePermission, } from '../services/permissions';
+import * as backup from '../services/backup';
 import * as serverLogs from '../services/serverLogs';
 import * as settings from '../services/settings';
 import * as stripeCreds from '../services/payment/credentials';
@@ -92,6 +98,44 @@ const paymentCredentialsSchema = z.object({
 // ─── Routes ───────────────────────────────────────────────────────────
 // Order matters: literal paths (/public, /site-colors/usages/:id, …)
 // must precede the /:key catch-all.
+
+/** Uploaded dumps go straight to a temp file: a database dump can be
+ *  gigabytes, and multer's memory storage would put all of it on the heap. */
+const backupUpload = multer({
+    dest: tmpdir(),
+    limits: { fileSize: 4 * 1024 * 1024 * 1024, },
+},);
+
+/** These two endpoints are the most powerful in the product — a download is
+ *  every secret the database holds, a restore overwrites all of it. A machine
+ *  key must not be able to do either. */
+/** The subject shape the permission manager expects. */
+const viewerOf = (user: { id?: string; role?: string; } | undefined,) =>
+    ({ id: user?.id, role: user?.role, });
+
+function rejectKeyAuth(apiKey: unknown,): void {
+    if (apiKey) {
+        throw new ForbiddenError('Backup and restore require an admin login, not an API key',);
+    }
+}
+
+/** Audited loudly and separately: these are the actions an incident review
+ *  looks for first. */
+async function logBackupAudit(
+    action: 'download' | 'restore',
+    ctx: { userId?: string | null; ipAddress?: string; userAgent?: string; },
+    detail: Record<string, unknown>,
+): Promise<void> {
+    const { logAudit, } = await import('../services/audit.js');
+    await logAudit({
+        userId: ctx.userId ?? '',
+        action: `database-${action}`,
+        entityType: 'database',
+        newValues: detail,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },).catch(() => {});
+}
 
 export const settingsRoutes = [
 
@@ -281,6 +325,85 @@ export const settingsRoutes = [
         method: 'post', path: '/update-cms', auth: 'admin',
         summary: 'Install the latest CMS packages and restart the server. Irreversible; brief downtime.',
         handler: ({ audit, },) => systemUpdate.runUpdate(audit(),),
+    },),
+
+    // ─── Backup & restore ─────────────────────────────────────────
+    //
+    // Declared before the `/:key` catch-alls so `/backup` is not read as a
+    // settings key. Both refuse API-key auth: a key is a machine credential
+    // that lives in config files, and these two endpoints read out every
+    // password hash on the site and overwrite all of its content.
+
+    defineRoute({
+        method: 'get', path: '/backup/status', auth: 'admin',
+        summary: 'Whether this server can produce database backups (pg_dump present).',
+        handler: async ({ user, apiKey, },) => {
+            rejectKeyAuth(apiKey,);
+            await requirePermission(viewerOf(user,), 'settings.backup:download',);
+            return backup.toolingStatus();
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/backup', auth: 'admin', raw: true,
+        summary: 'Download a full dump of the site database.',
+        input: { query: z.object({ format: z.enum(['custom', 'plain',],).default('custom',), },), },
+        handler: async ({ query, user, apiKey, res, audit, },) => {
+            rejectKeyAuth(apiKey,);
+            await requirePermission(viewerOf(user,), 'settings.backup:download',);
+
+            const meta = await backup.createBackup(query.format,);
+            void logBackupAudit('download', audit(), { filename: meta.filename, bytes: meta.bytes, },);
+
+            res.setHeader('Content-Type', 'application/octet-stream',);
+            res.setHeader('Content-Disposition', `attachment; filename="${meta.filename}"`,);
+            res.setHeader('Content-Length', String(meta.bytes,),);
+            // Streamed rather than buffered: a dump can be far larger than the
+            // heap, and res.send() would have to hold all of it in memory.
+            const { createReadStream, } = await import('fs');
+            const stream = createReadStream(meta.path,);
+            stream.pipe(res,);
+            // Clean up whether the client finished or gave up halfway.
+            const done = () => void backup.cleanup(meta,);
+            stream.on('close', done,);
+            stream.on('error', done,);
+            res.on('close', done,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/restore', auth: 'admin',
+        summary: 'REPLACE the entire database with an uploaded dump. Irreversible.',
+        pre: [backupUpload.single('file',),],
+        handler: async ({ req, user, apiKey, audit, },) => {
+            rejectKeyAuth(apiKey,);
+            await requirePermission(viewerOf(user,), 'settings.backup:restore',);
+
+            const file = (req as unknown as { file?: { path: string; size: number; }; }).file;
+            if (!file) throw new ValidationError('No backup file was uploaded (field "file").',);
+
+            // Second gate behind the UI's typed confirmation, so a stray POST
+            // from a script cannot wipe the site.
+            const confirm = (req.body as { confirm?: string; } | undefined)?.confirm;
+            if (confirm !== 'REPLACE') {
+                await rm(file.path, { force: true, },).catch(() => {},);
+                throw new ValidationError(
+                    'Restore not confirmed. Send confirm="REPLACE" to proceed.',
+                );
+            }
+
+            try {
+                const result = await backup.restoreBackup(file.path,);
+                void logBackupAudit('restore', audit(), {
+                    bytes: result.bytes,
+                    format: result.format,
+                    migrationsApplied: result.migrationsApplied,
+                },);
+                return result;
+            } finally {
+                await rm(file.path, { force: true, },).catch(() => {},);
+            }
+        },
     },),
 
     defineRoute({

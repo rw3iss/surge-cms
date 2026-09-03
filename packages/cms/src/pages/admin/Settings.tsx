@@ -7,6 +7,7 @@ import ColorPicker from '../../components/admin/appearance/ColorPicker';
 import ColorWheel from '../../components/admin/appearance/ColorWheel';
 import FontManagerPanel from '../../components/admin/appearance/FontManagerPanel';
 import FontSelect from '../../components/admin/common/FontSelect';
+import BackupRestorePanel from '../../components/admin/panels/BackupRestorePanel';
 import CmsUpdatePanel from '../../components/admin/panels/CmsUpdatePanel';
 import JobManagementPanel from '../../components/admin/panels/JobManagementPanel';
 import ServerLogsPanel from '../../components/admin/panels/ServerLogsPanel';
@@ -1858,6 +1859,14 @@ const AdminSettings: Component = () => {
                     <CmsUpdatePanel />
                     <div style={{ height: '0.75rem', }} />
                     <SitemapPanel />
+
+                    <h2 class="settings-subheading" style={{ 'margin-top': '2rem', }}>Backup &amp; Restore</h2>
+                    <p class="form-help" style={{ 'margin-bottom': '1rem', }}>
+                        Download a complete copy of the site database, or replace the live
+                        database with one. Restoring is irreversible from here — read the
+                        confirmation carefully.
+                    </p>
+                    <BackupRestorePanel />
 
                     <h2 class="settings-subheading" style={{ 'margin-top': '2rem', }}>Job Management</h2>
                     <p class="form-help" style={{ 'margin-bottom': '1rem', }}>

@@ -260,4 +260,41 @@ export class SettingsModule extends ModuleBase {
             params: { key, }, body: { confirm: true, }, invalidates: ['settings',],
         },);
     }
+    // ─── Backup & restore ─────────────────────────────────────────
+
+    /** Whether this server has the PostgreSQL client tools needed to make a
+     *  backup. Checked before offering the button, so the failure is visible
+     *  in advance rather than at the moment someone needs a backup. */
+    backupStatus(): Promise<{ available: boolean; detail: string; }> {
+        return this.get<{ available: boolean; detail: string; }>('/settings/backup/status', { options: { cache: false, }, },);
+    }
+
+    /**
+     * URL for the database download.
+     *
+     * A URL rather than bytes: the endpoint sets `Content-Disposition`, so
+     * navigating to it gives a proper save-as with the right filename, and the
+     * dump never has to pass through the page's memory.
+     */
+    backupUrl(format: 'custom' | 'plain' = 'custom',): string {
+        return `${this.core.config.apiBase}/settings/backup?format=${format}`;
+    }
+
+    /**
+     * REPLACE the whole database with an uploaded dump. Irreversible.
+     *
+     * `confirm` must be the literal string `REPLACE`; the server rejects
+     * anything else, so a mis-wired call cannot wipe a site.
+     */
+    restoreBackup(file: Blob, confirm: 'REPLACE',): Promise<{
+        bytes: number;
+        format: 'custom' | 'plain';
+        migrationsApplied: string[];
+        warnings: string[];
+    }> {
+        const form = new FormData();
+        form.append('file', file,);
+        form.append('confirm', confirm,);
+        return super.uploadForm('/settings/restore', form, { invalidates: ['settings',], },);
+    }
 }

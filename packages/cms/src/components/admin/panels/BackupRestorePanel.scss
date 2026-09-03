@@ -1,0 +1,166 @@
+// Backup & Restore panel (Settings → Admin).
+//
+// Component-scoped rather than an admin partial: nothing else in the admin
+// needs a "this control can destroy the site" treatment, and hoisting it to
+// styles/shared would imply it is reusable. See ADMIN_STYLES.md.
+
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured `additionalData` prelude already provides
+// `color` plus the variables. Adding them again is a duplicate-namespace error.
+
+.backup-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+
+    &__blocker {
+        padding: 0.875rem 1rem;
+        border: 1px solid color.adjust($warning-color, $lightness: 25%);
+        background: color.adjust($warning-color, $lightness: 45%);
+        border-radius: $border-radius-md;
+        font-size: 0.875rem;
+
+        p { margin: 0.4rem 0 0; }
+        code { font-family: var(--admin-font-mono); }
+    }
+
+    &__detail {
+        font-family: var(--admin-font-mono);
+        font-size: 0.75rem;
+        color: var(--admin-text-muted);
+        word-break: break-word;
+    }
+
+    &__section {
+        padding: 1rem 1.125rem;
+        border: 1px solid var(--admin-border);
+        border-radius: $border-radius-md;
+        background: var(--admin-bg-subtle);
+
+        h3 {
+            margin: 0 0 0.35rem;
+            font-family: var(--admin-font-display);
+            font-size: 1rem;
+        }
+
+        .form-help { margin-bottom: 0.85rem; }
+
+        // The restore half is visually separated from the download half so the
+        // two are never confused at a glance.
+        &--danger {
+            border-color: color.adjust($error-color, $lightness: 28%);
+            background: color.adjust($error-color, $lightness: 46%);
+        }
+    }
+
+    &__note {
+        margin-top: 0.75rem;
+        margin-bottom: 0;
+    }
+
+    &__file {
+        display: block;
+        margin-bottom: 0.75rem;
+
+        input { font-size: 0.875rem; }
+    }
+
+    &__filemeta {
+        margin: 0 0 0.75rem;
+        font-size: 0.8125rem;
+        color: var(--admin-text);
+    }
+
+    &__result {
+        padding: 0.875rem 1rem;
+        border: 1px solid color.adjust($success-color, $lightness: 25%);
+        background: color.adjust($success-color, $lightness: 48%);
+        border-radius: $border-radius-md;
+        font-size: 0.875rem;
+
+        p, ul { margin: 0.4rem 0 0; }
+        ul { padding-left: 1.1rem; }
+    }
+}
+
+.backup-confirm__body {
+    padding: 1.5rem;
+
+    h2 {
+        margin: 0 0 0.75rem;
+        font-family: var(--admin-font-display);
+        font-size: 1.25rem;
+        color: $error-color;
+    }
+
+    .backup-confirm__lede {
+        margin: 0 0 0.9rem;
+        font-size: 0.9375rem;
+    }
+
+    .backup-confirm__list {
+        margin: 0 0 1rem;
+        padding-left: 1.15rem;
+        font-size: 0.875rem;
+        line-height: 1.55;
+
+        li + li { margin-top: 0.3rem; }
+    }
+
+    .backup-confirm__notices {
+        margin-bottom: 1rem;
+        padding: 0.75rem 0.875rem;
+        border-left: 3px solid var(--admin-border);
+        background: var(--admin-bg-subtle);
+        font-size: 0.8125rem;
+        color: var(--admin-text-muted);
+
+        p { margin: 0; }
+        p + p { margin-top: 0.5rem; }
+    }
+
+    .backup-confirm__recommend {
+        margin-bottom: 1rem;
+        padding: 0.75rem 0.875rem;
+        border: 1px solid color.adjust($warning-color, $lightness: 25%);
+        background: color.adjust($warning-color, $lightness: 45%);
+        border-radius: $border-radius-md;
+        font-size: 0.875rem;
+
+        p { margin: 0.3rem 0 0.6rem; }
+
+        &--ok {
+            border-color: color.adjust($success-color, $lightness: 25%);
+            background: color.adjust($success-color, $lightness: 48%);
+        }
+    }
+
+    .backup-confirm__type {
+        display: block;
+        margin-bottom: 1.25rem;
+
+        span {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.8125rem;
+            color: var(--admin-text);
+        }
+
+        code {
+            font-family: var(--admin-font-mono);
+            font-weight: 700;
+        }
+
+        input {
+            width: 100%;
+            max-width: 260px;
+            font-family: var(--admin-font-mono);
+        }
+    }
+
+    .backup-confirm__actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+}

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-03T21:26:38.675Z",
+  "generatedAt": "2026-09-03T22:03:08.199Z",
   "totalModules": 38,
-  "totalRoutes": 345,
+  "totalRoutes": 348,
   "modules": [
     {
       "module": "admin-channel",
@@ -1951,6 +1951,27 @@
           "absolutePath": "/api/v1/settings/update-cms",
           "auth": "admin",
           "summary": "Install the latest CMS packages and restart the server. Irreversible; brief downtime."
+        },
+        {
+          "method": "GET",
+          "path": "/backup/status",
+          "absolutePath": "/api/v1/settings/backup/status",
+          "auth": "admin",
+          "summary": "Whether this server can produce database backups (pg_dump present)."
+        },
+        {
+          "method": "GET",
+          "path": "/backup",
+          "absolutePath": "/api/v1/settings/backup",
+          "auth": "admin",
+          "summary": "Download a full dump of the site database."
+        },
+        {
+          "method": "POST",
+          "path": "/restore",
+          "absolutePath": "/api/v1/settings/restore",
+          "auth": "admin",
+          "summary": "REPLACE the entire database with an uploaded dump. Irreversible."
         },
         {
           "method": "PUT",
