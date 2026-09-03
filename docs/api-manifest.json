@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-03T00:18:29.473Z",
+  "generatedAt": "2026-09-03T21:26:38.675Z",
   "totalModules": 38,
-  "totalRoutes": 343,
+  "totalRoutes": 345,
   "modules": [
     {
       "module": "admin-channel",
@@ -1253,6 +1253,13 @@
           "summary": "List a page's saved revisions."
         },
         {
+          "method": "POST",
+          "path": "/:id/revisions",
+          "absolutePath": "/api/v1/pages/:id/revisions",
+          "auth": "staff",
+          "summary": "Snapshot the page's current state as a revision."
+        },
+        {
           "method": "GET",
           "path": "/:id/revisions/:version",
           "absolutePath": "/api/v1/pages/:id/revisions/:version",
@@ -1688,6 +1695,13 @@
           "absolutePath": "/api/v1/posts/:id/revisions",
           "auth": "staff",
           "summary": "List a post's saved revisions."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/revisions",
+          "absolutePath": "/api/v1/posts/:id/revisions",
+          "auth": "staff",
+          "summary": "Snapshot the post's current state as a revision."
         },
         {
           "method": "GET",

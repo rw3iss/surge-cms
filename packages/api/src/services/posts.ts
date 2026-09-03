@@ -18,7 +18,7 @@ import type { Post, User, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import * as repo from '../repositories/posts.repo';
-import * as revisionsRepo from '../repositories/revisions.repo';
+import * as revisions from './revisions';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
@@ -223,22 +223,11 @@ export async function update(
     patch: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<repo.PostWithBlocks> {
-    // Snapshot existing state BEFORE update for revision history.
-    try {
-        const existing = await repo.findPostById(id,);
-        await revisionsRepo.createRevision(
-            'post',
-            id,
-            existing as unknown as Record<string, unknown>,
-            ctx.userId || null,
-        );
-        await revisionsRepo.pruneRevisions('post', id, 50,);
-    } catch {
-        // Don't fail the save if the revision snapshot fails.
-    }
-
     const post = await repo.updatePost(id, patch,);
     await cache.invalidatePostCache(id,);
+    // Snapshot once the writes settle rather than before this one — a save is
+    // this update plus a separate write for the content blocks.
+    revisions.markDirty('post', id, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -283,6 +272,7 @@ export async function saveContentBlocks(
 ): Promise<void> {
     await repo.saveContentBlocks(postId, blocks,);
     await cache.invalidatePostCache(postId,);
+    revisions.markDirty('post', postId, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -297,49 +287,48 @@ export async function saveContentBlocks(
 // ─── Revisions ────────────────────────────────────────────────────
 
 export async function listRevisions(postId: string,) {
-    return revisionsRepo.listRevisions('post', postId,);
+    return revisions.list('post', postId,);
 }
 
 export async function getRevision(postId: string, version: number,) {
-    return revisionsRepo.getRevision('post', postId, version,);
+    const rev = await revisions.get('post', postId, version,);
+    if (!rev) throw new NotFoundError('Revision',);
+    return rev;
 }
 
 /**
- * Restore a revision, snapshotting current state first.
+ * Restore a revision: the post row AND its content blocks.
  *
- * Unlike `update`, the pre-restore snapshot here is intentionally NOT
- * wrapped in a swallow-errors try/catch: a snapshot failure aborts the
- * restore, and `getRevision` throws `NotFoundError` for an unknown
- * version.
+ * The current state is snapshotted first so the restore can be undone. The
+ * returned `restore` block reports whether content actually came back — a
+ * snapshot taken before full-tree capture holds no blocks, and the caller must
+ * be able to say that rather than implying otherwise.
  */
 export async function restoreRevision(
     postId: string,
     version: number,
     ctx: AuditContext,
-): Promise<repo.PostWithBlocks> {
-    const revision = await revisionsRepo.getRevision('post', postId, version,);
-    const snap = revision.snapshot as Record<string, unknown>;
-    const current = await repo.findPostById(postId,);
-    await revisionsRepo.createRevision(
-        'post',
-        postId,
-        current as unknown as Record<string, unknown>,
-        ctx.userId || null,
-        `Pre-restore snapshot (restoring v${version})`,
-    );
-    const restored = await repo.updatePost(postId, {
-        title: snap.title,
-        slug: snap.slug,
-        excerpt: snap.excerpt,
-        content: snap.content,
-        status: snap.status,
-        accessLevel: snap.accessLevel,
-        tags: snap.tags,
-        contentBlocks: snap.contentBlocks,
-        publishAt: snap.publishAt,
-    },);
+): Promise<repo.PostWithBlocks & { restore: revisions.RestoreResult; }> {
+    const result = await revisions.restore('post', postId, version, ctx.userId || null,);
     await cache.invalidatePostCache(postId,);
-    return restored;
+    await logAudit({
+        userId: ctx.userId,
+        action: 'restore',
+        entityType: 'post',
+        entityId: postId,
+        newValues: { version, blocksRestored: result.blocksRestored, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    const post = await repo.findPostById(postId,);
+    return Object.assign(post, { restore: result, },);
+}
+
+/** Force an immediate snapshot of the post's current state, so a completed
+ *  save shows up in the revision list without waiting out the settle delay. */
+export async function snapshotNow(postId: string, ctx: AuditContext,) {
+    const version = await revisions.flush('post', postId, ctx.userId || null,);
+    return { created: version !== null, version, };
 }
 
 // ─── Bulk + block order ───────────────────────────────────────────
@@ -356,4 +345,5 @@ export async function bulk(body: unknown,): Promise<BulkActionResult> {
 export async function reorderContentBlocks(postId: string, blockIds: string[],): Promise<void> {
     await repo.reorderContentBlocks(postId, blockIds,);
     await cache.invalidatePostCache(postId,);
+    revisions.markDirty('post', postId, null,);
 }

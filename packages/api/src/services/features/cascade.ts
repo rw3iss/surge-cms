@@ -30,6 +30,7 @@ export interface UpdateSettingsInput {
     analytics?: { googleAnalyticsId?: string; facebookPixelId?: string; };
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
     adminChannel?: { activeTimeoutSeconds?: number; };
+    revisions?: { historyDays?: number; };
     notifications?: import('@sitesurge/types').NotificationSettings;
     features?: Record<string, boolean>;
     enableDependencies?: boolean;
@@ -72,6 +73,7 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
         analytics: data.analytics,
         theme: data.theme,
         admin_channel: data.adminChannel,
+        revisions: data.revisions,
         notifications: data.notifications,
     };
 
@@ -186,6 +188,12 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
     try {
         const { invalidateAdminChannelConfig, } = await import('../adminChannel/config.js');
         invalidateAdminChannelConfig();
+    } catch { /* non-fatal */ }
+
+    // Same for revision retention, so a shortened window applies to the next save.
+    try {
+        const { invalidateRevisionSettings, } = await import('../revisions.js');
+        invalidateRevisionSettings();
     } catch { /* non-fatal */ }
 
     // Drop the cached notification settings so a changed config applies at

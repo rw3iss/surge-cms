@@ -1,4 +1,5 @@
 import type {
+    RevisionSnapshotResponse,
     PageNavigationResponse, PageHomepageResponse, PageBySlugQuery, PageBySlugResponse,
     PageListQuery, PageListResponse, PageByIdResponse, PageCreateBody, PageCreateResponse,
     PageUpdateBody, PageUpdateResponse, PageDeleteResponse, PageBulkBody, PageBulkResponse,
@@ -61,6 +62,13 @@ export class PagesModule extends ModuleBase {
 
     getRevision(id: string, version: number,): Promise<PageRevisionResponse> {
         return this.get<PageRevisionResponse>('/pages/:id/revisions/:version', { params: { id, version, }, },);
+    }
+
+    /** Snapshot the page as it is now. The editor calls this when a save
+     *  completes so the revision is listed immediately; the server would
+     *  otherwise take it a few seconds later, once the writes settle. */
+    snapshotRevision(id: string,): Promise<RevisionSnapshotResponse> {
+        return this.mutate<RevisionSnapshotResponse>('POST', '/pages/:id/revisions', { params: { id, }, },);
     }
 
     restoreRevision(id: string, version: number,): Promise<PageRevisionRestoreResponse> {

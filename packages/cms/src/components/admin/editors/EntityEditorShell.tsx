@@ -1,5 +1,5 @@
 import { Title, } from '@solidjs/meta';
-import { JSX, onCleanup, onMount, Show, } from 'solid-js';
+import { createSignal, JSX, onCleanup, onMount, Show, } from 'solid-js';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import BlockEditor from '../blocks/BlockEditor';
 import ConfirmModal from '../common/ConfirmModal';
@@ -59,6 +59,24 @@ export function EntityEditorShell<TEntity,>(
     props: EntityEditorShellProps<TEntity>,
 ): JSX.Element {
     const e = props.editor;
+
+    const [showRevertConfirm, setShowRevertConfirm,] = createSignal(false,);
+
+    /**
+     * Throw away local draft edits and reload the saved version.
+     *
+     * The stored draft has to go BEFORE the reload — the editor restores any
+     * draft newer than the server copy on mount, so reloading without clearing
+     * would simply restore the same edits again. That loop is why a restored
+     * draft previously could not be discarded at all.
+     */
+    const revertDraft = () => {
+        e.autoSave.cancel();   // kill any in-flight debounced write
+        e.autoSave.clear();    // drop the stored draft
+        e.markClean();         // so the unsaved-changes guard doesn't block us
+        setShowRevertConfirm(false,);
+        window.location.reload();
+    };
     const heading = () => e.isNew() ? props.labels.newHeading : props.labels.editHeading(props.title(),);
 
     let rootEl: HTMLDivElement | undefined;
@@ -91,6 +109,19 @@ export function EntityEditorShell<TEntity,>(
         <div class={`entity-editor ${props.rootClass(e.fullBleed(),)}`} ref={rootEl}>
             <Title>{heading()} - Admin - RW</Title>
 
+            <ConfirmModal
+                open={showRevertConfirm()}
+                title="Discard draft edits"
+                message={
+                    'This removes every unsaved change on this page and reloads the version '
+                    + 'that is currently saved. It cannot be undone.'
+                }
+                confirmLabel="Discard edits"
+                danger
+                onConfirm={revertDraft}
+                onCancel={() => setShowRevertConfirm(false,)}
+            />
+
             <div class="admin-header admin-header--sticky" ref={headerEl}>
                 <h1>{heading()}</h1>
                 <div class="admin-header__actions">
@@ -108,6 +139,24 @@ export function EntityEditorShell<TEntity,>(
                         <Show when={!e.isDeleted() && (e.isDirty() || props.status() === 'draft')}>
                             <button class="ui-button ui-button--ghost ui-button--sm" onClick={() => e.setShowPreview(true,)}>
                                 {props.labels.previewLabel}
+                            </button>
+                        </Show>
+                        {/* Discard local edits. Shown only when there is
+                            something to discard — either a restored draft from
+                            localStorage or unsaved changes in this session.
+                            Without it, a restored draft was impossible to get
+                            rid of: reloading just restored it again. */}
+                        <Show when={!e.isDeleted() && (e.isDirty() || e.autoSave.hasDraft())}>
+                            {/* Native title rather than the Tooltip component:
+                                that one renders its own help icon and takes no
+                                children, so wrapping a button in it silently
+                                drops the button. */}
+                            <button
+                                class="ui-button ui-button--ghost ui-button--sm"
+                                title="Remove all current draft edits and return this page to its current live version."
+                                onClick={() => setShowRevertConfirm(true,)}
+                            >
+                                Revert
                             </button>
                         </Show>
                         <Show when={props.status() === 'published'}>

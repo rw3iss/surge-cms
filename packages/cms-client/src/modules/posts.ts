@@ -1,4 +1,5 @@
 import type {
+    RevisionSnapshotResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
@@ -55,6 +56,11 @@ export class PostsModule extends ModuleBase {
 
     getRevision(id: string, version: number,): Promise<PostRevisionResponse> {
         return this.get<PostRevisionResponse>('/posts/:id/revisions/:version', { params: { id, version, }, },);
+    }
+
+    /** Snapshot the post as it is now — see the pages equivalent. */
+    snapshotRevision(id: string,): Promise<RevisionSnapshotResponse> {
+        return this.mutate<RevisionSnapshotResponse>('POST', '/posts/:id/revisions', { params: { id, }, },);
     }
 
     restoreRevision(id: string, version: number,): Promise<PostRevisionRestoreResponse> {

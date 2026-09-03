@@ -239,6 +239,13 @@ export async function startServer(): Promise<Server> {
             for (const socket of openSockets) socket.destroy();
             openSockets.clear();
             cronRegistry.stopAll();
+            // Write out any revision snapshot still inside its settle window,
+            // BEFORE the pool closes — otherwise an edit made seconds before a
+            // deploy leaves no history entry.
+            try {
+                const { flushAll, } = await import('./services/revisions.js');
+                await flushAll();
+            } catch { /* non-fatal: never block shutdown on history */ }
             await Promise.allSettled([closePool(), cache.close(),],);
             logger.info('Shutdown complete',);
             clearTimeout(forceExitTimer,);

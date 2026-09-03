@@ -34,6 +34,12 @@ const settingsSchema = z.object({
     adminChannel: z.object({
         activeTimeoutSeconds: z.coerce.number().int().min(5,).max(3600,).optional(),
     },).optional(),
+    /** Revision retention. 0 keeps every revision (subject only to the
+     *  per-entity ceiling); otherwise revisions older than this many days are
+     *  swept, except the newest few which always survive. */
+    revisions: z.object({
+        historyDays: z.coerce.number().int().min(0,).max(3650,).optional(),
+    },).optional(),
     /**
      * Per-type notification channel config. Each type key maps to enable +
      * recipient addresses per channel (email/sms/push). Sent by the

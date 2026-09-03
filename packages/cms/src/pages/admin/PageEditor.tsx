@@ -237,6 +237,7 @@ const AdminPageEditor: Component = () => {
             }
             return pageId;
         },
+        snapshot: (id,) => cms.pages.snapshotRevision(id,),
         softDelete: (id,) => cms.pages.update(id, { status: 'deleted', } as any,) as any,
         restore: (id,) => cms.pages.update(id, { status: 'draft', } as any,) as any,
         onRestored: () => setStatus('draft',),

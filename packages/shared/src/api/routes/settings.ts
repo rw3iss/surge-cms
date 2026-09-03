@@ -130,6 +130,7 @@ export interface SettingsUpdateBody {
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
     /** Admin Channel presence: idle timeout (seconds) before a user shows idle. */
     adminChannel?: { activeTimeoutSeconds?: number; };
+    revisions?: { historyDays?: number; };
     /** Per-type notification channel config (email/sms/push enable + addresses). */
     notifications?: NotificationSettings;
     /** Feature toggles. Keys must exist in the registry; unknown keys 400. */

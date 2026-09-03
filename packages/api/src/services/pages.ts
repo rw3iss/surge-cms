@@ -18,7 +18,7 @@ import type { Block, NavigationItem, Page, User, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import * as repo from '../repositories/pages.repo';
-import * as revisionsRepo from '../repositories/revisions.repo';
+import * as revisions from './revisions';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
@@ -196,24 +196,12 @@ export async function update(
     patch: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<Page> {
-    // Snapshot existing state BEFORE update for revision history.
-    try {
-        const existing = await repo.findPageById(id,);
-        if (existing) {
-            await revisionsRepo.createRevision(
-                'page',
-                id,
-                existing as unknown as Record<string, unknown>,
-                ctx.userId || null,
-            );
-            await revisionsRepo.pruneRevisions('page', id, 50,);
-        }
-    } catch {
-        // Don't fail the save if the revision snapshot fails.
-    }
-
     const page = await repo.updatePage(id, patch,);
     await cache.invalidatePageCache(id,);
+    // Snapshot AFTER the writes settle, not before this one. A save is many
+    // requests (this update plus a call per block); snapshotting here would
+    // capture the page mid-save and miss the blocks entirely.
+    revisions.markDirty('page', id, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -246,41 +234,49 @@ export async function remove(id: string, ctx: AuditContext,): Promise<Page | nul
 // ─── Revisions ────────────────────────────────────────────────────
 
 export async function listRevisions(pageId: string,) {
-    return revisionsRepo.listRevisions('page', pageId,);
+    return revisions.list('page', pageId,);
 }
 
 export async function getRevision(pageId: string, version: number,) {
-    return revisionsRepo.getRevision('page', pageId, version,);
+    const rev = await revisions.get('page', pageId, version,);
+    if (!rev) throw new NotFoundError('Revision',);
+    return rev;
 }
 
-/** Restore a revision, snapshotting current state first. */
+/**
+ * Restore a revision: the page row AND its whole block tree.
+ *
+ * The current state is snapshotted first, so a restore is itself undoable.
+ * Returns the page plus what the restore actually did — a snapshot taken before
+ * full-tree capture existed can only put the metadata back, and the caller has
+ * to be able to say so rather than implying the content came with it.
+ */
 export async function restoreRevision(
     pageId: string,
     version: number,
     ctx: AuditContext,
-): Promise<Page> {
-    const revision = await revisionsRepo.getRevision('page', pageId, version,);
-    const snap = revision.snapshot as Record<string, unknown>;
-    const current = await repo.findPageById(pageId,);
-    if (current) {
-        await revisionsRepo.createRevision(
-            'page',
-            pageId,
-            current as unknown as Record<string, unknown>,
-            ctx.userId || null,
-            `Pre-restore snapshot (restoring v${version})`,
-        );
-    }
-    const restored = await repo.updatePage(pageId, {
-        title: snap.title,
-        slug: snap.slug,
-        description: snap.description,
-        status: snap.status,
-        accessLevel: snap.accessLevel,
-        publishAt: snap.publishAt,
-    },);
+): Promise<Page & { restore: revisions.RestoreResult; }> {
+    const result = await revisions.restore('page', pageId, version, ctx.userId || null,);
     await cache.invalidatePageCache(pageId,);
-    return restored;
+    await logAudit({
+        userId: ctx.userId,
+        action: 'restore',
+        entityType: 'page',
+        entityId: pageId,
+        newValues: { version, blocksRestored: result.blocksRestored, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    const page = await repo.findPageById(pageId,);
+    return Object.assign(page, { restore: result, },);
+}
+
+/** Force an immediate snapshot of the page's current state. The editor calls
+ *  this when a save completes so the revision is listed straight away instead
+ *  of after the settle delay. */
+export async function snapshotNow(pageId: string, ctx: AuditContext,) {
+    const version = await revisions.flush('page', pageId, ctx.userId || null,);
+    return { created: version !== null, version, };
 }
 
 // ─── Blocks ───────────────────────────────────────────────────────
@@ -300,6 +296,7 @@ export async function createBlock(
 ): Promise<Block> {
     const block = await repo.createBlock(pageId, data,);
     await cache.invalidatePageCache(pageId,);
+    revisions.markDirty('page', pageId, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'create',
@@ -320,6 +317,7 @@ export async function updateBlock(
 ): Promise<Block> {
     const block = await repo.updateBlock(pageId, blockId, data,);
     await cache.invalidatePageCache(pageId,);
+    revisions.markDirty('page', pageId, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -339,6 +337,7 @@ export async function removeBlock(
 ): Promise<void> {
     await repo.deleteBlock(pageId, blockId,);
     await cache.invalidatePageCache(pageId,);
+    revisions.markDirty('page', pageId, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'delete',
@@ -362,6 +361,7 @@ export async function reorderBlocks(
 ): Promise<void> {
     await repo.reorderBlocks(pageId, parentBlockId, blockIds,);
     await cache.invalidatePageCache(pageId,);
+    revisions.markDirty('page', pageId, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'reorder',

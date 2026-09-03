@@ -95,7 +95,24 @@ export interface PageRevisionParams {
 export type PageRevisionResponse = Revision;
 
 /** POST /pages/:id/revisions/:version/restore — the restored page. */
-export type PageRevisionRestoreResponse = PageWithBlocks;
+/** What a restore put back, alongside the restored page. `metadataOnly` marks a
+ *  legacy snapshot that predates full-tree capture: its fields were restored but
+ *  the block content was left untouched, and the UI has to say so. */
+export interface RevisionRestoreOutcome {
+    version: number;
+    blocksRestored: number;
+    metadataOnly: boolean;
+    undoVersion: number | null;
+}
+
+export type PageRevisionRestoreResponse = PageWithBlocks & { restore: RevisionRestoreOutcome; };
+
+/** Result of an explicit snapshot. `created` is false when the content is
+ *  identical to the newest revision, so nothing was added. */
+export interface RevisionSnapshotResponse {
+    created: boolean;
+    version: number | null;
+}
 
 // ─── Block CRUD ───────────────────────────────────────────────────
 

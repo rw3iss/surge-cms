@@ -206,6 +206,13 @@ export const postsRoutes = [
     },),
 
     defineRoute({
+        method: 'post', path: '/:id/revisions', auth: 'staff',
+        summary: 'Snapshot the post\'s current state as a revision.',
+        input: { params: idParams, },
+        handler: ({ params, audit, },) => posts.snapshotNow(params.id, audit(),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/:id/revisions/:version', auth: 'staff',
         summary: 'Fetch one revision snapshot.',
         input: { params: z.object({ id: z.string(), version: z.coerce.number().int(), },), },

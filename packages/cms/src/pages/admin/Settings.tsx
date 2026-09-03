@@ -1433,6 +1433,7 @@ const AdminSettings: Component = () => {
     const [defaultTimezone, setDefaultTimezone,] = createSignal('',);
     const [defaultCurrency, setDefaultCurrency,] = createSignal('USD',);
     const [adminIdleTimeout, setAdminIdleTimeout,] = createSignal(60,);
+    const [historyDays, setHistoryDays,] = createSignal(10,);
     const [saving, setSaving,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
 
@@ -1472,6 +1473,13 @@ const AdminSettings: Component = () => {
         const adminChannel = getValue(s, 'admin_channel', null,);
         if (adminChannel && typeof adminChannel === 'object' && (adminChannel as any).activeTimeoutSeconds) {
             setAdminIdleTimeout(Number((adminChannel as any).activeTimeoutSeconds,) || 60,);
+        }
+        const revisionSettings = getValue(s, 'revisions', null,);
+        if (revisionSettings && typeof revisionSettings === 'object') {
+            // Checked against null rather than truthiness: 0 means "keep
+            // everything" and would otherwise be replaced by the default.
+            const d = Number((revisionSettings as any).historyDays,);
+            if (Number.isFinite(d,) && d >= 0) setHistoryDays(d,);
         }
         // Feature flags — the admin GET /settings returns each as
         // `{ value: boolean, ... }`. `getValue` already unwraps that.
@@ -1523,6 +1531,10 @@ const AdminSettings: Component = () => {
             currency: defaultCurrency() || 'USD',
         };
         data.adminChannel = { activeTimeoutSeconds: Math.min(3600, Math.max(5, Number(adminIdleTimeout()) || 60,),), };
+        // 0 is a real choice here ("keep everything"), so it must survive the
+        // fallback that would otherwise turn it back into the default.
+        const days = Number(historyDays(),);
+        data.revisions = { historyDays: Number.isFinite(days,) && days >= 0 ? Math.min(3650, days,) : 10, };
 
         try {
             await cms.settings.update(data as any,);
@@ -1695,6 +1707,18 @@ const AdminSettings: Component = () => {
                                         type="text"
                                         value={analyticsId()}
                                         onInput={(e,) => setAnalyticsId(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Page history limit (days)"
+                                    hint="How long page and post revisions are kept. Each save stores a full copy of the content, so a shorter window uses less space. The 5 most recent revisions are always kept, whatever their age; 0 keeps everything."
+                                >
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="3650"
+                                        value={historyDays()}
+                                        onInput={(e,) => setHistoryDays(Number(e.currentTarget.value,),)}
                                     />
                                 </FormField>
                                 <FormField

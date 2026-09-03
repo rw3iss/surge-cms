@@ -41,6 +41,15 @@ export interface UseEntityEditorConfig<TEntity,> {
     save: (ctx: EntitySaveContext,) => Promise<string | undefined>;
     /** Non-toast side effects after a successful save (e.g. cache invalidation). */
     onSaved?: () => void;
+    /**
+     * Checkpoint the saved state into revision history.
+     *
+     * The server also does this on its own a few seconds after writes stop, so
+     * this is not what creates the revision — it just takes it NOW, so the
+     * history panel shows the save the moment it lands. Failures are ignored:
+     * missing a history entry must never turn a successful save into an error.
+     */
+    snapshot?: (id: string,) => Promise<unknown>;
     /** Soft-delete (status → 'deleted'). */
     softDelete: (id: string,) => Promise<void>;
     /** Non-toast side effects after a successful delete (e.g. cache invalidation). */
@@ -197,6 +206,10 @@ export function useEntityEditor<TEntity,>(
             markClean();
             config.onSaved?.();
             toast.success(config.messages.saved(),);
+            const savedId = id || params.id;
+            if (config.snapshot && savedId && savedId !== 'new') {
+                void config.snapshot(savedId,).catch(() => {});
+            }
             // Brand-new entities navigate to the persisted id so the next
             // save PUTs instead of POSTing; existing entities stay put.
             if (isNew() && id) {

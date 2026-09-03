@@ -189,7 +189,9 @@ export interface PostRevisionParams {
 export type PostRevisionResponse = Revision;
 
 /** POST /posts/:id/revisions/:version/restore — the restored post. */
-export type PostRevisionRestoreResponse = PostWithBlocks;
+export type PostRevisionRestoreResponse = PostWithBlocks & {
+    restore: import('./pages').RevisionRestoreOutcome;
+};
 
 // ─── PUT /posts/:id/blocks/reorder ────────────────────────────────
 

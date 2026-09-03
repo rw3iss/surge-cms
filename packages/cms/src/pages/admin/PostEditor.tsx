@@ -122,6 +122,7 @@ const AdminPostEditor: Component = () => {
             return (saved as any)?.id ?? ctx.id;
         },
         onSaved: () => invalidatePostsCache(),
+        snapshot: (id,) => cms.posts.snapshotRevision(id,),
         softDelete: (id,) => cms.posts.update(id, { status: 'deleted', } as any,) as any,
         onDeleted: () => invalidatePostsCache(),
         restore: (id,) => cms.posts.update(id, { status: 'draft', } as any,) as any,

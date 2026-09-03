@@ -144,6 +144,13 @@ export const pagesRoutes = [
     },),
 
     defineRoute({
+        method: 'post', path: '/:id/revisions', auth: 'staff',
+        summary: 'Snapshot the page\'s current state as a revision.',
+        input: { params: idParams, },
+        handler: ({ params, audit, },) => pages.snapshotNow(params.id, audit(),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/:id/revisions/:version', auth: 'staff',
         summary: 'Fetch one revision snapshot.',
         input: { params: versionParams, },
