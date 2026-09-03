@@ -1,7 +1,9 @@
 // Public wiki. Uses the --site-* theme tokens so an operator's appearance
 // settings carry through.
 .wiki-page {
-  max-width: var(--site-max-width, 900px);
+  // Wider than the site default: a wiki is reference material, and the tree
+  // plus a content column needs the room.
+  max-width: 1200px;
   margin: 0 auto;
   padding: $spacing-xl var(--site-gutter, #{$container-padding}) $spacing-3xl;
   color: var(--site-text, #{$text-color});
@@ -184,4 +186,75 @@
     font-size: 0.75rem;
     color: var(--site-text-muted, #6b7280);
   }
+}
+
+
+// ─── Page view: sidebar tree + content ─────────────────────────────
+.wiki-layout {
+  display: grid;
+  // The nav is a fixed reading width; the content takes everything left.
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: $spacing-2xl;
+  align-items: start;
+
+  @media (max-width: $breakpoint-md) {
+    // Stacked on narrow screens, nav first so "where am I" is still answered.
+    grid-template-columns: 1fr;
+    gap: $spacing-lg;
+  }
+
+  &__nav {
+    position: sticky;
+    // Sticks while the article scrolls — on a long page the tree would
+    // otherwise be far above the reader when they want to move on.
+    top: $spacing-lg;
+    max-height: calc(100vh - #{$spacing-2xl});
+    overflow-y: auto;
+
+    @media (max-width: $breakpoint-md) {
+      position: static;
+      max-height: none;
+    }
+  }
+
+  &__nav-title {
+    display: block;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--site-text-muted, #6b7280);
+    text-decoration: none;
+    margin-bottom: $spacing-sm;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__content { min-width: 0; }
+}
+
+// Sidebar variant: tighter rows, no card chrome, no dates.
+.wiki-tree--compact {
+  border: none;
+  border-radius: 0;
+
+  .wiki-tree__item { border-bottom: none; }
+
+  .wiki-tree__row {
+    padding: 3px 0;
+    gap: 2px;
+  }
+
+  .wiki-tree__link {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  .wiki-tree__chev { width: 16px; flex-basis: 16px; font-size: 10px; }
+}
+
+// The page you are on, in the sidebar.
+.wiki-tree__link--current {
+  color: var(--site-primary, #{$primary-color});
+  font-weight: 700;
 }

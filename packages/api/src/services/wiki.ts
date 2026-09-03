@@ -173,7 +173,11 @@ async function uniqueSlug(raw: string | null | undefined, exceptId?: string,): P
 
 export async function create(input: WikiPageInput, ctx: AuditContext,): Promise<WikiPage> {
     if (!input.title?.trim()) throw new ValidationError('A title is required.',);
-    const slug = await uniqueSlug(input.slug,);
+    // Derive from the title when the caller gave no slug, so a page created
+    // from the quick-add modal has a readable public URL immediately rather
+    // than a UUID until someone happens to re-save it. Still optional: the
+    // editor can clear it, and the page stays reachable by id.
+    const slug = await uniqueSlug(input.slug ?? input.title,);
 
     const res = await query(
         `INSERT INTO wiki_pages

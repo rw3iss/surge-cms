@@ -15,6 +15,7 @@ import { useToast, } from '../../components/common/toast';
 import { FormField, } from '../../components/admin/forms';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import MarkdownEditor from '../../components/admin/common/MarkdownEditor';
+import ModalShell from '../../components/admin/common/ModalShell';
 import './Wiki.scss';
 
 /** Roles that can be granted view access to a single page. */
@@ -44,6 +45,8 @@ const WikiEditor: Component = () => {
     const [viewRoles, setViewRoles,] = createSignal<string[]>([],);
     const [status, setStatus,] = createSignal<WikiPage['status']>('published',);
     const [saving, setSaving,] = createSignal(false,);
+    const [confirmDelete, setConfirmDelete,] = createSignal(false,);
+    const [deleting, setDeleting,] = createSignal(false,);
 
     createEffect(() => {
         const p = page();
@@ -67,6 +70,29 @@ const WikiEditor: Component = () => {
 
     /** Candidate parents: every other page. The server rejects cycles too. */
     const parentOptions = () => (all() ?? []).filter((p,) => p.id !== params.id);
+
+    /** Direct children, so the delete dialog can ask what happens to them. */
+    const childCount = () => (all() ?? []).filter((p,) => p.parentId === params.id).length;
+
+    const doDelete = async (mode: 'cascade' | 'orphan',) => {
+        setDeleting(true,);
+        try {
+            const res = await cms.wiki.remove(params.id, mode,);
+            toast.success(
+                mode === 'cascade'
+                    ? `Deleted ${res.deleted} page${res.deleted !== 1 ? 's' : ''}.`
+                    : `Deleted. ${res.orphaned} child page${res.orphaned !== 1 ? 's' : ''} moved to the top level.`,
+            );
+            // The page this editor is showing no longer exists, so staying here
+            // would render a dead record.
+            navigate('/admin/wiki',);
+        } catch (e: any) {
+            toast.error(e?.message || 'Could not delete the page.',);
+        } finally {
+            setDeleting(false,);
+            setConfirmDelete(false,);
+        }
+    };
 
     const toggleRole = (role: string,) =>
         setViewRoles((prev,) =>
@@ -104,6 +130,10 @@ const WikiEditor: Component = () => {
                     {title() || 'Untitled'}
                 </h1>
                 <div class="admin-header__actions">
+                    <button
+                        type="button" class="ui-button ui-button--danger ui-button--sm"
+                        onClick={() => setConfirmDelete(true,)}
+                    >Delete</button>
                     <Show when={page()?.slug || page()?.id}>
                         <a
                             href={`/wiki/${page()?.slug || page()?.id}`}
@@ -125,54 +155,63 @@ const WikiEditor: Component = () => {
                     subtitle={slug() ? `/wiki/${slug()}` : `/wiki/${params.id}`}
                     defaultOpen
                 >
+                    {/* 80/20 split: the identity fields (title, slug, taxonomy)
+                        get the room, while placement and status are narrow
+                        pickers that only need enough width to read. */}
                     <div class="wiki-props">
-                        <FormField label="Title" required>
-                            <input
-                                type="text" value={title()}
-                                onInput={(e,) => setTitle(e.currentTarget.value,)}
-                            />
-                        </FormField>
+                        <div class="wiki-props__main">
+                            <FormField label="Title" required>
+                                <input
+                                    type="text" value={title()}
+                                    onInput={(e,) => setTitle(e.currentTarget.value,)}
+                                />
+                            </FormField>
 
-                        <FormField
-                            label="Slug"
-                            hint="Optional. Left empty, the page is reachable by its id."
-                        >
-                            <input
-                                type="text" value={slug()} placeholder="auto from title"
-                                onInput={(e,) => { setSlug(e.currentTarget.value,); setSlugTouched(true,); }}
-                            />
-                        </FormField>
+                            <FormField
+                                label="Slug"
+                                hint="Optional. Left empty, the page is reachable by its id."
+                            >
+                                <input
+                                    type="text" value={slug()} placeholder="auto from title"
+                                    onInput={(e,) => { setSlug(e.currentTarget.value,); setSlugTouched(true,); }}
+                                />
+                            </FormField>
 
-                        <FormField label="Parent page" hint="Makes this a child in the tree.">
-                            <select value={parentId()} onChange={(e,) => setParentId(e.currentTarget.value,)}>
-                                <option value="">— None (top level) —</option>
-                                <For each={parentOptions()}>
-                                    {(p,) => <option value={p.id}>{p.title}</option>}
-                                </For>
-                            </select>
-                        </FormField>
+                            <div class="wiki-props__pair">
+                                <FormField label="Tags" hint="Comma separated.">
+                                    <input
+                                        type="text" value={tags()} placeholder="setup, billing"
+                                        onInput={(e,) => setTags(e.currentTarget.value,)}
+                                    />
+                                </FormField>
 
-                        <FormField label="Status">
-                            <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as never,)}>
-                                <option value="published">Published</option>
-                                <option value="draft">Draft</option>
-                                <option value="archived">Archived</option>
-                            </select>
-                        </FormField>
+                                <FormField label="Categories" hint="Comma separated.">
+                                    <input
+                                        type="text" value={categories()} placeholder="Guides"
+                                        onInput={(e,) => setCategories(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                            </div>
+                        </div>
 
-                        <FormField label="Tags" hint="Comma separated.">
-                            <input
-                                type="text" value={tags()} placeholder="setup, billing"
-                                onInput={(e,) => setTags(e.currentTarget.value,)}
-                            />
-                        </FormField>
+                        <div class="wiki-props__side">
+                            <FormField label="Parent page" hint="Makes this a child in the tree.">
+                                <select value={parentId()} onChange={(e,) => setParentId(e.currentTarget.value,)}>
+                                    <option value="">— None (top level) —</option>
+                                    <For each={parentOptions()}>
+                                        {(p,) => <option value={p.id}>{p.title}</option>}
+                                    </For>
+                                </select>
+                            </FormField>
 
-                        <FormField label="Categories" hint="Comma separated.">
-                            <input
-                                type="text" value={categories()} placeholder="Guides"
-                                onInput={(e,) => setCategories(e.currentTarget.value,)}
-                            />
-                        </FormField>
+                            <FormField label="Status">
+                                <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as never,)}>
+                                    <option value="published">Published</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="archived">Archived</option>
+                                </select>
+                            </FormField>
+                        </div>
                     </div>
 
                     <div class="wiki-props__perms">
@@ -213,6 +252,56 @@ const WikiEditor: Component = () => {
                     />
                 </div>
             </Show>
+
+            {/* Same question the index asks: both answers are destructive in
+                different ways, so neither is defaulted. */}
+            <ModalShell
+                open={confirmDelete()}
+                size="sm"
+                showClose
+                dismissOnBackdrop={false}
+                onClose={() => setConfirmDelete(false,)}
+                ariaLabel="Delete wiki page"
+                class="wiki-delete"
+            >
+                <div class="wiki-delete__body">
+                    <h2>Delete “{title()}”?</h2>
+                    <Show
+                        when={childCount() > 0}
+                        fallback={<p>This page will be permanently deleted.</p>}
+                    >
+                        <p>
+                            This page has <strong>{childCount()}</strong> child
+                            page{childCount() !== 1 ? 's' : ''}. What should happen to them?
+                        </p>
+                    </Show>
+                    <div class="wiki-delete__actions">
+                        <Show when={childCount() > 0}>
+                            <button
+                                type="button" class="ui-button ui-button--secondary ui-button--sm"
+                                disabled={deleting()}
+                                onClick={() => doDelete('orphan',)}
+                            >Keep children (move to top level)</button>
+                            <button
+                                type="button" class="ui-button ui-button--danger ui-button--sm"
+                                disabled={deleting()}
+                                onClick={() => doDelete('cascade',)}
+                            >Delete children too</button>
+                        </Show>
+                        <Show when={childCount() === 0}>
+                            <button
+                                type="button" class="ui-button ui-button--danger ui-button--sm"
+                                disabled={deleting()}
+                                onClick={() => doDelete('orphan',)}
+                            >Delete</button>
+                        </Show>
+                        <button
+                            type="button" class="ui-button ui-button--ghost ui-button--sm"
+                            onClick={() => setConfirmDelete(false,)}
+                        >Cancel</button>
+                    </div>
+                </div>
+            </ModalShell>
         </div>
     );
 };

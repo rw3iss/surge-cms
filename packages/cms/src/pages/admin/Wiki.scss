@@ -92,9 +92,43 @@
 }
 
 .wiki-props {
+  // 80/20: identity fields (title, slug, taxonomy) get the room; placement and
+  // status are narrow pickers that only need enough width to read.
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: $spacing-md;
+  grid-template-columns: minmax(0, 4fr) minmax(200px, 1fr);
+  gap: $spacing-lg;
+  align-items: start;
+
+  @media (max-width: $breakpoint-md) {
+    grid-template-columns: 1fr;
+  }
+
+  // Left column: one field per row.
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-width: 0;
+  }
+
+  // Tags + categories share the third row.
+  &__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: $breakpoint-sm) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // Right column: stacked pickers.
+  &__side {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-width: 0;
+  }
 
   &__perms {
     margin-top: $spacing-lg;

@@ -6,7 +6,7 @@
  */
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
-import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import type { WikiPage, WikiPageNode, } from '@sitesurge/types';
 import { buildWikiTree, renderMarkdown, wikiPagePath, } from '@sitesurge/types';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -42,9 +42,24 @@ const WikiSearchBox: Component<{ initial?: string; autofocus?: boolean; }> = (pr
 const formatDate = (iso: string,) =>
     new Date(iso,).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', },);
 
-/** One node of the public tree, collapsible when it has children. */
-const TreeRow: Component<{ node: WikiPageNode; depth: number; }> = (props,) => {
-    const [open, setOpen,] = createSignal(props.depth < 1,);
+/**
+ * One node of the public tree.
+ *
+ * `openIds` forces a branch open — used when viewing a page so its ancestors
+ * are expanded and the page is visible in the sidebar without hunting for it.
+ */
+const TreeRow: Component<{
+    node: WikiPageNode;
+    depth: number;
+    currentId?: string;
+    openIds?: Set<string>;
+    compact?: boolean;
+}> = (props,) => {
+    const forcedOpen = () => Boolean(props.openIds?.has(props.node.id,));
+    const [open, setOpen,] = createSignal(props.depth < 1 || forcedOpen(),);
+    // A branch containing the current page opens even if the reader collapsed it
+    // on a previous page — otherwise "where am I" has no answer.
+    createEffect(() => { if (forcedOpen()) setOpen(true,); },);
     const hasChildren = () => props.node.children.length > 0;
     return (
         <li class="wiki-tree__item">
@@ -59,7 +74,12 @@ const TreeRow: Component<{ node: WikiPageNode; depth: number; }> = (props,) => {
                     {hasChildren() ? (open() ? '▾' : '▸') : '·'}
                 </button>
 
-                <A href={wikiPagePath(props.node,)} class="wiki-tree__link">
+                <A
+                    href={wikiPagePath(props.node,)}
+                    class={`wiki-tree__link${
+                        props.currentId === props.node.id ? ' wiki-tree__link--current' : ''
+                    }`}
+                >
                     {props.node.title}
                 </A>
 
@@ -70,18 +90,29 @@ const TreeRow: Component<{ node: WikiPageNode; depth: number; }> = (props,) => {
                 <span class="wiki-tree__spacer" />
 
                 {/* Both dates inline, as asked — "added" answers how old a page
-                    is, "updated" whether it is still maintained. */}
+                    is, "updated" whether it is still maintained. The sidebar
+                    drops them: at that width they push the title out. */}
+                <Show when={!props.compact}>
                 <span class="wiki-tree__dates">
                     <span title="Date added">Added {formatDate(props.node.createdAt,)}</span>
                     <span class="wiki-tree__dot">·</span>
                     <span title="Last updated">Updated {formatDate(props.node.updatedAt,)}</span>
                 </span>
+                </Show>
             </div>
 
             <Show when={open() && hasChildren()}>
                 <ul class="wiki-tree__children">
                     <For each={props.node.children}>
-                        {(child,) => <TreeRow node={child} depth={props.depth + 1} />}
+                        {(child,) => (
+                            <TreeRow
+                                node={child}
+                                depth={props.depth + 1}
+                                currentId={props.currentId}
+                                openIds={props.openIds}
+                                compact={props.compact}
+                            />
+                        )}
                     </For>
                 </ul>
             </Show>
@@ -178,7 +209,7 @@ export const WikiSearch: Component = () => {
     );
 };
 
-/** /wiki/:ref — one page, by slug or id. */
+/** /wiki/:ref — one page, with the tree alongside it. */
 export const WikiPageView: Component = () => {
     const params = useParams<{ ref: string; }>();
     const [page] = createResource(
@@ -191,12 +222,33 @@ export const WikiPageView: Component = () => {
         try { return await cms.wiki.list(); } catch { return [] as WikiPage[]; }
     },);
 
+    const tree = createMemo(() => buildWikiTree(all() ?? [],),);
+
     /** Children of this page, so a section index links onward. */
     const children = createMemo(() =>
         (all() ?? []).filter((p,) => p.parentId === page()?.id));
 
+    /**
+     * The current page's ancestors, so the sidebar opens the branch containing
+     * it. Walking parents rather than searching the tree keeps this O(depth).
+     */
+    const ancestorIds = createMemo(() => {
+        const byId = new Map((all() ?? []).map((p,) => [p.id, p,]),);
+        const out = new Set<string>();
+        let cursor = page()?.parentId ?? null;
+        // Guard the walk: a cycle would otherwise hang the render. The server
+        // rejects cycles, but a stale client list should not be able to lock up.
+        let hops = 0;
+        while (cursor && hops < 50) {
+            out.add(cursor,);
+            cursor = byId.get(cursor,)?.parentId ?? null;
+            hops += 1;
+        }
+        return out;
+    },);
+
     return (
-        <div class="wiki-page page-wrapper">
+        <div class="wiki-page wiki-page--with-nav page-wrapper">
             <Show
                 when={page()}
                 fallback={
@@ -212,40 +264,67 @@ export const WikiPageView: Component = () => {
                     <>
                         <Title>{p().title}</Title>
                         <SeoHead title={p().title} type="article" />
-                        <A href="/wiki" class="wiki-page__back">← Wiki index</A>
 
-                        <header class="wiki-page__header">
-                            <h1>{p().title}</h1>
-                            <p class="wiki-page__dates">
-                                Added {formatDate(p().createdAt,)}
-                                <span class="wiki-tree__dot">·</span>
-                                Updated {formatDate(p().updatedAt,)}
-                            </p>
-                            <Show when={p().tags.length > 0}>
-                                <div class="wiki-page__tags">
-                                    <For each={p().tags}>
-                                        {(t,) => <span class="wiki-page__tag">{t}</span>}
-                                    </For>
-                                </div>
-                            </Show>
-                        </header>
+                        <div class="wiki-layout">
+                            {/* Sidebar: the whole tree, so a reader can move
+                                between pages without returning to the index. */}
+                            <aside class="wiki-layout__nav">
+                                <A href="/wiki" class="wiki-layout__nav-title">Wiki</A>
+                                <Show when={tree().length > 0}>
+                                    <ul class="wiki-tree wiki-tree--compact">
+                                        <For each={tree()}>
+                                            {(node,) => (
+                                                <TreeRow
+                                                    node={node}
+                                                    depth={0}
+                                                    compact
+                                                    currentId={p().id}
+                                                    openIds={ancestorIds()}
+                                                />
+                                            )}
+                                        </For>
+                                    </ul>
+                                </Show>
+                            </aside>
 
-                        {/* renderMarkdown escapes before formatting, so its output
-                            is safe to inject without a separate sanitiser. */}
-                        <article class="wiki-page__body rich-text" innerHTML={renderMarkdown(p().content,)} />
+                            <div class="wiki-layout__content">
+                                <header class="wiki-page__header">
+                                    <h1>{p().title}</h1>
+                                    <p class="wiki-page__dates">
+                                        Added {formatDate(p().createdAt,)}
+                                        <span class="wiki-tree__dot">·</span>
+                                        Updated {formatDate(p().updatedAt,)}
+                                    </p>
+                                    <Show when={p().tags.length > 0}>
+                                        <div class="wiki-page__tags">
+                                            <For each={p().tags}>
+                                                {(t,) => <span class="wiki-page__tag">{t}</span>}
+                                            </For>
+                                        </div>
+                                    </Show>
+                                </header>
 
-                        <Show when={children().length > 0}>
-                            <section class="wiki-page__children">
-                                <h2>In this section</h2>
-                                <ul>
-                                    <For each={children()}>
-                                        {(c,) => (
-                                            <li><A href={wikiPagePath(c,)}>{c.title}</A></li>
-                                        )}
-                                    </For>
-                                </ul>
-                            </section>
-                        </Show>
+                                {/* renderMarkdown escapes before formatting, so its
+                                    output is safe to inject without a sanitiser. */}
+                                <article
+                                    class="wiki-page__body rich-text"
+                                    innerHTML={renderMarkdown(p().content,)}
+                                />
+
+                                <Show when={children().length > 0}>
+                                    <section class="wiki-page__children">
+                                        <h2>In this section</h2>
+                                        <ul>
+                                            <For each={children()}>
+                                                {(c,) => (
+                                                    <li><A href={wikiPagePath(c,)}>{c.title}</A></li>
+                                                )}
+                                            </For>
+                                        </ul>
+                                    </section>
+                                </Show>
+                            </div>
+                        </div>
                     </>
                 )}
             </Show>
