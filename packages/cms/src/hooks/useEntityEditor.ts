@@ -106,6 +106,9 @@ export interface EntityEditorController<TEntity,> {
     // autosave
     autoSave: ReturnType<typeof useAutoSave>;
     // actions
+    /** Increments after each completed save (and its revision snapshot), so
+     *  panels showing server-derived state can refetch. */
+    savedTick: Accessor<number>;
     handleSave: () => Promise<void>;
     handleDelete: () => Promise<void>;
     handleRestore: () => Promise<void>;
@@ -162,6 +165,11 @@ export function useEntityEditor<TEntity,>(
         state: () => ({ ...config.autoSaveState(), blocks: blocks(), }),
     },);
 
+    /** Bumped once a save (and its revision snapshot) has fully landed.
+     *  The revision panel keys its fetch on this, so the new version appears
+     *  without the operator reloading the page. */
+    const [savedTick, setSavedTick,] = createSignal(0,);
+
     const handleSave = async () => {
         // Rich Text / HTML blocks flush their edits to the block store on BLUR,
         // not per keystroke (keeps caret focus while typing). If the operator
@@ -208,7 +216,13 @@ export function useEntityEditor<TEntity,>(
             toast.success(config.messages.saved(),);
             const savedId = id || params.id;
             if (config.snapshot && savedId && savedId !== 'new') {
-                void config.snapshot(savedId,).catch(() => {});
+                // Bump only once the snapshot has landed — refetching before it
+                // exists would show the list without the version just saved.
+                void config.snapshot(savedId,)
+                    .catch(() => {})
+                    .finally(() => setSavedTick((n,) => n + 1),);
+            } else {
+                setSavedTick((n,) => n + 1,);
             }
             // Brand-new entities navigate to the persisted id so the next
             // save PUTs instead of POSTing; existing entities stay put.
@@ -287,6 +301,7 @@ export function useEntityEditor<TEntity,>(
         appearance,
         siteContainerStyle,
         autoSave,
+        savedTick,
         handleSave,
         handleDelete,
         handleRestore,

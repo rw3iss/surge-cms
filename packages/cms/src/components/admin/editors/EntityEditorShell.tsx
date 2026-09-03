@@ -202,6 +202,7 @@ export function EntityEditorShell<TEntity,>(
                 <RevisionsPanel
                     entityType={props.revisionsEntityType}
                     entityId={e.params.id}
+                    refreshToken={e.savedTick()}
                     onRestored={() => window.location.reload()}
                 />
             </Show>

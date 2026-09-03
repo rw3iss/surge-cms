@@ -57,7 +57,12 @@ export class PagesModule extends ModuleBase {
 
     // ─── Revisions ────────────────────────────────────────────────
     listRevisions(id: string,): Promise<PageRevisionListResponse> {
-        return this.get<PageRevisionListResponse>('/pages/:id/revisions', { params: { id, }, },);
+        // Never served from the SWR cache: the editor re-reads this the moment a
+        // save finishes, and a stale hit would show the list WITHOUT the version
+        // just saved — the exact thing the refetch exists to display.
+        return this.get<PageRevisionListResponse>('/pages/:id/revisions', {
+            params: { id, }, options: { cache: false, },
+        },);
     }
 
     getRevision(id: string, version: number,): Promise<PageRevisionResponse> {

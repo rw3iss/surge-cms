@@ -18,6 +18,13 @@ export interface RevisionsPanelProps {
     entityId: string;
     /** Called after a successful restore so the editor can reload state */
     onRestored?: () => void;
+    /**
+     * Changes whenever the caller wants the list re-read — the editor bumps it
+     * after a save completes. Part of the resource key rather than an
+     * imperative refetch handle, so the panel stays a plain prop-driven
+     * component with no ref plumbing.
+     */
+    refreshToken?: number;
 }
 
 /** List rows carry two fields the snapshot payload would otherwise be needed for. */
@@ -30,7 +37,7 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
     const [busy, setBusy,] = createSignal(false,);
 
     const [revisions, { refetch, },] = createResource(
-        () => `${props.entityType}:${props.entityId}`,
+        () => `${props.entityType}:${props.entityId}:${props.refreshToken ?? 0}`,
         async () => {
             if (!props.entityId || props.entityId === 'new') return [] as RevisionRow[];
             try {
