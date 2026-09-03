@@ -145,12 +145,38 @@ export async function remove(key: string, ctx: AuditContext,): Promise<boolean> 
  * Adding a new feature is a one-place change here + a default in the
  * seeder. The frontend reads `features.<x>.enabled` verbatim.
  */
-async function computePublicFeatures(
+export async function computePublicFeatures(
     settings: Record<string, unknown>,
 ): Promise<import('@sitesurge/types').SiteFeatures> {
-    // Module flags default to ON when the row is absent (existing
-    // installs predating the feature shouldn't suddenly hide things).
-    const moduleEnabled = (key: string,): boolean => settings[key] !== false;
+    /**
+     * Is a feature on?
+     *
+     * The default for a missing row comes from `FEATURE_REGISTRY[key].defaultEnabled`
+     * — NOT from a per-feature rule written out here.
+     *
+     * This used to be two hand-maintained lists: legacy modules read
+     * `!== false` (default ON, so an install predating the feature system
+     * doesn't suddenly hide its content) and opt-in features read `=== true`.
+     * The lists drifted. `wiki` was given the default-ON rule despite a
+     * registry default of `false`, so a site that had never installed it
+     * reported the feature as enabled. Worse, the toggle then looked broken:
+     * the write path reads its "current" state from the SAME registry default,
+     * saw `false`, and treated "turn it off" as a no-op — no row written,
+     * projection still says on, nothing appears to happen. Uninstalling had
+     * the same shape, since it deletes a row that was never there.
+     *
+     * Deriving from the registry keeps the two in step by construction.
+     */
+    const featureOn = (key: FeatureKey,): boolean => {
+        const row = settings[featureSettingKey(key,)];
+        if (row === undefined || row === null) return FEATURE_REGISTRY[key].defaultEnabled;
+        // Rows have been written as a bare boolean and, historically, as
+        // `{ value: true }`; accept both rather than silently reading an old
+        // row as `false`.
+        return row === true
+            || row === 'true'
+            || (typeof row === 'object' && (row as { value?: unknown; }).value === true);
+    };
 
     const patreonAdminEnabled = settings.patreon_enabled === true;
     let patreonConnected = false;
@@ -171,32 +197,21 @@ async function computePublicFeatures(
     }
 
     return {
+        // Patreon carries an extra runtime condition: the admin flag alone is
+        // not enough, a connection has to actually exist.
         patreon: { enabled: patreonAdminEnabled && patreonConnected, },
-        posts: { enabled: moduleEnabled('posts_enabled',), },
-        wiki: { enabled: moduleEnabled('wiki_enabled',), },
-        campaigns: { enabled: moduleEnabled('campaigns_enabled',), },
-        forms: { enabled: moduleEnabled('forms_enabled',), },
-        messages: { enabled: moduleEnabled('messages_enabled',), },
-        // Social hub (feed capture / compose / connections). Module flag,
-        // default ON — the social_connections + social_posts tables are base.
-        social: { enabled: moduleEnabled('social_enabled',), },
-        // `users` is opt-in (admin-only by default). Public registration
-        // / "join" flows and the admin Users sidebar key off this flag.
-        users: { enabled: settings.users_enabled === true, },
-        // Mailing Lists is opt-in. Requires `users`; the toggle endpoint
-        // enforces the prerequisite — once on, the row will be `true`
-        // (and `users_enabled` will be too).
-        mailing_lists: { enabled: settings.mailing_lists_enabled === true, },
-        // Shop is opt-in. Requires `users`. Disabled until the admin
-        // installs the feature and the `shop_enabled` row flips to true.
-        shop: { enabled: settings.shop_enabled === true, },
-        // Plugins is opt-in. Disabled until the admin installs the feature.
-        plugins: { enabled: settings.plugins_enabled === true, },
-        // Contacts (CRM) is opt-in. Requires `users`. Disabled until enabled.
-        contacts: { enabled: settings.contacts_enabled === true, },
-        // Events & calendar is opt-in. Requires `users`. Gates the admin Events
-        // area, the public /events pages, and the subscriber notification routes.
-        events: { enabled: settings.events_enabled === true, },
+        posts: { enabled: featureOn('posts',), },
+        wiki: { enabled: featureOn('wiki',), },
+        campaigns: { enabled: featureOn('campaigns',), },
+        forms: { enabled: featureOn('forms',), },
+        messages: { enabled: featureOn('messages',), },
+        social: { enabled: featureOn('social',), },
+        users: { enabled: featureOn('users',), },
+        mailing_lists: { enabled: featureOn('mailing_lists',), },
+        shop: { enabled: featureOn('shop',), },
+        plugins: { enabled: featureOn('plugins',), },
+        contacts: { enabled: featureOn('contacts',), },
+        events: { enabled: featureOn('events',), },
     };
 }
 
