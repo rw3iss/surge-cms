@@ -546,20 +546,11 @@ function BreakpointsEditor(props: {
         />
     );
 
+    // Layout lives in a class, not an inline style: it needs a media query to
+    // collapse on a phone, and inline styles cannot carry one. See
+    // `.breakpoints-layout` in _appearance.scss.
     return (
-        <div
-            style={{
-                display: 'grid',
-                // Single column when idle; when editing, a FIXED-width left
-                // column (fits the breakpoints table) + the layout editor filling
-                // the rest. Fixed (not `auto`) so the long description paragraph's
-                // max-content can't make the left column hog the whole row.
-                'grid-template-columns': editing() ? '620px minmax(0, 1fr)' : '1fr',
-                gap: '1.5rem',
-                'align-items': 'start',
-                'margin-bottom': '1.5rem',
-            }}
-        >
+        <div class={`breakpoints-layout${editing() ? ' breakpoints-layout--editing' : ''}`}>
             {/* ── Left: the breakpoints list (its own section) ── */}
             <div class="theme-section breakpoints-editor">
                 <h4 class="theme-section__title">Breakpoints</h4>
@@ -573,6 +564,11 @@ function BreakpointsEditor(props: {
                         when={props.value.length}
                         fallback={<p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>No breakpoints yet.</p>}
                     >
+                        {/* Wrapped so the six-column table scrolls inside its
+                            own box on a narrow screen. Unwrapped it widened the
+                            whole panel and the far columns were clipped by the
+                            admin shell with no way to reach them. */}
+                        <div class="admin-table-container">
                         <table class="admin-table breakpoints-editor__table" style={{ 'margin-bottom': '0.75rem', width: 'auto', }}>
                             <thead style={{ 'font-size': '0.7rem', }}>
                                 <tr>
@@ -626,6 +622,7 @@ function BreakpointsEditor(props: {
                                 </For>
                             </tbody>
                         </table>
+                        </div>
                     </Show>
                     <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={add}>+ Add breakpoint</button>
             </div>

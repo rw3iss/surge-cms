@@ -615,7 +615,18 @@
   background: var(--admin-panel-bg, #{$background});
   color: var(--admin-panel-text, var(--admin-page-text, #{$text-color}));
   border-radius: $border-radius-lg;
-  overflow: hidden;
+  // Clip vertically (so the radius still rounds the table's corners) but
+  // scroll horizontally.
+  //
+  // This was `overflow: hidden`, and because this base rule sits AFTER the
+  // mobile block above, it silently beat that block's `overflow-x: auto`.
+  // Every wide admin table was therefore CLIPPED on a phone rather than
+  // scrollable — the far columns existed but no gesture could reach them.
+  // Scrolling is the right behaviour at any width: a table that fits is
+  // unaffected, and one that doesn't stops being truncated.
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   box-shadow: $shadow-sm;
 
   // Same panel-scoped override as .settings-card: descendant headings

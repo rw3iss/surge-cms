@@ -42,8 +42,12 @@
   align-items: start;
   margin-bottom: $spacing-lg;
 
+  // minmax(0, …), not a bare 1fr: `1fr` means `minmax(auto, 1fr)`, and that
+  // auto minimum is the item's min-content width, so the track refuses to
+  // shrink below the widest swatch grid or label inside it. On a phone that
+  // rendered the theme sections ~554px wide inside a 358px column, clipped.
   @media (max-width: 900px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   > .theme-section {
@@ -150,6 +154,18 @@
 
     &__label-group {
       flex: none;
+    }
+
+    // Stacked, the control has the full row — so let the text field use it.
+    // Left at its intrinsic size the hex value was clipped mid-value ("#111…"),
+    // which reads as a broken field rather than a narrow one.
+    &__control {
+      width: 100%;
+    }
+
+    &__input {
+      flex: 1;
+      min-width: 0;
     }
   }
 }
@@ -302,7 +318,7 @@
     gap: $spacing-md;
 
     @media (max-width: 600px) {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
@@ -430,5 +446,41 @@
     font-family: var(--admin-font-mono, monospace);
     font-weight: 600;
     color: $text-light;
+  }
+}
+
+
+// ─── Breakpoints editor layout (Settings → Appearance) ───────────────
+//
+// Was an inline style on the wrapper div, which meant it could not carry a
+// media query and so could not collapse on a phone. Two separate traps lived
+// in that one declaration:
+//
+//   * idle used a bare `1fr` — i.e. `minmax(auto, 1fr)`, whose automatic
+//     minimum is the item's MIN-CONTENT width. The breakpoints table made that
+//     656px, so the track became 656px inside a 358px column and the overflow
+//     was clipped by the admin shell, unreachable.
+//   * editing used a fixed `620px` first column, which cannot fit any phone.
+.breakpoints-layout {
+  display: grid;
+  // minmax(0, …) so the track may shrink below its content and let the table
+  // inside scroll, rather than widening the page.
+  grid-template-columns: minmax(0, 1fr);
+  gap: $spacing-lg;
+  align-items: start;
+  margin-bottom: $spacing-lg;
+
+  // While editing: a fixed left column sized to the breakpoints table, with
+  // the layout editor filling the rest. Fixed rather than `auto` so the long
+  // description paragraph's max-content can't let the left column hog the row.
+  &--editing {
+    grid-template-columns: 620px minmax(0, 1fr);
+  }
+
+  // One column on anything narrower than the fixed pair needs.
+  @media (max-width: 1024px) {
+    &--editing {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 }

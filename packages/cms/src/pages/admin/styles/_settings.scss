@@ -23,7 +23,39 @@
   border-bottom: 2px solid $border-color;
   margin-bottom: $spacing-lg;
 
+  // The strip is its own horizontal scroll container.
+  //
+  // This is what makes the later tabs reachable on a phone. The tabs overflow
+  // a narrow screen, and the admin content column is `overflow-x: clip`, so
+  // without a scroll container of its own the overflow was simply cut off —
+  // Permissions and Admin existed but could not be reached by any gesture.
+  // `clip` on the ancestor does not stop a descendant from scrolling itself.
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;   // don't chain into a page/history swipe
+  scroll-snap-type: x proximity;
+
+  // The scrollbar would sit on the underline and look like a rendering fault.
+  // Touch devices show a transient one anyway; pointer devices drag or shift-wheel.
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  @include mobile-only {
+    // Bleed to the screen edges so a half-visible tab reads as "more this way"
+    // instead of looking cut off inside the page gutter. The inset matches the
+    // shell's mobile padding on .admin-layout__main.
+    margin-inline: -$spacing-md;
+    padding-inline: $spacing-md;
+  }
+
   &__tab {
+    // Never shrink: without this the tabs compress into unreadable slivers to
+    // fit, and the strip has nothing to scroll.
+    flex: 0 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
     padding: $spacing-sm $spacing-lg;
     font-size: $font-size-sm;
     font-weight: 600;
@@ -56,6 +88,12 @@
 
 .settings-tab-content {
   min-height: 200px;
+  // A flex/grid child defaults to min-width:auto, so one wide descendant (a
+  // table, a long API key) can push the whole tab past the viewport and make
+  // the PAGE scroll sideways. Allowing it to shrink keeps overflow local to
+  // whichever element is actually too wide.
+  min-width: 0;
+  max-width: 100%;
 }
 
 
@@ -322,8 +360,16 @@
   gap: $spacing-lg;
   align-items: start;
 
+  // `minmax(0, 1fr)`, never a bare `1fr`.
+  //
+  // `1fr` is shorthand for `minmax(auto, 1fr)`, and that `auto` minimum is the
+  // item's MIN-CONTENT width — so the track refuses to shrink below whatever
+  // the widest thing inside needs. On a phone that made cards containing a
+  // table or a fixed-width label render ~590px wide inside a 358px column,
+  // with the excess clipped by the shell and simply unreachable. The two-column
+  // rules above already used minmax(0, …); these single-column ones did not.
   @media (max-width: 900px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   // 50/50 columns instead of the default 3:2. Used by the Admin tab
@@ -333,14 +379,14 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 
     @media (max-width: 900px) {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
   // Single full-width column — each settings-card sits on its own
   // row. Used by the API Keys tab (Create + Existing keys stacked).
   &--stack {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   // A grid cell that itself stacks multiple settings-cards (e.g. the
@@ -418,6 +464,21 @@
 }
 
 
+// ─── Job management panel (Admin Operations) ─────────────────────────
+//
+// The cron table has five columns and cannot usefully collapse, so it scrolls
+// inside its own box rather than widening the card. The wrapper previously had
+// no styles at all, so on a phone the table simply overflowed the card and the
+// far columns were clipped by the shell with no way to reach them.
+.cron-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  // Without this the wrapper takes its min-content width from the table and
+  // pushes the card wide instead of scrolling.
+  max-width: 100%;
+}
+
+
 // ─── CMS update panel (Admin Operations) ─────────────────────────────
 .cms-update {
   &__versions {
@@ -482,5 +543,107 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+}
+
+
+// ─── Mobile (< 768px) ────────────────────────────────────────────────
+//
+// The settings tabs are the densest screens in the admin: label/control rows
+// sized for a desktop column, and panels that assume two columns. On a phone
+// those rows are what push the page sideways, so each one becomes a stack and
+// anything with a hard width is released.
+//
+// Grids already collapse at 900px, so this block deliberately does NOT repeat
+// that — it covers only what stays wide below 768px.
+@include mobile-only {
+
+  // Label-beside-control rows become label-above-control. The label's
+  // `min-width: 140px` + `white-space: nowrap` plus a 100px input and help
+  // text is wider than a 390px screen on its own.
+  .settings-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: $spacing-2xs;
+
+    &__label {
+      min-width: 0;
+      white-space: normal;
+    }
+
+    &__input {
+      width: 100%;
+    }
+
+    &__help {
+      margin-left: 0;
+    }
+  }
+
+  // Same shape, different panel (Admin → CMS update).
+  .cms-update {
+    &__row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: $spacing-2xs;
+    }
+
+    &__label {
+      flex-basis: auto;
+    }
+
+    &__value {
+      // Version strings and git refs have no break opportunities.
+      overflow-wrap: anywhere;
+    }
+  }
+
+  // Provider rows: icon + details + buttons. Let the actions drop below the
+  // name rather than squeezing the name to nothing.
+  .connection-card {
+    &__row {
+      flex-wrap: wrap;
+      padding: $spacing-md;
+      gap: $spacing-sm;
+    }
+
+    &__actions {
+      // Own row, full width, so the buttons stay tappable.
+      flex-basis: 100%;
+      flex-shrink: 1;
+    }
+
+    &__username {
+      // Was ellipsised against a nowrap parent; on a stacked layout there is
+      // room to just wrap it.
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      overflow-wrap: anywhere;
+    }
+
+    &__editor {
+      padding: $spacing-md;
+    }
+  }
+
+  // Cards keep their identity but stop spending a fifth of the screen on padding.
+  .settings-card {
+    padding: $spacing-md;
+  }
+
+  // Secrets, endpoints and IDs are long unbroken strings — the one thing that
+  // reliably defeats every other width rule.
+  .settings-card code,
+  .settings-card pre,
+  .api-key-value,
+  .permission-row__key {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  // Utility rows used across the panels: stack rather than overflow.
+  .settings-tab-content .u-flex-row {
+    flex-wrap: wrap;
   }
 }

@@ -5,7 +5,10 @@
   position: relative;
 
   &__hex-input {
-    width: 72px;
+    // Wide enough for the value it holds. At 72px a full `#rrggbb` was clipped
+    // mid-value in a monospace face — the field looked broken rather than
+    // narrow, at every screen size.
+    width: 92px;
     padding: 4px 6px;
     border: 1px solid $border-color;
     border-radius: $border-radius-sm;
