@@ -59,29 +59,79 @@ relocating all of it and rewiring every call site, to gain nothing — it still 
 
 It stays where it is. The Providers tab gains a short note pointing at it.
 
-### 3. Apliiq has no product-list endpoint — we are the system of record
+### 3. Apliiq is PUSH, not pull — the add-to-store webhook IS the import
 
-Verified against the live API with the issued credentials:
+**This corrects an earlier reading of the API.** There is genuinely no list-designs endpoint, but
+the conclusion drawn from that ("we import by Design ID") was wrong. Apliiq's custom-store
+integration is inverted: *they* call *us*.
+
+Verified against the live API:
 
 | Endpoint | Result |
 | --- | --- |
 | `GET /v1/Product/` | 200 — 1,535 **blank** garments (15 MB) |
-| `GET /v1/Product/:id` | 200 — colors, services, print locations |
 | `POST /v1/Design` | 400 `Missing_ProductCode` (route live, validates) |
 | `GET /v1/Design/:id` | 200, account-scoped, `{}` when not ours |
 | `GET /v1/Order` | 200 `[]` |
 | `POST /v1/Order` | 202 *"we did not find any matching product(s) in this account"* |
 
-There is **no** "list my designs" endpoint (`/v1/Designs`, `/v1/MyProducts`, `/v1/StoreProduct` all
-404). So Printify's `sync.ts` model — *pull* the supplier's catalogue — has no Apliiq equivalent.
-Instead:
+A design saved on their website is **not** reachable by its public product-page id
+(`/product/6068710/…` → `GET /v1/Design/6068710` returns `{}`). It becomes ours only when the
+operator clicks **Add to Store** and picks our custom store — at which point Apliiq POSTs the whole
+product to our registered *Add product to store URL*:
 
-- Designs are **created through us** (`POST /v1/Design`), and we persist the returned
-  `Variants[].SKU` as `shop_variants.external_id`. We own the mapping.
-- For designs created on Apliiq's website, the operator supplies the **Design ID**, and we import it
-  via `GET /v1/Design/:id`.
+```json
+{
+  "name": "Midweight Fleece Joggers", "type": "pants", "currency": "USD",
+  "imageUrls": ["https://blob.apliiq.com/…jpg"],
+  "sizes": ["s","m","l","xl"], "colors": ["Grey Heather","white"],
+  "replaceProduct": false,
+  "variants": [{
+    "sku": "APQ-4633445S6A1", "price": 63.78, "color": "Grey Heather", "size": "s",
+    "imageUrl": "https://blob.apliiq.com/…jpg",
+    "weight": 11.9, "weightUnit": "oz",
+    "width": 6, "height": 2, "length": 8, "dimensionUnit": "in", "default": false
+  }]
+}
+```
 
-This is why `ShopProvider.syncProducts` is optional in the interface below.
+and expects back:
+
+```json
+{ "storeProductId": "<our shop_products.id>", "stepsCompleted": ["Completed"],
+  "hasError": false, "errorMessages": [] }
+```
+
+So the flow is: **design on Apliiq → Add to Store → we receive the product + its `APQ-…` SKUs →
+we sell it → `POST /v1/Order` with those SKUs → Apliiq ships → Fulfillment webhook returns
+tracking.** `syncProducts` stays undefined for Apliiq — not because we are the system of record,
+but because there is nothing to pull; the catalogue arrives by push.
+
+Two consequences the implementer must plan around:
+
+- **Nothing can be tested until a public webhook URL is deployed and registered** in the Apliiq
+  store settings. The design already saved will not appear until then.
+- The payload carries per-variant `weight`/`weightUnit` and dimensions. That is the only shipping
+  input Apliiq gives us (there is no rate endpoint), so store it on the variant — it is what any
+  future weight-based rate table will need.
+
+### 3a. SECURITY: the add-to-store webhook has no documented authentication
+
+Unlike the Fulfillment URL — which is signed with `x-apliiq-hmac`
+(`base64(HMACSHA256(base64(payload), shared_secret))`) — the add-to-store docs specify **no**
+signature, token or allowlist. It is an unauthenticated endpoint that *creates products in our
+shop*.
+
+Mitigations are mandatory, not optional:
+
+- The URL carries a high-entropy token in its path (`/api/v1/shop/webhooks/apliiq/add-to-store/<48-char token>`),
+  generated per provider and revocable from the admin.
+- Treat the body as fully untrusted: validate shape, clamp string lengths, reject unknown SKU
+  prefixes, cap `variants` length, and never let it set price on an existing product without
+  `replaceProduct`.
+- Products created this way land as `status='draft'`, never `active`. A human publishes them. An
+  unauthenticated endpoint must not be able to put items on the storefront.
+- Rate-limit per token.
 
 ### 4. Moving credentials does not make them more secure
 
@@ -93,14 +143,12 @@ store" in the UI or docs.
 
 ---
 
-## Open questions (answer before Task 8)
+## Answered
 
-1. **Which two providers does Surge Media actually run?** The brief says "Printiful and Apliiq".
-   Printify is the one that is built and live on surgemedia.us; **Printful** is a different company
-   and is not built. This plan scaffolds Printful (registry entry + config schema, Task 12) but does
-   not implement its sync/order calls.
-2. **The design just saved in Apliiq** — its Design ID or a variant SKU is needed. There is no way to
-   discover it from the API (see decision 3).
+- **Providers:** Printify (keep, live), Apliiq (new), Printful (designed in now as a third provider,
+  scaffolded in Task 12 — API calls deferred until credentials exist).
+- **The saved Apliiq design** cannot be fetched; it arrives via Add to Store once Task 13 is
+  deployed and the URL is registered. See decision 3.
 
 ---
 
@@ -473,19 +521,31 @@ headers.Authorization = `x-apliiq-auth ${rts}:${sig}:${appId}:${nonce}`;
 
 ---
 
-## Task 7: Apliiq design import + creation
+## Task 7: Apliiq product ingestion (from the add-to-store webhook)
 
-**Files:** Create `providers/apliiq/designs.ts`
+**Files:** `providers/apliiq/ingest.ts`
 
-- [ ] **Step 1: `importDesign(designId)`** — `GET /v1/Design/:id`, map to one `shop_products` row
-      (`external_provider='apliiq'`, `external_id=<designId>`) plus one `shop_variants` row per
-      returned variant (`external_id=<SKU>`), using the design's mockup `ImagePath` as the image.
-      Reuse the existing `shopProducts.repo` UPSERT-on-`external_id` writer so variant UUIDs stay
-      stable across re-imports.
-- [ ] **Step 2: `createDesign(input)`** — `POST /v1/Design`, then hand off to `importDesign`.
-- [ ] **Step 3:** Admin UI: "Import from Apliiq" (paste Design ID) on the Apliiq provider page.
-      Design *creation* UI is deferred — import unblocks selling immediately.
-- [ ] **Step 4: Tests** with a recorded fixture response. **Commit.**
+Rewritten from an earlier draft that assumed we could import by Design ID. We cannot — see
+decision 3. Ingestion is driven by the webhook in Task 13, which is a hard dependency: **do Task 13
+first.**
+
+- [ ] **Step 1: `ingestStoreProduct(payload)`** — map the add-to-store body onto one
+      `shop_products` row (`external_provider='apliiq'`, `external_id` = the SKU stem shared by the
+      variants, e.g. `4633445` from `APQ-4633445S6A1`) plus one `shop_variants` row per entry
+      (`external_id` = full SKU, price from `price` in **dollars → cents**, weight normalised to
+      grams from `weight`/`weightUnit`). Images come from `imageUrls`/`variants[].imageUrl` as
+      `external_url`, matching how Printify media is stored.
+- [ ] **Step 2:** Reuse `shopProducts.repo`'s UPSERT-on-`external_id` writer so re-adding the same
+      product keeps variant UUIDs stable — carts and past orders reference them.
+- [ ] **Step 3:** `replaceProduct: true` replaces structure; `false` on an existing external id is a
+      no-op returning the existing `storeProductId`, so a double-click in Apliiq's UI is harmless.
+- [ ] **Step 4:** Status is always `'draft'` on first ingest (see decision 3a).
+- [ ] **Step 5: Tests** against the documented payload as a fixture: dollar→cent conversion, oz→g
+      conversion, idempotent re-ingest, and that an unknown `weightUnit` fails loudly rather than
+      silently recording 0 g.
+- [ ] **Step 6:** `POST /v1/Design` (`providers/apliiq/designs.ts`) stays available for creating
+      designs programmatically later, but is **not** required for selling — it is deferred.
+- [ ] **Step 7: Commit.**
 
 ---
 
@@ -559,14 +619,97 @@ adminNotificationDisplay: 'grouped' | 'combined';  // default 'grouped'
 
 ## Task 12: Printful scaffold + Printify plugin retirement
 
-- [ ] **Step 1:** `providers/printful.ts` — config schema + `isConfigured` + `testConnection` only;
-      `submitOrder` throws `NotImplementedError`. Registry entry present so it appears in the tab as
-      "Coming soon" (disabled toggle).
+- [ ] **Step 1:** `providers/printful.ts` — config schema (`apiKey`, `storeId`) + `isConfigured` +
+      `testConnection`; `syncProducts`/`submitOrder` throw `ProviderNotImplementedError` until
+      credentials exist. Registry entry present so it appears in the tab from day one with an
+      honest "not yet implemented" state rather than being hidden.
 - [ ] **Step 2:** Mark the `printify` plugin deprecated: `server.js` `onEnable` becomes a no-op that
       logs "managed under Shop → Providers". Do **not** delete the plugin directory in this pass —
       leave one release of overlap so a rollback is possible.
 - [ ] **Step 3:** Update `CLAUDE.md` (Shop section) and `docs/API.md` (`npm run docs:api`).
 - [ ] **Step 4: Commit.**
+
+---
+
+## Task 13: Generic inbound provider webhooks
+
+**Files:** migration `099_shop_provider_webhooks.sql`, `services/shop/providers/webhooks.ts`,
+`routes/shopWebhooks.ts`, `pages/admin/shop/settings/ProviderWebhooks.tsx`
+
+Direction is **provider → us** only, for now. Outbound (us → provider) is explicitly deferred; the
+table carries a `direction` column so adding it later is not a migration of existing rows.
+
+- [ ] **Step 1: Migration**
+
+```sql
+-- @feature shop
+-- One row per (provider, event). `token` is the unguessable path segment — it is
+-- the ONLY credential on webhooks the provider does not sign (Apliiq's
+-- add-to-store), so it is generated with 32 random bytes and is revocable.
+CREATE TABLE IF NOT EXISTS shop_provider_webhooks (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider    VARCHAR(32) NOT NULL,
+    event       VARCHAR(64) NOT NULL,
+    direction   VARCHAR(8)  NOT NULL DEFAULT 'inbound',
+    token       VARCHAR(64) NOT NULL UNIQUE,
+    enabled     BOOLEAN NOT NULL DEFAULT true,
+    /** Operator-defined events live alongside the provider's standard ones. */
+    is_custom   BOOLEAN NOT NULL DEFAULT false,
+    label       VARCHAR(120),
+    last_seen_at TIMESTAMPTZ,
+    last_status  INTEGER,
+    last_error   TEXT,
+    call_count   INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (provider, event)
+);
+```
+
+- [ ] **Step 2: Declare each provider's standard events** on `ShopProvider`:
+
+```ts
+export interface ProviderWebhookEvent {
+    event: string;              // 'add_to_store' | 'fulfillment' | …
+    label: string;              // as the provider's own UI names it
+    /** false when the provider does not sign this one — the admin must be told. */
+    signed: boolean;
+    handler: (ctx: WebhookCtx, body: unknown,) => Promise<unknown>;
+}
+webhookEvents?: ProviderWebhookEvent[];
+```
+
+Apliiq registers all four it offers: `add_to_store` (Add product to store URL),
+`product_search` (Product Search URL), `fulfillment` (Fulfillment URL),
+`warehouse_shipment_complete` (Warehouse Shipment Complete URL). Only `fulfillment` sets
+`signed: true`.
+
+- [ ] **Step 3: One public route** `POST /api/v1/shop/webhooks/:provider/:event/:token`
+      (`auth: 'public'`, `raw: true` so the exact bytes are available for HMAC).
+      It must: look up the row by token (constant-time compare), 404 on unknown/disabled,
+      call `provider.verifyWebhook` when the event is `signed`, then dispatch to the handler.
+      Record `last_seen_at`/`last_status`/`call_count` on every call — the admin needs to see
+      whether a webhook has ever actually fired.
+
+- [ ] **Step 4: Custom events.** The admin can add N extra rows with `is_custom = true` and a free
+      label. These get a URL and are logged, but have no handler — they exist so an operator can
+      register a URL now and wire behaviour later. Return `202 {"received":true}` for those, and say
+      so plainly in the UI rather than implying they do something.
+
+- [ ] **Step 5: Admin UI** on the provider detail page: an "Enable webhooks" toggle, then a table of
+      event / URL (copy button) / signed? / last seen / calls, plus **Add custom endpoint** and
+      **Regenerate token** (which invalidates the old URL — warn that it must be re-pasted into the
+      provider's dashboard).
+
+- [ ] **Step 6: Tests** — unknown token 404s; a disabled row 404s; a tampered signed payload is
+      rejected; an unsigned `add_to_store` body still passes shape validation and creates a
+      **draft** product; token comparison is constant-time.
+
+- [ ] **Step 7:** `apliiq.add_to_store` handler maps the payload to `shop_products` +
+      `shop_variants` (SKU → `external_id`, `weight`/`weightUnit` → variant weight) and replies with
+      `{ storeProductId, stepsCompleted, hasError, errorMessages }`. Honour `replaceProduct`.
+
+- [ ] **Step 8: Commit.**
+
 
 ---
 
@@ -579,3 +722,9 @@ adminNotificationDisplay: 'grouped' | 'combined';  // default 'grouped'
       `shop_order_fulfillments` rows.
 - [ ] Apliiq webhook signature verification accepts a real payload and rejects a tampered one.
 - [ ] Combined vs grouped renders correctly on `/cart`, `/checkout`, buyer email, admin email, PDF.
+- [ ] Apliiq **Add to Store** from their dashboard lands a draft product in our shop with its
+      `APQ-…` SKUs, and Apliiq shows the add as succeeded (it reads our JSON response).
+- [ ] An add-to-store POST with a wrong token 404s and creates nothing.
+- [ ] A real end-to-end Apliiq sale: buy → `POST /v1/Order` accepted **with an `id` in the response**
+      (a 202 carrying "we did not find any matching product(s)" is a FAILURE, not a success) →
+      fulfilment webhook returns tracking.
