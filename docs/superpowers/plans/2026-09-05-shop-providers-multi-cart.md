@@ -639,6 +639,38 @@ adminNotificationDisplay: 'grouped' | 'combined';  // default 'grouped'
 Direction is **provider → us** only, for now. Outbound (us → provider) is explicitly deferred; the
 table carries a `direction` column so adding it later is not a migration of existing rows.
 
+**We own the URLs.** They are generated here, shown in our admin, and the operator pastes them into
+the provider's dashboard — not the other way round. Nothing needs to be obtained from Apliiq first.
+The `path` segment is operator-editable so a URL can be matched to whatever a provider expects or
+kept stable across a token regeneration.
+
+**Not every event is a POST.** Apliiq's own examples show `productSearch` as a **GET** with a query
+string:
+
+```
+https://your-domain.com/productAddOrUpdate-webhook-url        POST
+https://your-domain.com/productSearch-webhook-url?search=     GET
+https://your-domain.com/fulfillment-webhook-url               POST
+https://your-domain.com/shipmentComplete                      POST
+```
+
+so `ProviderWebhookEvent` declares its `method`, and the route registers both verbs.
+
+### Our route scheme
+
+```
+{POST|GET} /api/v1/shop/webhooks/:provider/:path/:token
+```
+
+e.g. `https://surgemedia.us/api/v1/shop/webhooks/apliiq/product-add-or-update/f3a9…`
+     `https://surgemedia.us/api/v1/shop/webhooks/apliiq/product-search/f3a9…?search=tee`
+     `https://surgemedia.us/api/v1/shop/webhooks/apliiq/fulfillment/f3a9…`
+     `https://surgemedia.us/api/v1/shop/webhooks/apliiq/shipment-complete/f3a9…`
+
+Namespaced under the shop feature, provider-scoped, event named in the path (readable in the
+provider's dashboard and in our logs), token last so it is easy to redact when pasting a URL into a
+support ticket.
+
 - [ ] **Step 1: Migration**
 
 ```sql
@@ -650,6 +682,10 @@ CREATE TABLE IF NOT EXISTS shop_provider_webhooks (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     provider    VARCHAR(32) NOT NULL,
     event       VARCHAR(64) NOT NULL,
+    /** Operator-editable URL segment, so a URL can be matched to whatever a
+     *  provider expects and stays stable across a token regeneration. */
+    path        VARCHAR(64) NOT NULL,
+    method      VARCHAR(4)  NOT NULL DEFAULT 'POST',
     direction   VARCHAR(8)  NOT NULL DEFAULT 'inbound',
     token       VARCHAR(64) NOT NULL UNIQUE,
     enabled     BOOLEAN NOT NULL DEFAULT true,
@@ -661,7 +697,8 @@ CREATE TABLE IF NOT EXISTS shop_provider_webhooks (
     last_error   TEXT,
     call_count   INTEGER NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (provider, event)
+    UNIQUE (provider, event),
+    UNIQUE (provider, path)
 );
 ```
 
@@ -669,24 +706,37 @@ CREATE TABLE IF NOT EXISTS shop_provider_webhooks (
 
 ```ts
 export interface ProviderWebhookEvent {
-    event: string;              // 'add_to_store' | 'fulfillment' | …
+    event: string;              // 'product_add_or_update' | 'fulfillment' | …
     label: string;              // as the provider's own UI names it
+    /** Default path segment; the operator may override it per install. */
+    path: string;               // 'product-add-or-update'
+    method: 'POST' | 'GET';     // productSearch is a GET with ?search=
     /** false when the provider does not sign this one — the admin must be told. */
     signed: boolean;
-    handler: (ctx: WebhookCtx, body: unknown,) => Promise<unknown>;
+    handler: (ctx: WebhookCtx, input: { body: unknown; query: Record<string, string>; },) => Promise<unknown>;
 }
 webhookEvents?: ProviderWebhookEvent[];
 ```
 
-Apliiq registers all four it offers: `add_to_store` (Add product to store URL),
-`product_search` (Product Search URL), `fulfillment` (Fulfillment URL),
-`warehouse_shipment_complete` (Warehouse Shipment Complete URL). Only `fulfillment` sets
-`signed: true`.
+Apliiq registers all four it offers:
 
-- [ ] **Step 3: One public route** `POST /api/v1/shop/webhooks/:provider/:event/:token`
+| event | Apliiq's field | method | signed |
+| --- | --- | --- | --- |
+| `product_add_or_update` | Add product to store URL | POST | no |
+| `product_search` | Product Search URL | GET | no |
+| `fulfillment` | Fulfillment URL | POST | **yes** (`x-apliiq-hmac`) |
+| `warehouse_shipment_complete` | Warehouse Shipment Complete URL | POST | no |
+
+`product_search` answers Apliiq's lookup of *our* catalogue (`?search=`) so their UI can tell
+whether a product is already in the store — it returns matches from `shop_products` scoped to
+`external_provider='apliiq'`, and must never leak products from other providers or drafts belonging
+to nobody.
+
+- [ ] **Step 3: One public route** `{POST,GET} /api/v1/shop/webhooks/:provider/:path/:token`
       (`auth: 'public'`, `raw: true` so the exact bytes are available for HMAC).
-      It must: look up the row by token (constant-time compare), 404 on unknown/disabled,
-      call `provider.verifyWebhook` when the event is `signed`, then dispatch to the handler.
+      It must: look up the row by `(provider, path, token)` (constant-time token compare), 404 on
+      unknown/disabled/wrong-method, call `provider.verifyWebhook` when the event is `signed`, then
+      dispatch to the handler.
       Record `last_seen_at`/`last_status`/`call_count` on every call — the admin needs to see
       whether a webhook has ever actually fired.
 
@@ -704,11 +754,121 @@ Apliiq registers all four it offers: `add_to_store` (Add product to store URL),
       rejected; an unsigned `add_to_store` body still passes shape validation and creates a
       **draft** product; token comparison is constant-time.
 
-- [ ] **Step 7:** `apliiq.add_to_store` handler maps the payload to `shop_products` +
-      `shop_variants` (SKU → `external_id`, `weight`/`weightUnit` → variant weight) and replies with
-      `{ storeProductId, stepsCompleted, hasError, errorMessages }`. Honour `replaceProduct`.
+- [ ] **Step 7:** The `apliiq.product_add_or_update` handler does NOT write directly — it builds an
+      `IncomingStoreProduct` and calls `runStoreAdd()` (Task 14), so the pre-add hook, dedupe and
+      logging are shared with sync-based providers. It then replies with
+      `{ storeProductId, stepsCompleted, hasError, errorMessages }`, mapping a `reject` decision to
+      `hasError: true` with the reason in `errorMessages` — Apliiq surfaces that to the operator,
+      so the message must be human-readable.
 
 - [ ] **Step 8: Commit.**
+
+
+---
+
+## Task 14: Provider product references + pre-add hook
+
+**Files:** migration `100_shop_product_external_refs.sql`, `providers/types.ts`,
+`services/shop/providers/storeAdd.ts`
+
+Every product must be traceable back to the thing it came from at the provider, and each provider
+must be able to run its own pre-flight logic before we write anything.
+
+### Schema — generic across providers
+
+`shop_products` already has `external_provider` / `external_id` / `external_url` /
+`external_synced_at` (migration 075). Two gaps: there is nowhere to record the **design/template**
+a product derives from (distinct from the product itself), and nowhere for provider-specific refs
+we cannot anticipate.
+
+```sql
+-- @feature shop
+-- The design/template this product was generated from, as opposed to the
+-- product record itself. For Apliiq that is the design stem shared by its
+-- variants (APQ-4633445S6A1 -> 4633445); for Printify the blueprint/product id.
+-- Kept as its own column rather than buried in JSONB because it is the field
+-- the admin deep-links from and dedupe keys on.
+ALTER TABLE shop_products ADD COLUMN IF NOT EXISTS external_design_id VARCHAR(128);
+
+-- Escape hatch for refs a future provider needs that we cannot name yet
+-- (shop id, catalog id, print-area id, …). Never used for anything we query on;
+-- promote a key to a real column the moment it needs an index.
+ALTER TABLE shop_products ADD COLUMN IF NOT EXISTS external_ref JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_shop_products_design
+    ON shop_products (external_provider, external_design_id)
+    WHERE external_design_id IS NOT NULL;
+```
+
+Variants keep `external_id` (the per-variant SKU). No change needed there.
+
+### Deep-link back to the design
+
+Provider settings gain an operator-editable template:
+
+```ts
+{ key: 'designUrlTemplate', label: 'Design URL template', type: 'string',
+  help: 'Used to link an imported product back to its design. {designId} and {externalId} are substituted.',
+  default: 'https://www.apliiq.com/product/{designId}' }   // Apliiq
+```
+
+`designUrl(product)` resolves it; the admin product editor shows **View design ↗** when the product
+has an `external_provider` and the template is set. A missing template simply hides the link — it is
+never a hard-coded per-provider URL in the UI.
+
+### The pre-add hook
+
+- [ ] **Step 1: Extend `ShopProvider`**
+
+```ts
+/** What the ingest pipeline should do with an incoming product. */
+export type StoreAddDecision =
+    | { action: 'create'; }
+    | { action: 'update'; productId: string; }
+    /** Already present and unchanged — reply success without writing. */
+    | { action: 'skip'; productId: string; reason: string; }
+    /** Refuse: malformed, unsupported, or violates a provider rule. */
+    | { action: 'reject'; reason: string; };
+
+export interface IncomingStoreProduct {
+    externalId: string | null;
+    externalDesignId: string | null;
+    name: string;
+    variants: Array<{ sku: string; priceCents: number; }>;
+    replaceProduct?: boolean;
+    raw: unknown;
+}
+
+/**
+ * Runs BEFORE anything is written, for both pushed (webhook) and pulled (sync)
+ * products. Optional: providers that do not implement it get `defaultStoreAddCheck`,
+ * which dedupes on (provider, externalId) then (provider, externalDesignId).
+ */
+beforeStoreAdd?(
+    config: ProviderConfig,
+    incoming: IncomingStoreProduct,
+): Promise<StoreAddDecision>;
+```
+
+- [ ] **Step 2: `defaultStoreAddCheck(provider, incoming)`** in `storeAdd.ts` — the shared fallback.
+      Looks up `(external_provider, external_id)`, then `(external_provider, external_design_id)`;
+      returns `update` when `replaceProduct` is set, `skip` when the row exists and is unchanged,
+      `create` otherwise.
+
+- [ ] **Step 3: Apliiq's `beforeStoreAdd`** — derives the design stem from the SKU
+      (`APQ-<stem><size><attr>`), rejects a payload whose variants disagree on the stem (that would
+      be two designs in one product), and rejects SKUs not matching `^APQ-`.
+
+- [ ] **Step 4: One ingest pipeline** used by both webhook and sync:
+      `runStoreAdd(provider, incoming)` → hook (or default) → switch on the decision → write. The
+      decision is logged either way, so "why didn't my product import?" is answerable from the
+      admin.
+
+- [ ] **Step 5: Tests** — each decision arm; a provider without the hook falls back to the default;
+      an Apliiq payload with mismatched stems is rejected rather than half-imported; re-sending an
+      identical payload yields `skip` and does **not** bump `updated_at`.
+
+- [ ] **Step 6: Commit.**
 
 
 ---

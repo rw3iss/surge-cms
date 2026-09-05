@@ -11,8 +11,9 @@
  * Suppliers differ in what they expose, and the differences are load-bearing:
  *
  *  - `syncProducts` — Printify publishes a catalogue we can pull. Apliiq has no
- *    list-designs endpoint at all, so there is nothing to pull; we are the
- *    system of record for its SKUs instead.
+ *    list endpoint because its integration is INVERTED: the operator clicks
+ *    "Add to Store" and Apliiq POSTs the product to a webhook we own. Nothing
+ *    to pull, so the member is simply absent.
  *  - `quoteShipping` — Printify quotes live rates. Apliiq exposes no rate API,
  *    so its lines fall back to the shop's configured flat rate.
  *  - `verifyWebhook`/`parseWebhook` vs `pollStatus` — tracking arrives either by
@@ -132,7 +133,75 @@ export interface ShopProvider {
 
     /** Pull-tracking providers are polled by the shop cron instead. */
     pollStatus?(config: ProviderConfig, externalOrderId: string,): Promise<ProviderTracking>;
+
+    /**
+     * Pre-flight for an incoming product, before anything is written.
+     *
+     * Optional: a provider that does not implement it gets `defaultStoreAddCheck`,
+     * which dedupes on (provider, externalId) then (provider, externalDesignId).
+     * Implement it to add provider-specific rules — Apliiq, for example, derives
+     * the design stem from the SKUs and refuses a payload whose variants
+     * disagree, since that would be two designs arriving as one product.
+     */
+    beforeStoreAdd?(
+        config: ProviderConfig,
+        incoming: IncomingStoreProduct,
+    ): Promise<StoreAddDecision>;
+
+    /**
+     * Inbound webhook events this provider offers. The URLs are generated and
+     * owned by US — the operator copies them out of our admin and pastes them
+     * into the provider's dashboard.
+     */
+    webhookEvents?: ProviderWebhookEvent[];
 }
+
+export interface ProviderWebhookEvent {
+    event: string;
+    /** As the provider's own settings screen names it, so the operator can match
+     *  our row to their field without guessing. */
+    label: string;
+    /** Default URL segment; operator-editable per install. */
+    path: string;
+    /** Not everything is a POST — Apliiq's product search is a GET with ?search=. */
+    method: 'POST' | 'GET';
+    /** False when the provider does not sign this one. Surfaced in the admin,
+     *  because an unsigned endpoint that mutates the catalogue needs to be
+     *  visibly flagged rather than quietly trusted. */
+    signed: boolean;
+}
+
+// ─── Store-add pipeline ───────────────────────────────────────────
+//
+// Products reach us two ways — pushed by a webhook (Apliiq) or pulled by a sync
+// (Printify) — and both funnel through the same pre-flight so dedupe, rejection
+// and logging behave identically whichever direction they came from.
+
+/** A product arriving from a provider, normalised before any DB write. */
+export interface IncomingStoreProduct {
+    /** The provider's id for the PRODUCT. */
+    externalId: string | null;
+    /** The provider's id for the DESIGN/TEMPLATE it was generated from. For
+     *  Apliiq this is the stem shared by its SKUs (APQ-4633445S6A1 → 4633445). */
+    externalDesignId: string | null;
+    name: string;
+    variants: Array<{ sku: string; priceCents: number; }>;
+    /** Provider asked for a replace rather than a create. */
+    replaceProduct?: boolean;
+    /** The untouched payload, for logging and provider-specific hooks. */
+    raw: unknown;
+}
+
+/** What the ingest pipeline should do with an incoming product. */
+export type StoreAddDecision =
+    | { action: 'create'; }
+    | { action: 'update'; productId: string; }
+    /** Already present and unchanged — report success without writing. */
+    | { action: 'skip'; productId: string; reason: string; }
+    /** Refuse: malformed, unsupported, or violates a provider rule. The reason
+     *  is shown to the operator (Apliiq echoes it in its own UI), so it must
+     *  read as a sentence, not a code. */
+    | { action: 'reject'; reason: string; };
 
 /** Thrown by a scaffolded provider whose API calls aren't written yet, so the
  *  admin sees an honest message instead of a silent no-op. */
