@@ -50,6 +50,13 @@ entirely, redirecting to Shopify's hosted checkout). Filing it under "Shop Provi
 suppliers would put two incompatible meanings behind one word and imply it can be combined with
 others in a cart — it cannot; it *replaces* the cart.
 
+The audit quantifies the cost of moving it: Shopify has **no core engine at all** — the GraphQL
+client, all the `Shop*` adapters and 12 actions are 331 lines inside `plugins/shopify/server.js`,
+reached only through the generic `POST /plugins/:name/action/:action` RPC, and **9 admin/storefront
+pages** branch on `isShopifyActive()` (`ShopIndex`, `ShopProduct`, `ShopCategory`, `ShopCollection`,
+`ShopCheckout`, `ShopDashboard`, `ShopProducts`, `ShopOrders`, `ShopSettings`). Extraction means
+relocating all of it and rewiring every call site, to gain nothing — it still cannot share a cart.
+
 It stays where it is. The Providers tab gains a short note pointing at it.
 
 ### 3. Apliiq has no product-list endpoint — we are the system of record
@@ -75,6 +82,14 @@ Instead:
   via `GET /v1/Design/:id`.
 
 This is why `ShopProvider.syncProducts` is optional in the interface below.
+
+### 4. Moving credentials does not make them more secure
+
+Plugin credentials live today in `plugins.config` JSONB — **plaintext, no encryption at rest**
+(`migrations/050_create_plugins.sql`). The new `shop_providers.config` is the same storage with a
+narrower audience. That is a *tidiness* win, not a security one. Encryption at rest is a separate
+piece of work and is deliberately out of scope here; do not describe the new table as a "secrets
+store" in the UI or docs.
 
 ---
 
@@ -110,9 +125,20 @@ packages/cms/src/pages/admin/shop/settings/ProviderDetail.tsx
 packages/cms/src/components/shop/CartGroups.tsx   shared grouped renderer
 ```
 
-Modified: `services/shop/checkout.ts`, `services/shop/fulfillment.ts`,
-`services/shop/orderEmails.ts`, `pages/admin/shop/ShopSettings.tsx`,
-`pages/shop/ShopCart.tsx`, `pages/shop/ShopCheckout.tsx`.
+**Modified, with the exact seams the audit located:**
+
+| File | Line | What changes |
+| --- | --- | --- |
+| `services/shop/checkout.ts` | 201 | `computeShipping` skips `externalProvider === 'printify'` → skip any self-quoting provider |
+| `services/shop/checkout.ts` | 294 | `buildShipping` hardcodes `hasPrintify` → per-group `buildGroupShipping` |
+| `services/shop/checkout.ts` | 359 | direct `getPrintifyShippingOptions` call → `provider.quoteShipping` |
+| `services/shop/fulfillment.ts` | 116-121 | unconditional `submitOrderToPrintify(orderId)` → `submitOrderToProviders` |
+| `repositories/shop/shopOrders.repo.ts` | 87-117 | `createOrderItems` drops provider fields → persist them |
+| `services/printify/config.ts` | 28-29 | `SELECT … FROM plugins WHERE name='printify'` → read `shop_providers` |
+| `routes/shop.ts` | ~600 | `/shop/printify/status|sync|sync/:id` → `/shop/providers/:key/…` |
+| `pages/admin/shop/ShopSettings.tsx` | 16-22 | 4 tabs → add `Providers` |
+| `pages/shop/ShopCart.tsx`, `ShopCheckout.tsx` | — | grouped rendering (Task 10) |
+| `services/shop/orderEmails.ts` | 50 | `renderItemsTable` gains optional groups |
 
 ---
 
@@ -265,9 +291,21 @@ CREATE TABLE IF NOT EXISTS shop_providers (
       must leave the real token intact. This is the single easiest way to destroy a live
       integration, so it gets its own test.
 
-- [ ] **Step 4: Migrate Printify's existing plugin credentials.** In the same migration, copy the
-      `printify` plugin config row into `shop_providers` so the live surgemedia.us integration keeps
-      working across the deploy. Verify on staging before production.
+- [ ] **Step 4: Migrate Printify's existing plugin credentials.** They live in `plugins.config`
+      JSONB (`SELECT enabled, installed, config FROM plugins WHERE name = 'printify'`,
+      `services/printify/config.ts:28-29`). Copy that row across in the same migration:
+
+```sql
+INSERT INTO shop_providers (key, enabled, config, auto_sync, sync_interval_minutes)
+SELECT 'printify', enabled, config,
+       COALESCE((config->>'syncIntervalMinutes')::int, 0) > 0,
+       COALESCE((config->>'syncIntervalMinutes')::int, 60)
+FROM plugins WHERE name = 'printify' AND installed = true
+ON CONFLICT (key) DO NOTHING;
+```
+
+      **This is the highest-risk step in the plan** — surgemedia.us is live on Printify. Verify on
+      the demo first, and confirm a sync + an order submit both still work before production.
 
 - [ ] **Step 5: Commit.**
 
@@ -277,8 +315,11 @@ CREATE TABLE IF NOT EXISTS shop_providers (
 
 **Files:** Create `packages/api/src/services/shop/groups.ts`, Test `groups.test.ts`
 
-The grouping key is **not** just `external_provider` — `CartItem.kind` already distinguishes virtual
-event tickets, and self-fulfilled stock is its own group.
+The grouping key is **not** just `external_provider`. `CartItem.kind` (`shopCart.ts:20-45`) already
+distinguishes virtual event tickets, whose `variantId` is a synthetic `event:<id>:<date>:<tier>` key
+and which have no `shop_variants` row at all; self-fulfilled stock is a third group. Group from the
+server-side `ResolvedLine` (`checkout.ts:100-105`), never from the cart line — the client cart
+carries no provider field by design.
 
 - [ ] **Step 1: Write the failing test** covering: native-only cart → one group; mixed
       native+printify+apliiq → three groups in stable order; event tickets → their own group;
@@ -369,8 +410,12 @@ FROM shop_orders WHERE printify_order_id IS NOT NULL
 ON CONFLICT (order_id, provider) DO NOTHING;
 ```
 
-`shop_orders.printify_order_id` is **kept and left in place** (read-only) so a rollback does not
-lose the link. A later migration can drop it once this has run in production for a while.
+Migration 076 added **four** columns, not one: `printify_order_id`, `printify_status`,
+`tracking_url`, `carrier` (and 088 added `shipping_method`). The two `printify_*` columns are
+superseded by this table and become read-only; `tracking_url` / `carrier` / `tracking_number` stay
+useful at order level as the *aggregate* (populated from the first shipped fulfilment) so existing
+order views and emails keep working unchanged. Nothing is dropped in this pass — a later migration
+can remove the `printify_*` pair once this has run in production for a while.
 
 - [ ] **Step 2:** `shop_order_items` gains `fulfillment_group VARCHAR(32)`, written at order
       creation. Stored rather than derived, because a product's `external_provider` can change after
