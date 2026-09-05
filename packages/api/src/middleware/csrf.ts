@@ -44,6 +44,17 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction,)
         return next();
     }
 
+    // Skip for inbound provider webhooks. A print supplier POSTing to us cannot
+    // carry our CSRF cookie or token, so the check would 403 every delivery.
+    //
+    // These do not ride on cookie ambient authority either: the caller is
+    // unauthenticated and the endpoint's own credential is the high-entropy
+    // token in the path (plus an HMAC signature where the provider offers one),
+    // both verified in services/shop/providers/webhooks.ts.
+    if (req.path.includes('/shop/webhooks/',)) {
+        return next();
+    }
+
     // Header-authenticated requests (Bearer JWT or API key) skip the
     // cookie CSRF check: a cross-site attacker cannot set the
     // Authorization header from a form/img/script tag, so there is no

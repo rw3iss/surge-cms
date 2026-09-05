@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-03T22:03:08.199Z",
+  "generatedAt": "2026-09-05T23:52:08.614Z",
   "totalModules": 38,
-  "totalRoutes": 348,
+  "totalRoutes": 350,
   "modules": [
     {
       "module": "admin-channel",
@@ -2048,6 +2048,20 @@
       "module": "shop",
       "mountPath": "/api/v1/shop",
       "routes": [
+        {
+          "method": "POST",
+          "path": "/webhooks/:provider/:path/:token",
+          "absolutePath": "/api/v1/shop/webhooks/:provider/:path/:token",
+          "auth": "public",
+          "summary": "Inbound provider webhook (product add/update, fulfilment, …)."
+        },
+        {
+          "method": "GET",
+          "path": "/webhooks/:provider/:path/:token",
+          "absolutePath": "/api/v1/shop/webhooks/:provider/:path/:token",
+          "auth": "public",
+          "summary": "Inbound provider webhook, GET form (Apliiq product search uses ?search=)."
+        },
         {
           "method": "GET",
           "path": "/products",
