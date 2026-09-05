@@ -27,7 +27,22 @@ export class CacheManager {
         const cached = await this.adapter.get<T>(key,);
         if (cached) {
             const stale = Date.now() >= cached.expiresAt;
-            if (stale) void this.revalidate(key, fetcher, ttl, cached.value,);
+            if (stale) {
+                // Background refresh, so its failure is nobody's to await.
+                //
+                // `void` alone left the rejection unhandled: the caller has
+                // already been given the cached value and returned, so a 404
+                // here surfaced as `Uncaught (in promise)` in the console with
+                // no call site able to catch it. A page holding a reference to
+                // a record that has since been deleted (a curated product
+                // carousel, say) produced one of these per stale entry, per
+                // load, forever.
+                //
+                // Swallowing is correct for a background pass: the caller
+                // already has a usable value, and the entry simply stays stale
+                // so the next read tries again.
+                void this.revalidate(key, fetcher, ttl, cached.value,).catch(() => {});
+            }
             return cached.value;
         }
         return this.revalidate(key, fetcher, ttl, undefined,);
