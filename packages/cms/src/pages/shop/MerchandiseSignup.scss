@@ -1,19 +1,25 @@
-// New-merchandise signup: the tout beside the Shop heading + its modal.
-// No `@use` here: this file is imported from the .tsx, which makes it a Vite
-// sass ENTRY, and the configured prelude already provides `color` + variables.
+// New-merchandise signup: the full-width band under the Shop heading, plus its
+// modal. No `@use` here: this file is imported from the .tsx, which makes it a
+// Vite sass ENTRY, and the configured prelude already provides `color` +
+// variables.
 
+// A single row spanning the content column: message on the left taking the
+// slack, action on the right. Vertically centred so a two-line message and a
+// one-line button still read as one band rather than two stacked things.
 .merch-signup {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: $spacing-sm;
-    max-width: 22rem;
-    text-align: right;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-lg;
+    margin-bottom: $spacing-lg;
 
     &__pretext {
         margin: 0;
+        flex: 1 1 auto;
+        // A step down from body text: this is an aside, not the reason anyone
+        // came to the page.
         font-size: $font-size-sm;
-        line-height: 1.45;
+        line-height: 1.4;
         // Inherits the page text colour so a custom page background (the shop's
         // brand red, say) doesn't leave this unreadable.
         color: inherit;
@@ -21,27 +27,36 @@
     }
 
     &__btn {
+        flex: 0 0 auto;
         white-space: nowrap;
+        // Shorter than a default CTA — it sits in a band, not at the end of a
+        // funnel.
+        padding: $spacing-xs $spacing-md;
+        font-size: $font-size-sm;
     }
 
     &__done {
         margin: 0;
+        flex: 1 1 auto;
         font-size: $font-size-sm;
-        line-height: 1.45;
+        line-height: 1.4;
         font-weight: 600;
         color: inherit;
     }
 
     &__error {
         margin: 0;
+        flex: 0 0 auto;
         font-size: $font-size-sm;
         color: var(--site-error, #{$error-color});
     }
 
+    // Stack on phones: side-by-side would leave the message two words wide.
     @include mobile-only {
-        align-items: flex-start;
+        flex-direction: column;
+        align-items: stretch;
+        gap: $spacing-sm;
         text-align: left;
-        max-width: none;
     }
 }
 
