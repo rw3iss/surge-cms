@@ -284,11 +284,21 @@ export async function ingestApliiqProduct(
     // Link each image to the variant it depicts.
     //
     // Has to run AFTER the structure write, because a variant's id does not
-    // exist until it is inserted. Without this a merged product has both
-    // colours' images but no way to tell which belongs to which, so the
-    // storefront shows whichever happens to be first whatever the buyer picks.
+    // exist until it is inserted.
+    //
+    // Apliiq supplies ONE mock-up per colourway and repeats it on every size,
+    // so an image identifies a COLOUR, not a specific variant. Linking per
+    // variant in a loop therefore re-pointed the same media row once per size
+    // and left it on whichever was processed last — the image ended up on
+    // "5xl" for no reason anyone could infer. Bind each distinct image to the
+    // FIRST variant carrying it instead, so the link is deterministic and
+    // lands on the colour's leading size.
+    const firstVariantForImage = new Map<string, string>();
     for (const v of variants) {
         if (!v.sku || !v.imageUrl) continue;
+        if (!firstVariantForImage.has(v.imageUrl,)) firstVariantForImage.set(v.imageUrl, v.sku,);
+    }
+    for (const [imageUrl, sku,] of firstVariantForImage) {
         await query(
             `UPDATE shop_product_media m
              SET variant_id = sv.id
@@ -296,7 +306,7 @@ export async function ingestApliiqProduct(
              WHERE m.product_id = $1 AND sv.product_id = $1
                AND sv.external_id = $2 AND m.external_url = $3
                AND m.variant_id IS DISTINCT FROM sv.id`,
-            [product.id, v.sku, v.imageUrl,],
+            [product.id, sku, imageUrl,],
         );
     }
 
