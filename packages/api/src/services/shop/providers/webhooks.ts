@@ -75,6 +75,10 @@ export interface WebhookRequest {
     path: string;
     token: string;
     method: 'GET' | 'POST';
+    /** Reported by the caller. Logged on an unusable body, because a provider
+     *  sending form-encoded or text/plain is otherwise indistinguishable from
+     *  one sending an empty object. */
+    contentType?: string;
     rawBody: string;
     query: Record<string, string>;
     headers: Record<string, string>;
@@ -117,7 +121,22 @@ export async function handleWebhook(req: WebhookRequest,): Promise<WebhookResult
     }
 
     try {
-        const body = req.rawBody ? JSON.parse(req.rawBody,) as unknown : null;
+        let body: unknown = null;
+        try {
+            body = req.rawBody ? JSON.parse(req.rawBody,) as unknown : null;
+        } catch {
+            body = null;
+        }
+        // An empty or unparsed body on a webhook we were told fired is almost
+        // always a content-type mismatch, so record enough to say which.
+        const looksEmpty = !body || (typeof body === 'object' && Object.keys(body as object,).length === 0);
+        if (looksEmpty) {
+            logger.warn(
+                `[shop:${row.provider}] ${row.event}: body arrived empty or unparsed `
+                    + `(content-type="${req.contentType ?? 'none'}", ${req.rawBody.length} bytes): `
+                    + req.rawBody.slice(0, 600,),
+            );
+        }
         const { dispatchProviderWebhook, } = await import('./handlers.js');
         const result = await dispatchProviderWebhook(
             row.provider, row.event, providerRow.config, { body, query: req.query, },

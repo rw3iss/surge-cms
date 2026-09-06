@@ -128,7 +128,19 @@ export function createApp(mode: AppMode = 'running',): Express {
     if (mode === 'running') {
         app.use('/api/v1/payments/webhook', raw({ type: 'application/json', },),);
     }
-    app.use(json({ limit: '10mb', },),);
+    // Stash the exact bytes alongside the parsed body.
+    //
+    // Needed for provider webhook signatures: an HMAC is computed over what the
+    // sender actually transmitted, and re-serialising the parsed object gives
+    // different bytes (key order, whitespace, number formatting), so a
+    // reconstructed body would fail verification even when the payload is
+    // genuine. Cheap — the buffer already exists at this point.
+    app.use(json({
+        limit: '10mb',
+        verify: (req, _res, buf,) => {
+            (req as unknown as { rawBody?: string; }).rawBody = buf.toString('utf8',);
+        },
+    },),);
     app.use(urlencoded({ extended: true, limit: '10mb', },),);
     app.use(csrfProtection,);
 

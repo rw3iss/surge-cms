@@ -303,6 +303,7 @@ export const shopRoutes = [
                 path: params.path,
                 token: params.token,
                 method: 'POST',
+                contentType: String(req.headers['content-type'] ?? '',),
                 rawBody: typeof (req as { rawBody?: string; }).rawBody === 'string'
                     ? (req as { rawBody?: string; }).rawBody!
                     : JSON.stringify(req.body ?? null,),
