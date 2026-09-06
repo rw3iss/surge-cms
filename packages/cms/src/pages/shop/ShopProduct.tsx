@@ -1,6 +1,6 @@
 import { A, useParams, } from '@solidjs/router';
 import type { ShopCollection, ShopProductDetail, ShopProductMediaDetail, ShopReview, ShopVariant, } from '@sitesurge/types';
-import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -103,6 +103,29 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
 
     const selectOption = (name: string, value: string,) =>
         setSelection((prev,) => ({ ...prev, [name]: value, }),);
+
+    /**
+     * Show the picked variant's own image, when one exists.
+     *
+     * Providers that model each colourway separately (Apliiq) give one mock-up
+     * per colour, attached to a single variant of that colour. Matching on the
+     * variant id alone would only fire on that exact size, so fall back to any
+     * image belonging to a variant sharing the selected option1 — the colour.
+     * Silent no-op when nothing matches, so products without per-variant images
+     * behave exactly as before.
+     */
+    createEffect(() => {
+        const v = resolvedVariant();
+        if (!v) return;
+        const all = media();
+        const exact = all.findIndex((m,) => m.variantId === v.id);
+        if (exact >= 0) { setActiveMedia(exact,); return; }
+        const sameColour = variants()
+            .filter((x,) => x.option1 && x.option1 === v.option1)
+            .map((x,) => x.id);
+        const byColour = all.findIndex((m,) => m.variantId && sameColour.includes(m.variantId,));
+        if (byColour >= 0) setActiveMedia(byColour,);
+    },);
 
     const resolvedVariant = createMemo<ShopVariant | undefined>(() => {
         const opts = options();
