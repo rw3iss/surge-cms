@@ -6,7 +6,7 @@ import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
-import { contentPaddingStyle, } from '../utils/appearanceStyle';
+import { contentPaddingStyle, pageBackgroundStyle, } from '../utils/appearanceStyle';
 import { setActiveHeaderPosition, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
@@ -24,12 +24,23 @@ interface LockedContent {
     };
 }
 
-const DynamicPage: Component = () => {
+export interface DynamicPageProps {
+    /**
+     * Render this slug instead of the one in the URL.
+     *
+     * Used by routes that are served by a bespoke component but can be
+     * configured to show a CMS page instead — /shop with `storefrontMode:
+     * 'page'`. The URL stays /shop; only the content comes from the page.
+     */
+    slugOverride?: string;
+}
+
+const DynamicPage: Component<DynamicPageProps> = (props,) => {
     const params = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const auth = useAuth();
-    const slug = () => params.slug || location.pathname.replace(/^\//, '',);
+    const slug = () => props.slugOverride || params.slug || location.pathname.replace(/^\//, '',);
     const canonicalUrl = () => `${window.location.origin}/${slug()}`;
     const [lockedContent, setLockedContent,] = createSignal<LockedContent | null>(null,);
 
@@ -84,8 +95,14 @@ const DynamicPage: Component = () => {
     // Left/right gutter + top/bottom page-padding are each opt-in per page
     // (defaults on). Falls back to on/on while the page loads or 404s.
     const wrapperStyle = () => {
-        const p = page() as (Page & { applyPagePadding?: boolean; applySiteGutter?: boolean; }) | null | undefined;
-        return contentPaddingStyle('--site-page-padding', p?.applyPagePadding, p?.applySiteGutter,);
+        const p = page() as (Page & {
+            applyPagePadding?: boolean; applySiteGutter?: boolean; backgroundColor?: string | null;
+        }) | null | undefined;
+        return {
+            ...contentPaddingStyle('--site-page-padding', p?.applyPagePadding, p?.applySiteGutter,),
+            // Unset yields {}, so the page inherits the site background.
+            ...pageBackgroundStyle(p?.backgroundColor,),
+        };
     };
 
     return (

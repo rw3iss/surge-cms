@@ -30,6 +30,8 @@ const pageSchema = z.object({
     applySiteGutter: z.boolean().optional(),
     headerStyle: z.enum(['default', 'alt',],).optional(),
     headerPosition: z.enum(['static', 'float',],).optional(),
+    /** Literal hex, a `swatch:<id>` reference, or '' to inherit the site. */
+    backgroundColor: z.string().max(64,).optional(),
     showInNav: z.boolean().optional(),
     navOrder: z.number().int().optional(),
     isPrivate: z.boolean().optional(),

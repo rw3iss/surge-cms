@@ -134,6 +134,20 @@ const ShopSettingsInner: Component = () => {
                         <div class="form-group">
                             <Toggle label="Apply tax" checked={settings.taxEnabled} onChange={(v,) => setSettings('taxEnabled', v,)} />
                         </div>
+                    
+                        <h3 class="settings-card__subtitle">Storefront</h3>
+                        <FormField
+                            label="What /shop shows"
+                            hint="The built-in grid is the product listing shipped with the CMS. Choosing your own page renders the 'shop' page's content blocks instead, so you can design the landing page yourself — product pages, cart and checkout are unaffected either way."
+                        >
+                            <select
+                                value={settings.storefrontMode || 'builtin'}
+                                onChange={(e,) => setSettings('storefrontMode', e.currentTarget.value as never,)}
+                            >
+                                <option value="builtin">Built-in product grid</option>
+                                <option value="page">My own 'shop' page content</option>
+                            </select>
+                        </FormField>
                     </Show>
 
                     <Show when={tab() === 'payments'}>

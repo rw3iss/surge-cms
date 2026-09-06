@@ -5,6 +5,7 @@ import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
+import ColorPicker from '../../components/admin/appearance/ColorPicker';
 import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
@@ -13,6 +14,7 @@ import { blockDataToRenderBlock, } from '../../utils/blockData';
 import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
+import { pageBackgroundStyle, } from '../../utils/appearanceStyle';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 // Block IDs are real UUIDs from creation (see utils/blockId) so a group child
@@ -88,6 +90,7 @@ const AdminPageEditor: Component = () => {
     const [headerStyle, setHeaderStyle,] = createSignal('',);
     /** Header position for this page ('' = '-' → inherit site default). */
     const [headerPosition, setHeaderPosition,] = createSignal('',);
+    const [backgroundColor, setBackgroundColor,] = createSignal('',);
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     // Whether this page is the site's homepage. The slug stays a normal
@@ -203,6 +206,7 @@ const AdminPageEditor: Component = () => {
             applySiteGutter: applySiteGutter(),
             headerStyle: headerStyle(),
             headerPosition: headerPosition(),
+            backgroundColor: backgroundColor(),
         }),
         validate: () => {
             if (!title()) return 'Title is required';
@@ -221,7 +225,10 @@ const AdminPageEditor: Component = () => {
                 applyPagePadding: applyPagePadding(),
                 applySiteGutter: applySiteGutter(),
                 headerStyle: headerStyle() || undefined,
+                // '' is meaningful: it CLEARS the colour back to the site
+                // default, so it must reach the server rather than dropping out.
                 headerPosition: headerPosition() || undefined,
+                backgroundColor: backgroundColor(),
             };
             let pageId = ctx.id;
             if (ctx.isNew) {
@@ -264,6 +271,7 @@ const AdminPageEditor: Component = () => {
         if (d.applySiteGutter != null) setApplySiteGutter(d.applySiteGutter !== false,);
         if (d.headerStyle != null) setHeaderStyle(d.headerStyle,);
         if (d.headerPosition != null) setHeaderPosition(d.headerPosition,);
+        if (d.backgroundColor != null) setBackgroundColor(d.backgroundColor,);
         if (d.isHomepage != null) setIsHomepage(Boolean(d.isHomepage,),);
         if (Array.isArray(d.blocks,)) editor.setBlocks(d.blocks as BlockData[],);
     };
@@ -285,6 +293,7 @@ const AdminPageEditor: Component = () => {
         setApplySiteGutter((p as any).applySiteGutter !== false,);
         setHeaderStyle((p as any).headerStyle || '',);
         setHeaderPosition((p as any).headerPosition || '',);
+        setBackgroundColor((p as any).backgroundColor || '',);
         setIsHomepage(Boolean((p as any).isHomepage,),);
         const blockList = (p as any).blocks as any[] | undefined;
         if (blockList?.length) {
@@ -459,6 +468,25 @@ const AdminPageEditor: Component = () => {
                                     />
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label>Page Background Color</label>
+                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                    {/* Same picker as Settings → Appearance → Colors, so a
+                                        swatch chosen here stays linked: editing the swatch
+                                        later reflows into every page using it. Clearing
+                                        returns the page to the site background. */}
+                                    <ColorPicker
+                                        value={backgroundColor()}
+                                        onChange={(hex,) => { setBackgroundColor(hex,); editor.markDirty(); }}
+                                        clearable
+                                        onClear={() => { setBackgroundColor('',); editor.markDirty(); }}
+                                    />
+                                    <Tooltip
+                                        header="Page Background Color"
+                                        content="Background for this page's content area. Empty inherits the site background (Settings → Appearance → Colors). Pick a swatch to stay linked to it, or enter a custom colour."
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -528,6 +556,7 @@ const AdminPageEditor: Component = () => {
 
     return (
         <EntityEditorShell
+            containerStyleExtra={() => pageBackgroundStyle(backgroundColor(),)}
             editor={editor}
             revisionsEntityType="page"
             title={title}

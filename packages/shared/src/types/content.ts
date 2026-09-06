@@ -39,6 +39,9 @@ export interface Page {
     /** Header position for this page: `static` (in flow) or `float` (overlays
      *  content). Empty/undefined → inherit the site's `headerPosition`. */
     headerPosition?: 'static' | 'float';
+    /** Page background. A literal hex or a `swatch:<id>` reference; empty /
+     *  undefined inherits the site background from Appearance → Colors. */
+    backgroundColor?: string | null;
     createdBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -141,6 +144,9 @@ export interface Post {
     /** Header position for this post: `static` | `float`. Empty/undefined →
      *  inherit the site's `headerPosition`. */
     headerPosition?: 'static' | 'float';
+    /** Page background. A literal hex or a `swatch:<id>` reference; empty /
+     *  undefined inherits the site background from Appearance → Colors. */
+    backgroundColor?: string | null;
     /** How the banner/featured image + title/meta header renders on the post
      *  page: `standalone` (default — image below the title), `hero` (full-width
      *  image with the title/meta overlaid), `hero-full` (like hero but the

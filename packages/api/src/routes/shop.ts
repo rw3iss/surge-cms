@@ -237,6 +237,7 @@ const shopSettingsPatch = z.object({
         },),).optional(),
     },).optional(),
     cartDisplay: z.enum(['combined', 'grouped',],).optional(),
+    storefrontMode: z.enum(['builtin', 'page',],).optional(),
     orderEmailDisplay: z.enum(['combined', 'grouped',],).optional(),
     adminNotificationDisplay: z.enum(['combined', 'grouped',],).optional(),
 },);

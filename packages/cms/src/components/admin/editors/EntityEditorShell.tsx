@@ -28,6 +28,10 @@ export interface EntityEditorLabels {
 }
 
 export interface EntityEditorShellProps<TEntity,> {
+    /** Extra style merged onto the block-editor container — the page editor
+     *  uses it to preview the page's own background colour while editing, so
+     *  the canvas matches what the visitor will see. */
+    containerStyleExtra?: () => Record<string, string>;
     editor: EntityEditorController<TEntity>;
     labels: EntityEditorLabels;
     /** Current entity title signal (for headings + <Title>). */
@@ -183,7 +187,7 @@ export function EntityEditorShell<TEntity,>(
                 savedBlocks={e.savedBlocks()}
                 onBlocksChange={(newBlocks,) => { e.setBlocks(newBlocks,); e.markDirty(); }}
                 onFullWidthChange={e.setFullBleed}
-                containerStyle={e.siteContainerStyle()}
+                containerStyle={{ ...e.siteContainerStyle(), ...(props.containerStyleExtra?.() ?? {}), }}
                 containerClass="site-preview-container"
             />
 

@@ -50,6 +50,7 @@ describe('shop settings service', () => {
             // notification defaults to grouped because the operator needs the
             // breakdown regardless.
             cartDisplay: 'combined',
+            storefrontMode: 'builtin',
             orderEmailDisplay: 'combined',
             adminNotificationDisplay: 'grouped',
         },);
@@ -107,7 +108,7 @@ describe('shop settings service', () => {
         // allowed public field; every other key must be in the safe subset).
         // `cartDisplay` is a presentation flag (show supplier sections or not),
         // not a secret — the storefront needs it to render the cart.
-        const allowed = ['businessName', 'cartDisplay', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
+        const allowed = ['businessName', 'cartDisplay', 'storefrontMode', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
         expect(Object.keys(pub.settings,).every((k,) => allowed.includes(k,)),).toBe(true,);
     },);
 

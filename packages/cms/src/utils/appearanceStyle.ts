@@ -178,3 +178,24 @@ export function contentPaddingStyle(
         'padding-inline': (applyGutter ?? true) ? 'var(--site-gutter, 16px)' : '0px',
     };
 }
+
+
+/**
+ * Inline style for a page's own background colour.
+ *
+ * Empty / unset returns nothing at all, so the page inherits the site
+ * background exactly as before — this must never paint a default.
+ *
+ * The value goes through `colorCssValue`, so a `swatch:{id}` reference becomes
+ * `var(--swatch-{id})` and keeps tracking the palette: editing that swatch in
+ * Appearance reflows into every page using it, rather than freezing the hex at
+ * the moment it was picked.
+ */
+export function pageBackgroundStyle(
+    value: string | null | undefined,
+): Record<string, string> {
+    const raw = (value ?? '').trim();
+    if (!raw) return {};
+    const css = colorCssValue(raw, '',);
+    return css ? { 'background-color': css, } : {};
+}

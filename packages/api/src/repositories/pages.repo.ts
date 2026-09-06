@@ -159,8 +159,9 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
         `INSERT INTO pages (slug, title, description, meta_title, meta_description,
                         meta_keywords, og_image, status, is_homepage, show_title,
                         apply_page_padding, apply_site_gutter, header_style, header_position,
+                        background_color,
                         show_in_nav, nav_order, is_private, access_level, created_by, publish_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
      RETURNING *`,
         [
             data.slug,
@@ -181,6 +182,8 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
             data.applySiteGutter ?? true,
             (data.headerStyle as string) || null,
             (data.headerPosition as string) || null,
+            // Raw string: a literal hex OR a `swatch:<id>` reference.
+            (data.backgroundColor as string) || null,
             data.showInNav || false,
             data.navOrder || 0,
             data.isPrivate || false,

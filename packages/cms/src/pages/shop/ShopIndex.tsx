@@ -1,11 +1,13 @@
 import type { ShopAppearance, ShopCategory, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import { siteName, } from '../../stores/siteSettings';
 import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
+import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
+import DynamicPage from '../DynamicPage';
 import { money, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import './shop.scss';
@@ -154,8 +156,13 @@ const ShopIndexInner: Component = () => {
         '--shop-grid-columns': String(appearance().gridColumns || 3,),
     });
 
+    // Inherit presentation from the `shop` CMS page when one exists: header
+    // style/position and background. The storefront still renders itself — this
+    // only honours the settings an operator put on that page.
+    const overrides = useOverridePageSettings('shop',);
+
     return (
-        <div class="shop-store shop-index page-wrapper">
+        <div class="shop-store shop-index page-wrapper" style={overrides.backgroundStyle()}>
             <SeoHead
                 title="Shop"
                 description={`Browse products from ${siteName()}.`}
@@ -274,10 +281,32 @@ const ShopIndexInner: Component = () => {
     );
 };
 
-const ShopIndex: Component = () => (
-    <ShopStoreGuard>
-        <ShopIndexInner />
-    </ShopStoreGuard>
-);
+const ShopIndex: Component = () => {
+    // Which storefront to render. Resolved from public shop settings; the
+    // built-in grid is assumed until they load, so the storefront never blanks
+    // while waiting.
+    const [mode, setMode,] = createSignal<'builtin' | 'page'>('builtin',);
+    onMount(async () => {
+        try {
+            const cfg = await cms.shop.settings.getPublic();
+            const m = (cfg?.settings as { storefrontMode?: string; } | undefined)?.storefrontMode;
+            if (m === 'page') setMode('page',);
+        } catch {
+            /* keep the built-in grid */
+        }
+    },);
+
+    return (
+        <ShopStoreGuard>
+            {/* 'page' renders the `shop` CMS page's own blocks. DynamicPage
+                falls back to a not-found state if no such page exists, which is
+                why the setting's help text says the built-in grid is the safe
+                choice. Product pages, cart and checkout are unaffected. */}
+            <Show when={mode() === 'page'} fallback={<ShopIndexInner />}>
+                <DynamicPage slugOverride="shop" />
+            </Show>
+        </ShopStoreGuard>
+    );
+};
 
 export default ShopIndex;
