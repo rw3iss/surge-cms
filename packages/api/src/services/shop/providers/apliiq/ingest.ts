@@ -89,35 +89,110 @@ export async function ingestApliiqProduct(
         status = cur.rows[0]?.status ?? 'draft';
     }
 
-    const product = await repo.upsertExternalProduct({
-        externalProvider: 'apliiq',
-        externalId: designId,
-        title,
-        slug,
-        description: payload.description ?? null,
-        status,
-        externalUrl: `https://www.apliiq.com/product/${encodeURIComponent(designId,)}`,
-    },);
+    // Two different writes, because a merge is not an upsert.
+    //
+    // `upsertExternalProduct` keys on (external_provider, external_id). When a
+    // SECOND colourway arrives its design id is new, so the upsert finds no
+    // conflict and tries to INSERT — colliding on the slug of the product we
+    // meant to merge into. Whenever the caller already told us which product
+    // this belongs to, update that row by id instead.
+    let product: { id: string; };
+    if (existingProductId) {
+        await query(
+            `UPDATE shop_products
+             SET title = $2, description = COALESCE($3, description),
+                 status = $4, external_url = COALESCE(external_url, $5),
+                 external_synced_at = NOW()
+             WHERE id = $1`,
+            [
+                existingProductId, title, payload.description ?? null, status,
+                `https://www.apliiq.com/product/${encodeURIComponent(designId,)}`,
+            ],
+        );
+        product = { id: existingProductId, };
+    } else {
+        product = await repo.upsertExternalProduct({
+            externalProvider: 'apliiq',
+            externalId: designId,
+            title,
+            slug,
+            description: payload.description ?? null,
+            status,
+            externalUrl: `https://www.apliiq.com/product/${encodeURIComponent(designId,)}`,
+        },);
+    }
 
-    // Record the design reference + the raw payload for support/debugging.
+    // Record every design folded into this product. A colourway merge means one
+    // shop product spans several Apliiq designs, and re-publishing any of them
+    // has to find its way back here.
+    const priorRef = await query<{ external_ref: { designIds?: string[]; } | null; }>(
+        `SELECT external_ref FROM shop_products WHERE id = $1`, [product.id,],
+    );
+    const designIds = [...new Set([
+        ...(priorRef.rows[0]?.external_ref?.designIds ?? []),
+        designId,
+    ]),];
     await query(
         `UPDATE shop_products
-         SET external_design_id = $2, external_ref = $3, external_synced_at = NOW()
+         SET external_design_id = COALESCE(external_design_id, $2),
+             external_ref = $3, external_synced_at = NOW()
          WHERE id = $1`,
-        [product.id, designId, JSON.stringify({ apliiq: { type: payload.type ?? null, }, },),],
+        [
+            product.id, designId,
+            JSON.stringify({ apliiq: { type: payload.type ?? null, }, designIds, },),
+        ],
     );
 
-    // Options only when the payload actually varies on them — a single-colour
-    // product should not gain a one-value "Color" selector.
+    // Colour is ALWAYS recorded, even when a design has only one.
+    //
+    // Apliiq models each colourway as a SEPARATE design, so "only one colour"
+    // is the normal case — and dropping it loses the single fact that
+    // distinguishes two otherwise identical designs. It was dropped originally
+    // (a one-value selector looked like noise) and the result was two imported
+    // products with identical sizes, identical titles and no way to tell which
+    // was which, not even from Apliiq's own API.
+    //
+    // Sizes keep the old rule: a genuinely one-size product gains nothing from
+    // a one-value selector, and nothing depends on knowing it.
     const colors = [...new Set(variants.map((v,) => v.color,).filter(Boolean,) as string[]),];
     const sizes = [...new Set(variants.map((v,) => v.size,).filter(Boolean,) as string[]),];
     const options: repo.StructureOptionInput[] = [];
-    if (colors.length > 1) {
+    if (colors.length > 0) {
         options.push({ name: 'Color', position: 1, values: colors.map((v, i,) => ({ value: v, position: i, })), },);
     }
     if (sizes.length > 1) {
         options.push({ name: 'Size', position: options.length + 1, values: sizes.map((v, i,) => ({ value: v, position: i, })), },);
     }
+
+    // Existing variants from OTHER designs of the same product must survive.
+    // `replaceProductStructure` replaces the whole variant set, so a colourway
+    // merge that passed only the incoming design's variants would delete the
+    // colour already imported.
+    const existingVariants = existingProductId
+        ? (await query<{
+            sku: string | null; external_id: string | null; price_cents: number;
+            inventory_qty: number; weight_grams: number | null;
+            option1: string | null; option2: string | null; option3: string | null;
+            is_default: boolean;
+        }>(
+            `SELECT sku, external_id, price_cents, inventory_qty, weight_grams,
+                    option1, option2, option3, is_default
+             FROM shop_variants WHERE product_id = $1 ORDER BY position`,
+            [existingProductId,],
+        )).rows
+        : [];
+
+    const incomingSkus = new Set(variants.map((v,) => v.sku,).filter(Boolean,) as string[],);
+    const carriedOver: repo.StructureVariantInput[] = existingVariants
+        // Anything the incoming payload also covers is re-sent below with fresh
+        // data; keep only what this design does not mention.
+        .filter((v,) => !(v.external_id && incomingSkus.has(v.external_id,)))
+        .map((v,) => ({
+            sku: v.sku, priceCents: v.price_cents, inventoryQty: v.inventory_qty,
+            weightGrams: v.weight_grams, requiresShipping: true,
+            option1: v.option1, option2: v.option2, option3: v.option3,
+            isDefault: false, externalId: v.external_id,
+        }),);
 
     const structureVariants: repo.StructureVariantInput[] = variants.map((v, i,) => {
         let weightGrams: number | null = null;
@@ -136,7 +211,7 @@ export async function ingestApliiqProduct(
             inventoryQty: 9999,          // made to order; never out of stock
             weightGrams,
             requiresShipping: true,
-            option1: colors.length > 1 ? (v.color ?? null) : null,
+            option1: colors.length > 0 ? (v.color ?? null) : null,
             option2: sizes.length > 1 ? (v.size ?? null) : null,
             position: i,
             isDefault: v.default === true || i === 0,
@@ -156,9 +231,23 @@ export async function ingestApliiqProduct(
     // Keep any media an operator imported themselves, as the Printify sync does.
     const operatorMedia = await repo.getImportedMedia(product.id,);
 
+    // Options must cover the merged set, not just this design's colours.
+    const mergedVariants = [...carriedOver, ...structureVariants,];
+    const allColors = [...new Set(mergedVariants.map((v,) => v.option1,).filter(Boolean,) as string[]),];
+    const allSizes = [...new Set(mergedVariants.map((v,) => v.option2,).filter(Boolean,) as string[]),];
+    const mergedOptions: repo.StructureOptionInput[] = [];
+    if (allColors.length > 0) {
+        mergedOptions.push({ name: 'Color', position: 1, values: allColors.map((v, i,) => ({ value: v, position: i, })), },);
+    }
+    if (allSizes.length > 1) {
+        mergedOptions.push({ name: 'Size', position: mergedOptions.length + 1, values: allSizes.map((v, i,) => ({ value: v, position: i, })), },);
+    }
+    // Exactly one default across the merged set.
+    mergedVariants.forEach((v, i,) => { v.isDefault = i === 0; v.position = i; },);
+
     await repo.replaceProductStructure(product.id, {
-        options,
-        variants: structureVariants,
+        options: mergedOptions.length ? mergedOptions : options,
+        variants: mergedVariants,
         media: [...media, ...operatorMedia,],
     },);
 
@@ -174,7 +263,7 @@ export async function ingestApliiqProduct(
 
     return {
         productId: product.id,
-        variantCount: structureVariants.length,
+        variantCount: mergedVariants.length,
         created: existingProductId === null,
     };
 }

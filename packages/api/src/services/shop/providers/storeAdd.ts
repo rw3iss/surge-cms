@@ -38,7 +38,30 @@ export async function defaultStoreAddCheck(
             )).rows[0]
             : undefined);
 
-    if (!existing) return { action: 'create', };
+    if (!existing) {
+        // Not this design — but a provider that models each COLOURWAY as its own
+        // design (Apliiq) pushes several designs that are one product to a
+        // buyer. Fold them together when the provider gives them the same name,
+        // so the storefront gets one product with a Colour option rather than
+        // near-identical listings.
+        const sibling = incoming.name.trim()
+            ? await query<{ id: string; }>(
+                `SELECT id FROM shop_products
+                 WHERE external_provider = $1 AND LOWER(title) = LOWER($2)
+                 ORDER BY created_at LIMIT 1`,
+                [provider, incoming.name.trim(),],
+            )
+            : null;
+        const merge = sibling?.rows[0];
+        if (merge) {
+            return {
+                action: 'update',
+                productId: merge.id,
+                reason: 'Merged into the existing product with the same name (another colourway).',
+            } as StoreAddDecision;
+        }
+        return { action: 'create', };
+    }
 
     // Re-publishing an existing product UPDATES it.
     //
