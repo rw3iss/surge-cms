@@ -89,6 +89,19 @@ export async function runStoreAdd(
             + ('reason' in decision ? ` — ${decision.reason}` : ''),
     );
 
+    // On a refusal, record what actually arrived. Without this the only signal
+    // is "no variants", which cannot distinguish a genuinely empty product from
+    // a payload whose field names differ from the ones we read — and a webhook
+    // we do not control is exactly where that happens.
+    if (decision.action === 'reject') {
+        const raw = incoming.raw;
+        const keys = raw && typeof raw === 'object' ? Object.keys(raw as object,) : [];
+        logger.warn(
+            `[shop:${providerKey}] rejected payload had top-level keys [${keys.join(', ',)}]: `
+                + JSON.stringify(raw,).slice(0, 800,),
+        );
+    }
+
     return {
         decision,
         productId: 'productId' in decision ? decision.productId : null,
