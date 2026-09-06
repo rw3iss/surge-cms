@@ -13,12 +13,26 @@
 }
 
 .provider-row {
+  // Title on the left, action buttons across from it on the right. Centred
+  // rather than top-aligned now that the header holds a single line of text.
   &__head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: $spacing-md;
     flex-wrap: wrap;
+
+    // The title carried the card's default bottom margin, which showed as a
+    // gap between it and the buttons it now sits beside.
+    .settings-card__title {
+      margin: 0;
+      min-width: 0;
+    }
+  }
+
+  // Description: its own full-width row under the header.
+  &__desc {
+    margin: $spacing-sm 0 0;
   }
 
   &__actions {
@@ -68,6 +82,9 @@
 @include mobile-only {
   .provider-row__head {
     flex-direction: column;
+    // Column direction turns `align-items: center` into horizontal centring,
+    // which would centre the title and buttons on the card. Left-align both.
+    align-items: flex-start;
   }
   .provider-detail__actions {
     flex-direction: column;

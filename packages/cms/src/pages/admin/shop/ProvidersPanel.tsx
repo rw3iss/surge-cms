@@ -49,21 +49,19 @@ const ProvidersPanel: Component = () => {
             <For each={providers() ?? []}>
                 {(p,) => (
                     <section class="settings-card provider-row">
+                        {/* Header is title-vs-buttons only; the description
+                            drops to its own full-width row below so a long
+                            blurb can't squeeze the actions. */}
                         <div class="provider-row__head">
-                            <div>
-                                <h3 class="settings-card__title">
-                                    {p.label}
-                                    <Show when={p.enabled && !p.configured}>
-                                        <span class="badge badge--warning">needs credentials</span>
-                                    </Show>
-                                    <Show when={p.enabled && p.configured}>
-                                        <span class="badge badge--success">active</span>
-                                    </Show>
-                                </h3>
-                                <Show when={p.description}>
-                                    <p class="settings-card__lede">{p.description}</p>
+                            <h3 class="settings-card__title">
+                                {p.label}
+                                <Show when={p.enabled && !p.configured}>
+                                    <span class="badge badge--warning">needs credentials</span>
                                 </Show>
-                            </div>
+                                <Show when={p.enabled && p.configured}>
+                                    <span class="badge badge--success">active</span>
+                                </Show>
+                            </h3>
                             <div class="provider-row__actions">
                                 <button
                                     type="button"
@@ -81,6 +79,9 @@ const ProvidersPanel: Component = () => {
                                 </button>
                             </div>
                         </div>
+                        <Show when={p.description}>
+                            <p class="settings-card__lede provider-row__desc">{p.description}</p>
+                        </Show>
 
                         <Show when={openKey() === p.key}>
                             <ProviderDetail provider={p} onSaved={refetch} />
