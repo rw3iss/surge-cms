@@ -114,6 +114,9 @@ export async function getPublic(): Promise<{ settings: ShopPublicSettings; appea
                 useAdditionalItemRate: settings.shipping?.useAdditionalItemRate,
                 additionalItemCents: settings.shipping?.additionalItemCents,
             },
+            // Display only — the buyer pays once regardless. The storefront
+            // needs it to decide whether to render supplier sections.
+            cartDisplay: settings.cartDisplay ?? 'combined',
         },
         appearance,
     };

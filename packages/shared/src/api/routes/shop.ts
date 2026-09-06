@@ -386,8 +386,9 @@ export interface ShopCheckoutPreviewBody {
     items: ShopCheckoutLine[];
     shippingAddress?: ShopAddress | null;
     /** The shipping method the buyer picked (e.g. 'standard' | 'economy' |
-     *  'express'). Omit to let the server default (cheapest / standard). */
-    shippingMethod?: string;
+     *  'express'). Omit to let the server default (cheapest / standard).
+     *  A record chooses per fulfilment group; a bare string applies to all. */
+    shippingMethod?: string | Record<string, string>;
 }
 
 /** One selectable shipping option: an id, a display label, and its total cost
@@ -419,6 +420,25 @@ export interface ShopCheckoutTotals {
     /** Cart variant ids no longer available (removed/inactive); the storefront
      *  prunes these lines from the cart and notifies the buyer. */
     unavailableVariantIds?: string[];
+    /** Per-fulfiller breakdown. Always returned; the storefront renders it as
+     *  sections or collapses it depending on the shop's `cartDisplay`. */
+    groups?: ShopCheckoutGroup[];
+}
+
+export interface ShopCheckoutGroup {
+    key: string;
+    label: string;
+    isProvider: boolean;
+    subtotalCents: number;
+    shippingCents: number;
+    shippingMethod?: string;
+    shippingMethodLabel?: string;
+    shippingOptions: ShopShippingOption[];
+    shippingQuoteFailed?: boolean;
+    shippingEstimated?: boolean;
+    /** Cart lines in this group, so the client renders sections without
+     *  duplicating the grouping rules. */
+    variantIds: string[];
 }
 
 /** POST /shop/checkout/preview — the computed totals. */
@@ -431,8 +451,9 @@ export interface ShopCheckoutBody {
     customerName?: string | null;
     shippingAddress?: ShopAddress | null;
     billingAddress?: ShopAddress | null;
-    /** The shipping method the buyer selected (from the preview options). */
-    shippingMethod?: string;
+    /** The shipping method the buyer selected (from the preview options).
+     *  A record chooses per fulfilment group; a bare string applies to all. */
+    shippingMethod?: string | Record<string, string>;
 }
 
 /** POST /shop/checkout — the PaymentIntent client secret + order refs. */

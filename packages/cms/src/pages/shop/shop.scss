@@ -1043,3 +1043,24 @@
     font-style: italic;
     color: var(--site-text-muted, #6b7280);
 }
+
+// ─── Multi-supplier checkout groups ──────────────────────────────────
+//
+// Shown only when the operator picked "Separate" AND the cart really spans
+// more than one fulfiller. Each section owns its shipping, because two
+// suppliers means two parcels arriving separately.
+.shop-checkout__group {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--site-border, #e5e7eb);
+
+  &:first-of-type {
+    border-top: none;
+  }
+
+  &-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--site-text-muted, #6b7280);
+    margin-bottom: 0.35rem;
+  }
+}

@@ -21,3 +21,9 @@ export function createClient(config: CmsClientConfig,): CmsClient {
 export * from './core/types';
 export * from './core/errors';
 export { CmsClientCore, } from './core/client';
+
+export type {
+    ShopProviderField,
+    ShopProviderSummary,
+    ShopProviderWebhook,
+} from './modules/shopProviders';

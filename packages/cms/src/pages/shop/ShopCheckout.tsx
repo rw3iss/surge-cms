@@ -68,6 +68,28 @@ const ShopCheckoutInner: Component = () => {
 
     const lines = () => cartItems().map((l,) => ({ variantId: l.variantId, qty: l.qty, }));
 
+    /** Per-group shipping choice, keyed by group. */
+    const [groupMethod, setGroupMethod,] = createSignal<Record<string, string>>({},);
+    /** Operator's cart-display choice, from public shop settings. */
+    const [cartDisplay, setCartDisplay,] = createSignal<'combined' | 'grouped'>('combined',);
+
+    /**
+     * Show supplier sections only when the operator asked for it AND the cart
+     * actually spans more than one fulfiller. A single-supplier cart grouped
+     * into one captioned section tells the buyer nothing.
+     */
+    const showGroups = (t: { groups?: Array<{ shippingOptions: unknown[]; }>; },): boolean => {
+        if (cartDisplay() !== 'grouped') return false;
+        const shipping = (t.groups ?? []).filter((g,) => g.shippingOptions.length > 0);
+        return shipping.length > 1;
+    };
+
+    /** Choose a method for one group and re-price. */
+    const selectGroupMethod = (key: string, id: string,) => {
+        setGroupMethod((m,) => ({ ...m, [key]: id, }),);
+        schedulePreview();
+    };
+
     const shippingAddress = (): ShopAddress => ({
         name: fullName() || undefined,
         line1: line1() || undefined,
@@ -92,7 +114,7 @@ const ShopCheckoutInner: Component = () => {
             const t = await cms.shop.checkout.preview({
                 items: lines(),
                 shippingAddress: shippingAddress(),
-                shippingMethod: shippingMethod(),
+                shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
             },);
             setTotals(t,);
             // Prune cart lines the server reports as unavailable (e.g. a variant
@@ -108,6 +130,13 @@ const ShopCheckoutInner: Component = () => {
             if (t.shippingMethod && (!shippingMethod() || !opts.some((o,) => o.id === shippingMethod()))) {
                 setShippingMethod(t.shippingMethod,);
             }
+            // Adopt the server's per-group defaults for groups we have not
+            // chosen for, so the radios reflect what is actually being charged.
+            const adopt: Record<string, string> = {};
+            for (const g of t.groups ?? []) {
+                if (g.shippingMethod && !groupMethod()[g.key]) adopt[g.key] = g.shippingMethod;
+            }
+            if (Object.keys(adopt,).length) setGroupMethod((m,) => ({ ...adopt, ...m, }),);
         } catch {
             /* keep last totals; final total is authoritative on create */
         } finally {
@@ -131,6 +160,7 @@ const ShopCheckoutInner: Component = () => {
             const cfg = await cms.shop.settings.getPublic();
             if (cfg?.settings?.stripePublishableKey) key = cfg.settings.stripePublishableKey;
             setShipping(cfg?.settings?.shipping,);
+            setCartDisplay(cfg?.settings?.cartDisplay === 'grouped' ? 'grouped' : 'combined',);
         } catch {
             /* fall back to the VITE var */
         }
@@ -235,7 +265,7 @@ const ShopCheckoutInner: Component = () => {
                 customerName: fullName() || undefined,
                 shippingAddress: shippingAddress(),
                 billingAddress: shippingAddress(),
-                shippingMethod: shippingMethod(),
+                shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
             },);
 
             if (!clientSecret) {
@@ -481,10 +511,59 @@ const ShopCheckoutInner: Component = () => {
                             <Show when={totals()}>
                                 {(t,) => (
                                     <>
+                                        {/* Grouped: one shipping line (and where
+                                            offered, one selector) per fulfiller.
+                                            Two suppliers really is two parcels,
+                                            so showing one merged figure would
+                                            misrepresent what arrives. */}
+                                        <Show when={showGroups(t(),)}>
+                                            <For each={t().groups}>
+                                                {(g,) => (
+                                                    <Show when={g.shippingOptions.length > 0}>
+                                                        <div class="shop-checkout__group">
+                                                            <div class="shop-checkout__group-label">{g.label}</div>
+                                                            <Show
+                                                                when={g.shippingOptions.length > 1}
+                                                                fallback={
+                                                                    <div class="shop-checkout__total-row">
+                                                                        <span>
+                                                                            Shipping{g.shippingEstimated ? ' (estimate)' : ''}
+                                                                        </span>
+                                                                        <span>{money(g.shippingCents, t().currency,)}</span>
+                                                                    </div>
+                                                                }
+                                                            >
+                                                                <For each={g.shippingOptions}>
+                                                                    {(opt,) => (
+                                                                        <label class="shop-checkout__shipping-method">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`shipping-${g.key}`}
+                                                                                checked={groupMethod()[g.key] === opt.id
+                                                                                    || (!groupMethod()[g.key] && g.shippingMethod === opt.id)}
+                                                                                onChange={() => selectGroupMethod(g.key, opt.id,)}
+                                                                            />
+                                                                            <span class="shop-checkout__shipping-method-name">{opt.label}</span>
+                                                                            <span class="shop-checkout__shipping-method-price">{money(opt.cents, t().currency,)}</span>
+                                                                        </label>
+                                                                    )}
+                                                                </For>
+                                                            </Show>
+                                                            <Show when={g.shippingQuoteFailed}>
+                                                                <p class="shop-checkout__shipping-note">
+                                                                    Live rates unavailable — a flat rate has been applied.
+                                                                </p>
+                                                            </Show>
+                                                        </div>
+                                                    </Show>
+                                                )}
+                                            </For>
+                                        </Show>
+
                                         <Show
-                                            when={(t().shippingOptions?.length ?? 0) > 1}
+                                            when={!showGroups(t(),) && (t().shippingOptions?.length ?? 0) > 1}
                                             fallback={
-                                                <>
+                                                <Show when={!showGroups(t(),)}>
                                                     <div class="shop-checkout__total-row">
                                                         <span>
                                                             Shipping{t().shippingEstimated
@@ -514,7 +593,7 @@ const ShopCheckoutInner: Component = () => {
                                                             </>
                                                         )}
                                                     </Show>
-                                                </>
+                                                </Show>
                                             }
                                         >
                                             <div class="shop-checkout__shipping-methods">

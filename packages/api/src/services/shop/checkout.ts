@@ -36,8 +36,10 @@ export interface CheckoutLineInput {
 export interface CheckoutPreviewInput {
     items: CheckoutLineInput[];
     shippingAddress?: ShopAddress | null;
-    /** Buyer-selected shipping method id (from the preview options). */
-    shippingMethod?: string;
+    /** Buyer-selected shipping method. A record chooses per fulfilment group;
+     *  a bare string applies to every group (what the pre-multi-cart
+     *  storefront sends). */
+    shippingMethod?: string | Record<string, string>;
 }
 
 export interface CheckoutInput extends CheckoutPreviewInput {

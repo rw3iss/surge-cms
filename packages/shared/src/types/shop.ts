@@ -340,4 +340,7 @@ export interface ShopPublicSettings {
         useAdditionalItemRate?: boolean;
         additionalItemCents?: number;
     };
+    /** Whether the storefront shows a section per fulfiller. Display only —
+     *  the buyer always pays once. */
+    cartDisplay?: 'combined' | 'grouped';
 }
