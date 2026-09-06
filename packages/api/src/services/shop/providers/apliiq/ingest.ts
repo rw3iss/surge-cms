@@ -225,8 +225,35 @@ export async function ingestApliiqProduct(
         ...(payload.imageUrls ?? []),
         ...variants.map((v,) => v.imageUrl,).filter(Boolean,) as string[],
     ]),];
-    const media: repo.StructureMediaInput[] = imageUrls.map((url, i,) => ({
-        externalUrl: url, position: i, kind: 'image' as const,
+
+    // Media accumulates across colourways, exactly like variants.
+    //
+    // `replaceProductStructure` replaces the whole media set, so passing only
+    // this design's images deletes the other colourway's — which is why a
+    // merged product showed a single black mock-up and nothing for white.
+    // Existing EXTERNAL rows are carried over (with their variant links), while
+    // this design's own images are re-sent below with fresh data.
+    const priorMedia = existingProductId
+        ? (await query<{
+            external_url: string | null; variant_id: string | null;
+            kind: string; position: number;
+        }>(
+            `SELECT external_url, variant_id, kind, position
+             FROM shop_product_media
+             WHERE product_id = $1 AND media_id IS NULL AND external_url IS NOT NULL
+             ORDER BY position`,
+            [existingProductId,],
+        )).rows
+        : [];
+    const carriedMedia: repo.StructureMediaInput[] = priorMedia
+        .filter((m,) => !imageUrls.includes(String(m.external_url,),))
+        .map((m,) => ({
+            externalUrl: m.external_url, variantId: m.variant_id,
+            kind: (m.kind === 'video' ? 'video' : 'image') as 'image' | 'video',
+        }),);
+
+    const media: repo.StructureMediaInput[] = imageUrls.map((url,) => ({
+        externalUrl: url, kind: 'image' as const,
     }),);
     // Keep any media an operator imported themselves, as the Printify sync does.
     const operatorMedia = await repo.getImportedMedia(product.id,);
@@ -245,11 +272,33 @@ export async function ingestApliiqProduct(
     // Exactly one default across the merged set.
     mergedVariants.forEach((v, i,) => { v.isDefault = i === 0; v.position = i; },);
 
+    const allMedia = [...carriedMedia, ...media, ...operatorMedia,]
+        .map((m, i,) => ({ ...m, position: i, }),);
+
     await repo.replaceProductStructure(product.id, {
         options: mergedOptions.length ? mergedOptions : options,
         variants: mergedVariants,
-        media: [...media, ...operatorMedia,],
+        media: allMedia,
     },);
+
+    // Link each image to the variant it depicts.
+    //
+    // Has to run AFTER the structure write, because a variant's id does not
+    // exist until it is inserted. Without this a merged product has both
+    // colours' images but no way to tell which belongs to which, so the
+    // storefront shows whichever happens to be first whatever the buyer picks.
+    for (const v of variants) {
+        if (!v.sku || !v.imageUrl) continue;
+        await query(
+            `UPDATE shop_product_media m
+             SET variant_id = sv.id
+             FROM shop_variants sv
+             WHERE m.product_id = $1 AND sv.product_id = $1
+               AND sv.external_id = $2 AND m.external_url = $3
+               AND m.variant_id IS DISTINCT FROM sv.id`,
+            [product.id, v.sku, v.imageUrl,],
+        );
+    }
 
     // Drop the cached product/catalogue lists.
     //
