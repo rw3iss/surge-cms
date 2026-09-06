@@ -54,6 +54,7 @@ const ShopReviewsInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Reviews - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Reviews</h1>
             </div>
             <ShopifyManagedBanner note="Reviews aren't synced from Shopify; these internal reviews aren't shown on the storefront while Shopify is enabled." />

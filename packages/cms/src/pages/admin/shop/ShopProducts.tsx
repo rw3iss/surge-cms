@@ -117,6 +117,7 @@ const ShopProductsInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Products - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Products</h1>
                 <A href="/admin/shop/products/new" class="ui-button ui-button--primary">New Product</A>
             </div>
@@ -329,6 +330,7 @@ const ShopifyProductsInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Products - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Products</h1>
                 <Show when={shopifyAdminUrl()}>
                     <a href={`${shopifyAdminUrl()}/products`} target="_blank" rel="noopener" class="ui-button ui-button--secondary">

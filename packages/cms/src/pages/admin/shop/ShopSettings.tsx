@@ -1,4 +1,5 @@
 import { Title, } from '@solidjs/meta';
+import { A, } from '@solidjs/router';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
@@ -96,6 +97,7 @@ const ShopSettingsInner: Component = () => {
         <div class="shop-admin shop-settings">
             <Title>Shop Settings - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Shop Settings</h1>
                 <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
                     {saving() ? 'Saving...' : 'Save'}

@@ -33,6 +33,7 @@ const ShopOrdersInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Orders - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Orders</h1>
             </div>
             <div class="admin-filter-bar">
@@ -114,6 +115,7 @@ const ShopifyOrdersInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Orders - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Orders</h1>
                 <Show when={shopifyAdminUrl()}>
                     <a href={`${shopifyAdminUrl()}/orders`} target="_blank" rel="noopener" class="ui-button ui-button--secondary">
