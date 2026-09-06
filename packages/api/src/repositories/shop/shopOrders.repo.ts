@@ -81,6 +81,10 @@ export interface OrderItemInput {
     subtotalCents: number;
     isDigital: boolean;
     downloadToken?: string | null;
+    /** Which fulfilment group shipped this line ('native' when we did). */
+    fulfillmentGroup?: string | null;
+    externalProductId?: string | null;
+    externalVariantId?: string | null;
 }
 
 /** Bulk-insert the order line-item snapshots inside the checkout txn. */
@@ -94,8 +98,9 @@ export async function createOrderItems(
         const result = await client.query(
             `INSERT INTO shop_order_items (order_id, product_id, variant_id, title, variant_title,
                                            sku, unit_price_cents, quantity, subtotal_cents, is_digital,
-                                           download_token)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                                           download_token,
+                                           fulfillment_group, external_product_id, external_variant_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                  RETURNING *`,
             [
                 orderId,
@@ -109,6 +114,12 @@ export async function createOrderItems(
                 item.subtotalCents,
                 item.isDigital,
                 item.downloadToken ?? null,
+                // Stored, not derived: a product can be reassigned to another
+                // supplier later, and the order must remain a faithful record
+                // of who actually fulfilled it.
+                item.fulfillmentGroup ?? 'native',
+                item.externalProductId ?? null,
+                item.externalVariantId ?? null,
             ],
         );
         out.push(mapRow<ShopOrderItem>(result.rows[0],),);

@@ -20,7 +20,7 @@ import type {
     ProviderTracking,
     ShopProvider,
 } from './types';
-import { ProviderNotImplementedError, } from './types';
+import { logger, } from '../../../utils/logger';
 
 const CONFIG_SCHEMA: ProviderField[] = [
     {
@@ -124,15 +124,49 @@ export const printifyProvider: ShopProvider = {
         };
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async submitOrder(_config: ProviderConfig, _order: ProviderOrderContext, _lines: ProviderLine[],) {
-        // Deliberately not wired here. The live path is
-        // `submitOrderToPrintify(orderId)`, which reads the order back out of the
-        // database rather than taking lines as arguments. Re-pointing it at this
-        // signature is Task 5, where fulfilment is generalised across providers —
-        // duplicating the body-building logic now would leave two versions to
-        // keep in step in the meantime.
-        throw new ProviderNotImplementedError('printify', 'order submission through the provider interface (see Task 5)',);
+    async submitOrder(config: ProviderConfig, order: ProviderOrderContext, lines: ProviderLine[],) {
+        const { createOrder, sendToProduction, } = await import('../../printify/client.js');
+        const { toPrintifyAddress, } = await import('../address.js');
+        const cfg = toEngineConfig(config,);
+
+        const lineItems = lines
+            .filter((l,) => l.externalProductId && l.externalVariantId)
+            .map((l,) => ({
+                product_id: String(l.externalProductId,),
+                variant_id: Number(l.externalVariantId,),
+                quantity: l.qty,
+            }),);
+        if (!lineItems.length) {
+            throw new Error('No Printify line items on this order — the products were not synced from Printify.',);
+        }
+
+        const created = await createOrder(cfg as never, {
+            external_id: order.orderNumber,
+            label: order.orderNumber,
+            line_items: lineItems,
+            shipping_method: 1,          // 1 = standard
+            is_printify_express: false,
+            is_economy_shipping: false,
+            send_shipping_notification: false,
+            address_to: toPrintifyAddress(order.shippingAddress as never, order.email, order.name,),
+        },) as { id?: string | number; };
+
+        if (!created?.id) throw new Error('Printify did not return an order id.',);
+        const externalOrderId = String(created.id,);
+
+        // Auto-send to production when configured. A failure here is NOT fatal:
+        // the order exists at Printify and the retry sweep can push it, whereas
+        // throwing would leave us thinking the order was never created.
+        if (cfg.autoFulfill) {
+            try {
+                await sendToProduction(cfg as never, externalOrderId,);
+            } catch (err) {
+                logger.warn(
+                    `Printify order ${externalOrderId} created but send-to-production failed: ${(err as Error).message}`,
+                );
+            }
+        }
+        return { externalOrderId, };
     },
 
     async pollStatus(config, externalOrderId,): Promise<ProviderTracking> {

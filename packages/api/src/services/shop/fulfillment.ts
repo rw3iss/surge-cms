@@ -109,14 +109,21 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
         logger.error('Failed to send shop order emails', { orderId, error: err, },);
     }
 
-    // Printify fulfillment — submit the order to Printify if it contains any
-    // Printify products. Post-commit + best-effort: the payment is already
-    // captured, so a Printify API failure must never fail the webhook (it's
-    // retried by the poller / can be re-submitted). No-op when Printify is off.
+    // Supplier fulfilment — one order per fulfilment group present in the cart.
+    // Post-commit and best-effort: the payment is already captured, so a
+    // supplier API failure must never fail the webhook. Each provider is
+    // recorded separately, so one failing leaves the others submitted and only
+    // the failed one is retried.
     try {
-        const { submitOrderToPrintify, } = await import('../printify/fulfillment.js');
-        await submitOrderToPrintify(orderId,);
+        const { submitOrderToProviders, } = await import('./providerFulfillment.js');
+        const res = await submitOrderToProviders(orderId,);
+        if (res.failed.length) {
+            logger.error(
+                `Supplier submission partially failed for ${orderId} (payment captured; will retry): `
+                    + res.failed.map((f,) => `${f.provider}: ${f.error}`,).join('; ',),
+            );
+        }
     } catch (err) {
-        logger.error('Printify order submission failed (payment captured; will retry)', { orderId, error: err, },);
+        logger.error('Supplier order submission failed (payment captured; will retry)', { orderId, error: err, },);
     }
 }

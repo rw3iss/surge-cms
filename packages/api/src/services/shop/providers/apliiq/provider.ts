@@ -22,7 +22,6 @@ import type {
     ShopProvider,
     StoreAddDecision,
 } from '../types';
-import { ProviderNotImplementedError, } from '../types';
 
 const CONFIG_SCHEMA: ProviderField[] = [
     {
@@ -69,6 +68,25 @@ const WEBHOOK_EVENTS: ProviderWebhookEvent[] = [
         path: 'shipment-complete', method: 'POST', signed: false,
     },
 ];
+
+/** Map our stored address onto the field names Apliiq expects. */
+function toApliiqAddress(addr: Record<string, unknown>, name: string | null,): Record<string, unknown> {
+    const full = String(addr.name ?? name ?? '',).trim();
+    const sp = full.indexOf(' ',);
+    return {
+        first_name: addr.firstName ?? (sp > 0 ? full.slice(0, sp,) : full),
+        last_name: addr.lastName ?? (sp > 0 ? full.slice(sp + 1,) : ''),
+        address1: addr.line1 ?? addr.address1 ?? '',
+        address2: addr.line2 ?? addr.address2 ?? '',
+        phone: addr.phone ?? '',
+        city: addr.city ?? '',
+        zip: addr.postalCode ?? addr.zip ?? '',
+        province: addr.state ?? addr.province ?? '',
+        province_code: addr.stateCode ?? addr.province_code ?? addr.state ?? '',
+        country: addr.country ?? 'United States',
+        country_code: addr.countryCode ?? addr.country_code ?? 'US',
+    };
+}
 
 /** `APQ-4633445S6A1` → `4633445`: the design stem shared by a product's SKUs. */
 export function designStemFromSku(sku: string,): string | null {
@@ -143,12 +161,47 @@ export const apliiqProvider: ShopProvider = {
         },);
     },
 
-    async submitOrder(_config, _order, _lines,) {
-        // Written in Task 6 alongside the client. Note for whoever does it:
-        // POST /v1/Order answers 202 with "we did not find any matching
-        // product(s) in this account" for unknown SKUs — a 202 is NOT success.
-        // Treat any response without an `id` as a failure.
-        throw new ProviderNotImplementedError('apliiq', 'order submission (see Task 6)',);
+    async submitOrder(config, order, lines,) {
+        const { apliiqRequest, } = await import('./client.js');
+        const addr = (order.shippingAddress ?? {}) as Record<string, unknown>;
+
+        const missing = lines.filter((l,) => !l.externalVariantId);
+        if (missing.length) {
+            throw new Error(
+                `${missing.length} line(s) have no Apliiq SKU — the product was not imported from Apliiq.`,
+            );
+        }
+
+        // Shopify-shaped, which is what Apliiq models its order API on.
+        const body = {
+            id: order.orderNumber,
+            name: `#${order.orderNumber}`,
+            order_number: order.orderNumber,
+            line_items: lines.map((l,) => ({
+                id: l.variantId,
+                title: 'Order item',
+                quantity: l.qty,
+                sku: l.externalVariantId,
+            }),),
+            shipping_address: toApliiqAddress(addr, order.name,),
+            billing_address: toApliiqAddress(addr, order.name,),
+            shipping_lines: [{ code: order.shippingMethod || 'standard', },],
+        };
+
+        const res = await apliiqRequest<{ id?: number | string; message?: string; }>(
+            config, '/v1/Order', { method: 'POST', body, },
+        );
+
+        // A 202 is NOT success. Apliiq answers 202 with
+        // "we did not find any matching product(s) in this account" when a SKU
+        // is unknown — accepting that as an order placed would mean a customer
+        // paid for something nobody is printing.
+        const id = res.json?.id;
+        if (!id) {
+            const detail = res.json?.message || res.text.slice(0, 300,) || `HTTP ${res.status}`;
+            throw new Error(`Apliiq did not create an order (${res.status}): ${detail}`,);
+        }
+        return { externalOrderId: String(id,), };
     },
 
     verifyWebhook(config, rawBody, headers,) {

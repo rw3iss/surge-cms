@@ -23,6 +23,8 @@ import { toStripeAddress, } from './address';
 import { generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
 import type { AuditContext, } from '../types';
+import { buildGroups, groupKeyForLine, NATIVE_GROUP, } from './groups';
+import { buildGroupShipping, } from './groupShipping';
 
 const paymentProvider = getPaymentProvider();
 
@@ -60,6 +62,25 @@ export interface CheckoutTotals {
     /** Cart variant ids that no longer exist / are inactive (preview only) — the
      *  storefront prunes these lines and notifies the buyer. */
     unavailableVariantIds?: string[];
+    /** Per-fulfilment-group breakdown. Always present; the storefront shows it
+     *  as sections or collapses it to one list depending on `cartDisplay`. */
+    groups?: CheckoutTotalsGroup[];
+}
+
+export interface CheckoutTotalsGroup {
+    key: string;
+    label: string;
+    isProvider: boolean;
+    subtotalCents: number;
+    shippingCents: number;
+    shippingMethod?: string;
+    shippingMethodLabel?: string;
+    shippingOptions: ShopShippingOption[];
+    shippingQuoteFailed?: boolean;
+    shippingEstimated?: boolean;
+    /** Which cart lines fall in this group, so the client can render sections
+     *  without duplicating the grouping rules. */
+    variantIds: string[];
 }
 
 /** Display labels for Printify shipping methods, cheapest → fastest. */
@@ -80,7 +101,7 @@ export interface CheckoutResult {
 }
 
 // A resolved cart line: the client's qty joined to the DB variant/product.
-interface ResolvedLine {
+export interface ResolvedLine {
     variantId: string;
     productId: string;
     qty: number;
@@ -352,30 +373,57 @@ async function computeTotals(
     const { lines, unavailable, } = await resolveLines(input.items, opts,);
     const subtotalCents = lines.reduce((sum, l,) => sum + l.subtotalCents, 0,);
 
-    // Printify lines get a provider quote (all methods) for the given address.
-    const printifyLines = lines
-        .filter((l,) => l.externalProvider === 'printify' && l.requiresShipping && l.externalProductId && l.externalVariantId)
-        .map((l,) => ({ product_id: l.externalProductId!, variant_id: Number(l.externalVariantId,), quantity: l.qty, }));
-    const quote = await getPrintifyShippingOptions(printifyLines, input.shippingAddress ?? null,);
+    // Split into fulfilment groups, then quote each independently. Two
+    // suppliers is two parcels, so the cart's shipping is the SUM of the
+    // per-group choices — not one figure with a supplier surcharge bolted on.
+    const groups = buildGroups(lines, settings.businessName,);
+    const nativeGroup = groups.find((g,) => g.key === NATIVE_GROUP,);
+    const nativeShippingCents = nativeGroup
+        ? computeShipping(nativeGroup.lines, nativeGroup.subtotalCents, settings,)
+        : 0;
 
-    const ship = buildShipping(lines, subtotalCents, settings, quote, input.shippingMethod,);
-    const taxCents = await computeTax(lines, ship.shippingCents, currency, settings, input.shippingAddress,);
-    const totalCents = subtotalCents + ship.shippingCents + taxCents;
+    const shipped = await buildGroupShipping({
+        groups, settings,
+        shippingAddress: input.shippingAddress ?? null,
+        requestedMethod: input.shippingMethod,
+        nativeShippingCents,
+    },);
+
+    const shippingCents = shipped.totalShippingCents;
+    const taxCents = await computeTax(lines, shippingCents, currency, settings, input.shippingAddress,);
+    const totalCents = subtotalCents + shippingCents + taxCents;
+
+    // The single-group case keeps the exact pre-multi-cart shape, so a
+    // storefront that has not been updated yet behaves identically.
+    const single = shipped.groups.length === 1 ? shipped.groups[0] : undefined;
 
     return {
         lines,
         totals: {
             subtotalCents,
-            shippingCents: ship.shippingCents,
+            shippingCents,
             taxCents,
             totalCents,
             currency,
-            shippingMethod: ship.method,
-            shippingMethodLabel: ship.methodLabel,
-            shippingOptions: ship.options,
-            shippingQuoteFailed: ship.quoteFailed,
-            shippingEstimated: ship.estimated,
+            shippingMethod: single?.shippingMethod,
+            shippingMethodLabel: single?.shippingMethodLabel,
+            shippingOptions: single?.shippingOptions,
+            shippingQuoteFailed: shipped.anyQuoteFailed || undefined,
+            shippingEstimated: shipped.anyEstimated || undefined,
             unavailableVariantIds: unavailable.length ? unavailable : undefined,
+            groups: shipped.groups.map((g,) => ({
+                key: g.key,
+                label: g.label,
+                isProvider: g.isProvider,
+                subtotalCents: g.subtotalCents,
+                shippingCents: g.shippingCents,
+                shippingMethod: g.shippingMethod,
+                shippingMethodLabel: g.shippingMethodLabel,
+                shippingOptions: g.shippingOptions,
+                shippingQuoteFailed: g.shippingQuoteFailed,
+                shippingEstimated: g.shippingEstimated,
+                variantIds: g.lines.map((l,) => l.variantId),
+            }),),
         },
     };
 }
@@ -439,6 +487,11 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): 
                 quantity: l.qty,
                 subtotalCents: l.subtotalCents,
                 isDigital: l.isDigital,
+                // Captured at order time so the record survives a later
+                // reassignment of the product to a different supplier.
+                fulfillmentGroup: groupKeyForLine(l,),
+                externalProductId: l.externalProductId,
+                externalVariantId: l.externalVariantId,
             }),),
         );
 
