@@ -8,6 +8,7 @@
 import { query, } from '../../../db';
 import { logger, } from '../../../utils/logger';
 import { runStoreAdd, } from './storeAdd';
+import { designStemFromSku, } from './apliiq/provider';
 import type { IncomingStoreProduct, ProviderConfig, } from './types';
 import type { WebhookResult, } from './webhooks';
 
@@ -46,9 +47,13 @@ function normaliseApliiqAdd(payload: ApliiqAddPayload,): IncomingStoreProduct {
     if (variants.length > MAX_VARIANTS) {
         throw new Error(`Too many variants (${variants.length}).`,);
     }
+    // Derive the design stem here so the pre-flight hook and the ingest agree on
+    // the identity of the product. A payload whose variants disagree is rejected
+    // by the hook, so taking the first is safe by the time we write.
+    const stem = variants.length ? designStemFromSku(String(variants[0].sku ?? '',),) : null;
     return {
-        externalId: null,             // filled from the design stem by the hook
-        externalDesignId: null,
+        externalId: stem,
+        externalDesignId: stem,
         name: String(payload.name ?? '',).slice(0, 255,),
         replaceProduct: payload.replaceProduct === true,
         variants: variants.map((v,) => ({
@@ -98,14 +103,33 @@ async function apliiqWebhook(
                     },
                 };
             }
-            // create / update: ingestion lands in Task 7. Until then, refuse
-            // honestly rather than reporting a success that wrote nothing.
+            // create / update
+            const designId = incoming.externalDesignId;
+            if (!designId) {
+                return {
+                    status: 200,
+                    body: {
+                        storeProductId: null, stepsCompleted: [],
+                        hasError: true, errorMessages: ['Could not determine the design id from the SKUs.',],
+                    },
+                };
+            }
+            const { ingestApliiqProduct, } = await import('./apliiq/ingest.js');
+            const res = await ingestApliiqProduct(
+                (input.body ?? {}) as never, designId, productId,
+            );
             return {
                 status: 200,
                 body: {
-                    storeProductId: null, stepsCompleted: [],
-                    hasError: true,
-                    errorMessages: ['The store is not finished accepting new products yet. Try again shortly.',],
+                    storeProductId: res.productId,
+                    // Apliiq shows these to the operator as progress. We do the
+                    // whole thing in one transaction-ish pass, so report the
+                    // steps that genuinely happened rather than echoing all of them.
+                    stepsCompleted: res.created
+                        ? ['DraftCreated', 'InventoryCreated', 'ImagesUploaded', 'Completed',]
+                        : ['InventoryCreated', 'ImagesUploaded', 'Completed',],
+                    hasError: false,
+                    errorMessages: [],
                 },
             };
         }
