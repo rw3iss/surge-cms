@@ -100,12 +100,17 @@ export const printifyProvider: ShopProvider = {
 
     async quoteShipping(config, lines, shippingAddress,): Promise<ProviderShippingQuote> {
         const { getPrintifyShippingOptions, } = await import('../../printify/fulfillment.js');
-        // The engine speaks its own line shape; map ours onto it.
-        const engineLines = lines.map((l,) => ({
-            externalProductId: l.externalProductId,
-            externalVariantId: l.externalVariantId,
-            qty: l.qty,
-        }),);
+        // The engine speaks Printify's own wire shape — `{product_id,
+        // variant_id, quantity}`, not our ProviderLine. Passing ours silently
+        // produced an unusable request and every quote fell back to the flat
+        // rate, which undercharges shipping on every order.
+        const engineLines = lines
+            .filter((l,) => l.externalProductId && l.externalVariantId)
+            .map((l,) => ({
+                product_id: String(l.externalProductId,),
+                variant_id: Number(l.externalVariantId,),
+                quantity: l.qty,
+            }),);
         const q = await getPrintifyShippingOptions(engineLines as never, shippingAddress as never,);
         if (!q.ok) {
             return { ok: false, options: [], reason: q.reason as ProviderShippingQuote['reason'], error: q.error, };
