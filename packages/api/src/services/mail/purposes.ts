@@ -25,9 +25,33 @@ import { getMailPurposes, getUsersSettings, } from '../settings';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
 import { loadMailRenderContext, } from './siteContext';
-import { renderStandaloneMail, } from './transactional';
-import { resolveMailTemplate, } from './templateRuntime';
-import { defaultPurposeHtml, } from './purposeDefaults';
+
+// The renderer, the `{{ }}` engine and the default bodies are imported LAZILY.
+// They pull in the whole template runtime (which reaches the media service and
+// its config), and every feature that merely *sends* would otherwise drag that
+// entire graph in at module load — which broke unit tests that import a mailer
+// without booting config. Loading them at send time keeps the import surface
+// honest: you only pay for the renderer when you actually render.
+type RenderStandaloneMail = typeof import('./transactional')['renderStandaloneMail'];
+type ResolveMailTemplate = typeof import('./templateRuntime')['resolveMailTemplate'];
+type DefaultPurposeHtml = typeof import('./purposeDefaults')['defaultPurposeHtml'];
+
+async function renderers(): Promise<{
+    renderStandaloneMail: RenderStandaloneMail;
+    resolveMailTemplate: ResolveMailTemplate;
+    defaultPurposeHtml: DefaultPurposeHtml;
+}> {
+    const [transactional, templateRuntime, purposeDefaults,] = await Promise.all([
+        import('./transactional.js'),
+        import('./templateRuntime.js'),
+        import('./purposeDefaults.js'),
+    ],);
+    return {
+        renderStandaloneMail: transactional.renderStandaloneMail,
+        resolveMailTemplate: templateRuntime.resolveMailTemplate,
+        defaultPurposeHtml: purposeDefaults.defaultPurposeHtml,
+    };
+}
 
 /** The whole `mail_purposes` settings row (empty when never configured). */
 export async function getMailPurposeSettings(): Promise<MailPurposeSettings> {
@@ -113,6 +137,7 @@ export async function sendPurposeMail(key: string, input: SendPurposeMailInput,)
         }
 
         const site = await loadMailRenderContext();
+        const { renderStandaloneMail, resolveMailTemplate, defaultPurposeHtml, } = await renderers();
         const context: Record<string, unknown> = {
             site: { name: site.siteName, url: site.siteUrl, },
             ...input.context,

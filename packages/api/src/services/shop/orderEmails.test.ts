@@ -10,7 +10,23 @@ const getShopSettingsMock = vi.fn();
 vi.mock('./settings', () => ({ getShopSettings: (...a: unknown[]) => getShopSettingsMock(...a), }),);
 
 const getPublicSettingsMock = vi.fn();
-vi.mock('../settings', () => ({ getPublicSettings: (...a: unknown[]) => getPublicSettingsMock(...a), }),);
+// `getMailPurposes` is read by the purpose pipeline the order emails now send
+// through. Empty = "no operator overrides", i.e. registry defaults, which is
+// what these tests are asserting against.
+vi.mock('../settings', () => ({
+    getPublicSettings: (...a: unknown[]) => getPublicSettingsMock(...a),
+    getMailPurposes: () => Promise.resolve({},),
+    getUsersSettings: () => Promise.resolve({ verificationEmail: { subject: '', blocks: [], }, },),
+}),);
+
+// The order emails supply their own default body, so the purpose pipeline never
+// needs the block renderer here — but it does ask for the site context.
+vi.mock('../mail/siteContext', () => ({
+    loadMailRenderContext: () => Promise.resolve({ siteName: 'Test Shop', siteUrl: 'https://shop.example.com', },),
+}),);
+vi.mock('../mail/templateRuntime', () => ({
+    resolveMailTemplate: (tpl: string,) => Promise.resolve(tpl,),
+}),);
 
 import {
     buildBuyerConfirmation,
