@@ -12,6 +12,7 @@
  * publish.
  */
 import { query, } from '../../../../db';
+import * as cache from '../../../cache';
 import { logger, } from '../../../../utils/logger';
 import * as repo from '../../../../repositories/shop/shopProducts.repo';
 import { generateSlug, } from '@sitesurge/types';
@@ -146,6 +147,16 @@ export async function ingestApliiqProduct(
         variants: structureVariants,
         media: [...media, ...operatorMedia,],
     },);
+
+    // Drop the cached product/catalogue lists.
+    //
+    // Without this the rows exist but nothing shows them: the API serves a
+    // cached list and the client's SWR cache serves a cached response on top of
+    // that, so an operator sees "added successfully" and an unchanged admin.
+    // The Printify sync has always done this; ingestion needs it for the same
+    // reason.
+    await cache.invalidateShopProductCache();
+    await cache.invalidateShopCatalogCache();
 
     return {
         productId: product.id,
