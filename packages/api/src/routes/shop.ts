@@ -234,6 +234,9 @@ const shopSettingsPatch = z.object({
             priceCents: z.number().int().min(0,),
         },),).optional(),
     },).optional(),
+    cartDisplay: z.enum(['combined', 'grouped',],).optional(),
+    orderEmailDisplay: z.enum(['combined', 'grouped',],).optional(),
+    adminNotificationDisplay: z.enum(['combined', 'grouped',],).optional(),
 },);
 
 const shopAppearancePatch = z.object({

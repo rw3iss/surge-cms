@@ -45,6 +45,13 @@ describe('shop settings service', () => {
             taxEnabled: true,
             businessName: '',
             storeEnabled: true,
+            // Multi-supplier presentation. Combined by default so a shop with
+            // one fulfiller looks exactly as it always did; the admin
+            // notification defaults to grouped because the operator needs the
+            // breakdown regardless.
+            cartDisplay: 'combined',
+            orderEmailDisplay: 'combined',
+            adminNotificationDisplay: 'grouped',
         },);
         expect(config.appearance,).toEqual({
             gridColumns: 3,

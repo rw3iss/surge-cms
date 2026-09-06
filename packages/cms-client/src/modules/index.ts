@@ -28,6 +28,7 @@ import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
 import { ShopModule, } from './shop';
+import { ShopProvidersModule, } from './shopProviders';
 import { PluginsModule, } from './plugins';
 import { FeedModule, } from './feed';
 import { SitemapModule, } from './sitemap';
@@ -65,6 +66,7 @@ export interface CmsModules {
     payments: PaymentsModule;
     settings: SettingsModule;
     shop: ShopModule;
+    shopProviders: ShopProvidersModule;
     plugins: PluginsModule;
     feed: FeedModule;
     sitemap: SitemapModule;
@@ -112,6 +114,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
     c.shop = new ShopModule(core,);
+    c.shopProviders = new ShopProvidersModule(core,);
     c.plugins = new PluginsModule(core,);
     c.feed = new FeedModule(core,);
     c.sitemap = new SitemapModule(core,);

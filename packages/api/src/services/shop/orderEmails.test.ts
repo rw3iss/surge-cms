@@ -167,3 +167,44 @@ describe('orderEmails — send helpers', () => {
         expect((sendEmailMock.mock.calls[0][0] as { to: string; }).to,).toBe('buyer@example.com',);
     },);
 },);
+
+describe('renderItemsTable — supplier grouping', () => {
+    const order = {
+        currency: 'usd',
+        items: [
+            { title: 'Tee', variantTitle: 'M', sku: 'A1', quantity: 1, subtotalCents: 2500, fulfillmentGroup: 'apliiq', },
+            { title: 'Mug', variantTitle: null, sku: 'B1', quantity: 2, subtotalCents: 3000, fulfillmentGroup: 'printify', },
+            { title: 'Sticker', variantTitle: null, sku: 'C1', quantity: 1, subtotalCents: 500, fulfillmentGroup: 'native', },
+        ],
+    } as never;
+
+    it('shows a flat list by default', () => {
+        const html = renderItemsTable(order,);
+        expect(html,).toContain('Tee',);
+        expect(html,).not.toContain('Shipped by',);
+    },);
+
+    it('inserts a section header per fulfiller when grouped', () => {
+        const html = renderItemsTable(order, { grouped: true, },);
+        expect(html,).toContain('Shipped by apliiq',);
+        expect(html,).toContain('Shipped by printify',);
+        expect(html,).toContain('Shipped by us',);
+    },);
+
+    it('does not group a single-supplier order', () => {
+        // One group is not a grouping — captioning a lone section with a
+        // supplier name tells the buyer nothing and looks like a bug.
+        const single = {
+            currency: 'usd',
+            items: [{ title: 'Tee', variantTitle: null, sku: 'A1', quantity: 1, subtotalCents: 2500, fulfillmentGroup: 'apliiq', },],
+        } as never;
+        expect(renderItemsTable(single, { grouped: true, },),).not.toContain('Shipped by',);
+    },);
+
+    it('keeps every line item in both modes', () => {
+        for (const opts of [{}, { grouped: true, },]) {
+            const html = renderItemsTable(order, opts,);
+            for (const t of ['Tee', 'Mug', 'Sticker',]) expect(html,).toContain(t,);
+        }
+    },);
+},);

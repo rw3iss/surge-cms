@@ -42,6 +42,24 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'shop.providers:read',
+        feature: 'shop',
+        label: 'View shop providers',
+        description: 'See the configured fulfilment providers and their webhook URLs.',
+        action: 'read',
+        defaultRoles: ADMIN,
+    },
+    {
+        key: 'shop.providers:write',
+        feature: 'shop',
+        label: 'Configure shop providers',
+        description:
+            'Enter supplier API credentials, enable providers, trigger a catalogue sync '
+            + 'and regenerate webhook tokens.',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'settings.backup:download',
         feature: 'core',
         label: 'Download a database backup',

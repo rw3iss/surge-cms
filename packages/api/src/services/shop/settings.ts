@@ -32,6 +32,9 @@ const APPEARANCE_KEY = 'shop_appearance';
 
 // Defaults mirror the registry `shop` onEnable seed. Keep in sync.
 const DEFAULT_SETTINGS: ShopSettings = {
+    cartDisplay: 'combined',
+    orderEmailDisplay: 'combined',
+    adminNotificationDisplay: 'grouped',
     currency: 'usd',
     taxEnabled: true,
     businessName: '',

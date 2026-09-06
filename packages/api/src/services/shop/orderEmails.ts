@@ -27,6 +27,13 @@ import type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
 
 /** Render context shared by every template. */
 export interface OrderEmailContext {
+    /** Group the buyer-facing item list by fulfiller. Off unless the operator
+     *  also shows the cart grouped — otherwise the receipt reveals a split the
+     *  checkout never mentioned. */
+    groupItems?: boolean;
+    /** Group the seller notification. Defaults ON: the operator needs to know
+     *  who is printing what even when the buyer sees one list. */
+    groupItemsForAdmin?: boolean;
     businessName: string;
     frontendUrl: string;
     currency: string;
@@ -47,10 +54,18 @@ const CELL_R = 'padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;w
 
 /** HTML line-items table. Each row: title (+ variant) × qty, muted SKU,
  *  right-aligned line subtotal. */
-export function renderItemsTable(order: OrderDetail,): string {
+/**
+ * The order's line items.
+ *
+ * `grouped` inserts a sub-header per fulfiller. It is opt-in because a buyer
+ * shown one cart at checkout should not first learn at the receipt that their
+ * order was split between three suppliers — and conversely the seller usually
+ * DOES want that breakdown. The two audiences get separate settings.
+ */
+export function renderItemsTable(order: OrderDetail, opts: { grouped?: boolean; } = {},): string {
     const currency = order.currency || 'usd';
 
-    const rows = order.items.map((item,) => {
+    const renderRow = (item: OrderDetail['items'][number],) => {
         const name = `${item.title}${item.variantTitle ? ` — ${item.variantTitle}` : ''}`;
         const sku = item.sku
             ? `<br/><span style="${MUTED}font-size:12px;">SKU: ${item.sku}</span>`
@@ -59,7 +74,33 @@ export function renderItemsTable(order: OrderDetail,): string {
             <td style="${CELL}">${name} × ${item.quantity}${sku}</td>
             <td style="${CELL_R}">${formatMoney(item.subtotalCents, currency,)}</td>
         </tr>`;
-    },).join('',);
+    };
+
+    let rows: string;
+    if (opts.grouped) {
+        const groups = new Map<string, OrderDetail['items']>();
+        for (const item of order.items) {
+            const key = (item as { fulfillmentGroup?: string | null; }).fulfillmentGroup || 'native';
+            const list = groups.get(key,) ?? [];
+            list.push(item,);
+            groups.set(key, list,);
+        }
+        // One group is not a grouping — fall back to a plain list rather than
+        // captioning a single section with a supplier name for no reason.
+        if (groups.size <= 1) {
+            rows = order.items.map(renderRow,).join('',);
+        } else {
+            rows = [...groups.entries(),].map(([key, items,],) => {
+                const label = key === 'native'
+                    ? 'Shipped by us'
+                    : key === 'event_tickets' ? 'Event tickets' : `Shipped by ${key}`;
+                return `<tr><td colspan="2" style="${CELL}${MUTED}font-size:12px;text-transform:uppercase;letter-spacing:.04em;">${label}</td></tr>`
+                    + items.map(renderRow,).join('',);
+            },).join('',);
+        }
+    } else {
+        rows = order.items.map(renderRow,).join('',);
+    }
 
     return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:560px;margin:0 0 16px;">
         <tbody>${rows}</tbody>
@@ -196,7 +237,7 @@ export interface BuiltEmail {
 export function buildBuyerConfirmation(order: OrderDetail, ctx: OrderEmailContext,): BuiltEmail {
     const body = `
         <p>Thank you for your order! Here's a summary of what you purchased.</p>
-        ${renderItemsTable(order,)}
+        ${renderItemsTable(order, { grouped: ctx.groupItems === true, },)}
         ${renderTotals(order,)}
         ${renderAddresses(order,)}
         ${renderReceiptButton(order, ctx.frontendUrl,)}
@@ -218,7 +259,7 @@ export function buildSellerNotification(order: OrderDetail, ctx: OrderEmailConte
     const body = `
         <p>A new order has been placed and paid.</p>
         <p style="${MUTED}">Customer: ${customer}</p>
-        ${renderItemsTable(order,)}
+        ${renderItemsTable(order, { grouped: ctx.groupItemsForAdmin !== false, },)}
         ${renderTotals(order,)}
         ${renderAddresses(order,)}
         <p style="margin-top:16px;"><a href="${adminLink}" style="color:#e63946;">View this order in the admin</a></p>
@@ -282,14 +323,23 @@ export function buildStatusUpdate(
 async function buildContext(order: OrderDetail,): Promise<OrderEmailContext> {
     let businessName = '';
     let currency = order.currency || 'usd';
+    // Buyer grouping is gated on the CART being grouped too. Showing a split in
+    // the receipt that the checkout never showed is worse than not showing it.
+    let groupItems = false;
+    let groupItemsForAdmin = true;
     try {
         const shop = await getShopSettings();
         businessName = shop.businessName || '';
         currency = order.currency || shop.currency || 'usd';
+        groupItems = shop.cartDisplay === 'grouped' && shop.orderEmailDisplay === 'grouped';
+        groupItemsForAdmin = shop.adminNotificationDisplay !== 'combined';
     } catch (err) {
         logger.warn('Could not load shop settings for order email', { error: err, },);
     }
-    return { businessName, frontendUrl: config.frontendUrl ?? '', currency, };
+    return {
+        businessName, frontendUrl: config.frontendUrl ?? '', currency,
+        groupItems, groupItemsForAdmin,
+    };
 }
 
 /** Resolve the seller/admin notification address (site contact email). */

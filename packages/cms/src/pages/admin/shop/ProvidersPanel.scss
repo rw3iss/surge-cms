@@ -1,0 +1,76 @@
+// Shop → Settings → Providers.
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured prelude already provides `color` + variables.
+
+.providers-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+
+  &__note {
+    margin-top: $spacing-sm;
+  }
+}
+
+.provider-row {
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+  }
+
+  .settings-card__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+}
+
+.provider-detail {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid var(--admin-border, #{$border-color});
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+    margin: $spacing-md 0;
+  }
+}
+
+.provider-webhooks {
+  // The URLs are long and unbreakable; let them wrap rather than widening the
+  // table past the panel.
+  &__url {
+    font-size: 11px;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+
+  &__row-actions {
+    display: flex;
+    gap: $spacing-2xs;
+    white-space: nowrap;
+  }
+}
+
+@include mobile-only {
+  .provider-row__head {
+    flex-direction: column;
+  }
+  .provider-detail__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

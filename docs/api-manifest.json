@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-06T02:33:52.320Z",
-  "totalModules": 38,
-  "totalRoutes": 350,
+  "generatedAt": "2026-09-06T02:52:42.201Z",
+  "totalModules": 39,
+  "totalRoutes": 356,
   "modules": [
     {
       "module": "admin-channel",
@@ -2376,6 +2376,54 @@
           "absolutePath": "/api/v1/shop/printify/sync/:id",
           "auth": "admin",
           "summary": "Resync a single product from Printify (pull the latest for one item)."
+        }
+      ]
+    },
+    {
+      "module": "shop-providers",
+      "mountPath": "/api/v1/shop/providers",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/shop/providers",
+          "auth": "admin",
+          "summary": "List every fulfilment provider with its saved settings (secrets masked)."
+        },
+        {
+          "method": "PUT",
+          "path": "/:key",
+          "absolutePath": "/api/v1/shop/providers/:key",
+          "auth": "admin",
+          "summary": "Save a provider's credentials and options."
+        },
+        {
+          "method": "POST",
+          "path": "/:key/test",
+          "absolutePath": "/api/v1/shop/providers/:key/test",
+          "auth": "admin",
+          "summary": "Test the provider connection with the saved credentials."
+        },
+        {
+          "method": "POST",
+          "path": "/:key/sync",
+          "absolutePath": "/api/v1/shop/providers/:key/sync",
+          "auth": "admin",
+          "summary": "Pull the provider catalogue now (only for providers that expose one)."
+        },
+        {
+          "method": "GET",
+          "path": "/:key/webhooks",
+          "absolutePath": "/api/v1/shop/providers/:key/webhooks",
+          "auth": "admin",
+          "summary": "The webhook URLs to paste into the provider's dashboard."
+        },
+        {
+          "method": "POST",
+          "path": "/:key/webhooks/:id/regenerate",
+          "absolutePath": "/api/v1/shop/providers/:key/webhooks/:id/regenerate",
+          "auth": "admin",
+          "summary": "Issue a new token for a webhook. The old URL stops working immediately."
         }
       ]
     },

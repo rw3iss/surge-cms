@@ -10,15 +10,17 @@ import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
+import ProvidersPanel from './ProvidersPanel';
 import StripeKeysEditor from '../../../components/admin/StripeKeysEditor';
 import { centsToDollars, dollarsToCents, } from './shopUtils';
 
-type Tab = 'general' | 'payments' | 'shipping' | 'appearance';
+type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'providers';
 const TABS: { key: Tab; label: string; }[] = [
     { key: 'general', label: 'General', },
     { key: 'payments', label: 'Payments', },
     { key: 'shipping', label: 'Shipping', },
     { key: 'appearance', label: 'Appearance', },
+    { key: 'providers', label: 'Providers', },
 ];
 
 const ShopSettingsInner: Component = () => {
@@ -203,7 +205,65 @@ const ShopSettingsInner: Component = () => {
                             <Toggle label="Show product ratings" checked={appearance.showRatings} onChange={(v,) => setAppearance('showRatings', v,)} />
                         </div>
                     </Show>
+
+                    {/* Multi-supplier presentation. Payment is a single charge
+                        either way — these only change what the buyer is shown,
+                        because print suppliers bill us, not the customer. */}
+                    <Show when={tab() === 'appearance'}>
+                        <h3 class="settings-card__subtitle">Multiple suppliers</h3>
+                        <FormField
+                            label="Cart display"
+                            hint="When a cart holds items from more than one fulfiller. Combined shows one list and one shipping line; Separate shows a section per supplier, each with its own shipping — honest that parcels arrive separately."
+                        >
+                            <select
+                                value={settings.cartDisplay || 'combined'}
+                                onChange={(e,) => setSettings('cartDisplay', e.currentTarget.value as never,)}
+                            >
+                                <option value="combined">Combined — one cart</option>
+                                <option value="grouped">Separate — a section per supplier</option>
+                            </select>
+                        </FormField>
+
+                        <Show
+                            when={(settings.cartDisplay || 'combined') === 'grouped'}
+                            fallback={
+                                <p class="form-help-muted">
+                                    Buyer emails and receipts follow the cart, so they stay combined.
+                                </p>
+                            }
+                        >
+                            <FormField
+                                label="Buyer emails and receipts"
+                                hint="Only offered while the cart is shown separately — a grouped email after a combined cart tells the buyer something the checkout never did."
+                            >
+                                <select
+                                    value={settings.orderEmailDisplay || 'combined'}
+                                    onChange={(e,) => setSettings('orderEmailDisplay', e.currentTarget.value as never,)}
+                                >
+                                    <option value="combined">Combined</option>
+                                    <option value="grouped">Separate per supplier</option>
+                                </select>
+                            </FormField>
+                        </Show>
+
+                        <FormField
+                            label="Admin order notifications"
+                            hint="Kept separate by default: you need the fulfilment breakdown even when the buyer sees one list."
+                        >
+                            <select
+                                value={settings.adminNotificationDisplay || 'grouped'}
+                                onChange={(e,) => setSettings('adminNotificationDisplay', e.currentTarget.value as never,)}
+                            >
+                                <option value="grouped">Separate per supplier</option>
+                                <option value="combined">Combined</option>
+                            </select>
+                        </FormField>
+                    </Show>
                 </div>
+            </Show>
+
+            <Show when={tab() === 'providers'}>
+                <ProvidersPanel />
             </Show>
         </div>
     );

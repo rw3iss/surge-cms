@@ -222,6 +222,12 @@ export interface ShopOrderItem {
     isDigital: boolean;
     downloadToken?: string | null;
     createdAt: string;
+    /** Who fulfilled this line: 'native', 'event_tickets', or a provider key.
+     *  Captured at order time so the record survives a product being
+     *  reassigned to a different supplier later. */
+    fulfillmentGroup?: string | null;
+    externalProductId?: string | null;
+    externalVariantId?: string | null;
 }
 
 // ── Composite / assembled read shapes ────────────────────────────────
@@ -282,6 +288,24 @@ export interface ShopSettings {
         additionalItemCents?: number;
         rates?: ShopShippingRate[];
     };
+    /**
+     * How a cart containing items from more than one fulfiller is presented.
+     *
+     * `combined` shows one list and one shipping line — the buyer never learns
+     * who prints what. `grouped` shows a section per supplier, each with its own
+     * shipping, which is honest about multiple parcels arriving separately.
+     *
+     * Presentation only: the payment is a single charge either way, because
+     * print suppliers bill us, not the customer.
+     */
+    cartDisplay?: 'combined' | 'grouped';
+    /** Buyer emails, the confirmation page and the PDF receipt. Only offered
+     *  when `cartDisplay` is `grouped` — a grouped email after a combined cart
+     *  tells the buyer something the checkout never did. */
+    orderEmailDisplay?: 'combined' | 'grouped';
+    /** The seller notification. Defaults to `grouped`: the operator needs the
+     *  fulfilment breakdown even when the buyer is shown one list. */
+    adminNotificationDisplay?: 'combined' | 'grouped';
 }
 
 export interface ShopAppearance {

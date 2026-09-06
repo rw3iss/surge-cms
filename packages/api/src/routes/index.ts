@@ -28,6 +28,7 @@ import { postsRoutes, } from './posts';
 import { searchRoutes, } from './search';
 import { settingsRoutes, } from './settings';
 import { shopRoutes, } from './shop';
+import { shopProviderRoutes, } from './shopProviders';
 import { pluginsRoutes, } from './plugins';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
@@ -69,6 +70,7 @@ router.use('/mailing-lists', registerModule('mailing-lists', mailingListsRoutes,
 router.use('/mail-templates', registerModule('mail-templates', mailTemplatesRoutes, { mountPath: '/api/v1/mail-templates', },),);
 router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1/mail', },),);
 router.use('/lists', registerModule('lists', listsPublicRoutes, { mountPath: '/api/v1/lists', },),);
+router.use('/shop/providers', registerModule('shop-providers', shopProviderRoutes, { mountPath: '/api/v1/shop/providers', feature: 'shop', },),);
 router.use('/shop', registerModule('shop', shopRoutes, { mountPath: '/api/v1/shop', feature: 'shop', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
