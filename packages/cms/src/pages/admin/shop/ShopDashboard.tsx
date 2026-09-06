@@ -72,7 +72,9 @@ const ShopDashboardInner: Component = () => {
         { href: '/admin/shop/categories', label: 'Categories', count: categoriesCount() ?? 0, },
         { href: '/admin/shop/collections', label: 'Collections', count: collectionsCount() ?? 0, },
         { href: '/admin/shop/reviews', label: 'Reviews', count: reviewsCount() ?? 0, },
-        { href: '/admin/shop/settings', label: 'Settings', count: null, },
+        // Settings is deliberately NOT here — it's a header action, like
+        // /admin/users. The left nav lists things you have a countable number
+        // of; configuration isn't one of them.
     ];
 
     return (
@@ -80,9 +82,12 @@ const ShopDashboardInner: Component = () => {
             <Title>Shop - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Shop</h1>
-                <Show when={!isShopifyActive()}>
-                    <A href="/admin/shop/products/new" class="ui-button ui-button--primary">New Product</A>
-                </Show>
+                <div class="admin-header__actions">
+                    <A href="/admin/shop/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <Show when={!isShopifyActive()}>
+                        <A href="/admin/shop/products/new" class="ui-button ui-button--primary">New Product</A>
+                    </Show>
+                </div>
             </div>
 
             <ShopifyManagedBanner />

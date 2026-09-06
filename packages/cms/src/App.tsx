@@ -43,6 +43,7 @@ const AdminPosts = lazy(() => import('./pages/admin/Posts'));
 const AdminPostEditor = lazy(() => import('./pages/admin/PostEditor'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminUsersSettings = lazy(() => import('./pages/admin/UsersSettings'));
+const AdminFormsSettings = lazy(() => import('./pages/admin/FormsSettings'));
 const AdminUserDetail = lazy(() => import('./pages/admin/UserDetail'));
 const AdminCampaigns = lazy(() => import('./pages/admin/Campaigns'));
 const AdminCampaignEditor = lazy(() => import('./pages/admin/CampaignEditor'));
@@ -174,6 +175,7 @@ const App: Component = () => {
 										<Route path="/posts/:id" component={AdminPostEditor} />
 										<Route path="/users" component={AdminUsers} />
 										<Route path="/users/settings" component={AdminUsersSettings} />
+										<Route path="/forms/settings" component={AdminFormsSettings} />
 										<Route path="/users/:id" component={AdminUserDetail} />
 										<Route path="/campaigns" component={AdminCampaigns} />
 										<Route path="/campaigns/new" component={AdminCampaignEditor} />

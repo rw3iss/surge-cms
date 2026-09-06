@@ -16,6 +16,7 @@
  */
 import { config, } from '../../config';
 import { sendEmail, } from '../email';
+import { sendPurposeMail, } from '../mail/purposes';
 import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
 import { getNotificationSettings, notify, } from '../notifications';
@@ -353,12 +354,39 @@ async function getSellerEmail(): Promise<string | null> {
     }
 }
 
+/**
+ * Variables offered to an operator-authored order template.
+ *
+ * `itemsHtml` is the rendered line-item table from the built-in builder rather
+ * than raw data: a custom template almost always wants the table as-is, and
+ * rebuilding it out of loops in the block editor would be miserable.
+ */
+function purposeContext(order: OrderDetail, itemsHtml: string,): Record<string, unknown> {
+    return {
+        order: {
+            number: order.orderNumber,
+            total: formatMoney(order.totalCents, order.currency,),
+            status: order.status ?? '',
+            trackingNumber: order.trackingNumber ?? '',
+            trackingUrl: order.trackingUrl ?? '',
+            carrier: order.carrier ?? '',
+            itemsHtml,
+        },
+        customer: { name: order.customerName ?? '', email: order.customerEmail, },
+    };
+}
+
 /** Send just the buyer confirmation (used by the receipt-resend action). */
 export async function sendBuyerReceipt(order: OrderDetail,): Promise<void> {
     try {
         const ctx = await buildContext(order,);
         const mail = buildBuyerConfirmation(order, ctx,);
-        await sendEmail({ to: order.customerEmail, subject: mail.subject, html: mail.html, },);
+        await sendPurposeMail('shop_order_customer', {
+            to: order.customerEmail,
+            defaultSubject: mail.subject,
+            defaultHtml: mail.html,
+            context: purposeContext(order, mail.html,),
+        },);
     } catch (err) {
         logger.error('Failed to send buyer order confirmation', { orderNumber: order.orderNumber, error: err, },);
     }
@@ -375,7 +403,12 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
     // Buyer confirmation.
     try {
         const mail = buildBuyerConfirmation(order, ctx,);
-        await sendEmail({ to: order.customerEmail, subject: mail.subject, html: mail.html, },);
+        await sendPurposeMail('shop_order_customer', {
+            to: order.customerEmail,
+            defaultSubject: mail.subject,
+            defaultHtml: mail.html,
+            context: purposeContext(order, mail.html,),
+        },);
     } catch (err) {
         logger.error('Failed to send buyer order confirmation', { orderNumber: order.orderNumber, error: err, },);
     }
@@ -387,7 +420,12 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
     // (preserves the pre-Notifications behavior; avoids double-sending).
     try {
         const mail = buildSellerNotification(order, ctx,);
-        void notify('shop_order', { subject: mail.subject, html: mail.html, },);
+        void notify('shop_order', {
+            purpose: 'shop_order_admin',
+            context: purposeContext(order, mail.html,),
+            subject: mail.subject,
+            html: mail.html,
+        },);
 
         const nset = await getNotificationSettings().catch(() => ({} as Record<string, { email?: { enabled: boolean; addresses: string[]; }; }>));
         const emailCfg = nset['shop_order']?.email;
@@ -399,7 +437,12 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
                     orderNumber: order.orderNumber,
                 },);
             } else {
-                await sendEmail({ to: seller, subject: mail.subject, html: mail.html, },);
+                await sendPurposeMail('shop_order_admin', {
+                    to: seller,
+                    defaultSubject: mail.subject,
+                    defaultHtml: mail.html,
+                    context: purposeContext(order, mail.html,),
+                },);
             }
         }
     } catch (err) {
@@ -412,7 +455,12 @@ export async function sendOrderStatusEmail(order: OrderDetail, prevStatus?: stri
     try {
         const ctx = await buildContext(order,);
         const mail = buildStatusUpdate(order, ctx, prevStatus,);
-        await sendEmail({ to: order.customerEmail, subject: mail.subject, html: mail.html, },);
+        await sendPurposeMail('shop_order_shipped', {
+            to: order.customerEmail,
+            defaultSubject: mail.subject,
+            defaultHtml: mail.html,
+            context: purposeContext(order, mail.html,),
+        },);
     } catch (err) {
         logger.error('Failed to send order status update', { orderNumber: order.orderNumber, error: err, },);
     }

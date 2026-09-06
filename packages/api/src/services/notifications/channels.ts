@@ -11,12 +11,25 @@
  */
 import type { NotificationChannelId, } from '@sitesurge/types';
 import { sendEmail, } from '../email';
+import { sendPurposeMail, } from '../mail/purposes';
 import { logger, } from '../../utils/logger';
 
 export interface NotificationMessage {
     subject: string;
     html?: string;
     text?: string;
+    /**
+     * Mail-purpose key. When set, the EMAIL channel renders through the purpose
+     * pipeline instead of using `subject`/`html` directly — so the operator's
+     * template and enable toggle apply, while `notify()` keeps doing what it is
+     * good at: resolving WHO gets it from Settings → Notifications.
+     *
+     * `subject`/`html` remain the fallback body, so an alert still looks right
+     * before anyone customises it.
+     */
+    purpose?: string;
+    /** Variables for the purpose template. Ignored without `purpose`. */
+    context?: Record<string, unknown>;
 }
 
 export interface NotificationChannel {
@@ -28,6 +41,19 @@ export interface NotificationChannel {
 const emailChannel: NotificationChannel = {
     id: 'email',
     async send(addresses, msg,) {
+        // Purpose-backed alerts go through the shared pipeline so the operator's
+        // template applies. sendPurposeMail already sends one message per
+        // recipient and never throws, so the loop below isn't needed.
+        if (msg.purpose) {
+            await sendPurposeMail(msg.purpose, {
+                to: addresses,
+                context: msg.context,
+                defaultSubject: msg.subject,
+                defaultHtml: msg.html ?? msg.text ?? '',
+            },);
+            return;
+        }
+
         for (const to of addresses) {
             const address = to.trim();
             if (!address) continue;

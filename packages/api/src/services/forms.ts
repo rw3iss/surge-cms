@@ -271,6 +271,8 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
 
     // Additive admin notification. Fire-and-forget.
     void notify('form_submission', {
+        purpose: 'form_submission_admin',
+        context: { form: { title: form.title, slug: form.slug, }, },
         subject: `New form submission: ${form.title}`,
         html: `<h2>New form submission</h2>`
             + `<p>A visitor submitted the form <strong>${form.title}</strong>.</p>`

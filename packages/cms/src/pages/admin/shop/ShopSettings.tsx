@@ -12,15 +12,17 @@ import { cms, } from '../../../services/cmsClient';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import ProvidersPanel from './ProvidersPanel';
+import EmailTemplatesPanel, { type PurposeConfig, } from '../../../components/admin/mail/EmailTemplatesPanel';
 import StripeKeysEditor from '../../../components/admin/StripeKeysEditor';
 import { centsToDollars, dollarsToCents, } from './shopUtils';
 
-type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'providers';
+type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'emails' | 'providers';
 const TABS: { key: Tab; label: string; }[] = [
     { key: 'general', label: 'General', },
     { key: 'payments', label: 'Payments', },
     { key: 'shipping', label: 'Shipping', },
     { key: 'appearance', label: 'Appearance', },
+    { key: 'emails', label: 'Emails', },
     { key: 'providers', label: 'Providers', },
 ];
 
@@ -30,7 +32,7 @@ const TABS: { key: Tab; label: string; }[] = [
  * it in another left an empty bordered box above the list, because every
  * `Show` inside the shared card is false on that tab.
  */
-const SELF_CARDED_TABS: Tab[] = ['providers',];
+const SELF_CARDED_TABS: Tab[] = ['providers', 'emails',];
 const usesSharedCard = (t: Tab,): boolean => !SELF_CARDED_TABS.includes(t,);
 
 const ShopSettingsInner: Component = () => {
@@ -59,8 +61,16 @@ const ShopSettingsInner: Component = () => {
     const [useAdditionalRate, setUseAdditionalRate,] = createSignal(false,);
     const [additionalRate, setAdditionalRate,] = createSignal('',);
 
+    // Shop emails live in the site-wide `mail_purposes` row, not shop_settings:
+    // the registry is shared across features, and one row keeps a purpose's
+    // config in exactly one place.
+    const [mailPurposes, setMailPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
+
     const [loaded,] = createSafeResource(async () => {
         const res = await cms.shop.settings.getAdmin();
+        try {
+            setMailPurposes((await cms.settings.getMailPurposes()) as Record<string, PurposeConfig> ?? {},);
+        } catch { /* non-fatal: the Emails tab just starts from defaults */ }
         setSettings(res.settings,);
         setAppearance(res.appearance,);
         setFlat(centsToDollars(res.settings.shipping?.flatCents,),);
@@ -94,6 +104,9 @@ const ShopSettingsInner: Component = () => {
                 },
                 appearance: { ...appearance, },
             },);
+            // Written alongside the shop settings so one Save covers every tab —
+            // the tab strip is a view, not a form boundary.
+            await cms.settings.setMailPurposes(mailPurposes() as Record<string, unknown>,);
             toast.success('Shop settings saved.',);
         } catch {
             /* error bus */
@@ -287,6 +300,22 @@ const ShopSettingsInner: Component = () => {
                         </Show>
                     </div>
                 </Show>
+            </Show>
+
+            <Show when={tab() === 'emails'}>
+                <section class="settings-card">
+                    <h3 class="settings-card__title">Shop emails</h3>
+                    <p class="settings-card__lede">
+                        Order confirmations, shipping notices, the staff order alert and the
+                        new-merchandise announcement. Each can be switched off and given its own
+                        content; leave the content empty to send the built-in default.
+                    </p>
+                    <EmailTemplatesPanel
+                        feature="shop"
+                        value={mailPurposes()}
+                        onChange={setMailPurposes}
+                    />
+                </section>
             </Show>
 
             <Show when={tab() === 'providers'}>

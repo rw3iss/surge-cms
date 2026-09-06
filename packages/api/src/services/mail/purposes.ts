@@ -65,6 +65,20 @@ export interface SendPurposeMailInput {
     context?: Record<string, unknown>;
     /** Send even when the operator has the purpose disabled. */
     force?: boolean;
+    /**
+     * Body to use when the operator hasn't written their own, INSTEAD of the
+     * registry's generic default.
+     *
+     * This exists because some features already build a far better default than
+     * a registry entry could — the shop's order emails render a real line-item
+     * table with per-supplier groups and totals. Forcing those through a generic
+     * default would be a downgrade dressed up as consolidation. The operator
+     * still gets the toggle and can still replace the body with blocks; they
+     * just get a good starting point when they don't.
+     */
+    defaultHtml?: string;
+    /** Subject to use when the operator hasn't set one; overrides the registry. */
+    defaultSubject?: string;
     fromName?: string;
     fromEmail?: string;
     replyTo?: string;
@@ -104,7 +118,7 @@ export async function sendPurposeMail(key: string, input: SendPurposeMailInput,)
             ...input.context,
         };
 
-        const subjectTpl = cfg.subject?.trim() || meta.defaultSubject;
+        const subjectTpl = cfg.subject?.trim() || input.defaultSubject || meta.defaultSubject;
         const blocks = (cfg.blocks ?? []) as FlatBlock[];
 
         let subject: string;
@@ -118,7 +132,9 @@ export async function sendPurposeMail(key: string, input: SendPurposeMailInput,)
             // Built-in default. The subject still runs through the engine so
             // `{{site.name}}` works even when the body is untouched.
             subject = await resolveMailTemplate(subjectTpl, context,);
-            html = await defaultPurposeHtml(key, context, site,);
+            html = input.defaultHtml
+                ? await resolveMailTemplate(input.defaultHtml, context,)
+                : await defaultPurposeHtml(key, context, site,);
         }
 
         // One message per recipient — no shared To: header, so a single bad

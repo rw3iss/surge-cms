@@ -44,7 +44,10 @@ const AdminForms: Component = () => {
             <Title>Forms - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Forms</h1>
-                <A href="/admin/forms/new" class="ui-button ui-button--primary">New Form</A>
+                <div class="admin-header__actions">
+                    <A href="/admin/forms/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <A href="/admin/forms/new" class="ui-button ui-button--primary">New Form</A>
+                </div>
             </div>
             <div class="admin-filter-bar">
                 <select
