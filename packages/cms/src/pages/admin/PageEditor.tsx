@@ -6,6 +6,7 @@ import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
 import ColorPicker from '../../components/admin/appearance/ColorPicker';
+import CssEditor from '../../components/admin/common/CssEditor';
 import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
@@ -91,6 +92,11 @@ const AdminPageEditor: Component = () => {
     /** Header position for this page ('' = '-' → inherit site default). */
     const [headerPosition, setHeaderPosition,] = createSignal('',);
     const [backgroundColor, setBackgroundColor,] = createSignal('',);
+    const [customCss, setCustomCss,] = createSignal('',);
+    const [showCss, setShowCss,] = createSignal(false,);
+    /** Tab behaviour for the code editors; from Settings → Appearance. */
+    const codeTabWidth = () =>
+        ((editor.appearance() as { codeTabWidth?: '4' | '2' | 'tab'; } | null)?.codeTabWidth) ?? '4';
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     // Whether this page is the site's homepage. The slug stays a normal
@@ -207,6 +213,7 @@ const AdminPageEditor: Component = () => {
             headerStyle: headerStyle(),
             headerPosition: headerPosition(),
             backgroundColor: backgroundColor(),
+            customCss: customCss(),
         }),
         validate: () => {
             if (!title()) return 'Title is required';
@@ -229,6 +236,7 @@ const AdminPageEditor: Component = () => {
                 // default, so it must reach the server rather than dropping out.
                 headerPosition: headerPosition() || undefined,
                 backgroundColor: backgroundColor(),
+                customCss: customCss(),
             };
             let pageId = ctx.id;
             if (ctx.isNew) {
@@ -272,6 +280,7 @@ const AdminPageEditor: Component = () => {
         if (d.headerStyle != null) setHeaderStyle(d.headerStyle,);
         if (d.headerPosition != null) setHeaderPosition(d.headerPosition,);
         if (d.backgroundColor != null) setBackgroundColor(d.backgroundColor,);
+        if (d.customCss != null) setCustomCss(d.customCss,);
         if (d.isHomepage != null) setIsHomepage(Boolean(d.isHomepage,),);
         if (Array.isArray(d.blocks,)) editor.setBlocks(d.blocks as BlockData[],);
     };
@@ -294,6 +303,7 @@ const AdminPageEditor: Component = () => {
         setHeaderStyle((p as any).headerStyle || '',);
         setHeaderPosition((p as any).headerPosition || '',);
         setBackgroundColor((p as any).backgroundColor || '',);
+        setCustomCss((p as any).customCss || '',);
         setIsHomepage(Boolean((p as any).isHomepage,),);
         const blockList = (p as any).blocks as any[] | undefined;
         if (blockList?.length) {
@@ -487,6 +497,51 @@ const AdminPageEditor: Component = () => {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Full-width row beneath the property columns: a code
+                            editor is unusable squeezed into a half column.
+                            Collapsed until asked for, since most pages never
+                            need one — but auto-open when the page already has
+                            CSS, so it is never silently hidden. */}
+                        <div class="editor-properties__css">
+                            <Show
+                                when={showCss() || customCss().trim()}
+                                fallback={
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--secondary ui-button--sm"
+                                        onClick={() => setShowCss(true,)}
+                                    >
+                                        + Add Custom CSS
+                                    </button>
+                                }
+                            >
+                                <div class="editor-properties__css-head">
+                                    <label>Custom CSS</label>
+                                    <Tooltip
+                                        header="Custom CSS"
+                                        content="Rendered after this page's own styles, so these rules win. Useful for restyling parts of a built-in template — the shop's title and sidebar, say — without a setting per element. Tab indents by the amount set in Settings → Appearance → Code tab width."
+                                    />
+                                    <span class="editor-properties__css-spacer" />
+                                    <Show when={customCss().trim()}>
+                                        <button
+                                            type="button"
+                                            class="ui-button ui-button--ghost ui-button--sm"
+                                            onClick={() => {
+                                                if (!confirm('Remove this page\'s custom CSS?',)) return;
+                                                setCustomCss('',); setShowCss(false,); editor.markDirty();
+                                            }}
+                                        >Clear</button>
+                                    </Show>
+                                </div>
+                                <CssEditor
+                                    value={customCss()}
+                                    onChange={(next,) => { setCustomCss(next,); editor.markDirty(); }}
+                                    tabWidth={codeTabWidth()}
+                                    height="280px"
+                                />
+                            </Show>
                         </div>
                     </div>
                 </div>

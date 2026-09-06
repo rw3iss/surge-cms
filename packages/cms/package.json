@@ -2,7 +2,7 @@
   "name": "@sitesurge/admin",
   "version": "0.1.13",
   "type": "module",
-  "description": "SiteSurge CMS admin + public SPA — built static assets, served by @sitesurge/server.",
+  "description": "SiteSurge CMS admin + public SPA \u2014 built static assets, served by @sitesurge/server.",
   "license": "GPL-2.0-only",
   "main": "./asset-entry/index.cjs",
   "types": "./asset-entry/index.d.cts",
@@ -44,6 +44,7 @@
     "test": "vitest --passWithNoTests"
   },
   "devDependencies": {
+    "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.41.1",

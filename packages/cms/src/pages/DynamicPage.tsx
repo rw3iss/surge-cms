@@ -1,4 +1,4 @@
-import { useLocation, useNavigate, useParams, } from '@solidjs/router';
+import { useLocation, useNavigate, useParams, type RouteSectionProps, } from '@solidjs/router';
 import { buildBlockTree, isAdminRole, type ContentAccessLevel, type Page, } from '@sitesurge/types';
 import { ContentLockedError, UnauthorizedError, } from '@sitesurge/client';
 import { Component, createEffect, createResource, createSignal, For, lazy, onCleanup, Show, } from 'solid-js';
@@ -7,6 +7,7 @@ import ContentGate from '../components/auth/ContentGate';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { contentPaddingStyle, } from '../utils/appearanceStyle';
+import PageCustomCss from '../components/common/PageCustomCss';
 import { setActiveHeaderPosition, setActivePageBackground, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
@@ -24,16 +25,20 @@ interface LockedContent {
     };
 }
 
-export interface DynamicPageProps {
-    /**
-     * Render this slug instead of the one in the URL.
-     *
-     * Used by routes that are served by a bespoke component but can be
-     * configured to show a CMS page instead — /shop with `storefrontMode:
-     * 'page'`. The URL stays /shop; only the content comes from the page.
-     */
+/**
+ * `slugOverride` renders a different slug than the URL — used by routes served
+ * by a bespoke component that can be configured to show a CMS page instead
+ * (/shop with `storefrontMode: 'page'`). The URL stays /shop; only the content
+ * comes from the page.
+ *
+ * Intersected with the router's section props so this stays usable directly as
+ * a <Route component>. An all-optional interface is a "weak type" to
+ * TypeScript, which then rejects RouteSectionProps for having no properties in
+ * common with it.
+ */
+export type DynamicPageProps = Partial<RouteSectionProps> & {
     slugOverride?: string;
-}
+};
 
 const DynamicPage: Component<DynamicPageProps> = (props,) => {
     const params = useParams();
@@ -110,6 +115,7 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
 
     return (
         <div class="dynamic-page page-wrapper" style={wrapperStyle()}>
+            <PageCustomCss css={(page() as { customCss?: string | null; } | null | undefined)?.customCss} />
             <Show when={lockedContent()}>
                 {(locked,) => (
                     <ContentGate

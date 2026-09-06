@@ -1,0 +1,25 @@
+// CodeMirror CSS editor.
+// No `@use` here: imported from the .tsx, so the Vite sass prelude already
+// provides `color` and the variables.
+
+.css-editor {
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+  overflow: hidden;
+
+  .cm-editor {
+    height: var(--css-editor-height, 260px);
+    font-size: 13px;
+  }
+
+  .cm-scroller {
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+  }
+
+  // The admin shell caps every textarea/input at the form width; CodeMirror
+  // renders its own elements, but the contenteditable inherits that rule via
+  // the descendant selector. Two classes outrank it.
+  & .cm-content {
+    max-width: none;
+  }
+}

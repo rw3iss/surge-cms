@@ -32,6 +32,9 @@ const pageSchema = z.object({
     headerPosition: z.enum(['static', 'float',],).optional(),
     /** Literal hex, a `swatch:<id>` reference, or '' to inherit the site. */
     backgroundColor: z.string().max(64,).optional(),
+    /** Operator-authored CSS appended after the page's own styles. Capped so a
+     *  paste accident cannot balloon the row; 64 KB is far beyond any override. */
+    customCss: z.string().max(65536,).optional(),
     showInNav: z.boolean().optional(),
     navOrder: z.number().int().optional(),
     isPrivate: z.boolean().optional(),

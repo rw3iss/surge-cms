@@ -679,6 +679,7 @@ function AppearancePanel() {
     const [headingFontFamily, setHeadingFontFamily,] = createSignal('Inter, -apple-system, sans-serif',);
     const [fontSize, setFontSize,] = createSignal(16,);
     const [headingWeight, setHeadingWeight,] = createSignal('700',);
+    const [codeTabWidth, setCodeTabWidth,] = createSignal<'4' | '2' | 'tab'>('4',);
     const [lineHeight, setLineHeight,] = createSignal('1.5',);
 
     // Layout
@@ -713,6 +714,7 @@ function AppearancePanel() {
                 if (d.headingFontFamily) setHeadingFontFamily(d.headingFontFamily,);
                 if (d.fontSize) setFontSize(d.fontSize,);
                 if (d.headingWeight) setHeadingWeight(d.headingWeight,);
+                if (d.codeTabWidth) setCodeTabWidth(d.codeTabWidth,);
                 if (d.lineHeight) setLineHeight(d.lineHeight,);
                 if (d.gutterWidth) setGutterWidth(d.gutterWidth,);
                 if (d.pagePadding) setPagePadding(d.pagePadding,);
@@ -748,6 +750,7 @@ function AppearancePanel() {
                 headingFontFamily: headingFontFamily(),
                 fontSize: fontSize(),
                 headingWeight: headingWeight(),
+                codeTabWidth: codeTabWidth(),
                 lineHeight: lineHeight(),
                 gutterWidth: gutterWidth() || undefined,
                 pagePadding: pagePadding() || undefined,
@@ -931,6 +934,23 @@ function AppearancePanel() {
                             <option value="700">700 — Bold</option>
                             <option value="800">800 — Extrabold</option>
                             <option value="900">900 — Black</option>
+                        </select>
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Code Tab Width"
+                        sublabel="What Tab inserts in code editors"
+                        tooltip="Applies to every code editor in the admin — a page's Custom CSS and the Custom HTML block. One setting, so a document is not half tabs and half spaces depending on which screen it was edited from."
+                    >
+                        <select
+                            value={codeTabWidth()}
+                            onChange={(e,) => { setCodeTabWidth(e.currentTarget.value as never,); markDirty(); }}
+                            class="theme-field__input"
+                            style={{ width: '140px', }}
+                        >
+                            <option value="4">4 spaces</option>
+                            <option value="2">2 spaces</option>
+                            <option value="tab">Tab character</option>
                         </select>
                     </ThemeField>
 

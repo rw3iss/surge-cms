@@ -15,6 +15,7 @@ import { html as htmlLang, } from '@codemirror/lang-html';
 import { EditorState, } from '@codemirror/state';
 import { EditorView, lineNumbers, } from '@codemirror/view';
 import { basicSetup, } from 'codemirror';
+import { indentExtensions, type CodeTabWidth, } from '../../../services/codeIndent';
 import {
     Component,
     createEffect,
@@ -56,6 +57,8 @@ function writeStoredHeight(blockId: string, height: number,) {
 }
 
 interface HtmlInlineEditorProps {
+    /** What Tab inserts; from Settings → Appearance → Code tab width. */
+    tabWidth?: CodeTabWidth;
     blockId: string;
     /** Current HTML content (from block.data.content). */
     content: string;
@@ -95,6 +98,9 @@ const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
                 basicSetup,
                 lineNumbers(),
                 htmlLang(),
+                // Shared with the page Custom CSS editor so Tab behaves the
+                // same wherever code is edited in the admin.
+                ...indentExtensions(props.tabWidth,),
                 EditorView.lineWrapping,
                 EditorView.domEventHandlers({
                     // Sync on blur (covers clicking away, Save, or "going back").

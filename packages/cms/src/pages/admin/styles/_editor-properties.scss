@@ -601,3 +601,23 @@
     font-style: italic;
   }
 }
+
+// Custom CSS row — full width beneath the property columns, because a code
+// editor squeezed into a half column is unusable.
+.editor-properties__css {
+  grid-column: 1 / -1;
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid var(--admin-border, #{$border-color});
+
+  &-head {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-xs;
+  }
+
+  &-spacer {
+    flex: 1;
+  }
+}

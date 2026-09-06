@@ -8,6 +8,7 @@ import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
 import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
 import DynamicPage from '../DynamicPage';
+import PageCustomCss from '../../components/common/PageCustomCss';
 import { money, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import './shop.scss';
@@ -163,10 +164,13 @@ const ShopIndexInner: Component = () => {
 
     // The background is published to `.layout` by the hook, not painted here —
     // a wrapper inside the max-width column cannot cover the gutters.
-    void overrides;
 
     return (
         <div class="shop-store shop-index page-wrapper">
+            {/* The `shop` page's overrides apply to the BUILT-IN storefront too,
+                which is the point: it is the only way to restyle markup this
+                component owns without adding a setting per element. */}
+            <PageCustomCss css={overrides.customCss()} />
             <SeoHead
                 title="Shop"
                 description={`Browse products from ${siteName()}.`}

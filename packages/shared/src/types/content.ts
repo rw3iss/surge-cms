@@ -42,6 +42,8 @@ export interface Page {
     /** Page background. A literal hex or a `swatch:<id>` reference; empty /
      *  undefined inherits the site background from Appearance → Colors. */
     backgroundColor?: string | null;
+    /** CSS overrides rendered after the page's own styles. */
+    customCss?: string | null;
     createdBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -147,6 +149,8 @@ export interface Post {
     /** Page background. A literal hex or a `swatch:<id>` reference; empty /
      *  undefined inherits the site background from Appearance → Colors. */
     backgroundColor?: string | null;
+    /** CSS overrides rendered after the page's own styles. */
+    customCss?: string | null;
     /** How the banner/featured image + title/meta header renders on the post
      *  page: `standalone` (default — image below the title), `hero` (full-width
      *  image with the title/meta overlaid), `hero-full` (like hero but the
@@ -223,6 +227,10 @@ export interface NavigationItem {
 }
 
 export interface AppearanceSettings {
+    /** What Tab inserts in the admin's code editors: '4' | '2' | 'tab'.
+     *  One setting so a document is not half tabs and half spaces depending on
+     *  which screen it was edited from. Defaults to four spaces. */
+    codeTabWidth?: '4' | '2' | 'tab';
     // Colors
     backgroundColor?: string;
     textColor?: string;

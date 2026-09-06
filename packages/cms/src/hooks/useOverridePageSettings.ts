@@ -22,6 +22,8 @@ export interface OverridePageSettings {
     page: () => Page | null;
     /** Inline style for the route's wrapper — `{}` when nothing is set. */
     backgroundStyle: () => Record<string, string>;
+    /** The page's CSS overrides, so a template route can render them too. */
+    customCss: () => string | null;
     /** True once the lookup has settled, so a caller can avoid flashing. */
     ready: () => boolean;
     /** The page exists but is not published — the route should 404. */
@@ -65,6 +67,7 @@ export function useOverridePageSettings(slug: string,): OverridePageSettings {
         page,
         backgroundStyle: () =>
             pageBackgroundStyle((page() as { backgroundColor?: string | null; } | null)?.backgroundColor,),
+        customCss: () => (page() as { customCss?: string | null; } | null)?.customCss ?? null,
         ready: () => !data.loading,
         // Only meaningful once loaded AND a row exists: no page means no opinion,
         // which must not be read as "unpublished".
