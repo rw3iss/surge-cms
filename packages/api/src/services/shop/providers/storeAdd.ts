@@ -39,14 +39,17 @@ export async function defaultStoreAddCheck(
             : undefined);
 
     if (!existing) return { action: 'create', };
-    if (incoming.replaceProduct) return { action: 'update', productId: existing.id, };
-    // Present already and the provider did not ask for a replace. Report success
-    // without writing — a double-click in the provider's UI must be harmless.
-    return {
-        action: 'skip',
-        productId: existing.id,
-        reason: 'This product is already in the store.',
-    };
+
+    // Re-publishing an existing product UPDATES it.
+    //
+    // A provider pushing the same product again is how an edit reaches us —
+    // renamed, re-priced, new sizes, new artwork. Treating that as a no-op
+    // would mean the store silently drifts from the provider, and the operator
+    // has no other way to pull the change (Apliiq has no catalogue to sync).
+    // Re-pushing identical data is simply an idempotent rewrite; variants are
+    // matched on external_id so their ids — and therefore carts and past
+    // orders — survive.
+    return { action: 'update', productId: existing.id, };
 }
 
 export interface StoreAddOutcome {

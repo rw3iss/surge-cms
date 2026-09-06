@@ -72,16 +72,30 @@ export async function ingestApliiqProduct(
     const title = String(payload.name ?? '',).trim() || `Apliiq design ${designId}`;
     const slug = await uniqueSlug(title, existingProductId,);
 
+    // Status on re-publish: KEEP whatever the product already has.
+    //
+    // `upsertExternalProduct` writes `status = EXCLUDED.status` on conflict, so
+    // passing 'draft' unconditionally would silently UNPUBLISH a live product
+    // every time the operator pushed an edit from the provider — the storefront
+    // would lose the item with no indication why.
+    //
+    // New products still arrive as draft: the endpoint that delivered them
+    // cannot authenticate its caller, so it must not be able to publish.
+    let status = 'draft';
+    if (existingProductId) {
+        const cur = await query<{ status: string; }>(
+            `SELECT status FROM shop_products WHERE id = $1`, [existingProductId,],
+        );
+        status = cur.rows[0]?.status ?? 'draft';
+    }
+
     const product = await repo.upsertExternalProduct({
         externalProvider: 'apliiq',
         externalId: designId,
         title,
         slug,
         description: payload.description ?? null,
-        // Always a draft on arrival. The endpoint that delivered this cannot
-        // authenticate its caller, so it must not be able to publish to the
-        // storefront; a human reviews and publishes.
-        status: 'draft',
+        status,
         externalUrl: `https://www.apliiq.com/product/${encodeURIComponent(designId,)}`,
     },);
 
