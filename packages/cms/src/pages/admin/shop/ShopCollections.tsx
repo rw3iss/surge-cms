@@ -1,4 +1,5 @@
 import { Title, } from '@solidjs/meta';
+import { A, } from '@solidjs/router';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopCollection, ShopCollectionCreateBody, ShopProduct, } from '@sitesurge/types';
@@ -119,6 +120,7 @@ const ShopCollectionsInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Collections - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Collections</h1>
                 <button class="ui-button ui-button--primary" onClick={openNew}>New Collection</button>
             </div>
@@ -170,24 +172,30 @@ const ShopCollectionsInner: Component = () => {
                     Cancel (prevents losing edits by an accidental click-out). */}
                 <div class="confirm-modal-overlay">
                     <div class="confirm-modal shop-admin__edit-modal shop-collection-modal">
-                        <h3 class="confirm-modal__title">{draft()!.id ? 'Edit' : 'New'} Collection</h3>
+                        {/* Published rides in the header rather than the body: it
+                            is one line of vertical space the product picker can
+                            use instead, and it stays visible while the fields
+                            below it scroll. */}
+                        <div class="shop-collection-modal__header">
+                            <h3 class="confirm-modal__title">{draft()!.id ? 'Edit' : 'New'} Collection</h3>
+                            <Toggle
+                                label="Published"
+                                checked={draft()!.isPublished}
+                                onChange={(v,) => setDraft({ ...draft()!, isPublished: v, },)}
+                            />
+                        </div>
                         <div class="shop-collection-modal__fields">
-                            <FormField label="Title" class="form-field--block">
-                                <input type="text" value={draft()!.title} onInput={(e,) => setTitle(e.currentTarget.value,)} />
-                            </FormField>
-                            <FormField label="Slug" class="form-field--block">
-                                <input type="text" value={draft()!.slug} onInput={(e,) => setDraft({ ...draft()!, slug: e.currentTarget.value, },)} />
-                            </FormField>
+                            <div class="shop-collection-modal__row">
+                                <FormField label="Title" class="form-field--block">
+                                    <input type="text" value={draft()!.title} onInput={(e,) => setTitle(e.currentTarget.value,)} />
+                                </FormField>
+                                <FormField label="Slug" class="form-field--block">
+                                    <input type="text" value={draft()!.slug} onInput={(e,) => setDraft({ ...draft()!, slug: e.currentTarget.value, },)} />
+                                </FormField>
+                            </div>
                             <FormField label="Description" class="form-field--block">
                                 <textarea rows={2} value={draft()!.description} onInput={(e,) => setDraft({ ...draft()!, description: e.currentTarget.value, },)} />
                             </FormField>
-                            <div class="form-group">
-                                <Toggle
-                                    label="Published"
-                                    checked={draft()!.isPublished}
-                                    onChange={(v,) => setDraft({ ...draft()!, isPublished: v, },)}
-                                />
-                            </div>
                             <FormField label="Products" class="form-field--block">
                                 <input
                                     type="text"

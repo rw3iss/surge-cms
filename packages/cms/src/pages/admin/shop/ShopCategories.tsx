@@ -1,4 +1,5 @@
 import { Title, } from '@solidjs/meta';
+import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopCategory, ShopCategoryCreateBody, } from '@sitesurge/types';
@@ -120,6 +121,7 @@ const ShopCategoriesInner: Component = () => {
         <div class="shop-admin">
             <Title>Shop Categories - Admin - RW</Title>
             <div class="admin-header">
+                <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Categories</h1>
                 <button class="ui-button ui-button--primary" onClick={openNew}>New Category</button>
             </div>

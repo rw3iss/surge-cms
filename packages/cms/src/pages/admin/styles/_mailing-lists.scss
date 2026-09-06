@@ -84,15 +84,6 @@
         }
     }
 
-    .admin-header__back {
-        display: inline-block;
-        margin-bottom: 0.5rem;
-        color: var(--admin-text-muted, #{$text-light});
-        text-decoration: none;
-
-        &:hover { color: var(--site-primary, #{$primary-color}); }
-    }
-
     .empty-state {
         padding: 2rem;
         text-align: center;

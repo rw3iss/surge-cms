@@ -16,6 +16,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    // Inset the modal from the viewport edges. Without this a tall modal
+    // (the collection editor, with its product picker) ran off the top and
+    // bottom of a short laptop screen with its buttons unreachable.
+    padding: $spacing-lg;
     z-index: $z-index-modal;
 }
 
@@ -28,6 +32,12 @@
     max-width: 440px;
     width: 90%;
     box-shadow: $shadow-xl;
+
+    // Never taller than the (padded) overlay, whatever the content. Short
+    // dialogs are unaffected — this only engages once a modal would
+    // otherwise overflow the screen.
+    max-height: 100%;
+    overflow-y: auto;
 
     &__title {
         margin: 0 0 $spacing-sm;
@@ -46,6 +56,11 @@
         display: flex;
         justify-content: flex-end;
         gap: $spacing-md;
+        // Breathing room between the last field and the buttons. In a plain
+        // confirm dialog this collapses against __message's larger bottom
+        // margin, so those are unchanged; in a form modal (where the fields
+        // carry no bottom margin) it supplies the gap that was missing.
+        margin-top: $spacing-lg;
     }
 }
 

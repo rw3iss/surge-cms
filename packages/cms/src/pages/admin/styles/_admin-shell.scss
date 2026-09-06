@@ -728,6 +728,38 @@
         }
     }
 
+    // Page-size control, sitting beside the count at the end of the bar.
+    // It carries its own `margin-left: auto` so it still anchors right when
+    // the count is hidden (it is, while the list is loading) — otherwise the
+    // select would jump to the middle of the bar on every fetch.
+    &__per-page {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        margin-left: auto;
+        color: $text-light;
+        font-size: $font-size-sm;
+        white-space: nowrap;
+
+        // When the count is present it already claimed the auto margin, so
+        // this one only needs to sit next to it.
+        .admin-filter-bar__count + & {
+            margin-left: 0;
+        }
+
+        select {
+            // Wide enough for three digits plus the native dropdown arrow —
+            // `width: auto` alone let the arrow overlap the number.
+            min-width: 4.75rem;
+            width: auto;
+        }
+
+        @include mobile-only {
+            margin-left: 0;
+            justify-content: space-between;
+        }
+    }
+
     input, select {
         padding: $spacing-xs $spacing-sm;
         border: 1px solid $border-color;
@@ -755,6 +787,20 @@
 
 
 // ─── Dashboard ───
+
+// Back link in a page header ("← Shop"). Was only defined inside
+// .mailing-lists, so the same markup on UsersSettings / entity templates
+// rendered as a default blue underlined link; hoisted here so every page
+// that uses the convention looks the same.
+.admin-header__back {
+  display: inline-block;
+  color: var(--admin-text-muted, #{$text-light});
+  text-decoration: none;
+  font-size: $font-size-sm;
+  white-space: nowrap;
+
+  &:hover { color: var(--site-primary, #{$primary-color}); }
+}
 
 .admin-header__subtitle {
   // Subtitle derives from page-text muted to 70%, falling back to

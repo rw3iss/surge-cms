@@ -646,22 +646,69 @@
     border-bottom: none;
 }
 
-// Edit/New Collection modal — taller to fit the product picker, full-width
-// fields, and breathing room above the action buttons so they don't touch.
+// Edit/New Collection modal.
+//
+// The modal is a three-part flex column — pinned header, scrolling fields,
+// pinned actions — capped at the viewport. The product picker is the only
+// part that flexes, so a tall screen spends its extra height on the product
+// list while a short laptop shrinks the list instead of pushing Save off the
+// bottom of the screen.
 .shop-collection-modal {
     max-width: 40rem;
+    display: flex;
+    flex-direction: column;
+    // The overlay's padding already insets us; this keeps the pinned
+    // header/actions honest when the fields overflow.
+    max-height: 100%;
+    // The fields region owns the scrolling, not the modal box.
+    overflow: hidden;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        flex: 0 0 auto;
+        margin-bottom: $spacing-md;
+
+        // The title's own margin would fight the header's alignment.
+        .confirm-modal__title { margin: 0; }
+    }
 
     &__fields {
         display: flex;
         flex-direction: column;
         gap: $spacing-md;
-        // Space between the last field and the Cancel/Save row.
-        padding-bottom: $spacing-lg;
+        flex: 1 1 auto;
+        // Without this a flex child refuses to shrink below its content
+        // height, which is what let the modal grow past the viewport.
+        min-height: 0;
+        overflow-y: auto;
+        // Room for a focus ring on the last field inside the scroll area.
+        padding: 2px;
     }
 
-    // Give the product picker more height in this taller modal.
+    // Title + Slug share a row, matching the New Category modal.
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $spacing-md;
+
+        @include mobile-only {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .confirm-modal__actions {
+        flex: 0 0 auto;
+    }
+
+    // The picker takes whatever height is left: at least a few rows, at most
+    // a comfortable list. `vh` makes it track the window, so resizing the
+    // browser reflows rather than clipping.
     .shop-admin__product-picker {
-        max-height: 22rem;
+        min-height: 6rem;
+        max-height: clamp(6rem, 34vh, 22rem);
 
         // Product rows: checkbox + small thumbnail + title. A touch taller so
         // the thumbnail has room.

@@ -30,7 +30,7 @@ const ShopProductsInner: Component = () => {
 
     const list = usePaginatedList<ShopProduct>({
         fetch: (p,) => cms.shop.products.list(p,),
-        initialLimit: 20,
+        initialLimit: 15,
         params: () => ({
             status: searchParams.status,
             provider: searchParams.provider,
@@ -158,6 +158,21 @@ const ShopProductsInner: Component = () => {
                         {list.total()} {list.total() === 1 ? 'product' : 'products'}
                     </span>
                 </Show>
+                {/* Page size. Changing it resets to page 1 — staying on, say,
+                    page 4 while shrinking the window can land past the end of
+                    the result set and show an empty table. */}
+                <label class="admin-filter-bar__per-page">
+                    <span>Per page</span>
+                    <select
+                        class="admin-filter-bar__select"
+                        value={String(list.limit(),)}
+                        onChange={(e,) => { list.setLimit(Number(e.currentTarget.value,),); list.resetPage(); }}
+                    >
+                        <For each={[15, 25, 50, 100,]}>
+                            {(n,) => <option value={String(n,)}>{n}</option>}
+                        </For>
+                    </select>
+                </label>
             </div>
             <Show when={selected().size > 0}>
                 <div class="admin-list-page__bulk-bar">
@@ -294,6 +309,7 @@ const ShopProductsInner: Component = () => {
                         total={list.total()}
                         limit={list.limit()}
                         onPageChange={list.setPage}
+                        alwaysShow
                     />
                 </Show>
             </Show>
