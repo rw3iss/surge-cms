@@ -1,0 +1,77 @@
+// Shared "Email templates" panel, dropped into each feature's settings page.
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured prelude already provides `color` + variables.
+
+.email-templates-panel {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+    }
+
+    &__desc {
+        margin: 0;
+    }
+
+    &__toggles {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-lg;
+    }
+
+    // Shown when the purpose is switched off — reassures the operator their
+    // template survives the toggle.
+    &__off {
+        margin: 0;
+        padding: $spacing-sm $spacing-md;
+        border-left: 3px solid var(--admin-border, #{$border-color});
+        background: var(--admin-bg-subtle, #{$background-dark});
+        border-radius: $border-radius-sm;
+    }
+
+    &__vars {
+        h4 {
+            margin: 0 0 $spacing-xs;
+            font-size: $font-size-sm;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--admin-text-muted, #{$text-light});
+        }
+
+        ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: $spacing-2xs;
+        }
+
+        li {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: $spacing-sm;
+            font-size: $font-size-sm;
+        }
+
+        code {
+            font-family: var(--admin-font-mono, monospace);
+            font-size: $font-size-xs;
+            padding: 2px 6px;
+            border-radius: $border-radius-sm;
+            background: var(--admin-bg-subtle, #{$background-dark});
+            border: 1px solid var(--admin-border, #{$border-color});
+            white-space: nowrap;
+        }
+
+        span {
+            color: var(--admin-text-muted, #{$text-light});
+        }
+    }
+}

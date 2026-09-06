@@ -205,6 +205,19 @@ export class SettingsModule extends ModuleBase {
         },);
     }
 
+    /** GET /settings/mail-purposes (admin) — per-purpose email overrides.
+     *  An absent key means "registry defaults", not "off". */
+    getMailPurposes(): Promise<Record<string, unknown>> {
+        return this.get<Record<string, unknown>>('/settings/mail-purposes',);
+    }
+
+    /** PUT /settings/mail-purposes (admin) — replaces the whole map. */
+    setMailPurposes(body: Record<string, unknown>,): Promise<SettingsRawKeyResponse> {
+        return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/mail-purposes', {
+            body, invalidates: ['settings',],
+        },);
+    }
+
     // ─── Swatches (site-colors) ───────────────────────────────────
 
     /** GET /settings/site-colors (public) — the swatch palette (bare array). */

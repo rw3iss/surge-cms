@@ -309,6 +309,32 @@ export const settingsRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/mail-purposes', auth: 'admin',
+        summary: 'Per-purpose email overrides (enable, subject, blocks, auto-send).',
+        handler: () => settings.getMailPurposes(),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/mail-purposes', auth: 'admin',
+        summary: 'Replace the per-purpose email overrides.',
+        input: {
+            // An open record keyed by purpose: the registry owns which keys are
+            // meaningful, and validating them here would mean redeploying the
+            // API to add a purpose. Unknown keys are simply never read.
+            body: z.record(
+                z.string(),
+                z.object({
+                    enabled: z.boolean().optional(),
+                    subject: z.string().max(500,).optional(),
+                    blocks: z.array(z.record(z.string(), z.unknown(),),).optional(),
+                    autoSend: z.boolean().optional(),
+                },),
+            ),
+        },
+        handler: ({ body, audit, },) => settings.setMailPurposes(body, audit(),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/server-logs', auth: 'admin',
         summary: 'Tail of the server combined log (admin diagnostics panel).',
         input: { query: z.object({ lines: z.coerce.number().int().min(1,).max(10000,).optional(), },), },

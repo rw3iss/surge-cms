@@ -21,7 +21,7 @@
  */
 import type { FlatBlock, } from './renderer';
 import { mailPurpose, type MailPurposeConfig, type MailPurposeSettings, } from '@sitesurge/types';
-import { getMailPurposes, } from '../settings';
+import { getMailPurposes, getUsersSettings, } from '../settings';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
 import { loadMailRenderContext, } from './siteContext';
@@ -38,7 +38,18 @@ export async function getMailPurposeSettings(): Promise<MailPurposeSettings> {
 export async function getPurposeConfig(key: string,): Promise<MailPurposeConfig & { enabled: boolean; autoSend: boolean; }> {
     const meta = mailPurpose(key,);
     const all = await getMailPurposeSettings();
-    const cfg = all[key] ?? {};
+    let cfg = all[key] ?? {};
+
+    // The verification email predates this registry and lived in
+    // `users_settings.verificationEmail`. Fall back to it when the new location
+    // is empty, so upgrading doesn't silently revert an operator's customised
+    // template to the built-in default. Saving from the admin migrates it.
+    if (key === 'user_verification' && !cfg.blocks?.length && !cfg.subject) {
+        const legacy = await getUsersSettings();
+        const blocks = (legacy.verificationEmail?.blocks ?? []) as unknown[];
+        const subject = legacy.verificationEmail?.subject ?? '';
+        if (blocks.length > 0 || subject) cfg = { ...cfg, blocks, subject, };
+    }
     return {
         ...cfg,
         enabled: cfg.enabled ?? meta?.defaultEnabled ?? false,
