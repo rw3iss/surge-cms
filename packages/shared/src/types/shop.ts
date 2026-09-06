@@ -19,6 +19,10 @@ export interface ShopProduct {
     status: ShopProductStatus;
     metaTitle?: string | null;
     metaDescription?: string | null;
+    /** Curation marker for querying (e.g. a carousel filtering
+     *  `isFeatured = true`). Independent of `status` — a featured product that
+     *  is drafted or archived must still not surface publicly. */
+    isFeatured?: boolean;
     /** Shipping pricing model. Defaults to 'flat'. */
     shippingType?: ShopShippingType;
     /** When flat: use the shop's configured flat rate instead of per-variant. */

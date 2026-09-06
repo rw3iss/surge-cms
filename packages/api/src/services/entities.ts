@@ -177,25 +177,67 @@ export async function count(typeKey: string, q: EntityQuery = {},): Promise<numb
  * fields return DISTINCT column values (label = value). Cached aggressively
  * under the entity:<type>: prefix, so it's invalidated on any record write.
  */
-export async function getFilterValues(typeKey: string, fieldKey: string,): Promise<EntityFieldOption[]> {
+export async function getFilterValues(
+    typeKey: string,
+    fieldKey: string,
+    search?: string,
+): Promise<EntityFieldOption[]> {
     const t = await requireType(typeKey,);
-    const field = t.fields.find((f,) => f.key === fieldKey,);
-    if (!field) throw new NotFoundError(`Field "${fieldKey}" on ${t.label}`,);
-    if (!field.filterable) throw new ValidationError(`Field "${fieldKey}" is not filterable`,);
 
-    // Enum: the allowed options are authoritative — no query, no per-type cost.
-    if (field.type === 'enum') {
-        const opts = field.options?.enumOptions
-            ?? (field.options?.values ?? []).map((v,) => ({ label: v, value: v, }));
-        return opts;
+    // Standard columns aren't schema fields, but every record has them and they
+    // are filterable in the query builder — so they need suggestions too.
+    const standard = STANDARD_SUGGEST_COLUMNS[fieldKey];
+    const usable = standard
+        ? (fieldKey === 'slug' ? t.hasSlug : fieldKey === 'status' ? t.hasStatus : true)
+        : false;
+    const field = t.fields.find((f,) => f.key === fieldKey,);
+    if (!field && !(standard && usable)) {
+        throw new NotFoundError(`Field "${fieldKey}" on ${t.label}`,);
+    }
+    // Blocks/relations have no meaningful literal value set to suggest.
+    if (field && NON_SUGGESTABLE_TYPES.has(field.type,)) {
+        throw new ValidationError(`Field "${fieldKey}" has no suggestable values`,);
     }
 
+    // Enum + boolean: the allowed values are known up front. No query, no cache
+    // entry, and — unlike DISTINCT — a valid option still appears when no record
+    // currently uses it, which is what you want when building a filter.
+    if (field?.type === 'enum') {
+        const opts = field.options?.enumOptions
+            ?? (field.options?.values ?? []).map((v,) => ({ label: v, value: v, }));
+        return applySearch(opts, search,);
+    }
+    if (field?.type === 'boolean') {
+        return applySearch([{ label: 'true', value: 'true', }, { label: 'false', value: 'false', },], search,);
+    }
+
+    // Everything else: DISTINCT column values. The FULL (capped) list is what
+    // gets cached — `search` is applied in memory afterwards. Caching per search
+    // term instead would multiply the key space by every prefix a user types
+    // and defeat the prefix invalidation, for no gain: the list is already
+    // capped at a size worth filtering client-side.
     const key = CACHE_KEYS.entityFilterValues(typeKey, fieldKey,);
-    const cached = await cache.get<EntityFieldOption[]>(key,);
-    if (cached) return cached;
-    const values = await repo.distinctValues(t, field,);
-    const opts = values.map((v,) => ({ label: v, value: v, }));
-    // Long TTL — the entity:<type>: prefix invalidation on writes keeps it fresh.
-    await cache.set(key, opts, 3600,);
-    return opts;
+    let opts = await cache.get<EntityFieldOption[]>(key,);
+    if (!opts) {
+        const values = await repo.distinctValues(t, field ?? { key: fieldKey, },);
+        opts = values.map((v,) => ({ label: v, value: v, }));
+        // Long TTL — the entity:<type>: prefix invalidation on writes keeps it fresh.
+        await cache.set(key, opts, 3600,);
+    }
+    return applySearch(opts, search,);
+}
+
+/** Standard columns every record carries, offered alongside schema fields. */
+const STANDARD_SUGGEST_COLUMNS: Record<string, true> = { status: true, slug: true, };
+
+/** Field types whose values are structural, not literals worth suggesting. */
+const NON_SUGGESTABLE_TYPES = new Set(['blocks', 'richtext', 'longtext', 'json',],);
+
+/** Case-insensitive substring match, capped so a dropdown stays a dropdown. */
+function applySearch(opts: EntityFieldOption[], search?: string,): EntityFieldOption[] {
+    const q = (search ?? '').trim().toLowerCase();
+    const matched = q
+        ? opts.filter((o,) => o.label.toLowerCase().includes(q,) || o.value.toLowerCase().includes(q,))
+        : opts;
+    return matched.slice(0, 50,);
 }

@@ -22,6 +22,7 @@ import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
 import EntityFilterBar from './EntityFilterBar';
+import EntityValueInput from './EntityValueInput';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
 export type EntitySearchResult = EntityRecord | EntityRecord[] | EntityQuery;
@@ -36,7 +37,18 @@ export interface EntitySearchSelectModalProps {
 }
 
 type FilterOp = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in';
-const FILTER_OPS: FilterOp[] = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in',];
+/** The wire value stays the short token the API expects; only the LABEL is
+ *  spelled out, because "ne" and "lte" are not words. */
+const FILTER_OPS: { op: FilterOp; label: string; }[] = [
+    { op: 'eq', label: '== equals', },
+    { op: 'ne', label: '!= does not equal', },
+    { op: 'gt', label: '> greater than', },
+    { op: 'gte', label: '>= greater than or equal to', },
+    { op: 'lt', label: '< less than', },
+    { op: 'lte', label: '<= less than or equal to', },
+    { op: 'like', label: '~ contains', },
+    { op: 'in', label: 'in — is any of (comma-separated)', },
+];
 
 const PAGE_LIMIT = 10;
 
@@ -114,6 +126,13 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     /** Fields offered in the "Filter field" dropdown: the standard columns the
      *  type carries (status/slug) first, then its schema fields — so you can
      *  filter e.g. `status = active`. */
+    /** Human label for a field key — the schema's own label when it has one,
+     *  else the raw key. `is_featured` reads better as "Is featured". */
+    const fieldLabel = (key: string,): string => {
+        const f = typeDef()?.fields.find((x,) => x.key === key,);
+        return f?.label && f.label !== f.key ? f.label : key;
+    };
+
     const filterFields = () => {
         const def = typeDef();
         if (!def) return [] as string[];
@@ -140,11 +159,15 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const buildClause = (): Record<string, EntityFilterValue> | undefined => {
         if (!filterField() || filterValue() === '') return undefined;
         const raw = filterValue();
-        const value: unknown = filterOp() === 'in' ?
-            raw.split(',',).map((v,) => v.trim()) :
-            /^-?\d+(\.\d+)?$/.test(raw,) ?
-            Number(raw,) :
-            raw;
+        const coerce = (v: string,): unknown => {
+            const t = v.trim();
+            if (t === 'true') return true;
+            if (t === 'false') return false;
+            return /^-?\d+(\.\d+)?$/.test(t,) ? Number(t,) : t;
+        };
+        const value: unknown = filterOp() === 'in'
+            ? raw.split(',',).map(coerce,)
+            : coerce(raw,);
         return { [filterField()]: { op: filterOp(), value, }, };
     };
 
@@ -290,7 +313,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         >
                             <option value="">Filter field…</option>
                             <For each={filterFields()}>
-                                {(f,) => <option value={f}>{f}</option>}
+                                {(f,) => <option value={f}>{fieldLabel(f,)}</option>}
                             </For>
                         </select>
                         <select
@@ -298,14 +321,15 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             onChange={(e,) => { setFilterOp(e.currentTarget.value as FilterOp,); setPage(1,); }}
                         >
                             <For each={FILTER_OPS}>
-                                {(op,) => <option value={op}>{op}</option>}
+                                {(o,) => <option value={o.op}>{o.label}</option>}
                             </For>
                         </select>
-                        <input
-                            type="text"
-                            placeholder="Value (comma-separated for 'in')"
+                        <EntityValueInput
+                            typeKey={props.entityType}
+                            field={filterField()}
                             value={filterValue()}
-                            onInput={(e,) => onFilterValueInput(e.currentTarget.value,)}
+                            onInput={onFilterValueInput}
+                            placeholder="Value (comma-separated for 'is any of')"
                         />
                     </div>
                 </Show>

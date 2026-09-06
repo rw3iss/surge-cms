@@ -79,6 +79,7 @@ const productSchema = z.object({
     type: z.enum(['physical', 'digital',],).optional(),
     status: z.enum(['draft', 'active', 'archived',],).optional(),
     metaTitle: z.string().max(255,).nullish(),
+    isFeatured: z.boolean().optional(),
     metaDescription: z.string().nullish(),
     shippingType: z.enum(['flat', 'calculated',],).optional(),
     useDefaultShipping: z.boolean().optional(),

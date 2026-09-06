@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T06:20:56.288Z",
+  "generatedAt": "2026-09-06T22:25:16.824Z",
   "totalModules": 39,
   "totalRoutes": 356,
   "modules": [
@@ -506,7 +506,7 @@
           "path": "/:type/fields/:field/values",
           "absolutePath": "/api/v1/entities/:type/fields/:field/values",
           "auth": "staff",
-          "summary": "Distinct/enum values of a filterable field (for a filter dropdown)"
+          "summary": "Distinct/enum values of a field (filter dropdowns + value suggestions)"
         },
         {
           "method": "GET",

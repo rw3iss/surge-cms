@@ -55,10 +55,17 @@ export class EntitiesModule extends ModuleBase {
         return res.meta.total ?? 0;
     }
 
-    /** Distinct/enum values of a `filterable` field — for a filter dropdown. */
-    filterValues(type: string, field: string,): Promise<EntityFilterValuesResponse> {
+    /**
+     * Known values of a field — filter dropdowns and value suggestions.
+     *
+     * Enum and boolean fields answer from their declared values (so a valid
+     * option shows even when no record uses it yet); anything else returns
+     * DISTINCT column values. `search` narrows the list server-side.
+     */
+    filterValues(type: string, field: string, search?: string,): Promise<EntityFilterValuesResponse> {
         return this.get<EntityFilterValuesResponse>(
-            '/entities/:type/fields/:field/values', { params: { type, field, }, },
+            '/entities/:type/fields/:field/values',
+            { params: { type, field, }, query: search ? { search, } : undefined, },
         );
     }
 }

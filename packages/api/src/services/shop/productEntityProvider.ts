@@ -136,14 +136,28 @@ function enrich(
 
 /** Product's public status is `active` (not the post-style `published`); remap
  *  the generic route's injected default so anonymous queries return products. */
-function normalizeQuery(q: EntityQuery,): EntityQuery {
-    return q.status === 'published' ? { ...q, status: 'active', } : q;
+/**
+ * Map a query onto the product status vocabulary, and decide the default.
+ *
+ * `published` is the generic entity word; products call it `active`.
+ *
+ * The default matters more: a query with NO status previously returned every
+ * product including drafts and archived ones, so a carousel bound to
+ * `isFeatured = true` kept rendering products that had been deactivated — the
+ * catalogue equivalent of a dead link. Public reads therefore default to
+ * `active`; an explicit status still wins, and admin reads (the picker, the
+ * Data tab) are left alone so staff can still see everything.
+ */
+function normalizeQuery(q: EntityQuery, admin: boolean,): EntityQuery {
+    if (q.status === 'published') return { ...q, status: 'active', };
+    if (q.status === undefined && !admin) return { ...q, status: 'active', };
+    return q;
 }
 
 export const productEntityProvider: EntityDataProvider = {
-    async list(q, _opts,) {
+    async list(q, opts,) {
         const t = entityManager.requireType('product',);
-        const res = await genericRepo.list(t, normalizeQuery(q,),);
+        const res = await genericRepo.list(t, normalizeQuery(q, Boolean(opts?.admin,),),);
         const ids = res.items.map((i,) => i.id);
         const [media, tags, variants,] = await Promise.all([loadMedia(ids,), loadTags(ids,), loadVariants(ids,),],);
         return { items: res.items.map((r,) => enrich(r, media, tags, variants,)), total: res.total, };

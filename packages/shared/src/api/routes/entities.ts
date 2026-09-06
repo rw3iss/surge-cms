@@ -38,7 +38,13 @@ export interface EntityListQuery {
 export type EntityListResponse = EntityRecord[]; // pagination on meta
 export type EntityGetResponse = EntityRecord;
 
-/** Distinct/enum values for a filterable field, for a filter dropdown. */
+/** Query for field value suggestions. */
+export interface EntityFilterValuesQuery {
+    /** Case-insensitive substring narrowing the returned values. */
+    search?: string;
+}
+
+/** Known values of a field — filter dropdowns and value suggestions. */
 export interface EntityFilterValuesResponse {
     field: string;
     values: EntityFieldOption[];

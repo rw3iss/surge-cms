@@ -184,11 +184,14 @@ export const entitiesRoutes = [
     // isn't captured by the single-entity matcher.
     defineRoute({
         method: 'get', path: '/:type/fields/:field/values', auth: 'staff',
-        summary: 'Distinct/enum values of a filterable field (for a filter dropdown)',
-        input: { params: z.object({ type: z.string(), field: z.string(), },), },
-        handler: async ({ params, },) => ({
+        summary: 'Distinct/enum values of a field (filter dropdowns + value suggestions)',
+        input: {
+            params: z.object({ type: z.string(), field: z.string(), },),
+            query: z.object({ search: z.string().max(200,).optional(), },),
+        },
+        handler: async ({ params, query, },) => ({
             field: params.field,
-            values: await entitiesSvc.getFilterValues(params.type, params.field,),
+            values: await entitiesSvc.getFilterValues(params.type, params.field, query.search,),
         }),
     },),
 

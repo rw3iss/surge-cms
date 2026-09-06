@@ -1,0 +1,64 @@
+// Filter-clause value input with a suggestions dropdown.
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured prelude already provides `color` + variables.
+
+.entity-value-input {
+    position: relative;
+    // The clause row sizes its children; fill whatever slot we're given.
+    flex: 1 1 auto;
+    min-width: 0;
+
+    > input {
+        width: 100%;
+    }
+
+    &__menu {
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 0;
+        right: 0;
+        z-index: $z-index-dropdown;
+        margin: 0;
+        padding: $spacing-2xs 0;
+        list-style: none;
+        max-height: 15rem;
+        overflow-y: auto;
+        background: var(--admin-panel-bg, #{$background});
+        border: 1px solid var(--admin-border, #{$border-color});
+        border-radius: $border-radius-sm;
+        box-shadow: $shadow-lg;
+    }
+
+    &__option {
+        display: flex;
+        align-items: baseline;
+        gap: $spacing-sm;
+        width: 100%;
+        padding: $spacing-2xs $spacing-sm;
+        background: none;
+        border: none;
+        text-align: left;
+        font-size: $font-size-sm;
+        color: var(--admin-text, #{$text-color});
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            background: var(--admin-bg-subtle, #{$background-dark});
+        }
+    }
+
+    // Shown only when the stored value differs from its label (enum options).
+    &__value {
+        margin-left: auto;
+        color: var(--admin-text-muted, #{$text-light});
+        font-family: var(--admin-font-mono, monospace);
+        font-size: $font-size-xs;
+    }
+
+    &__hint {
+        padding: $spacing-2xs $spacing-sm;
+        color: var(--admin-text-muted, #{$text-light});
+        font-size: $font-size-sm;
+    }
+}

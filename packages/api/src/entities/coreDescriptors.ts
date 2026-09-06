@@ -110,13 +110,16 @@ function productDescriptor(): EntityTypeDef {
         pf('title', 'text', { required: true, searchable: true, indexed: true, position: 0, },),
         pf('description', 'richtext', { position: 1, },),
         pf('type', 'enum', { options: { values: ['physical', 'digital',], }, position: 2, },),
-        pf('meta_title', 'text', { position: 3, },),
-        pf('meta_description', 'longtext', { position: 4, },),
-        pf('shipping_type', 'text', { position: 5, },),
-        pf('use_default_shipping', 'boolean', { position: 6, },),
-        pf('shipping_cents', 'integer', { position: 7, },),
-        pf('rating_avg', 'number', { position: 8, },),
-        pf('rating_count', 'integer', { position: 9, },),
+        // Filterable so a carousel / entity block can bind a `query` data
+        // source to `is_featured = true` and pull a live set.
+        pf('is_featured', 'boolean', { label: 'Is featured', filterable: true, indexed: true, position: 3, },),
+        pf('meta_title', 'text', { position: 4, },),
+        pf('meta_description', 'longtext', { position: 5, },),
+        pf('shipping_type', 'text', { position: 6, },),
+        pf('use_default_shipping', 'boolean', { position: 7, },),
+        pf('shipping_cents', 'integer', { position: 8, },),
+        pf('rating_avg', 'number', { position: 9, },),
+        pf('rating_count', 'integer', { position: 10, },),
     ];
     return {
         id: '', key: 'product', label: 'Product', labelPlural: 'Products',

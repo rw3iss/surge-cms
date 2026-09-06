@@ -128,6 +128,7 @@ export interface ShopProductCreateBody {
     type?: ShopProductType;
     status?: 'draft' | 'active' | 'archived';
     metaTitle?: string | null;
+    isFeatured?: boolean;
     metaDescription?: string | null;
     shippingType?: ShopShippingType;
     useDefaultShipping?: boolean;

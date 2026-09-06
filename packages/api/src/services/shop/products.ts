@@ -112,6 +112,7 @@ export interface ProductWriteInput {
     status?: 'draft' | 'active' | 'archived';
     metaTitle?: string | null;
     metaDescription?: string | null;
+    isFeatured?: boolean;
     shippingType?: 'flat' | 'calculated';
     useDefaultShipping?: boolean;
     options?: repo.StructureOptionInput[];

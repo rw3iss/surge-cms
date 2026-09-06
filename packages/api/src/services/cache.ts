@@ -313,6 +313,12 @@ export async function invalidateShopCatalogCache(): Promise<void> {
 export async function invalidateShopProductCache(): Promise<void> {
     await delPattern(`${CACHE_KEYS.shopProductsPrefix}*`,);
     await delPattern(`${CACHE_KEYS.shopProductSlugPrefix}*`,);
+    // Products are ALSO an entity type, read through `entity:product:*` by the
+    // entity block, carousels and `{{product(...)}}`. Without this a product
+    // that was archived or un-featured kept appearing there until the 60s list
+    // TTL expired — a stale carousel is the visible symptom of a cache the
+    // writer didn't know about. Also drops the field-value suggestion lists.
+    await delPattern(`${CACHE_KEYS.entityPrefix('product',)}*`,);
 }
 
 /** Slug-only product bust (variant inventory changes). */

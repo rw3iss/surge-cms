@@ -244,8 +244,8 @@ export async function createProduct(data: Record<string, unknown>, userId: strin
     const result = await query(
         `INSERT INTO shop_products (title, slug, description, type, status,
                                     meta_title, meta_description, shipping_type,
-                                    use_default_shipping, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                                    use_default_shipping, is_featured, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              RETURNING *`,
         [
             data.title,
@@ -257,6 +257,7 @@ export async function createProduct(data: Record<string, unknown>, userId: strin
             data.metaDescription ?? null,
             data.shippingType || 'calculated',
             data.useDefaultShipping ?? true,
+            data.isFeatured ?? false,
             // created_by is a UUID FK; synthetic actors → NULL.
             uuidOrNull(userId,),
         ],
