@@ -6,6 +6,7 @@ import { config, } from '../config';
 import { ConflictError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { logAudit, } from './audit';
+import { captureAudience, } from './audienceIntake';
 import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 import { getUsersSettings, } from './settings';
@@ -263,7 +264,8 @@ export async function authenticateWithEmail(
     // and only when the operator has verification enabled. `email_verified`
     // defaults true for every pre-existing / non-self-signup account.
     if (dbUser.role === 'member' && dbUser.email_verified === false) {
-        const { requireEmailVerification, } = await getUsersSettings();
+        const usersSettings = await getUsersSettings();
+    const { requireEmailVerification, } = usersSettings;
         if (requireEmailVerification) {
             throw new Error(
                 'Please verify your email address before logging in. Check your inbox for the verification link.',
@@ -355,7 +357,7 @@ export async function refreshTokens(
  * duplicate email.
  */
 export async function registerMember(
-    input: { name: string; email: string; password: string; },
+    input: { name: string; email: string; password: string; phone?: string; },
     ctx?: { ipAddress?: string; userAgent?: string; },
 ): Promise<{ userId: string; email: string; verificationRequired: boolean; }> {
     const email = input.email.trim().toLowerCase();
@@ -378,7 +380,10 @@ export async function registerMember(
 
     // When verification is required, the account starts UNVERIFIED with a
     // token; otherwise it's created verified (email_verified defaults true).
-    const { requireEmailVerification, } = await getUsersSettings();
+    // The whole settings object is kept: the contact/mailing-list intake below
+    // reads from it too, and one fetch is cheaper than two.
+    const registerSettings = await getUsersSettings();
+    const { requireEmailVerification, } = registerSettings;
     const token = requireEmailVerification ? generateVerificationToken() : null;
 
     const passwordHash = await bcrypt.hash(input.password, 12,);
@@ -415,9 +420,26 @@ export async function registerMember(
         logger.warn('Failed to audit member registration', { error: err, },);
     }
 
+    // Contacts + mailing-list intake, gated by the Users settings. Runs through
+    // the one shared path so registration, the shop signup and form submissions
+    // dedupe identically. Best-effort by construction — captureAudience never
+    // throws, so a CRM outage can't fail a signup.
+    await captureAudience({
+        email: row.email,
+        name,
+        phone: input.phone ?? null,
+        userId: row.id,
+        source: 'registration',
+    }, {
+        addContact: registerSettings.autoAddContacts !== false,
+        mailingListId: registerSettings.autoSubscribe ? registerSettings.autoSubscribeListId : null,
+    },);
+
     // Additive admin notification (separate from the member's own
     // verification/welcome email). Fire-and-forget.
     void notify('user_signup', {
+        purpose: 'user_signup_admin',
+        context: { user: { name, email: row.email, }, },
         subject: `New user signup: ${name || row.email}`,
         html: `<h2>New user signup</h2>`
             + `<p>A new member registered an account.</p>`

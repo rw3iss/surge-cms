@@ -108,7 +108,10 @@ describe('shop settings service', () => {
         // allowed public field; every other key must be in the safe subset).
         // `cartDisplay` is a presentation flag (show supplier sections or not),
         // not a secret — the storefront needs it to render the cart.
-        const allowed = ['businessName', 'cartDisplay', 'storefrontMode', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
+        // `merchandiseSignupEnabled` is a boolean "should the tout render?".
+        // Note what is deliberately ABSENT: `newMerchandiseListId`. The list id
+        // stays server-side so a visitor can't retarget the subscription.
+        const allowed = ['businessName', 'cartDisplay', 'merchandiseSignupEnabled', 'storefrontMode', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
         expect(Object.keys(pub.settings,).every((k,) => allowed.includes(k,)),).toBe(true,);
     },);
 

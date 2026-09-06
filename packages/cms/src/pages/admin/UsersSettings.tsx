@@ -16,7 +16,9 @@ import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import type { UsersSettings, } from '@sitesurge/types';
+import type { MailingList, } from '@sitesurge/types';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { FormField, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
 import { useToast, } from '../../components/common/toast';
@@ -37,6 +39,13 @@ const AdminUsersSettings: Component = () => {
 
     const [requireVerification, setRequireVerification,] = createSignal(true,);
     const [purposes, setPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
+    const [autoAddContacts, setAutoAddContacts,] = createSignal(true,);
+    const [autoSubscribe, setAutoSubscribe,] = createSignal(false,);
+    const [autoSubscribeListId, setAutoSubscribeListId,] = createSignal('',);
+    const [lists, setLists,] = createSignal<MailingList[]>([],);
+
+    const contactsOn = () => isFeatureEnabled('contacts',);
+    const listsOn = () => isFeatureEnabled('mailing_lists',);
 
     onMount(async () => {
         try {
@@ -45,6 +54,13 @@ const AdminUsersSettings: Component = () => {
                 cms.settings.getMailPurposes() as Promise<Record<string, PurposeConfig>>,
             ],);
             setRequireVerification(s.requireEmailVerification !== false,);
+            setAutoAddContacts(s.autoAddContacts !== false,);
+            setAutoSubscribe(s.autoSubscribe === true,);
+            setAutoSubscribeListId(s.autoSubscribeListId ?? '',);
+            // Only fetched when the feature is on — the endpoint 404s otherwise.
+            if (listsOn()) {
+                try { setLists(await cms.mailingLists.list() as MailingList[],); } catch { /* non-fatal */ }
+            }
 
             const map = { ...(mp ?? {}), };
             // One-time adoption of the pre-registry verification email, so the
@@ -70,6 +86,11 @@ const AdminUsersSettings: Component = () => {
             await Promise.all([
                 cms.settings.usersSettings({
                     requireEmailVerification: requireVerification(),
+                    autoAddContacts: autoAddContacts(),
+                    autoSubscribe: autoSubscribe(),
+                    // Null rather than '' so the backend stores an absent value
+                    // instead of a list id that can never match.
+                    autoSubscribeListId: autoSubscribeListId() || null,
                     // Kept in sync so a rollback still finds the template where
                     // the old code looks for it.
                     verificationEmail: {
@@ -132,6 +153,69 @@ const AdminUsersSettings: Component = () => {
                                 The wording of that email — and of the password-reset emails — lives under{' '}
                                 <strong>Email templates</strong>.
                             </p>
+                        </div>
+                    </section>
+
+                    <section class="admin-section">
+                        <header class="admin-section__header"><h2>New member handling</h2></header>
+                        <div class="form-section">
+                            <FormField label="Automatically add new users to Contacts" inline>
+                                <Toggle
+                                    checked={autoAddContacts() && contactsOn()}
+                                    onChange={setAutoAddContacts}
+                                    disabled={!contactsOn()}
+                                    ariaLabel="Automatically add new users to Contacts"
+                                />
+                            </FormField>
+                            <p class="form-help-muted">
+                                <Show
+                                    when={contactsOn()}
+                                    fallback={<>Enable the <strong>Contacts</strong> feature to use this.</>}
+                                >
+                                    Creates a contact for each new member, or links them to an existing
+                                    contact with the same email. Matching is on email, so turning this on
+                                    can't produce duplicates.
+                                </Show>
+                            </p>
+
+                            <FormField label="Automatically add new users to a mailing list" inline>
+                                <Toggle
+                                    checked={autoSubscribe() && listsOn()}
+                                    onChange={setAutoSubscribe}
+                                    disabled={!listsOn()}
+                                    ariaLabel="Automatically subscribe new users"
+                                />
+                            </FormField>
+                            <Show
+                                when={listsOn()}
+                                fallback={
+                                    <p class="form-help-muted">
+                                        Enable the <strong>Mailing Lists</strong> feature to use this.
+                                    </p>
+                                }
+                            >
+                                <Show when={autoSubscribe()}>
+                                    <FormField
+                                        label="Mailing list"
+                                        hint="New members are subscribed to this list. Already-subscribed addresses are left alone."
+                                    >
+                                        <select
+                                            value={autoSubscribeListId()}
+                                            onChange={(e,) => setAutoSubscribeListId(e.currentTarget.value,)}
+                                        >
+                                            <option value="">— select a list —</option>
+                                            <For each={lists()}>
+                                                {(l,) => <option value={l.id}>{l.name}</option>}
+                                            </For>
+                                        </select>
+                                    </FormField>
+                                    <Show when={autoSubscribe() && !autoSubscribeListId()}>
+                                        <p class="form-help-muted">
+                                            ⚠ Pick a list — nothing is subscribed until you do.
+                                        </p>
+                                    </Show>
+                                </Show>
+                            </Show>
                         </div>
                     </section>
                 </Show>

@@ -310,6 +310,17 @@ export interface UsersSettings {
     requireEmailVerification: boolean;
     /** The verification email's subject + custom body. */
     verificationEmail: UsersVerificationEmail;
+    /**
+     * Create/link a Contact for every new member. Inert while the `contacts`
+     * feature is off. Defaults TRUE on a fresh install: an operator who has
+     * turned the CRM on almost certainly wants their members in it, and the
+     * intake is deduped so enabling it can't produce duplicates.
+     */
+    autoAddContacts?: boolean;
+    /** Subscribe every new member to a mailing list. */
+    autoSubscribe?: boolean;
+    /** Which list. Required for `autoSubscribe` to do anything. */
+    autoSubscribeListId?: string | null;
 }
 
 /** GET /settings/users (admin) — the stored users settings (or defaults). */

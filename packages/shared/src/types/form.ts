@@ -67,6 +67,15 @@ export interface FormActionConfig {
     /** For `subscribe`/`email`: also store the submission (default false — the
      *  action runs without saving unless enabled). `submit` always saves. */
     saveSubmission?: boolean;
+    /**
+     * Create/update a Contact from the submission. Default OFF: a form is often
+     * anonymous feedback, and quietly filing every respondent into a CRM is not
+     * something to opt people into by accident.
+     *
+     * Matching is on email, so an existing contact is updated rather than
+     * duplicated. Inert while the `contacts` feature is off.
+     */
+    addContact?: boolean;
 }
 
 export interface Form {

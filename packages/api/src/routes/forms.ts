@@ -46,6 +46,7 @@ const actionConfigSchema = z.object({
     emailSubject: z.string().optional(),
     emailBody: z.string().optional(),
     saveSubmission: z.boolean().optional(),
+    addContact: z.boolean().optional(),
 },);
 
 const formSchema = z.object({

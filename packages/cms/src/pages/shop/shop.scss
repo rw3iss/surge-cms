@@ -1064,3 +1064,18 @@
     margin-bottom: 0.35rem;
   }
 }
+
+// The Shop heading now shares its row with the new-merchandise tout. Kept as a
+// wrap-friendly flex row so a long tout drops below the heading on narrow
+// screens instead of squeezing it.
+.shop-store__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-md $spacing-lg;
+
+    > h1 {
+        margin-right: auto;
+    }
+}

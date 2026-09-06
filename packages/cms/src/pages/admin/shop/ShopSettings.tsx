@@ -13,6 +13,8 @@ import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import ProvidersPanel from './ProvidersPanel';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../../components/admin/mail/EmailTemplatesPanel';
+import type { MailingList, } from '@sitesurge/types';
+import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import StripeKeysEditor from '../../../components/admin/StripeKeysEditor';
 import { centsToDollars, dollarsToCents, } from './shopUtils';
 
@@ -65,12 +67,21 @@ const ShopSettingsInner: Component = () => {
     // the registry is shared across features, and one row keeps a purpose's
     // config in exactly one place.
     const [mailPurposes, setMailPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
+    const [lists, setLists,] = createSignal<MailingList[]>([],);
+
+    const listsOn = () => isFeatureEnabled('mailing_lists',);
+    const contactsOn = () => isFeatureEnabled('contacts',);
+    /** The announcement and the storefront tout are both inert without a list. */
+    const hasMerchList = () => Boolean(settings.newMerchandiseListId,);
 
     const [loaded,] = createSafeResource(async () => {
         const res = await cms.shop.settings.getAdmin();
         try {
             setMailPurposes((await cms.settings.getMailPurposes()) as Record<string, PurposeConfig> ?? {},);
         } catch { /* non-fatal: the Emails tab just starts from defaults */ }
+        if (listsOn()) {
+            try { setLists(await cms.mailingLists.list() as MailingList[],); } catch { /* non-fatal */ }
+        }
         setSettings(res.settings,);
         setAppearance(res.appearance,);
         setFlat(centsToDollars(res.settings.shipping?.flatCents,),);
@@ -99,6 +110,9 @@ const ShopSettingsInner: Component = () => {
                     businessName: settings.businessName,
                     businessAddress: settings.businessAddress,
                     storeEnabled: settings.storeEnabled,
+                    newMerchandiseListId: settings.newMerchandiseListId || null,
+                    showMerchandiseSignup: settings.showMerchandiseSignup,
+                    merchandiseSignupAddContact: settings.merchandiseSignupAddContact,
                     stripeTaxEnabled: settings.stripeTaxEnabled,
                     shipping,
                 },
@@ -310,6 +324,68 @@ const ShopSettingsInner: Component = () => {
                         new-merchandise announcement. Each can be switched off and given its own
                         content; leave the content empty to send the built-in default.
                     </p>
+                    <FormField
+                        label="New merchandise mailing list"
+                        hint="The list that receives the new-merchandise announcement, and that the storefront signup subscribes people to."
+                    >
+                        <Show
+                            when={listsOn()}
+                            fallback={<p class="form-help-muted">Enable the <strong>Mailing Lists</strong> feature to use this.</p>}
+                        >
+                            <select
+                                value={settings.newMerchandiseListId ?? ''}
+                                onChange={(e,) => setSettings('newMerchandiseListId', e.currentTarget.value || null,)}
+                            >
+                                <option value="">— select a list —</option>
+                                <For each={lists()}>
+                                    {(l,) => <option value={l.id}>{l.name}</option>}
+                                </For>
+                            </select>
+                        </Show>
+                    </FormField>
+                    <Show when={listsOn() && !hasMerchList()}>
+                        <p class="form-help-muted shop-settings__warning">
+                            ⚠ No mailing list assigned. The new-merchandise announcement won't send
+                            and the storefront signup stays hidden until you create a list under
+                            <strong> Mailing Lists</strong> and select it here.
+                        </p>
+                    </Show>
+
+                    <FormField label="Show new merchandise signup on the shop page" inline>
+                        <Toggle
+                            checked={Boolean(settings.showMerchandiseSignup,) && hasMerchList()}
+                            onChange={(v,) => setSettings('showMerchandiseSignup', v,)}
+                            disabled={!hasMerchList()}
+                            ariaLabel="Show new merchandise signup"
+                        />
+                    </FormField>
+                    <p class="form-help-muted">
+                        Adds a short blurb and a "Get Notifications for New Merchandise" button beside
+                        the Shop heading. Signed-in visitors subscribe in one click; everyone else gets
+                        a small form.
+                    </p>
+
+                    <Show when={settings.showMerchandiseSignup && hasMerchList()}>
+                        <FormField label="Automatically add signups as Contacts" inline>
+                            <Toggle
+                                checked={Boolean(settings.merchandiseSignupAddContact,) && contactsOn()}
+                                onChange={(v,) => setSettings('merchandiseSignupAddContact', v,)}
+                                disabled={!contactsOn()}
+                                ariaLabel="Add merchandise signups as contacts"
+                            />
+                        </FormField>
+                        <p class="form-help-muted">
+                            <Show
+                                when={contactsOn()}
+                                fallback={<>Enable the <strong>Contacts</strong> feature to use this.</>}
+                            >
+                                Creates a contact for anyone who signs up through the storefront, matched
+                                on email so an existing contact is updated rather than duplicated. Leave
+                                off to subscribe them to the list only.
+                            </Show>
+                        </p>
+                    </Show>
+
                     <EmailTemplatesPanel
                         feature="shop"
                         value={mailPurposes()}

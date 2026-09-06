@@ -8,6 +8,7 @@ import './Join.scss';
 const Join: Component = () => {
     const [name, setName,] = createSignal('',);
     const [email, setEmail,] = createSignal('',);
+    const [phone, setPhone,] = createSignal('',);
     const [password, setPassword,] = createSignal('',);
     const [confirmPassword, setConfirmPassword,] = createSignal('',);
     const [error, setError,] = createSignal('',);
@@ -39,6 +40,7 @@ const Join: Component = () => {
                 name: name(),
                 email: email(),
                 password: password(),
+                phone: phone().trim() || undefined,
             },);
             setVerifyRequired(res.verificationRequired === true,);
             setSuccess(true,);
@@ -214,6 +216,27 @@ const Join: Component = () => {
                                     required
                                     disabled={isLoading()}
                                     placeholder="you@example.com"
+                                />
+                            </div>
+
+                            {/* Optional: feeds the linked Contact when the
+                                operator has contact capture enabled. Never
+                                required — asking for a phone number to read a
+                                blog would be a strange toll. */}
+                            <div class="join__field">
+                                <label for="register-phone" class="join__label">
+                                    Phone Number <span class="join__optional">(optional)</span>
+                                </label>
+                                <input
+                                    type="tel"
+                                    id="register-phone"
+                                    name="phone"
+                                    autocomplete="tel"
+                                    class="join__input"
+                                    value={phone()}
+                                    onInput={(e,) => setPhone(e.currentTarget.value,)}
+                                    disabled={isLoading()}
+                                    placeholder="(555) 123-4567"
                                 />
                             </div>
 

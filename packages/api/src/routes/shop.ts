@@ -23,7 +23,8 @@ import type {
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
-import { NotFoundError, } from '../core/errors';
+import { AppError, NotFoundError, } from '../core/errors';
+import { captureAudience, } from '../services/audienceIntake';
 import * as catalog from '../services/shop/catalog';
 import * as checkout from '../services/shop/checkout';
 import * as orders from '../services/shop/orders';
@@ -226,6 +227,9 @@ const shopSettingsPatch = z.object({
     businessName: z.string().optional(),
     businessAddress: z.string().optional(),
     storeEnabled: z.boolean().optional(),
+    newMerchandiseListId: z.string().nullish(),
+    showMerchandiseSignup: z.boolean().optional(),
+    merchandiseSignupAddContact: z.boolean().optional(),
     stripeTaxEnabled: z.boolean().optional(),
     shipping: z.object({
         flatCents: z.number().int().min(0,).optional(),
@@ -774,6 +778,60 @@ export const shopRoutes = [
         method: 'get', path: '/settings', auth: 'optional',
         summary: 'Storefront shop settings: appearance + a safe subset of config (currency, store/tax flags). No secret keys.',
         handler: () => shopSettings.getPublic(),
+    },),
+
+    /**
+     * Public new-merchandise signup (the storefront tout).
+     *
+     * `optional` auth: a signed-in visitor is subscribed with their own
+     * address, an anonymous one supplies theirs in the body. The destination
+     * list comes from shop settings, never from the request — otherwise anyone
+     * could subscribe arbitrary addresses to any list on the site.
+     *
+     * Always answers 200 with `{ subscribed: true }` when the feature is on,
+     * even for an address already on the list. Reporting "you're already
+     * subscribed" would let a stranger test membership of a mailing list.
+     */
+    defineRoute({
+        method: 'post', path: '/merchandise-signup', auth: 'optional',
+        summary: 'Subscribe to the new-merchandise mailing list from the storefront tout.',
+        input: {
+            body: z.object({
+                email: z.string().email().optional(),
+                name: z.string().max(200,).optional(),
+                phone: z.string().max(50,).optional(),
+            },),
+        },
+        handler: async ({ body, user, },) => {
+            const { settings, } = await shopSettings.getRaw();
+            if (!settings.showMerchandiseSignup || !settings.newMerchandiseListId) {
+                throw new AppError(
+                    404, 'NOT_AVAILABLE',
+                    'New-merchandise notifications are not enabled for this shop.',
+                );
+            }
+
+            // A signed-in visitor's own address wins over anything posted: the
+            // button next to their name must not be usable to subscribe someone
+            // else.
+            const email = user?.email ?? body.email;
+            if (!email) {
+                throw new AppError(400, 'VALIDATION_ERROR', 'An email address is required.',);
+            }
+
+            await captureAudience({
+                email,
+                name: user?.displayName ?? body.name ?? null,
+                phone: body.phone ?? null,
+                userId: user?.id ?? null,
+                source: 'shop-merchandise-signup',
+            }, {
+                addContact: settings.merchandiseSignupAddContact === true,
+                mailingListId: settings.newMerchandiseListId,
+            },);
+
+            return { subscribed: true, };
+        },
     },),
 
     // Full config (admin).

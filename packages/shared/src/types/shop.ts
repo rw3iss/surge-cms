@@ -277,6 +277,19 @@ export interface ShopShippingRate {
 
 export interface ShopSettings {
     currency: string;
+    /**
+     * Mailing list that receives the new-merchandise announcement, and that the
+     * storefront signup tout subscribes people to.
+     *
+     * The announcement email and the tout are BOTH inert without this: an
+     * announcement with no audience and a signup button with no destination are
+     * worse than nothing, so the admin warns rather than silently doing nothing.
+     */
+    newMerchandiseListId?: string | null;
+    /** Show the "get notified about new merchandise" tout on /shop. */
+    showMerchandiseSignup?: boolean;
+    /** Add people who use that tout to Contacts. Inert while `contacts` is off. */
+    merchandiseSignupAddContact?: boolean;
     taxEnabled: boolean;
     businessName: string;
     businessAddress?: string;
@@ -338,6 +351,9 @@ export interface ShopAppearance {
  */
 export interface ShopPublicSettings {
     currency: string;
+    /** Render the "notify me about new merchandise" tout on /shop. True only
+     *  when the operator enabled it AND assigned a mailing list. */
+    merchandiseSignupEnabled?: boolean;
     /** display flag only (does the store apply tax?) — not a rate */
     taxEnabled: boolean;
     storeEnabled: boolean;

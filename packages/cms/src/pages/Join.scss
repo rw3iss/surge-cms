@@ -265,3 +265,11 @@
     margin-bottom: $spacing-md;
   }
 }
+
+// "(optional)" beside a label — quieter than the label so the field reads as
+// skippable at a glance.
+.join__optional {
+    font-weight: 400;
+    font-size: 0.85em;
+    color: var(--site-text-muted, #6b7280);
+}

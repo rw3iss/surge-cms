@@ -29,6 +29,7 @@ import * as mailingLists from './mailingLists';
 import { isFeatureEnabledServer, } from './settings';
 import { escapeHtml, } from './ssr/blocks/_util';
 import { logger, } from '../utils/logger';
+import { captureAudience, } from './audienceIntake';
 
 interface SubmittedAnswer {
     questionId: string;
@@ -235,8 +236,28 @@ export async function dispatchFormAction(
     actor: FormActor = {},
 ): Promise<void> {
     const action = form.action || 'submit';
-    if (action === 'submit') return;
     const cfg = (form.actionConfig || {}) as FormActionConfig;
+
+    // Contact capture runs for EVERY action including plain `submit` — the
+    // question "should this person be a contact?" is independent of what else
+    // the form does with the submission, and gating it on subscribe/email would
+    // make a save-only form unable to feed the CRM.
+    if (cfg.addContact) {
+        const email = extractEmail(questions, answers,);
+        if (email) {
+            await captureAudience({
+                email,
+                name: valueByAnyKey(questions, answers, NAME_KEYS,),
+                phone: valueByAnyKey(questions, answers, PHONE_KEYS,),
+                userId: actor.userId ?? null,
+                source: `form:${form.slug}`,
+            }, { addContact: true, },);
+        } else {
+            logger.warn('form contact capture skipped: no email field value', { form: form.id, },);
+        }
+    }
+
+    if (action === 'submit') return;
     try {
         if (action === 'subscribe') {
             await runSubscribe(form, cfg, questions, answers, actor,);

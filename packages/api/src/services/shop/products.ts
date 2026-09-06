@@ -11,6 +11,7 @@
  */
 import type { ShopProduct, ShopProductDetail, } from '@sitesurge/types';
 import { transaction, } from '../../db';
+import { announceNewMerchandise, } from './merchandiseAnnounce';
 import * as catalog from '../../repositories/shop/shopCatalog.repo';
 import * as repo from '../../repositories/shop/shopProducts.repo';
 import { performBulkAction, } from '../../utils/bulkActions';
@@ -203,6 +204,9 @@ export async function update(
         await syncStructure(id, hasStructure ? structure : null, taxonomy,);
     }
     await invalidateProductCache();
+    // Fire-and-forget: an announcement must never delay or fail a product save.
+    // The helper decides whether anything actually sends.
+    if (input.status === 'active') void announceNewMerchandise([id,],);
     await logAudit({
         userId: ctx.userId,
         action: 'update',

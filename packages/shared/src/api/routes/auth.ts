@@ -59,6 +59,8 @@ export interface AuthRegisterBody {
     name: string;
     email: string;
     password: string;
+    /** Optional. Stored on the linked Contact when contact capture is on. */
+    phone?: string;
 }
 
 /** POST /auth/register — creates a `member`-role account with

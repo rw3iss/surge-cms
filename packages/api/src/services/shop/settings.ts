@@ -119,6 +119,15 @@ export async function getPublic(): Promise<{ settings: ShopPublicSettings; appea
             // needs it to decide whether to render supplier sections.
             cartDisplay: settings.cartDisplay ?? 'combined',
             storefrontMode: settings.storefrontMode ?? 'builtin',
+            // Whether to render the new-merchandise signup tout. Requires BOTH
+            // the toggle and a configured list — a signup button with nowhere to
+            // subscribe is worse than no button. The list ID itself is
+            // deliberately NOT exposed: the subscribe endpoint reads it
+            // server-side, so a visitor can't retarget the subscription at
+            // another list by editing the request.
+            merchandiseSignupEnabled: Boolean(
+                settings.showMerchandiseSignup && settings.newMerchandiseListId,
+            ),
         },
         appearance,
     };

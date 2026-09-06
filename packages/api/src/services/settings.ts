@@ -409,6 +409,12 @@ const USERS_SETTINGS: KeyedSetting = {
     fallback: {
         requireEmailVerification: true,
         verificationEmail: { subject: '', blocks: [], },
+        // ON by default: an operator running the CRM wants their members in it,
+        // and the intake dedupes, so this cannot create duplicates. Inert while
+        // the contacts feature is off.
+        autoAddContacts: true,
+        autoSubscribe: false,
+        autoSubscribeListId: null,
     },
 };
 
@@ -488,6 +494,9 @@ export async function getUsersSettings(): Promise<import('@sitesurge/types').Use
             subject: raw?.verificationEmail?.subject ?? '',
             blocks: raw?.verificationEmail?.blocks ?? [],
         },
+        autoAddContacts: raw?.autoAddContacts !== false,
+        autoSubscribe: raw?.autoSubscribe === true,
+        autoSubscribeListId: raw?.autoSubscribeListId ?? null,
     };
 }
 export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);

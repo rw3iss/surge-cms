@@ -277,6 +277,17 @@ export class ShopModule extends ModuleBase {
     /** Settings — the shop config + appearance (two site_settings rows).
      *  `getPublic` is the storefront-safe projection (no secret keys);
      *  `getAdmin`/`update` carry the full config (admin only). */
+    /**
+     * POST /shop/merchandise-signup — join the new-merchandise list.
+     *
+     * A signed-in caller may omit `email`; the server uses their account
+     * address and ignores any address in the body. Answers the same whether or
+     * not the address was already subscribed.
+     */
+    merchandiseSignup(body: { email?: string; name?: string; phone?: string; },): Promise<{ subscribed: boolean; }> {
+        return this.mutate<{ subscribed: boolean; }>('POST', '/shop/merchandise-signup', { body, },);
+    }
+
     readonly settings = {
         /** GET /shop/settings — storefront-safe projection (public). */
         getPublic: (): Promise<ShopSettingsPublicResponse> =>

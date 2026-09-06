@@ -4,6 +4,7 @@ import { Component, createEffect, createResource, createSignal, For, onMount, Sh
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import { siteName, } from '../../stores/siteSettings';
+import MerchandiseSignup from './MerchandiseSignup';
 import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
 import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
@@ -184,8 +185,15 @@ const ShopIndexInner: Component = () => {
                 </div>
             </Show>
 
+            {/* Heading left, the new-merchandise tout right. The tout only
+                renders when the operator enabled it AND assigned a mailing
+                list — the server decides that, so the storefront can't offer a
+                signup with nowhere to go. */}
             <header class="page-header shop-store__header">
                 <h1>Shop</h1>
+                <Show when={config()?.settings.merchandiseSignupEnabled}>
+                    <MerchandiseSignup />
+                </Show>
             </header>
 
             <div class="shop-index__body">

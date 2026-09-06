@@ -1,0 +1,139 @@
+// New-merchandise signup: the tout beside the Shop heading + its modal.
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured prelude already provides `color` + variables.
+
+.merch-signup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: $spacing-sm;
+    max-width: 22rem;
+    text-align: right;
+
+    &__pretext {
+        margin: 0;
+        font-size: $font-size-sm;
+        line-height: 1.45;
+        // Inherits the page text colour so a custom page background (the shop's
+        // brand red, say) doesn't leave this unreadable.
+        color: inherit;
+        opacity: 0.85;
+    }
+
+    &__btn {
+        white-space: nowrap;
+    }
+
+    &__done {
+        margin: 0;
+        font-size: $font-size-sm;
+        line-height: 1.45;
+        font-weight: 600;
+        color: inherit;
+    }
+
+    &__error {
+        margin: 0;
+        font-size: $font-size-sm;
+        color: var(--site-error, #{$error-color});
+    }
+
+    @include mobile-only {
+        align-items: flex-start;
+        text-align: left;
+        max-width: none;
+    }
+}
+
+// ─── Modal ───────────────────────────────────────────────────────────
+.merch-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: $z-index-modal;
+    background: var(--modal-overlay-bg, #{$modal-overlay-bg});
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-lg;
+}
+
+.merch-modal {
+    position: relative;
+    width: 100%;
+    max-width: 26rem;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: $spacing-xl;
+    border-radius: var(--site-radius, #{$border-radius-lg});
+    background: var(--site-bg, #{$background});
+    color: var(--site-text, #{$text-color});
+    box-shadow: $shadow-xl;
+
+    &__close {
+        position: absolute;
+        top: $spacing-sm;
+        right: $spacing-sm;
+        border: none;
+        background: none;
+        font-size: 26px;
+        line-height: 1;
+        cursor: pointer;
+        color: var(--site-text-muted, #{$text-light});
+
+        &:hover { color: var(--site-text, #{$text-color}); }
+    }
+
+    &__title {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-lg;
+    }
+
+    &__lede {
+        margin: 0 0 $spacing-lg;
+        font-size: $font-size-sm;
+        color: var(--site-text-muted, #{$text-light});
+    }
+
+    &__error {
+        margin: 0 0 $spacing-md;
+        font-size: $font-size-sm;
+        color: var(--site-error, #{$error-color});
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: $font-size-sm;
+
+        em {
+            font-style: normal;
+            color: var(--site-text-muted, #{$text-light});
+        }
+
+        input {
+            padding: $spacing-sm;
+            border: 1px solid var(--site-border, #{$border-color});
+            border-radius: var(--site-radius, #{$border-radius-sm});
+            background: var(--site-bg, #{$background});
+            color: inherit;
+            font-size: $font-size-base;
+        }
+    }
+
+    &__submit {
+        margin-top: $spacing-xs;
+    }
+
+    &__login {
+        margin: $spacing-lg 0 0;
+        text-align: center;
+        font-size: $font-size-sm;
+    }
+}

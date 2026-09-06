@@ -71,6 +71,8 @@ const FormEditor: Component = () => {
     const [emailBody, setEmailBody,] = createSignal('',);
     // subscribe/email: also store the submission (default off).
     const [saveSubmission, setSaveSubmission,] = createSignal(false,);
+    const [addContact, setAddContact,] = createSignal(false,);
+    const contactsEnabled = () => isFeatureEnabled('contacts',);
     const [showVars, setShowVars,] = createSignal(false,);
 
     // Questions
@@ -178,6 +180,7 @@ const FormEditor: Component = () => {
                 setEmailSubject(ac.emailSubject || '',);
                 setEmailBody(ac.emailBody || '',);
                 setSaveSubmission(ac.saveSubmission ?? false,);
+                setAddContact(ac.addContact ?? false,);
 
                 // Load questions
                 if (data.questions && Array.isArray(data.questions,)) {
@@ -301,6 +304,7 @@ const FormEditor: Component = () => {
             emailSubject: emailSubject(),
             emailBody: emailBody(),
             saveSubmission: saveSubmission(),
+            addContact: addContact(),
             questions: questions(),
         }),
     },);
@@ -359,6 +363,8 @@ const FormEditor: Component = () => {
                     saveSubmission: (action() === 'subscribe' || action() === 'email')
                         ? saveSubmission()
                         : undefined,
+                    // Applies to EVERY action, including plain submit.
+                    addContact: addContact(),
                 },
                 questions: questions().map((q, index,) => ({
                     id: q.id,
@@ -614,6 +620,25 @@ const FormEditor: Component = () => {
                                                 <Tooltip
                                                     header="Save submission"
                                                     content="When enabled, the form performs the action above AND stores the submission in the database (viewable under Submissions). When off, only the action runs and no submission is saved."
+                                                />
+                                            </span>
+                                        }
+                                    />
+                                </Show>
+
+                                {/* Independent of the action above: a save-only
+                                    form should still be able to feed the CRM. */}
+                                <Show when={contactsEnabled()}>
+                                    <Toggle
+                                        checked={addContact()}
+                                        onChange={(next,) => { setAddContact(next,); markDirty(); }}
+                                        size="sm"
+                                        label={
+                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                                Add submitter as a Contact
+                                                <Tooltip
+                                                    header="Add submitter as a Contact"
+                                                    content="Creates a contact from the submission's email, name and phone fields. Matching is on email, so an existing contact is updated rather than duplicated. Off by default — a form is often anonymous feedback, and filing every respondent into the CRM should be a deliberate choice."
                                                 />
                                             </span>
                                         }
