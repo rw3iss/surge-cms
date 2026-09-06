@@ -49,4 +49,22 @@ export const setActiveHeaderPosition = (value: HeaderPosition | null,): void => 
     setRouteHeaderPosition(value,);
 };
 
+// ─── Page background ───
+//
+// Published the same way as header style, and for the same reason: the element
+// that must carry it (`.layout`) is a SIBLING of the routed page, not a
+// descendant. Setting it on the page's own wrapper only ever paints the
+// max-width content column, leaving the gutters and the area behind the header
+// unpainted — which is exactly what it looked like.
+
+const [routePageBackground, setRoutePageBackground,] = createSignal<string | null>(null,);
+
+/** The current route's background: a raw hex or a `swatch:<id>` ref, else null. */
+export const activePageBackground = (): string | null => routePageBackground();
+
+/** A route sets its background, or clears it with `null` (→ site background). */
+export const setActivePageBackground = (value: string | null,): void => {
+    setRoutePageBackground(value && value.trim() ? value.trim() : null,);
+};
+
 export { setSiteDefaultHeaderPosition, setSiteDefaultPageHeaderStyle, };

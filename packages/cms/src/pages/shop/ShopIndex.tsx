@@ -161,8 +161,12 @@ const ShopIndexInner: Component = () => {
     // only honours the settings an operator put on that page.
     const overrides = useOverridePageSettings('shop',);
 
+    // The background is published to `.layout` by the hook, not painted here —
+    // a wrapper inside the max-width column cannot cover the gutters.
+    void overrides;
+
     return (
-        <div class="shop-store shop-index page-wrapper" style={overrides.backgroundStyle()}>
+        <div class="shop-store shop-index page-wrapper">
             <SeoHead
                 title="Shop"
                 description={`Browse products from ${siteName()}.`}

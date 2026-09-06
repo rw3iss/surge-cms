@@ -6,7 +6,8 @@ import { swatchCssVars, } from '../../services/colorResolver';
 import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
-import { appearanceCssVars, appearanceGlobalCss, } from '../../utils/appearanceStyle';
+import { appearanceCssVars, appearanceGlobalCss, pageBackgroundStyle, } from '../../utils/appearanceStyle';
+import { activePageBackground, } from '../../stores/headerStyle';
 import { ContactMatchModal, } from '../auth/ContactMatchModal';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
@@ -110,6 +111,11 @@ export const Layout: ParentComponent = (props,) => {
         // override them. Colors / fonts / bg / text stay inline here.
         ...appearanceCssVars(appearance(), 'public', { excludeLayout: true, },),
         ...swatchCssVars(swatchesSignal(),),
+        // A page's own background, painted on the OUTERMOST shell so it covers
+        // the full viewport width including the gutters and the area behind a
+        // floating header. Overrides the site background from appearance above,
+        // which is why it is spread last. `{}` when the route sets none.
+        ...pageBackgroundStyle(activePageBackground(),),
     }),);
 
     // Global appearance stylesheet: the layout tokens + default block padding +

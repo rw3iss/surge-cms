@@ -6,8 +6,8 @@ import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import ContentGate from '../components/auth/ContentGate';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
-import { contentPaddingStyle, pageBackgroundStyle, } from '../utils/appearanceStyle';
-import { setActiveHeaderPosition, setActiveHeaderStyle, } from '../stores/headerStyle';
+import { contentPaddingStyle, } from '../utils/appearanceStyle';
+import { setActiveHeaderPosition, setActivePageBackground, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
@@ -86,6 +86,12 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
             | undefined;
         setActiveHeaderStyle(p?.headerStyle ?? null,);
         setActiveHeaderPosition(p?.headerPosition ?? null,);
+        // Published rather than painted here: `.layout` is the only element
+        // that spans the full viewport, so the colour has to be set there to
+        // reach the gutters and the area behind the header.
+        setActivePageBackground(
+            (p as { backgroundColor?: string | null; } | null | undefined)?.backgroundColor ?? null,
+        );
     },);
     onCleanup(() => {
         setActiveHeaderStyle(null,);
@@ -98,11 +104,8 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
         const p = page() as (Page & {
             applyPagePadding?: boolean; applySiteGutter?: boolean; backgroundColor?: string | null;
         }) | null | undefined;
-        return {
-            ...contentPaddingStyle('--site-page-padding', p?.applyPagePadding, p?.applySiteGutter,),
-            // Unset yields {}, so the page inherits the site background.
-            ...pageBackgroundStyle(p?.backgroundColor,),
-        };
+        // No background here — see setActivePageBackground above.
+        return contentPaddingStyle('--site-page-padding', p?.applyPagePadding, p?.applySiteGutter,);
     };
 
     return (

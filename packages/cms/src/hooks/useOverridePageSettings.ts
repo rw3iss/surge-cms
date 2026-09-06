@@ -14,7 +14,7 @@
 import { createEffect, createResource, onCleanup, } from 'solid-js';
 import type { Page, } from '@sitesurge/types';
 import { cms, } from '../services/cmsClient';
-import { setActiveHeaderPosition, setActiveHeaderStyle, } from '../stores/headerStyle';
+import { setActiveHeaderPosition, setActivePageBackground, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { pageBackgroundStyle, } from '../utils/appearanceStyle';
 
 export interface OverridePageSettings {
@@ -53,10 +53,12 @@ export function useOverridePageSettings(slug: string,): OverridePageSettings {
         if (!p) return;
         setActiveHeaderStyle((p as { headerStyle?: 'default' | 'alt'; }).headerStyle ?? null,);
         setActiveHeaderPosition((p as { headerPosition?: 'static' | 'float'; }).headerPosition ?? null,);
+        setActivePageBackground((p as { backgroundColor?: string | null; }).backgroundColor ?? null,);
     },);
     onCleanup(() => {
         setActiveHeaderStyle(null,);
         setActiveHeaderPosition(null,);
+        setActivePageBackground(null,);
     },);
 
     return {
