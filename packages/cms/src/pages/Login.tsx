@@ -216,6 +216,13 @@ const Login: Component = () => {
                             />
                         </div>
 
+                        {/* Placed directly under the password field, where
+                            someone who has just failed to remember it is
+                            already looking. */}
+                        <div class="login__forgot">
+                            <A href="/forgot-password" class="login__forgot-link">Forgot your password?</A>
+                        </div>
+
                         <div class="login__remember">
                             <label class="login__remember-label">
                                 <input

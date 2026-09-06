@@ -3,6 +3,10 @@ import type {
     AuthLogoutAllResponse, AuthMeResponse, AuthPatreonSyncResponse, AuthAutologinResponse,
     AuthRegisterBody, AuthRegisterResponse,
     AuthUpdateProfileBody, AuthUpdateProfileResponse, AuthAvatarResponse,
+    AuthForgotPasswordBody,
+    AuthForgotPasswordResponse,
+    AuthResetPasswordBody,
+    AuthResetPasswordResponse,
     AuthVerifyEmailBody, AuthVerifyEmailResponse,
 } from '@sitesurge/types';
 import type { CmsClientCore, } from '../core/client';
@@ -62,6 +66,24 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
      *  then probe `me()` / reload. A stale/used token rejects with a 400. */
     verifyEmail(body: AuthVerifyEmailBody,): Promise<AuthVerifyEmailResponse> {
         return this.mutate<AuthVerifyEmailResponse>('POST', '/auth/verify-email', { body, },);
+    }
+
+    /**
+     * POST /auth/forgot-password — request a reset link.
+     *
+     * Resolves the same way whether or not the address has an account. That is
+     * the server's design, not a client quirk: a different answer would let
+     * anyone test which addresses are registered. Show the returned message
+     * verbatim rather than branching on it.
+     */
+    forgotPassword(body: AuthForgotPasswordBody,): Promise<AuthForgotPasswordResponse> {
+        return this.mutate<AuthForgotPasswordResponse>('POST', '/auth/forgot-password', { body, },);
+    }
+
+    /** POST /auth/reset-password — set a new password and log in. A stale,
+     *  used or expired token rejects with a 400. */
+    resetPassword(body: AuthResetPasswordBody,): Promise<AuthResetPasswordResponse> {
+        return this.mutate<AuthResetPasswordResponse>('POST', '/auth/reset-password', { body, },);
     }
 
     /** POST /auth/refresh — delegates to the manager's single-flight refresh. */

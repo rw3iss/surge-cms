@@ -1,0 +1,133 @@
+/**
+ * The one send path for every email the CMS sends on its own behalf.
+ *
+ * A feature calls `sendPurposeMail('user_password_reset', { to, context })` and
+ * this decides the rest: whether the operator has it enabled, whether they've
+ * replaced the body, which variables resolve, and how it renders. Features stop
+ * owning HTML, and every purpose gains a toggle and a block editor for free.
+ *
+ * ## Enabled-by-default is deliberate
+ *
+ * An unconfigured purpose falls back to `defaultEnabled` from the registry,
+ * which is `true` for every email the system already sent. Introducing this
+ * layer must not silently stop mail an operator depends on — a password reset
+ * that quietly doesn't send is worse than one that looks ugly.
+ *
+ * ## Never throws
+ *
+ * Like `notify()`, a send failure is logged and swallowed. These fire from the
+ * middle of registration, checkout and form submission; an SMTP outage must not
+ * roll back an order. Callers that genuinely need to know get the boolean.
+ */
+import type { FlatBlock, } from './renderer';
+import { mailPurpose, type MailPurposeConfig, type MailPurposeSettings, } from '@sitesurge/types';
+import { getMailPurposes, } from '../settings';
+import { logger, } from '../../utils/logger';
+import { sendEmail, } from '../email';
+import { loadMailRenderContext, } from './siteContext';
+import { renderStandaloneMail, } from './transactional';
+import { resolveMailTemplate, } from './templateRuntime';
+import { defaultPurposeHtml, } from './purposeDefaults';
+
+/** The whole `mail_purposes` settings row (empty when never configured). */
+export async function getMailPurposeSettings(): Promise<MailPurposeSettings> {
+    return (await getMailPurposes() as MailPurposeSettings | null) ?? {};
+}
+
+/** Operator config for one purpose, merged over the registry defaults. */
+export async function getPurposeConfig(key: string,): Promise<MailPurposeConfig & { enabled: boolean; autoSend: boolean; }> {
+    const meta = mailPurpose(key,);
+    const all = await getMailPurposeSettings();
+    const cfg = all[key] ?? {};
+    return {
+        ...cfg,
+        enabled: cfg.enabled ?? meta?.defaultEnabled ?? false,
+        // autoSend is opt-IN — a purpose that supports it defaults to off.
+        autoSend: cfg.autoSend ?? false,
+    };
+}
+
+export interface SendPurposeMailInput {
+    /** Recipient address, or several. Each gets its own message. */
+    to: string | string[];
+    /** Variables for the `{{ }}` engine. `site` is merged in automatically. */
+    context?: Record<string, unknown>;
+    /** Send even when the operator has the purpose disabled. */
+    force?: boolean;
+    fromName?: string;
+    fromEmail?: string;
+    replyTo?: string;
+}
+
+/**
+ * Render and send one purpose. Returns true when at least one message was
+ * handed to the transport, false when disabled, unaddressed or failed.
+ */
+export async function sendPurposeMail(key: string, input: SendPurposeMailInput,): Promise<boolean> {
+    try {
+        const meta = mailPurpose(key,);
+        if (!meta) {
+            // A typo'd key must fail loudly in the log rather than silently not
+            // sending — there is no legitimate caller for an unknown purpose.
+            logger.error('sendPurposeMail: unknown purpose', { key, },);
+            return false;
+        }
+
+        const cfg = await getPurposeConfig(key,);
+        if (!cfg.enabled && !input.force) {
+            logger.info('Purpose email skipped (disabled)', { key, },);
+            return false;
+        }
+
+        const recipients = (Array.isArray(input.to,) ? input.to : [input.to,])
+            .map((t,) => t.trim())
+            .filter(Boolean,);
+        if (recipients.length === 0) {
+            logger.warn('Purpose email has no recipients', { key, },);
+            return false;
+        }
+
+        const site = await loadMailRenderContext();
+        const context: Record<string, unknown> = {
+            site: { name: site.siteName, url: site.siteUrl, },
+            ...input.context,
+        };
+
+        const subjectTpl = cfg.subject?.trim() || meta.defaultSubject;
+        const blocks = (cfg.blocks ?? []) as FlatBlock[];
+
+        let subject: string;
+        let html: string;
+        if (blocks.length > 0) {
+            // Operator-authored body: same renderer + engine as campaigns.
+            const rendered = await renderStandaloneMail({ subject: subjectTpl, blocks, }, context,);
+            subject = rendered.subject;
+            html = rendered.html;
+        } else {
+            // Built-in default. The subject still runs through the engine so
+            // `{{site.name}}` works even when the body is untouched.
+            subject = await resolveMailTemplate(subjectTpl, context,);
+            html = await defaultPurposeHtml(key, context, site,);
+        }
+
+        // One message per recipient — no shared To: header, so a single bad
+        // address can't sink the rest (same rule as the form-action mailer).
+        for (const to of recipients) {
+            await sendEmail({
+                to,
+                subject,
+                html,
+                fromName: input.fromName,
+                fromEmail: input.fromEmail,
+                replyTo: input.replyTo,
+            },);
+        }
+        logger.info('Purpose email sent', {
+            key, count: recipients.length, custom: blocks.length > 0,
+        },);
+        return true;
+    } catch (err) {
+        logger.error('sendPurposeMail failed', { key, error: err, },);
+        return false;
+    }
+}

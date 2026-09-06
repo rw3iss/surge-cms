@@ -187,3 +187,34 @@ export interface AuthAvatarResponse {
 export interface AuthPatreonSyncResponse {
     membership: Record<string, unknown> | null;
 }
+
+// ─── Password reset ───────────────────────────────────────────────
+
+/** POST /auth/forgot-password — request a reset link. */
+export interface AuthForgotPasswordBody {
+    email: string;
+}
+
+/**
+ * Deliberately contentless. The endpoint answers identically whether or not the
+ * address has an account — telling the caller would turn the form into an
+ * account-enumeration oracle. The `message` is the same generic sentence in
+ * every case.
+ */
+export interface AuthForgotPasswordResponse {
+    message: string;
+}
+
+/** POST /auth/reset-password — set a new password with a reset token. */
+export interface AuthResetPasswordBody {
+    token: string;
+    password: string;
+}
+
+/** The reset logs the user straight in, like email verification does. */
+export interface AuthResetPasswordResponse {
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: string;
+}

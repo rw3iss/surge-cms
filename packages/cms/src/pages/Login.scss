@@ -214,3 +214,19 @@
     }
   }
 }
+
+// "Forgot your password?" — sits under the password field, right-aligned so it
+// reads as secondary to the form rather than another step in it.
+.login__forgot {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -4px;
+}
+
+.login__forgot-link {
+    font-size: 0.85rem;
+    color: var(--site-text-muted, #6b7280);
+    text-decoration: none;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); text-decoration: underline; }
+}

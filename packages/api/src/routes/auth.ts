@@ -16,9 +16,11 @@ import type { Response, } from 'express';
 import rateLimit, { ipKeyGenerator, } from 'express-rate-limit';
 import { z, } from 'zod';
 import type {
+    AuthForgotPasswordBody,
     AuthLoginBody,
     AuthRefreshBody,
     AuthRegisterBody,
+    AuthResetPasswordBody,
     AuthUpdateProfileBody,
     AuthVerifyEmailBody,
 } from '@sitesurge/types';
@@ -42,6 +44,7 @@ import {
     syncPatreonMembership,
     verifyEmailToken,
 } from '../services/auth';
+import { requestPasswordReset, resetPassword, ResetTokenInvalidError, } from '../services/auth/passwordReset';
 import { isFeatureEnabledServer, } from '../services/settings';
 import * as usersService from '../services/users';
 import * as contactsService from '../services/contacts';
@@ -69,6 +72,17 @@ const verifyEmailSchema = z.object({
     token: z.string().min(1,),
 },) satisfies z.ZodType<AuthVerifyEmailBody>;
 
+
+const forgotPasswordSchema = z.object({
+    email: z.string().email(),
+},) satisfies z.ZodType<AuthForgotPasswordBody>;
+
+const resetPasswordSchema = z.object({
+    token: z.string().min(1,),
+    // Matches the registration minimum; a reset must not be a way to set a
+    // weaker password than signup allows.
+    password: z.string().min(8,).max(200,),
+},) satisfies z.ZodType<AuthResetPasswordBody>;
 const updateProfileSchema = z.object({
     firstName: z.string().max(100,).nullish(),
     lastName: z.string().max(100,).nullish(),
@@ -243,6 +257,46 @@ export const authRoutes = [
                 { name: body.name, email: body.email, password: body.password, },
                 { ipAddress, userAgent, },
             );
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/forgot-password', auth: 'public',
+        summary: 'Request a password-reset link. Always succeeds (never reveals whether the account exists).',
+        input: { body: forgotPasswordSchema, },
+        handler: async ({ body, },) => {
+            await requestPasswordReset(body.email,);
+            // One fixed answer for every outcome — found, missing, banned or
+            // OAuth-only. See services/auth/passwordReset for why.
+            return {
+                message:
+                    'If an account exists for that address, a password reset link is on its way.',
+            };
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/reset-password', auth: 'public',
+        summary: 'Set a new password from a reset token; logs the user in (sets auth cookies).',
+        input: { body: resetPasswordSchema, },
+        handler: async ({ body, req, res, },) => {
+            let user;
+            try {
+                user = await resetPassword(body.token, body.password,);
+            } catch (err) {
+                if (err instanceof ResetTokenInvalidError) {
+                    throw new AppError(400, 'INVALID_TOKEN', err.message,);
+                }
+                throw err;
+            }
+
+            const ipAddress = clientIp(req.headers, req.ip,);
+            const userAgent = req.headers['user-agent'];
+            const { accessToken, refreshToken, expiresAt, } = generateTokens(user.id, user.role,);
+            await createSession(user.id, accessToken, refreshToken, expiresAt, ipAddress, userAgent,);
+            setAuthCookies(res, { accessToken, refreshToken, },);
+
+            return { user, accessToken, refreshToken, expiresAt, };
         },
     },),
 

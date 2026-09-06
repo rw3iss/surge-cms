@@ -412,6 +412,18 @@ const USERS_SETTINGS: KeyedSetting = {
     },
 };
 
+/**
+ * Per-purpose email overrides. An EMPTY object is the right fallback: every
+ * purpose already carries its own `defaultEnabled` + default body in the
+ * registry, so "not configured" must mean "behave as shipped", not "off".
+ */
+const MAIL_PURPOSES_KEY: KeyedSetting = {
+    key: 'mail_purposes',
+    cacheKey: 'settings:mail_purposes',
+    entityId: 'mail_purposes',
+    fallback: {},
+};
+
 /** Read one keyed JSON setting (cached 600s), with a typed fallback. */
 async function getKeyed(def: KeyedSetting,): Promise<unknown> {
     const cached = await cache.get(def.cacheKey,);
@@ -479,6 +491,12 @@ export async function getUsersSettings(): Promise<import('@sitesurge/types').Use
     };
 }
 export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);
+
+/** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
+ *  subject, blocks, autoSend }. An absent key means "registry defaults", so a
+ *  fresh install sends every built-in email without any configuration. */
+export const getMailPurposes = () => getKeyed(MAIL_PURPOSES_KEY,);
+export const setMailPurposes = (value: unknown, ctx: AuditContext,) => setKeyed(MAIL_PURPOSES_KEY, value, ctx,);
 
 // ─── Admin appearance (operator-only, not cached) ─────────────────────
 // Color tokens applied to the admin chrome. Stored at

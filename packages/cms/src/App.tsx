@@ -31,6 +31,8 @@ const ProfilePage = lazy(() => import('./pages/Profile'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const SetupPage = lazy(() => import('./pages/setup/Setup'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmail'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPassword'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPassword'));
 
 // Admin pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -117,6 +119,8 @@ const App: Component = () => {
 										<Route path="/login" component={LoginPage} />
 										<Route path="/join" component={JoinPage} />
 										<Route path="/verify" component={VerifyEmailPage} />
+										<Route path="/forgot-password" component={ForgotPasswordPage} />
+										<Route path="/reset-password" component={ResetPasswordPage} />
 										<Route path="/posts" component={PostsPage} />
 										<Route path="/posts/:slug" component={PostPage} />
 										<Route path="/donate" component={DynamicPage} />
