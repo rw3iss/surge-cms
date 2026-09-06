@@ -16,6 +16,15 @@ import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { createResource, } from 'solid-js';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
 
+/** Display name for a fulfilment provider key. Falls back to the key itself so
+ *  a provider we no longer register still renders rather than showing blank. */
+const PROVIDER_LABELS: Record<string, string> = {
+    printify: 'Printify',
+    apliiq: 'Apliiq',
+    printful: 'Printful',
+};
+const providerLabel = (key: string,): string => PROVIDER_LABELS[key] ?? key;
+
 const ShopProductsInner: Component = () => {
     const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
 
@@ -24,6 +33,7 @@ const ShopProductsInner: Component = () => {
         initialLimit: 20,
         params: () => ({
             status: searchParams.status,
+            provider: searchParams.provider,
             search: searchParams.search,
         }),
     },);
@@ -129,6 +139,19 @@ const ShopProductsInner: Component = () => {
                     <option value="active">Active</option>
                     <option value="archived">Archived</option>
                 </select>
+                {/* Filter by who fulfils it. Useful the moment more than one
+                    provider is in play — "show me everything Apliiq prints". */}
+                <select
+                    class="admin-filter-bar__select"
+                    value={searchParams.provider || ''}
+                    onChange={(e,) => setSearchParams({ provider: e.currentTarget.value || undefined, },)}
+                >
+                    <option value="">All sources</option>
+                    <option value="native">Own stock</option>
+                    <option value="printify">Printify</option>
+                    <option value="apliiq">Apliiq</option>
+                    <option value="printful">Printful</option>
+                </select>
                 {/* Full result count for the active filter (not just this page). */}
                 <Show when={!list.loading()}>
                     <span class="admin-filter-bar__count">
@@ -167,6 +190,7 @@ const ShopProductsInner: Component = () => {
                                         <input type="checkbox" checked={allSelected()} onChange={toggleAll} />
                                     </th>
                                     <th>Title</th>
+                                    <th>Source</th>
                                     <th>Price</th>
                                     <th>Status</th>
                                     <th>Rating</th>
@@ -206,6 +230,31 @@ const ShopProductsInner: Component = () => {
                                                 <A href={`/admin/shop/products/${p.id}`} class="table-link">
                                                     {p.title}
                                                 </A>
+                                            </td>
+                                            {/* Who fulfils this product. Linked to the
+                                                source design where the provider gives us
+                                                a URL, so an operator can jump straight to
+                                                the artwork. */}
+                                            <td>
+                                                <Show
+                                                    when={p.externalProvider}
+                                                    fallback={<span class="form-help-muted">Own stock</span>}
+                                                >
+                                                    <Show
+                                                        when={p.externalUrl}
+                                                        fallback={<span class="badge badge--info">{providerLabel(p.externalProvider!,)}</span>}
+                                                    >
+                                                        <a
+                                                            href={p.externalUrl!}
+                                                            target="_blank"
+                                                            rel="noopener"
+                                                            class="badge badge--info"
+                                                            title={`Open this product at ${providerLabel(p.externalProvider!,)}`}
+                                                        >
+                                                            {providerLabel(p.externalProvider!,)} ↗
+                                                        </a>
+                                                    </Show>
+                                                </Show>
                                             </td>
                                             <td>
                                                 <Show

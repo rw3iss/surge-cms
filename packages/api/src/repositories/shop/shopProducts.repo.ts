@@ -61,6 +61,8 @@ const LIST_EXTRAS = `
 
 export interface ProductFilters {
     status?: string;
+    /** Fulfilment source: a provider key, or 'native' for our own stock. */
+    provider?: string;
     search?: string;
     sortBy?: string;
     sortOrder?: string;
@@ -110,6 +112,15 @@ export async function findAllProducts(
     if (filters.search) {
         params.push(`%${filters.search}%`,);
         whereClause += ` AND (title ILIKE $${params.length} OR description ILIKE $${params.length})`;
+    }
+    if (filters.provider) {
+        // 'native' means we fulfil it ourselves — i.e. no external provider.
+        if (filters.provider === 'native') {
+            whereClause += ' AND external_provider IS NULL';
+        } else {
+            params.push(filters.provider,);
+            whereClause += ` AND external_provider = $${params.length}`;
+        }
     }
 
     // Admin: default to the manual position order (so the table matches the

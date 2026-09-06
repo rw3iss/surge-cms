@@ -101,6 +101,8 @@ const productListQuery = z.object({
     sortOrder: z.string().optional(),
     all: z.string().optional(),
     status: z.string().optional(),
+    /** Fulfilment source: a provider key, or 'native' for our own stock. */
+    provider: z.string().max(32,).optional(),
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(20,),
 },);
@@ -346,7 +348,7 @@ export const shopRoutes = [
 
             if (isAdmin && (query.all === 'true' || query.status !== undefined)) {
                 const result = await products.list(
-                    { status: query.status, search: query.search, sortBy: query.sortBy, sortOrder: query.sortOrder, },
+                    { status: query.status, provider: query.provider, search: query.search, sortBy: query.sortBy, sortOrder: query.sortOrder, },
                     { page: query.page, limit: query.limit, },
                 );
                 return reply(result.data, { meta: result.meta, },);

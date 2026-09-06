@@ -74,6 +74,8 @@ export interface ShopMediaInput {
 
 /** Query accepted by GET /shop/products. */
 export interface ShopProductListQuery {
+    /** Fulfilment source: a provider key, or 'native' for our own stock. */
+    provider?: string;
     /** public/admin: substring match on title/description */
     search?: string;
     sortBy?: string;
