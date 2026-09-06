@@ -32,30 +32,51 @@ interface ApliiqVariant {
     sku?: string; price?: number; color?: string; size?: string;
     imageUrl?: string; weight?: number; weightUnit?: string; default?: boolean;
 }
-interface ApliiqAddPayload {
-    name?: string; type?: string; currency?: string;
+interface ApliiqProductBody {
+    name?: string; type?: string; currency?: string; description?: string;
     imageUrls?: string[]; sizes?: string[]; colors?: string[];
     replaceProduct?: boolean; variants?: ApliiqVariant[];
+}
+
+/**
+ * What Apliiq actually POSTs.
+ *
+ * Their docs show the product FLAT at the top level. The live webhook instead
+ * wraps it: `{ ApliiqProductIds: [6068710], product: { name, variants, … } }`.
+ * Both are accepted — the documented shape because it is documented, the nested
+ * one because it is what arrives.
+ */
+interface ApliiqAddPayload extends ApliiqProductBody {
+    ApliiqProductIds?: Array<number | string>;
+    product?: ApliiqProductBody;
+}
+
+/** Unwrap to the product body, whichever shape arrived. */
+function apliiqProductOf(payload: ApliiqAddPayload,): ApliiqProductBody {
+    return payload.product && typeof payload.product === 'object' ? payload.product : payload;
 }
 
 /** Bound the damage an unauthenticated caller can do. */
 const MAX_VARIANTS = 500;
 
 function normaliseApliiqAdd(payload: ApliiqAddPayload,): IncomingStoreProduct {
-    const variants = payload.variants ?? [];
+    const product = apliiqProductOf(payload,);
+    const variants = product.variants ?? [];
     if (!Array.isArray(variants,)) throw new Error('`variants` must be an array.',);
     if (variants.length > MAX_VARIANTS) {
         throw new Error(`Too many variants (${variants.length}).`,);
     }
-    // Derive the design stem here so the pre-flight hook and the ingest agree on
-    // the identity of the product. A payload whose variants disagree is rejected
-    // by the hook, so taking the first is safe by the time we write.
+    // Identity: prefer Apliiq's own id — it is what their public product URL
+    // uses (/product/6068710), so the admin deep-link resolves. Fall back to the
+    // SKU stem when the wrapper is absent (the documented flat shape).
+    const apliiqId = payload.ApliiqProductIds?.[0];
     const stem = variants.length ? designStemFromSku(String(variants[0].sku ?? '',),) : null;
+    const identity = apliiqId != null ? String(apliiqId,) : stem;
     return {
-        externalId: stem,
-        externalDesignId: stem,
-        name: String(payload.name ?? '',).slice(0, 255,),
-        replaceProduct: payload.replaceProduct === true,
+        externalId: identity,
+        externalDesignId: identity,
+        name: String(product.name ?? '',).slice(0, 255,),
+        replaceProduct: product.replaceProduct === true,
         variants: variants.map((v,) => ({
             sku: String(v.sku ?? '',).slice(0, 100,),
             // Apliiq quotes dollars; we store cents everywhere.
@@ -116,7 +137,8 @@ async function apliiqWebhook(
             }
             const { ingestApliiqProduct, } = await import('./apliiq/ingest.js');
             const res = await ingestApliiqProduct(
-                (input.body ?? {}) as never, designId, productId,
+                apliiqProductOf((input.body ?? {}) as ApliiqAddPayload,) as never,
+                designId, productId,
             );
             return {
                 status: 200,

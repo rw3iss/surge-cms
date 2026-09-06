@@ -98,7 +98,7 @@ export async function runStoreAdd(
         const keys = raw && typeof raw === 'object' ? Object.keys(raw as object,) : [];
         logger.warn(
             `[shop:${providerKey}] rejected payload had top-level keys [${keys.join(', ',)}]: `
-                + JSON.stringify(raw,).slice(0, 800,),
+                + JSON.stringify(raw,).slice(0, 4000,),
         );
     }
 
