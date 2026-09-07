@@ -516,6 +516,12 @@
 
   // Collapsed-header cart instance: mobile-only, like its Donate sibling.
   &__mobile-cart {
+    // Extra breathing room before the Shop button. Deliberately a margin on the
+    // cart rather than a bigger gap on the group: the group's 10px is matched
+    // to the flyout head so the Shop button lands in the identical spot whether
+    // the menu is open or closed, and widening it would reintroduce that shift.
+    margin-right: 5px;
+
     @include md {
       display: none;
     }
