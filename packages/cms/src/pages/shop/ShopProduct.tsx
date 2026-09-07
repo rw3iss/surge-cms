@@ -79,7 +79,6 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
         [...(product().media ?? []),].sort((a, b,) => a.position - b.position,),
     );
     const [activeMedia, setActiveMedia,] = createSignal(0,);
-    const currentMedia = (): ShopProductMediaDetail | undefined => media()[activeMedia()];
 
     // ── Variant resolution ───────────────────────────────────────────
     // Options are ordered by `position`; a variant's option1/2/3 map to the
@@ -90,8 +89,34 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
     );
     const variants = () => product().variants ?? [];
 
+    /**
+     * Which option carries the COLOUR.
+     *
+     * Not necessarily the first: a product may be defined Size-then-Color, and
+     * comparing option1 there compares sizes. Prefer an option actually named
+     * colour; fall back to the first when nothing says so.
+     */
+    const colourAxis = createMemo(() =>
+        Math.max(0, options().findIndex((o,) => /colou?r/i.test(o.name,),),),
+    );
+    const optionValueAt = (v: ShopVariant | undefined, idx: number,): string | null | undefined =>
+        idx === 2 ? v?.option3 : idx === 1 ? v?.option2 : v?.option1;
+
     const initialSelection = (): Record<string, string> => {
-        const def = variants().find((v,) => v.isDefault,) ?? variants()[0];
+        /**
+         * Which variant the page opens on, in order of how deliberate it is:
+         *  1. one an operator explicitly flagged as the default,
+         *  2. else the variant of the MAIN image — the photo chosen to lead,
+         *     so opening on a different colour contradicts the shop's own
+         *     merchandising,
+         *  3. else the first variant, which is just whatever sorted first.
+         */
+        const flagged = variants().find((v,) => v.isDefault,);
+        const mainImage = media()[0];
+        const fromMainImage = mainImage?.variantId
+            ? variants().find((v,) => v.id === mainImage.variantId,)
+            : undefined;
+        const def = flagged ?? fromMainImage ?? variants()[0];
         const sel: Record<string, string> = {};
         options().forEach((opt, idx,) => {
             const key = ([def?.option1, def?.option2, def?.option3,][idx]) ?? opt.values[0]?.value;
@@ -99,40 +124,62 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
         },);
         return sel;
     };
+    // Declared BEFORE the colour memos below: `createMemo` runs eagerly, so a
+    // memo reading `selection` while it is still in its temporal dead zone
+    // throws during setup and the page renders nothing.
     const [selection, setSelection,] = createSignal<Record<string, string>>(initialSelection(),);
 
     const selectOption = (name: string, value: string,) =>
         setSelection((prev,) => ({ ...prev, [name]: value, }),);
 
+    /** The colour currently picked, if the product has a colour option. */
+    const selectedColour = (): string | undefined => {
+        const opt = options()[colourAxis()];
+        return opt ? selection()[opt.name] : undefined;
+    };
+
+    /** Every variant id sharing the selected colour — one per size. */
+    const colourVariantIds = createMemo(() => {
+        const want = selectedColour();
+        if (!want) return new Set<string>();
+        return new Set(
+            variants().filter((v,) => optionValueAt(v, colourAxis(),) === want).map((v,) => v.id),
+        );
+    },);
+
     /**
-     * Show the picked variant's own image, when one exists.
+     * The gallery for the picked colour: that colour's images first, then the
+     * unattributed ("All") ones, which apply to every colour.
      *
-     * Providers that model each colourway separately (Apliiq) give one mock-up
-     * per colour, attached to a single variant of that colour. Matching on the
-     * variant id alone would only fire on that exact size, so fall back to any
-     * image belonging to a variant sharing the selected option1 — the colour.
-     * Silent no-op when nothing matches, so products without per-variant images
-     * behave exactly as before.
+     * Falls back to the whole set when the colour has no images of its own —
+     * an empty gallery would be worse than an unfiltered one.
+     */
+    const visibleMedia = createMemo(() => {
+        const all = media();
+        const ids = colourVariantIds();
+        if (ids.size === 0) return all;
+        const matching = all.filter((m,) => m.variantId && ids.has(m.variantId,));
+        if (matching.length === 0) return all;
+        return [...matching, ...all.filter((m,) => !m.variantId),];
+    },);
+
+    const currentMedia = (): ShopProductMediaDetail | undefined => visibleMedia()[activeMedia()];
+
+    /**
+     * Reset to the first image whenever the colour changes.
+     *
+     * `visibleMedia` is already ordered colour-first, so index 0 IS "the first
+     * image for this colour, else the first shared one" — no searching needed.
+     *
+     * This replaces an effect that keyed on the fully RESOLVED variant, which
+     * is why picking a colour often did nothing: with a size still selected
+     * from the previous colour, the combination frequently matched no variant
+     * at all, the effect bailed out, and the photo stayed on the old colour.
+     * The colour alone is what the gallery depends on.
      */
     createEffect(() => {
-        const v = resolvedVariant();
-        if (!v) return;
-        const all = media();
-        const exact = all.findIndex((m,) => m.variantId === v.id);
-        if (exact >= 0) { setActiveMedia(exact,); return; }
-        // WHICH option is the colour? Not necessarily the first — a product may
-        // be defined Size-then-Color, in which case matching option1 compares
-        // sizes and the fallback picks an unrelated photo. Prefer an option
-        // actually named colour; fall back to the first when nothing says so.
-        const axis = Math.max(0, options().findIndex((o,) => /colou?r/i.test(o.name,),),);
-        const valueOf = (x: ShopVariant,) =>
-            axis === 2 ? x.option3 : axis === 1 ? x.option2 : x.option1;
-        const want = valueOf(v,);
-        const sameColour = variants()
-            .filter((x,) => want && valueOf(x,) === want)
-            .map((x,) => x.id);
-        const byColour = all.findIndex((m,) => m.variantId && sameColour.includes(m.variantId,));
-        if (byColour >= 0) setActiveMedia(byColour,);
+        selectedColour();
+        setActiveMedia(0,);
     },);
 
     const resolvedVariant = createMemo<ShopVariant | undefined>(() => {
@@ -284,9 +331,9 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
                             )}
                         </Show>
                     </div>
-                    <Show when={media().length > 1}>
+                    <Show when={visibleMedia().length > 1}>
                         <div class="shop-product__thumbs">
-                            <For each={media()}>
+                            <For each={visibleMedia()}>
                                 {(m, i,) => (
                                     <button
                                         type="button"

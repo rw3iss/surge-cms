@@ -18,6 +18,7 @@ import type {
     EntityTypeDef,
 } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
+import { createStore, produce, } from 'solid-js/store';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
@@ -102,28 +103,40 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      * Always at least one row, so the controls are visible without a
      * "add a filter" step for the common single-clause case.
      */
-    const [clauses, setClauses,] = createSignal<FilterClause[]>([blankClause(),],);
+    /**
+     * A STORE, not a signal of an array — deliberately.
+     *
+     * As a signal, editing one clause replaced the whole array with fresh object
+     * identities, so `<For>` (which keys by reference) tore down and rebuilt
+     * every row. The row holding the caret was one of them, so the value input
+     * lost focus on the first keystroke. A store patches the row in place: the
+     * array and the untouched rows keep their identity and the DOM survives.
+     */
+    const [clauses, setClauses,] = createStore<FilterClause[]>([blankClause(),],);
 
     const patchClause = (i: number, change: Partial<FilterClause>,) =>
-        setClauses((list,) => list.map((c, j,) => (j === i ? { ...c, ...change, } : c)),);
-    const addClause = () => setClauses((list,) => [...list, blankClause(),],);
+        setClauses(i, change,);
+    const addClause = () => setClauses(produce((list,) => { list.push(blankClause(),); }),);
     const removeClause = (i: number,) =>
         // Never drop the last row — an empty list would hide the controls
         // entirely and leave no way to add one back.
-        setClauses((list,) => (list.length <= 1 ? [blankClause(),] : list.filter((_, j,) => j !== i,)));
+        setClauses(produce((list,) => {
+            if (list.length <= 1) list[0] = blankClause();
+            else list.splice(i, 1,);
+        }),);
 
     let searchTimer: ReturnType<typeof setTimeout>;
-    let filterTimer: ReturnType<typeof setTimeout>;
 
-    /** Debounced refetch when the clause VALUE changes (a text input) — field/op
-     *  are dropdowns and refetch immediately via the effect below. */
-    const onFilterValueInput = (i: number, value: string,) => {
+    /**
+     * Commit a clause's value. Called on BLUR (and Enter), not per keystroke —
+     * the input keeps its own draft while you type, so nothing above it
+     * re-renders mid-word. Refetching here is therefore immediate: by the time
+     * it runs, the operator has finished typing.
+     */
+    const onFilterValueCommit = (i: number, value: string,) => {
+        if (clauses[i]?.value === value) return;
         patchClause(i, { value, },);
-        clearTimeout(filterTimer,);
-        filterTimer = setTimeout(() => {
-            setPage(1,);
-            void fetchRecords();
-        }, 300,);
+        setPage(1,);
     };
 
     /** Column-backed, non-blocks fields, capped for width, PLUS the standard
@@ -201,7 +214,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             return /^-?\d+(\.\d+)?$/.test(t,) ? Number(t,) : t;
         };
         const merged: Record<string, EntityFilterValue> = {};
-        for (const c of clauses()) {
+        for (const c of clauses) {
             if (!c.field || c.value === '') continue;
             merged[c.field] = {
                 op: c.op,
@@ -257,9 +270,10 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         page();
         sortBy();
         sortOrder();
-        // Reading the list registers a dependency on every clause, so editing
-        // any field/op/value refetches.
-        clauses();
+        // Serialising the filter registers a dependency on every clause field,
+        // so committing any field/op/value refetches — and an edit that doesn't
+        // change the resulting filter (a half-typed row) doesn't.
+        JSON.stringify(buildFilter() ?? null,);
         void fetchRecords();
     },);
 
@@ -327,7 +341,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     dropdowns, which could only ever express equality. */}
                 <Show when={filterFields().length > 0}>
                     <div class="entity-search-modal__clauses">
-                        <For each={clauses()}>
+                        <For each={clauses}>
                             {(c, i,) => (
                                 <div class="entity-search-modal__query">
                                     <select
@@ -361,10 +375,10 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                         typeKey={props.entityType}
                                         field={c.field}
                                         value={c.value}
-                                        onInput={(v,) => onFilterValueInput(i(), v,)}
+                                        onCommit={(v,) => onFilterValueCommit(i(), v,)}
                                         placeholder="Value (comma-separated for 'is any of')"
                                     />
-                                    <Show when={clauses().length > 1}>
+                                    <Show when={clauses.length > 1}>
                                         <button
                                             type="button"
                                             class="entity-search-modal__clause-remove"
@@ -375,7 +389,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                             ×
                                         </button>
                                     </Show>
-                                    <Show when={i() === clauses().length - 1}>
+                                    <Show when={i() === clauses.length - 1}>
                                         <button
                                             type="button"
                                             class="ui-button ui-button--sm ui-button--secondary"

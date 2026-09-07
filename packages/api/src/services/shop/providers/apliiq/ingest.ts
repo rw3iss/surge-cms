@@ -269,8 +269,10 @@ export async function ingestApliiqProduct(
     if (allSizes.length > 1) {
         mergedOptions.push({ name: 'Size', position: mergedOptions.length + 1, values: allSizes.map((v, i,) => ({ value: v, position: i, })), },);
     }
-    // Exactly one default across the merged set.
-    mergedVariants.forEach((v, i,) => { v.isDefault = i === 0; v.position = i; },);
+    // Position is ours to assign; the DEFAULT is not. Leaving it unset means a
+    // re-push from Apliiq keeps the variant an operator chose in the admin
+    // instead of resetting it to whichever row happens to be first.
+    mergedVariants.forEach((v, i,) => { delete v.isDefault; v.position = i; },);
 
     const allMedia = [...carriedMedia, ...media, ...operatorMedia,]
         .map((m, i,) => ({ ...m, position: i, }),);

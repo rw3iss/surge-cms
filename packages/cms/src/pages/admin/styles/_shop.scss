@@ -998,3 +998,34 @@
     position: relative;
     line-height: 0;
 }
+
+// ── Default variant ──────────────────────────────────────────────────────
+// The row above the variant grid that answers "which combination does the
+// storefront open on?" without hunting for a tick among dozens of rows.
+.shop-product-editor__default-summary {
+    td {
+        background: $background-dark;
+        border-bottom: 1px solid $border-color;
+    }
+
+    .ui-button {
+        margin-left: 0.75rem;
+    }
+}
+
+.shop-product-editor__default-label {
+    color: $text-color;
+    font-size: 0.85rem;
+}
+
+.shop-product-editor__default-none {
+    color: $text-light;
+    font-size: 0.85rem;
+}
+
+.shop-product-editor__default-badge {
+    color: $primary-color;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}

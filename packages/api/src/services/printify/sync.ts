@@ -122,7 +122,10 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
             option2: slots[1],
             option3: slots[2],
             position: i,
-            isDefault: i === 0,
+            // Deliberately unset: which variant opens the product page is an
+            // operator's editorial choice, and Printify's first variant is
+            // arbitrary (frequently a 5XL in an off colour). Omitting it makes
+            // the repo keep whatever is already stored on a resync.
             externalId: String(v.id,),
         };
     });

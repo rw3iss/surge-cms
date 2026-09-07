@@ -26,6 +26,8 @@ vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 // for a product that already supplied variants.
 const txnQueries: { sql: string; params?: unknown[]; }[] = [];
 let variantRowCount = 0;
+/** Variants the product already has — drives the writer's UPDATE-vs-INSERT match. */
+let existingVariantRows: Record<string, unknown>[] = [];
 const fakeClient = {
     query: vi.fn(async (sql: string, params?: unknown[]) => {
         txnQueries.push({ sql, params, },);
@@ -33,6 +35,10 @@ const fakeClient = {
         if (/DELETE FROM shop_variants/.test(sql,)) variantRowCount = 0;
         if (/SELECT COUNT\(\*\)::int AS n FROM shop_variants/.test(sql,)) {
             return { rows: [{ n: variantRowCount, },], };
+        }
+        if (/SELECT id, external_id, option1, option2, option3 FROM shop_variants/.test(sql,)) {
+            variantRowCount = existingVariantRows.length;
+            return { rows: existingVariantRows, };
         }
         return { rows: [{ id: 'opt-1', },], };
     }),
@@ -76,6 +82,7 @@ describe('shop products service', () => {
         invalidateProductMock.mockReset();
         txnQueries.length = 0;
         variantRowCount = 0;
+        existingVariantRows = [];
         fakeClient.query.mockClear();
         findPublicProductsMock.mockClear();
         findAllProductsMock.mockClear();
@@ -140,5 +147,69 @@ describe('shop products service', () => {
         }, ctx,);
         const variantInserts = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
         expect(variantInserts.length,).toBe(2,);
+    },);
+
+    describe('default variant', () => {
+        // The default is which colour/size combination a shopper lands on. It is
+        // an operator's choice, so a supplier resync (which knows nothing about
+        // it) must leave it alone.
+        beforeEach(() => {
+            existingVariantRows = [
+                { id: 'v-black', external_id: 'e1', option1: 'Solid Black', option2: 'M', },
+                { id: 'v-red', external_id: 'e2', option1: 'Solid Red', option2: 'M', },
+            ];
+        },);
+
+        const variantUpdates = () =>
+            txnQueries.filter((q,) => q.sql.includes('UPDATE shop_variants SET',));
+
+        it('an update that omits isDefault preserves the stored one', async () => {
+            await products.update('p1', {
+                variants: [
+                    { priceCents: 500, option1: 'Solid Black', option2: 'M', externalId: 'e1', },
+                    { priceCents: 500, option1: 'Solid Red', option2: 'M', externalId: 'e2', },
+                ],
+            }, ctx,);
+
+            const updates = variantUpdates();
+            expect(updates.length,).toBe(2,);
+            // COALESCE keeps the column when the caller has no opinion...
+            expect(updates[0].sql.replace(/\s+/g, ' ',),).toContain('is_default = COALESCE($13, is_default)',);
+            // ...and the bound value is NULL, which is what makes that work.
+            expect((updates[0].params as unknown[])[12],).toBeNull();
+            expect((updates[1].params as unknown[])[12],).toBeNull();
+        },);
+
+        it('an explicit isDefault is written through', async () => {
+            await products.update('p1', {
+                variants: [
+                    { priceCents: 500, option1: 'Solid Black', option2: 'M', externalId: 'e1', isDefault: false, },
+                    { priceCents: 500, option1: 'Solid Red', option2: 'M', externalId: 'e2', isDefault: true, },
+                ],
+            }, ctx,);
+
+            const updates = variantUpdates();
+            expect((updates[0].params as unknown[])[12],).toBe(false,);
+            expect((updates[1].params as unknown[])[12],).toBe(true,);
+        },);
+
+        it('a lone new variant is the default; one of several is not', async () => {
+            existingVariantRows = [];
+            await products.update('p1', { variants: [{ priceCents: 500, },], }, ctx,);
+            const lone = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
+            expect((lone[0].params as unknown[])[13],).toBe(true,); // +1 for product_id
+
+            txnQueries.length = 0;
+            variantRowCount = 0;
+            await products.update('p1', {
+                variants: [
+                    { priceCents: 500, option1: 'S', },
+                    { priceCents: 500, option1: 'M', },
+                ],
+            }, ctx,);
+            const many = txnQueries.filter((q,) => q.sql.includes('INSERT INTO shop_variants'),);
+            expect((many[0].params as unknown[])[13],).toBe(false,);
+            expect((many[1].params as unknown[])[13],).toBe(false,);
+        },);
     },);
 },);

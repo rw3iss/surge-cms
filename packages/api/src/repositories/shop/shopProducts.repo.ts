@@ -551,7 +551,11 @@ export async function replaceProductStructure(
                     v.option3 ?? null,
                     uuidOrNull(v.imageId ?? null,),
                     v.position ?? i,
-                    v.isDefault ?? (variants.length === 1),
+                    // NULL means "no opinion" — the UPDATE below COALESCEs it to
+                    // whatever the row already holds. A supplier sync omits the
+                    // flag, so re-syncing a product no longer wipes the default
+                    // variant an operator picked in the admin.
+                    v.isDefault ?? null,
                     v.externalId ?? null,
                 ];
                 // external_id wins; the option triple is the fallback. `keptIds`
@@ -568,19 +572,24 @@ export async function replaceProductStructure(
                             sku = $1, price_cents = $2, compare_at_price_cents = $3, inventory_qty = $4,
                             weight_grams = $5, requires_shipping = $6, shipping_cents = $7,
                             option1 = $8, option2 = $9, option3 = $10, image_id = $11, position = $12,
-                            is_default = $13, external_id = $14, updated_at = NOW()
+                            is_default = COALESCE($13, is_default), external_id = $14, updated_at = NOW()
                          WHERE id = $15`,
                         [...cols, existingId,],
                     );
                     keptIds.add(existingId,);
                 } else {
+                    // On INSERT there is no prior value to keep, so "no opinion"
+                    // resolves now: a lone variant is the default, a set of them
+                    // has none until someone chooses.
+                    const insertCols = [...cols,];
+                    insertCols[12] = v.isDefault ?? (variants.length === 1);
                     const ins = await c.query<{ id: string; }>(
                         `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
                                                     inventory_qty, weight_grams, requires_shipping, shipping_cents,
                                                     option1, option2, option3, image_id, position, is_default, external_id)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                              RETURNING id`,
-                        [productId, ...cols,],
+                        [productId, ...insertCols,],
                     );
                     keptIds.add(ins.rows[0].id,);
                 }

@@ -52,6 +52,15 @@ interface VariantRow {
     /** Per-variant flat shipping cost, as editable dollars. */
     shipping: string;
     imageId: string | null;
+    /**
+     * The selection a shopper lands on when opening the product page.
+     *
+     * At most one variant carries this; the storefront prefers it over the main
+     * image's variant and over "the first row", which is whatever order the
+     * supplier happened to send (a 5XL in the least flattering colour, in
+     * practice).
+     */
+    isDefault: boolean;
 }
 
 interface MediaRow {
@@ -107,6 +116,7 @@ const emptyVariant = (o1: string | null, o2: string | null, o3: string | null,):
     requiresShipping: true,
     shipping: '',
     imageId: null,
+    isDefault: false,
 });
 
 const ShopProductEditorInner: Component = () => {
@@ -187,6 +197,7 @@ const ShopProductEditorInner: Component = () => {
                     requiresShipping: v.requiresShipping,
                     shipping: v.shippingCents != null ? centsToDollars(v.shippingCents,) : '',
                     imageId: v.imageId ?? null,
+                    isDefault: Boolean(v.isDefault,),
                 }),)
                 : [emptyVariant(null, null, null,),],
         );
@@ -399,6 +410,28 @@ const ShopProductEditorInner: Component = () => {
         setter(cur.includes(id,) ? cur.filter((x,) => x !== id,) : [...cur, id,],);
     };
 
+    // ── Default variant ───────────────────────────────────────────────
+    // Which combination a shopper sees first. Without this the storefront
+    // opened on whatever row the supplier listed first, which for a Printify
+    // import is arbitrary — a black 5XL for a product whose photography is red.
+
+    const defaultVariantIndex = createMemo(() => variants.findIndex((v,) => v.isDefault,));
+
+    /** Human label for a row: "Solid Red / M", or "Default" for an unoptioned product. */
+    const variantLabel = (v: VariantRow,): string => {
+        const parts = [v.option1, v.option2, v.option3,].filter(Boolean,) as string[];
+        return parts.length ? parts.join(' / ',) : 'Default';
+    };
+
+    // Exclusive by construction — clearing every row first means the table can
+    // never show two defaults, whatever the database happens to hold.
+    const setDefaultVariant = (idx: number,) => {
+        for (let i = 0; i < variants.length; i++) setVariants(i, 'isDefault', i === idx,);
+    };
+    const clearDefaultVariant = () => {
+        for (let i = 0; i < variants.length; i++) setVariants(i, 'isDefault', false,);
+    };
+
     // ── Shipping ──────────────────────────────────────────────────────
     // Show the per-variant shipping cost column only for flat-fee products
     // that aren't using the shop's default flat rate.
@@ -436,7 +469,12 @@ const ShopProductEditorInner: Component = () => {
             option3: v.option3,
             imageId: v.imageId,
             position: i,
-            isDefault: i === 0 && !hasOptions(),
+            // An operator's choice wins. With no options there's one variant and
+            // it is the default by definition; with options and nothing chosen,
+            // send nothing rather than silently anointing row 0 — the storefront
+            // then falls back to the main image's colour, which is a better
+            // guess than supplier ordering.
+            isDefault: hasOptions() ? v.isDefault : true,
         }),);
 
         const mediaInputs: ShopMediaInput[] = media.map((m, i,) => ({
@@ -911,9 +949,41 @@ const ShopProductEditorInner: Component = () => {
                                         <th>Ships</th>
                                         <Show when={showVariantShipping()}><th>Shipping ($)</th></Show>
                                         <th>Image</th>
+                                        <Show when={hasOptions()}><th>Default</th></Show>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {/* The current default, called out above the grid — with
+                                        dozens of rows, a tick somewhere in the list is not an
+                                        answer to "what opens first?". */}
+                                    <Show when={hasOptions()}>
+                                        <tr class="shop-product-editor__default-summary">
+                                            <td colspan={99}>
+                                                <Show
+                                                    when={defaultVariantIndex() >= 0}
+                                                    fallback={
+                                                        <span class="shop-product-editor__default-none">
+                                                            No default selection — the storefront opens on the
+                                                            main image’s colour, or the first variant.
+                                                        </span>
+                                                    }
+                                                >
+                                                    <span class="shop-product-editor__default-label">
+                                                        Default selection:
+                                                        {' '}
+                                                        <strong>{variantLabel(variants[defaultVariantIndex()]!,)}</strong>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        class="ui-button ui-button--sm ui-button--ghost"
+                                                        onClick={clearDefaultVariant}
+                                                    >
+                                                        Remove default
+                                                    </button>
+                                                </Show>
+                                            </td>
+                                        </tr>
+                                    </Show>
                                     <For each={variants}>
                                         {(v, i,) => (
                                             <tr>
@@ -993,6 +1063,26 @@ const ShopProductEditorInner: Component = () => {
                                                         {v.imageId ? 'Change' : 'Set'}
                                                     </button>
                                                 </td>
+                                                <Show when={hasOptions()}>
+                                                    <td>
+                                                        <Show
+                                                            when={v.isDefault}
+                                                            fallback={
+                                                                <button
+                                                                    type="button"
+                                                                    class="ui-button ui-button--sm ui-button--ghost"
+                                                                    onClick={() => setDefaultVariant(i(),)}
+                                                                >
+                                                                    Set default
+                                                                </button>
+                                                            }
+                                                        >
+                                                            <span class="shop-product-editor__default-badge">
+                                                                ✓ Default
+                                                            </span>
+                                                        </Show>
+                                                    </td>
+                                                </Show>
                                             </tr>
                                         )}
                                     </For>
