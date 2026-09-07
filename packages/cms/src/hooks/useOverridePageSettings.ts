@@ -57,11 +57,9 @@ export function useOverridePageSettings(slug: string,): OverridePageSettings {
         setActiveHeaderPosition((p as { headerPosition?: 'static' | 'float'; }).headerPosition ?? null,);
         setActivePageBackground((p as { backgroundColor?: string | null; }).backgroundColor ?? null,);
     },);
-    onCleanup(() => {
-        setActiveHeaderStyle(null,);
-        setActiveHeaderPosition(null,);
-        setActivePageBackground(null,);
-    },);
+    // No onCleanup reset: these signals are route-scoped, so a value from a
+    // previous route is ignored automatically. Clearing here would run AFTER
+    // the scope moved to the incoming route and wipe what that route just set.
 
     return {
         page,

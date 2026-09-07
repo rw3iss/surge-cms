@@ -42,6 +42,16 @@ const [currentPath, setCurrentPath,] = createSignal(
  */
 export const setRouteScope = (path: string,): void => { setCurrentPath(path,); };
 
+/**
+ * NOTE FOR CALLERS: a route must NEVER clear these on unmount.
+ *
+ * A stale value is already ignored (it is tagged with the route that set it),
+ * so clearing is unnecessary — and harmful: an unmount runs *after* the scope
+ * has advanced to the incoming route, so the clear would be recorded against
+ * the NEW path and wipe the value that route just set. Routes only ever write
+ * their own value.
+ */
+
 /** A value plus the route it belongs to. */
 interface Scoped<T> { path: string; value: T; }
 
@@ -54,12 +64,13 @@ function scopedSignal<T>(empty: T,) {
             return v && v.path === currentPath() ? v.value : empty;
         },
         write: (value: T,): void => {
-            set({
-                // Read the path at write time: during a client-side navigation
-                // history has already updated, so this is the incoming route.
-                path: typeof window === 'undefined' ? '' : window.location.pathname,
-                value,
-            } as Scoped<T>,);
+            // Scope to `currentPath()` — the SAME source the reader compares
+            // against. It must not be `window.location.pathname`: during a
+            // client-side navigation the router's location updates FIRST and
+            // history lags, so a route writing its background tagged it with
+            // the OLD path and the reader (already on the new path) discarded
+            // it. The page then stayed unstyled until a reload.
+            set({ path: currentPath(), value, } as Scoped<T>,);
         },
     };
 }

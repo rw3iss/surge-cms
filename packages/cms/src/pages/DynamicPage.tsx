@@ -98,10 +98,9 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
             (p as { backgroundColor?: string | null; } | null | undefined)?.backgroundColor ?? null,
         );
     },);
-    onCleanup(() => {
-        setActiveHeaderStyle(null,);
-        setActiveHeaderPosition(null,);
-    },);
+    // No onCleanup reset: these signals are route-scoped, so a value from a
+    // previous route is ignored automatically. Clearing here would run AFTER
+    // the scope moved to the incoming route and wipe what that route just set.
 
     // Left/right gutter + top/bottom page-padding are each opt-in per page
     // (defaults on). Falls back to on/on while the page loads or 404s.
