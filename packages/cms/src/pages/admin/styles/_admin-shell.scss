@@ -573,6 +573,31 @@
     margin-top: 4px;
   }
 
+  // "Unsaved changes" marker, sitting left of the action buttons. Amber rather
+  // than red: work in progress is a normal state, not an error.
+  &__dirty {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 6px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 999px;
+    padding: 3px 12px;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #d97706;
+    }
+  }
+
   &__actions {
     display: flex;
     flex-wrap: nowrap;

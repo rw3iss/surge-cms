@@ -218,6 +218,9 @@ const ShopProductEditorInner: Component = () => {
         setCollectionIds(d.collectionIds,);
         setTags(d.tags,);
         setPosition(d.position != null ? String(d.position,) : '',);
+        // Whatever the server just gave us IS the saved state — both on first
+        // load and after a Printify sync re-hydrates the form.
+        markPristine();
     };
 
     const [loaded,] = createResource(
@@ -512,6 +515,27 @@ const ShopProductEditorInner: Component = () => {
         };
     };
 
+    // ── Unsaved-changes tracking ──────────────────────────────────────
+    //
+    // Compared against the payload itself rather than a per-field flag: the
+    // payload IS what a save sends, so nothing can be edited without showing,
+    // and a field added later is covered without touching this code. Editing a
+    // value back to what it was correctly reads as clean again.
+    //
+    // NULL means "no baseline yet" — while the product is still loading there
+    // is nothing to compare against, and the form must not claim to be dirty.
+    const [baseline, setBaseline,] = createSignal<string | null>(null,);
+    const snapshot = () => JSON.stringify(buildPayload(),);
+    const markPristine = () => setBaseline(snapshot(),);
+    const isDirty = createMemo(() => {
+        const base = baseline();
+        return base !== null && snapshot() !== base;
+    },);
+
+    // A new product's baseline is the empty form, so the first keystroke counts.
+    // onMount (not setup) because buildPayload is defined further down.
+    onMount(() => { if (isNew()) markPristine(); },);
+
     const handleSave = async () => {
         if (!title().trim() || !slug().trim()) {
             toast.error('Title and slug are required.',);
@@ -522,10 +546,14 @@ const ShopProductEditorInner: Component = () => {
             const payload = buildPayload();
             if (isNew()) {
                 const created = await cms.shop.products.create(payload,);
+                setBaseline(JSON.stringify(payload,),);
                 toast.success('Product created.',);
                 navigate(`/admin/shop/products/${created.id}`,);
             } else {
                 await cms.shop.products.update(params.id, payload,);
+                // The payload we SENT, not a fresh snapshot: an edit made while
+                // the request was in flight must stay flagged as unsaved.
+                setBaseline(JSON.stringify(payload,),);
                 toast.success('Product saved.',);
             }
         } catch {
@@ -569,6 +597,11 @@ const ShopProductEditorInner: Component = () => {
                     </button>
                 </Show>
                 <div class="admin-header__actions">
+                    <Show when={isDirty()}>
+                        <span class="admin-header__dirty" title="This product has edits that haven’t been saved">
+                            Unsaved changes
+                        </span>
+                    </Show>
                     <button
                         class="ui-button ui-button--secondary"
                         onClick={() => navigate('/admin/shop/products',)}
