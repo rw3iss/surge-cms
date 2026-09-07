@@ -110,14 +110,32 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
     return clauses.length ? `WHERE ${clauses.join(' AND ',)}` : '';
 }
 
+export interface GenericListOptions {
+    /**
+     * Raw `ORDER BY …` used when the caller asked for NO explicit sort.
+     *
+     * For a type whose own admin screen has a meaningful order — products are
+     * hand-sorted by `position` — "newest first" is the wrong answer, and it is
+     * the order a carousel or entity block gets by default. Server-authored SQL,
+     * never user input, so it bypasses the sort allowlist deliberately: an
+     * allowlist entry is a single column and cannot express `position ASC NULLS
+     * LAST, updated_at DESC`.
+     */
+    defaultOrderBy?: string;
+}
+
 export async function list(
     typeDef: EntityTypeDef,
     q: EntityQuery = {},
+    opts: GenericListOptions = {},
 ): Promise<{ items: EntityRecord[]; total: number; }> {
     const table = `"${assertSafeIdentifier(typeDef.tableName, 'table name',)}"`;
     const params: unknown[] = [];
     const where = buildWhere(typeDef, q, params,);
-    const order = buildSortClause(q.sortBy, q.sortOrder, sortAllowlist(typeDef,), 'createdAt',);
+    // An explicit sort always wins — the default only fills the gap.
+    const order = (!q.sortBy && opts.defaultOrderBy)
+        ? opts.defaultOrderBy
+        : buildSortClause(q.sortBy, q.sortOrder, sortAllowlist(typeDef,), 'createdAt',);
     const page = Math.max(1, q.page ?? 1,);
     const limit = Math.min(200, Math.max(1, q.limit ?? 20,),);
     const offset = (page - 1) * limit;

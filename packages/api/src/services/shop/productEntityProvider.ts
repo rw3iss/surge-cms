@@ -154,10 +154,27 @@ function normalizeQuery(q: EntityQuery, admin: boolean,): EntityQuery {
     return q;
 }
 
+/**
+ * The catalogue's own order, identical to `POSITION_ORDER` in
+ * `shopProducts.repo` — the sort the admin Products table and the storefront
+ * both use.
+ *
+ * Without it an entity query (a carousel bound to `is_featured = true`, an
+ * entity block, a `{{ for products }}` loop) fell back to the generic default of
+ * `created_at DESC`, so the operator's hand-set order was ignored AND reversed.
+ * `position` is not a declared entity field, so this cannot be expressed as a
+ * `sortBy` — hence the raw clause.
+ */
+const CATALOG_ORDER = 'ORDER BY position ASC NULLS LAST, updated_at DESC';
+
 export const productEntityProvider: EntityDataProvider = {
     async list(q, opts,) {
         const t = entityManager.requireType('product',);
-        const res = await genericRepo.list(t, normalizeQuery(q, Boolean(opts?.admin,),),);
+        const res = await genericRepo.list(
+            t,
+            normalizeQuery(q, Boolean(opts?.admin,),),
+            { defaultOrderBy: CATALOG_ORDER, },
+        );
         const ids = res.items.map((i,) => i.id);
         const [media, tags, variants,] = await Promise.all([loadMedia(ids,), loadTags(ids,), loadVariants(ids,),],);
         return { items: res.items.map((r,) => enrich(r, media, tags, variants,)), total: res.total, };
