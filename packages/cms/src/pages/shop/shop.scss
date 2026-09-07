@@ -875,10 +875,12 @@
 
         @media (max-width: $breakpoint-md) {
             display: block;
-            // Sticks to the top so the visitor can re-filter from anywhere in a
-            // long product list without scrolling back up.
+            // Sticks below the site header so the visitor can re-filter from
+            // anywhere in a long product list. The offset is written live by
+            // ShopIndex (see the onMount that tracks the header's bottom edge);
+            // 0 is the right fallback for a page with no sticky header.
             position: sticky;
-            top: 0;
+            top: var(--shop-filter-top, 0px);
             z-index: 5;
             // Opaque background: the products scroll UNDER this, and a
             // transparent bar would show them through it.

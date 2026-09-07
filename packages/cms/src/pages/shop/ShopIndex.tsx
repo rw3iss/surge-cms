@@ -1,6 +1,6 @@
 import type { ShopAppearance, ShopCategory, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import { siteName, } from '../../stores/siteSettings';
@@ -79,6 +79,76 @@ const ShopIndexInner: Component = () => {
             : '';
 
     let mainEl: HTMLDivElement | undefined;
+    let filterBarEl: HTMLDivElement | undefined;
+
+    /**
+     * Keep the sticky mobile filter pinned directly BELOW the site header.
+     *
+     * A fixed offset can't work: the header may be static (scrolls away),
+     * sticky (always there), or sticky + auto-hide (slides out on scroll-down
+     * and back on scroll-up). Guessing wrong means either a permanent gap or —
+     * worse — the header covering the dropdown.
+     *
+     * So this reads the header's LIVE bottom edge and clamps it at zero, which
+     * happens to give the right answer for all three cases with one expression:
+     * a static header scrolled past reports a negative bottom (→ 0), a sticky
+     * one reports its height, and an auto-hidden one reports ~0 as it slides
+     * away. Written to a CSS custom property so the `top` stays in CSS.
+     */
+    onMount(() => {
+        const header = document.querySelector('.layout > header, header.header',);
+        if (!header) return;
+
+        let frame = 0;
+        const sync = () => {
+            frame = 0;
+            if (!filterBarEl) return;
+            const bottom = Math.max(0, header.getBoundingClientRect().bottom,);
+            filterBarEl.style.setProperty('--shop-filter-top', `${bottom}px`,);
+        };
+        // rAF-coalesced: scroll fires far more often than the browser paints,
+        // and this only needs to be right once per frame.
+        const schedule = () => { if (!frame) frame = requestAnimationFrame(sync,); };
+
+        /**
+         * An auto-hiding header slides in and out over a TRANSITION, so the
+         * value is still moving after the scroll event that triggered it.
+         * Syncing on scroll alone caught it mid-animation and then stopped,
+         * leaving the bar pinned to a stale offset — i.e. underneath the
+         * header, which is the exact bug this whole effect exists to avoid.
+         *
+         * `transitionend` gives the settled value precisely. The short trailing
+         * loop is the fallback for a transition that gets interrupted (scroll
+         * up then immediately down) and so never fires one. It is armed by
+         * scrolling and stops ~600ms later, so it costs nothing at rest.
+         */
+        let settle = 0;
+        let settleUntil = 0;
+        const runSettle = () => {
+            sync();
+            if (performance.now() < settleUntil) return;
+            window.clearInterval(settle,);
+            settle = 0;
+        };
+        const armSettle = () => {
+            settleUntil = performance.now() + 600;
+            if (!settle) settle = window.setInterval(runSettle, 50,);
+        };
+
+        const onScroll = () => { schedule(); armSettle(); };
+
+        sync();
+        window.addEventListener('scroll', onScroll, { passive: true, },);
+        window.addEventListener('resize', schedule,);
+        header.addEventListener('transitionend', sync,);
+        onCleanup(() => {
+            if (frame) cancelAnimationFrame(frame,);
+            if (settle) window.clearInterval(settle,);
+            window.removeEventListener('scroll', onScroll,);
+            window.removeEventListener('resize', schedule,);
+            header.removeEventListener('transitionend', sync,);
+        },);
+    },);
 
     /** Apply a mobile-dropdown choice, mirroring what the sidebar links do. */
     const onMobileFilterChange = (value: string,) => {
@@ -243,7 +313,7 @@ const ShopIndexInner: Component = () => {
                     free, and it stays keyboard- and screen-reader-usable. CSS
                     shows this or the sidebar, never both. */}
                 <Show when={hasSidebar()}>
-                    <div class="shop-index__mobile-filter">
+                    <div class="shop-index__mobile-filter" ref={(el,) => { filterBarEl = el; }}>
                         <select
                             aria-label="Filter products"
                             value={mobileFilterValue()}
