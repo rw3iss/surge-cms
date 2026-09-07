@@ -205,6 +205,7 @@ const ShopProductsInner: Component = () => {
                                     <th style={{ width: '40px', }}>
                                         <input type="checkbox" checked={allSelected()} onChange={toggleAll} />
                                     </th>
+                                    <th style={{ width: '56px', }} aria-label="Image" />
                                     <th>Title</th>
                                     <th>Source</th>
                                     <th>Price</th>
@@ -241,6 +242,26 @@ const ShopProductsInner: Component = () => {
                                                     checked={isSelected(p.id,)}
                                                     onChange={() => toggle(p.id,)}
                                                 />
+                                            </td>
+                                            {/* Thumbnail. `primaryImageUrl` is the
+                                                position-0 image, already on the list
+                                                row — no extra request. A product with
+                                                no media gets a neutral placeholder
+                                                rather than a broken-image icon. */}
+                                            <td>
+                                                <A href={`/admin/shop/products/${p.id}`} class="shop-products__thumb-link">
+                                                    <Show
+                                                        when={p.primaryImageUrl}
+                                                        fallback={<span class="shop-products__thumb shop-products__thumb--empty" aria-hidden="true" />}
+                                                    >
+                                                        <img
+                                                            class="shop-products__thumb"
+                                                            src={p.primaryImageUrl!}
+                                                            alt=""
+                                                            loading="lazy"
+                                                        />
+                                                    </Show>
+                                                </A>
                                             </td>
                                             <td>
                                                 <A href={`/admin/shop/products/${p.id}`} class="table-link">

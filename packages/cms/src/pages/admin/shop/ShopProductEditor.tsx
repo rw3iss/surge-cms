@@ -65,6 +65,13 @@ interface MediaRow {
     kind: 'image' | 'video';
     url: string;
     thumbnailUrl?: string;
+    /**
+     * Variant this image belongs to, or '' for "All" (shown for every
+     * selection). Set automatically by the Printify / Apliiq syncs and
+     * adjustable here. The storefront swaps the photo to the first image
+     * matching the shopper's colour.
+     */
+    variantId?: string;
 }
 
 /** Stable key for a variant's option combo. */
@@ -194,6 +201,7 @@ const ShopProductEditorInner: Component = () => {
                 kind: m.kind,
                 url: m.url,
                 thumbnailUrl: m.thumbnailUrl ?? undefined,
+                variantId: m.variantId ?? '',
             }),),
         );
         setCategoryIds(d.categoryIds,);
@@ -305,12 +313,76 @@ const ShopProductEditorInner: Component = () => {
     };
 
     const removeMedia = (idx: number,) => setMedia(produce((list,) => { list.splice(idx, 1,); }),);
-    const moveMedia = (idx: number, dir: -1 | 1,) => {
-        const j = idx + dir;
-        if (j < 0 || j >= media.length) return;
+
+    /** Attribute one image to a variant, or '' for "All". */
+    const setMediaVariant = (idx: number, variantId: string,) =>
+        setMedia(idx, 'variantId', variantId,);
+
+    /**
+     * Move a media row to an arbitrary index (drag-and-drop).
+     *
+     * Order IS the stored `position` — it's assigned from the array index on
+     * save, so dropping a row renumbers everything after it automatically and
+     * the sequence always starts at 0 with no gaps.
+     */
+    const reorderMedia = (from: number, to: number,) => {
+        if (from === to || from < 0 || to < 0 || from >= media.length || to >= media.length) return;
         setMedia(produce((list,) => {
-            const [row,] = list.splice(idx, 1,);
-            list.splice(j, 0, row,);
+            const [row,] = list.splice(from, 1,);
+            list.splice(to, 0, row,);
+        }),);
+    };
+
+    const [dragIndex, setDragIndex,] = createSignal<number | null>(null,);
+    const [dragOverIndex, setDragOverIndex,] = createSignal<number | null>(null,);
+
+    /**
+     * The choices offered per image.
+     *
+     * COLOURS, not every variant. A product with 3 colours x 5 sizes has 15
+     * variants but only 3 distinct photos — listing all 15 would be noise, and
+     * the storefront already falls back from "this exact variant" to "any image
+     * whose variant shares this option1". Each choice therefore carries the
+     * FIRST variant id of that colour, which is exactly what the Printify and
+     * Apliiq syncs attribute to.
+     *
+     * Empty when the product has no options (a single default variant), where
+     * attribution would mean nothing.
+     */
+    const mediaVariantChoices = (): { id: string; label: string; }[] => {
+        // WHICH option is the colour? Not necessarily the first — a product may
+        // be defined Size-then-Color. Prefer an option actually named colour,
+        // and fall back to the first only when nothing says so.
+        const axis = Math.max(0, options.findIndex((o,) => /colou?r/i.test(o.name,),),);
+        const valueOf = (v: VariantRow,) =>
+            axis === 2 ? v.option3 : axis === 1 ? v.option2 : v.option1;
+
+        const seen = new Map<string, string>();
+        for (const v of variants) {
+            const label = valueOf(v,);
+            if (!v.id || !label) continue;
+            if (!seen.has(label,)) seen.set(label, v.id,);
+        }
+        return [...seen.entries(),].map(([label, id,],) => ({ id, label, }));
+    };
+
+    /**
+     * Group the media by variant for the DEFAULT presentation — each colour's
+     * images together, "All" first. Applied on demand rather than continuously,
+     * so a manual drag isn't undone the moment it lands.
+     */
+    const groupMediaByVariant = () => {
+        const order = new Map<string, number>();
+        mediaVariantChoices().forEach((c, i,) => order.set(c.id, i,));
+        setMedia(produce((list,) => {
+            const rows = [...list,];
+            // Stable sort: rows within a colour keep their relative order.
+            rows.sort((a, b,) => {
+                // "All" rows lead — they apply to every selection.
+                const rank = (m: MediaRow,) => (m.variantId ? (order.get(m.variantId,) ?? 1e6) : -1);
+                return rank(a,) - rank(b,);
+            },);
+            list.splice(0, list.length, ...rows,);
         }),);
     };
 
@@ -374,6 +446,9 @@ const ShopProductEditorInner: Component = () => {
             // a save instead of being dropped.
             mediaId: m.mediaId || undefined,
             externalUrl: m.mediaId ? undefined : m.externalUrl,
+            // '' means "All" — send null so the column is cleared rather than
+            // rejected as a malformed uuid.
+            variantId: m.variantId || null,
             position: i,
             kind: m.kind,
         }),);
@@ -593,10 +668,46 @@ const ShopProductEditorInner: Component = () => {
                                     + Add media
                                 </button>
                                 <Show when={media.length} fallback={<p class="form-help-muted">No media added.</p>}>
+                                    <Show when={mediaVariantChoices().length > 0}>
+                                        <div class="shop-product-editor__media-toolbar">
+                                            <p class="form-help-muted">
+                                                Drag to reorder. The first image is the main one; assigning an
+                                                image to a colour makes the storefront switch to it when a
+                                                shopper picks that colour.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                class="ui-button ui-button--sm ui-button--secondary"
+                                                onClick={groupMediaByVariant}
+                                            >
+                                                Group by colour
+                                            </button>
+                                        </div>
+                                    </Show>
                                     <div class="shop-product-editor__media-list">
                                         <For each={media}>
                                             {(m, i,) => (
-                                                <div class="shop-product-editor__media-item">
+                                                <div
+                                                    class="shop-product-editor__media-item"
+                                                    classList={{
+                                                        'is-dragging': dragIndex() === i(),
+                                                        'is-drop-target': dragOverIndex() === i() && dragIndex() !== i(),
+                                                    }}
+                                                    draggable={true}
+                                                    onDragStart={(e,) => {
+                                                        setDragIndex(i(),);
+                                                        // Firefox won't start a drag without payload.
+                                                        e.dataTransfer?.setData('text/plain', String(i(),),);
+                                                    }}
+                                                    onDragOver={(e,) => { e.preventDefault(); setDragOverIndex(i(),); }}
+                                                    onDrop={(e,) => {
+                                                        e.preventDefault();
+                                                        const from = dragIndex();
+                                                        if (from !== null) reorderMedia(from, i(),);
+                                                        setDragIndex(null,); setDragOverIndex(null,);
+                                                    }}
+                                                    onDragEnd={() => { setDragIndex(null,); setDragOverIndex(null,); }}
+                                                >
                                                     <Show
                                                         when={m.kind === 'image'}
                                                         fallback={<div class="shop-product-editor__media-thumb shop-product-editor__media-thumb--video">▶</div>}
@@ -605,16 +716,38 @@ const ShopProductEditorInner: Component = () => {
                                                             class="shop-product-editor__media-thumb"
                                                             src={m.thumbnailUrl || m.url}
                                                             alt=""
+                                                            draggable={false}
                                                         />
                                                     </Show>
                                                     <Show when={i() === 0}>
                                                         <span class="badge badge--info">Main</span>
                                                     </Show>
-                                                    <div class="shop-product-editor__media-actions">
-                                                        <button class="ui-button ui-button--sm ui-button--ghost" disabled={i() === 0} onClick={() => moveMedia(i(), -1,)}>↑</button>
-                                                        <button class="ui-button ui-button--sm ui-button--ghost" disabled={i() === media.length - 1} onClick={() => moveMedia(i(), 1,)}>↓</button>
-                                                        <button class="ui-button ui-button--sm ui-button--danger" onClick={() => removeMedia(i(),)}>×</button>
-                                                    </div>
+
+                                                    {/* Delete lives in the corner and appears on hover, so a
+                                                        grid of thumbnails isn't a wall of buttons. */}
+                                                    <button
+                                                        type="button"
+                                                        class="shop-product-editor__media-remove"
+                                                        aria-label="Remove media"
+                                                        title="Remove"
+                                                        onClick={() => removeMedia(i(),)}
+                                                    >
+                                                        ×
+                                                    </button>
+
+                                                    <Show when={mediaVariantChoices().length > 0}>
+                                                        <select
+                                                            class="shop-product-editor__media-variant"
+                                                            aria-label="Assign this image to a colour"
+                                                            value={m.variantId ?? ''}
+                                                            onChange={(e,) => setMediaVariant(i(), e.currentTarget.value,)}
+                                                        >
+                                                            <option value="">All</option>
+                                                            <For each={mediaVariantChoices()}>
+                                                                {(c,) => <option value={c.id}>{c.label}</option>}
+                                                            </For>
+                                                        </select>
+                                                    </Show>
                                                 </div>
                                             )}
                                         </For>

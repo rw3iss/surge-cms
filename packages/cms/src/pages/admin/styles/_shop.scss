@@ -852,3 +852,109 @@
     background: color.adjust($warning-color, $alpha: -0.92);
     border-radius: $border-radius-sm;
 }
+
+// Product-list thumbnail (first column). Small and fixed-size so rows stay a
+// uniform height whatever the image's aspect ratio.
+.shop-products__thumb-link {
+    display: block;
+    line-height: 0;
+}
+
+.shop-products__thumb {
+    display: block;
+    width: 40px;
+    height: 40px;
+    // The admin table caps images at the cell width, which squashed this to
+    // whatever the column collapsed to. Pin both bounds so the box stays square
+    // regardless of how the table distributes width.
+    min-width: 40px;
+    max-width: 40px;
+    border-radius: $border-radius-sm;
+    object-fit: cover;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    border: 1px solid var(--admin-border, #{$border-color});
+
+    // No image: a quiet diagonal-slash box, matching the collection picker's
+    // placeholder rather than a broken-image icon.
+    &--empty {
+        background:
+            linear-gradient(
+                135deg,
+                transparent calc(50% - 1px),
+                var(--admin-border, #{$border-color}) calc(50% - 1px),
+                var(--admin-border, #{$border-color}) calc(50% + 1px),
+                transparent calc(50% + 1px)
+            ),
+            var(--admin-bg-subtle, #{$background-dark});
+    }
+}
+
+// ── Product editor: media grid ─────────────────────────────────────────
+// Each tile is a drag handle, a thumbnail, a hover-only remove button and a
+// colour attribution select.
+.shop-product-editor__media-toolbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-md;
+    margin-bottom: $spacing-sm;
+
+    p { margin: 0; }
+}
+
+.shop-product-editor__media-item {
+    position: relative;
+    cursor: grab;
+
+    &.is-dragging { opacity: 0.45; }
+
+    // Where the dragged tile will land.
+    &.is-drop-target {
+        outline: 2px solid var(--site-primary, #{$primary-color});
+        outline-offset: 2px;
+        border-radius: $border-radius-sm;
+    }
+}
+
+// Remove: corner-pinned, hidden until the tile is hovered or the button itself
+// is focused — a grid of thumbnails shouldn't read as a wall of buttons.
+// Focus-visible keeps it reachable by keyboard, where there is no hover.
+.shop-product-editor__media-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 1;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease, background-color 0.12s ease;
+
+    &:hover { background: var(--admin-danger, #{$error-color}); }
+
+    .shop-product-editor__media-item:hover &,
+    &:focus-visible {
+        opacity: 1;
+    }
+}
+
+.shop-product-editor__media-variant {
+    width: 100%;
+    margin-top: $spacing-2xs;
+    padding: 2px $spacing-2xs;
+    font-size: $font-size-xs;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    background: var(--admin-input-bg, #fff);
+    color: var(--admin-text, #{$text-color});
+}

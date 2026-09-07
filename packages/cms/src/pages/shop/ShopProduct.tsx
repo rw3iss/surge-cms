@@ -120,8 +120,16 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
         const all = media();
         const exact = all.findIndex((m,) => m.variantId === v.id);
         if (exact >= 0) { setActiveMedia(exact,); return; }
+        // WHICH option is the colour? Not necessarily the first — a product may
+        // be defined Size-then-Color, in which case matching option1 compares
+        // sizes and the fallback picks an unrelated photo. Prefer an option
+        // actually named colour; fall back to the first when nothing says so.
+        const axis = Math.max(0, options().findIndex((o,) => /colou?r/i.test(o.name,),),);
+        const valueOf = (x: ShopVariant,) =>
+            axis === 2 ? x.option3 : axis === 1 ? x.option2 : x.option1;
+        const want = valueOf(v,);
         const sameColour = variants()
-            .filter((x,) => x.option1 && x.option1 === v.option1)
+            .filter((x,) => want && valueOf(x,) === want)
             .map((x,) => x.id);
         const byColour = all.findIndex((m,) => m.variantId && sameColour.includes(m.variantId,));
         if (byColour >= 0) setActiveMedia(byColour,);

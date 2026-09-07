@@ -128,13 +128,24 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
     });
 
     // Media — external Printify CDN URLs; default image first, deduped.
+    //
+    // Each image also records the FIRST Printify variant it belongs to, so the
+    // storefront can swap the photo when a shopper picks a colour. First, not
+    // all: Printify repeats one mock-up across every size of a colourway, so an
+    // image identifies a COLOUR. Binding it to every variant would re-point the
+    // same row per size and leave it on whichever was written last — the same
+    // trap the Apliiq ingest documents.
     const seen = new Set<string>();
     const orderedImages = [...(p.images ?? [])].sort((a, b,) => Number(b.is_default,) - Number(a.is_default,));
     const media: StructureMediaInput[] = [];
+    /** external_url → the Printify variant id to attribute it to. */
+    const imageVariant = new Map<string, string>();
     for (const img of orderedImages) {
         if (!img.src || seen.has(img.src,)) continue;
         seen.add(img.src,);
         media.push({ externalUrl: img.src, position: media.length, kind: 'image', },);
+        const first = (img.variant_ids ?? [])[0];
+        if (first !== undefined) imageVariant.set(img.src, String(first,),);
         if (media.length >= 12) break;
     }
 
@@ -162,6 +173,21 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
         variants,
         media: [...media, ...cmsMedia,],
     },);
+    // Attribute each provider image to its variant. Done AFTER the structure
+    // write because our variant UUIDs don't exist until then; joined through
+    // `external_id`, which is Printify's own variant id.
+    for (const [src, printifyVariantId,] of imageVariant) {
+        await query(
+            `UPDATE shop_product_media m
+                SET variant_id = sv.id
+               FROM shop_variants sv
+              WHERE m.product_id = $1 AND sv.product_id = $1
+                AND sv.external_id = $2 AND m.external_url = $3
+                AND m.variant_id IS DISTINCT FROM sv.id`,
+            [product.id, printifyVariantId, src,],
+        );
+    }
+
     await setProductTags(product.id, (p.tags ?? []).slice(0, 40,),);
     // Add the Printify-derived category (from product-type tags) WITHOUT removing
     // any categories the operator assigned in the admin — Printify has no category
