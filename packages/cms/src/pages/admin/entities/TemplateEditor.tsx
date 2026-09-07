@@ -12,6 +12,7 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
+import JsEditor from '../../../components/admin/common/JsEditor';
 import EntitySearchSelectModal from '../../../components/admin/entities/EntitySearchSelectModal';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
@@ -87,6 +88,11 @@ const TemplateEditor: Component = () => {
     // Variable reference is collapsed by default — it's a lookup aid, not
     // primary content, so it shouldn't push the editor down on every visit.
     const [varsOpen, setVarsOpen,] = createSignal(false,);
+    // Component JS. Only offered for a global component — an entity-bound
+    // template renders per record and has no single element to mount against.
+    const [script, setScript,] = createSignal('',);
+    const [scriptEnabled, setScriptEnabled,] = createSignal(true,);
+    const [scriptOpen, setScriptOpen,] = createSignal(false,);
 
     onMount(async () => {
         if (!isGlobal()) {
@@ -102,6 +108,9 @@ const TemplateEditor: Component = () => {
             setMode(d.mode,);
             setMaxRecords(d.maxRecords != null ? String(d.maxRecords,) : '',);
             setSampleRecordIds(d.sampleRecordIds ?? [],);
+            setScript(d.script ?? '',);
+            setScriptEnabled(d.scriptEnabled !== false,);
+            if (d.script) setScriptOpen(true,);
             setBlocks(backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],),);
         } catch { /* ignore */ }
     },);
@@ -114,6 +123,10 @@ const TemplateEditor: Component = () => {
                 name: name(), description: description() || undefined,
                 mode: mode(), maxRecords: maxRecords() ? Number(maxRecords(),) : null,
                 sampleRecordIds: sampleRecordIds(),
+                // Only send script fields for a component — the backend gates
+                // them behind `components:script`, so an entity template save
+                // must not carry them or a non-admin editor would 403.
+                ...(isGlobal() ? { script: script() || null, scriptEnabled: scriptEnabled(), } : {}),
             };
             if (isNew()) {
                 const created = await api.create(meta,) as ContentBlockTemplate;
@@ -334,6 +347,53 @@ const TemplateEditor: Component = () => {
             </Show>
 
             <BlockEditor title="Template Blocks" blocks={blocks()} onBlocksChange={setBlocks} />
+
+            {/* Component JavaScript — global components only. */}
+            <Show when={isGlobal()}>
+                <section class="admin-section template-script-section">
+                    <button
+                        type="button"
+                        class="template-vars-section__toggle"
+                        aria-expanded={scriptOpen()}
+                        onClick={() => setScriptOpen((v,) => !v)}
+                    >
+                        <span class="template-vars-section__chevron">{scriptOpen() ? '▼' : '▶'}</span>
+                        <span>JavaScript{script() ? ' — in use' : ' (optional)'}</span>
+                    </button>
+                    <Show when={scriptOpen()}>
+                        <div class="template-script-section__body">
+                            <p class="form-help-muted">
+                                Served as a same-origin ES module and mounted where this component
+                                renders. Export <code>mount(el, ctx)</code>; return a function to
+                                clean up.
+                                {' '}
+                                <code>ctx</code> gives <code>cms</code> (the SDK),
+                                {' '}<code>user</code> (null when signed out), <code>settings</code>,
+                                {' '}and <code>block</code> (the using block's settings).
+                            </p>
+                            <p class="form-help-muted">
+                                This runs in every visitor's browser. Inline <code>&lt;script&gt;</code>
+                                {' '}and <code>onclick</code> are blocked by the site's CSP, which is
+                                {' '}why the code lives here instead of in an HTML block.
+                            </p>
+                            <label class="template-script-section__toggle-row">
+                                <input
+                                    type="checkbox"
+                                    checked={scriptEnabled()}
+                                    onChange={(e,) => setScriptEnabled(e.currentTarget.checked,)}
+                                />
+                                <span>Run this script (uncheck to disable without deleting it)</span>
+                            </label>
+                            <JsEditor
+                                value={script()}
+                                onChange={setScript}
+                                height="360px"
+                                placeholder={'export function mount(el, ctx) {\n  // ...\n  return () => {};\n}'}
+                            />
+                        </div>
+                    </Show>
+                </section>
+            </Show>
 
             {/* The {{var}} reference lists the BOUND entity's fields; a component
                 has none, so the section would be an empty table. */}

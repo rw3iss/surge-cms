@@ -361,6 +361,7 @@ export const ROUTE_COVERAGE: string[] = [
     'PUT /api/v1/components/templates/:id',
     'DELETE /api/v1/components/templates/:id',
     'GET /api/v1/components/templates/:id/blocks',
+    'GET /api/v1/components/templates/:id/client.js',
     'PUT /api/v1/components/templates/:id/blocks',
 
     'GET /api/v1/entities/:type/templates',

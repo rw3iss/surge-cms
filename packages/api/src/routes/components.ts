@@ -15,6 +15,22 @@ import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as cbtSvc from '../services/contentBlockTemplates';
 import { NotFoundError, } from '../core/errors';
+import * as permissions from '../services/permissions';
+
+/**
+ * Writing a component's SCRIPT is gated separately from editing its blocks.
+ * Blocks are content; a script is arbitrary code that runs in every visitor's
+ * browser, so it gets its own permission rather than riding on "is an admin".
+ */
+const SCRIPT_PERMISSION = 'components:script';
+
+async function assertMayWriteScript(
+    body: { script?: unknown; scriptEnabled?: unknown; },
+    user: { id?: string; role?: string; } | undefined,
+): Promise<void> {
+    if (body.script === undefined && body.scriptEnabled === undefined) return;
+    await permissions.requirePermission({ id: user?.id, role: user?.role, }, SCRIPT_PERMISSION,);
+}
 
 const idParam = z.object({ id: z.string(), },);
 
@@ -23,6 +39,9 @@ const createSchema = z.object({
     description: z.string().max(2000,).optional(),
     mode: z.enum(['single', 'list',],).optional(),
     maxRecords: z.number().int().min(1,).max(100,).nullish(),
+    // 256 KB is far more than a component needs and still bounds the row.
+    script: z.string().max(262144,).nullish(),
+    scriptEnabled: z.boolean().optional(),
 },);
 const updateSchema = createSchema.partial();
 
@@ -57,20 +76,53 @@ export const componentsRoutes = [
         },
     },),
 
+    /**
+     * The component's client module, served same-origin.
+     *
+     * This is what keeps CSP at `script-src 'self'`: an inline <script> (and an
+     * inline onclick) is blocked outright, but a real same-origin module is not.
+     * Public because the public site loads it — the CODE is admin-authored, and
+     * it is already running in every visitor's browser by design.
+     *
+     * Always 200s with valid JS. A 404 for "no script" would make the block's
+     * dynamic import throw and log a console error on a perfectly healthy page,
+     * so an absent or disabled script returns an empty module instead.
+     */
+    defineRoute({
+        method: 'get', path: '/templates/:id/client.js', auth: 'public', raw: true,
+        summary: 'Serve a component\'s browser ES module (same-origin).',
+        input: { params: idParam, },
+        handler: async ({ params, res, },) => {
+            const template = await cbtSvc.findById(params.id,);
+            res.type('application/javascript',);
+            // Private: the module is per-component and cheap to rebuild; a shared
+            // cache would serve a stale script after an edit.
+            res.set('Cache-Control', 'no-cache',);
+            if (!template || !template.script || template.scriptEnabled === false) {
+                res.send('export function mount() {}\n',);
+                return;
+            }
+            res.send(template.script,);
+        },
+    },),
+
     defineRoute({
         method: 'post', path: '/templates', auth: 'admin',
         summary: 'Create a global block template',
         input: { body: createSchema, },
-        handler: async ({ body, },) =>
+        handler: async ({ body, user, },) => {
+            await assertMayWriteScript(body, user,);
             // entityTypeKey stays null — that IS what makes it global.
-            reply(await cbtSvc.create({ ...body, entityTypeKey: null, },), { status: 201, },),
+            return reply(await cbtSvc.create({ ...body, entityTypeKey: null, },), { status: 201, },);
+        },
     },),
 
     defineRoute({
         method: 'put', path: '/templates/:id', auth: 'admin',
         summary: 'Update a global block template',
         input: { params: idParam, body: updateSchema, },
-        handler: async ({ params, body, },) => {
+        handler: async ({ params, body, user, },) => {
+            await assertMayWriteScript(body, user,);
             const template = await cbtSvc.update(params.id, body,);
             if (!template) throw new NotFoundError(`Block template "${params.id}"`,);
             return template;

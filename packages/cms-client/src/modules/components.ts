@@ -14,9 +14,18 @@ import type {
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
-/** Global templates carry no entity binding, so `entityTypeKey` is never sent. */
-export type ComponentTemplateCreateBody = Omit<ContentBlockTemplateCreateBody, 'entityTypeKey'>;
-export type ComponentTemplateUpdateBody = Omit<ContentBlockTemplateUpdateBody, 'entityTypeKey'>;
+/** The component's optional client module + its on/off switch. Writing either
+ *  requires the `components:script` permission server-side. */
+export interface ComponentScriptFields {
+    script?: string | null;
+    scriptEnabled?: boolean;
+}
+export type ComponentTemplateCreateBody =
+    & Omit<ContentBlockTemplateCreateBody, 'entityTypeKey'>
+    & ComponentScriptFields;
+export type ComponentTemplateUpdateBody =
+    & Omit<ContentBlockTemplateUpdateBody, 'entityTypeKey'>
+    & ComponentScriptFields;
 
 export class ComponentsModule extends ModuleBase {
     protected readonly module = 'components';
@@ -47,6 +56,12 @@ export class ComponentsModule extends ModuleBase {
         return this.mutate<{ deleted: boolean; }>('DELETE', '/components/templates/:id', {
             params: { id, }, invalidates: ['components',],
         },);
+    }
+
+    /** URL of the component's browser module — a real same-origin file, which
+     *  is what keeps CSP at `script-src 'self'`. */
+    clientUrl(id: string,): string {
+        return `/api/v1/components/templates/${id}/client.js`;
     }
 
     getBlocks(id: string,): Promise<ContentBlockTemplateBlock[]> {

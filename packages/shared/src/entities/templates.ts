@@ -24,6 +24,24 @@ export interface ContentBlockTemplate {
      *  admin (so `{{entity.field}}` resolves against real data). Empty/absent =
      *  auto-pick (single → first record; list → first N up to `maxRecords`). */
     sampleRecordIds?: string[];
+    /**
+     * Optional client-side JS for this component, served as a same-origin ES
+     * module at `/api/v1/components/:id/client.js` and mounted by the
+     * `template` block:
+     *
+     *   export function mount(el, ctx) { … return () => cleanup }
+     *
+     * `ctx` gives `{ cms, user, settings, block }` — the CMS SDK, the signed-in
+     * user (or null), public site settings, and the using block's settings.
+     *
+     * Served as a real file rather than inlined because CSP is
+     * `script-src 'self'` with NO `'unsafe-inline'`: an inline <script> — and
+     * an inline `onclick` — is blocked. Same-origin modules are not.
+     */
+    script?: string | null;
+    /** Lets an operator switch off a misbehaving component's JS without
+     *  deleting the code they're still working on. */
+    scriptEnabled?: boolean;
     createdAt: string;
     updatedAt: string;
 }

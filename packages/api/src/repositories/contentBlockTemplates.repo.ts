@@ -22,6 +22,8 @@ interface TemplateRow {
     mode: 'single' | 'list';
     max_records: number | null;
     sample_record_ids: string[] | null;
+    script: string | null;
+    script_enabled: boolean;
     created_at: Date;
     updated_at: Date;
 }
@@ -38,6 +40,8 @@ function mapTemplate(row: TemplateRow,): ContentBlockTemplate {
         updatedAt: row.updated_at.toISOString(),
     };
     if (row.description) out.description = row.description;
+    if (row.script != null) out.script = row.script;
+    out.scriptEnabled = row.script_enabled !== false;
     return out;
 }
 
@@ -72,6 +76,8 @@ export async function findById(id: string,): Promise<ContentBlockTemplate | null
 export interface CreateInput {
     name: string;
     description?: string;
+    script?: string | null;
+    scriptEnabled?: boolean;
     entityTypeKey?: string | null;
     mode?: 'single' | 'list';
     maxRecords?: number | null;
@@ -80,8 +86,9 @@ export interface CreateInput {
 
 export async function create(input: CreateInput,): Promise<ContentBlockTemplate> {
     const r = await query<TemplateRow>(`
-        INSERT INTO content_block_templates (name, description, entity_type_key, mode, max_records, sample_record_ids)
-        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[])
+        INSERT INTO content_block_templates
+            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled)
+        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true))
         RETURNING *
     `, [
         input.name,
@@ -90,6 +97,8 @@ export async function create(input: CreateInput,): Promise<ContentBlockTemplate>
         input.mode ?? null,
         input.maxRecords ?? null,
         input.sampleRecordIds ?? null,
+        input.script ?? null,
+        input.scriptEnabled ?? null,
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -111,6 +120,8 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
         values.push(patch.sampleRecordIds ?? null,);
         fields.push(`sample_record_ids = $${values.length}::text[]`,);
     }
+    if (patch.script !== undefined) set('script', patch.script ?? null,);
+    if (patch.scriptEnabled !== undefined) set('script_enabled', patch.scriptEnabled,);
     if (fields.length === 0) return findById(id,);
     values.push(id,);
     const r = await query<TemplateRow>(

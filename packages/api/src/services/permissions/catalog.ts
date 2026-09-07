@@ -18,6 +18,16 @@ const ADMIN = ['admin', 'sysadmin',];
 /** Always registered, regardless of which features are on. */
 export const CORE_PERMISSIONS: PermissionRegistration[] = [
     {
+        key: 'components:script',
+        feature: 'core',
+        label: 'Edit component JavaScript',
+        description:
+            'Write the client-side script a Component runs in every visitor\'s browser. '
+            + 'Separate from editing a component\'s blocks because this is arbitrary code execution.',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'permissions:manage',
         feature: 'core',
         label: 'Manage permissions',

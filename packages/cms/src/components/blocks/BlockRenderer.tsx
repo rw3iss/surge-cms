@@ -7,6 +7,7 @@ import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
 import { blockCss, type CascadeLayer, carouselPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
+import { useUser, } from '../../stores/auth';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../utils/groupStyle';
 import FormRenderer from '../forms/FormRenderer';
@@ -1097,6 +1098,52 @@ const TemplateBlock: Component<{
     const roots = () => buildBlockTree(mapTemplateBlocks((tpl()?.blocks ?? []) as never,),);
     const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
 
+    /**
+     * Mount the component's optional client module.
+     *
+     * Loaded as a REAL same-origin ES module rather than an inline <script>,
+     * because CSP is `script-src 'self'` with no `'unsafe-inline'` — an inline
+     * script, and an inline onclick, are both blocked. The endpoint always
+     * returns valid JS (an empty `mount` when there is no script), so the import
+     * can't throw on a healthy page.
+     *
+     * `ctx` hands the component the CMS SDK, the signed-in user (or null),
+     * public settings, and its own block settings — which is what lets a
+     * component do real work (call an endpoint, branch on auth) instead of
+     * being static markup.
+     */
+    let mountEl: HTMLDivElement | undefined;
+    const auth = useUser();
+    onMount(() => {
+        const id = templateId();
+        if (!id || isCycle() || !mountEl) return;
+        let teardown: (() => void) | undefined;
+        let disposed = false;
+        void (async () => {
+            try {
+                const mod = await import(/* @vite-ignore */ `/api/v1/components/templates/${id}/client.js`);
+                if (disposed || typeof mod.mount !== 'function') return;
+                const ret = mod.mount(mountEl, {
+                    cms,
+                    user: auth.user ?? null,
+                    settings: siteSettings() ?? {},
+                    block: props.block.settings ?? {},
+                },);
+                if (typeof ret === 'function') teardown = ret;
+            } catch (err) {
+                // A broken component must never break the page — same contract
+                // the plugin widget host holds.
+                console.warn('[components] script failed to mount', err,);
+            }
+        })();
+        onCleanup(() => {
+            disposed = true;
+            try {
+                teardown?.();
+            } catch { /* a failing teardown must not break unmount */ }
+        },);
+    },);
+
     return (
         <Show
             when={!isCycle()}
@@ -1107,6 +1154,9 @@ const TemplateBlock: Component<{
             }
         >
             <Show when={templateId()} fallback={<div class="block-message">No component selected.</div>}>
+                {/* The component's script mounts into THIS element, so it can
+                    own its own DOM without fighting the rendered blocks. */}
+                <div class="template-block__script-root" ref={(el,) => { mountEl = el; }} />
                 <For each={roots()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
