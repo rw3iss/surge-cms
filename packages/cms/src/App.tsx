@@ -70,6 +70,8 @@ const AdminHelpSdkModules = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkModules, })));
 const AdminHelpSdkPermissions = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkPermissions, })));
+const AdminHelpSdkComponentJs = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkComponentJs, })));
 const AdminWiki = lazy(() => import('./pages/admin/Wiki'));
 const AdminWikiEditor = lazy(() => import('./pages/admin/WikiEditor'));
 const WikiIndexPage = lazy(() => import('./pages/Wiki'));
@@ -227,6 +229,7 @@ const App: Component = () => {
 										<Route path="/help/sdk" component={AdminHelpSdk} />
 										<Route path="/help/sdk/modules" component={AdminHelpSdkModules} />
 										<Route path="/help/sdk/permissions" component={AdminHelpSdkPermissions} />
+										<Route path="/help/sdk/component-js" component={AdminHelpSdkComponentJs} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

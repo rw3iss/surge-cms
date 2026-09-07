@@ -376,6 +376,15 @@ const TemplateEditor: Component = () => {
                                 {' '}and <code>onclick</code> are blocked by the site's CSP, which is
                                 {' '}why the code lives here instead of in an HTML block.
                             </p>
+                            <p class="template-script-section__help">
+                                <A href="/admin/help/sdk/component-js" target="_blank">
+                                    Component JavaScript reference →
+                                </A>
+                                <span class="form-help-muted">
+                                    {' '}The <code>mount</code> contract, everything on{' '}
+                                    <code>ctx.cms</code>, and worked examples.
+                                </span>
+                            </p>
                             <label class="template-script-section__toggle-row">
                                 <input
                                     type="checkbox"

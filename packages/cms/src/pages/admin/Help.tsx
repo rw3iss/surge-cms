@@ -23,6 +23,11 @@ const TOPICS: HelpTopic[] = [
         desc: 'Declare and check granular permissions from backend code, and how precedence resolves.',
     },
     {
+        path: '/admin/help/sdk/component-js',
+        title: 'Component JavaScript',
+        desc: 'Give a Component a client script: the mount(el, ctx) contract, what the CMS SDK exposes to it, and why inline JS is blocked.',
+    },
+    {
         path: '/admin/help/variables-and-functions',
         title: 'Variables & Functions',
         desc: 'The {{ … }} template syntax for content blocks — variables, entity lookups, if/for logic, and every function + entity schema.',

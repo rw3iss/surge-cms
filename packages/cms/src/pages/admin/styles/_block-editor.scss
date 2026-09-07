@@ -1547,3 +1547,16 @@
     margin: 0 0 $spacing-sm;
     color: $text-color;
 }
+
+// Link out to the Component JavaScript reference from the script editor.
+.template-script-section__help {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-sm;
+
+    a {
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}

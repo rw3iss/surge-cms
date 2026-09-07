@@ -405,4 +405,146 @@ if (mine['recipes:write']) showEditButton();`,
     ],
 };
 
-export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC,];
+
+export const COMPONENT_JS_DOC: SdkDoc = {
+    id: 'component-js',
+    path: '/admin/help/sdk/component-js',
+    title: 'Component JavaScript',
+    lead:
+        'A Component can carry a client script that runs where it renders, with the CMS SDK '
+        + 'handed to it. That is what lets a component do real work — call an endpoint, branch on '
+        + 'whether the visitor is signed in, open its own dialog — rather than being static markup.',
+    sections: [
+        {
+            heading: 'The contract',
+            blocks: [
+                {
+                    p: 'Export a `mount` function. It receives the element wrapping the '
+                        + "component's rendered blocks, plus a context object. Return a function to "
+                        + 'clean up when the component unmounts.',
+                },
+                {
+                    code: `export function mount(el, ctx) {
+  const { cms, user, settings, block } = ctx;
+
+  const btn = el.querySelector('.my-cta');
+  const onClick = async () => {
+    await cms.shop.merchandiseSignup({ email: 'you@example.com' });
+  };
+  btn.addEventListener('click', onClick);
+
+  // Teardown: undo anything that outlives the element itself.
+  return () => btn.removeEventListener('click', onClick);
+}`,
+                },
+                {
+                    note: '`el` wraps the blocks you authored above, so `el.querySelector(...)` '
+                        + 'reaches your own markup and you can enhance it in place. Mounting waits '
+                        + "until those blocks are in the DOM, so your queries won't miss.",
+                },
+            ],
+        },
+        {
+            heading: 'What ctx gives you',
+            blocks: [
+                {
+                    table: [
+                        ['Key', 'Type', 'What it is',],
+                        ['cms', 'CmsClient', 'The same typed SDK the admin uses — every module below',],
+                        ['user', 'User | null', 'The signed-in visitor, or null when anonymous',],
+                        ['settings', 'object', 'Public site settings (name, appearance, enabled features)',],
+                        ['block', 'object', "The using block's own settings — per-placement config",],
+                    ],
+                },
+                {
+                    p: '`user` is the usual reason to write a script at all: it lets one component '
+                        + 'serve two audiences. The merchandise tout subscribes a signed-in visitor '
+                        + 'in one click and shows a modal to everyone else.',
+                },
+                {
+                    code: `export function mount(el, ctx) {
+  if (ctx.user) {
+    // Signed in — the server uses their account address.
+    void ctx.cms.shop.merchandiseSignup({});
+  } else {
+    openMyModal();
+  }
+}`,
+                },
+            ],
+        },
+        {
+            heading: 'Available modules',
+            blocks: [
+                {
+                    p: '`ctx.cms` is the full `@sitesurge/client`. Every namespace is available; '
+                        + 'these are the ones a public-facing component usually wants.',
+                },
+                {
+                    table: [
+                        ['Namespace', 'Typical use in a component',],
+                        ['cms.shop', 'merchandiseSignup, products.list, cart/checkout previews',],
+                        ['cms.forms', 'submit a form, read its questions',],
+                        ['cms.posts / cms.pages', 'list or fetch content to render',],
+                        ['cms.entities', 'read records of any entity type (product, contact, custom)',],
+                        ['cms.campaigns', 'campaign details and donation flows',],
+                        ['cms.mailingLists', 'subscribe an address to a list',],
+                        ['cms.search', 'site-wide search',],
+                        ['cms.auth', 'the current session; login / register',],
+                        ['cms.settings', 'public settings and appearance',],
+                    ],
+                },
+                {
+                    p: 'Full list: posts, pages, campaigns, forms, media, users, messages, social, '
+                        + 'search, utils, audit, dashboard, auth, apiKeys, permissions, wiki, '
+                        + 'connections, blockStyles, fonts, dev, health, setup, mailingLists, '
+                        + 'mailTemplates, mailSend, payments, settings, shop, shopProviders, plugins, '
+                        + 'feed, sitemap, components, entities, entityTypes, contentBlockTemplates, '
+                        + 'adminChannel, contacts, events.',
+                },
+                {
+                    note: 'The client runs in COOKIE auth mode, as the visitor. It is not an admin '
+                        + "key — a component can only do what the person looking at the page could do. "
+                        + 'Admin-only endpoints will fail for an anonymous visitor, which is correct.',
+                },
+            ],
+        },
+        {
+            heading: 'Why a script and not inline JS',
+            blocks: [
+                {
+                    p: "The site's Content Security Policy is `script-src 'self'` with no "
+                        + "`'unsafe-inline'`. An inline `<script>` is blocked, and so is an inline "
+                        + '`onclick=`. A Custom HTML block cannot run JavaScript for a second reason '
+                        + 'as well: its content is inserted with `innerHTML`, which makes any '
+                        + '`<script>` inside it inert.',
+                },
+                {
+                    p: 'Your component script is served as a real same-origin ES module from '
+                        + '`/api/v1/components/templates/<id>/client.js`, which satisfies '
+                        + "`'self'`. That is why the code lives in this field instead of in your markup.",
+                },
+                {
+                    note: 'A script that throws while mounting is caught and logged — it can never '
+                        + 'break the page it is on. Check the browser console if a component seems inert.',
+                },
+            ],
+        },
+        {
+            heading: 'Practical notes',
+            blocks: [
+                {
+                    list: [
+                        'Styles belong in your component\'s blocks (a Custom HTML block with a <style>), not the script. CSS is not CSP-restricted.',
+                        'Anything you attach to `document` or `window` — a portalled modal, a scroll listener — must be removed in the teardown you return.',
+                        'The toggle beside this field disables the script without deleting it, which is the quickest way to confirm a component is the cause of something.',
+                        'Editing the script updates every block using this component: it is a reference, not a copy.',
+                        'Writing this field needs the `components:script` permission (admin by default) — separate from editing blocks, because this is code that runs in every visitor\'s browser.',
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

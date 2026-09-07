@@ -7,15 +7,25 @@
  */
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, For, Show, } from 'solid-js';
-import {
-    HEADLESS_DOC,
-    MODULES_DOC,
-    PERMISSIONS_DOC,
-    SDK_DOCS,
-    type SdkDoc,
-} from '../../services/help/sdkReference';
+import { Component, For, Show, type JSX, } from 'solid-js';
+import { COMPONENT_JS_DOC, HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, SDK_DOCS, type SdkDoc, } from '../../services/help/sdkReference';
 import './Help.scss';
+
+/**
+ * Render `backtick` spans as <code>.
+ *
+ * The doc data is written in a markdown-ish style and every page already used
+ * backticks in prose, but the renderer emitted them as literal characters —
+ * so `mount(el, ctx)` read as punctuation rather than code. Split rather than
+ * `innerHTML`: the text is authored in-repo, but building nodes keeps it
+ * impossible for a doc string to inject markup.
+ */
+function inlineCode(text: string,): JSX.Element {
+    const parts = text.split('`',);
+    // Odd indices are the spans between backticks; an unmatched trailing
+    // backtick just leaves its text as prose.
+    return <>{parts.map((part, i,) => (i % 2 === 1 ? <code>{part}</code> : part))}</>;
+}
 
 const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
     <div class="help-doc">
@@ -52,16 +62,16 @@ const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
                         {(b,) => (
                             <>
                                 <Show when={b.p}>
-                                    <p class="help-doc__desc">{b.p}</p>
+                                    <p class="help-doc__desc">{inlineCode(b.p!,)}</p>
                                 </Show>
 
                                 <Show when={b.note}>
-                                    <p class="help-doc__note">{b.note}</p>
+                                    <p class="help-doc__note">{inlineCode(b.note!,)}</p>
                                 </Show>
 
                                 <Show when={b.list}>
                                     <ul class="help-doc__list">
-                                        <For each={b.list}>{(item,) => <li>{item}</li>}</For>
+                                        <For each={b.list}>{(item,) => <li>{inlineCode(item,)}</li>}</For>
                                     </ul>
                                 </Show>
 
@@ -81,7 +91,7 @@ const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
                                                 <For each={rows().slice(1,)}>
                                                     {(row,) => (
                                                         <tr>
-                                                            <For each={row}>{(cell,) => <td>{cell}</td>}</For>
+                                                            <For each={row}>{(cell,) => <td>{inlineCode(cell,)}</td>}</For>
                                                         </tr>
                                                     )}
                                                 </For>
@@ -101,5 +111,6 @@ const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
 export const HelpSdkHeadless: Component = () => <DocPage doc={HEADLESS_DOC} />;
 export const HelpSdkModules: Component = () => <DocPage doc={MODULES_DOC} />;
 export const HelpSdkPermissions: Component = () => <DocPage doc={PERMISSIONS_DOC} />;
+export const HelpSdkComponentJs: Component = () => <DocPage doc={COMPONENT_JS_DOC} />;
 
 export default HelpSdkHeadless;
