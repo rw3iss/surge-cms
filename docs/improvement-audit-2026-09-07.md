@@ -117,11 +117,12 @@ re-reading the new code rather than from memory. One is a genuine rendering bug.
 - **Problem:** the file holds the wrapper, the style emitter wiring, and every
   block-type renderer. `TemplateBlock` (fetch, cycle guard, script mount,
   teardown) is a self-contained unit that does not need to live there.
-- **Fix:** **Phase C.** Extracting one component is easy; the value only lands if
-  the other renderers move too, and that is a mechanical but wide change to the
-  file every block on every page goes through. It deserves its own pass with a
-  before/after computed-style diff, exactly like the cascade-layer migration.
-- **Risk:** high (blast radius, not complexity).
+- **Fix:** **applied.** All 16 renderers moved to `components/blocks/types/*`;
+  `BlockRenderer.tsx` keeps the shared wrapper and the dispatch.
+  **1,332 → 341 lines**, plus 15 focused files (18–209 lines each) and a small
+  `types/shared.ts` for `color()` / `TplCtx`.
+- **Risk:** high (blast radius, not complexity) — mitigated by a before/after
+  computed-style diff and a targeted recursive-render check, both below.
 
 ---
 
@@ -130,7 +131,7 @@ re-reading the new code rather than from memory. One is a genuine rendering bug.
 - **Phase A (low risk, applied automatically):** U1, U2, A3
 - **Phase B (medium risk, applied — user pre-approved "all recommended phases"):**
   A1, A2 (+U3, which A2 subsumes)
-- **Phase C (planned only):** A4 — split `BlockRenderer.tsx` per block type
+- **Phase C (applied — user asked for it explicitly):** A4 — split `BlockRenderer.tsx` per block type
 
 ---
 
@@ -174,6 +175,30 @@ the code — once because the test script's auth cookie had expired and the
 settings PUT was silently 401ing, and once because I used bash word-splitting
 (`set -- $combo`) in zsh, which does not split unquoted parameters. The script
 now re-auths per call and asserts the setting actually applied before testing.
+
+### Phase C — applied
+- **A4** `BlockRenderer.tsx` split per block type.
+  - **The one real hazard was the import cycle.** Five renderers (group,
+    group_item, template, entity, carousel) render arbitrary child blocks, so
+    they import the dispatcher back. That is safe *because* the binding is read
+    when a component renders, never during module evaluation — but a TDZ error
+    there would be invisible to `tsc`, so it was verified at runtime rather than
+    assumed.
+  - Two artifacts of the mechanical split, caught by typecheck: the
+    `PublicImageItem` interface landed in `RichTextBlock` (it sat between the two
+    declarations in the original) and `EntityBlock` lost two imports. Both fixed.
+  - **Verification — computed-style diff, 8 blocks × 2 viewports: 0 differences**
+    (geometry, margin, padding, background, display, and the length of each
+    block's emitted `<style>`).
+  - **Verification — recursive render**, the part the diff could not reach:
+
+    | path | result |
+    |---|---|
+    | group → group_item → child block | renders |
+    | template → component blocks | renders |
+    | template → component script `mount()` | mounts |
+    | carousel | renders |
+    | page errors | none |
 
 ### Docs
 No user-facing surface changed (no API, CLI, config-key or visible-copy change),
