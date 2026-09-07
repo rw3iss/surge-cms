@@ -2,6 +2,8 @@ export * from './format';
 export * from './validation';
 export * from './blockTree';
 export * from './blockCatalog';
+export * from './blockStyleCss';
+export * from './blockResponsiveCss';
 export * from './roles';
 export * from './formFields';
 export * from './timezones';

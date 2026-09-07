@@ -287,21 +287,35 @@ Cheap after Phase 1; effectively impossible before it.
 
 ---
 
-## Phase 6 — SSR parity
+## Phase 6 — Shared emitter (SSR parity: partially DECLINED)
 
-- [ ] **6.1** Move the emitter into `@sitesurge/types`. The precedent is the template
-  engine (`packages/shared/src/template/`), moved so the client and SSR could share
-  one implementation.
-- [ ] **6.2** Have SSR emit the layer-order statement and the same block CSS. Server-
-  rendered pages are currently unstyled until the SPA mounts, so this is a straight
-  win the inline approach could never deliver.
+- [x] **6.1** Emitter moved into `@sitesurge/types`
+  (`packages/shared/src/utils/blockStyleCss.ts` + `blockResponsiveCss.ts`), with
+  the cms copies reduced to re-exports — the same pattern
+  `utils/breakpointMedia.ts` already used. One definition, and any future
+  server-side consumer can reach it.
 
-**Known gap this does not close:** the admin's breakpoint *preview* caps a container's
-width, which cannot fire viewport `@media`. It still needs the existing inline
-simulation (`stores/previewBreakpoint.ts`) unless the emitter also produces a
-container-query variant. Out of scope; note it in the UI.
+- [ ] **6.2 — NOT DONE, deliberately.** The plan claimed emitting block CSS from
+  SSR was "a straight win". That rested on an assumption I had not checked, and
+  it turned out to be wrong.
 
----
+  **The SSR body carries no block ids.** It emits
+  `<div class="ssr-block ssr-block--rich_text">` — each of the ~19 block
+  renderers writes its own wrapper element, none with `data-block-id`. Block CSS
+  is scoped to `[data-block-id="…"]`, so injecting it would match **nothing**:
+  pure page-weight on every request.
+
+  Making it work means adding the attribute across all 19 renderers, which buys:
+  nothing for crawlers (they do not apply CSS), and a slightly better first paint
+  for no-JS visitors only, on a body the SPA replaces the moment it mounts —
+  whose contract is explicitly *"only needs to be SEMANTICALLY correct; visual
+  fidelity is not required"*.
+
+  It also creates a new coupling between SSR markup and client CSS selectors,
+  which is exactly the kind of drift this plan set out to remove.
+
+  Worth revisiting only if no-JS rendering becomes a real requirement. It is
+  cheap to add later precisely because 6.1 landed.
 
 ## Sequencing
 
