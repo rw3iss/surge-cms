@@ -19,34 +19,79 @@
  */
 import { createSignal, } from 'solid-js';
 
+// ─── Route scoping ───
+//
+// Every value below belongs to ONE route. They used to be plain signals that
+// each route had to clear in `onCleanup`, which is a rule you only find out was
+// broken by seeing the previous page's colour behind the next one: DynamicPage
+// cleared the header style and position but not the background, so navigating
+// from a red page to the homepage left the homepage red until a refresh.
+//
+// So a value now records the path that set it and is only returned while the
+// visitor is still on that path. A leftover is ignored rather than inherited,
+// which makes the leak unrepresentable instead of merely fixed — and removes
+// any dependency on cleanup order between a parent Layout and a child route.
+
+const [currentPath, setCurrentPath,] = createSignal(
+    typeof window === 'undefined' ? '' : window.location.pathname,
+);
+
+/**
+ * Called once by `Layout` on navigation. One caller, not one per route — that
+ * is the entire point.
+ */
+export const setRouteScope = (path: string,): void => { setCurrentPath(path,); };
+
+/** A value plus the route it belongs to. */
+interface Scoped<T> { path: string; value: T; }
+
+function scopedSignal<T>(empty: T,) {
+    const [get, set,] = createSignal<Scoped<T> | null>(null,);
+    return {
+        /** The value, but only while we're still on the route that set it. */
+        read: (): T => {
+            const v = get();
+            return v && v.path === currentPath() ? v.value : empty;
+        },
+        write: (value: T,): void => {
+            set({
+                // Read the path at write time: during a client-side navigation
+                // history has already updated, so this is the incoming route.
+                path: typeof window === 'undefined' ? '' : window.location.pathname,
+                value,
+            } as Scoped<T>,);
+        },
+    };
+}
+
 export type HeaderStyleMode = 'default' | 'alt';
 export type HeaderPosition = 'static' | 'float';
 
 // Per-route override. `null` = no override → fall back to the site default.
-const [routeHeaderStyle, setRouteHeaderStyle,] = createSignal<HeaderStyleMode | null>(null,);
+const routeHeaderStyle = scopedSignal<HeaderStyleMode | null>(null,);
 
 // Site-wide default for routes without an explicit style.
 const [siteDefaultPageHeaderStyle, setSiteDefaultPageHeaderStyle,] = createSignal<HeaderStyleMode>('default',);
 
 /** Resolved style the Header + items render in: route override, else site default. */
-export const activeHeaderStyle = (): HeaderStyleMode => routeHeaderStyle() ?? siteDefaultPageHeaderStyle();
+export const activeHeaderStyle = (): HeaderStyleMode => routeHeaderStyle.read() ?? siteDefaultPageHeaderStyle();
 
 /** A route sets its explicit style, or clears it with `null` (→ site default). */
 export const setActiveHeaderStyle = (value: HeaderStyleMode | null,): void => {
-    setRouteHeaderStyle(value,);
+    routeHeaderStyle.write(value,);
 };
 
 // ─── Header position (static vs float) — same two-layer resolution ───
 
-const [routeHeaderPosition, setRouteHeaderPosition,] = createSignal<HeaderPosition | null>(null,);
+const routeHeaderPosition = scopedSignal<HeaderPosition | null>(null,);
 const [siteDefaultHeaderPosition, setSiteDefaultHeaderPosition,] = createSignal<HeaderPosition>('static',);
 
 /** Resolved header position: route override, else the site default. */
-export const activeHeaderPosition = (): HeaderPosition => routeHeaderPosition() ?? siteDefaultHeaderPosition();
+export const activeHeaderPosition = (): HeaderPosition => routeHeaderPosition.read() ?? siteDefaultHeaderPosition();
 
 /** A route sets its explicit position, or clears it with `null` (→ site default). */
 export const setActiveHeaderPosition = (value: HeaderPosition | null,): void => {
-    setRouteHeaderPosition(value,);
+    routeHeaderPosition.write(value,);
 };
 
 // ─── Page background ───
@@ -57,14 +102,15 @@ export const setActiveHeaderPosition = (value: HeaderPosition | null,): void => 
 // max-width content column, leaving the gutters and the area behind the header
 // unpainted — which is exactly what it looked like.
 
-const [routePageBackground, setRoutePageBackground,] = createSignal<string | null>(null,);
+const routePageBackground = scopedSignal<string | null>(null,);
 
-/** The current route's background: a raw hex or a `swatch:<id>` ref, else null. */
-export const activePageBackground = (): string | null => routePageBackground();
+/** The current route's background: a raw hex or a `swatch:<id>` ref, else null.
+ *  A background set by a PREVIOUS route reads as null here — see Route scoping. */
+export const activePageBackground = (): string | null => routePageBackground.read();
 
 /** A route sets its background, or clears it with `null` (→ site background). */
 export const setActivePageBackground = (value: string | null,): void => {
-    setRoutePageBackground(value && value.trim() ? value.trim() : null,);
+    routePageBackground.write(value && value.trim() ? value.trim() : null,);
 };
 
 export { setSiteDefaultHeaderPosition, setSiteDefaultPageHeaderStyle, };

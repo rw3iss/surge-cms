@@ -1516,6 +1516,19 @@
 }
 
 // ── Save as Component modal ──────────────────────────────────────────────
+// `.modal-shell` has no padding of its own (each call site sets its own), so
+// without this the fields sit flush against the panel edges.
+.save-component-modal {
+    padding: $spacing-lg;
+
+    // Breathing room between the two fields — a hint line sitting directly
+    // against the next label reads as one run-on block.
+    .admin-form-field + .admin-form-field,
+    .form-group + .form-group {
+        margin-top: $spacing-md;
+    }
+}
+
 .save-component-modal__title {
     margin: 0 0 $spacing-md;
     font-size: $font-size-lg;

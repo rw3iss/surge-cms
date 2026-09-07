@@ -7,7 +7,8 @@ import { fonts as fontsSignal, loadFonts, } from '../../services/fonts';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
 import { appearanceCssVars, appearanceGlobalCss, pageBackgroundStyle, } from '../../utils/appearanceStyle';
-import { activePageBackground, } from '../../stores/headerStyle';
+import { activePageBackground, setRouteScope, } from '../../stores/headerStyle';
+import { useLocation, } from '@solidjs/router';
 import { ContactMatchModal, } from '../auth/ContactMatchModal';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
@@ -15,6 +16,13 @@ import type { SiteHeaderSettings, } from './Header';
 import './Layout.scss';
 
 export const Layout: ParentComponent = (props,) => {
+    // One place tells the route-scoped store which route we're on. Values set
+    // by the PREVIOUS route then read as empty automatically, so a page's
+    // background/header style can't bleed onto the next page — no per-route
+    // onCleanup to forget (which is exactly how the red background leaked).
+    const location = useLocation();
+    createEffect(() => setRouteScope(location.pathname,),);
+
     const [navigation,] = createResource(async () => {
         try {
             return await cms.pages.navigation() as NavigationItem[];

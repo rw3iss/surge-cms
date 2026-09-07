@@ -73,7 +73,16 @@ const SaveAsComponentModal: Component<SaveAsComponentModalProps> = (props,) => {
     };
 
     return (
-        <ModalShell open onClose={props.onClose} size="sm" showClose ariaLabel="Save as Component">
+        <ModalShell
+            open
+            onClose={props.onClose}
+            size="sm"
+            showClose
+            ariaLabel="Save as Component"
+            // `.modal-shell` deliberately carries no padding — each call site
+            // supplies its own inner spacing.
+            class="save-component-modal"
+        >
             <h2 class="save-component-modal__title">Save as Component</h2>
             <Show
                 when={!savedId()}
