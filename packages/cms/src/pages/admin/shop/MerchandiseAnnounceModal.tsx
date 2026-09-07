@@ -47,7 +47,10 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
     const [subject, setSubject,] = createSignal('',);
     const [intro, setIntro,] = createSignal('',);
     const [sending, setSending,] = createSignal(false,);
-    const [showPicker, setShowPicker,] = createSignal(false,);
+    // Open the picker up front when there is nothing pending — otherwise the
+    // modal presents an empty list and a disabled Send button with no obvious
+    // next step.
+    const [showPicker, setShowPicker,] = createSignal(props.pending.length === 0,);
     const [previewOpen, setPreviewOpen,] = createSignal(false,);
 
     const all = () => [...props.pending, ...extras(),];
@@ -145,6 +148,11 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
             </p>
 
             <div class="merch-announce__products">
+                <Show when={all().length === 0}>
+                    <p class="form-help-muted merch-announce__empty">
+                        No products selected yet — add the ones you want to announce below.
+                    </p>
+                </Show>
                 <For each={all()}>
                     {(p,) => (
                         <label

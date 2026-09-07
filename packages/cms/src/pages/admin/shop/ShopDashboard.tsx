@@ -70,6 +70,7 @@ const ShopDashboardInner: Component = () => {
         }
     },);
     const [announceOpen, setAnnounceOpen,] = createSignal(false,);
+    const hasPending = () => (pending()?.products.length ?? 0) > 0;
 
     const [shopifyStats,] = createResource(
         () => isShopifyActive() ? 'shopify' : null,
@@ -195,23 +196,49 @@ const ShopDashboardInner: Component = () => {
                         </div>
                     </div>
 
-                    <Show when={(pending()?.products.length ?? 0) > 0}>
+                    {/* Always available, not only when something is pending.
+                        Migration 103 backfills every pre-existing product as
+                        "already announced" (so enabling auto-send can't blast
+                        the back catalogue), which means a fresh install has
+                        nothing pending and would otherwise have no way to
+                        announce anything at all. The modal lets you add any
+                        live product, so the action has to be reachable. */}
+                    <Show when={pending()}>
                         <div class="shop-admin__section merch-pending">
                             <div class="shop-admin__section-header">
-                                <h2>New merchandise to announce</h2>
+                                <h2>New merchandise announcement</h2>
                             </div>
-                            <div class="merch-pending__body">
-                                <p class="merch-pending__count">
-                                    {pending()!.products.length} product
-                                    {pending()!.products.length === 1 ? '' : 's'} published since the
-                                    last announcement.
-                                </p>
-                                <p class="form-help-muted merch-pending__names">
-                                    {pending()!.products.slice(0, 4,).map((p,) => p.title).join(', ',)}
-                                    {pending()!.products.length > 4
-                                        ? ` +${pending()!.products.length - 4} more`
-                                        : ''}
-                                </p>
+                            <div
+                                class="merch-pending__body"
+                                classList={{ 'merch-pending__body--waiting': hasPending(), }}
+                            >
+                                <Show
+                                    when={hasPending()}
+                                    fallback={
+                                        <p class="merch-pending__count">
+                                            Nothing new to announce.
+                                        </p>
+                                    }
+                                >
+                                    <p class="merch-pending__count">
+                                        {pending()!.products.length} product
+                                        {pending()!.products.length === 1 ? '' : 's'} published since
+                                        the last announcement.
+                                    </p>
+                                    <p class="form-help-muted merch-pending__names">
+                                        {pending()!.products.slice(0, 4,).map((p,) => p.title).join(', ',)}
+                                        {pending()!.products.length > 4
+                                            ? ` +${pending()!.products.length - 4} more`
+                                            : ''}
+                                    </p>
+                                </Show>
+                                <Show
+                                    when={!hasPending()}
+                                >
+                                    <p class="form-help-muted merch-pending__names">
+                                        You can still send one — pick the products in the next step.
+                                    </p>
+                                </Show>
                                 <Show
                                     when={pending()!.listId}
                                     fallback={
@@ -222,10 +249,14 @@ const ShopDashboardInner: Component = () => {
                                     }
                                 >
                                     <button
-                                        class="ui-button ui-button--primary"
+                                        class="ui-button"
+                                        classList={{
+                                            'ui-button--primary': hasPending(),
+                                            'ui-button--secondary': !hasPending(),
+                                        }}
                                         onClick={() => setAnnounceOpen(true,)}
                                     >
-                                        Review &amp; announce
+                                        {hasPending() ? 'Review & announce' : 'Announce merchandise'}
                                     </button>
                                 </Show>
                             </div>

@@ -1165,3 +1165,15 @@
         .form-help-muted { margin-right: auto; }
     }
 }
+
+// The pending card is informational most of the time; it only reads as an
+// action needing attention when something is actually waiting.
+.merch-pending__body--waiting {
+    border-color: $warning-border;
+    background: $warning-bg;
+}
+
+.merch-announce__empty {
+    margin: 0;
+    padding: $spacing-md;
+}
