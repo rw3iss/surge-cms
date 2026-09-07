@@ -29,8 +29,18 @@
  * `shop_new_merchandise` purpose has `autoSend` on — an hourly cron sweeps
  * and sends whatever has accumulated as ONE email. Per-publish sending
  * is what produced an email per product, which is what this replaces.
+ *
+ * ## Which body it sends
+ *
+ * The operator's template if they wrote one, the built-in layout otherwise —
+ * decided by whether the `shop_new_merchandise` purpose has blocks, which is
+ * the same rule every other purpose uses. Either way the send carries the
+ * announcement's `{{ }}` variables (`products`, `productsHtml`, `shop.url`),
+ * so a custom template can lay the products out however it likes without the
+ * feature having to guess in advance what shape that is.
  */
 import { query, } from '../../db';
+import { ValidationError, } from '../../core/errors';
 import { logger, } from '../../utils/logger';
 import { config, } from '../../config';
 import { getRaw as getShopSettings, } from './settings';
@@ -128,23 +138,19 @@ function money(cents: number | null, currency: string,): string {
 }
 
 /**
- * The announcement body, as mail blocks.
+ * The built-in two-up product grid, as email-safe HTML.
  *
- * Built as concrete `html` blocks rather than an `entity` block: entity and
- * template blocks render EMPTY in email (`mail/blocks/index.ts`), because the
- * mail emitter is synchronous and cannot fetch a template. Emitting the product
- * grid here keeps the images and prices that a bare list of links loses.
+ * Table-based: the mail renderer targets email clients, where flex and grid are
+ * unreliable. Exposed on its own (and as `{{productsHtml}}`) so an operator who
+ * writes a custom template can keep this grid and only replace what surrounds
+ * it — rebuilding an image + price grid by hand in a block editor is the part
+ * nobody wants to do.
  */
-export function buildAnnouncementBlocks(
-    products: PendingProduct[],
-    opts: { currency: string; intro?: string; },
-): mailSend.SendBlockInput[] {
+export function buildProductGridHtml(products: PendingProduct[], currency: string,): string {
     const base = siteBase();
     const cards = products.map((p,) => {
         const url = `${base}/shop/${p.slug}`;
-        const price = money(p.priceCents, opts.currency,);
-        // Table-based: the mail renderer targets email clients, where flex and
-        // grid are unreliable.
+        const price = money(p.priceCents, currency,);
         return `<td width="50%" valign="top" style="padding:0 8px 20px">
             ${
             p.imageUrl
@@ -165,7 +171,56 @@ export function buildAnnouncementBlocks(
     for (let i = 0; i < cards.length; i += 2) {
         rows.push(`<tr>${cards[i]}${cards[i + 1] ?? '<td width="50%"></td>'}</tr>`,);
     }
-    const grid = `<table width="100%" cellpadding="0" cellspacing="0" role="presentation">${rows.join('',)}</table>`;
+    return `<table width="100%" cellpadding="0" cellspacing="0" role="presentation">${rows.join('',)}</table>`;
+}
+
+/**
+ * The `{{ }}` variables an announcement makes available to its template.
+ *
+ * Stored on the send job, so an operator-authored template can loop the
+ * products (`{{ for products as p }}`) or drop the built-in grid into their own
+ * layout (`{{productsHtml}}`). Each product carries a ready-made `url` and a
+ * formatted `price` as well as the raw `priceCents`, because a template author
+ * should not have to know the site's base URL or divide by 100.
+ */
+export function buildAnnouncementContext(
+    products: PendingProduct[],
+    currency: string,
+): Record<string, unknown> {
+    const base = siteBase();
+    return {
+        products: products.map((p,) => ({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            url: `${base}/shop/${p.slug}`,
+            imageUrl: p.imageUrl ?? '',
+            price: money(p.priceCents, currency,),
+            priceCents: p.priceCents,
+        })),
+        productCount: products.length,
+        productsHtml: buildProductGridHtml(products, currency,),
+        shop: { url: `${base}/shop`, },
+    };
+}
+
+/**
+ * The built-in announcement body, as mail blocks.
+ *
+ * Built as concrete `html` blocks rather than an `entity` block: entity and
+ * template blocks render EMPTY in email (`mail/blocks/index.ts`), because the
+ * mail emitter is synchronous and cannot fetch a template. Emitting the product
+ * grid here keeps the images and prices that a bare list of links loses.
+ *
+ * Used only when the operator has NOT authored a template for the
+ * `shop_new_merchandise` purpose — see `announce()`.
+ */
+export function buildAnnouncementBlocks(
+    products: PendingProduct[],
+    opts: { currency: string; intro?: string; },
+): mailSend.SendBlockInput[] {
+    const base = siteBase();
+    const grid = buildProductGridHtml(products, opts.currency,);
 
     const blocks: mailSend.SendBlockInput[] = [];
     let position = 0;
@@ -194,6 +249,38 @@ export interface AnnounceResult {
     jobId: string;
     recipients: number;
     products: number;
+    /** True when the operator's own template was used, false for the built-in
+     *  layout. Surfaced so the confirmation says which body actually went out. */
+    usedCustomTemplate: boolean;
+}
+
+/**
+ * Resolve the body for an announcement: the operator's template if they wrote
+ * one, otherwise the built-in layout.
+ *
+ * "Wrote one" means the `shop_new_merchandise` purpose has blocks — the same
+ * rule every other purpose uses (`sendPurposeMail`), and the reason the mail
+ * settings panel never pre-fills the default into the editor. An empty template
+ * is not a broken one; it means "keep sending the built-in body, including any
+ * later improvements to it".
+ *
+ * Both paths get the same `{{ }}` context, so a custom template can loop
+ * `products` or embed `{{productsHtml}}`, and the built-in one stays a plain
+ * pre-rendered grid.
+ */
+export function resolveAnnouncementBody(
+    products: PendingProduct[],
+    opts: { currency: string; intro?: string; customBlocks?: unknown[]; },
+): { blocks: mailSend.SendBlockInput[]; context: Record<string, unknown>; usedCustomTemplate: boolean; } {
+    const custom = (opts.customBlocks ?? []) as mailSend.SendBlockInput[];
+    const usedCustomTemplate = custom.length > 0;
+    return {
+        blocks: usedCustomTemplate
+            ? custom
+            : buildAnnouncementBlocks(products, { currency: opts.currency, intro: opts.intro, },),
+        context: buildAnnouncementContext(products, opts.currency,),
+        usedCustomTemplate,
+    };
 }
 
 /**
@@ -206,29 +293,43 @@ export async function announce(
     input: { productIds: string[]; subject?: string; intro?: string; },
     ctx: AuditContext,
 ): Promise<AnnounceResult> {
+    const cfg = await getPurposeConfig('shop_new_merchandise',);
+    // Disabled means disabled. A manual click is deliberate, but so is turning
+    // the email off — sending anyway would make the switch a lie, and the
+    // operator can turn it back on in one click. The message names the setting.
+    if (!cfg.enabled) {
+        throw new ValidationError(
+            'The new-merchandise announcement email is turned off. '
+                + 'Enable it in Shop settings → Emails → New merchandise announcement.',
+        );
+    }
+
     const { settings, } = await getShopSettings();
     const listId = settings.newMerchandiseListId;
     if (!listId) {
-        throw new Error('No mailing list is assigned for new-merchandise announcements.',);
+        throw new ValidationError('No mailing list is assigned for new-merchandise announcements.',);
     }
 
     const products = await listByIds(input.productIds,);
     if (products.length === 0) {
-        throw new Error('None of the selected products are live.',);
+        throw new ValidationError('None of the selected products are live.',);
     }
 
-    const cfg = await getPurposeConfig('shop_new_merchandise',);
     const subject = input.subject?.trim()
         || cfg.subject
         || 'New arrivals';
 
+    const body = resolveAnnouncementBody(products, {
+        currency: settings.currency || 'USD',
+        intro: input.intro,
+        customBlocks: cfg.blocks,
+    },);
+
     const result = await mailSend.send({
         listId,
         subject,
-        blocks: buildAnnouncementBlocks(products, {
-            currency: settings.currency || 'USD',
-            intro: input.intro,
-        },),
+        blocks: body.blocks,
+        context: body.context,
     }, ctx,);
 
     await query(
@@ -236,9 +337,17 @@ export async function announce(
         [products.map((p,) => p.id),],
     );
     logger.info('New-merchandise announcement queued', {
-        jobId: result.jobId, products: products.length, recipients: result.total,
+        jobId: result.jobId,
+        products: products.length,
+        recipients: result.total,
+        custom: body.usedCustomTemplate,
     },);
-    return { jobId: result.jobId, recipients: result.total, products: products.length, };
+    return {
+        jobId: result.jobId,
+        recipients: result.total,
+        products: products.length,
+        usedCustomTemplate: body.usedCustomTemplate,
+    };
 }
 
 /**

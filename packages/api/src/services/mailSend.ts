@@ -41,6 +41,15 @@ export interface SendInput {
     fromEmail?: string;
     replyTo?: string;
     blocks: SendBlockInput[];
+    /**
+     * Extra `{{ }}` variables for every recipient, stored on the job.
+     *
+     * For a feature-generated send whose data is the same for the whole list —
+     * the new-merchandise announcement's `products`. It has to be persisted
+     * rather than closed over, because the worker may resume the job in a
+     * different process after a restart.
+     */
+    context?: Record<string, unknown>;
 }
 
 /** Create a send job, expand recipients, and kick the worker. Returns
@@ -93,6 +102,7 @@ export async function send(input: SendInput, ctx: AuditContext,): Promise<{ jobI
         fromEmail: input.fromEmail,
         replyTo: input.replyTo,
         renderedHtmlTemplate: rendered.html,
+        context: input.context ?? null,
         totalRecipients: subscribed.length,
         // created_by is a UUID FK — synthetic actors → NULL.
         createdBy: uuidOrNull(ctx.userId,),

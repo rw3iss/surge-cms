@@ -1699,17 +1699,17 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "merchandise.announce",
-                "signature": "merchandise.announce(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ jobId: string; recipients: number; products: number; }>",
+                "signature": "merchandise.announce(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ jobId: string; recipients: number; products: number; usedCustomTemplate: boolean; }>",
                 "summary": "POST /shop/merchandise/announce — queue the send, mark them announced."
             },
             {
                 "name": "merchandise.pending",
-                "signature": "merchandise.pending(): Promise<{ products: Array<{ id: string; title: string; slug: string; priceCents: number | null; imageUrl: string | null; createdAt: string; }>; listId: string | null; }>",
-                "summary": "GET /shop/merchandise/pending — live products never announced."
+                "signature": "merchandise.pending(): Promise<{ products: Array<{ id: string; title: string; slug: string; priceCents: number | null; imageUrl: string | null; createdAt: string; }>; listId: string | null; enabled: boolean; usesCustomTemplate: boolean; }>",
+                "summary": "GET /shop/merchandise/pending — live products never announced, plus the state that decides whether a send will work at all: whether the email is switched on, and whether it will use the operator's template or the built-in layout."
             },
             {
                 "name": "merchandise.preview",
-                "signature": "merchandise.preview(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ html: string; }>",
+                "signature": "merchandise.preview(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ html: string; usedCustomTemplate: boolean; }>",
                 "summary": "POST /shop/merchandise/announce/preview — the email as it will send."
             },
             {

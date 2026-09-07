@@ -34,6 +34,27 @@
         border-radius: $border-radius-sm;
     }
 
+    // States which BODY will be sent — the built-in default or the operator's
+    // blocks. Deliberately louder than the surrounding help text: an empty
+    // block editor reads as "broken", and this is the line that says otherwise.
+    &__body-source {
+        margin: 0;
+        padding: $spacing-sm $spacing-md;
+        border-radius: $border-radius-sm;
+        font-size: $font-size-sm;
+        color: var(--admin-text, #{$text-color});
+        background: var(--admin-bg-subtle, #{$background-dark});
+        border-left: 3px solid var(--admin-border, #{$border-color});
+
+        &.is-custom {
+            border-left-color: $primary-color;
+        }
+
+        strong {
+            font-weight: 600;
+        }
+    }
+
     &__vars {
         h4 {
             margin: 0 0 $spacing-xs;

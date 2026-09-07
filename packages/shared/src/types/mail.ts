@@ -78,6 +78,13 @@ export interface MailSendJob {
     fromEmail?: string;
     replyTo?: string;
     renderedHtmlTemplate: string;
+    /**
+     * Extra `{{ }}` variables shared by every recipient of this job, set by
+     * the feature that generated the send (the new-merchandise announcement
+     * puts its `products` here). Absent for a hand-composed campaign, whose
+     * content already has the data typed into it.
+     */
+    context?: Record<string, unknown>;
     status: MailSendJobStatus;
     totalRecipients: number;
     sentCount: number;

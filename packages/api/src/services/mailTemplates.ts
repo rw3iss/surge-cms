@@ -45,7 +45,15 @@ export interface PreviewInput {
     blocks?: TemplateBlockInput[];
     subject?: string;
     preheader?: string;
-    variables?: Record<string, string>;
+    /**
+     * Per-path overrides merged over the sample context, e.g. `'site.name'`.
+     *
+     * Values are `unknown`, not `string`: the preview form only ever sends
+     * strings, but a feature previewing its own generated email supplies real
+     * data (the merchandise announcement passes its `products` array so the
+     * `{{ for }}` loop in a custom template resolves against the actual batch).
+     */
+    variables?: Record<string, unknown>;
 }
 
 /** Variable catalog for the reference UI. */

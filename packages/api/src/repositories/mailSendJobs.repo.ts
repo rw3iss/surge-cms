@@ -30,6 +30,7 @@ interface DbRow {
     created_at: Date;
     template_name_snapshot: string | null;
     template_was_modified: boolean;
+    context: Record<string, unknown> | null;
     // Optional joined columns; only present when the query left-joined
     // them (findById, listRecent).
     list_name?: string | null;
@@ -51,6 +52,7 @@ function map(row: DbRow,): MailSendJob {
         createdAt: row.created_at.toISOString(),
         templateWasModified: row.template_was_modified,
     };
+    if (row.context) out.context = row.context;
     if (row.preheader) out.preheader = row.preheader;
     if (row.from_name) out.fromName = row.from_name;
     if (row.from_email) out.fromEmail = row.from_email;
@@ -88,6 +90,9 @@ export interface CreateInput {
     renderedHtmlTemplate: string;
     totalRecipients: number;
     createdBy?: string | null;
+    /** Extra `{{ }}` variables for every recipient of this job — see the
+     *  column comment in migration 106. */
+    context?: Record<string, unknown> | null;
 }
 
 export async function create(input: CreateInput,): Promise<MailSendJob> {
@@ -95,8 +100,8 @@ export async function create(input: CreateInput,): Promise<MailSendJob> {
         INSERT INTO mail_send_jobs
             (list_id, template_id, template_name_snapshot, template_was_modified,
              subject, preheader, from_name, from_email, reply_to,
-             rendered_html_template, total_recipients, created_by)
-        VALUES ($1, $2, $3, COALESCE($4, FALSE), $5, $6, $7, $8, $9, $10, $11, $12)
+             rendered_html_template, total_recipients, created_by, context)
+        VALUES ($1, $2, $3, COALESCE($4, FALSE), $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
     `, [
         input.listId, input.templateId ?? null,
@@ -106,6 +111,7 @@ export async function create(input: CreateInput,): Promise<MailSendJob> {
         input.fromName ?? null, input.fromEmail ?? null, input.replyTo ?? null,
         input.renderedHtmlTemplate, input.totalRecipients,
         input.createdBy ?? null,
+        input.context ? JSON.stringify(input.context,) : null,
     ],);
     return map(r.rows[0],);
 }

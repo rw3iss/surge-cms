@@ -111,20 +111,27 @@ export async function kickJob(jobId: string,): Promise<void> {
                 const unsubscribeUrl = sub
                     ? `${fe}/u/${generateUnsubscribeToken(sub.id, list.id,)}`
                     : '';
-                const ctx = buildVariableContext({
-                    subscriber: (sub ?? {
-                        id: '',
-                        listId: list.id,
-                        email: r.email,
-                        customFields: {},
-                        status: 'subscribed',
-                        subscribedAt: '',
-                    }) as MailingListSubscriber,
-                    list,
-                    siteName: site.name,
-                    siteUrl: site.url,
-                    unsubscribeUrl,
-                },);
+                const ctx = {
+                    // The job's own variables go UNDER the per-recipient ones:
+                    // a feature supplying `products` must never be able to
+                    // shadow the subscriber, list or unsubscribe URL, which the
+                    // worker is responsible for and RFC 8058 depends on.
+                    ...(job.context ?? {}),
+                    ...buildVariableContext({
+                        subscriber: (sub ?? {
+                            id: '',
+                            listId: list.id,
+                            email: r.email,
+                            customFields: {},
+                            status: 'subscribed',
+                            subscribedAt: '',
+                        }) as MailingListSubscriber,
+                        list,
+                        siteName: site.name,
+                        siteUrl: site.url,
+                        unsubscribeUrl,
+                    },),
+                };
                 const subject = await resolveMailTemplate(job.subject, ctx as unknown as Record<string, unknown>,);
                 const html = await resolveMailTemplate(job.renderedHtmlTemplate, ctx as unknown as Record<string, unknown>,);
 

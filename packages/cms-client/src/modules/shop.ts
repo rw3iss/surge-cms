@@ -280,23 +280,32 @@ export class ShopModule extends ModuleBase {
      * campaign pipeline.
      */
     readonly merchandise = {
-        /** GET /shop/merchandise/pending — live products never announced. */
+        /**
+         * GET /shop/merchandise/pending — live products never announced, plus
+         * the state that decides whether a send will work at all: whether the
+         * email is switched on, and whether it will use the operator's template
+         * or the built-in layout.
+         */
         pending: (): Promise<{
             products: Array<{
                 id: string; title: string; slug: string;
                 priceCents: number | null; imageUrl: string | null; createdAt: string;
             }>;
             listId: string | null;
+            enabled: boolean;
+            usesCustomTemplate: boolean;
         }> => this.get('/shop/merchandise/pending',),
 
         /** POST /shop/merchandise/announce/preview — the email as it will send. */
-        preview: (body: { productIds: string[]; subject?: string; intro?: string; },): Promise<{ html: string; }> =>
+        preview: (
+            body: { productIds: string[]; subject?: string; intro?: string; },
+        ): Promise<{ html: string; usedCustomTemplate: boolean; }> =>
             this.mutate('POST', '/shop/merchandise/announce/preview', { body, },),
 
         /** POST /shop/merchandise/announce — queue the send, mark them announced. */
         announce: (
             body: { productIds: string[]; subject?: string; intro?: string; },
-        ): Promise<{ jobId: string; recipients: number; products: number; }> =>
+        ): Promise<{ jobId: string; recipients: number; products: number; usedCustomTemplate: boolean; }> =>
             this.mutate('POST', '/shop/merchandise/announce', { body, invalidates: ['shop',], },),
     };
 

@@ -15,6 +15,11 @@
  * block editor: doing that would silently convert every purpose into a custom
  * template the first time someone opened it, and they would stop receiving
  * improvements to the defaults.
+ *
+ * Because that is invisible in an empty editor, the panel STATES which body
+ * will be sent, right under the enable switch. The two were being read as one
+ * setting: the switch decides whether the email sends at all, and the blocks
+ * decide what it contains. Neither implies the other.
  */
 import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { MAIL_PURPOSES, type MailPurposeMeta, } from '@sitesurge/types';
@@ -110,7 +115,8 @@ const EmailTemplatesPanel: Component<EmailTemplatesPanelProps> = (props,) => {
 
                             <div class="email-templates-panel__toggles">
                                 <Toggle
-                                    label={enabled() ? 'Email enabled' : 'Email disabled'}
+                                    label={m().enabledLabel
+                                        ?? (enabled() ? 'Email enabled' : 'Email disabled')}
                                     checked={enabled()}
                                     onChange={(v,) => patch({ enabled: v, },)}
                                 />
@@ -122,6 +128,9 @@ const EmailTemplatesPanel: Component<EmailTemplatesPanelProps> = (props,) => {
                                     />
                                 </Show>
                             </div>
+                            <Show when={m().enabledHelp}>
+                                <p class="form-help-muted">{m().enabledHelp}</p>
+                            </Show>
                             <Show when={m().supportsAutoSend && m().autoSendHelp}>
                                 <p class="form-help-muted">{m().autoSendHelp}</p>
                             </Show>
@@ -132,6 +141,33 @@ const EmailTemplatesPanel: Component<EmailTemplatesPanelProps> = (props,) => {
                                     is kept, so turning it back on restores exactly what you wrote.
                                 </p>
                             </Show>
+
+                            {/* Which BODY gets sent is the question this panel
+                                answered worst: the toggle above is about whether
+                                the email sends at all, and an empty editor looks
+                                broken rather than "using the default". State it
+                                up front, next to the switch it gets confused with. */}
+                            <p
+                                class="email-templates-panel__body-source"
+                                classList={{ 'is-custom': isCustomised(), }}
+                            >
+                                <Show
+                                    when={isCustomised()}
+                                    fallback={
+                                        <>
+                                            <strong>Using the built-in default body.</strong>{' '}
+                                            The editor below is empty, which is not a problem — it means
+                                            this email sends the layout that ships with SiteSurge (and
+                                            picks up any later improvements to it). Add a block to write
+                                            your own instead.
+                                        </>
+                                    }
+                                >
+                                    <strong>Using your custom content.</strong>{' '}
+                                    The blocks below replace the built-in body. Delete them all to go
+                                    back to the default.
+                                </Show>
+                            </p>
 
                             <FormField
                                 label="Subject"
@@ -161,16 +197,6 @@ const EmailTemplatesPanel: Component<EmailTemplatesPanelProps> = (props,) => {
                                     </For>
                                 </ul>
                             </div>
-
-                            <p class="form-help-muted">
-                                <Show
-                                    when={isCustomised()}
-                                    fallback={<>Add blocks below to replace the built-in default body. While this is empty, the shipped default is sent.</>}
-                                >
-                                    This email uses your custom content. Remove every block to go back to
-                                    the built-in default.
-                                </Show>
-                            </p>
 
                             <BlockEditor
                                 title={`${m().label} content`}

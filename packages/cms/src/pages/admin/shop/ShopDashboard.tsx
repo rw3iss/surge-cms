@@ -65,8 +65,10 @@ const ShopDashboardInner: Component = () => {
         try {
             return await cms.shop.merchandise.pending();
         } catch {
-            // Non-admin or shop off — the card just doesn't appear.
-            return { products: [], listId: null, };
+            // Non-admin or shop off — the card just doesn't appear. `enabled`
+            // is false here so a failed read can never render a Send button
+            // that would only fail again.
+            return { products: [], listId: null, enabled: false, usesCustomTemplate: false, };
         }
     },);
     const [announceOpen, setAnnounceOpen,] = createSignal(false,);
@@ -239,12 +241,31 @@ const ShopDashboardInner: Component = () => {
                                         You can still send one — pick the products in the next step.
                                     </p>
                                 </Show>
+                                {/* Both blockers are answered here rather than
+                                    at send time: an operator who has picked
+                                    products and written an intro should not be
+                                    the one to discover the email is switched
+                                    off. */}
                                 <Show
-                                    when={pending()!.listId}
+                                    when={pending()!.listId && pending()!.enabled}
                                     fallback={
                                         <p class="form-help-muted">
-                                            ⚠ No mailing list assigned — set one in{' '}
-                                            <A href="/admin/shop/settings" class="table-link">Shop settings</A>.
+                                            <Show
+                                                when={pending()!.listId}
+                                                fallback={
+                                                    <>
+                                                        ⚠ No mailing list assigned — set one in{' '}
+                                                        <A href="/admin/shop/settings" class="table-link">
+                                                            Shop settings
+                                                        </A>.
+                                                    </>
+                                                }
+                                            >
+                                                ⚠ This email is turned off — enable it under{' '}
+                                                <A href="/admin/shop/settings" class="table-link">
+                                                    Shop settings → Emails
+                                                </A>.
+                                            </Show>
                                         </p>
                                     }
                                 >
@@ -327,6 +348,7 @@ const ShopDashboardInner: Component = () => {
         <Show when={announceOpen()}>
                 <MerchandiseAnnounceModal
                     pending={pending()?.products ?? []}
+                    usesCustomTemplate={pending()?.usesCustomTemplate ?? false}
                     onSent={() => void refetchPending()}
                     onClose={() => setAnnounceOpen(false,)}
                 />

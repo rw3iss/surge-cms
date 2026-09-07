@@ -58,6 +58,20 @@ export interface MailPurposeMeta {
      */
     defaultEnabled: boolean;
     /**
+     * Wording for the enable switch when "Email enabled" is too vague.
+     *
+     * The switch always means the same thing — may this email be sent at all —
+     * but what "sent" involves differs: most purposes fire from an event, while
+     * an announcement is triggered by hand. A purpose can say so in its own
+     * terms rather than leaving the operator to infer it.
+     *
+     * It deliberately does NOT mean "use my custom template". Whether the
+     * operator's body or the built-in one is used is decided by whether they
+     * wrote any blocks, for every purpose alike.
+     */
+    enabledLabel?: string;
+    enabledHelp?: string;
+    /**
      * Purposes whose trigger is a judgement call rather than an event offer an
      * "automatically send" switch, defaulting OFF. New-merchandise announcements
      * are the motivating case: the event (a product went live) is not on its own
@@ -205,16 +219,27 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         // The template exists so it can be written ahead of time; sending is a
         // separate, explicit decision (see supportsAutoSend).
         defaultEnabled: true,
+        enabledLabel: 'Announcements can be sent',
+        enabledHelp:
+            'Announcements are sent from the Shop dashboard, or hourly when automatic sending is on '
+            + 'below. Turning this off stops both — the Shop dashboard will refuse to send.',
         supportsAutoSend: true,
         autoSendLabel: 'Automatically send when new merchandise goes live',
         autoSendHelp:
             'Off by default. A product going live is not on its own a decision to mail your list — '
-            + 'leave this off and send the announcement yourself from Mailing Lists, or turn it on to '
-            + 'have every newly published product trigger the email.',
+            + 'leave this off and send the announcement yourself from the Shop dashboard, or turn it on '
+            + 'to have newly published products announced automatically (batched hourly, one email).',
         defaultSubject: 'New at {{site.name}}',
         variables: [
             ...USER_VARS,
-            { name: 'products', description: 'The newly published products. Loop with `{{ for products as p }}…{{ endfor }}`.', example: '{{ for products as p }}{{p.title}}{{ endfor }}', },
+            { name: 'products', description: 'The products being announced. Loop with `{{ for products as p }}…{{ endfor }}`.', example: '{{ for products as p }}{{p.title}}{{ endfor }}', },
+            { name: 'products[].title', description: 'Product name.', example: '{{products[0].title}}', },
+            { name: 'products[].url', description: 'Full link to the product page.', example: '{{products[0].url}}', },
+            { name: 'products[].imageUrl', description: 'Main product image, empty when it has none.', },
+            { name: 'products[].price', description: 'Cheapest variant price, formatted (e.g. $25.00).', },
+            { name: 'products[].priceCents', description: 'The same price in cents, for your own formatting.', },
+            { name: 'productCount', description: 'How many products are in this announcement.', },
+            { name: 'productsHtml', description: 'The built-in two-up image + price grid, ready to drop into your own layout.', example: '{{productsHtml}}', },
             { name: 'shop.url', description: 'Link to the storefront.', },
         ],
     },

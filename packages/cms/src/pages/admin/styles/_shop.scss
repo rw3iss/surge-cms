@@ -1178,6 +1178,16 @@
     padding: $spacing-md;
 }
 
+// Which body the send will use. Set off from the blurb above it, because it is
+// the answer to "why doesn't my template appear here?".
+.merch-announce__template-note {
+    margin: 0 0 $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    border-left: 3px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    background: var(--admin-bg-subtle, #{$background-dark});
+}
+
 // Picker toggle + bulk-selection controls share a row.
 .merch-announce__add-row {
     display: flex;

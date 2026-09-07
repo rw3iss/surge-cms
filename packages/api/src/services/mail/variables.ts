@@ -90,7 +90,7 @@ export function describeVariables(): VariableDescriptor[] {
  * Build a sample context for the preview modal from `describeVariables()`,
  * deep-merging any per-path overrides the operator typed into the form.
  */
-export function buildSampleContext(overrides: Record<string, string> = {},): Record<string, unknown> {
+export function buildSampleContext(overrides: Record<string, unknown> = {},): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     const set = (path: string, val: unknown,): void => {
         const parts = path.split('.',);

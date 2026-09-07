@@ -34,6 +34,7 @@ import * as reviews from '../services/shop/reviews';
 import * as shopSettings from '../services/shop/settings';
 import * as merchAnnounce from '../services/shop/merchandiseAnnounce';
 import * as mailTemplates from '../services/mailTemplates';
+import { getPurposeConfig, } from '../services/mail/purposes';
 import * as stripeStatus from '../services/shop/stripeStatus';
 import * as stripeCreds from '../services/payment/credentials';
 
@@ -846,10 +847,19 @@ export const shopRoutes = [
     defineRoute({
         method: 'get', path: '/merchandise/pending', auth: 'admin',
         summary: 'Products that are live but have never been announced.',
-        handler: async () => ({
-            products: await merchAnnounce.listPending(),
-            listId: (await shopSettings.getRaw()).settings.newMerchandiseListId ?? null,
-        }),
+        handler: async () => {
+            // The modal needs to know BEFORE the operator composes whether the
+            // email is switched off and which body it will use — finding out
+            // from a failed send, after picking products and writing an intro,
+            // is the worst moment to be told.
+            const cfg = await getPurposeConfig('shop_new_merchandise',);
+            return {
+                products: await merchAnnounce.listPending(),
+                listId: (await shopSettings.getRaw()).settings.newMerchandiseListId ?? null,
+                enabled: cfg.enabled,
+                usesCustomTemplate: (cfg.blocks ?? []).length > 0,
+            };
+        },
     },),
 
     defineRoute({
@@ -864,16 +874,24 @@ export const shopRoutes = [
         },
         // Rendered through the SAME mail preview the template editor uses, so
         // what the operator approves is what the renderer will produce — not a
-        // separate approximation that can drift from it.
+        // separate approximation that can drift from it. That includes the
+        // custom-vs-built-in choice and the `{{ }}` context: previewing the
+        // built-in grid while the send used an operator template would be
+        // exactly the drift this endpoint exists to prevent.
         handler: async ({ body, },) => {
             const products = await merchAnnounce.listByIds(body.productIds,);
             const { settings, } = await shopSettings.getRaw();
-            return mailTemplates.preview({
-                blocks: merchAnnounce.buildAnnouncementBlocks(products, {
-                    currency: settings.currency || 'USD',
-                    intro: body.intro,
-                },),
+            const cfg = await getPurposeConfig('shop_new_merchandise',);
+            const resolved = merchAnnounce.resolveAnnouncementBody(products, {
+                currency: settings.currency || 'USD',
+                intro: body.intro,
+                customBlocks: cfg.blocks,
+            },);
+            const rendered = await mailTemplates.preview({
+                blocks: resolved.blocks,
+                variables: resolved.context,
             } as never,);
+            return { ...rendered, usedCustomTemplate: resolved.usedCustomTemplate, };
         },
     },),
 

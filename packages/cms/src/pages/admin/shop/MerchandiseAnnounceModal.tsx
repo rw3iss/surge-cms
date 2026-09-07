@@ -9,9 +9,11 @@
  *    sync can publish things you did not mean to announce);
  *  - already-announced products can be added back in, for a re-run;
  *  - the preview is rendered by the SAME mail renderer that will send it, so
- *    what you approve is what goes out.
+ *    what you approve is what goes out — including whether the body is the
+ *    operator's own template or the built-in layout.
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import { A, } from '@solidjs/router';
 import type { ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../../components/common/toast';
@@ -29,6 +31,9 @@ interface PendingProduct {
 
 export interface MerchandiseAnnounceModalProps {
     pending: PendingProduct[];
+    /** Whether the operator has authored a template for this email. Shown so
+     *  it's clear WHOSE layout the preview below is of. */
+    usesCustomTemplate?: boolean;
     /** Fired after a successful send so the dashboard can refresh its count. */
     onSent: () => void;
     onClose: () => void;
@@ -168,6 +173,25 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
                 One email to your new-merchandise list, covering everything selected below.
                 Sent through the normal campaign pipeline, so it is batched and retried like
                 any other send.
+            </p>
+            {/* Says whose layout the preview is of. Without it, an operator who
+                wrote a template has no way to tell from the preview alone
+                whether it is being used. */}
+            <p class="form-help-muted merch-announce__template-note">
+                <Show
+                    when={props.usesCustomTemplate}
+                    fallback={
+                        <>
+                            Using the <strong>built-in layout</strong> (image + price grid). To design
+                            your own, edit <em>New merchandise announcement</em> under{' '}
+                            <A href="/admin/shop/settings" class="table-link" target="_blank">
+                                Shop settings → Emails
+                            </A>.
+                        </>
+                    }
+                >
+                    Using <strong>your custom template</strong> from Shop settings → Emails.
+                </Show>
             </p>
 
             <div class="merch-announce__products">
