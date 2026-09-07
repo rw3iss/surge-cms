@@ -32,6 +32,7 @@ import { ShopProvidersModule, } from './shopProviders';
 import { PluginsModule, } from './plugins';
 import { FeedModule, } from './feed';
 import { SitemapModule, } from './sitemap';
+import { ComponentsModule, } from './components';
 import { ContentBlockTemplatesModule, EntitiesModule, EntityTypesModule, } from './entities';
 import { AdminChannelModule, } from './adminChannel';
 import { ContactsModule, } from './contacts';
@@ -70,6 +71,7 @@ export interface CmsModules {
     plugins: PluginsModule;
     feed: FeedModule;
     sitemap: SitemapModule;
+    components: ComponentsModule;
     entities: EntitiesModule;
     entityTypes: EntityTypesModule;
     contentBlockTemplates: ContentBlockTemplatesModule;
@@ -118,6 +120,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.plugins = new PluginsModule(core,);
     c.feed = new FeedModule(core,);
     c.sitemap = new SitemapModule(core,);
+    c.components = new ComponentsModule(core,);
     c.entities = new EntitiesModule(core,);
     c.entityTypes = new EntityTypesModule(core,);
     c.contentBlockTemplates = new ContentBlockTemplatesModule(core,);
@@ -136,6 +139,7 @@ export {
     DevModule, HealthModule, SetupModule,
     MailingListsModule, MailTemplatesModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
+    ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,
     AdminChannelModule, ContactsModule,
 };

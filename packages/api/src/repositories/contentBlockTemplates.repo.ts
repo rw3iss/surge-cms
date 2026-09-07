@@ -49,6 +49,21 @@ export async function listByType(entityTypeKey: string,): Promise<ContentBlockTe
     return r.rows.map(mapTemplate,);
 }
 
+/**
+ * Templates with NO entity type — reusable "components" bound to nothing.
+ *
+ * `entity_type_key` was already nullable, so a global template needs no
+ * migration; only the `/entities/:type/templates` routes forced a value, by
+ * injecting it from the URL. `IS NULL` (not `= NULL`) because SQL comparisons
+ * against NULL are never true.
+ */
+export async function listGlobal(): Promise<ContentBlockTemplate[]> {
+    const r = await query<TemplateRow>(
+        `SELECT * FROM content_block_templates WHERE entity_type_key IS NULL ORDER BY created_at DESC`,
+    );
+    return r.rows.map(mapTemplate,);
+}
+
 export async function findById(id: string,): Promise<ContentBlockTemplate | null> {
     const r = await query<TemplateRow>(`SELECT * FROM content_block_templates WHERE id = $1`, [id,],);
     return r.rows[0] ? mapTemplate(r.rows[0],) : null;

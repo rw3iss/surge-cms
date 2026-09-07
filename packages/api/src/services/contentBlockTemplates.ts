@@ -7,8 +7,16 @@ import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '@sitesurg
 import * as repo from '../repositories/contentBlockTemplates.repo';
 import { cache, CACHE_KEYS, } from './cache';
 
+/**
+ * Drop the cached list a template belongs to.
+ *
+ * A null/undefined key is NOT a no-op: it means the template is global, and the
+ * global list needs clearing just as much. Treating null as "nothing to do"
+ * would leave a stale component list after every create/update/delete.
+ */
 async function invalidate(entityTypeKey: string | null | undefined,): Promise<void> {
     if (entityTypeKey) await cache.invalidateContentBlockTemplatesCache(entityTypeKey,);
+    else await cache.invalidateContentBlockTemplatesGlobalCache();
 }
 
 export async function listByType(entityTypeKey: string,): Promise<ContentBlockTemplate[]> {
@@ -16,6 +24,16 @@ export async function listByType(entityTypeKey: string,): Promise<ContentBlockTe
     const cached = await cache.get<ContentBlockTemplate[]>(key,);
     if (cached) return cached;
     const templates = await repo.listByType(entityTypeKey,);
+    await cache.set(key, templates,);
+    return templates;
+}
+
+/** Entity-less templates — the reusable components. */
+export async function listGlobal(): Promise<ContentBlockTemplate[]> {
+    const key = CACHE_KEYS.contentBlockTemplatesGlobal;
+    const cached = await cache.get<ContentBlockTemplate[]>(key,);
+    if (cached) return cached;
+    const templates = await repo.listGlobal();
     await cache.set(key, templates,);
     return templates;
 }

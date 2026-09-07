@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-06T22:25:16.824Z",
-  "totalModules": 39,
-  "totalRoutes": 356,
+  "generatedAt": "2026-09-07T06:57:22.741Z",
+  "totalModules": 40,
+  "totalRoutes": 368,
   "modules": [
     {
       "module": "admin-channel",
@@ -87,6 +87,20 @@
           "absolutePath": "/api/v1/auth/register",
           "auth": "public",
           "summary": "Public member self-registration (gated behind the `users` feature). No auto-login."
+        },
+        {
+          "method": "POST",
+          "path": "/forgot-password",
+          "absolutePath": "/api/v1/auth/forgot-password",
+          "auth": "public",
+          "summary": "Request a password-reset link. Always succeeds (never reveals whether the account exists)."
+        },
+        {
+          "method": "POST",
+          "path": "/reset-password",
+          "absolutePath": "/api/v1/auth/reset-password",
+          "auth": "public",
+          "summary": "Set a new password from a reset token; logs the user in (sets auth cookies)."
         },
         {
           "method": "POST",
@@ -281,6 +295,61 @@
           "absolutePath": "/api/v1/campaigns/:id",
           "auth": "staff",
           "summary": "Delete a campaign."
+        }
+      ]
+    },
+    {
+      "module": "components",
+      "mountPath": "/api/v1/components",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/templates",
+          "absolutePath": "/api/v1/components/templates",
+          "auth": "optional",
+          "summary": "List global (entity-less) block templates"
+        },
+        {
+          "method": "GET",
+          "path": "/templates/:id",
+          "absolutePath": "/api/v1/components/templates/:id",
+          "auth": "optional",
+          "summary": "Get a global block template + its blocks"
+        },
+        {
+          "method": "POST",
+          "path": "/templates",
+          "absolutePath": "/api/v1/components/templates",
+          "auth": "admin",
+          "summary": "Create a global block template"
+        },
+        {
+          "method": "PUT",
+          "path": "/templates/:id",
+          "absolutePath": "/api/v1/components/templates/:id",
+          "auth": "admin",
+          "summary": "Update a global block template"
+        },
+        {
+          "method": "DELETE",
+          "path": "/templates/:id",
+          "absolutePath": "/api/v1/components/templates/:id",
+          "auth": "admin",
+          "summary": "Delete a global block template"
+        },
+        {
+          "method": "GET",
+          "path": "/templates/:id/blocks",
+          "absolutePath": "/api/v1/components/templates/:id/blocks",
+          "auth": "optional",
+          "summary": "Get a global template's resolved blocks"
+        },
+        {
+          "method": "PUT",
+          "path": "/templates/:id/blocks",
+          "absolutePath": "/api/v1/components/templates/:id/blocks",
+          "auth": "admin",
+          "summary": "Replace a global template's blocks"
         }
       ]
     },
@@ -1933,6 +2002,20 @@
         },
         {
           "method": "GET",
+          "path": "/mail-purposes",
+          "absolutePath": "/api/v1/settings/mail-purposes",
+          "auth": "admin",
+          "summary": "Per-purpose email overrides (enable, subject, blocks, auto-send)."
+        },
+        {
+          "method": "PUT",
+          "path": "/mail-purposes",
+          "absolutePath": "/api/v1/settings/mail-purposes",
+          "auth": "admin",
+          "summary": "Replace the per-purpose email overrides."
+        },
+        {
+          "method": "GET",
           "path": "/server-logs",
           "absolutePath": "/api/v1/settings/server-logs",
           "auth": "admin",
@@ -2320,6 +2403,13 @@
           "absolutePath": "/api/v1/shop/settings",
           "auth": "optional",
           "summary": "Storefront shop settings: appearance + a safe subset of config (currency, store/tax flags). No secret keys."
+        },
+        {
+          "method": "POST",
+          "path": "/merchandise-signup",
+          "absolutePath": "/api/v1/shop/merchandise-signup",
+          "auth": "optional",
+          "summary": "Subscribe to the new-merchandise mailing list from the storefront tout."
         },
         {
           "method": "GET",

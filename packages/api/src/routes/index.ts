@@ -13,6 +13,7 @@ import { contactsRoutes, } from './contacts';
 import { eventsRoutes, } from './events';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
+import { componentsRoutes, } from './components';
 import { entitiesRoutes, } from './entities';
 import { fontsRoutes, } from './fonts';
 import { formsRoutes, } from './forms';
@@ -64,6 +65,7 @@ router.use('/wiki', registerModule('wiki', wikiRoutes, { mountPath: '/api/v1/wik
 router.use('/audit', registerModule('audit', auditRoutes, { mountPath: '/api/v1/audit', },),);
 router.use('/dashboard', registerModule('dashboard', dashboardRoutes, { mountPath: '/api/v1/dashboard', },),);
 router.use('/dev', registerModule('dev', devRoutes, { mountPath: '/api/v1/dev', },),);
+router.use('/components', registerModule('components', componentsRoutes, { mountPath: '/api/v1/components', },),);
 router.use('/entities', registerModule('entities', entitiesRoutes, { mountPath: '/api/v1/entities', },),);
 router.use('/fonts', registerModule('fonts', fontsRoutes, { mountPath: '/api/v1/fonts', },),);
 router.use('/mailing-lists', registerModule('mailing-lists', mailingListsRoutes, { mountPath: '/api/v1/mailing-lists', },),);

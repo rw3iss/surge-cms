@@ -70,6 +70,8 @@ export const CACHE_KEYS = {
 
     // ── Content-block templates ──
     contentBlockTemplatesByType: (type: string,) => `cbt:type:${type}`,
+    /** Templates bound to no entity type — the reusable "components". */
+    contentBlockTemplatesGlobal: 'cbt:global',
 
     // ── Feed / sitemap ──
     feedRss: 'feed:rss',
@@ -284,6 +286,11 @@ export async function invalidateContentBlockTemplatesCache(type: string,): Promi
     await del(CACHE_KEYS.contentBlockTemplatesByType(type,),);
 }
 
+/** Drop the cached list of entity-less (global) templates. */
+export async function invalidateContentBlockTemplatesGlobalCache(): Promise<void> {
+    await del(CACHE_KEYS.contentBlockTemplatesGlobal,);
+}
+
 /** Swatches persist under the settings namespace (settings:site_colors). This
  *  is a subset of what invalidateSettingsCache already clears; kept explicit
  *  for call-site readability. */
@@ -416,6 +423,7 @@ export const cache = {
     invalidateEntityCache,
     invalidateEntityTypesCache,
     invalidateContentBlockTemplatesCache,
+    invalidateContentBlockTemplatesGlobalCache,
     invalidateSwatchesCache,
     invalidateSsrCache,
     invalidateAllSsrCache,

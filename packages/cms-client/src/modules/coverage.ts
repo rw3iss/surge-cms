@@ -354,6 +354,15 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/entities/types/:key',
 
     // ── entities: content-block templates ──
+    // cms.components — the same templates with no entity binding.
+    'GET /api/v1/components/templates',
+    'GET /api/v1/components/templates/:id',
+    'POST /api/v1/components/templates',
+    'PUT /api/v1/components/templates/:id',
+    'DELETE /api/v1/components/templates/:id',
+    'GET /api/v1/components/templates/:id/blocks',
+    'PUT /api/v1/components/templates/:id/blocks',
+
     'GET /api/v1/entities/:type/templates',
     'GET /api/v1/entities/:type/templates/:id',
     'POST /api/v1/entities/:type/templates',
