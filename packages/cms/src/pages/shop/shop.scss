@@ -807,6 +807,44 @@
         text-align: center;
     }
 
+    // Heading + signup tout, laid out on the SAME column grid as `__body` so
+    // the two rows line up: a fixed column matching `__sidebar`, then the rest.
+    // The values are duplicated from `__body`/`__sidebar` rather than shared,
+    // which is the one thing to watch — change the sidebar width and this needs
+    // the same edit or the rows drift apart.
+    &__masthead {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xl;
+
+        > .shop-store__header {
+            flex: 0 0 auto;
+            width: 220px; // matches &__sidebar
+            margin: 0;
+        }
+
+        > .merch-signup {
+            flex: 1;
+            min-width: 0;
+            // The masthead owns the spacing to the row below now.
+            margin-bottom: 0;
+        }
+
+        // No sidebar → the body is one full-width column, so the heading stops
+        // reserving a gutter that nothing below it lines up with.
+        &--full > .shop-store__header {
+            width: auto;
+        }
+
+        @media (max-width: $breakpoint-md) {
+            flex-direction: column;
+            align-items: stretch;
+            gap: $spacing-lg;
+
+            > .shop-store__header { width: auto; }
+        }
+    }
+
     // Collections sidebar (left) + search/grid (right). Collapses to a single
     // column on narrow viewports. When no collections exist the sidebar isn't
     // rendered and the main column spans the full width.

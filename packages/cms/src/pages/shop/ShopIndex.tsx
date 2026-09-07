@@ -185,17 +185,27 @@ const ShopIndexInner: Component = () => {
                 </div>
             </Show>
 
-            <header class="page-header shop-store__header">
-                <h1>Shop</h1>
-            </header>
+            {/* Masthead: the heading sits in a column the width of the filters
+                sidebar, and the signup tout occupies the products column beside
+                it — so both line up with the grid below rather than floating on
+                their own measure. Mirrors `__body`'s flex exactly; when the
+                sidebar isn't rendered the heading gives up its fixed width, the
+                same way the product column widens.
 
-            {/* Full-width band under the heading, above the search bar and the
-                product grid. Only renders when the operator enabled it AND
-                assigned a mailing list — the server decides that, so the
-                storefront can't offer a signup with nowhere to go. */}
-            <Show when={config()?.settings.merchandiseSignupEnabled}>
-                <MerchandiseSignup />
-            </Show>
+                The tout only renders when the operator enabled it AND assigned
+                a mailing list — the server decides that, so the storefront
+                can't offer a signup with nowhere to go. */}
+            <div
+                class="shop-index__masthead"
+                classList={{ 'shop-index__masthead--full': !hasSidebar(), }}
+            >
+                <header class="page-header shop-store__header">
+                    <h1>Shop</h1>
+                </header>
+                <Show when={config()?.settings.merchandiseSignupEnabled}>
+                    <MerchandiseSignup />
+                </Show>
+            </div>
 
             <div class="shop-index__body">
                 {/* Filters column: Categories + Collections. Each section shows
