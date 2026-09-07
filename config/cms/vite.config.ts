@@ -169,6 +169,10 @@ export default defineConfig(({ mode }) => {
     // `advancedChunks` API.
   },
   css: {
+    // Wraps every build-time stylesheet in `@layer theme` so runtime block
+    // styles (emitted into the later `block` / `block-bp` layers) win by layer
+    // order rather than by `!important`. See config/cms/postcss.config.mjs.
+    postcss: resolve(__dirname, 'postcss.config.mjs'),
     preprocessorOptions: {
       scss: {
         api: 'modern-compiler',

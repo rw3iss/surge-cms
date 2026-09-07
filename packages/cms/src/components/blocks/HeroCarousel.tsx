@@ -339,8 +339,18 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                 'hero-carousel--list': isListMode(),
             }}
             style={{
-                // List mode: the container grows to fit the stacked items.
-                height: isListMode() ? 'auto' : resolvedHeight(),
+                // Height is published as a CUSTOM PROPERTY, not as `height`.
+                //
+                // An inline `height` outranks every cascade layer, so it beat a
+                // per-breakpoint override emitted in `block-bp` and the carousel
+                // silently kept its desktop height on mobile. The SCSS reads
+                // this var inside the `theme` layer instead, which leaves a
+                // block-style height (layer `block`) and a breakpoint override
+                // (layer `block-bp`) free to win in that order.
+                //
+                // List mode still forces auto: the container grows to fit the
+                // stacked items, and that is behaviour rather than styling.
+                '--hero-height': isListMode() ? 'auto' : resolvedHeight(),
                 ...(props.minHeight && !isListMode() ? { 'min-height': props.minHeight, } : {}),
                 // Slides read these to size to 1/N of the track width, minus gaps.
                 '--hero-per-page': String(perPage(),),

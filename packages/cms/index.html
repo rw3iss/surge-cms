@@ -2,6 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Cascade layer order — MUST be the first stylesheet the browser sees.
+
+      The first @layer statement naming a layer fixes its position; later
+      mentions cannot reorder it. Declaring the order here, statically, means it
+      cannot race the bundled CSS (which PostCSS wraps in `theme`) or the block
+      styles injected at runtime.
+
+      Later layer wins, regardless of selector specificity:
+        theme     — all build-time CSS (SCSS + vendor), wrapped by PostCSS
+        tpl       — a block template's inner-block styles
+        block     — a block's own default style
+        block-bp  — that block's per-breakpoint overrides
+
+      This is what lets a `[data-block-id="…"]` rule (specificity 0,1,0) beat a
+      theme rule of any complexity without `!important`. Anything that reaches
+      the page UNLAYERED outranks all of these — see cascadeLayers.test.ts.
+    -->
+    <style>@layer theme, tpl, block, block-bp;</style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3498cf" />
 

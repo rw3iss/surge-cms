@@ -5,8 +5,7 @@ import { Portal, } from 'solid-js/web';
 import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
-import { blockStyleLayoutCss, } from '../../utils/blockStyleCss';
-import { blockResponsiveCss, carouselPropTargets, } from '../../utils/blockResponsiveCss';
+import { blockCss, type CascadeLayer, carouselPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../utils/groupStyle';
@@ -46,6 +45,12 @@ interface BlockRendererProps {
      *  re-apply the site's default block padding (which cascades level-by-level
      *  through a group tree). Explicit style/settings padding still applies. */
     noDefaultPadding?: boolean;
+    /** Cascade layer this block's DEFAULT style is emitted into. Defaults to
+     *  `block`. A block TEMPLATE's inner blocks pass `tpl`, one layer earlier,
+     *  so the style set on the block USING the template wins — without relying
+     *  on document order, which favours the template (its `<style>` is nested
+     *  inside the using block's wrapper). Breakpoints always stay in `block-bp`. */
+    styleLayer?: CascadeLayer;
 }
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
@@ -97,22 +102,61 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // defaults (merged via withSlotDefaults).
     const isGroupItem = () => props.block.type === 'group_item';
 
-    // Per-breakpoint responsive CSS (scoped @media rules), or null when the
-    // block has no overrides — the default inline style path is unchanged.
-    const responsiveCss = () => blockResponsiveCss(
+    // ALL of this block's CSS — its default style AND its per-breakpoint
+    // overrides — as one layered stylesheet scoped to `[data-block-id]`.
+    //
+    // The default used to be an inline `style={}`. That had two costs: the
+    // default and its override could drift onto different elements (the
+    // carousel `margin` bug), and every override needed `!important` purely to
+    // outrank the inline default. Emitting both through ONE function, routed
+    // through the same target map, removes both problems — precedence is now
+    // cascade-layer order (`@layer theme, tpl, block, block-bp`, declared in
+    // index.html), which beats specificity outright.
+    /**
+     * The style bag actually rendered: the block's `style` plus the legacy
+     * `settings`-level fallbacks for background / text colour / padding.
+     *
+     * These MUST be merged in here rather than left inline. An inline
+     * declaration outranks every cascade layer, so a settings-level fallback
+     * left inline would beat the `style` value it is supposed to defer to —
+     * inverting `style || settings` into `settings || style`.
+     */
+    const effectiveStyle = () => {
+        const st = { ...s(), } as Record<string, unknown>;
+        const set = (props.block.settings || {}) as Record<string, unknown>;
+        if (!st.backgroundColor && set.backgroundColor) st.backgroundColor = set.backgroundColor;
+        if (!st.textColor && set.textColor) st.textColor = set.textColor;
+        if (!st.padding && set.padding) st.padding = set.padding;
+        // An image block paints its picture as an inner <img>, never as the
+        // wrapper background; a stale style.backgroundImage would ghost above it.
+        if (props.block.type === 'image') delete st.backgroundImage;
+        // When a colour AND an image are both set the colour becomes a separate
+        // overlay element (see .block__bg-overlay below), so drop it here.
+        if (hasBgOverlay()) delete st.backgroundColor;
+        return st;
+    };
+
+    const blockCssText = () => blockCss(
         props.block.id,
-        s(),
+        effectiveStyle(),
         siteSettings()?.appearance?.breakpoints,
         {
             resolveFont: fontStack,
             resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
             resolveColor: color,
             suppressBox: isGroupItem(),
+            // A carousel's height is owned by its "Custom Height" setting; a
+            // stale style.height must not force a fixed height here. Passed to
+            // the emitter now that height is no longer filtered inline.
+            suppressHeight: suppressCarouselHeight(),
         },
-        // A carousel spreads its default style over three elements, so each
-        // override has to follow its own default (see carouselPropTargets).
-        // Every other block keeps everything on the wrapper (the default).
+        // A carousel spreads its style over three elements, so each property
+        // must land on the element that owns it (see carouselPropTargets).
+        // Every other block keeps everything on the wrapper.
         isCarousel() ? carouselPropTargets(isContentCarousel(),) : undefined,
+        // A template's inner blocks render one layer earlier, so a using
+        // block's own style wins without depending on document order.
+        props.styleLayer,
     );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
@@ -172,52 +216,22 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             }${usesDefaultPad() ? ' block--default-pad' : ''}`}
             data-block-id={props.block.id}
             style={{
-                // Background image covers the block's whole box; padding does
-                // NOT clip it (default border-box), so a full-bleed image shows
-                // behind padded content (margin still insets it). When both a
-                // color and image are set the color moves to `.block__bg-overlay`
-                // below; with only a color we use the `background` shorthand so
-                // gradients work as well as flat colors.
-                ...(bgImageValue()
-                    ? {
-                        'background-image': `url("${bgImageValue()}")`,
-                        'background-size': 'cover',
-                        'background-position': (s().backgroundPosition as string) || 'center',
-                        'background-repeat': 'no-repeat',
-                    }
-                    : (bgColorValue() ? { background: bgColorValue(), } : {})),
-                color: color(s().textColor || (props.block.settings.textColor as string),),
-                // Layout + typography (text-align, vertical-align flex, font, box
-                // sizing, --block-h-align, margin, overflow) — shared with the
-                // admin inline-edit preview via blockStyleLayoutCss so the two
-                // render paths can't drift. `suppressBox` skips width/height for
-                // a group_item (its slot sizing, spread below, owns those).
-                // Background / color / padding stay inline here: the public path
-                // composites a color+image overlay and cascades the site-default
-                // padding, neither of which the flat admin preview has.
-                ...blockStyleLayoutCss(s(), {
-                    resolveFont: fontStack,
-                    resolveHAlign: (v,) => toFlexAlign(v, 'flex-start',),
-                    suppressBox: isGroupItem(),
-                    // Carousel height is owned by its "Custom Height" content
-                    // setting; when that's off, don't let a stale style.height
-                    // force a fixed wrapper height (breakpoint styles still apply).
-                    suppressHeight: suppressCarouselHeight(),
-                }),
-                // EXPLICIT padding only (inline, wins over everything). The
-                // site-default padding is applied via the `.block--default-pad`
-                // global rule (see usesDefaultPad + appearanceGlobalCss).
-                padding: isCarousel() ? undefined : (s().padding || (props.block.settings.padding as string) || undefined),
-                // group_item slot sizing (flex + width/min/max/align-self) —
-                // makes THIS wrapper the correctly-sized parent-group flex item.
-                // Spread LAST so a slot's width/height wins over the style box.
+                // Everything the block's own style controls now lives in the
+                // `block` cascade layer (see blockCssText below). Only genuinely
+                // per-instance runtime values remain inline.
+                //
+                // group_item slot sizing (flex + width/min/max/align-self) is
+                // derived from the PARENT group's settings, not this block's
+                // style, and must win over the block's own box — which it does,
+                // since an inline declaration outranks every layer.
                 ...slotStyle(),
             }}
         >
-            {/* Per-breakpoint overrides as scoped @media rules (only emitted
-                when this block actually has responsive overrides). */}
-            <Show when={responsiveCss()}>
-                <style>{responsiveCss()}</style>
+            {/* This block's complete style: defaults in `@layer block`,
+                per-breakpoint overrides in `@layer block-bp`. Scoped to
+                `[data-block-id]`, so position in the document is irrelevant. */}
+            <Show when={blockCssText()}>
+                <style>{blockCssText()}</style>
             </Show>
             {/* Color/gradient overlay painted on top of the background image
                 (only when BOTH are set). Sits behind the content via CSS. */}

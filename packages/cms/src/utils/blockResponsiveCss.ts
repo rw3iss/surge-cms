@@ -27,6 +27,9 @@ export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
     resolveColor: (v: string | undefined,) => string | undefined;
     /** Skip width / max-width / height (group-item slot sizing owns those). */
     suppressBox?: boolean;
+    /** Skip ONLY `height` — a carousel's height is owned by its "Custom Height"
+     *  setting, so a stale `style.height` must not force a fixed wrapper height. */
+    suppressHeight?: boolean;
 }
 
 /** Build the CSS declaration record for one override bag (unfiltered). */
@@ -75,17 +78,143 @@ export type PropTargets = Record<string, string[]>;
 /** Everything on the wrapper — every block type except carousel. */
 const WRAPPER_ONLY: PropTargets = { '*': ['',], };
 
-/** Serialize a declaration record to `prop:value !important;` (skips empties). */
+/**
+ * Serialize a declaration record to `prop:value;` (skips empties).
+ *
+ * No `!important`. It used to be here for exactly one reason — the block's
+ * DEFAULT was an inline style, and nothing in a stylesheet outranks that. Now
+ * that defaults are emitted into the `block` layer alongside these overrides,
+ * precedence comes from cascade-layer order (see `CascadeLayer`), which beats
+ * specificity outright. Re-introducing `!important` here would break the very
+ * thing the layers exist to provide: the ability for a later layer — a template
+ * instance override — to win cleanly.
+ */
 function stringifyDecls(rec: Record<string, string | undefined>,): string {
     return Object.entries(rec,)
         .filter(([, v,],) => v != null && v !== '')
-        .map(([k, v,],) => `${k}:${v} !important`)
+        .map(([k, v,],) => `${k}:${v}`)
         .join(';',);
 }
 
 /** Escape a block id for safe use inside a `[data-block-id="…"]` selector. */
 function escapeId(id: string,): string {
     return id.replace(/["\\]/g, '\\$&',);
+}
+
+/**
+ * Cascade layers, in the order declared in `packages/cms/index.html`:
+ * `@layer theme, tpl, block, block-bp`. Later wins regardless of specificity.
+ *
+ *  - `tpl`      — a block TEMPLATE's inner-block styles (the reusable component)
+ *  - `block`    — a block's own default style (an instance beats the template)
+ *  - `block-bp` — that block's per-breakpoint overrides
+ */
+export type CascadeLayer = 'tpl' | 'block' | 'block-bp';
+
+/** Wrap rules in their layer. Empty input yields no at-rule at all. */
+function inLayer(layer: CascadeLayer, rules: string[],): string[] {
+    return rules.length ? [`@layer ${layer}{${rules.join('')}}`,] : [];
+}
+
+/**
+ * Serialize ONE style bag to rules, routed through `targets`.
+ *
+ * Shared by the default pass and each breakpoint pass, which is what makes the
+ * carousel bug unrepresentable: a property's default and its override are
+ * resolved by the same `selectorsFor`, so they cannot land on different
+ * elements.
+ */
+function rulesFor(
+    styleBag: Record<string, unknown>,
+    selectorsFor: (prop: string,) => string[],
+    opts: BlockResponsiveOptions,
+    mediaCondition?: string,
+): string[] {
+    const rec = declarationRecord(styleBag, opts,);
+
+    // Group declarations by target selector so each element gets ONE rule, in a
+    // stable order (insertion order of first use).
+    const bySelector = new Map<string, Record<string, string>>();
+    for (const [prop, value,] of Object.entries(rec,)) {
+        if (value == null || value === '') continue;
+        for (const sel of selectorsFor(prop,)) {
+            const bucket = bySelector.get(sel,) ?? {};
+            bucket[prop] = value;
+            bySelector.set(sel, bucket,);
+        }
+    }
+
+    const out: string[] = [];
+    for (const [sel, decls,] of bySelector) {
+        const d = stringifyDecls(decls,);
+        if (d) out.push(mediaCondition ? `@media ${mediaCondition}{${sel}{${d}}}` : `${sel}{${d}}`,);
+    }
+    return out;
+}
+
+/** Build `selectorsFor` for one block id + target map. */
+function makeSelectorsFor(blockId: string, targets: PropTargets,): (prop: string,) => string[] {
+    const base = `[data-block-id="${escapeId(blockId,)}"]`;
+    const fallback = targets['*'] ?? ['',];
+    return (prop: string,) => (targets[prop] ?? fallback).map((d,) => (d ? `${base} ${d}` : base));
+}
+
+/**
+ * ALL of a block's CSS: its default style plus every per-breakpoint override,
+ * as one layered stylesheet. Returns null when the block has no style at all.
+ *
+ * This replaces the old split where the default was an inline `style={}` and
+ * only the overrides were CSS. That split is what allowed a default and its
+ * override to drift onto different elements (the carousel `margin` bug), and it
+ * forced `!important` on every override just to outrank the inline default.
+ *
+ * `defaultLayer` lets the template render path emit the SAME styles one layer
+ * earlier (`tpl`), so a using block's own style wins without any ordering logic
+ * — which matters because a template's `<style>` is nested INSIDE the instance's
+ * wrapper and would otherwise win on document order.
+ */
+export function blockCss(
+    blockId: string | undefined,
+    style: Record<string, unknown> | undefined,
+    breakpoints: SiteBreakpoint[] | undefined,
+    opts: BlockResponsiveOptions,
+    targets: PropTargets = WRAPPER_ONLY,
+    defaultLayer: CascadeLayer = 'block',
+): string | null {
+    if (!blockId || !style) return null;
+    const selectorsFor = makeSelectorsFor(blockId, targets,);
+
+    // `breakpoints` is the override bag, not a CSS property — exclude it from
+    // the default pass or it would serialize as garbage declarations.
+    const { breakpoints: bps, ...defaults } = style as Record<string, unknown> & {
+        breakpoints?: Record<string, Record<string, unknown>>;
+    };
+
+    const out: string[] = [
+        ...inLayer(defaultLayer, rulesFor(defaults, selectorsFor, opts,),),
+    ];
+
+    if (bps && breakpoints?.length) {
+        // `suppressHeight` applies to the DEFAULT pass only.
+        //
+        // It exists because a carousel's default height already reaches the
+        // carousel element as a component prop, so emitting it again would be
+        // redundant. A per-breakpoint height has no such prop — this CSS is the
+        // only way it can ever apply. Suppressing it here silently reverted a
+        // carousel to its desktop height on mobile.
+        const bpOpts = { ...opts, suppressHeight: false, };
+        const bpRules: string[] = [];
+        for (const bp of breakpoints) {
+            const override = bps[bp.id];
+            if (!override || Object.keys(override,).length === 0) continue;
+            bpRules.push(...rulesFor(override, selectorsFor, bpOpts, breakpointMediaCondition(bp,),),);
+        }
+        // Breakpoints always land in `block-bp`, even for a template's inner
+        // blocks: a responsive rule should still beat a non-responsive one.
+        out.push(...inLayer('block-bp', bpRules,),);
+    }
+
+    return out.length ? out.join('\n',) : null;
 }
 
 export function blockResponsiveCss(
@@ -102,37 +231,14 @@ export function blockResponsiveCss(
     const bps = style?.breakpoints as Record<string, Record<string, unknown>> | undefined;
     if (!bps || !breakpoints || breakpoints.length === 0) return null;
 
-    const base = `[data-block-id="${escapeId(blockId,)}"]`;
-    const fallback = targets['*'] ?? ['',];
-    /** Absolute selectors for one CSS property. */
-    const selectorsFor = (prop: string,): string[] =>
-        (targets[prop] ?? fallback).map((d,) => (d ? `${base} ${d}` : base));
-
+    const selectorsFor = makeSelectorsFor(blockId, targets,);
     const rules: string[] = [];
     for (const bp of breakpoints) {
         const override = bps[bp.id];
         if (!override || Object.keys(override,).length === 0) continue;
-        const rec = declarationRecord(override, opts,);
-
-        // Group declarations by target selector so each element gets ONE rule,
-        // in a stable order (insertion order of first use).
-        const bySelector = new Map<string, Record<string, string>>();
-        for (const [prop, value,] of Object.entries(rec,)) {
-            if (value == null || value === '') continue;
-            for (const sel of selectorsFor(prop,)) {
-                const bucket = bySelector.get(sel,) ?? {};
-                bucket[prop] = value;
-                bySelector.set(sel, bucket,);
-            }
-        }
-
-        const cond = breakpointMediaCondition(bp,);
-        for (const [sel, decls,] of bySelector) {
-            const d = stringifyDecls(decls,);
-            if (d) rules.push(cond ? `@media ${cond}{${sel}{${d}}}` : `${sel}{${d}}`,);
-        }
+        rules.push(...rulesFor(override, selectorsFor, opts, breakpointMediaCondition(bp,),),);
     }
-    return rules.length ? rules.join('\n',) : null;
+    return rules.length ? inLayer('block-bp', rules,).join('\n',) : null;
 }
 
 /**
@@ -145,9 +251,18 @@ export function blockResponsiveCss(
  *  - height — deliberately suppressed on the wrapper; the carousel element owns
  *    it (via the `height` prop / "Custom Height" setting).
  *  - min-height — BOTH: inline on the wrapper and a prop on the carousel.
- *  - everything else (padding, alignment, background, colour) — the slide
- *    content overlay, so the backdrop media stays full-bleed. A CONTENT carousel
- *    (entity/posts items) has no overlay, so those go on the carousel element.
+ *  - padding — the ONE genuinely re-routed property. It goes to the slide
+ *    content so the backdrop media stays full-bleed (`CarouselBlockRenderer`
+ *    feeds it in as `--hero-content-padding`). A CONTENT carousel
+ *    (entity/posts items) has no overlay, so it lands on the carousel element.
+ *  - everything else (background, colour, alignment) — the WRAPPER, which is
+ *    where the default has always been applied.
+ *
+ * That last line is load-bearing. While defaults were inline and only overrides
+ * were CSS, the two could disagree about the target element and nobody noticed
+ * until a specific override silently did nothing. Now that both passes read this
+ * one map, a disagreement is impossible — so the map has to describe where the
+ * DEFAULT actually goes, not where it might be tidier to put it.
  */
 export function carouselPropTargets(isContentCarousel: boolean,): PropTargets {
     const contentSel = isContentCarousel ? '.hero-carousel' : '.hero-carousel__content';
@@ -158,6 +273,7 @@ export function carouselPropTargets(isContentCarousel: boolean,): PropTargets {
         margin: isContentCarousel ? ['',] : ['', '.hero-carousel__content',],
         height: ['.hero-carousel',],
         'min-height': ['', '.hero-carousel',],
-        '*': [contentSel,],
+        padding: [contentSel,],
+        '*': ['',],
     };
 }

@@ -1,6 +1,11 @@
 .hero-carousel {
   position: relative;
   width: 100%;
+  // Set inline as a custom property by HeroCarousel.tsx rather than as `height`
+  // directly. Reading it HERE puts the resulting declaration in the `theme`
+  // layer, so a block-style height (`block`) and a per-breakpoint override
+  // (`block-bp`) can still win — an inline `height` would outrank both.
+  height: var(--hero-height, 50vh);
   overflow: hidden;
   background: var(--site-bg, #000);
   // Establish a query container so heading font-sizes (cqi units in
