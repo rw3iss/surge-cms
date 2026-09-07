@@ -32,6 +32,8 @@ import * as printify from '../services/printify';
 import * as products from '../services/shop/products';
 import * as reviews from '../services/shop/reviews';
 import * as shopSettings from '../services/shop/settings';
+import * as merchAnnounce from '../services/shop/merchandiseAnnounce';
+import * as mailTemplates from '../services/mailTemplates';
 import * as stripeStatus from '../services/shop/stripeStatus';
 import * as stripeCreds from '../services/payment/credentials';
 
@@ -832,6 +834,60 @@ export const shopRoutes = [
 
             return { subscribed: true, };
         },
+    },),
+
+    // ── New-merchandise announcements ──────────────────────────────────
+    //
+    // Publishing a product no longer emails anyone; it leaves the product
+    // PENDING. These three routes are the operator's path from "3 products are
+    // waiting" to one batched email, and they deliberately go through the same
+    // campaign pipeline as a hand-composed send.
+
+    defineRoute({
+        method: 'get', path: '/merchandise/pending', auth: 'admin',
+        summary: 'Products that are live but have never been announced.',
+        handler: async () => ({
+            products: await merchAnnounce.listPending(),
+            listId: (await shopSettings.getRaw()).settings.newMerchandiseListId ?? null,
+        }),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/merchandise/announce/preview', auth: 'admin',
+        summary: 'Render the announcement email exactly as it will be sent.',
+        input: {
+            body: z.object({
+                productIds: z.array(z.string().uuid(),).min(1,),
+                subject: z.string().max(255,).optional(),
+                intro: z.string().max(5000,).optional(),
+            },),
+        },
+        // Rendered through the SAME mail preview the template editor uses, so
+        // what the operator approves is what the renderer will produce — not a
+        // separate approximation that can drift from it.
+        handler: async ({ body, },) => {
+            const products = await merchAnnounce.listByIds(body.productIds,);
+            const { settings, } = await shopSettings.getRaw();
+            return mailTemplates.preview({
+                blocks: merchAnnounce.buildAnnouncementBlocks(products, {
+                    currency: settings.currency || 'USD',
+                    intro: body.intro,
+                },),
+            } as never,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/merchandise/announce', auth: 'admin',
+        summary: 'Send one announcement for the chosen products and mark them announced.',
+        input: {
+            body: z.object({
+                productIds: z.array(z.string().uuid(),).min(1,),
+                subject: z.string().max(255,).optional(),
+                intro: z.string().max(5000,).optional(),
+            },),
+        },
+        handler: ({ body, audit, },) => merchAnnounce.announce(body, audit(),),
     },),
 
     // Full config (admin).

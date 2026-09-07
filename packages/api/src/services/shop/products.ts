@@ -11,7 +11,6 @@
  */
 import type { ShopProduct, ShopProductDetail, } from '@sitesurge/types';
 import { transaction, } from '../../db';
-import { announceNewMerchandise, } from './merchandiseAnnounce';
 import * as catalog from '../../repositories/shop/shopCatalog.repo';
 import * as repo from '../../repositories/shop/shopProducts.repo';
 import { performBulkAction, } from '../../utils/bulkActions';
@@ -204,9 +203,10 @@ export async function update(
         await syncStructure(id, hasStructure ? structure : null, taxonomy,);
     }
     await invalidateProductCache();
-    // Fire-and-forget: an announcement must never delay or fail a product save.
-    // The helper decides whether anything actually sends.
-    if (input.status === 'active') void announceNewMerchandise([id,],);
+    // Publishing does NOT send an announcement. It only leaves the product
+    // pending (active + merch_announced_at IS NULL), which the Shop dashboard
+    // surfaces and the hourly cron batches. Sending here mailed the list
+    // once per product, so publishing five products sent five emails.
     await logAudit({
         userId: ctx.userId,
         action: 'update',

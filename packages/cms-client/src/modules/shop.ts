@@ -284,6 +284,32 @@ export class ShopModule extends ModuleBase {
      * address and ignores any address in the body. Answers the same whether or
      * not the address was already subscribed.
      */
+    /**
+     * New-merchandise announcements. Publishing a product leaves it PENDING;
+     * these turn a batch of pending products into one email through the normal
+     * campaign pipeline.
+     */
+    readonly merchandise = {
+        /** GET /shop/merchandise/pending — live products never announced. */
+        pending: (): Promise<{
+            products: Array<{
+                id: string; title: string; slug: string;
+                priceCents: number | null; imageUrl: string | null; createdAt: string;
+            }>;
+            listId: string | null;
+        }> => this.get('/shop/merchandise/pending',),
+
+        /** POST /shop/merchandise/announce/preview — the email as it will send. */
+        preview: (body: { productIds: string[]; subject?: string; intro?: string; },): Promise<{ html: string; }> =>
+            this.mutate('POST', '/shop/merchandise/announce/preview', { body, },),
+
+        /** POST /shop/merchandise/announce — queue the send, mark them announced. */
+        announce: (
+            body: { productIds: string[]; subject?: string; intro?: string; },
+        ): Promise<{ jobId: string; recipients: number; products: number; }> =>
+            this.mutate('POST', '/shop/merchandise/announce', { body, invalidates: ['shop',], },),
+    };
+
     merchandiseSignup(body: { email?: string; name?: string; phone?: string; },): Promise<{ subscribed: boolean; }> {
         return this.mutate<{ subscribed: boolean; }>('POST', '/shop/merchandise-signup', { body, },);
     }

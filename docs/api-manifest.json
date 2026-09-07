@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-07T07:38:26.493Z",
+  "generatedAt": "2026-09-07T16:25:05.754Z",
   "totalModules": 40,
-  "totalRoutes": 369,
+  "totalRoutes": 372,
   "modules": [
     {
       "module": "admin-channel",
@@ -2417,6 +2417,27 @@
           "absolutePath": "/api/v1/shop/merchandise-signup",
           "auth": "optional",
           "summary": "Subscribe to the new-merchandise mailing list from the storefront tout."
+        },
+        {
+          "method": "GET",
+          "path": "/merchandise/pending",
+          "absolutePath": "/api/v1/shop/merchandise/pending",
+          "auth": "admin",
+          "summary": "Products that are live but have never been announced."
+        },
+        {
+          "method": "POST",
+          "path": "/merchandise/announce/preview",
+          "absolutePath": "/api/v1/shop/merchandise/announce/preview",
+          "auth": "admin",
+          "summary": "Render the announcement email exactly as it will be sent."
+        },
+        {
+          "method": "POST",
+          "path": "/merchandise/announce",
+          "absolutePath": "/api/v1/shop/merchandise/announce",
+          "auth": "admin",
+          "summary": "Send one announcement for the chosen products and mark them announced."
         },
         {
           "method": "GET",

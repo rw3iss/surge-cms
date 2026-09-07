@@ -29,6 +29,7 @@ import { verifyEmailConfig, } from './services/email';
 import { getInstallationState, } from './services/installation';
 import { initPrintifyCron, } from './services/printify/cron';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
+import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
 import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
 import { assertNoCycles, } from './features/registry';
@@ -126,6 +127,9 @@ async function bootRunningMode(): Promise<void> {
 
     await initSocialCrons();
     initScheduledPublisher();
+    // No-op unless the shop feature is on and auto-send is enabled; the handler
+    // checks both, so registration is unconditional and cheap.
+    initMerchandiseAnnounce();
     initPrintifyCron();
     cronRegistry.startAll();
     logger.info('Cron jobs started',);

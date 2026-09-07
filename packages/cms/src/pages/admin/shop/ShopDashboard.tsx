@@ -1,11 +1,12 @@
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopOrder, ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
 import PrintifySyncBar from './PrintifySyncBar';
+import MerchandiseAnnounceModal from './MerchandiseAnnounceModal';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
@@ -56,6 +57,20 @@ const ShopDashboardInner: Component = () => {
     const paidCount = () => orders().filter((o,) => PAID_STATUSES.has(o.status,)).length;
 
     // Shopify override: stats + recent orders sourced from Shopify (read-only).
+    /**
+     * Products live but never announced. Surfaced here because publishing no
+     * longer emails anyone — without this the batch would sit unnoticed.
+     */
+    const [pending, { refetch: refetchPending, },] = createResource(async () => {
+        try {
+            return await cms.shop.merchandise.pending();
+        } catch {
+            // Non-admin or shop off — the card just doesn't appear.
+            return { products: [], listId: null, };
+        }
+    },);
+    const [announceOpen, setAnnounceOpen,] = createSignal(false,);
+
     const [shopifyStats,] = createResource(
         () => isShopifyActive() ? 'shopify' : null,
         () => shopifySource.shopStats(),
@@ -180,6 +195,43 @@ const ShopDashboardInner: Component = () => {
                         </div>
                     </div>
 
+                    <Show when={(pending()?.products.length ?? 0) > 0}>
+                        <div class="shop-admin__section merch-pending">
+                            <div class="shop-admin__section-header">
+                                <h2>New merchandise to announce</h2>
+                            </div>
+                            <div class="merch-pending__body">
+                                <p class="merch-pending__count">
+                                    {pending()!.products.length} product
+                                    {pending()!.products.length === 1 ? '' : 's'} published since the
+                                    last announcement.
+                                </p>
+                                <p class="form-help-muted merch-pending__names">
+                                    {pending()!.products.slice(0, 4,).map((p,) => p.title).join(', ',)}
+                                    {pending()!.products.length > 4
+                                        ? ` +${pending()!.products.length - 4} more`
+                                        : ''}
+                                </p>
+                                <Show
+                                    when={pending()!.listId}
+                                    fallback={
+                                        <p class="form-help-muted">
+                                            ⚠ No mailing list assigned — set one in{' '}
+                                            <A href="/admin/shop/settings" class="table-link">Shop settings</A>.
+                                        </p>
+                                    }
+                                >
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        onClick={() => setAnnounceOpen(true,)}
+                                    >
+                                        Review &amp; announce
+                                    </button>
+                                </Show>
+                            </div>
+                        </div>
+                    </Show>
+
                     <div class="shop-admin__section">
                         <div class="shop-admin__section-header">
                             <h2>Recent orders</h2>
@@ -240,6 +292,13 @@ const ShopDashboardInner: Component = () => {
                     </div>
                 </div>
             </div>
+            </Show>
+        <Show when={announceOpen()}>
+                <MerchandiseAnnounceModal
+                    pending={pending()?.products ?? []}
+                    onSent={() => void refetchPending()}
+                    onClose={() => setAnnounceOpen(false,)}
+                />
             </Show>
         </div>
     );

@@ -1038,3 +1038,130 @@
     outline: 2px solid $primary-color;
     outline-offset: 2px;
 }
+
+// ── New-merchandise announcement ─────────────────────────────────────────
+// Dashboard card surfacing products that are live but never announced.
+.merch-pending {
+    &__body {
+        padding: $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        background: $background-dark;
+    }
+
+    &__count {
+        margin: 0 0 4px;
+        font-weight: 600;
+        color: $text-color;
+    }
+
+    &__names {
+        margin: 0 0 $spacing-md;
+    }
+}
+
+// The review-and-send modal.
+.merch-announce {
+    padding: $spacing-lg;
+
+    &__title {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-lg;
+        font-weight: 700;
+    }
+
+    &__products {
+        margin: $spacing-md 0;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        max-height: 15rem;
+        overflow-y: auto;
+    }
+
+    &__product {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        padding: $spacing-sm $spacing-md;
+        border-bottom: 1px solid $border-color;
+        cursor: pointer;
+
+        &:last-child { border-bottom: 0; }
+        &:hover { background: $background-dark; }
+
+        // Deselected rows stay listed but read as excluded, so it's obvious
+        // what will and won't be in the email.
+        &.is-off {
+            opacity: 0.5;
+
+            .merch-announce__name { text-decoration: line-through; }
+        }
+    }
+
+    &__thumb {
+        width: 34px;
+        height: 34px;
+        object-fit: cover;
+        border-radius: $border-radius-sm;
+        flex-shrink: 0;
+    }
+
+    &__name {
+        flex: 1;
+        min-width: 0;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    &__price {
+        color: $text-light;
+        font-size: $font-size-sm;
+        flex-shrink: 0;
+    }
+
+    &__add { margin-bottom: $spacing-md; }
+
+    &__picker {
+        margin-top: $spacing-xs;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        max-height: 11rem;
+        overflow-y: auto;
+    }
+
+    &__picker-item {
+        display: block;
+        width: 100%;
+        padding: $spacing-sm $spacing-md;
+        border: 0;
+        border-bottom: 1px solid $border-color;
+        background: none;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+
+        &:last-child { border-bottom: 0; }
+        &:hover { background: $background-dark; }
+        &:focus-visible { outline: 2px solid $primary-color; outline-offset: -2px; }
+    }
+
+    &__preview-toggle { margin: $spacing-md 0 $spacing-sm; }
+
+    &__preview {
+        width: 100%;
+        height: 26rem;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        background: #fff;
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: $spacing-sm;
+        margin-top: $spacing-lg;
+
+        .form-help-muted { margin-right: auto; }
+    }
+}
