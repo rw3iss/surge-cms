@@ -1,0 +1,59 @@
+// What an entity binding resolves to, shown under the button that sets it.
+// No `@use` here: this file is imported from the .tsx, which makes it a Vite
+// sass ENTRY, and the configured prelude already provides `color` + variables.
+
+.entity-binding-summary {
+    margin-top: $spacing-xs;
+    padding: $spacing-sm;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    // The panel is narrow; a long title or a wide query must not push it out.
+    max-width: 100%;
+    overflow: hidden;
+
+    &__clauses,
+    &__records {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__clauses {
+        margin-bottom: $spacing-xs;
+
+        li {
+            font-family: var(--admin-font-mono, monospace);
+            font-size: $font-size-xs;
+            color: var(--admin-text, #{$text-color});
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    &__records li {
+        font-size: $font-size-xs;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &::before {
+            content: '• ';
+            opacity: 0.6;
+        }
+    }
+
+    &__note {
+        margin: $spacing-2xs 0 0;
+        font-size: $font-size-xs;
+        color: var(--admin-text-muted, #{$text-light});
+
+        // A query matching nothing is the failure this panel exists to surface.
+        &--warn { color: var(--admin-warning, #{$warning-color}); }
+    }
+}

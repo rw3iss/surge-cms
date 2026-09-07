@@ -6,6 +6,7 @@
 import type { EntityBinding, EntityQuery, EntityRecord, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
+import EntityBindingSummary from '../../entities/EntityBindingSummary';
 import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
 
 interface EntityCfg {
@@ -134,6 +135,21 @@ const EntityBlockEdit: Component<{
                         Configure query…
                     </button>
                 </Show>
+
+                {/* What the binding actually resolves to. A count alone doesn't
+                    say WHICH records, and a saved query is otherwise opaque —
+                    both are set once and then trusted, so show the answer. */}
+                <EntityBindingSummary
+                    entityType={cfg().entityType ?? ''}
+                    refs={
+                        cfg().binding.mode === 'single'
+                            ? ((cfg().binding as { ref?: string; }).ref ? [(cfg().binding as { ref: string; }).ref,] : undefined)
+                            : cfg().binding.mode === 'list'
+                            ? (cfg().binding as { refs?: string[]; }).refs
+                            : undefined
+                    }
+                    query={cfg().binding.mode === 'query' ? (cfg().binding as { query?: EntityQuery; }).query : undefined}
+                />
 
                 <label class="block-edit-form__field">
                     <span>Layout (multiple records)</span>

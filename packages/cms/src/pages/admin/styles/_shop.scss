@@ -958,3 +958,43 @@
     background: var(--admin-input-bg, #fff);
     color: var(--admin-text, #{$text-color});
 }
+
+// Product editor header: title, an optional Sync button beside it, then the
+// Save/Cancel/Delete group pushed right. `.admin-header` is space-between, so
+// the actions group needs the auto margin to stay pinned when Sync is absent.
+.shop-product-editor > .admin-header {
+    .admin-header__actions {
+        margin-left: auto;
+    }
+}
+
+// "Main" marker on the first media tile. Overlaid on the thumbnail rather than
+// sitting in flow: as a block it added a line to that tile alone, so its colour
+// dropdown sat lower than every other tile's.
+.shop-product-editor__media-main {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    // Pinned to the bottom of the THUMBNAIL, not the tile — the select sits
+    // below and would otherwise be covered.
+    bottom: 4px;
+    padding: 1px 6px;
+    border-radius: $border-radius-sm;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-align: center;
+    pointer-events: none;
+    // The frame zeroes line-height so the image leaves no descender gap; the
+    // label needs its own back or it collapses to a 2px sliver.
+    line-height: 1.5;
+}
+
+// Positioning context for the media overlays. Without it they anchored to the
+// tile, whose height includes the colour select — so the "Main" label landed on
+// top of the dropdown instead of on the image.
+.shop-product-editor__media-frame {
+    position: relative;
+    line-height: 0;
+}

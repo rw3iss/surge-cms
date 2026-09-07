@@ -21,7 +21,6 @@ import { Component, createEffect, createSignal, For, onMount, Show, } from 'soli
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
-import EntityFilterBar from './EntityFilterBar';
 import EntityValueInput from './EntityValueInput';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
@@ -37,17 +36,29 @@ export interface EntitySearchSelectModalProps {
 }
 
 type FilterOp = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in';
+
+/** One property/operator/value criterion. Several combine with AND. */
+interface FilterClause {
+    field: string;
+    op: FilterOp;
+    value: string;
+}
+
+const blankClause = (): FilterClause => ({ field: '', op: 'eq', value: '', });
 /** The wire value stays the short token the API expects; only the LABEL is
  *  spelled out, because "ne" and "lte" are not words. */
-const FILTER_OPS: { op: FilterOp; label: string; }[] = [
-    { op: 'eq', label: '== equals', },
-    { op: 'ne', label: '!= does not equal', },
-    { op: 'gt', label: '> greater than', },
-    { op: 'gte', label: '>= greater than or equal to', },
-    { op: 'lt', label: '< less than', },
-    { op: 'lte', label: '<= less than or equal to', },
-    { op: 'like', label: '~ contains', },
-    { op: 'in', label: 'in — is any of (comma-separated)', },
+const FILTER_OPS: { op: FilterOp; label: string; short: string; }[] = [
+    // `short` is what the (now narrow) dropdown shows — the row has to fit a
+    // property, an operator, a value and two buttons. `label` is kept for
+    // anywhere that has room to spell it out.
+    { op: 'eq', label: '== equals', short: '== equals', },
+    { op: 'ne', label: '!= does not equal', short: '≠ not', },
+    { op: 'gt', label: '> greater than', short: '> more than', },
+    { op: 'gte', label: '>= greater than or equal to', short: '≥ at least', },
+    { op: 'lt', label: '< less than', short: '< less than', },
+    { op: 'lte', label: '<= less than or equal to', short: '≤ at most', },
+    { op: 'like', label: '~ contains', short: '~ contains', },
+    { op: 'in', label: 'in — is any of (comma-separated)', short: 'is any of', },
 ];
 
 const PAGE_LIMIT = 10;
@@ -79,21 +90,35 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
 
     const [selected, setSelected,] = createSignal<EntityRecord[]>([],);
 
-    // Query-mode filter draft (single optional clause).
-    const [filterField, setFilterField,] = createSignal('',);
-    const [filterOp, setFilterOp,] = createSignal<FilterOp>('eq',);
-    const [filterValue, setFilterValue,] = createSignal('',);
+    /**
+     * The filter clauses, as a LIST.
+     *
+     * Was a single field/op/value triple plus a separate row of per-field
+     * dropdowns above it — two ways to say the same thing, and the dropdown row
+     * couldn't express anything but equality. One list of clauses covers both:
+     * every filterable field is just another property to pick, and a second
+     * criterion is another row rather than a different control.
+     *
+     * Always at least one row, so the controls are visible without a
+     * "add a filter" step for the common single-clause case.
+     */
+    const [clauses, setClauses,] = createSignal<FilterClause[]>([blankClause(),],);
 
-    // Filterable-field dropdowns (all modes): fieldKey → selected value.
-    const [barFilters, setBarFilters,] = createSignal<Record<string, string>>({},);
+    const patchClause = (i: number, change: Partial<FilterClause>,) =>
+        setClauses((list,) => list.map((c, j,) => (j === i ? { ...c, ...change, } : c)),);
+    const addClause = () => setClauses((list,) => [...list, blankClause(),],);
+    const removeClause = (i: number,) =>
+        // Never drop the last row — an empty list would hide the controls
+        // entirely and leave no way to add one back.
+        setClauses((list,) => (list.length <= 1 ? [blankClause(),] : list.filter((_, j,) => j !== i,)));
 
     let searchTimer: ReturnType<typeof setTimeout>;
     let filterTimer: ReturnType<typeof setTimeout>;
 
     /** Debounced refetch when the clause VALUE changes (a text input) — field/op
      *  are dropdowns and refetch immediately via the effect below. */
-    const onFilterValueInput = (value: string,) => {
-        setFilterValue(value,);
+    const onFilterValueInput = (i: number, value: string,) => {
+        patchClause(i, { value, },);
         clearTimeout(filterTimer,);
         filterTimer = setTimeout(() => {
             setPage(1,);
@@ -153,32 +178,36 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         setPage(1,);
     };
 
-    /** The single field/op/value clause (if set). Applied in EVERY mode: in
-     *  single/multiple it narrows the pickable records; in query it also folds
-     *  into the saved query. */
-    const buildClause = (): Record<string, EntityFilterValue> | undefined => {
-        if (!filterField() || filterValue() === '') return undefined;
-        const raw = filterValue();
+    /**
+     * Fold the complete clauses into one filter object. Applied in EVERY mode:
+     * in single/multiple it narrows the pickable records; in query mode it is
+     * also what gets saved.
+     *
+     * Incomplete rows (no field, or an empty value) are skipped rather than
+     * treated as an error — a half-typed row shouldn't blank the results while
+     * you're still filling it in.
+     *
+     * NOTE the shape's limit: the filter is keyed BY FIELD, so two clauses on
+     * the same field can't both survive — the later one wins. Expressing
+     * "price > 10 AND price < 20" needs a filter format that carries a list,
+     * which is a backend change; the UI is honest about it by letting you see
+     * both rows rather than silently dropping one.
+     */
+    const buildFilter = (): Record<string, EntityFilterValue> | undefined => {
         const coerce = (v: string,): unknown => {
             const t = v.trim();
             if (t === 'true') return true;
             if (t === 'false') return false;
             return /^-?\d+(\.\d+)?$/.test(t,) ? Number(t,) : t;
         };
-        const value: unknown = filterOp() === 'in'
-            ? raw.split(',',).map(coerce,)
-            : coerce(raw,);
-        return { [filterField()]: { op: filterOp(), value, }, };
-    };
-
-    /** Combined filter: the filterable-field dropdowns (bare equality) merged
-     *  with the query-mode clause. Applied in every mode to narrow results. */
-    const buildFilter = (): Record<string, EntityFilterValue> | undefined => {
-        const bar = Object.fromEntries(
-            Object.entries(barFilters(),).filter(([, v,],) => v !== '' && v != null),
-        );
-        const clause = buildClause();
-        const merged: Record<string, EntityFilterValue> = { ...bar, ...(clause ?? {}), };
+        const merged: Record<string, EntityFilterValue> = {};
+        for (const c of clauses()) {
+            if (!c.field || c.value === '') continue;
+            merged[c.field] = {
+                op: c.op,
+                value: c.op === 'in' ? c.value.split(',',).map(coerce,) : coerce(c.value,),
+            };
+        }
         return Object.keys(merged,).length ? merged : undefined;
     };
 
@@ -228,16 +257,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         page();
         sortBy();
         sortOrder();
-        filterField();
-        filterOp();
-        barFilters();
+        // Reading the list registers a dependency on every clause, so editing
+        // any field/op/value refetches.
+        clauses();
         void fetchRecords();
     },);
-
-    const onFilterBarChange = (next: Record<string, string>,) => {
-        setBarFilters(next,);
-        setPage(1,);
-    };
 
     const onSearchInput = (value: string,) => {
         setSearch(value,);
@@ -297,40 +321,72 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     </Show>
                 </div>
 
-                {/* Filterable-field dropdowns (all modes) — narrow the visible
-                    records by a field's distinct/enum values. In query mode they
-                    also fold into the saved query's filter. */}
-                <EntityFilterBar typeDef={typeDef()} value={barFilters()} onChange={onFilterBarChange} />
-
-                {/* Field / op / value clause — a live filter to narrow the
-                    pickable records (all modes), e.g. `status = active`. In query
-                    mode it also folds into the saved query. */}
+                {/* Filter criteria: one property / operator / value row each,
+                    combining with AND. Every filterable field is just another
+                    property here — there is no separate row of per-field
+                    dropdowns, which could only ever express equality. */}
                 <Show when={filterFields().length > 0}>
-                    <div class="entity-search-modal__query">
-                        <select
-                            value={filterField()}
-                            onChange={(e,) => { setFilterField(e.currentTarget.value,); setPage(1,); }}
-                        >
-                            <option value="">Filter field…</option>
-                            <For each={filterFields()}>
-                                {(f,) => <option value={f}>{fieldLabel(f,)}</option>}
-                            </For>
-                        </select>
-                        <select
-                            value={filterOp()}
-                            onChange={(e,) => { setFilterOp(e.currentTarget.value as FilterOp,); setPage(1,); }}
-                        >
-                            <For each={FILTER_OPS}>
-                                {(o,) => <option value={o.op}>{o.label}</option>}
-                            </For>
-                        </select>
-                        <EntityValueInput
-                            typeKey={props.entityType}
-                            field={filterField()}
-                            value={filterValue()}
-                            onInput={onFilterValueInput}
-                            placeholder="Value (comma-separated for 'is any of')"
-                        />
+                    <div class="entity-search-modal__clauses">
+                        <For each={clauses()}>
+                            {(c, i,) => (
+                                <div class="entity-search-modal__query">
+                                    <select
+                                        value={c.field}
+                                        onChange={(e,) => {
+                                            // Changing the property invalidates the
+                                            // value: it was picked from a different
+                                            // field's suggestions.
+                                            patchClause(i(), { field: e.currentTarget.value, value: '', },);
+                                            setPage(1,);
+                                        }}
+                                    >
+                                        <option value="">Property…</option>
+                                        <For each={filterFields()}>
+                                            {(f,) => <option value={f}>{fieldLabel(f,)}</option>}
+                                        </For>
+                                    </select>
+                                    <select
+                                        class="entity-search-modal__op"
+                                        value={c.op}
+                                        onChange={(e,) => {
+                                            patchClause(i(), { op: e.currentTarget.value as FilterOp, },);
+                                            setPage(1,);
+                                        }}
+                                    >
+                                        <For each={FILTER_OPS}>
+                                            {(o,) => <option value={o.op}>{o.short}</option>}
+                                        </For>
+                                    </select>
+                                    <EntityValueInput
+                                        typeKey={props.entityType}
+                                        field={c.field}
+                                        value={c.value}
+                                        onInput={(v,) => onFilterValueInput(i(), v,)}
+                                        placeholder="Value (comma-separated for 'is any of')"
+                                    />
+                                    <Show when={clauses().length > 1}>
+                                        <button
+                                            type="button"
+                                            class="entity-search-modal__clause-remove"
+                                            aria-label="Remove this criterion"
+                                            title="Remove"
+                                            onClick={() => { removeClause(i(),); setPage(1,); }}
+                                        >
+                                            ×
+                                        </button>
+                                    </Show>
+                                    <Show when={i() === clauses().length - 1}>
+                                        <button
+                                            type="button"
+                                            class="ui-button ui-button--sm ui-button--secondary"
+                                            onClick={addClause}
+                                        >
+                                            + Add another
+                                        </button>
+                                    </Show>
+                                </div>
+                            )}
+                        </For>
                     </div>
                 </Show>
 

@@ -524,3 +524,47 @@
 @keyframes entity-copy-spin {
     to { transform: rotate(360deg); }
 }
+
+// Filter criteria: one property / operator / value row per line, combining
+// with AND. The rows are repeatable, so they need to stay compact.
+.entity-search-modal__clauses {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+}
+
+.entity-search-modal__query {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+
+    // The value input takes the slack; the two selects stay their own size.
+    .entity-value-input { flex: 1 1 12rem; }
+    select { flex: 0 0 auto; }
+}
+
+// The operator is the narrowest thing in the row — it holds a symbol and a
+// word or two, and the space is better spent on the property and the value.
+.entity-search-modal__op {
+    max-width: 9.5rem;
+}
+
+.entity-search-modal__clause-remove {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    background: none;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--admin-danger, #{$error-color});
+        color: var(--admin-danger, #{$error-color});
+    }
+}

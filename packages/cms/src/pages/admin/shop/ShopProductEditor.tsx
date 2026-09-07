@@ -11,7 +11,6 @@ import type {
     ShopProductDetail,
     ShopVariantInput,
 } from '@sitesurge/types';
-import EditorSaveBar from '../../../components/admin/common/EditorSaveBar';
 import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
@@ -515,8 +514,47 @@ const ShopProductEditorInner: Component = () => {
     return (
         <div class="shop-admin shop-product-editor">
             <Title>{isNew() ? 'New Product' : 'Edit Product'} - Admin - RW</Title>
+            {/* All actions live in the STICKY header, so Save stays reachable
+                from anywhere in a long product form instead of requiring a
+                scroll to the bottom. Sync sits next to the title (it acts on
+                where the data comes from), the rest are right-aligned. */}
             <div class="admin-header">
                 <h1>{isNew() ? 'New Product' : 'Edit Product'}</h1>
+                <Show when={canSyncPrintify()}>
+                    <button
+                        class="ui-button ui-button--sm ui-button--secondary"
+                        onClick={handleSyncFromPrintify}
+                        disabled={syncing()}
+                        title="Pull the latest images, price, and details for this product from Printify"
+                    >
+                        {syncing() ? 'Syncing…' : 'Sync from Printify'}
+                    </button>
+                </Show>
+                <div class="admin-header__actions">
+                    <button
+                        class="ui-button ui-button--secondary"
+                        onClick={() => navigate('/admin/shop/products',)}
+                        disabled={saving()}
+                    >
+                        Cancel
+                    </button>
+                    <Show when={!isNew()}>
+                        <button
+                            class="ui-button ui-button--danger"
+                            onClick={handleDelete}
+                            disabled={deleting() || saving()}
+                        >
+                            {deleting() ? 'Deleting…' : 'Delete'}
+                        </button>
+                    </Show>
+                    <button
+                        class="ui-button ui-button--primary"
+                        onClick={handleSave}
+                        disabled={saving()}
+                    >
+                        {saving() ? 'Saving…' : 'Save'}
+                    </button>
+                </div>
             </div>
             <ShopifyManagedBanner note="Products are managed in Shopify while the plugin is enabled; this internal editor doesn't affect the storefront." />
 
@@ -708,32 +746,45 @@ const ShopProductEditorInner: Component = () => {
                                                     }}
                                                     onDragEnd={() => { setDragIndex(null,); setDragOverIndex(null,); }}
                                                 >
-                                                    <Show
-                                                        when={m.kind === 'image'}
-                                                        fallback={<div class="shop-product-editor__media-thumb shop-product-editor__media-thumb--video">▶</div>}
-                                                    >
-                                                        <img
-                                                            class="shop-product-editor__media-thumb"
-                                                            src={m.thumbnailUrl || m.url}
-                                                            alt=""
-                                                            draggable={false}
-                                                        />
-                                                    </Show>
-                                                    <Show when={i() === 0}>
-                                                        <span class="badge badge--info">Main</span>
-                                                    </Show>
+                                                    {/* The frame is the positioning
+                                                        context for the overlays, so
+                                                        they anchor to the THUMBNAIL
+                                                        rather than to the tile (which
+                                                        also contains the select, and
+                                                        whose height therefore varies). */}
+                                                    <div class="shop-product-editor__media-frame">
+                                                        <Show
+                                                            when={m.kind === 'image'}
+                                                            fallback={<div class="shop-product-editor__media-thumb shop-product-editor__media-thumb--video">▶</div>}
+                                                        >
+                                                            <img
+                                                                class="shop-product-editor__media-thumb"
+                                                                src={m.thumbnailUrl || m.url}
+                                                                alt=""
+                                                                draggable={false}
+                                                            />
+                                                        </Show>
+                                                        {/* Floats over the bottom of the
+                                                            thumbnail. In flow it added a
+                                                            line to the FIRST tile only,
+                                                            pushing that tile's dropdown
+                                                            out of line with the others. */}
+                                                        <Show when={i() === 0}>
+                                                            <span class="shop-product-editor__media-main">Main</span>
+                                                        </Show>
 
-                                                    {/* Delete lives in the corner and appears on hover, so a
-                                                        grid of thumbnails isn't a wall of buttons. */}
-                                                    <button
-                                                        type="button"
-                                                        class="shop-product-editor__media-remove"
-                                                        aria-label="Remove media"
-                                                        title="Remove"
-                                                        onClick={() => removeMedia(i(),)}
-                                                    >
-                                                        ×
-                                                    </button>
+                                                        {/* Delete lives in the corner and appears on hover, so a
+                                                            grid of thumbnails isn't a wall of buttons. */}
+                                                        <button
+                                                            type="button"
+                                                            class="shop-product-editor__media-remove"
+                                                            aria-label="Remove media"
+                                                            title="Remove"
+                                                            onClick={() => removeMedia(i(),)}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
 
                                                     <Show when={mediaVariantChoices().length > 0}>
                                                         <select
@@ -952,26 +1003,6 @@ const ShopProductEditorInner: Component = () => {
 
                 </div>
 
-                <EditorSaveBar
-                    onSave={handleSave}
-                    onCancel={() => navigate('/admin/shop/products',)}
-                    onDelete={isNew() ? undefined : handleDelete}
-                    saving={saving()}
-                    deleting={deleting()}
-                    showDelete={!isNew()}
-                    extraActions={
-                        <Show when={canSyncPrintify()}>
-                            <button
-                                class="ui-button ui-button--secondary"
-                                onClick={handleSyncFromPrintify}
-                                disabled={syncing()}
-                                title="Pull the latest images, price, and details for this product from Printify"
-                            >
-                                {syncing() ? 'Syncing…' : 'Sync from Printify'}
-                            </button>
-                        </Show>
-                    }
-                />
             </Show>
 
             <Show when={showMedia()}>
