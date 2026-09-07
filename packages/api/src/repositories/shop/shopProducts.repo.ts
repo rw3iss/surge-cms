@@ -509,16 +509,30 @@ export async function replaceProductStructure(
                 `SELECT id, external_id, option1, option2, option3 FROM shop_variants WHERE product_id = $1`,
                 [productId,],
             );
-            /** Key for the option-triple map. JSON so a value containing the
-             *  separator can't collide with a different triple. */
-            const optionKey = (a: unknown, b: unknown, c2: unknown,) =>
-                JSON.stringify([a ?? null, b ?? null, c2 ?? null,],);
+            /**
+             * Key for the option-triple map, or null when the triple is
+             * entirely NULL.
+             *
+             * That null case matters: the unique index treats NULLs as
+             * DISTINCT, so two optionless variants legitimately coexist on one
+             * product. Matching them on "all nulls" would collapse them into
+             * one another — so the fallback only applies where the index
+             * actually constrains, i.e. at least one real option value.
+             *
+             * JSON-encoded so a value containing the separator can't be
+             * confused with a different triple.
+             */
+            const optionKey = (a: unknown, b: unknown, c2: unknown,): string | null => {
+                const t = [a ?? null, b ?? null, c2 ?? null,];
+                return t.every((x,) => x === null) ? null : JSON.stringify(t,);
+            };
 
             const byExternal = new Map<string, string>();
             const byOptions = new Map<string, string>();
             for (const row of existing.rows) {
                 if (row.external_id) byExternal.set(String(row.external_id,), row.id,);
-                byOptions.set(optionKey(row.option1, row.option2, row.option3,), row.id,);
+                const k = optionKey(row.option1, row.option2, row.option3,);
+                if (k) byOptions.set(k, row.id,);
             }
             const keptIds = new Set<string>();
 
@@ -544,7 +558,7 @@ export async function replaceProductStructure(
                 // guards against two incoming variants claiming the same row.
                 const optKey = optionKey(v.option1, v.option2, v.option3,);
                 const byExt = v.externalId ? byExternal.get(String(v.externalId,),) : undefined;
-                const byOpt = byOptions.get(optKey,);
+                const byOpt = optKey ? byOptions.get(optKey,) : undefined;
                 const existingId = (byExt && !keptIds.has(byExt,)) ? byExt
                     : (byOpt && !keptIds.has(byOpt,)) ? byOpt
                     : undefined;
