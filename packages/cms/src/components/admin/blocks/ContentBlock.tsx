@@ -1,3 +1,4 @@
+import SaveAsComponentModal from './SaveAsComponentModal';
 import { Component, createEffect, createMemo, createSignal, For, type JSX, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { type BlockType, getBlockLabel, } from '../../../config/blockTypes';
 import AddBlockMenu from './AddBlockMenu';
@@ -88,6 +89,7 @@ interface ContentBlockProps {
  */
 const ContentBlock: Component<ContentBlockProps> = (props,) => {
     const [showRemoveConfirm, setShowRemoveConfirm,] = createSignal(false,);
+    const [showSaveComponent, setShowSaveComponent,] = createSignal(false,);
     const [showOptionsMenu, setShowOptionsMenu,] = createSignal(false,);
     // Collapse/minimize the block's preview body (local UI state). A block
     // that loads already disabled starts collapsed by default — disabled
@@ -302,6 +304,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                             <button onClick={() => { props.onCopyBlock?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Copy Block
                             </button>
+                            <button onClick={() => { setShowSaveComponent(true,); setShowOptionsMenu(false,); }}>
+                                Save as Component
+                            </button>
                             <Show when={props.canPaste}>
                                 <button onClick={() => { props.onPasteAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                     Paste Block (after)
@@ -323,6 +328,14 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     </Show>
                 </div>
             </div>
+
+            <Show when={showSaveComponent()}>
+                <SaveAsComponentModal
+                    block={props.block}
+                    allBlocks={props.allBlocks}
+                    onClose={() => setShowSaveComponent(false,)}
+                />
+            </Show>
 
             {/* Block preview — hidden when collapsed. */}
             <Show when={!isCollapsed()}>

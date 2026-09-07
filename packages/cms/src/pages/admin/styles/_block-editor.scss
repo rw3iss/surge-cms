@@ -1514,3 +1514,23 @@
   span { color: $text-light; }
   &:hover { color: var(--site-primary, #{$primary-color}); }
 }
+
+// ── Save as Component modal ──────────────────────────────────────────────
+.save-component-modal__title {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $text-color;
+}
+
+.save-component-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    margin-top: $spacing-lg;
+}
+
+.save-component-modal__done p {
+    margin: 0 0 $spacing-sm;
+    color: $text-color;
+}
