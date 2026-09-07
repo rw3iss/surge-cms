@@ -1097,6 +1097,8 @@ const TemplateBlock: Component<{
 
     const roots = () => buildBlockTree(mapTemplateBlocks((tpl()?.blocks ?? []) as never,),);
     const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
+    /** Guards the effect below against re-running on unrelated signal changes. */
+    let mounted = false;
 
     /**
      * Mount the component's optional client module.
@@ -1114,9 +1116,14 @@ const TemplateBlock: Component<{
      */
     let mountEl: HTMLDivElement | undefined;
     const auth = useUser();
-    onMount(() => {
+    // Mount only once the template's blocks are actually in the DOM. The
+    // subtree arrives with an async fetch, so an onMount-only hook would run
+    // against an empty container and every `el.querySelector` would miss.
+    createEffect(() => {
         const id = templateId();
-        if (!id || isCycle() || !mountEl) return;
+        const ready = (tpl()?.blocks ?? []).length >= 0 && !tpl.loading;
+        if (!id || isCycle() || !mountEl || !ready || mounted) return;
+        mounted = true;
         let teardown: (() => void) | undefined;
         let disposed = false;
         void (async () => {
@@ -1154,9 +1161,12 @@ const TemplateBlock: Component<{
             }
         >
             <Show when={templateId()} fallback={<div class="block-message">No component selected.</div>}>
-                {/* The component's script mounts into THIS element, so it can
-                    own its own DOM without fighting the rendered blocks. */}
-                <div class="template-block__script-root" ref={(el,) => { mountEl = el; }} />
+                {/* The script mounts against the element WRAPPING the rendered
+                    blocks, not a sibling. That's what lets it query into the
+                    component's own markup (`el.querySelector('.my-thing')`) and
+                    enhance it in place, rather than only being able to append
+                    its own UI beside it. */}
+                <div class="template-block__root" ref={(el,) => { mountEl = el; }}>
                 <For each={roots()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
@@ -1170,6 +1180,7 @@ const TemplateBlock: Component<{
                         </Show>
                     )}
                 </For>
+                </div>
             </Show>
         </Show>
     );
