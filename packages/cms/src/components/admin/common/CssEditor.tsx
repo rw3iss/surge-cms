@@ -1,80 +1,16 @@
 /**
- * CodeMirror CSS editor — line numbers, syntax highlighting, Tab-to-indent.
- *
- * Shares the HTML block's editor setup rather than reimplementing it, so both
- * behave the same: sync on blur, sync on Ctrl/Cmd+S BEFORE the global save
- * shortcut fires (otherwise a save captures the previous value), and accept
- * external content changes without echoing them back through `onChange`.
+ * CSS code field. A one-line wrapper over `CodeEditor`, which owns the
+ * behaviour both editors share (blur sync, Ctrl/Cmd+S flush ordering, external
+ * value handling). Kept as a named component so call sites read as intent
+ * rather than configuration.
  */
-import { Component, createEffect, onCleanup, onMount, } from 'solid-js';
-import { EditorState, } from '@codemirror/state';
-import { EditorView, lineNumbers, } from '@codemirror/view';
-import { css as cssLang, } from '@codemirror/lang-css';
-import { basicSetup, } from 'codemirror';
-import { indentExtensions, type CodeTabWidth, } from '../../../services/codeIndent';
-import './CssEditor.scss';
+import { Component, } from 'solid-js';
+import CodeEditor, { type CodeEditorProps, } from './CodeEditor';
 
-export interface CssEditorProps {
-    value: string;
-    onChange: (next: string,) => void;
-    /** Editor height. Any CSS length. */
-    height?: string;
-    /** What Tab inserts; from Settings → Appearance → Code tab width. */
-    tabWidth?: CodeTabWidth;
-    placeholder?: string;
-}
+export type CssEditorProps = Omit<CodeEditorProps, 'language'>;
 
-const CssEditor: Component<CssEditorProps> = (props,) => {
-    let hostEl: HTMLDivElement | undefined;
-    let view: EditorView | undefined;
-
-    const flush = () => {
-        if (!view) return;
-        const text = view.state.doc.toString();
-        if (text !== props.value) props.onChange(text,);
-    };
-
-    onMount(() => {
-        if (!hostEl) return;
-        const state = EditorState.create({
-            doc: props.value || '',
-            extensions: [
-                basicSetup,
-                lineNumbers(),
-                cssLang(),
-                ...indentExtensions(props.tabWidth,),
-                EditorView.lineWrapping,
-                EditorView.domEventHandlers({
-                    blur: () => { flush(); return false; },
-                    keydown: (e,) => {
-                        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) flush();
-                        return false;
-                    },
-                },),
-            ],
-        },);
-        view = new EditorView({ state, parent: hostEl, },);
-    },);
-
-    onCleanup(() => view?.destroy(),);
-
-    // External changes (revert, load) — write into the doc without emitting.
-    createEffect(() => {
-        const next = props.value || '';
-        if (!view) return;
-        if (view.state.doc.toString() === next) return;
-        view.dispatch({
-            changes: { from: 0, to: view.state.doc.length, insert: next, },
-        },);
-    },);
-
-    return (
-        <div
-            class="css-editor"
-            style={{ '--css-editor-height': props.height ?? '260px', }}
-            ref={(el,) => { hostEl = el; }}
-        />
-    );
-};
+const CssEditor: Component<CssEditorProps> = (props,) => (
+    <CodeEditor {...props} language="css" />
+);
 
 export default CssEditor;

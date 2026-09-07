@@ -1,6 +1,6 @@
 import type { ShopAppearance, ShopCategory, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, lazy, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import { siteName, } from '../../stores/siteSettings';
@@ -9,9 +9,7 @@ import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
 import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
 import DynamicPage from '../DynamicPage';
-import { loadShopSettings, storeEnabled, storefrontMode, } from '../../stores/shopSettings';
-
-const NotFoundPage = lazy(() => import('../NotFound'));
+import { storefrontMode, } from '../../stores/shopSettings';
 import PageCustomCss from '../../components/common/PageCustomCss';
 import { money, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
@@ -447,34 +445,21 @@ const ShopIndexInner: Component = () => {
 };
 
 const ShopIndex: Component = () => {
-    // Which storefront to render, and whether it renders at all.
-    //
     // `page` mode points /shop at the operator's own CMS page. That page is
-    // ordinary content, so it stays reachable even with the store CLOSED —
-    // closing the store shouldn't take down a marketing page. The built-in
-    // grid is the opposite: with the store closed it has nothing to sell, so
-    // it 404s.
-    const [ready,] = createResource(async () => {
-        await loadShopSettings();
-        return true;
-    },);
-
+    // ordinary content, so it stays reachable with the store CLOSED — closing
+    // the store shouldn't take down a marketing page. The built-in grid is the
+    // opposite: closed, it has nothing to sell, so it 404s.
+    //
+    // The guard owns the readiness wait, the 404 and the loading state; this
+    // component only decides WHICH storefront to render.
     const usesOwnPage = () => storefrontMode() === 'page';
 
     return (
-        <ShopStoreGuard>
-            <Show when={ready()} fallback={<div class="shop-store__loading">Loading…</div>}>
-                <Show
-                    when={usesOwnPage() || storeEnabled()}
-                    fallback={<NotFoundPage />}
-                >
-                    {/* 'page' renders the `shop` CMS page's own blocks;
-                        DynamicPage falls back to a not-found state when no such
-                        page exists, which is the "otherwise 404" case. */}
-                    <Show when={usesOwnPage()} fallback={<ShopIndexInner />}>
-                        <DynamicPage slugOverride="shop" />
-                    </Show>
-                </Show>
+        <ShopStoreGuard requireStoreEnabled={() => !usesOwnPage()}>
+            {/* DynamicPage falls back to a not-found state when no `shop` page
+                exists, which is the "otherwise 404" case. */}
+            <Show when={usesOwnPage()} fallback={<ShopIndexInner />}>
+                <DynamicPage slugOverride="shop" />
             </Show>
         </ShopStoreGuard>
     );

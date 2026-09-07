@@ -379,3 +379,16 @@
     &__item { width: 82vw; max-width: 340px; scroll-snap-align: center; }
   }
 }
+
+// The `template` block's mount root.
+//
+// `display: contents` is load-bearing, not cosmetic. The element exists so a
+// component's script has something to mount against and query into — but as a
+// normal block box it inserted an extra layer between `.block__inner` and the
+// template's own blocks. That silently broke two things: the carousel
+// entity-slide height chain (block -> .block__inner -> .html-block, all
+// height:100%), and a template dropped into a group slot, where the wrapper
+// became the flex item instead of the blocks. Neither failed loudly.
+.template-block__root {
+    display: contents;
+}

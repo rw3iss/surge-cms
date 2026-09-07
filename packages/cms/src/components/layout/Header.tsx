@@ -568,7 +568,10 @@ function LogoutGlyph() {
 
 export const Header: Component<HeaderProps> = (props,) => {
     // The cart gate needs shop settings on every page, not just /shop/*.
-    void loadShopSettings();
+    // In onMount, not the render body: a fetch fired as a side effect of
+    // rendering happens to be safe here (the store dedupes and the call is
+    // idempotent), but it stops being safe the moment a second one appears.
+    onMount(() => { void loadShopSettings(); },);
 
     const [mobileMenuOpen, setMobileMenuOpen,] = createSignal(false,);
     const location = useLocation();

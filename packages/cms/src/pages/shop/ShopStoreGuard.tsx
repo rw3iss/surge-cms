@@ -23,14 +23,29 @@ const NotFoundPage = lazy(() => import('../NotFound'));
  * store (the grid, products, cart, checkout). Order confirmation deliberately
  * does NOT use it — someone who already bought something must still be able to
  * reach their receipt after the store closes.
+ *
+ * It accepts a FUNCTION as well as a boolean, for the one route whose answer
+ * depends on the settings this guard is already waiting for: /shop only needs
+ * an open store in `builtin` mode, because `page` mode renders the operator's
+ * own CMS page, which is ordinary content. Without that, ShopIndex had to
+ * duplicate the readiness resource, the loading state and the 404 — the same
+ * gate twice, nested inside itself.
  */
-const ShopStoreGuard: ParentComponent<{ requireStoreEnabled?: boolean; }> = (props,) => {
+const ShopStoreGuard: ParentComponent<{
+    requireStoreEnabled?: boolean | (() => boolean);
+}> = (props,) => {
     // Resolve settings before deciding, or a closed store flashes its contents
     // for a frame before the 404 replaces it.
     const [ready,] = createResource(async () => {
         await loadShopSettings();
         return true;
     },);
+
+    // Resolved only after settings load, so a predicate can read them safely.
+    const required = () => {
+        const r = props.requireStoreEnabled;
+        return typeof r === 'function' ? r() : Boolean(r,);
+    };
 
     return (
         <FeatureReadyGuard
@@ -43,14 +58,11 @@ const ShopStoreGuard: ParentComponent<{ requireStoreEnabled?: boolean; }> = (pro
                 </div>
             }
         >
-            <Show
-                when={!props.requireStoreEnabled || ready()}
-                fallback={<div class="shop-store__loading">Loading…</div>}
-            >
-                <Show
-                    when={!props.requireStoreEnabled || storeEnabled()}
-                    fallback={<NotFoundPage />}
-                >
+            {/* Wait for settings before deciding, always: a predicate needs
+                them, and without the wait a closed store flashes its contents
+                for a frame before the 404 replaces it. */}
+            <Show when={ready()} fallback={<div class="shop-store__loading">Loading…</div>}>
+                <Show when={!required() || storeEnabled()} fallback={<NotFoundPage />}>
                     {props.children}
                 </Show>
             </Show>

@@ -943,6 +943,7 @@
     &:hover { background: var(--admin-danger, #{$error-color}); }
 
     .shop-product-editor__media-item:hover &,
+.shop-product-editor__media-remove:focus-visible,
     &:focus-visible {
         opacity: 1;
     }
@@ -1028,4 +1029,12 @@
     font-size: 0.8rem;
     font-weight: 600;
     white-space: nowrap;
+}
+
+// The remove button only fades in on hover, so a keyboard user could focus a
+// control they cannot see. Focus reveals it and rings it.
+.shop-product-editor__media-remove:focus-visible {
+    opacity: 1;
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
 }
