@@ -8,6 +8,7 @@ import { activeHeaderPosition, activeHeaderStyle, setSiteDefaultHeaderPosition, 
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { cartCount, } from '../../stores/shopCart';
+import { loadShopSettings, storeEnabled, } from '../../stores/shopSettings';
 import SiteLogo from '../common/branding/SiteLogo';
 import './Header.scss';
 
@@ -566,6 +567,9 @@ function LogoutGlyph() {
 // ─── Header Component ───
 
 export const Header: Component<HeaderProps> = (props,) => {
+    // The cart gate needs shop settings on every page, not just /shop/*.
+    void loadShopSettings();
+
     const [mobileMenuOpen, setMobileMenuOpen,] = createSignal(false,);
     const location = useLocation();
     const auth = useAuth();
@@ -648,11 +652,17 @@ export const Header: Component<HeaderProps> = (props,) => {
     const isFloatHeader = () => activeHeaderPosition() === 'float';
     const isFloatRightContent = () => props.headerSettings?.floatRightContent === true;
 
-    // Cart shows only when: the shop feature is on, the operator has the
-    // 'Show cart link' setting enabled (default true), AND the visitor has at
-    // least one item in their cart. An empty cart shows no icon at all.
+    // Cart shows only when: the shop feature is on, the STORE itself is
+    // enabled, the operator has the 'Show cart link' setting on (default true),
+    // AND the visitor has at least one item in their cart. An empty cart shows
+    // no icon at all.
+    //
+    // `storeEnabled` is separate from the feature: an operator can leave the
+    // shop module installed but close the store, and a cart icon linking to a
+    // 404 is worse than no icon.
     const showCart = () =>
         isFeatureEnabled('shop',)
+        && storeEnabled()
         && props.headerSettings?.showCart !== false
         && cartCount() > 0;
     // Desktop account-controls layout; defaults to the historic inline row.

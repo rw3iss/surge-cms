@@ -100,7 +100,7 @@ const ShopCollectionInner: Component = () => {
 };
 
 const ShopCollectionPage: Component = () => (
-    <ShopStoreGuard>
+    <ShopStoreGuard requireStoreEnabled>
         <ShopCollectionInner />
     </ShopStoreGuard>
 );

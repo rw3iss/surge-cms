@@ -551,7 +551,7 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
 };
 
 const ShopProduct: Component = () => (
-    <ShopStoreGuard>
+    <ShopStoreGuard requireStoreEnabled>
         <ShopProductInner />
     </ShopStoreGuard>
 );

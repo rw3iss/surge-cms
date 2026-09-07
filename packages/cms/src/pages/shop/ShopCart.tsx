@@ -102,7 +102,7 @@ const ShopCartInner: Component = () => {
 };
 
 const ShopCart: Component = () => (
-    <ShopStoreGuard>
+    <ShopStoreGuard requireStoreEnabled>
         <ShopCartInner />
     </ShopStoreGuard>
 );

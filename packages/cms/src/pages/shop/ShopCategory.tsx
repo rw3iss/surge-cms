@@ -108,7 +108,7 @@ const ShopCategoryInner: Component = () => {
 };
 
 const ShopCategoryPage: Component = () => (
-    <ShopStoreGuard>
+    <ShopStoreGuard requireStoreEnabled>
         <ShopCategoryInner />
     </ShopStoreGuard>
 );

@@ -752,7 +752,7 @@ const ShopifyCheckoutInner: Component = () => {
 };
 
 const ShopCheckout: Component = () => (
-    <ShopStoreGuard>
+    <ShopStoreGuard requireStoreEnabled>
         <Show when={isShopifyActive()} fallback={<ShopCheckoutInner />}>
             <ShopifyCheckoutInner />
         </Show>
