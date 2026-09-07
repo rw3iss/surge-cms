@@ -842,7 +842,9 @@
         @media (max-width: $breakpoint-md) {
             flex-direction: column;
             align-items: stretch;
-            gap: $spacing-lg;
+            // Stacked, the heading sits directly above the tout — the desktop
+            // column gap reads as far too much vertical space there.
+            gap: $spacing-sm;
 
             > .shop-store__header { width: auto; }
         }
@@ -859,6 +861,43 @@
         @media (max-width: $breakpoint-md) {
             flex-direction: column;
             gap: $spacing-lg;
+            // In column direction `flex-start` sizes children to their CONTENT,
+            // which left the filter dropdown and the product grid short of the
+            // full width. Stretch is what a stacked layout wants.
+            align-items: stretch;
+        }
+    }
+
+    // Mobile filter: replaces the sidebar below the breakpoint. Hidden on
+    // desktop, where the sidebar itself is the control.
+    &__mobile-filter {
+        display: none;
+
+        @media (max-width: $breakpoint-md) {
+            display: block;
+            // Sticks to the top so the visitor can re-filter from anywhere in a
+            // long product list without scrolling back up.
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            // Opaque background: the products scroll UNDER this, and a
+            // transparent bar would show them through it.
+            background: var(--site-bg, #{$background});
+            // Bleed the background to the gutters so nothing peeks past the
+            // bar's edges as it scrolls, then pull the content back in.
+            margin: 0 calc(-1 * var(--site-gutter, #{$spacing-md}));
+            padding: $spacing-sm var(--site-gutter, #{$spacing-md});
+
+            select {
+                width: 100%;
+                padding: $spacing-sm;
+                border: 1px solid var(--site-border, #{$border-color});
+                border-radius: var(--site-radius, #{$border-radius-sm});
+                background: var(--site-bg, #{$background});
+                color: inherit;
+                font: inherit;
+                font-size: $font-size-base;
+            }
         }
     }
 
@@ -873,9 +912,10 @@
         position: sticky;
         top: $spacing-lg;
 
+        // Replaced by `__mobile-filter` below the breakpoint, so the same
+        // links aren't offered twice.
         @media (max-width: $breakpoint-md) {
-            position: static;
-            width: 100%;
+            display: none;
         }
     }
 

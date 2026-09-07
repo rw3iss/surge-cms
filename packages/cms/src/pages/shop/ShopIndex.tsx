@@ -22,7 +22,7 @@ interface StorefrontConfig {
 }
 
 const ShopIndexInner: Component = () => {
-    const [searchParams] = useSearchParams<{ collection?: string, category?: string, }>();
+    const [searchParams, setSearchParams,] = useSearchParams<{ collection?: string, category?: string, }>();
     const [products, setProducts,] = createSignal<ShopProduct[]>([],);
     const [total, setTotal,] = createSignal(0,);
     const [page, setPage,] = createSignal(1,);
@@ -67,6 +67,32 @@ const ShopIndexInner: Component = () => {
     const activeCollection = () => searchParams.collection || '';
     /** The active category slug from ?category=…, or '' for "All". */
     const activeCategory = () => searchParams.category || '';
+
+    /**
+     * The mobile filter's current value, encoding which of the three kinds of
+     * selection is live. Prefixed rather than bare slugs because a collection
+     * and a category are allowed to share one.
+     */
+    const mobileFilterValue = () =>
+        activeCollection() ? `collection:${activeCollection()}`
+            : activeCategory() ? `category:${activeCategory()}`
+            : '';
+
+    let mainEl: HTMLDivElement | undefined;
+
+    /** Apply a mobile-dropdown choice, mirroring what the sidebar links do. */
+    const onMobileFilterChange = (value: string,) => {
+        const [kind, ...rest] = value.split(':',);
+        const slug = rest.join(':',);
+        if (kind === 'collection') setSearchParams({ collection: slug, category: undefined, },);
+        else if (kind === 'category') setSearchParams({ category: slug, collection: undefined, },);
+        else setSearchParams({ collection: undefined, category: undefined, },);
+
+        // The dropdown is sticky, so after switching the visitor is usually
+        // somewhere down the old list. Put them at the top of the new one —
+        // `start` on the products column, which sits just below the sticky bar.
+        requestAnimationFrame(() => mainEl?.scrollIntoView({ behavior: 'smooth', block: 'start', },),);
+    };
 
     // Sidebar sections: only items that actually have (active) products, and only
     // shown at all when the section is non-empty.
@@ -211,6 +237,45 @@ const ShopIndexInner: Component = () => {
                 {/* Filters column: Categories + Collections. Each section shows
                     only when it has items (products); the whole aside is hidden
                     when neither does. */}
+                {/* Mobile filter. A NATIVE select with optgroups rather than a
+                    bespoke menu: the OS picker is what a phone user expects,
+                    optgroup labels give non-selectable section headers for
+                    free, and it stays keyboard- and screen-reader-usable. CSS
+                    shows this or the sidebar, never both. */}
+                <Show when={hasSidebar()}>
+                    <div class="shop-index__mobile-filter">
+                        <select
+                            aria-label="Filter products"
+                            value={mobileFilterValue()}
+                            onChange={(e,) => onMobileFilterChange(e.currentTarget.value,)}
+                        >
+                            <option value="">All Products</option>
+                            <Show when={visibleCollections().length > 0}>
+                                <optgroup label="Collections">
+                                    <For each={visibleCollections()}>
+                                        {(c,) => (
+                                            <option value={`collection:${c.slug}`}>
+                                                {c.title} ({c.productCount})
+                                            </option>
+                                        )}
+                                    </For>
+                                </optgroup>
+                            </Show>
+                            <Show when={visibleCategories().length > 0}>
+                                <optgroup label="Categories">
+                                    <For each={visibleCategories()}>
+                                        {(c,) => (
+                                            <option value={`category:${c.slug}`}>
+                                                {c.name} ({c.productCount})
+                                            </option>
+                                        )}
+                                    </For>
+                                </optgroup>
+                            </Show>
+                        </select>
+                    </div>
+                </Show>
+
                 <Show when={hasSidebar()}>
                     <aside class="shop-index__sidebar" aria-label="Product filters">
                         <A
@@ -258,7 +323,7 @@ const ShopIndexInner: Component = () => {
                     </aside>
                 </Show>
 
-                <div class="shop-index__main">
+                <div class="shop-index__main" ref={(el,) => { mainEl = el; }}>
                     <form class="shop-index__search" onSubmit={onSearch}>
                         <input
                             type="search"

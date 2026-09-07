@@ -57,6 +57,11 @@
         align-items: stretch;
         gap: $spacing-sm;
         text-align: left;
+
+        // The label is long; `nowrap` made it overflow the card on a phone.
+        .merch-signup__btn {
+            white-space: normal;
+        }
     }
 }
 
