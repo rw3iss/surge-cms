@@ -153,6 +153,14 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
     },
     { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
     {
+        type: 'template',
+        label: 'Component',
+        description: 'Insert a reusable component — edit it once, every use updates.',
+        icon: '❐',
+        category: 'blocks',
+        defaultData: () => ({ templateId: '', }),
+    },
+    {
         type: 'entity',
         label: 'Entity Template',
         description: 'Render a content-block template with an entity (or list) bound to it.',

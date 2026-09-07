@@ -91,6 +91,10 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     // dynamic, client-resolved block. Emails skip it for now (no template
     // resolution in the sync mail emitter path).
     entity: () => '',
+    // `template` pulls its blocks from another table at render time; the mail
+    // emitter is synchronous and has no fetch, so it cannot resolve one. Skipped
+    // rather than half-rendered.
+    template: () => '',
 };
 
 function toResult(out: BlockEmailRendererOut,): BlockEmailRenderResult {

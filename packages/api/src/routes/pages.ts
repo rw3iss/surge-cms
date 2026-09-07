@@ -1,3 +1,4 @@
+import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
     AssertCompatible,
@@ -48,12 +49,10 @@ const blockSchema = z.object({
     id: z.string().uuid().optional(),
     /** Parent block id; null/undefined for top-level blocks. */
     parentBlockId: z.string().uuid().nullable().optional(),
-    type: z.enum([
-        'rich_text', 'text', 'post', 'post_list', 'form', 'image', 'video', 'gallery',
-        'social', 'campaign', 'hero', 'html',
-        'document', 'url_link', 'carousel', 'spacer',
-        'group', 'group_item',
-    ],),
+    // Derived from the shared catalog rather than re-listed. The hand-written
+    // copy had already drifted — it was missing `entity` and `template`, so
+    // creating either through this route 400'd with a misleading "invalid type".
+    type: z.enum(ALL_BLOCK_TYPES,),
     title: z.string().max(255,).optional(),
     content: z.string().optional(),
     settings: z.record(z.string(), z.unknown(),).optional(),

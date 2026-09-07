@@ -9,6 +9,7 @@ import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import EntityBlockEdit from './types/EntityBlock';
+import TemplateBlockEdit from './types/TemplateBlock';
 import DocumentBlock from './types/DocumentBlock';
 import FormBlock from './types/FormBlock';
 import GroupBlock from './types/GroupBlock';
@@ -449,6 +450,12 @@ const BlockContentForm: Component<{
         </Match>
         <Match when={props.block.type === 'entity'}>
             <EntityBlockEdit data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
+        </Match>
+        <Match when={props.block.type === 'template'}>
+            <TemplateBlockEdit
+                settings={props.block.data as Record<string, unknown>}
+                onChange={(patch,) => props.onUpdate({ ...props.block.data, ...patch, },)}
+            />
         </Match>
     </Switch>
 );

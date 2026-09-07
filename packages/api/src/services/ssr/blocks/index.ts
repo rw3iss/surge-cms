@@ -100,6 +100,12 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     // `entity` renders a content-block template with a bound entity — resolved
     // client-side; the crawler sees a naming comment (like other dynamic blocks).
     entity: notIndexable,
+    // `template` references a reusable component and renders its block subtree.
+    // Deliberately NOT indexed rather than accidentally so: ssr/routes.ts feeds
+    // a FLAT block list, so a subtree's children are not walked here (the same
+    // pre-existing gap `group` has). Emitting a partial render would be worse
+    // than emitting none — fix the flat feed first, then revisit this arm.
+    template: notIndexable,
 };
 
 /** Server-side block renderer for SSR. Dispatches by type; unknown

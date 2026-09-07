@@ -26,19 +26,17 @@ const createSchema = z.object({
 },);
 const updateSchema = createSchema.partial();
 
-const blockSchema: z.ZodType<Record<string, unknown>> = z.lazy(() =>
-    z.object({
-        id: z.string().optional(),
-        parentBlockId: z.string().nullish(),
-        type: z.string(),
-        title: z.string().nullish(),
-        content: z.string().nullish(),
-        settings: z.record(z.string(), z.unknown(),).optional(),
-        style: z.record(z.string(), z.unknown(),).nullish(),
-        order: z.number().int().optional(),
-        isVisible: z.boolean().optional(),
-    },)
-);
+// Mirrors `templateBlockSchema` in routes/entities.ts — the same table, so the
+// same shape. Note `blockType`/`position`, NOT `type`/`order`: content-block
+// template rows are not page blocks and have no content column.
+const blockSchema = z.object({
+    id: z.string().optional(),
+    parentBlockId: z.string().nullable().optional(),
+    blockType: z.string(),
+    position: z.number().int(),
+    settings: z.record(z.string(), z.unknown(),).optional(),
+    style: z.record(z.string(), z.unknown(),).optional(),
+},);
 const blocksBody = z.object({ blocks: z.array(blockSchema,), },);
 
 export const componentsRoutes = [
@@ -101,7 +99,7 @@ export const componentsRoutes = [
         summary: 'Replace a global template\'s blocks',
         input: { params: idParam, body: blocksBody, },
         handler: async ({ params, body, },) => {
-            await cbtSvc.replaceBlocks(params.id, body.blocks as never,);
+            await cbtSvc.replaceBlocks(params.id, body.blocks,);
             return { saved: true, };
         },
     },),

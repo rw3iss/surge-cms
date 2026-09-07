@@ -69,7 +69,11 @@ export type BlockType =
     | 'spacer'
     | 'group'
     | 'group_item'
-    | 'entity';
+    | 'entity'
+    /** References a reusable block template (a Component) and renders its
+     *  subtree in place. A REFERENCE, not a copy: editing the component updates
+     *  every block using it. */
+    | 'template';
 
 export interface Block {
     id: string;

@@ -51,6 +51,10 @@ interface BlockRendererProps {
      *  on document order, which favours the template (its `<style>` is nested
      *  inside the using block's wrapper). Breakpoints always stay in `block-bp`. */
     styleLayer?: CascadeLayer;
+    /** Template ids already being rendered above this block. A `template` block
+     *  whose component contains a `template` block referencing itself would
+     *  otherwise recurse until the tab dies. */
+    templateAncestry?: readonly string[];
 }
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
@@ -298,6 +302,13 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     </Match>
                     <Match when={props.block.type === 'entity'}>
                         <EntityBlock block={props.block} ctx={props.templateContext} />
+                    </Match>
+                    <Match when={props.block.type === 'template'}>
+                        <TemplateBlock
+                            block={props.block}
+                            ctx={props.templateContext}
+                            ancestry={props.templateAncestry}
+                        />
                     </Match>
                     <Match when={props.block.type === 'group'}>
                         <GroupBlock block={props.block} ctx={props.templateContext} />
@@ -1050,6 +1061,70 @@ const CarouselBlockRenderer: Component<{ block: Block; }> = (props,) => {
  * (one slide per record) — injected into ResolvedHeroCarousel to keep that
  * module free of a BlockRenderer import (no cycle).
  */
+/**
+ * A `template` block: renders a reusable component's block subtree in place.
+ *
+ * A REFERENCE, not a copy — the subtree is fetched at render time, so editing
+ * the component updates every block that uses it.
+ *
+ * The component's own blocks emit their styles into the `tpl` cascade layer,
+ * one layer BELOW `block`. That is what lets the style set on this block win
+ * over the component's own, without depending on document order — which would
+ * favour the component, since its <style> elements are nested inside this
+ * block's wrapper.
+ */
+const TemplateBlock: Component<{
+    block: Block;
+    ctx?: TplCtx;
+    ancestry?: readonly string[];
+}> = (props,) => {
+    const templateId = () => (props.block.settings?.templateId as string | undefined) || '';
+    // Self-reference (direct or via a chain) would recurse forever. Detect it
+    // before fetching, and say so rather than rendering nothing mysteriously.
+    const isCycle = () => Boolean(templateId()) && (props.ancestry ?? []).includes(templateId(),);
+
+    const [tpl] = createResource(
+        () => (templateId() && !isCycle() ? templateId() : null),
+        async (id: string,) => {
+            try {
+                return await cms.components.getOne(id,);
+            } catch {
+                return null;
+            }
+        },
+    );
+
+    const roots = () => buildBlockTree(mapTemplateBlocks((tpl()?.blocks ?? []) as never,),);
+    const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
+
+    return (
+        <Show
+            when={!isCycle()}
+            fallback={
+                <div class="block-message">
+                    This component references itself, so it cannot be rendered here.
+                </div>
+            }
+        >
+            <Show when={templateId()} fallback={<div class="block-message">No component selected.</div>}>
+                <For each={roots()}>
+                    {(child,) => (
+                        <Show when={child.isVisible !== false}>
+                            <BlockRenderer
+                                block={child}
+                                templateContext={props.ctx}
+                                noDefaultPadding
+                                styleLayer="tpl"
+                                templateAncestry={nextAncestry()}
+                            />
+                        </Show>
+                    )}
+                </For>
+            </Show>
+        </Show>
+    );
+};
+
 export function renderEntityTemplateSlide(
     args: { roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx; },
 ): JSX.Element {

@@ -1,3 +1,4 @@
+import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
     AssertCompatible,
@@ -14,11 +15,9 @@ import * as posts from '../services/posts';
 
 const contentBlockSchema = z.object({
     id: z.string().optional(),
-    type: z.enum([
-        'text', 'rich_text', 'social', 'image', 'video',
-        'document', 'url_link', 'hero', 'html', 'campaign', 'form', 'post', 'post_list',
-        'gallery', 'carousel', 'spacer',
-    ],),
+    // From the shared catalog — a hand-written copy silently drifts (this one
+    // was missing entity/group/template) and rejects valid blocks as invalid.
+    type: z.enum(ALL_BLOCK_TYPES,),
     sort_order: z.number().int().min(0,),
     data: z.record(z.string(), z.unknown(),).default({},),
 },);
