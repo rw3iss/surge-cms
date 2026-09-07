@@ -1568,3 +1568,39 @@
     outline-offset: 2px;
     border-radius: $border-radius-sm;
 }
+
+// Component picker in the `template` block's edit panel: the select and its
+// Edit action share a row, and wrap rather than squeeze on a narrow panel.
+.template-block-edit {
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__select {
+        // Keep the select to a readable width instead of stretching the row —
+        // component names are short, and the action needs room beside it.
+        flex: 1 1 12rem;
+        min-width: 0;
+        max-width: 22rem;
+    }
+
+    &__edit {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+
+    // Narrow panels (and mobile) put the action on its own full-width row.
+    @media (max-width: #{$breakpoint-sm}) {
+        &__select,
+        &__edit {
+            flex-basis: 100%;
+            max-width: 100%;
+        }
+
+        &__edit { text-align: center; }
+    }
+}

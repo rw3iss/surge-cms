@@ -71,6 +71,12 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         // here would be misleading.
         if (props.block.type === 'post_list') return false;
         const d = props.block.data || {};
+        // A `template` block is empty only until a Component is chosen; once it
+        // is, render the component itself. Without this it fell through to the
+        // generic check below — which knows nothing about `templateId` — and
+        // showed the "template / Click edit to configure" placeholder even for
+        // a fully configured block.
+        if (props.block.type === 'template') return !d.templateId;
         // Hero is "empty" only when none of its visual fields are set —
         // title or subtitle alone is enough to render meaningfully.
         if (props.block.type === 'hero') {

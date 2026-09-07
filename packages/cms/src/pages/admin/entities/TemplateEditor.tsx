@@ -9,6 +9,7 @@
  */
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
+import { useToast, } from '../../../components/common/toast';
 import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
@@ -42,6 +43,7 @@ const TemplateEditor: Component = () => {
     // record, the binding panel, the {{var}} reference — keys off this.
     const params = useParams<{ type?: string; id: string; }>();
     const navigate = useNavigate();
+    const toast = useToast();
     const isNew = () => params.id === 'new';
     const isGlobal = () => !params.type;
 
@@ -79,6 +81,13 @@ const TemplateEditor: Component = () => {
     const [mode, setMode,] = createSignal<'single' | 'list'>('single',);
     const [maxRecords, setMaxRecords,] = createSignal<string>('',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
+    /**
+     * The blocks as last SAVED. BlockEditor diffs against this to decide which
+     * blocks are dirty; without it every block has no saved counterpart and is
+     * therefore reported dirty forever — the "Unsaved changes" bar never
+     * cleared, even immediately after a successful save.
+     */
+    const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
     const [entityDef, setEntityDef,] = createSignal<EntityTypeDef | null>(null,);
@@ -111,7 +120,10 @@ const TemplateEditor: Component = () => {
             setScript(d.script ?? '',);
             setScriptEnabled(d.scriptEnabled !== false,);
             if (d.script) setScriptOpen(true,);
-            setBlocks(backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],),);
+            const loaded = backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],);
+            setBlocks(loaded,);
+            // Whatever the server just gave us IS the saved state.
+            setSavedBlocks(structuredClone(loaded,),);
         } catch { /* ignore */ }
     },);
 
@@ -133,13 +145,21 @@ const TemplateEditor: Component = () => {
                 if (blocks().length > 0) {
                     await api.saveBlocks(created.id, editorToBackend(blocks(),),);
                 }
+                setSavedBlocks(structuredClone(blocks(),),);
+                toast.success(isGlobal() ? 'Component created.' : 'Template created.',);
                 navigate(itemHref(created.id,),);
             } else {
                 await api.update(params.id, meta,);
                 await api.saveBlocks(params.id, editorToBackend(blocks(),),);
+                // Snapshot AFTER the write succeeds, so a failed save leaves
+                // the blocks correctly marked dirty.
+                setSavedBlocks(structuredClone(blocks(),),);
+                toast.success(isGlobal() ? 'Component saved.' : 'Template saved.',);
             }
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Save failed.',);
+            const msg = e instanceof Error ? e.message : 'Save failed.';
+            setError(msg,);
+            toast.error(msg,);
         } finally {
             setSaving(false,);
         }
@@ -346,7 +366,12 @@ const TemplateEditor: Component = () => {
                 />
             </Show>
 
-            <BlockEditor title="Template Blocks" blocks={blocks()} onBlocksChange={setBlocks} />
+            <BlockEditor
+                title={isGlobal() ? 'Component Blocks' : 'Template Blocks'}
+                blocks={blocks()}
+                savedBlocks={savedBlocks()}
+                onBlocksChange={setBlocks}
+            />
 
             {/* Component JavaScript — global components only. */}
             <Show when={isGlobal()}>

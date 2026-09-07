@@ -29,7 +29,7 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
     const selected = () => (templates() ?? []).find((t,) => t.id === selectedId());
 
     return (
-        <div class="block-edit-form__field">
+        <div class="block-edit-form__field template-block-edit">
             <FormField
                 label="Component"
                 hint="Rendered live from the component — editing it there updates every block using it."
@@ -42,22 +42,33 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
                         </p>
                     }
                 >
-                    <select
-                        value={selectedId()}
-                        onChange={(e,) => props.onChange({ templateId: e.currentTarget.value, },)}
-                    >
-                        <option value="">Select a component…</option>
-                        {(templates() ?? []).map((t,) => <option value={t.id}>{t.name}</option>)}
-                    </select>
+                    {/* Select + action on one row. The row wraps on a narrow
+                        panel rather than shrinking the select to nothing —
+                        the block edit panel is itself narrow on mobile. */}
+                    <div class="template-block-edit__row">
+                        <select
+                            class="template-block-edit__select"
+                            value={selectedId()}
+                            onChange={(e,) => props.onChange({ templateId: e.currentTarget.value, },)}
+                        >
+                            <option value="">Select a component…</option>
+                            {(templates() ?? []).map((t,) => <option value={t.id}>{t.name}</option>)}
+                        </select>
+                        <Show when={selected()}>
+                            <A
+                                href={`/admin/components/${selected()!.id}`}
+                                class="ui-button ui-button--sm ui-button--secondary template-block-edit__edit"
+                                target="_blank"
+                            >
+                                Edit Component
+                            </A>
+                        </Show>
+                    </div>
                 </Show>
             </FormField>
 
-            <Show when={selected()}>
-                <p class="form-help-muted">
-                    {selected()!.description || 'No description.'}
-                    {' '}
-                    <A href={`/admin/components/${selected()!.id}`}>Edit component →</A>
-                </p>
+            <Show when={selected()?.description}>
+                <p class="form-help-muted">{selected()!.description}</p>
             </Show>
         </div>
     );
