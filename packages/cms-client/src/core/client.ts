@@ -34,6 +34,10 @@ export class CmsClientCore {
     auth: AuthRuntime;
     readonly cache: CacheManager;
     private errorBus = new Emitter<{ error: CmsError }>();
+    /** Set once a refresh attempt has failed, so an anonymous visitor makes at
+     *  most ONE doomed POST /auth/refresh rather than one per 401. Cleared by
+     *  the next successful request. */
+    private refreshExhausted = false;
 
     constructor(rawConfig: CmsClientConfig,) {
         this.config = resolveConfig(rawConfig,);
@@ -78,15 +82,42 @@ export class CmsClientCore {
             if (req.paged) return performRequestEnvelope(spec,) as Promise<T>;
             return performRequest<T>(spec,);
         };
-        try { return await send(); }
-        catch (err) {
-            // One automatic refresh+retry on an expired token. Bearer mode
-            // needs an in-memory refresh token; cookie mode refreshes from
-            // the httpOnly refresh cookie (server-side), so it always may.
+        try {
+            const out = await send();
+            // A successful call means the session is alive again, so a later
+            // 401 deserves a fresh refresh attempt.
+            this.refreshExhausted = false;
+            return out;
+        } catch (err) {
+            // One automatic refresh+retry on ANY 401, not just a "Token
+            // expired" one.
+            //
+            // This used to require /expired/i in the message, which made
+            // "remember me" almost useless in cookie mode: the access COOKIE
+            // carries the same 1h lifetime as the JWT inside it, so the
+            // browser drops the cookie at the very moment the token expires.
+            // The server then sees no credential at all and answers
+            // "Authentication required" — so the one message that would have
+            // triggered a refresh is the one message a cookie client can
+            // essentially never receive. The 30-day refresh cookie sat there
+            // unused and the user was signed out after an hour.
+            //
+            // Bearer mode needs an in-memory refresh token; cookie mode
+            // refreshes from the httpOnly refresh cookie, which JS cannot see,
+            // so it has to try to find out.
             const canRefresh = this.config.authMode === 'cookie'
                 || (this.config.authMode === 'bearer' && this.auth.getTokens() != null);
-            if (err instanceof UnauthorizedError && /expired/i.test(err.message,) && canRefresh) {
-                await this.auth.refresh();
+            if (err instanceof UnauthorizedError && canRefresh && !this.refreshExhausted) {
+                try {
+                    await this.auth.refresh();
+                } catch {
+                    // No usable refresh credential — a genuinely anonymous
+                    // visitor. Latch it, or every 401 on a public page would
+                    // fire another doomed POST /auth/refresh. Cleared by the
+                    // next successful request (i.e. after a login).
+                    this.refreshExhausted = true;
+                    throw err;
+                }
                 return send();
             }
             throw err;
