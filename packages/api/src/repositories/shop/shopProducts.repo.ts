@@ -483,22 +483,42 @@ export async function replaceProductStructure(
         }
 
         // ── Variants ──
-        // STABLE UUIDs: match incoming variants to existing rows by external_id
-        // (the provider's variant id, e.g. Printify) and UPDATE them in place,
-        // so a resync does NOT regenerate variant ids. Regenerating them would
-        // orphan any cart holding the old id (→ "Variant not found" at checkout)
-        // and NULL the order-item links. Only genuinely-removed variants are
-        // deleted; variants with no external_id (manually-authored products)
-        // fall back to insert-new (the prior behavior for that case).
+        // STABLE UUIDs: match incoming variants to existing rows and UPDATE them
+        // in place, so a save or resync does NOT regenerate variant ids.
+        // Regenerating them would orphan any cart holding the old id
+        // (→ "Variant not found" at checkout) and NULL the order-item links.
+        //
+        // Matched on external_id (the provider's variant id) FIRST, then on the
+        // option triple. That second key is not a nicety — the admin editor
+        // sends neither an id nor an external_id for a variant, so external_id
+        // alone missed every time, and the insert that followed collided with
+        // the still-present row on
+        // `UNIQUE (product_id, option1, option2, option3)`: a 23505, surfacing
+        // as a 409 on every save of a product with real option values. (A
+        // product whose single variant has all-NULL options never hit it,
+        // because NULLs compare distinct — which is why this hid for so long.)
+        //
+        // The option triple is the right fallback because that unique index is
+        // precisely the statement that it identifies a variant within a product.
         if (structure.variants !== undefined) {
             const variants = structure.variants;
-            const existing = await c.query<{ id: string; external_id: string | null; }>(
-                `SELECT id, external_id FROM shop_variants WHERE product_id = $1`,
+            const existing = await c.query<{
+                id: string; external_id: string | null;
+                option1: string | null; option2: string | null; option3: string | null;
+            }>(
+                `SELECT id, external_id, option1, option2, option3 FROM shop_variants WHERE product_id = $1`,
                 [productId,],
             );
+            /** Key for the option-triple map. JSON so a value containing the
+             *  separator can't collide with a different triple. */
+            const optionKey = (a: unknown, b: unknown, c2: unknown,) =>
+                JSON.stringify([a ?? null, b ?? null, c2 ?? null,],);
+
             const byExternal = new Map<string, string>();
+            const byOptions = new Map<string, string>();
             for (const row of existing.rows) {
                 if (row.external_id) byExternal.set(String(row.external_id,), row.id,);
+                byOptions.set(optionKey(row.option1, row.option2, row.option3,), row.id,);
             }
             const keptIds = new Set<string>();
 
@@ -520,7 +540,14 @@ export async function replaceProductStructure(
                     v.isDefault ?? (variants.length === 1),
                     v.externalId ?? null,
                 ];
-                const existingId = v.externalId ? byExternal.get(String(v.externalId,),) : undefined;
+                // external_id wins; the option triple is the fallback. `keptIds`
+                // guards against two incoming variants claiming the same row.
+                const optKey = optionKey(v.option1, v.option2, v.option3,);
+                const byExt = v.externalId ? byExternal.get(String(v.externalId,),) : undefined;
+                const byOpt = byOptions.get(optKey,);
+                const existingId = (byExt && !keptIds.has(byExt,)) ? byExt
+                    : (byOpt && !keptIds.has(byOpt,)) ? byOpt
+                    : undefined;
                 if (existingId) {
                     await c.query(
                         `UPDATE shop_variants SET

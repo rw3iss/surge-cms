@@ -58,3 +58,76 @@ describe('shopProducts.repo list rows carry fromPriceCents + primaryImageUrl', (
         expect(result.data[0].primaryImageUrl,).toBe('https://cdn.example.com/shirt.jpg',);
     },);
 },);
+
+/**
+ * Regression: saving a product with real option values used to 409.
+ *
+ * The admin editor sends variants with neither an `id` nor an `externalId`, so
+ * matching on external_id alone missed every existing row. The INSERT that
+ * followed then collided with the still-present row on
+ * `UNIQUE (product_id, option1, option2, option3)` — a 23505 surfacing as a
+ * 409 on every save.
+ *
+ * It hid because a product whose single variant has all-NULL options never
+ * triggers it: NULLs compare distinct in a unique index. Only products with
+ * actual option values failed. These tests pin BOTH shapes.
+ */
+describe('replaceProductStructure matches existing variants by option triple', () => {
+    /** Collect the statements a transaction would run against a fake client. */
+    function fakeClient(existingVariants: Array<Record<string, unknown>>,) {
+        const calls: Array<{ sql: string; params: unknown[]; }> = [];
+        return {
+            calls,
+            query: vi.fn(async (sql: string, params: unknown[] = [],) => {
+                calls.push({ sql, params, },);
+                if (sql.includes('SELECT id, external_id, option1',)) {
+                    return { rows: existingVariants, };
+                }
+                if (sql.includes('COUNT(*)::int AS n',)) return { rows: [{ n: existingVariants.length, },], };
+                if (sql.trim().startsWith('INSERT INTO shop_variants',)) {
+                    return { rows: [{ id: 'new-variant', },], };
+                }
+                return { rows: [], };
+            },),
+        };
+    }
+
+    it('UPDATEs the existing row instead of inserting a colliding one', async () => {
+        const { replaceProductStructure, } = await import('./shopProducts.repo');
+        const client = fakeClient([
+            { id: 'v-existing', external_id: null, option1: 'Round', option2: '6 x 6', option3: '1 pc', },
+        ],);
+
+        await replaceProductStructure(
+            'prod-1',
+            { variants: [{ option1: 'Round', option2: '6 x 6', option3: '1 pc', priceCents: 500, },], },
+            client as never,
+        );
+
+        const variantWrites = client.calls.filter((c,) => c.sql.includes('shop_variants',));
+        const inserts = variantWrites.filter((c,) => c.sql.trim().startsWith('INSERT',));
+        const updates = variantWrites.filter((c,) => c.sql.trim().startsWith('UPDATE',));
+        // The whole point: no INSERT, so no unique violation, and the row keeps
+        // its id so carts and order items still resolve.
+        expect(inserts,).toHaveLength(0,);
+        expect(updates,).toHaveLength(1,);
+        expect(updates[0].params.at(-1,),).toBe('v-existing',);
+    },);
+
+    it('still INSERTs a genuinely new option combination', async () => {
+        const { replaceProductStructure, } = await import('./shopProducts.repo');
+        const client = fakeClient([
+            { id: 'v-existing', external_id: null, option1: 'Round', option2: '6 x 6', option3: '1 pc', },
+        ],);
+
+        await replaceProductStructure(
+            'prod-1',
+            { variants: [{ option1: 'Square', option2: '6 x 6', option3: '1 pc', priceCents: 500, },], },
+            client as never,
+        );
+
+        const inserts = client.calls.filter((c,) =>
+            c.sql.trim().startsWith('INSERT INTO shop_variants',) && c.sql.includes('option1',));
+        expect(inserts,).toHaveLength(1,);
+    },);
+},);
