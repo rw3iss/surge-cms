@@ -546,6 +546,29 @@ function AccountMenu(props: { onLogout: () => void; },) {
     );
 }
 
+/**
+ * Cart link — rendered in THREE places: the desktop nav, the collapsed mobile
+ * actions, and the expanded mobile flyout head. One component rather than three
+ * copies, so the badge, the label and the destination can't drift apart.
+ *
+ * The caller owns the `showCart()` gate; this only draws it.
+ */
+function CartLink(props: { class?: string; onClick?: () => void; },) {
+    return (
+        <A
+            href="/shop/cart"
+            class={`header__cart${props.class ? ` ${props.class}` : ''}`}
+            aria-label={`Cart (${cartCount()} item${cartCount() === 1 ? '' : 's'})`}
+            onClick={() => props.onClick?.()}
+        >
+            <span class="header__cart-icon" aria-hidden="true">🛒</span>
+            <Show when={cartCount() > 0}>
+                <span class="header__cart-badge">{cartCount()}</span>
+            </Show>
+        </A>
+    );
+}
+
 /** The door-exit logout glyph, shared by the account menu + mobile flyout. */
 function LogoutGlyph() {
     return (
@@ -855,12 +878,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                         {/* Cart — rendered BEFORE the admin/account controls,
                             gated by the shop feature + the showCart setting. */}
                         <Show when={showCart()}>
-                            <A href="/shop/cart" class="header__cart" aria-label="Cart" onClick={closeMobileMenu}>
-                                <span class="header__cart-icon" aria-hidden="true">🛒</span>
-                                <Show when={cartCount() > 0}>
-                                    <span class="header__cart-badge">{cartCount()}</span>
-                                </Show>
-                            </A>
+                            <CartLink onClick={closeMobileMenu} />
                         </Show>
 
                         {/* Account controls — inline (Admin + user + logout) or a
@@ -929,17 +947,7 @@ export const Header: Component<HeaderProps> = (props,) => {
                             `showCart()` gate, so the two can't disagree about
                             when a cart is reachable. */}
                         <Show when={showCart()}>
-                            <A
-                                href="/shop/cart"
-                                class="header__cart header__mobile-cart"
-                                aria-label={`Cart (${cartCount()} item${cartCount() === 1 ? '' : 's'})`}
-                                onClick={closeMobileMenu}
-                            >
-                                <span class="header__cart-icon" aria-hidden="true">🛒</span>
-                                <Show when={cartCount() > 0}>
-                                    <span class="header__cart-badge">{cartCount()}</span>
-                                </Show>
-                            </A>
+                            <CartLink class="header__mobile-cart" onClick={closeMobileMenu} />
                         </Show>
                         <A
                             href={shopHref()}
@@ -972,7 +980,13 @@ export const Header: Component<HeaderProps> = (props,) => {
                             <SiteLogo logoSrc={props.logo} />
                         </A>
                         <div class="header__mobile-flyout-head-actions">
-                            {/* Keep the Shop CTA available in the expanded view too. */}
+                            {/* Cart + Shop CTA stay available in the expanded
+                                view, in the same order and spacing as the
+                                collapsed header — opening the menu must not
+                                move or remove the controls beside it. */}
+                            <Show when={showCart()}>
+                                <CartLink class="header__mobile-cart" onClick={closeMobileMenu} />
+                            </Show>
                             <A href={shopHref()} class="header__donate-btn" onClick={closeMobileMenu}>
                                 Shop
                             </A>
