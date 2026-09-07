@@ -448,14 +448,74 @@
     flex-shrink: 0;
   }
 
-  // Collapsed-header: Donate + hamburger grouped on the right with the SAME 10px
-  // gap as the flyout head, so the Donate button sits in the identical spot
-  // whether the menu is open or closed (no shift). Mobile-only.
+  // Cart link — ONE rule for both instances (the desktop one lives in the nav,
+  // the mobile one in the actions group). It previously had no styles at all:
+  // a bare emoji with a loose number beside it, which reads as stray text next
+  // to a real button, and grew the header every time the count hit two digits.
+  &__cart {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    text-decoration: none;
+    line-height: 1;
+    // Opacity rather than a background tint: the header has a light and a dark
+    // ("alt") colour pair, and a fixed tint is invisible on one of them.
+    transition: opacity $transition-fast;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    &:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+      border-radius: $border-radius-sm;
+    }
+  }
+
+  &__cart-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  // The count rides on the icon's corner instead of sitting beside it, so a
+  // two-digit cart can't shift the Shop button and hamburger along.
+  &__cart-badge {
+    position: absolute;
+    top: -1px;
+    right: -3px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: var(--site-primary, #{$primary-color});
+    color: var(--site-button-text, #fff);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  // Collapsed-header: Cart + Donate + hamburger grouped on the right with the
+  // SAME 10px gap as the flyout head, so the Donate button sits in the
+  // identical spot whether the menu is open or closed (no shift). Mobile-only.
   &__mobile-actions {
     display: flex;
     align-items: center;
     gap: 10px;
 
+    @include md {
+      display: none;
+    }
+  }
+
+  // Collapsed-header cart instance: mobile-only, like its Donate sibling.
+  &__mobile-cart {
     @include md {
       display: none;
     }

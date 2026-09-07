@@ -919,11 +919,28 @@ export const Header: Component<HeaderProps> = (props,) => {
                         </Show>
                     </nav>
 
-                    {/* Shop CTA + Hamburger — mobile only, grouped so the Shop
-                        button hugs the hamburger (matches the flyout head)
+                    {/* Cart + Shop CTA + Hamburger — mobile only, grouped so the
+                        Shop button hugs the hamburger (matches the flyout head)
                         instead of floating to the middle via space-between. The
                         Shop entry is masked from the flyout list. */}
                     <div class="header__mobile-actions">
+                        {/* The desktop cart lives in the nav, which is hidden on
+                            mobile — so mobile needs its own instance. Same
+                            `showCart()` gate, so the two can't disagree about
+                            when a cart is reachable. */}
+                        <Show when={showCart()}>
+                            <A
+                                href="/shop/cart"
+                                class="header__cart header__mobile-cart"
+                                aria-label={`Cart (${cartCount()} item${cartCount() === 1 ? '' : 's'})`}
+                                onClick={closeMobileMenu}
+                            >
+                                <span class="header__cart-icon" aria-hidden="true">🛒</span>
+                                <Show when={cartCount() > 0}>
+                                    <span class="header__cart-badge">{cartCount()}</span>
+                                </Show>
+                            </A>
+                        </Show>
                         <A
                             href={shopHref()}
                             class="header__donate-btn header__mobile-donate"
