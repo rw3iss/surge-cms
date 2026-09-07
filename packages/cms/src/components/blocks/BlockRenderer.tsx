@@ -6,7 +6,7 @@ import { cms, } from '../../services/cmsClient';
 import { colorCssValue, } from '../../services/colorResolver';
 import { fontStack, } from '../../utils/appearanceStyle';
 import { blockStyleLayoutCss, } from '../../utils/blockStyleCss';
-import { blockResponsiveCss, } from '../../utils/blockResponsiveCss';
+import { blockResponsiveCss, carouselPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../utils/groupStyle';
@@ -109,14 +109,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             resolveColor: color,
             suppressBox: isGroupItem(),
         },
-        // Carousel splits its block style across two elements: box props (height)
-        // stay on the carousel element, padding/align/bg go to the slide content —
-        // so per-breakpoint overrides target the same element as each default. A
-        // CONTENT carousel (products/entity list) has no slide-content overlay, so
-        // padding/margin go on the carousel element instead (inset items / center).
-        isCarousel()
-            ? { box: '.hero-carousel', content: isContentCarousel() ? '.hero-carousel' : '.hero-carousel__content', }
-            : undefined,
+        // A carousel spreads its default style over three elements, so each
+        // override has to follow its own default (see carouselPropTargets).
+        // Every other block keeps everything on the wrapper (the default).
+        isCarousel() ? carouselPropTargets(isContentCarousel(),) : undefined,
     );
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
