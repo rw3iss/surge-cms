@@ -87,6 +87,9 @@ const NAV_ITEMS: NavItem[] = [
     // the day-to-day authoring items.
     { path: '/admin/media', label: 'Media', icon: 'media', },
     { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
+    // Reusable block templates, referenced by `template` blocks. Sits beside
+    // Entities because it is the same storage without the entity binding.
+    { path: '/admin/components', label: 'Components', icon: 'developer', adminOnly: true, },
     { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
     { path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', adminOnly: true, },
     { path: '/admin/plugins', label: 'Plugins', icon: 'developer', feature: 'plugins', adminOnly: true, },

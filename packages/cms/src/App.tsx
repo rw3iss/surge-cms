@@ -97,6 +97,7 @@ const AdminEventSettings = lazy(() => import('./pages/admin/events/EventSettings
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
+const AdminComponentsList = lazy(() => import('./pages/admin/components/ComponentsList'));
 const AdminEntityTemplateList = lazy(() => import('./pages/admin/entities/TemplateList'));
 const AdminEntityTemplateEditor = lazy(() => import('./pages/admin/entities/TemplateEditor'));
 
@@ -200,6 +201,10 @@ const App: Component = () => {
 										<Route path="/entities" component={AdminEntitiesList} />
 										<Route path="/entities/:type" component={AdminEntityDetail} />
 											<Route path="/entities/:type/data" component={AdminEntityDetail} />
+										{/* Components reuse the entity TemplateEditor with no :type —
+											the editor treats a missing type as "global". */}
+										<Route path="/components" component={AdminComponentsList} />
+										<Route path="/components/:id" component={AdminEntityTemplateEditor} />
 										<Route path="/entities/:type/templates" component={AdminEntityTemplateList} />
 										<Route path="/entities/:type/templates/:id" component={AdminEntityTemplateEditor} />
 										<Route path="/entities/:type/:id" component={AdminEntityRecordEdit} />

@@ -36,9 +36,42 @@ function preferredSub(keys: string[],): string {
 }
 
 const TemplateEditor: Component = () => {
-    const params = useParams<{ type: string; id: string; }>();
+    // `type` is absent on the Components route (/admin/components/:id): those
+    // templates are bound to no entity. Everything entity-specific — the sample
+    // record, the binding panel, the {{var}} reference — keys off this.
+    const params = useParams<{ type?: string; id: string; }>();
     const navigate = useNavigate();
     const isNew = () => params.id === 'new';
+    const isGlobal = () => !params.type;
+
+    /**
+     * The two template APIs differ only in whether an entity type is in the
+     * path, so route through one adapter rather than branching at each of the
+     * six call sites — where a missed branch would silently write a global
+     * template into an entity's list, or vice versa.
+     */
+    const api = {
+        getOne: (id: string,) =>
+            isGlobal() ? cms.components.getOne(id,) : cms.contentBlockTemplates.getOne(params.type!, id,),
+        create: (body: unknown,) =>
+            isGlobal()
+                ? cms.components.create(body as never,)
+                : cms.contentBlockTemplates.create(params.type!, body as never,),
+        update: (id: string, body: unknown,) =>
+            isGlobal()
+                ? cms.components.update(id, body as never,)
+                : cms.contentBlockTemplates.update(params.type!, id, body as never,),
+        remove: (id: string,) =>
+            isGlobal() ? cms.components.remove(id,) : cms.contentBlockTemplates.remove(params.type!, id,),
+        saveBlocks: (id: string, b: unknown,) =>
+            isGlobal()
+                ? cms.components.saveBlocks(id, b as never,)
+                : cms.contentBlockTemplates.saveBlocks(params.type!, id, b as never,),
+    };
+
+    /** Where the list lives, for back-links and post-save navigation. */
+    const listHref = () => (isGlobal() ? '/admin/components' : `/admin/entities/${params.type}/templates`);
+    const itemHref = (id: string,) => `${listHref()}/${id}`;
 
     const [name, setName,] = createSignal('',);
     const [description, setDescription,] = createSignal('',);
@@ -56,12 +89,14 @@ const TemplateEditor: Component = () => {
     const [varsOpen, setVarsOpen,] = createSignal(false,);
 
     onMount(async () => {
-        try {
-            setEntityDef(await cms.entityTypes.getOne(params.type,),);
-        } catch { /* ignore */ }
+        if (!isGlobal()) {
+            try {
+                setEntityDef(await cms.entityTypes.getOne(params.type!,),);
+            } catch { /* ignore */ }
+        }
         if (isNew()) return;
         try {
-            const d = await cms.contentBlockTemplates.getOne(params.type, params.id,);
+            const d = await api.getOne(params.id,);
             setName(d.name,);
             setDescription(d.description ?? '',);
             setMode(d.mode,);
@@ -81,14 +116,14 @@ const TemplateEditor: Component = () => {
                 sampleRecordIds: sampleRecordIds(),
             };
             if (isNew()) {
-                const created = await cms.contentBlockTemplates.create(params.type, meta as never,) as ContentBlockTemplate;
+                const created = await api.create(meta,) as ContentBlockTemplate;
                 if (blocks().length > 0) {
-                    await cms.contentBlockTemplates.saveBlocks(params.type, created.id, editorToBackend(blocks(),) as never,);
+                    await api.saveBlocks(created.id, editorToBackend(blocks(),),);
                 }
-                navigate(`/admin/entities/${params.type}/templates/${created.id}`,);
+                navigate(itemHref(created.id,),);
             } else {
-                await cms.contentBlockTemplates.update(params.type, params.id, meta as never,);
-                await cms.contentBlockTemplates.saveBlocks(params.type, params.id, editorToBackend(blocks(),) as never,);
+                await api.update(params.id, meta,);
+                await api.saveBlocks(params.id, editorToBackend(blocks(),),);
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Save failed.',);
@@ -99,12 +134,12 @@ const TemplateEditor: Component = () => {
 
     const handleDelete = async (): Promise<void> => {
         if (!confirm('Delete this template? This cannot be undone.',)) return;
-        await cms.contentBlockTemplates.remove(params.type, params.id,);
-        navigate(`/admin/entities/${params.type}/templates`,);
+        await api.remove(params.id,);
+        navigate(listHref(),);
     };
 
-    const singularVar = () => entityDef()?.singularVar ?? params.type;
-    const pluralVar = () => entityDef()?.pluralVar ?? `${params.type}s`;
+    const singularVar = () => entityDef()?.singularVar ?? params.type ?? '';
+    const pluralVar = () => entityDef()?.pluralVar ?? `${params.type ?? ''}s`;
 
     // How many auto sample records to load: single → 1; list → maxRecords (or
     // the static fallback when no cap is set).
@@ -117,7 +152,8 @@ const TemplateEditor: Component = () => {
     // Resolve the sample record(s): explicit `sampleRecordIds` if chosen, else
     // the first record(s) of the bound type. Re-runs on type/mode/max/id change.
     const [sampleRecords] = createResource(
-        () => ({ type: params.type, mode: mode(), limit: sampleLimit(), ids: sampleRecordIds(), }),
+        // A global template has no bound type, so there is no sample to load.
+        () => ({ type: params.type ?? '', mode: mode(), limit: sampleLimit(), ids: sampleRecordIds(), }),
         async ({ type, mode: m, limit, ids, },): Promise<EntityRecord[]> => {
             if (!type) return [];
             try {
@@ -145,9 +181,10 @@ const TemplateEditor: Component = () => {
         const recs = sampleRecords() ?? [];
         const first = recs[0];
         if (!first) { setTemplatePreviewContext(undefined,); return; }
+        const kind = params.type ?? '';
         setTemplatePreviewContext({
-            [singularVar()]: { kind: params.type, data: first as Record<string, unknown>, id: String(first.id ?? '',), },
-            [pluralVar()]: { kind: params.type, data: recs as unknown as Record<string, unknown>, id: '', },
+            [singularVar()]: { kind, data: first as Record<string, unknown>, id: String(first.id ?? '',), },
+            [pluralVar()]: { kind, data: recs as unknown as Record<string, unknown>, id: '', },
         },);
     },);
     onCleanup(() => setTemplatePreviewContext(undefined,),);
@@ -188,8 +225,14 @@ const TemplateEditor: Component = () => {
         <div class="mail-template-edit-page admin-full-bleed">
             <Title>{isNew() ? 'New Template' : name() || 'Edit Template'} - Admin</Title>
             <div class="admin-header">
-                <A href={`/admin/entities/${params.type}/templates`} class="admin-header__back">← Templates</A>
-                <h1>{isNew() ? `New ${params.type} template` : name() || '…'}</h1>
+                <A href={listHref()} class="admin-header__back">
+                    {isGlobal() ? '← Components' : '← Templates'}
+                </A>
+                <h1>
+                    {isNew()
+                        ? (isGlobal() ? 'New component' : `New ${params.type} template`)
+                        : name() || '…'}
+                </h1>
                 <div class="admin-header__actions">
                     <Show when={!isNew()}>
                         <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
@@ -213,6 +256,9 @@ const TemplateEditor: Component = () => {
                             <textarea rows={2} value={description()} onInput={(e,) => setDescription(e.currentTarget.value,)} />
                         </FormField>
                     </FormSection>
+                    {/* Entity binding + preview sample only exist for a template bound
+                        to an entity type. A component has no records to bind. */}
+                    <Show when={!isGlobal()}>
                     <FormSection title="Binding">
                         <FormField label="Mode" hint="Single binds one record; List renders once per record.">
                             <select value={mode()} onChange={(e,) => setMode(e.currentTarget.value as 'single' | 'list',)}>
@@ -266,12 +312,13 @@ const TemplateEditor: Component = () => {
                             </div>
                         </FormField>
                     </FormSection>
+                    </Show>
                 </div>
             </section>
 
             <Show when={sampleModalOpen()}>
                 <EntitySearchSelectModal
-                    entityType={params.type}
+                    entityType={params.type!}
                     mode={mode() === 'list' ? 'multiple' : 'single'}
                     max={mode() === 'list' ? sampleLimit() : undefined}
                     onClose={() => setSampleModalOpen(false,)}
@@ -288,6 +335,9 @@ const TemplateEditor: Component = () => {
 
             <BlockEditor title="Template Blocks" blocks={blocks()} onBlocksChange={setBlocks} />
 
+            {/* The {{var}} reference lists the BOUND entity's fields; a component
+                has none, so the section would be an empty table. */}
+            <Show when={!isGlobal()}>
             <section class="admin-section template-vars-section">
                 <button
                     type="button"
@@ -346,6 +396,7 @@ const TemplateEditor: Component = () => {
                     </Show>
                 </Show>
             </section>
+            </Show>
         </div>
     );
 };
