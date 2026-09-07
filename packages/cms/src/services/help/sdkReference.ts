@@ -30,6 +30,10 @@ export interface DocSection {
 
 export interface SdkDoc {
     id: string;
+    /** Render the generated SDK module browser after the sections. Only the
+     *  Component JavaScript doc sets it — the reference is what a script author
+     *  needs at hand, and it is 365 methods long. */
+    showModuleReference?: boolean;
     path: string;
     title: string;
     lead: string;
@@ -409,6 +413,7 @@ if (mine['recipes:write']) showEditButton();`,
 export const COMPONENT_JS_DOC: SdkDoc = {
     id: 'component-js',
     path: '/admin/help/sdk/component-js',
+    showModuleReference: true,
     title: 'Component JavaScript',
     lead:
         'A Component can carry a client script that runs where it renders, with the CMS SDK '
@@ -477,13 +482,15 @@ export const COMPONENT_JS_DOC: SdkDoc = {
             heading: 'Available modules',
             blocks: [
                 {
-                    p: '`ctx.cms` is the full `@sitesurge/client`. Every namespace is available; '
-                        + 'these are the ones a public-facing component usually wants.',
+                    p: '`ctx.cms` is the full `@sitesurge/client`. The complete reference is '
+                        + 'below — every namespace, every method, with its signature. It is '
+                        + "generated from the client's source, so it always matches the SDK "
+                        + 'actually shipped with this site.',
                 },
                 {
                     table: [
                         ['Namespace', 'Typical use in a component',],
-                        ['cms.shop', 'merchandiseSignup, products.list, cart/checkout previews',],
+                        ['cms.shop', 'merchandiseSignup, products.list, checkout.preview',],
                         ['cms.forms', 'submit a form, read its questions',],
                         ['cms.posts / cms.pages', 'list or fetch content to render',],
                         ['cms.entities', 'read records of any entity type (product, contact, custom)',],
@@ -493,14 +500,6 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                         ['cms.auth', 'the current session; login / register',],
                         ['cms.settings', 'public settings and appearance',],
                     ],
-                },
-                {
-                    p: 'Full list: posts, pages, campaigns, forms, media, users, messages, social, '
-                        + 'search, utils, audit, dashboard, auth, apiKeys, permissions, wiki, '
-                        + 'connections, blockStyles, fonts, dev, health, setup, mailingLists, '
-                        + 'mailTemplates, mailSend, payments, settings, shop, shopProviders, plugins, '
-                        + 'feed, sitemap, components, entities, entityTypes, contentBlockTemplates, '
-                        + 'adminChannel, contacts, events.',
                 },
                 {
                     note: 'The client runs in COOKIE auth mode, as the visitor. It is not an admin '

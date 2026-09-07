@@ -41,7 +41,8 @@
     "build": "vite build --config ../../config/cms/vite.config.ts",
     "preview": "vite preview --config ../../config/cms/vite.config.ts",
     "lint": "oxlint -c ../../config/.oxlintrc.json src",
-    "test": "vitest --passWithNoTests"
+    "test": "vitest --passWithNoTests",
+    "docs:sdk": "tsx scripts/generate-sdk-modules.ts"
   },
   "devDependencies": {
     "@codemirror/lang-css": "^6.3.1",

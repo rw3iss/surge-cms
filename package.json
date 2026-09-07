@@ -35,7 +35,8 @@
 		"deploy": "bash deploy/deploy.sh",
 		"deploy:onserver": "bash scripts/deploy.sh",
 		"precheck": "bash scripts/pre-push-check.sh",
-		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true"
+		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true",
+		"docs:sdk": "pnpm --filter ./packages/cms run docs:sdk"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.31.0",
