@@ -32,7 +32,8 @@
 		"docker:up": "docker compose -f config/docker-compose.yml up -d",
 		"docker:down": "docker compose -f config/docker-compose.yml down",
 		"docker:build": "docker compose -f config/docker-compose.yml build",
-		"deploy": "bash scripts/deploy.sh",
+		"deploy": "bash deploy/deploy.sh",
+		"deploy:onserver": "bash scripts/deploy.sh",
 		"precheck": "bash scripts/pre-push-check.sh",
 		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true"
 	},

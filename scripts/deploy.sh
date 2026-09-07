@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # deploy.sh — Pull latest code, build, migrate, and restart the RW backend.
-# Usage: cd /path/to/rw && bash scripts/deploy.sh
+#
+# RUNS ON THE SERVER, not on a workstation. It uses `npm install`, which in this
+# pnpm workspace prunes the local node_modules and then fails on
+# `--workspace=packages/shared`. To ship from a dev machine use
+# `npm run deploy` → deploy/deploy.sh (rsync + remote build + restart).
+#
+# Usage: cd /path/to/rw && bash scripts/deploy.sh   # ← on the server
 
 set -e
 
