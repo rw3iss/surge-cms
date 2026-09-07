@@ -216,13 +216,6 @@ const Login: Component = () => {
                             />
                         </div>
 
-                        {/* Placed directly under the password field, where
-                            someone who has just failed to remember it is
-                            already looking. */}
-                        <div class="login__forgot">
-                            <A href="/forgot-password" class="login__forgot-link">Forgot your password?</A>
-                        </div>
-
                         <div class="login__remember">
                             <label class="login__remember-label">
                                 <input
@@ -241,6 +234,13 @@ const Login: Component = () => {
                         >
                             {isLoading() ? 'Signing in...' : 'Sign In'}
                         </button>
+
+                        {/* Below the submit, centred: the recovery route is
+                            what you want AFTER trying to sign in, not a
+                            distraction while filling the form in. */}
+                        <div class="login__forgot">
+                            <A href="/forgot-password" class="login__forgot-link">Forgot your password?</A>
+                        </div>
                     </form>
                 </div>
             </div>

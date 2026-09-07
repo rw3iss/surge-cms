@@ -215,12 +215,12 @@
   }
 }
 
-// "Forgot your password?" — sits under the password field, right-aligned so it
-// reads as secondary to the form rather than another step in it.
+// "Forgot your password?" — centred beneath the Sign In button, where someone
+// reaches for it after a failed attempt rather than while filling the form in.
 .login__forgot {
     display: flex;
-    justify-content: flex-end;
-    margin-top: -4px;
+    justify-content: center;
+    margin-top: $spacing-md;
 }
 
 .login__forgot-link {
