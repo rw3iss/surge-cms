@@ -568,7 +568,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "purchaseTickets",
-                "signature": "purchaseTickets(body: { email: string; name?: string; phone?: string; lines: Array<{ eventId: string; occurrenceDate: string; tierId: string; quantity: number; }>; }): Promise<{",
+                "signature": "purchaseTickets(body: { email: string; name?: string; phone?: string; lines: Array<{ eventId: string; occurrenceDate: string; tierId: string; quantity: number; }>; }): Promise<{ status: 'confirmed' | 'payment_required'; totalCents: number; currency: string; registrationId?: string; tickets?: Array<{ code: string; tierName: string; }>; }>",
                 "summary": "POST /events/tickets/purchase — free orders confirm immediately; paid ones come back with a total for the payment step. Price and inventory are re-resolved server-side, so the cart's figures are display-only."
             },
             {
@@ -593,7 +593,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "setOccurrenceStatus",
-                "signature": "setOccurrenceStatus( id: string, date: string, status: 'cancelled' | null): Promise<{ ok: boolean; }>",
+                "signature": "setOccurrenceStatus(id: string, date: string, status: 'cancelled' | null): Promise<{ ok: boolean; }>",
                 "summary": "Cancel (or restore, with null) ONE date of a recurring series."
             },
             {
@@ -719,7 +719,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "listSubmissions",
-                "signature": "listSubmissions( id: string, query?: FormSubmissionsQuery, options?: QueryOptions): Promise<Paginated<FormSubmissionsResponse[number]>>",
+                "signature": "listSubmissions(id: string, query?: FormSubmissionsQuery, options?: QueryOptions): Promise<Paginated<FormSubmissionsResponse[number]>>",
                 "summary": "GET /forms/:id/submissions (staff). `options` lets an inbox-style caller pass `{ cache: false }`: submissions arrive from the public site at any moment, so a cached page can show an admin a list that is missing entries the server already has."
             },
             {
@@ -1212,7 +1212,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "forUser",
-                "signature": "forUser(userId: string): Promise<{",
+                "signature": "forUser(userId: string): Promise<{ userId: string; grants: PermissionGrant[]; resolved: Record<PermissionKey, boolean>; }>",
                 "summary": "GET /permissions/user/:id — one user's grants + resolved answers."
             },
             {
@@ -1515,7 +1515,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "restoreBackup",
-                "signature": "restoreBackup(file: Blob, confirm: 'REPLACE'): Promise<{",
+                "signature": "restoreBackup(file: Blob, confirm: 'REPLACE'): Promise<{ bytes: number; format: 'custom' | 'plain'; migrationsApplied: string[]; warnings: string[]; }>",
                 "summary": "REPLACE the whole database with an uploaded dump. Irreversible. `confirm` must be the literal string `REPLACE`; the server rejects anything else, so a mis-wired call cannot wipe a site."
             },
             {
@@ -1698,6 +1698,21 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "merchandise.announce",
+                "signature": "merchandise.announce(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ jobId: string; recipients: number; products: number; }>",
+                "summary": "POST /shop/merchandise/announce — queue the send, mark them announced."
+            },
+            {
+                "name": "merchandise.pending",
+                "signature": "merchandise.pending(): Promise<{ products: Array<{ id: string; title: string; slug: string; priceCents: number | null; imageUrl: string | null; createdAt: string; }>; listId: string | null; }>",
+                "summary": "GET /shop/merchandise/pending — live products never announced."
+            },
+            {
+                "name": "merchandise.preview",
+                "signature": "merchandise.preview(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ html: string; }>",
+                "summary": "POST /shop/merchandise/announce/preview — the email as it will send."
+            },
+            {
                 "name": "merchandiseSignup",
                 "signature": "merchandiseSignup(body: { email?: string; name?: string; phone?: string; }): Promise<{ subscribed: boolean; }>",
                 "summary": "POST /shop/merchandise-signup — join the new-merchandise list. A signed-in caller may omit `email`; the server uses their account address and ignores any address in the body. Answers the same whether or not the address was already subscribed."
@@ -1714,7 +1729,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "orders.getByNumber",
-                "signature": "orders.getByNumber( orderNumber: string, options?: QueryOptions): Promise<ShopOrderByNumberResponse>",
+                "signature": "orders.getByNumber(orderNumber: string, options?: QueryOptions): Promise<ShopOrderByNumberResponse>",
                 "summary": "GET /shop/orders/number/:orderNumber — confirmation-page detail. `options` is exposed so a caller polling for a payment to settle can pass `{ cache: false }`; without it every poll would be served from the SWR cache and the status would never appear to change."
             },
             {
@@ -2119,4 +2134,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 365;
+export const SDK_METHOD_COUNT = 368;

@@ -84,11 +84,77 @@ function readNamespaceMap(): Map<string, string> {
 const SKIP = new Set(['constructor', 'module',],);
 
 /**
+ * Accumulate one member's source, from its first line to the token that opens
+ * its BODY — `{` for a class method, `=>` for an arrow property.
+ *
+ * Two phases, and the second is the point of the function: balancing the
+ * PARAMETER parens is not enough to have read the whole signature. A return
+ * type written as an inline object type spans several lines:
+ *
+ *     pending: (): Promise<{
+ *         products: Array<{ … }>;
+ *     }> => this.get('/shop/merchandise/pending',),
+ *
+ * Stopping at the closing paren truncated that to `pending(): Promise<{`.
+ *
+ * Both phases are depth-aware, so a `{` inside a generic argument and the `=>`
+ * inside `Promise<() => void>` don't end the scan early.
+ */
+function collectSignature(
+    lines: string[],
+    start: number,
+    limit: number,
+    body: 'brace' | 'arrow',
+): { sig: string; cut: number; end: number; } {
+    let sig = '';
+    let parens = 0;
+    let opened = false;
+    let paramsEnd = -1;
+    let angle = 0;
+    let brace = 0;
+    let cut = -1;
+    let j = start;
+
+    for (; j < limit; j++) {
+        const text = (sig ? ' ' : '') + lines[j].trim();
+        const base = sig.length;
+        for (let c = 0; c < text.length && cut === -1; c++) {
+            const ch = text[c];
+            if (paramsEnd === -1) {
+                // Phase 1 — parameters. Only parens count: a param may be an
+                // inline object type, whose braces are not the body.
+                if (ch === '(') { parens++; opened = true; }
+                else if (ch === ')') {
+                    parens--;
+                    if (opened && parens === 0) paramsEnd = base + c;
+                }
+                continue;
+            }
+            // Phase 2 — return type, up to the body token.
+            if (ch === '<') angle++;
+            // `=>` is an arrow, not a closing generic. Counting it drove the
+            // depth negative, so the body token was never found.
+            else if (ch === '>' && text[c - 1] !== '=') angle--;
+            else if (ch === '{') {
+                if (body === 'brace' && angle === 0 && brace === 0) { cut = base + c; break; }
+                brace++;
+            } else if (ch === '}') brace--;
+            else if (body === 'arrow' && ch === '=' && text[c + 1] === '>' && angle === 0 && brace === 0) {
+                cut = base + c;
+            }
+        }
+        sig += text;
+        if (cut !== -1) break;
+    }
+    return { sig, cut: cut === -1 ? sig.length : cut, end: j, };
+}
+
+/**
  * Methods of one class body.
  *
- * Signatures are collected by balancing parentheses rather than assuming one
- * line — a handful genuinely wrap. The body is then skipped by balancing braces
- * so a nested function inside a method can't be mistaken for the next method.
+ * Signatures are collected by scanning rather than by regex — a handful wrap
+ * across lines. The body is then skipped by balancing braces so a nested
+ * function inside a method can't be mistaken for the next method.
  */
 function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
     const methods: SdkMethod[] = [];
@@ -99,53 +165,14 @@ function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
         const m = /^    (?!(?:protected|private|readonly|static)\b)(?:async\s+)?([A-Za-z][\w]*)\s*\(/.exec(line,);
         if (!m || SKIP.has(m[1],)) { i++; continue; }
 
-        // Accumulate lines until the PARAMETER parens balance. A parameter type
-        // may itself contain parens or braces, so this has to be a scan rather
-        // than a regex.
-        let sig = '';
-        let parens = 0;
-        let opened = false;
-        let paramsEnd = -1;
-        let j = i;
-        outer: for (; j < to; j++) {
-            const text = (sig ? ' ' : '') + lines[j].trim();
-            for (let k = 0; k < text.length; k++) {
-                const ch = text[k];
-                if (ch === '(') { parens++; opened = true; }
-                else if (ch === ')') {
-                    parens--;
-                    if (opened && parens === 0) {
-                        paramsEnd = sig.length + k;
-                        sig += text;
-                        break outer;
-                    }
-                }
-            }
-            sig += text;
-        }
-
-        // The body brace is the first `{` after the parameters at bracket depth
-        // zero. Searching back from the last `)` instead put a one-line body
-        // (`f(): T { return this.x(); }`) into the signature, because that `)`
-        // belongs to the body.
-        let cut = sig.length;
-        let angle = 0;
-        let brace = 0;
-        for (let k = paramsEnd + 1; k < sig.length; k++) {
-            const ch = sig[k];
-            if (ch === '<') angle++;
-            // `=>` in a return type is an arrow, not a closing generic. Counting
-            // it drove the depth negative, so the body brace of
-            // `onChange(cb): () => void { … }` was never found.
-            else if (ch === '>' && sig[k - 1] !== '=') angle--;
-            else if (ch === '{') {
-                if (angle === 0 && brace === 0) { cut = k; break; }
-                brace++;
-            } else if (ch === '}') brace--;
-        }
+        // Cut at the body brace, not at the last `)`: a one-line body
+        // (`f(): T { return this.x(); }`) ends in a paren that belongs to the
+        // body, and cutting there swallowed it into the signature.
+        const { sig, cut, end: j, } = collectSignature(lines, i, to, 'brace',);
         const clean = sig.slice(0, cut,)
             .replace(/\s+/g, ' ',)
             .replace(/,\s*\)/g, ')',)   // house style writes a trailing comma in params
+            .replace(/\(\s+/g, '(',)    // a wrapped param list joins with a space
             .replace(/^async\s+/, '',)
             .trim();
 
@@ -198,28 +225,12 @@ function parseGroups(lines: string[], from: number, to: number,): SdkMethod[] {
             const m = /^        ([A-Za-z][\w]*)\s*:\s*\(/.exec(lines[k],);
             if (!m) continue;
 
-            let sig = '';
-            let parens = 0;
-            let opened = false;
-            let paramsEnd = -1;
-            let j = k;
-            outer: for (; j < end; j++) {
-                const text = (sig ? ' ' : '') + lines[j].trim();
-                for (let c = 0; c < text.length; c++) {
-                    const ch = text[c];
-                    if (ch === '(') { parens++; opened = true; }
-                    else if (ch === ')') {
-                        parens--;
-                        if (opened && parens === 0) { paramsEnd = sig.length + c; sig += text; break outer; }
-                    }
-                }
-                sig += text;
-            }
             // Everything up to the `=>` that starts the body is the signature.
-            const arrow = sig.indexOf('=>', paramsEnd,);
-            const clean = (arrow === -1 ? sig : sig.slice(0, arrow,))
+            const { sig, cut, } = collectSignature(lines, k, end, 'arrow',);
+            const clean = sig.slice(0, cut,)
                 .replace(/\s+/g, ' ',)
                 .replace(/,\s*\)/g, ')',)
+                .replace(/\(\s+/g, '(',)   // a wrapped param list joins with a space
                 .replace(/:\s*\(/, '(',)   // `name: (a) : T` reads better as `name(a): T`
                 .trim();
             out.push({

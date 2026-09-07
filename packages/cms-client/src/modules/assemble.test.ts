@@ -58,13 +58,25 @@ describe('module assembly', () => {
         expect(typeof cms.sitemap.regenerate,).toBe('function',);
     },);
 
-    it('exports a registry with no duplicates, covering 321 of 327 manifest routes', () => {
+    it('exports a well-formed registry with no duplicates and no overlap', () => {
+        // Deliberately NOT a route count. A hardcoded total goes stale the
+        // moment a route is added, which makes the suite fail for a reason
+        // that has nothing to do with the change under test. Coverage against
+        // the live manifest is `npm run check:drift`, which compares both
+        // directions and reports the gap BY NAME.
         const unique = new Set(ROUTE_COVERAGE,);
         expect(unique.size,).toBe(ROUTE_COVERAGE.length,); // no duplicates
-        expect(ROUTE_COVERAGE.length + INTENTIONALLY_UNEXPOSED.length,).toBe(321,);
-        // 321 of the manifest's 327. The gap is the 6 long-standing uncovered
-        // routes that `npm run check:drift` reports by name (shop reorder,
-        // printify sync, dashboard/payments admin reads) — pre-existing, and
-        // tracked there rather than silently absorbed here.
+
+        // A route in both sets means "we expose it" and "we deliberately
+        // don't" at once — drift would then pass while the intent is broken.
+        const allow = new Set(INTENTIONALLY_UNEXPOSED,);
+        expect(ROUTE_COVERAGE.filter((r,) => allow.has(r,)),).toEqual([],);
+
+        // Both sets must use the manifest's `"<METHOD> <absolutePath>"` form,
+        // or an entry silently matches nothing during the drift check.
+        const shape = /^(GET|POST|PUT|PATCH|DELETE|HEAD) \/\S*$/;
+        const malformed = [...ROUTE_COVERAGE, ...INTENTIONALLY_UNEXPOSED,]
+            .filter((r,) => !shape.test(r,));
+        expect(malformed,).toEqual([],);
     },);
 },);

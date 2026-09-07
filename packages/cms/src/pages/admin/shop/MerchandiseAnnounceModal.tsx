@@ -56,6 +56,29 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
     const all = () => [...props.pending, ...extras(),];
     const chosenIds = () => all().filter((p,) => selected().has(p.id,)).map((p,) => p.id);
 
+    const selectAll = () => setSelected(new Set<string>(all().map((p,) => p.id),),);
+    const deselectAll = () => setSelected(new Set<string>(),);
+
+    /** Pull every remaining live product into the list, already selected. */
+    const addAll = () => {
+        const remaining = (addable() ?? []).filter((p,) => !all().some((x,) => x.id === p.id));
+        if (remaining.length === 0) return;
+        setExtras((prev,) => [...prev, ...remaining.map((p,) => ({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            priceCents: p.fromPriceCents ?? null,
+            imageUrl: p.primaryImageUrl ?? null,
+            createdAt: p.createdAt ?? '',
+        })),],);
+        setSelected((prev,) => {
+            const next = new Set(prev,);
+            for (const p of remaining) next.add(p.id,);
+            return next;
+        },);
+        setShowPicker(false,);
+    };
+
     const toggle = (id: string,) =>
         setSelected((prev,) => {
             const next = new Set(prev,);
@@ -175,15 +198,53 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
             </div>
 
             <div class="merch-announce__add">
-                <button
-                    type="button"
-                    class="ui-button ui-button--sm ui-button--secondary"
-                    onClick={() => setShowPicker((v,) => !v)}
-                >
-                    {showPicker() ? 'Cancel' : '+ Add another product'}
-                </button>
+                <div class="merch-announce__add-row">
+                    <button
+                        type="button"
+                        class="ui-button ui-button--sm ui-button--secondary"
+                        onClick={() => setShowPicker((v,) => !v)}
+                    >
+                        {showPicker() ? 'Cancel' : '+ Add another product'}
+                    </button>
+                    {/* Bulk selection acts on the list above, not the picker —
+                        with a full catalogue it is the difference between one
+                        click and twenty. Hidden while the list is empty, where
+                        both would be no-ops. */}
+                    <Show when={all().length > 1}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--sm ui-button--ghost"
+                            onClick={selectAll}
+                            disabled={chosenIds().length === all().length}
+                        >
+                            Select all
+                        </button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--sm ui-button--ghost"
+                            onClick={deselectAll}
+                            disabled={chosenIds().length === 0}
+                        >
+                            Deselect all
+                        </button>
+                    </Show>
+                </div>
                 <Show when={showPicker()}>
                     <div class="merch-announce__picker">
+                        {/* With nothing pending the list starts empty, so
+                            "Select all" has nothing to act on — this is the
+                            one-click path for announcing a whole catalogue. */}
+                        <Show
+                            when={(addable() ?? []).filter((p,) => !all().some((x,) => x.id === p.id)).length > 1}
+                        >
+                            <button
+                                type="button"
+                                class="merch-announce__picker-item merch-announce__picker-all"
+                                onClick={addAll}
+                            >
+                                + Add all
+                            </button>
+                        </Show>
                         <For
                             each={(addable() ?? []).filter((p,) => !all().some((x,) => x.id === p.id))}
                             fallback={<p class="form-help-muted">No other live products.</p>}

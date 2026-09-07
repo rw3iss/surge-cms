@@ -1177,3 +1177,17 @@
     margin: 0;
     padding: $spacing-md;
 }
+
+// Picker toggle + bulk-selection controls share a row.
+.merch-announce__add-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+}
+
+// "Add all" leads the picker, so it reads as an action rather than a product.
+.merch-announce__picker-all {
+    font-weight: 700;
+    color: $primary-color;
+}
