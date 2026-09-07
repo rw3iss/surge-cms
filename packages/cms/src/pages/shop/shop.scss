@@ -816,6 +816,9 @@
         display: flex;
         align-items: center;
         gap: $spacing-xl;
+        // The heading and the tout both give up their own bottom margins to sit
+        // on this row, so the masthead owns the gap to the search bar below.
+        margin-bottom: $spacing-lg;
 
         > .shop-store__header {
             flex: 0 0 auto;

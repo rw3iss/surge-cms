@@ -51,8 +51,10 @@ const MerchandiseSignup: Component = () => {
 
     const onClick = () => {
         if (done()) return;
-        // Signed in: no form needed — the server uses the account address.
-        if (auth.user()) { void subscribe({},); return; }
+        // Signed in: no form needed — the server uses the account address and
+        // ignores anything posted. `user` is a plain property on the auth
+        // context (see AuthContextValue extends AuthState), NOT an accessor.
+        if (auth.user) { void subscribe({},); return; }
         setModalOpen(true,);
     };
 
