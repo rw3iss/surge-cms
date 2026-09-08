@@ -164,6 +164,7 @@ export function mount(el, ctx) {
         // depended on a second pass arriving from `document.fonts.ready` — a
         // race, which is why it scrolled on one page and sat still on another.
         root.classList.add('asot--ready');
+        lastLayoutWidth = measuredWidth();
 
         syncBleed();
         syncBackdrop();
@@ -257,9 +258,24 @@ export function mount(el, ctx) {
         root.addEventListener('focusout', onLeave);
     }
 
-    // Re-measure on width changes: rotating a phone flips the fits/doesn't-fit
-    // decision, and a font swapping in changes every measurement.
-    let lastWidth = 0;
+    /**
+     * The width a layout is FOR — the same box `syncBleed` sizes against.
+     *
+     * Every relayout is gated on this changing, which is the whole mobile fix:
+     * hiding or showing the browser's address/nav bar changes the viewport
+     * HEIGHT and fires `resize`, and relaying out restarts the CSS animation —
+     * so the ticker snapped back to the start every time the bar moved. A
+     * rotation changes the WIDTH, so it still relayouts.
+     *
+     * Deliberately not a "is this mobile?" check: the same rule stops a desktop
+     * user dragging only the window's height from restarting the ticker, and
+     * there is no user-agent guess to get wrong.
+     */
+    const measuredWidth = () => {
+        const host = root.closest('.content-block__preview-body') || root.closest('.content-block');
+        return Math.round(host ? host.getBoundingClientRect().width : document.documentElement.clientWidth,);
+    };
+    let lastLayoutWidth = -1;
     let raf = 0;
     /**
      * Throttled relayout, ~100ms.
@@ -280,7 +296,11 @@ export function mount(el, ctx) {
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(layout);
     };
-    const schedule = () => {
+    /** `force` is for changes that alter measurements without altering the
+     *  width — a web font finally loading, an orientation flip a browser
+     *  reports late. */
+    const schedule = (force,) => {
+        if (!force && measuredWidth() === lastLayoutWidth) return;
         const since = Date.now() - lastRun;
         window.clearTimeout(trailing);
         if (since >= THROTTLE_MS) runLayout();
@@ -290,36 +310,39 @@ export function mount(el, ctx) {
     // root's width is one we set ourselves, so it wouldn't change on a window
     // resize and the observer would never fire.
     const observed = root.parentElement || root;
+    const onResize = () => schedule();
+    /**
+     * A rotation ALWAYS relayouts, even though the width test would normally
+     * catch it: several browsers still report the pre-rotation dimensions
+     * during the event itself, so the immediate call can read an unchanged
+     * width and skip. The delayed second pass reads the settled size.
+     */
+    const onOrientation = () => {
+        schedule(true,);
+        window.setTimeout(() => schedule(true,), 250,);
+    };
     const ro = typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver((entries) => {
-            const w = Math.round(entries[0].contentRect.width);
-            // Height-only changes are our own doing (duplicating items grows the
-            // track), so reacting to them would loop.
-            if (w === lastWidth) return;
-            lastWidth = w;
-            schedule();
-        })
+        ? new ResizeObserver(onResize,)
         : null;
-    if (ro) ro.observe(observed);
+    if (ro) ro.observe(observed,);
     // Belt and braces for the case where the parent's width is also fixed
-    // (a full-width page shell doesn't change when the window does on some
-    // mobile browsers' URL-bar transitions).
-    window.addEventListener('resize', schedule);
-    window.addEventListener('orientationchange', schedule);
+    // (a full-width page shell doesn't change when the window does).
+    window.addEventListener('resize', onResize,);
+    window.addEventListener('orientationchange', onOrientation,);
 
     layout();
     // Custom faces load asynchronously; every width measured before Oswald
     // arrives is the fallback font's.
     if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(schedule).catch(() => {});
+        document.fonts.ready.then(() => schedule(true,),).catch(() => {});
     }
 
     return () => {
         cancelAnimationFrame(raf);
         window.clearTimeout(trailing);
         if (ro) ro.disconnect();
-        window.removeEventListener('resize', schedule);
-        window.removeEventListener('orientationchange', schedule);
+        window.removeEventListener('resize', onResize,);
+        window.removeEventListener('orientationchange', onOrientation,);
         root.style.width = '';
         root.style.marginLeft = '';
         root.style.marginRight = '';
