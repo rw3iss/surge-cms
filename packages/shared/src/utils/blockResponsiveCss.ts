@@ -152,9 +152,22 @@ function rulesFor(
     return out;
 }
 
-/** Build `selectorsFor` for one block id + target map. */
+/**
+ * Build `selectorsFor` for one block id + target map.
+ *
+ * The `.block` class is load-bearing, not decoration. The admin editor wraps
+ * each block in a `.content-block` container that carries the SAME
+ * `data-block-id` (it needs it for drag/drop and selection), and inside that
+ * container renders the real `.block` wrapper. A bare `[data-block-id]`
+ * selector matched both, so a block's padding pushed the editor's header bar
+ * in and its background image painted behind the whole editing chrome.
+ *
+ * Only the public wrapper carries `.block`, so qualifying with it puts the
+ * style exactly where it belongs — on the block's content — in the editor and
+ * on the live site alike.
+ */
 function makeSelectorsFor(blockId: string, targets: PropTargets,): (prop: string,) => string[] {
-    const base = `[data-block-id="${escapeId(blockId,)}"]`;
+    const base = `.block[data-block-id="${escapeId(blockId,)}"]`;
     const fallback = targets['*'] ?? ['',];
     return (prop: string,) => (targets[prop] ?? fallback).map((d,) => (d ? `${base} ${d}` : base));
 }

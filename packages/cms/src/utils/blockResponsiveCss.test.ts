@@ -11,7 +11,9 @@ const OPTS = {
 };
 
 const ID = 'blk-1';
-const WRAPPER = `[data-block-id="${ID}"]`;
+// The `.block` qualifier keeps these rules off the admin editor's
+// `.content-block` container, which carries the same data-block-id.
+const WRAPPER = `.block[data-block-id="${ID}"]`;
 
 describe('blockResponsiveCss (breakpoint-only, legacy entry point)', () => {
     it('returns null without a block id, overrides, or breakpoints', () => {
@@ -172,7 +174,7 @@ describe('blockCss (default + breakpoints, layered)', () => {
 
         /** Selectors used by a css string, in order of appearance. */
         const selectorsOf = (css: string,): string[] =>
-            [...css.matchAll(/(\[data-block-id="[^"]+"\][^{@]*)\{/g,),].map((m,) => m[1].trim());
+            [...css.matchAll(/(\.block\[data-block-id="[^"]+"\][^{@]*)\{/g,),].map((m,) => m[1].trim());
 
         for (const contentCarousel of [false, true,]) {
             for (const [label, bag,] of PROPS) {
