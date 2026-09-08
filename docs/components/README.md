@@ -13,6 +13,10 @@ component editor).
 |---|---|---|
 | `as-seen-on-ticker.{html,js}` | As Seen On Ticker | surgemedia.us |
 
+The ticker never wraps, in any state — one row per label, always. Content too
+wide for the row scrolls; `data-speed="0"` stops the animation and centres what
+fits, still on one line. There is no wrapping mode to turn on.
+
 ## As Seen On Ticker — logo assets
 
 Four entries use real logos; the rest are the name as styled text.

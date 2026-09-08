@@ -20,9 +20,6 @@
                           content column (the block that USES this component is
                           still capped at the site max-width, and the ticker is
                           meant to run edge to edge). "false" = stay inside it.
-    data-wrap             "false" (default) = one row, always; anything that
-                          doesn't fit scrolls into view. "true" = let a static
-                          ticker wrap onto more rows instead.
 
   The base CSS below sits in @layer theme — the LOWEST layer — so this
   component's own block styles, and any style set on the block that uses this
@@ -94,18 +91,13 @@
   }
   .asot--paused .asot__track { animation-play-state: paused; }
 
-  /* Static: no animation, one copy, centred, and still a SINGLE row — a
-     ticker that silently became two rows is what `data-wrap` exists to opt
-     into, not the default. Overflow is clipped by the row, exactly as it is
-     while scrolling. */
+  /* Static: no animation, one copy, centred. A ticker is ONE LINE — there is
+     no wrapping mode at all, in any state. Anything too wide is clipped by the
+     row, exactly as it is while scrolling. */
   .asot--static .asot__track {
     width: 100%;
     flex-wrap: nowrap;
     justify-content: center;
-  }
-  .asot--static.asot--wrap .asot__track {
-    flex-wrap: wrap;
-    row-gap: 6px;
   }
   /* gap 0 asks for the items spread across the whole width. */
   .asot--static.asot--spread .asot__track { justify-content: space-evenly; }
@@ -223,12 +215,28 @@
     );
   }
 
-  /* No JS (or the script switched off): still readable, just not moving. This
-     one DOES wrap — without the script there is nothing to scroll the overflow
-     into view, so hiding it would lose content outright. The script adds
-     `asot--ready` before it measures anything, so this rule can never be in
-     force during a measurement. */
-  .asot:not(.asot--ready) .asot__track { flex-wrap: wrap; width: 100%; justify-content: center; }
+  /* No JS yet — before the script mounts, after a teardown, or if it is turned
+     off entirely. Still ONE row: this state used to wrap and to leave the
+     absolutely-positioned label sitting on top of the items, which is what
+     every "it's wrapping / the label is over the text" report was actually
+     showing. The label goes into flow here so it takes its own space, the
+     fades are dropped (they need values only the script sets), and the
+     overflow is simply clipped. */
+  .asot:not(.asot--ready) .asot__row {
+    display: flex;
+    align-items: center;
+  }
+  .asot:not(.asot--ready) .asot__label {
+    position: static;
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .asot:not(.asot--ready) .asot__viewport {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .asot:not(.asot--ready) .asot__fade { display: none; }
+  .asot:not(.asot--ready) .asot__track { flex-wrap: nowrap; }
 
   @media (max-width: 768px) {
     .asot { padding: 14px 0 16px; }
@@ -253,7 +261,6 @@
   data-scroll-if-fits="false"
   data-pause-on-hover="true"
   data-full-bleed="true"
-  data-wrap="false"
 >
   <div class="asot__head">As seen on:</div>
 

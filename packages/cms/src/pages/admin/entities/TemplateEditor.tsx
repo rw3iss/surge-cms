@@ -11,7 +11,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
 import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
-import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
 import { mountComponentScript, } from '../../../services/componentScript';
 import JsEditor from '../../../components/admin/common/JsEditor';
@@ -118,11 +118,23 @@ const TemplateEditor: Component = () => {
      */
     const [scriptHost, setScriptHost,] = createSignal<HTMLElement | undefined>();
     const [savedScriptRev, setSavedScriptRev,] = createSignal(0,);
+    /**
+     * Signature of what the script actually renders against.
+     *
+     * Keyed on block CONTENT, not on the `blocks()` array identity: the editor
+     * hands back a fresh array on plenty of things that don't change the
+     * markup, and each one tore the mount down and rebuilt it. Between the two
+     * the component sits un-enhanced, which for anything the script lays out
+     * means a visible flash of the raw markup on every keystroke.
+     */
+    const blockSignature = createMemo(() =>
+        JSON.stringify(blocks().map((b,) => [b.id, b.type, b.sort_order, b.data,]),),
+    );
     createEffect(() => {
         const host = scriptHost();
         // Tracked so an edit re-runs the mount against the rebuilt DOM.
         const rev = savedScriptRev();
-        void blocks();
+        void blockSignature();
         if (!isGlobal() || isNew() || !host || !params.id || rev < 0) return;
 
         let teardown: (() => void) | undefined;

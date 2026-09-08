@@ -44,14 +44,10 @@ export function mount(el, ctx) {
         ? `${Number(gapRaw)}px`
         : String(gapRaw);
     const gapIsZero = parseFloat(gapCss) === 0;
-    // Wrapping is opt-in. A ticker is a single line by definition; anything
-    // that doesn't fit should scroll into view, not start a second row.
-    const allowWrap = isTrue(conf(root, block, 'tickerWrap', 'data-wrap', 'false'));
 
     root.style.setProperty('--asot-gap', gapCss);
     root.classList.toggle('asot--no-labels', !showLabels);
     root.classList.toggle('asot--spread', gapIsZero);
-    root.classList.toggle('asot--wrap', allowWrap);
 
     const rows = Array.from(root.querySelectorAll('.asot__row'));
     // Keep the pristine item set. Every re-layout rebuilds from this, so
