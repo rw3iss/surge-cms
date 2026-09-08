@@ -15,7 +15,7 @@ import { blockDataToRenderBlock, } from '../../utils/blockData';
 import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
-import { pageBackgroundStyle, } from '../../utils/appearanceStyle';
+import { contentPaddingStyle, pageBackgroundStyle, } from '../../utils/appearanceStyle';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 // Block IDs are real UUIDs from creation (see utils/blockId) so a group child
@@ -589,8 +589,13 @@ const AdminPageEditor: Component = () => {
         <Layout>
             {/* Wrap in the same `.dynamic-page page-wrapper` div the
                 public DynamicPage uses, so styles scoped to that
-                selector apply identically in preview. */}
-            <div class="dynamic-page page-wrapper">
+                selector apply identically in preview — INCLUDING the
+                padding override. `.page-wrapper` carries a hard-coded
+                gutter + top/bottom padding; the public page cancels it
+                per the page's own toggles, and the preview skipping that
+                is why it showed padding on a page configured to have
+                none. */}
+            <div class="dynamic-page page-wrapper" style={contentPaddingStyle('--site-page-padding', applyPagePadding(), applySiteGutter(),)}>
                 <Show when={title() && showTitle()}>
                     <h1
                         class="dynamic-page__title"

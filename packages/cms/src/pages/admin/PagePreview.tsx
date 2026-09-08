@@ -5,6 +5,7 @@ import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
 import { Layout, } from '../../components/layout/Layout';
 import { blockDataToRenderBlock, } from '../../utils/blockData';
+import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 
 const PagePreview: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -41,7 +42,18 @@ const PagePreview: Component = () => {
                         preview shows the configured header, footer,
                         navigation, appearance vars, swatches, and fonts. */}
                     <Layout>
-                        <div class="dynamic-page page-wrapper">
+                        {/* `.page-wrapper` has a hard-coded gutter + vertical
+                            padding that the public page cancels per its own
+                            toggles; without the same override the preview
+                            padded a page configured to have none. */}
+                        <div
+                            class="dynamic-page page-wrapper"
+                            style={contentPaddingStyle(
+                                '--site-page-padding',
+                                data().applyPagePadding,
+                                data().applySiteGutter,
+                            )}
+                        >
                             <Show when={data().title}>
                                 <h1 class="dynamic-page__title" style={{ 'text-align': data().titleAlignment || 'left', }}>
                                     {data().title}

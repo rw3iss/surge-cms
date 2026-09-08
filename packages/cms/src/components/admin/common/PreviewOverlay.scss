@@ -1,7 +1,11 @@
 .preview-overlay {
     position: fixed;
     inset: 0;
-    z-index: $z-index-overlay;
+    // Above the block edit flyout ($z-index-modal - 1), not just above the page.
+    // This is a full-screen TAKEOVER of the whole editor — an open properties
+    // panel floating on top of it (which is what $z-index-overlay allowed) is
+    // never what "preview" means.
+    z-index: $z-index-modal;
     background: $background;
     display: flex;
     flex-direction: column;

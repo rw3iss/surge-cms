@@ -1,4 +1,5 @@
 import { Component, createEffect, createSignal, For, Match, Show, Switch, } from 'solid-js';
+import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
@@ -476,7 +477,9 @@ const AdminPostEditor: Component = () => {
         <Layout>
             {/* Match the public Post page wrapper so scoped styles apply
                 identically in preview. */}
-            <div class="post-page page-wrapper">
+            {/* See PageEditor — `.page-wrapper`'s hard-coded padding is
+                cancelled per the post's own toggles. */}
+            <div class="post-page page-wrapper" style={contentPaddingStyle('--site-post-padding', applyPostPadding(), applySiteGutter(),)}>
                 <article class="post-page__article" style={{ 'max-width': 'var(--site-max-width, 800px)', margin: '0 auto', padding: '2rem 1rem', }}>
                     {/* Faithful header: Hero / Hero Full render the real banner so
                         the configured "Post Header Banner Height" (default +

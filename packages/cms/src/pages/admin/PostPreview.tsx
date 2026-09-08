@@ -3,6 +3,7 @@ import { Component, createMemo, For, Show, } from 'solid-js';
 import PreviewOverlay from '../../components/admin/common/PreviewOverlay';
 import { Layout, } from '../../components/layout/Layout';
 import PostContentBlock from '../../components/blocks/posts/PostContentBlock';
+import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 
 const PostPreview: Component = () => {
     const params = useParams();
@@ -30,7 +31,16 @@ const PostPreview: Component = () => {
                         so the preview shows configured header, footer,
                         navigation, swatches, fonts, and appearance. */}
                     <Layout>
-                        <div class="post-page page-wrapper">
+                        {/* See PagePreview — same hard-coded `.page-wrapper`
+                            padding, cancelled per the post's own toggles. */}
+                        <div
+                            class="post-page page-wrapper"
+                            style={contentPaddingStyle(
+                                '--site-post-padding',
+                                data().applyPostPadding,
+                                data().applySiteGutter,
+                            )}
+                        >
                         <article style={{ 'max-width': '800px', margin: '0 auto', padding: '2rem 1rem', }}>
                             <h1 style={{ 'margin-bottom': '0.5rem', }}>{data().title || 'Untitled Post'}</h1>
                             <div style={{ color: 'var(--admin-text-muted, #6b7280)', 'margin-bottom': '2rem', 'font-size': '0.9rem', }}>
