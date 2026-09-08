@@ -1,7 +1,6 @@
 import { Component, onCleanup, onMount, Show, } from 'solid-js';
 import { BlockRenderer, } from '../../blocks/BlockRenderer';
 import { BlockStyleService, } from '../../../services/blockStyles';
-import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import type { BlockData, } from './ContentBlock';
 
@@ -39,14 +38,20 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         // Resolve style from styleRef or data.__styleRef (shared resolver).
         const resolvedStyle = BlockStyleService.resolve(props.block,);
 
-        // Simulate the active "Preview breakpoint" by merging that breakpoint's
-        // overrides over the base style — so BlockPreview-rendered blocks
-        // (carousel, image, …) reflect the responsive changes in the editor, not
-        // just on the live site (the device preview only caps width, so real
-        // @media queries don't fire here).
-        const pbp = previewBreakpoint();
-        const ov = pbp ? (resolvedStyle as Record<string, any> | undefined)?.breakpoints?.[pbp] : undefined;
-        const effectiveStyle = ov && Object.keys(ov,).length ? { ...resolvedStyle, ...ov, } : resolvedStyle;
+        // The preview breakpoint is NOT simulated here any more.
+        //
+        // This used to merge the breakpoint's overrides over the base style, so
+        // the emitted "default" carried mobile values. That worked only for the
+        // block this component renders directly — a component's inner blocks, an
+        // entity slide and anything else reached through BlockRenderer got the
+        // real `@media` rules, which cannot fire in a width-capped preview. They
+        // kept showing desktop styles.
+        //
+        // `blockCss` now emits every breakpoint a second time as a `@container`
+        // query, and the preview container declares that container name, so the
+        // override reaches EVERY block inside it — no simulation, and one
+        // mechanism instead of two that can disagree.
+        const effectiveStyle = resolvedStyle;
 
         return {
             id: props.block.id,

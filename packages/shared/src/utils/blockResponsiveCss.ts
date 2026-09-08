@@ -20,7 +20,11 @@
  */
 import type { SiteBreakpoint, } from '../types/content';
 import { blockStyleLayoutCss, type BlockStyleCssResolvers, } from './blockStyleCss';
-import { breakpointMediaCondition, } from './breakpoints';
+import {
+    breakpointContainerCondition,
+    breakpointMediaCondition,
+    PREVIEW_CONTAINER,
+} from './breakpoints';
 
 export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
     /** Resolve a stored color value (hex / swatch ref) to a literal CSS color. */
@@ -128,7 +132,9 @@ function rulesFor(
     styleBag: Record<string, unknown>,
     selectorsFor: (prop: string,) => string[],
     opts: BlockResponsiveOptions,
-    mediaCondition?: string,
+    /** Full at-rule prefix to wrap each rule in, e.g. `@media (max-width:768px)`
+     *  or `@container ss-bp (max-width:768px)`. Omitted → unwrapped. */
+    atRule?: string,
 ): string[] {
     const rec = declarationRecord(styleBag, opts,);
 
@@ -147,7 +153,7 @@ function rulesFor(
     const out: string[] = [];
     for (const [sel, decls,] of bySelector) {
         const d = stringifyDecls(decls,);
-        if (d) out.push(mediaCondition ? `@media ${mediaCondition}{${sel}{${d}}}` : `${sel}{${d}}`,);
+        if (d) out.push(atRule ? `${atRule}{${sel}{${d}}}` : `${sel}{${d}}`,);
     }
     return out;
 }
@@ -220,7 +226,27 @@ export function blockCss(
         for (const bp of breakpoints) {
             const override = bps[bp.id];
             if (!override || Object.keys(override,).length === 0) continue;
-            bpRules.push(...rulesFor(override, selectorsFor, bpOpts, breakpointMediaCondition(bp,),),);
+            const media = breakpointMediaCondition(bp,);
+            if (media) {
+                bpRules.push(...rulesFor(override, selectorsFor, bpOpts, `@media ${media}`,),);
+            }
+            // The SAME declarations again as a container query, for the editor's
+            // device preview. That preview caps a container's width and leaves
+            // the viewport alone, so `@media` cannot fire in it; a container
+            // query asks the box that actually changed.
+            //
+            // Emitted always, but inert everywhere except the preview: nothing
+            // on the public site declares this container name, so these rules
+            // match nothing there and site output is unchanged. That is the
+            // point — one stylesheet, no per-block simulation to drift, and
+            // nested content (a component's blocks, an entity slide) picks the
+            // override up for free instead of needing its own special case.
+            const contained = breakpointContainerCondition(bp,);
+            if (contained) {
+                bpRules.push(
+                    ...rulesFor(override, selectorsFor, bpOpts, `@container ${PREVIEW_CONTAINER} ${contained}`,),
+                );
+            }
         }
         // Breakpoints always land in `block-bp`, even for a template's inner
         // blocks: a responsive rule should still beat a non-responsive one.
@@ -249,7 +275,8 @@ export function blockResponsiveCss(
     for (const bp of breakpoints) {
         const override = bps[bp.id];
         if (!override || Object.keys(override,).length === 0) continue;
-        rules.push(...rulesFor(override, selectorsFor, opts, breakpointMediaCondition(bp,),),);
+        const media = breakpointMediaCondition(bp,);
+        if (media) rules.push(...rulesFor(override, selectorsFor, opts, `@media ${media}`,),);
     }
     return rules.length ? inLayer('block-bp', rules,).join('\n',) : null;
 }

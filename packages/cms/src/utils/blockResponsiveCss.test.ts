@@ -188,8 +188,15 @@ describe('blockCss (default + breakpoints, layered)', () => {
                         OPTS,
                         targets,
                     ) ?? '';
-                    expect(selectorsOf(asDefault,),).toEqual(selectorsOf(asOverride,),);
-                    expect(selectorsOf(asDefault,).length,).toBeGreaterThan(0,);
+                    // Unique selectors, not the raw sequence: an override is
+                    // emitted TWICE — once under `@media` for the real
+                    // viewport, once under `@container` for the editor's device
+                    // preview. The invariant is about WHICH elements a property
+                    // lands on, which is unchanged by emitting it in two
+                    // at-rules.
+                    const uniq = (css: string,) => [...new Set(selectorsOf(css,),),].sort();
+                    expect(uniq(asDefault,),).toEqual(uniq(asOverride,),);
+                    expect(uniq(asDefault,).length,).toBeGreaterThan(0,);
                 },);
             }
         }
@@ -213,5 +220,45 @@ describe('suppressHeight applies to the default pass only', () => {
         ) ?? '';
         expect(css,).not.toContain('height:320px',);
         expect(css,).toContain(`${WRAPPER} .hero-carousel{height:200px}`,);
+    },);
+},);
+
+/**
+ * The editor's device preview caps a container's width and leaves the viewport
+ * alone, so a `@media` rule can never fire in it. Each breakpoint is therefore
+ * emitted twice: once for the real viewport, once for that preview container.
+ */
+describe('container-query variant for the editor preview', () => {
+    const bag = { breakpoints: { mobile: { padding: '4px', }, }, };
+
+    it('emits the same declarations under @media AND @container', () => {
+        const css = blockCss(ID, bag, [MOBILE,], OPTS,) ?? '';
+        expect(css,).toContain('@media (max-width:768px)',);
+        expect(css,).toContain('@container ss-bp (max-width:768px)',);
+        // Two rules, same declaration.
+        expect([...css.matchAll(/padding:4px/g,),].length,).toBe(2,);
+    },);
+
+    it('puts both in the block-bp layer, so a responsive rule still wins', () => {
+        const css = blockCss(ID, bag, [MOBILE,], OPTS,) ?? '';
+        const layer = /@layer block-bp\{([\s\S]*)\}$/.exec(css.trim(),)?.[1] ?? '';
+        expect(layer,).toContain('@media',);
+        expect(layer,).toContain('@container',);
+    },);
+
+    it('skips the container variant for a height-only breakpoint', () => {
+        // The preview container is `container-type: inline-size`, which can only
+        // answer inline-axis questions — a height query there would never match,
+        // and emitting one that silently never fires is worse than none.
+        const heightOnly = { id: 'tall', name: 'Tall', minHeight: '900', };
+        const css = blockCss(ID, { breakpoints: { tall: { padding: '4px', }, }, }, [heightOnly,], OPTS,) ?? '';
+        expect(css,).toContain('@media (min-height:900px)',);
+        expect(css,).not.toContain('@container',);
+    },);
+
+    it('emits nothing extra for a block with no breakpoint overrides', () => {
+        const css = blockCss(ID, { padding: '9px', }, [MOBILE,], OPTS,) ?? '';
+        expect(css,).not.toContain('@container',);
+        expect(css,).not.toContain('@media',);
     },);
 },);

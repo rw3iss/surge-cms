@@ -22,3 +22,27 @@ export function breakpointMediaCondition(bp: SiteBreakpoint,): string {
     const maxH = toLen(bp.maxHeight,); if (maxH) parts.push(`(max-height:${maxH})`,);
     return parts.join(' and ',);
 }
+
+/** Container name the admin's device preview declares, so `@container` rules
+ *  fire against the capped preview width instead of the real viewport. */
+export const PREVIEW_CONTAINER = 'ss-bp';
+
+/**
+ * The same breakpoint as a CONTAINER condition, for the editor's device
+ * preview.
+ *
+ * The preview only caps a container's width — the real viewport is still the
+ * whole admin window, so a `@media` rule can never fire there. A container
+ * query asks the preview box instead, which is what actually changed.
+ *
+ * WIDTH BOUNDS ONLY: the preview container uses `container-type: inline-size`,
+ * which can answer inline-axis questions and nothing else. A height-bounded
+ * breakpoint therefore returns '' — it cannot be simulated, and emitting a
+ * query that silently never matches would be worse than not emitting one.
+ */
+export function breakpointContainerCondition(bp: SiteBreakpoint,): string {
+    const parts: string[] = [];
+    const minW = toLen(bp.minWidth,); if (minW) parts.push(`(min-width:${minW})`,);
+    const maxW = toLen(bp.maxWidth,); if (maxW) parts.push(`(max-width:${maxW})`,);
+    return parts.join(' and ',);
+}

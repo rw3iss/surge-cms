@@ -5,6 +5,7 @@ import { DEFAULT_MOBILE_DEVICE, MOBILE_DEVICES, } from '../../../config/mobileDe
 import { BlockStyleService, } from '../../../services/blockStyles';
 import { useAppearance, } from '../../../hooks/useAppearance';
 import { previewBreakpoint, setPreviewBreakpoint, } from '../../../stores/previewBreakpoint';
+import { PREVIEW_CONTAINER, } from '@sitesurge/types';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
@@ -410,14 +411,23 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     const previewContainerStyle = createMemo(() => {
         const base = { ...(props.containerStyle || {}), };
-        // A selected preview breakpoint caps the width to that breakpoint (so the
-        // simulated overrides show at a representative size); else the mobile
-        // device width; else full.
+        // A selected preview breakpoint caps the width to that breakpoint; else
+        // the mobile device width; else full.
         const bw = bpWidth();
         if (bw && !isFullWidth()) {
             base['max-width'] = bw;
             base['margin-left'] = 'auto';
             base['margin-right'] = 'auto';
+            // THIS is what makes the preview show responsive styles.
+            //
+            // Capping the width leaves the real viewport untouched, so a
+            // block's `@media` rules cannot fire here. `blockCss` emits every
+            // breakpoint a second time as `@container ss-bp (…)`; naming the
+            // container here is what turns those on, for EVERY block inside —
+            // including a component's inner blocks and an entity slide, which
+            // no per-block simulation ever reached.
+            base['container-type'] = 'inline-size';
+            base['container-name'] = PREVIEW_CONTAINER;
         } else if (isMobile() && !isFullWidth()) {
             base['max-width'] = `${deviceWidth()}px`;
             base['margin-left'] = 'auto';
