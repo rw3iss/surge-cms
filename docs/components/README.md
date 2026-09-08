@@ -13,9 +13,15 @@ component editor).
 |---|---|---|
 | `as-seen-on-ticker.{html,js}` | As Seen On Ticker | surgemedia.us |
 
-The ticker never wraps, in any state — one row per label, always. Content too
-wide for the row scrolls; `data-speed="0"` stops the animation and centres what
-fits, still on one line. There is no wrapping mode to turn on.
+The ticker never wraps, in any state — one row per label, always. There is no
+wrapping mode to turn on.
+
+`data-scroll` picks the behaviour: `auto` (default) scrolls only when the items
+overflow the row, `always` scrolls regardless (a short list is repeated so the
+loop stays continuous), `static` never animates. `data-justify` sets
+justify-content for a STATIC row (`center`, `space-around`, …) — a scrolling
+track is exactly as wide as its content, so there is no free space for it to
+distribute. `data-speed="0"` also stops the animation.
 
 ## As Seen On Ticker — logo assets
 

@@ -34,7 +34,19 @@ export function mount(el, ctx) {
     const speed = Math.max(0, Number(conf(root, block, 'tickerSpeed', 'data-speed', '55')) || 0);
     const gapRaw = conf(root, block, 'tickerGap', 'data-gap', '48px');
     const showLabels = isTrue(conf(root, block, 'tickerShowLabels', 'data-show-labels', 'true'));
-    const scrollIfFits = isTrue(conf(root, block, 'tickerScrollIfFits', 'data-scroll-if-fits', 'false'));
+    /**
+     * static | auto | always.
+     *
+     * `data-scroll-if-fits` is still honoured so an existing instance keeps
+     * working: it only ever expressed "always vs auto", which is two of the
+     * three states — there was no way to say "never animate but keep my speed".
+     */
+    const legacyAlways = isTrue(conf(root, block, 'tickerScrollIfFits', 'data-scroll-if-fits', 'false'));
+    const scrollMode = (() => {
+        const raw = conf(root, block, 'tickerScroll', 'data-scroll', '').trim().toLowerCase();
+        if (raw === 'static' || raw === 'auto' || raw === 'always') return raw;
+        return legacyAlways ? 'always' : 'auto';
+    })();
     const pauseOnHover = isTrue(conf(root, block, 'tickerPauseOnHover', 'data-pause-on-hover', 'true'));
     const fullBleed = isTrue(conf(root, block, 'tickerFullBleed', 'data-full-bleed', 'true'));
 
@@ -44,10 +56,15 @@ export function mount(el, ctx) {
         ? `${Number(gapRaw)}px`
         : String(gapRaw);
     const gapIsZero = parseFloat(gapCss) === 0;
+    // Any CSS justify-content. Gap 0 still means "spread across the width",
+    // which is just a different default rather than a separate mode.
+    const justify = conf(root, block, 'tickerJustify', 'data-justify', '').trim()
+        || (gapIsZero ? 'space-evenly' : 'center');
 
     root.style.setProperty('--asot-gap', gapCss);
     root.classList.toggle('asot--no-labels', !showLabels);
     root.classList.toggle('asot--spread', gapIsZero);
+    root.style.setProperty('--asot-justify', justify);
 
     const rows = Array.from(root.querySelectorAll('.asot__row'));
     // Keep the pristine item set. Every re-layout rebuilds from this, so
@@ -170,7 +187,12 @@ export function mount(el, ctx) {
             return { ...o, avail, natural };
         });
 
-        const shouldScroll = speed > 0 && (scrollIfFits || anyOverflows);
+        // `always` scrolls even when everything fits — the repeat step below
+        // pads a short list out so the loop stays continuous rather than
+        // leaving a gap while it wraps.
+        const shouldScroll = speed > 0
+            && scrollMode !== 'static'
+            && (scrollMode === 'always' || anyOverflows);
         if (!shouldScroll) {
             root.classList.add('asot--static');
             return;
@@ -228,9 +250,30 @@ export function mount(el, ctx) {
     // decision, and a font swapping in changes every measurement.
     let lastWidth = 0;
     let raf = 0;
-    const schedule = () => {
+    /**
+     * Throttled relayout, ~100ms.
+     *
+     * A drag-resize fires continuously, and `layout()` rebuilds both tracks and
+     * re-measures — running it per event made the ticker stutter and, while the
+     * measurements were mid-flight, left the labels and track at sizes computed
+     * for a width that no longer existed. Leading edge so the first movement
+     * responds immediately; trailing edge so the FINAL size is always the one
+     * laid out, which is what makes it settle correctly instead of keeping a
+     * stale width.
+     */
+    const THROTTLE_MS = 100;
+    let lastRun = 0;
+    let trailing = 0;
+    const runLayout = () => {
+        lastRun = Date.now();
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(layout);
+    };
+    const schedule = () => {
+        const since = Date.now() - lastRun;
+        window.clearTimeout(trailing);
+        if (since >= THROTTLE_MS) runLayout();
+        else trailing = window.setTimeout(runLayout, THROTTLE_MS - since,);
     };
     // The PARENT is what's observed, not the root: in full-bleed mode the
     // root's width is one we set ourselves, so it wouldn't change on a window
@@ -239,7 +282,9 @@ export function mount(el, ctx) {
     const ro = typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver((entries) => {
             const w = Math.round(entries[0].contentRect.width);
-            if (w === lastWidth) return; // height-only changes are our own doing
+            // Height-only changes are our own doing (duplicating items grows the
+            // track), so reacting to them would loop.
+            if (w === lastWidth) return;
             lastWidth = w;
             schedule();
         })
@@ -260,6 +305,7 @@ export function mount(el, ctx) {
 
     return () => {
         cancelAnimationFrame(raf);
+        window.clearTimeout(trailing);
         if (ro) ro.disconnect();
         window.removeEventListener('resize', schedule);
         window.removeEventListener('orientationchange', schedule);

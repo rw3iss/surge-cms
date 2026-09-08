@@ -11,10 +11,20 @@
                           items evenly across the full width.
     data-show-labels      "true" | "false" — the left-hand "Stations:" / "Shows:"
                           labels. The edge fades stay either way.
-    data-scroll-if-fits   "true"  = always scroll.
-                          "false" = only scroll when the items are too wide for
-                          the row, so a wide desktop sits still and a phone
-                          scrolls. Re-evaluated on resize.
+    data-scroll           "auto"   (default) scroll only when the items are too
+                                    wide for the row, so a wide desktop sits
+                                    still and a phone scrolls;
+                          "always" scroll no matter what — a short list is
+                                    repeated so the loop stays continuous;
+                          "static" never animate.
+                          Re-evaluated on resize.
+                          (The older data-scroll-if-fits still works: true is
+                          read as "always", false as "auto".)
+    data-justify          justify-content for the row while STATIC — `center`
+                          (default), `space-around`, `space-between`, … A
+                          SCROLLING row is exactly as wide as its content, so
+                          there is no free space to distribute and this has no
+                          effect there.
     data-pause-on-hover   "true" | "false".
     data-full-bleed       "true" = span the whole window, escaping the page's
                           content column (the block that USES this component is
@@ -97,10 +107,11 @@
   .asot--static .asot__track {
     width: 100%;
     flex-wrap: nowrap;
-    justify-content: center;
+    /* Any CSS justify-content, via data-justify. Only meaningful while STATIC:
+       a scrolling track is `width: max-content` and exactly fills itself, so
+       there is no free space for justify-content to distribute. */
+    justify-content: var(--asot-justify, center);
   }
-  /* gap 0 asks for the items spread across the whole width. */
-  .asot--static.asot--spread .asot__track { justify-content: space-evenly; }
 
   .asot__item {
     display: inline-flex;
@@ -161,11 +172,19 @@
        showed straight through it. */
     width: var(--asot-label-w);
     background: var(--asot-bg, #e8e8e8);
-    font-weight: 600;
-    font-size: 1rem;
-    letter-spacing: 0.03em;
+    /* Same treatment as the "As seen on:" header above — small, uppercase,
+       letter-spaced, slightly muted — so the two read as one label system
+       rather than a heading and a bolder inline label.
+       NOT `opacity`, which the header can afford because it has nothing behind
+       it: opacity fades the whole ELEMENT, background included, and the items
+       scrolling under this label showed straight through it. Muting the text
+       colour leaves the backdrop solid, which is the label's whole job. */
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     white-space: nowrap;
-    color: inherit;
+    color: color-mix(in srgb, currentColor 75%, transparent);
   }
   .asot--no-labels .asot__label { display: none; }
 
@@ -241,7 +260,7 @@
   @media (max-width: 768px) {
     .asot { padding: 14px 0 16px; }
     .asot__item { font-size: 0.9rem; }
-    .asot__label { font-size: 0.85rem; }
+    .asot__label { font-size: 0.7rem; }
     .asot__head { font-size: 0.7rem; margin-bottom: 9px; }
   }
 
@@ -258,7 +277,8 @@
   data-speed="55"
   data-gap="48px"
   data-show-labels="true"
-  data-scroll-if-fits="false"
+  data-scroll="auto"
+  data-justify="center"
   data-pause-on-hover="true"
   data-full-bleed="true"
 >
