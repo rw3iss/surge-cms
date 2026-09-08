@@ -1,0 +1,241 @@
+<!--
+  "As Seen On" ticker.
+
+  Config lives on the root element's data-* attributes so it can be edited here,
+  in this block, without a bespoke settings panel. The client module reads them
+  on mount; see the JavaScript section of this component.
+
+    data-speed            pixels per second. 0 = don't animate, lay the items out
+                          statically instead.
+    data-gap              space between items (any CSS length). 0 = spread the
+                          items evenly across the full width.
+    data-show-labels      "true" | "false" — the left-hand "Stations:" / "Shows:"
+                          labels. The edge fades stay either way.
+    data-scroll-if-fits   "true"  = always scroll.
+                          "false" = only scroll when the items are too wide for
+                          the row, so a wide desktop sits still and a phone
+                          scrolls. Re-evaluated on resize.
+    data-pause-on-hover   "true" | "false".
+    data-full-bleed       "true" = span the whole window, escaping the page's
+                          content column (the block that USES this component is
+                          still capped at the site max-width, and the ticker is
+                          meant to run edge to edge). "false" = stay inside it.
+    data-wrap             "false" (default) = one row, always; anything that
+                          doesn't fit scrolls into view. "true" = let a static
+                          ticker wrap onto more rows instead.
+
+  The base CSS below sits in @layer theme — the LOWEST layer — so this
+  component's own block styles, and any style set on the block that uses this
+  component, both override it. Unlayered CSS would beat every layer and make
+  those panels do nothing.
+-->
+<style>
+@layer theme {
+  .asot {
+    /* Defaults only. A background/text colour set in the style panel wins,
+       because that lands in a higher cascade layer. */
+    background: #e8e8e8;
+    color: #4a4a4a;
+    padding: 18px 0 20px;
+    width: 100%;
+    overflow: hidden;
+    /* Oswald, uploaded in Appearance → Fonts. Custom faces are registered
+       under their id (font10), not their family name; the readable name is
+       kept after it as documentation and as the fallback if the face is ever
+       removed. */
+    font-family: 'font10', 'Oswald', var(--site-font, sans-serif);
+    /* Width of the widest label, published by the script so both rows start
+       their items at the same x. Declared HERE, on the root: declaring it on
+       .asot__row too would shadow the value the script sets and every row
+       would read 0. */
+    --asot-label-w: 0px;
+  }
+
+  .asot__head {
+    text-align: center;
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    margin: 0 0 12px;
+    font-weight: 500;
+  }
+
+  .asot__row {
+    position: relative;
+    overflow: hidden;
+  }
+  .asot__row + .asot__row { margin-top: 6px; }
+
+  .asot__viewport { overflow: hidden; }
+  /* While scrolling, the track deliberately runs the full width and the items
+     pass BEHIND the opaque label — that is the effect being asked for. Static
+     rows have nothing moving out of the way, so they get the label's width as
+     padding or the first item would sit under it permanently. */
+  .asot--static .asot__viewport { padding-left: var(--asot-label-w); }
+
+  .asot__track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    will-change: transform;
+  }
+
+  /* Scrolling: the track holds the item set TWICE, so translating by exactly
+     -50% lands on an identical frame and the loop is seamless. The spacing is a
+     per-item margin rather than a flex `gap` on purpose — with `gap`, half a gap
+     falls outside the -50% point and the wrap visibly jumps. */
+  .asot--scroll .asot__track {
+    animation: asot-scroll var(--asot-duration, 30s) linear infinite;
+  }
+  @keyframes asot-scroll {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+  }
+  .asot--paused .asot__track { animation-play-state: paused; }
+
+  /* Static: no animation, one copy, centred, and still a SINGLE row — a
+     ticker that silently became two rows is what `data-wrap` exists to opt
+     into, not the default. Overflow is clipped by the row, exactly as it is
+     while scrolling. */
+  .asot--static .asot__track {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: center;
+  }
+  .asot--static.asot--wrap .asot__track {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  /* gap 0 asks for the items spread across the whole width. */
+  .asot--static.asot--spread .asot__track { justify-content: space-evenly; }
+
+  .asot__item {
+    display: inline-block;
+    white-space: nowrap;
+    margin-right: var(--asot-gap, 48px);
+    font-size: 1.02rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: inherit;
+  }
+  .asot--static.asot--spread .asot__item { margin-right: 0; }
+
+  /* Label + fades are absolutely positioned against the sides so they overlay
+     the moving track rather than taking part in its layout. */
+  .asot__label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    /* Indented by the site gutter so the label isn't jammed against the window
+       edge — the row itself runs full-bleed, so nothing else provides that
+       inset. The measured label width includes this padding, which is why the
+       items line up with it. */
+    padding: 0 10px 0 var(--site-gutter, 20px);
+    background: var(--asot-bg, #e8e8e8);
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    color: inherit;
+  }
+  .asot--no-labels .asot__label { display: none; }
+
+  .asot__fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  /* Sits just past the label (or at the very edge when labels are hidden) and
+     fades from the solid background to nothing over ~15px, so items slide out
+     from behind it rather than appearing abruptly. */
+  .asot__fade--left {
+    left: var(--asot-label-w);
+    width: 28px;
+    background: linear-gradient(to right, var(--asot-bg, #e8e8e8), transparent);
+  }
+  /* With the labels hidden there is no opaque block to emerge from, so the
+     fade shortens to the ~15px lip that was asked for. */
+  .asot--no-labels .asot__fade--left { width: 15px; }
+  .asot__fade--right {
+    right: 0;
+    width: 40px;
+    background: linear-gradient(to left, var(--asot-bg, #e8e8e8), transparent);
+  }
+
+  /* No JS (or the script switched off): still readable, just not moving. This
+     one DOES wrap — without the script there is nothing to scroll the overflow
+     into view, so hiding it would lose content outright. The script adds
+     `asot--ready` before it measures anything, so this rule can never be in
+     force during a measurement. */
+  .asot:not(.asot--ready) .asot__track { flex-wrap: wrap; width: 100%; justify-content: center; }
+
+  @media (max-width: 768px) {
+    .asot { padding: 14px 0 16px; }
+    .asot__item { font-size: 0.9rem; }
+    .asot__label { font-size: 0.85rem; }
+    .asot__head { font-size: 0.7rem; margin-bottom: 9px; }
+  }
+
+  /* Someone who asked the system not to animate should not be handed a
+     perpetually moving row. */
+  @media (prefers-reduced-motion: reduce) {
+    .asot--scroll .asot__track { animation: none; }
+  }
+}
+</style>
+
+<div
+  class="asot"
+  data-speed="55"
+  data-gap="48px"
+  data-show-labels="true"
+  data-scroll-if-fits="false"
+  data-pause-on-hover="true"
+  data-full-bleed="true"
+  data-wrap="false"
+>
+  <div class="asot__head">As seen on:</div>
+
+  <div class="asot__row">
+    <div class="asot__label">Stations:</div>
+    <div class="asot__viewport">
+      <div class="asot__track" data-items>
+        <span class="asot__item">Fox News</span>
+        <span class="asot__item">Newsmax</span>
+        <span class="asot__item">Newsmax 2</span>
+        <span class="asot__item">Blaze TV</span>
+        <span class="asot__item">OAN</span>
+        <span class="asot__item">Real Americas Voice</span>
+        <span class="asot__item">Timcast</span>
+      </div>
+    </div>
+    <div class="asot__fade asot__fade--left"></div>
+    <div class="asot__fade asot__fade--right"></div>
+  </div>
+
+  <div class="asot__row">
+    <div class="asot__label">Shows:</div>
+    <div class="asot__viewport">
+      <div class="asot__track" data-items>
+        <span class="asot__item">America Right Now</span>
+        <span class="asot__item">Wake Up America</span>
+        <span class="asot__item">Carl Higby Frontline</span>
+        <span class="asot__item">Human Events Daily</span>
+        <span class="asot__item">Greg Kelly Reports</span>
+        <span class="asot__item">The Dawn Stensland Show</span>
+        <span class="asot__item">The Dom Giordano Program</span>
+        <span class="asot__item">Kayla and Company</span>
+        <span class="asot__item">Sarah Gonzales Unfiltered</span>
+      </div>
+    </div>
+    <div class="asot__fade asot__fade--left"></div>
+    <div class="asot__fade asot__fade--right"></div>
+  </div>
+</div>
