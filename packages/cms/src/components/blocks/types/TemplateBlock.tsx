@@ -8,7 +8,7 @@ import type { Block, EntityRecord, } from '@sitesurge/types';
 import { Component, For, Show, createEffect, createResource, onCleanup, onMount, type JSX, } from 'solid-js';
 import { A, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
-import { siteSettings, } from '../../../stores/siteSettings';
+import { mountComponentScript, } from '../../../services/componentScript';
 import { useUser, } from '../../../stores/auth';
 import { buildBlockTree, } from '@sitesurge/types';
 import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../../services/entityBinding';
@@ -68,21 +68,14 @@ export const TemplateBlock: Component<{
         let teardown: (() => void) | undefined;
         let disposed = false;
         void (async () => {
-            try {
-                const mod = await import(/* @vite-ignore */ `/api/v1/components/templates/${id}/client.js`);
-                if (disposed || typeof mod.mount !== 'function') return;
-                const ret = mod.mount(mountEl, {
-                    cms,
-                    user: auth.user ?? null,
-                    settings: siteSettings() ?? {},
-                    block: props.block.settings ?? {},
-                },);
-                if (typeof ret === 'function') teardown = ret;
-            } catch (err) {
-                // A broken component must never break the page — same contract
-                // the plugin widget host holds.
-                console.warn('[components] script failed to mount', err,);
-            }
+            const ret = await mountComponentScript({
+                templateId: id,
+                el: mountEl!,
+                blockSettings: props.block.settings ?? {},
+                user: auth.user ?? null,
+            },);
+            if (disposed) ret();
+            else teardown = ret;
         })();
         onCleanup(() => {
             disposed = true;

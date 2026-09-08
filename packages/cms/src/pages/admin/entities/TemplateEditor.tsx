@@ -13,6 +13,7 @@ import { useToast, } from '../../../components/common/toast';
 import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
+import { mountComponentScript, } from '../../../services/componentScript';
 import JsEditor from '../../../components/admin/common/JsEditor';
 import EntitySearchSelectModal from '../../../components/admin/entities/EntitySearchSelectModal';
 import { FormField, FormSection, } from '../../../components/admin/forms';
@@ -103,6 +104,48 @@ const TemplateEditor: Component = () => {
     const [scriptEnabled, setScriptEnabled,] = createSignal(true,);
     const [scriptOpen, setScriptOpen,] = createSignal(false,);
 
+    /**
+     * Run the component's client module over its own editor previews.
+     *
+     * Re-mounts whenever the blocks change or the script is saved, tearing the
+     * previous one down first — the module measures the DOM, and BlockEditor
+     * rebuilds it on every edit, so a stale mount would hold references to
+     * elements that no longer exist.
+     *
+     * Deliberately keyed on the SAVED script: `/client.js` serves what is
+     * stored, so mounting on every keystroke in the JS editor would run
+     * half-typed code.
+     */
+    const [scriptHost, setScriptHost,] = createSignal<HTMLElement | undefined>();
+    const [savedScriptRev, setSavedScriptRev,] = createSignal(0,);
+    createEffect(() => {
+        const host = scriptHost();
+        // Tracked so an edit re-runs the mount against the rebuilt DOM.
+        const rev = savedScriptRev();
+        void blocks();
+        if (!isGlobal() || isNew() || !host || !params.id || rev < 0) return;
+
+        let teardown: (() => void) | undefined;
+        let disposed = false;
+        // One frame's grace so BlockEditor has finished rendering the blocks
+        // this run is meant to enhance.
+        const t = window.setTimeout(() => {
+            void (async () => {
+                const ret = await mountComponentScript({ templateId: params.id!, el: host, },);
+                if (disposed) ret();
+                else teardown = ret;
+            })();
+        }, 60,);
+
+        onCleanup(() => {
+            disposed = true;
+            window.clearTimeout(t,);
+            try {
+                teardown?.();
+            } catch { /* a failing teardown must not break the editor */ }
+        },);
+    },);
+
     onMount(async () => {
         if (!isGlobal()) {
             try {
@@ -155,6 +198,9 @@ const TemplateEditor: Component = () => {
                 // the blocks correctly marked dirty.
                 setSavedBlocks(structuredClone(blocks(),),);
                 toast.success(isGlobal() ? 'Component saved.' : 'Template saved.',);
+                // `/client.js` serves the SAVED script, so a save is the only
+                // moment a re-mount can pick up new code.
+                setSavedScriptRev((n,) => n + 1);
             }
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Save failed.';
@@ -366,12 +412,19 @@ const TemplateEditor: Component = () => {
                 />
             </Show>
 
-            <BlockEditor
-                title={isGlobal() ? 'Component Blocks' : 'Template Blocks'}
-                blocks={blocks()}
-                savedBlocks={savedBlocks()}
-                onBlocksChange={setBlocks}
-            />
+            {/* The component's own client module runs over these previews, so
+                a component whose layout its script produces (a ticker, anything
+                measured) looks here the way it will on the site. Without it the
+                editor showed inert markup — the one place you'd go to fix the
+                component was the one place it didn't work. */}
+            <div ref={setScriptHost}>
+                <BlockEditor
+                    title={isGlobal() ? 'Component Blocks' : 'Template Blocks'}
+                    blocks={blocks()}
+                    savedBlocks={savedBlocks()}
+                    onBlocksChange={setBlocks}
+                />
+            </div>
 
             {/* Component JavaScript — global components only. */}
             <Show when={isGlobal()}>
