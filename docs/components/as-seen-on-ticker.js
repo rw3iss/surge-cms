@@ -198,6 +198,17 @@ export function mount(el, ctx) {
             return;
         }
 
+        // Reduced motion: one copy, no duplication, no duration. The CSS makes
+        // the row swipeable instead, so every item is still reachable — a
+        // frozen duplicated track would just hide half the list behind the
+        // right edge and make the user swipe past a repeat to reach it.
+        const reduced = typeof matchMedia === 'function'
+            && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced) {
+            root.classList.add('asot--scroll');
+            return;
+        }
+
         // Build each track as exactly TWO halves. Each half repeats the item
         // set enough times to cover the viewport, so a short list still scrolls
         // continuously instead of leaving a gap while it wraps.

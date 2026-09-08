@@ -1,7 +1,17 @@
 .layout {
   display: flex;
   flex-direction: column;
+  // `100vh` on a phone is the LARGE viewport — the height the page would have
+  // with the browser bars hidden — so a footer or a bottom-pinned block is laid
+  // out UNDERNEATH the address/nav bar until the user scrolls and the bar
+  // retracts. `svh` is the small viewport (bars visible), so nothing is ever
+  // covered; the trade is a little slack once the bar does retract, which is
+  // the far less annoying failure. `vh` first as the fallback for browsers
+  // without viewport units v4.
   min-height: 100vh;
+  min-height: 100svh;
+  // Keeps content clear of the iOS home indicator (0 everywhere else).
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 
   &__header-skeleton {
     height: 64px;

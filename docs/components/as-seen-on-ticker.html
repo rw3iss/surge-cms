@@ -265,9 +265,24 @@
   }
 
   /* Someone who asked the system not to animate should not be handed a
-     perpetually moving row. */
+     perpetually moving row.
+     But stopping there HID content: a frozen `max-content` track inside an
+     `overflow: hidden` row leaves everything past the right edge unreachable.
+     Respecting the motion preference by making content unreachable is a worse
+     failure than the motion was — so the row becomes swipeable instead, and
+     the script skips the duplicate copy (nobody wants to swipe through the
+     same list twice). */
   @media (prefers-reduced-motion: reduce) {
     .asot--scroll .asot__track { animation: none; }
+    .asot--scroll .asot__viewport {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .asot--scroll .asot__viewport::-webkit-scrollbar { display: none; }
+    /* Nothing is sliding out from under the label any more, so give the items
+       their own space rather than starting underneath it. */
+    .asot--scroll .asot__viewport { padding-left: var(--asot-label-w); }
   }
 }
 </style>

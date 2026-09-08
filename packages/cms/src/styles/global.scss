@@ -257,7 +257,9 @@ html:not([data-active-outlines='show']) {
 // App shell loading state
 .app-shell-loading {
   @include flex-center;
+  // Matches .layout — see the note there on vh vs svh.
   min-height: 100vh;
+  min-height: 100svh;
   background: $background;
 }
 
