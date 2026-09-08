@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 
 vi.mock('../../db', () => ({ query: vi.fn().mockResolvedValue({ rows: [], },), }),);
 
-const { classifyVideo, isChannelId, parseIsoDuration, } = await import('./youtube');
+const { classifyVideo, describeChannel, isChannelId, parseIsoDuration, } = await import('./youtube');
 
 /**
  * Classification is the whole point of the second API call — if it is wrong,
@@ -101,5 +101,88 @@ describe('isChannelId', () => {
     it('rejects a UC-prefixed string of the wrong length', () => {
         expect(isChannelId('UCtoolshort',),).toBe(false,);
         expect(isChannelId('UC1s0XOR5JHrnlfThwG3lVJAextra',),).toBe(false,);
+    },);
+},);
+
+/**
+ * `describeChannel` is what turns what an operator pastes into something the
+ * sync can use — and what supplies the name shown beside "Connected". Both
+ * halves are exercised here because they were previously split across a
+ * lookup that discarded the title and a display name nothing ever refreshed.
+ */
+describe('describeChannel', () => {
+    const KEY = 'test-key';
+    const CHANNEL = {
+        id: 'UC1s0XOR5JHrnlfThwG3lVJA',
+        snippet: { title: 'Frank Scales', customUrl: '@frank.scales', },
+    };
+
+    /** Records the URLs called and answers each from a queue. */
+    function stubFetch(responses: Array<{ ok?: boolean; items?: unknown[]; }>,) {
+        const urls: string[] = [];
+        const fn = vi.fn(async (url: string,) => {
+            urls.push(url,);
+            const r = responses.shift() ?? { ok: true, items: [], };
+            return {
+                ok: r.ok !== false,
+                json: async () => ({ items: r.items ?? [], }),
+            } as unknown as Response;
+        },);
+        vi.stubGlobal('fetch', fn,);
+        return urls;
+    }
+
+    it('looks a bare channel id up by id, not as a handle', async () => {
+        const urls = stubFetch([{ items: [CHANNEL,], },],);
+        const info = await describeChannel('UC1s0XOR5JHrnlfThwG3lVJA', KEY,);
+        expect(info,).toEqual({
+            channelId: 'UC1s0XOR5JHrnlfThwG3lVJA',
+            title: 'Frank Scales',
+            handle: '@frank.scales',
+        },);
+        expect(urls[0],).toContain('id=UC1s0XOR5JHrnlfThwG3lVJA',);
+        expect(urls[0],).not.toContain('forHandle',);
+    },);
+
+    it('resolves the @handle people actually paste', async () => {
+        const urls = stubFetch([{ items: [CHANNEL,], },],);
+        const info = await describeChannel('@frank.scales', KEY,);
+        expect(info?.channelId,).toBe('UC1s0XOR5JHrnlfThwG3lVJA',);
+        expect(urls[0],).toContain('forHandle=%40frank.scales',);
+    },);
+
+    it('accepts a bare handle and a full channel URL', async () => {
+        stubFetch([{ items: [CHANNEL,], },],);
+        expect((await describeChannel('frank.scales', KEY,))?.channelId,).toBe(CHANNEL.id,);
+        stubFetch([{ items: [CHANNEL,], },],);
+        expect((await describeChannel('https://www.youtube.com/@frank.scales', KEY,))?.channelId,)
+            .toBe(CHANNEL.id,);
+        stubFetch([{ items: [CHANNEL,], },],);
+        expect((await describeChannel('youtube.com/channel/UC1s0XOR5JHrnlfThwG3lVJA', KEY,))?.channelId,)
+            .toBe(CHANNEL.id,);
+    },);
+
+    it('falls back to forUsername for pre-handle vanity URLs', async () => {
+        // forHandle finds nothing for an old /user/<name> channel.
+        const urls = stubFetch([{ items: [], }, { items: [CHANNEL,], },],);
+        expect((await describeChannel('oldvanityname', KEY,))?.channelId,).toBe(CHANNEL.id,);
+        expect(urls[0],).toContain('forHandle',);
+        expect(urls[1],).toContain('forUsername=oldvanityname',);
+    },);
+
+    it('returns null for an unknown channel rather than inventing one', async () => {
+        stubFetch([{ items: [], }, { items: [], },],);
+        expect(await describeChannel('nope-does-not-exist', KEY,),).toBeNull();
+    },);
+
+    it('returns null without an API key instead of calling out', async () => {
+        const urls = stubFetch([],);
+        expect(await describeChannel('@frank.scales', '',),).toBeNull();
+        expect(urls,).toEqual([],);
+    },);
+
+    it('survives a network error — a save must not fail on a lookup', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); },),);
+        expect(await describeChannel('@frank.scales', KEY,),).toBeNull();
     },);
 },);

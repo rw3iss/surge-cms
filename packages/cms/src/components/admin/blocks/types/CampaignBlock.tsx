@@ -1,6 +1,7 @@
 import { Component, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { getCampaigns, } from '@/services/adminData';
 import { FormField, } from '../../forms';
+import AnchoredDropdown from '../../common/AnchoredDropdown';
 
 const ALL_CAMPAIGNS_ID = '__all-campaigns__';
 
@@ -26,6 +27,9 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
     );
     const [showDropdown, setShowDropdown,] = createSignal(false,);
     let containerRef: HTMLDivElement | undefined;
+    // Reactive because AnchoredDropdown measures it — a plain `let` ref is
+    // still undefined on first render and the menu would never position.
+    const [anchorRef, setAnchorRef,] = createSignal<HTMLDivElement | undefined>();
 
     const [campaigns,] = createResource(async () => getCampaigns(),);
 
@@ -65,6 +69,9 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
     };
 
     const handleClickOutside = (e: MouseEvent,) => {
+        // The menu is portalled out of the properties panel (see
+        // AnchoredDropdown), so it is no longer inside containerRef.
+        if ((e.target as HTMLElement).closest?.('[data-anchored-dropdown]',)) return;
         if (containerRef && !containerRef.contains(e.target as Node,)) {
             setShowDropdown(false,);
         }
@@ -98,7 +105,7 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                     </div>
                 }
             >
-                <div class="form-group" ref={containerRef} style={{ position: 'relative', }}>
+                <div class="form-group" ref={(el) => { containerRef = el; setAnchorRef(el,); }} style={{ position: 'relative', }}>
                     <label>Campaign</label>
                     <input
                         type="text"
@@ -111,8 +118,12 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                         placeholder="Search campaigns by name..."
                         autocomplete="off"
                     />
-                    <Show when={showDropdown()}>
-                        <div class="block-campaign__dropdown">
+                    <AnchoredDropdown
+                        anchor={anchorRef()}
+                        open={showDropdown()}
+                        class="block-campaign__dropdown"
+                        maxHeight={320}
+                    >
                             <button
                                 type="button"
                                 class={`block-campaign__option block-campaign__option--all ${
@@ -149,11 +160,10 @@ const CampaignBlock: Component<CampaignBlockProps> = (props,) => {
                                 </For>
                             </Show>
 
-                            <Show when={filtered().length === 0 && search()}>
-                                <div class="empty-state">No campaigns found</div>
-                            </Show>
-                        </div>
-                    </Show>
+                        <Show when={filtered().length === 0 && search()}>
+                            <div class="empty-state">No campaigns found</div>
+                        </Show>
+                    </AnchoredDropdown>
                 </div>
 
                 {/* Sort options — only shown for "All Campaigns" */}

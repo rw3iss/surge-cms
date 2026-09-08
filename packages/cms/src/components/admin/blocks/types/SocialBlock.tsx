@@ -12,6 +12,7 @@ import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
+import AnchoredDropdown from '../../common/AnchoredDropdown';
 
 /** Editor for the unified Social block. Picks a provider, sets a count,
  *  and either auto-fills (no slots filled) or hand-picks posts via the
@@ -275,6 +276,10 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
     const [loading, setLoading,] = createSignal(false,);
 
     let containerRef: HTMLDivElement | undefined;
+    // The dropdown anchors to the FIELD, not the whole row: the row also holds
+    // the number, thumbnail and Edit button, so anchoring to it would leave the
+    // menu offset from the input it belongs to.
+    const [fieldRef, setFieldRef,] = createSignal<HTMLDivElement | undefined>();
 
     const display = () => props.item.content?.substring(0, 80,) || props.item.postId || '';
 
@@ -302,7 +307,13 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
     };
 
     const handleClickOutside = (e: MouseEvent,) => {
-        if (containerRef && !containerRef.contains(e.target as Node,)) {
+        const target = e.target as HTMLElement;
+        // The menu is portalled to <body> so it can escape the properties
+        // panel's scroll box, which means it is NOT inside containerRef any
+        // more — without this second test, clicking an option counted as an
+        // outside click and closed the menu before the option could fire.
+        if (target.closest?.('[data-anchored-dropdown]',)) return;
+        if (containerRef && !containerRef.contains(target,)) {
             setShowDropdown(false,);
         }
     };
@@ -342,7 +353,7 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
             <Show when={props.item.thumbnailUrl}>
                 <img class="social-slot-row__thumb" src={props.item.thumbnailUrl} alt="" />
             </Show>
-            <div class="social-slot-row__field">
+            <div class="social-slot-row__field" ref={setFieldRef}>
                 <input
                     type="text"
                     placeholder={display() ? '' : 'Search posts… (or leave blank for auto-feed)'}
@@ -358,9 +369,13 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                         searchTimer = window.setTimeout(() => void loadRecent(), 300,);
                     }}
                 />
-                <Show when={showDropdown()}>
-                    <div class="social-slot-row__dropdown">
-                        <Show when={loading()} fallback={
+                <AnchoredDropdown
+                    anchor={fieldRef()}
+                    open={showDropdown()}
+                    class="social-slot-row__dropdown"
+                    maxHeight={320}
+                >
+                    <Show when={loading()} fallback={
                             <Show
                                 when={filtered().length > 0}
                                 fallback={<div class="social-slot-row__empty">No recent posts.</div>}
@@ -383,10 +398,9 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                                 </For>
                             </Show>
                         }>
-                            <div class="social-slot-row__loading">Loading…</div>
-                        </Show>
-                    </div>
-                </Show>
+                        <div class="social-slot-row__loading">Loading…</div>
+                    </Show>
+                </AnchoredDropdown>
             </div>
             <button
                 type="button"

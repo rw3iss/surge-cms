@@ -15,20 +15,33 @@ vi.mock('./cache', () => ({
 
 import { reorder, upsert, } from './connections';
 
+/**
+ * Bind position of `connected_by` in the INSERT.
+ *
+ * Read from the SQL rather than assumed to be last: the statement grew
+ * `display_name`/`account_id` after it, and a "last parameter" assertion
+ * silently started testing the wrong value.
+ */
+function connectedByParam(call: unknown[],): unknown {
+    const sql = call[0] as string;
+    const cols = /\(([^)]*)\)\s*VALUES/i.exec(sql,)![1]
+        .split(',',).map((c,) => c.trim());
+    return (call[1] as unknown[])[cols.indexOf('connected_by',)];
+}
+
 describe('connections.upsert actor handling', () => {
     beforeEach(() => queryMock.mockClear(),);
 
     it('nulls a synthetic api-key actor for connected_by', async () => {
         // No existing row → INSERT branch. The SELECT returns rows:[] from
-        // the default mock; connected_by is the last bound param.
+        // the default mock.
         await upsert({ provider: 'instagram', }, 'api-key:deploy-bot',);
 
         const insertCall = queryMock.mock.calls.find(
             (c,) => typeof c[0] === 'string' && (c[0] as string).includes('INSERT INTO social_connections',),
         );
         expect(insertCall,).toBeDefined();
-        const params = insertCall![1] as unknown[];
-        expect(params[params.length - 1]).toBeNull();
+        expect(connectedByParam(insertCall!,),).toBeNull();
     },);
 
     it('passes a real UUID actor through to connected_by', async () => {
@@ -38,8 +51,7 @@ describe('connections.upsert actor handling', () => {
         const insertCall = queryMock.mock.calls.find(
             (c,) => typeof c[0] === 'string' && (c[0] as string).includes('INSERT INTO social_connections',),
         );
-        const params = insertCall![1] as unknown[];
-        expect(params[params.length - 1],).toBe(uuid,);
+        expect(connectedByParam(insertCall!,),).toBe(uuid,);
     },);
 },);
 

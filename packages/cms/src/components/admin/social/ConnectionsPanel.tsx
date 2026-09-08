@@ -178,6 +178,11 @@ const ConnectionsPanel: Component = () => {
             }
             setConnSuccess('Connection saved.',);
             setEditingProvider(null,);
+            // Drop the local draft so the field falls back to what the server
+            // stored. It matters for YouTube: type "@frank.scales", and the
+            // server saves the resolved UC… id — keeping the draft would show
+            // the handle and hide the resolution that just happened.
+            setChannelId('',);
             refetch();
         } catch (e) {
             setConnError(e instanceof Error ? e.message : 'Failed to save',);
@@ -373,14 +378,14 @@ const ConnectionsPanel: Component = () => {
                                                         <Show when={provider.id === 'youtube'}>
                                                             <FormField
                                                                 label="Channel ID"
-                                                                hint="The channel to sync, e.g. UCxxxxxxxxxxxxxxxxxxxxxx."
+                                                                hint="Channel id, @handle, or channel URL. A handle is looked up and replaced with the channel id when you save."
                                                             >
                                                                 <input
                                                                     type="text"
                                                                     value={channelId()
                                                                         || String(conn()?.credentials?.channelId ?? '',)}
                                                                     onInput={(e,) => setChannelId(e.currentTarget.value,)}
-                                                                    placeholder="UC..."
+                                                                    placeholder="UC… or @handle"
                                                                 />
                                                             </FormField>
                                                         </Show>

@@ -87,44 +87,82 @@ export function isChannelId(value: string,): boolean {
     return /^UC[\w-]{22}$/.test(value.trim(),);
 }
 
+/** A channel, as the API knows it. */
+export interface YouTubeChannelInfo {
+    /** The canonical `UC…` id. */
+    channelId: string;
+    /** Channel title, e.g. "Frank Scales". */
+    title: string;
+    /** The `@handle`, when the channel has one. */
+    handle: string | null;
+}
+
 /**
- * Turn what an operator actually pastes into a channel id.
+ * Look up a channel from whatever an operator actually pastes.
  *
  * People copy the handle from the channel page (`frank.scales`, `@frank.scales`,
  * or the full `youtube.com/@frank.scales` URL) because that is what YouTube
  * shows them — the `UC…` id is not visible anywhere in the normal UI. Feeding a
- * handle to `search.list?channelId=` silently returns nothing, so resolve it
- * first.
+ * handle to `search.list?channelId=` silently returns nothing, so it has to be
+ * resolved first.
  *
- * Returns null when the handle doesn't exist, so the caller can say so instead
- * of syncing an empty channel forever.
+ * Returns the TITLE as well as the id, in the same request, because the two are
+ * always wanted together: the id to sync with, the title to show the operator
+ * so they can see which channel they actually connected.
+ *
+ * Null when the channel doesn't exist or the API can't be reached, so a caller
+ * can say so instead of syncing an empty channel forever.
  */
+export async function describeChannel(
+    raw: string,
+    apiKey: string,
+): Promise<YouTubeChannelInfo | null> {
+    const value = raw.trim()
+        .replace(/^https?:\/\/(www\.)?youtube\.com\//i, '',)
+        .replace(/^channel\//i, '',)
+        .replace(/\/.*$/, '',);
+    if (!value || !apiKey) return null;
+
+    // An id is looked up by id; anything else is treated as a handle. `forHandle`
+    // is the modern lookup; `forUsername` still resolves the old /user/<name>
+    // vanity URLs that predate handles.
+    const params = isChannelId(value,)
+        ? [`id=${encodeURIComponent(value,)}`,]
+        : [
+            `forHandle=${encodeURIComponent(value.startsWith('@',) ? value : `@${value}`,)}`,
+            `forUsername=${encodeURIComponent(value.replace(/^@/, '',),)}`,
+        ];
+
+    try {
+        for (const param of params) {
+            const res = await fetch(`${API}/channels?part=snippet&${param}&key=${apiKey}`,);
+            if (!res.ok) continue;
+            const data = await res.json() as {
+                items?: Array<{ id?: string; snippet?: { title?: string; customUrl?: string; }; }>;
+            };
+            const item = data.items?.[0];
+            if (item?.id) {
+                return {
+                    channelId: item.id,
+                    title: item.snippet?.title ?? '',
+                    handle: item.snippet?.customUrl ?? null,
+                };
+            }
+        }
+    } catch (e) {
+        logger.warn('youtube: channel lookup failed', { error: (e as Error).message, },);
+        return null;
+    }
+    logger.warn('youtube: no channel found', { value, },);
+    return null;
+}
+
+/** Just the id — `describeChannel` with the rest discarded. */
 export async function resolveChannelId(
     raw: string,
     apiKey: string,
 ): Promise<string | null> {
-    const value = raw.trim().replace(/^https?:\/\/(www\.)?youtube\.com\//i, '',).replace(/\/.*$/, '',);
-    if (!value) return null;
-    if (isChannelId(value,)) return value;
-
-    const handle = value.startsWith('@',) ? value : `@${value}`;
-    try {
-        // forHandle is the modern lookup; forUsername still resolves the old
-        // /user/<name> vanity URLs that predate handles.
-        for (const param of [`forHandle=${encodeURIComponent(handle,)}`,
-            `forUsername=${encodeURIComponent(value.replace(/^@/, '',),)}`,]) {
-            const res = await fetch(`${API}/channels?part=id&${param}&key=${apiKey}`,);
-            if (!res.ok) continue;
-            const data = await res.json() as { items?: Array<{ id?: string; }>; };
-            const id = data.items?.[0]?.id;
-            if (id) return id;
-        }
-    } catch (e) {
-        logger.warn('youtube: channel handle lookup failed', { error: (e as Error).message, },);
-        return null;
-    }
-    logger.warn('youtube: no channel found for handle', { handle, },);
-    return null;
+    return (await describeChannel(raw, apiKey,))?.channelId ?? null;
 }
 
 /**

@@ -16,6 +16,7 @@ import { AppError, NotFoundError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { cache, } from './cache';
 import { getOAuthProvider, isOAuthProvider, } from './oauth';
+import * as youtube from './social/youtube';
 import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
 import { logger, } from '../utils/logger';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -140,6 +141,49 @@ function hasUsableCredentials(provider: string, creds: Record<string, unknown>,)
     return Boolean(creds.accessToken,);
 }
 
+/**
+ * Resolve a YouTube connection's channel on save.
+ *
+ * Two problems this fixes, both visible in the admin:
+ *
+ *  1. The **channel id field accepts a handle**. `@frank.scales`, `frank.scales`
+ *     or the full channel URL all work, and the resolved `UC…` id is written
+ *     BACK, so the field shows the canonical id afterwards and later syncs
+ *     don't repeat the lookup. YouTube never shows the `UC…` id in its own UI,
+ *     so demanding one was asking the operator for something they can't easily
+ *     get.
+ *  2. The **displayed channel name goes stale**. It was written once by an old
+ *     OAuth connect and never touched again, so pointing the connection at a
+ *     different channel left the previous account's name on screen — the row
+ *     said "Ryan Weiss" while syncing Frank Scales.
+ *
+ * Returns nulls when there is no key, no channel, or the API can't be reached.
+ * A lookup failure must never block the save: the operator may be pasting a key
+ * and a channel in either order, and quota can run out at any time.
+ */
+async function resolveYouTubeChannel(
+    creds: Record<string, unknown>,
+): Promise<{ channelId?: string; displayName?: string; accountId?: string; }> {
+    const apiKey = String(creds.apiKey || config.social.youtube.apiKey || '',).trim();
+    const configured = String(creds.channelId || config.social.youtube.channelId || '',).trim();
+    if (!apiKey || !configured) return {};
+
+    const info = await youtube.describeChannel(configured, apiKey,);
+    if (!info) {
+        logger.warn('youtube: could not resolve channel on save; leaving it as typed', {
+            configured,
+        },);
+        return {};
+    }
+    return {
+        channelId: info.channelId,
+        // Prefer the @handle, since that is how the operator refers to the
+        // channel; fall back to the title when the channel has no handle.
+        displayName: info.handle || info.title || undefined,
+        accountId: info.channelId,
+    };
+}
+
 /** Create or update a connection's app credentials + publish settings.
  *  Merges new credentials over existing so saving app creds doesn't wipe
  *  issued tokens. */
@@ -161,6 +205,17 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
     const existingSettings = existing.rows[0]?.settings || {};
     const mergedSettings = { ...existingSettings, ...data.settings, };
 
+    // YouTube: canonicalise the channel and refresh the shown name. Done here
+    // rather than in the route so it applies to every writer (SDK, MCP, API key).
+    let displayName: string | undefined;
+    let accountId: string | undefined;
+    if (data.provider === 'youtube') {
+        const resolved = await resolveYouTubeChannel(mergedCreds,);
+        if (resolved.channelId) mergedCreds.channelId = resolved.channelId;
+        displayName = resolved.displayName;
+        accountId = resolved.accountId;
+    }
+
     // OAuth providers' connected state is owned by the OAuth callback; for
     // manual providers, having the required credentials means connected.
     const isConnected = isOAuthProvider(data.provider,)
@@ -177,6 +232,11 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
                  settings = $6::jsonb,
                  is_connected = $7,
                  connected_by = $8,
+                 -- COALESCE: a lookup that couldn't run (no key yet, quota,
+                 -- network) leaves the existing name alone rather than blanking
+                 -- a working row.
+                 display_name = COALESCE($9, display_name),
+                 account_id = COALESCE($10, account_id),
                  updated_at = NOW()
              WHERE provider = $1`,
             [
@@ -188,12 +248,14 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
                 JSON.stringify(mergedSettings,),
                 isConnected,
                 connectedBy,
+                displayName ?? null,
+                accountId ?? null,
             ],
         );
     } else {
         await query(
-            `INSERT INTO social_connections (provider, is_enabled, auto_publish, auto_publish_count, credentials, settings, is_connected, connected_by)
-             VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)`,
+            `INSERT INTO social_connections (provider, is_enabled, auto_publish, auto_publish_count, credentials, settings, is_connected, connected_by, display_name, account_id)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10)`,
             [
                 data.provider,
                 data.enabled ?? true,
@@ -203,6 +265,8 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
                 JSON.stringify(mergedSettings,),
                 isConnected,
                 connectedBy,
+                displayName ?? null,
+                accountId ?? null,
             ],
         );
     }

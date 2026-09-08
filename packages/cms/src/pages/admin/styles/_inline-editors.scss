@@ -59,14 +59,10 @@
 
 
 
+// Position, size and z-index are set inline by AnchoredDropdown, which
+// portals this to <body> so the properties panel's `overflow-y: auto` can't
+// clip it. Only appearance belongs here.
 .social-slot-row__dropdown {
-  position: absolute;
-  z-index: 50;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  max-height: 280px;
-  overflow-y: auto;
   background: $background;
   border: 1px solid $border-color;
   border-radius: $border-radius-sm;
