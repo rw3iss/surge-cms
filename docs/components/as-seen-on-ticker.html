@@ -162,6 +162,12 @@
        inset. The measured label width includes this padding, which is why the
        items line up with it. */
     padding: 0 10px 0 var(--site-gutter, 20px);
+    /* Every label spans the FULL reserved strip, not just its own text. The
+       strip is sized to the widest label, so a shorter one ("Shows:" vs
+       "Stations:") used to leave a transparent gap between where its own
+       background stopped and where the fade began — and the scrolling items
+       showed straight through it. */
+    width: var(--asot-label-w);
     background: var(--asot-bg, #e8e8e8);
     font-weight: 600;
     font-size: 1rem;
@@ -183,16 +189,38 @@
      from behind it rather than appearing abruptly. */
   .asot__fade--left {
     left: var(--asot-label-w);
-    width: 28px;
-    background: linear-gradient(to right, var(--asot-bg, #e8e8e8), transparent);
+    /* Long enough that an item is unreadable before it clears the fade. A
+       short one still let a legible word-fragment sit right beside the label,
+       which reads as clipped text rather than something sliding out from
+       under it. */
+    width: 80px;
+    /* Solid for the first stretch, THEN fades — a gradient that starts fading
+       at 0% is already half-transparent a few pixels past the label.
+       The midpoint is `color-mix(… , transparent)` rather than bare
+       `transparent`, because CSS interpolates a plain `transparent` as
+       TRANSPARENT BLACK: the middle of the ramp picks up a grey haze instead
+       of staying the ticker's own colour. */
+    background: linear-gradient(
+      to right,
+      var(--asot-bg, #e8e8e8) 0%,
+      var(--asot-bg, #e8e8e8) 45%,
+      color-mix(in srgb, var(--asot-bg, #e8e8e8), transparent) 72%,
+      color-mix(in srgb, var(--asot-bg, #e8e8e8) 0%, transparent) 100%
+    );
   }
   /* With the labels hidden there is no opaque block to emerge from, so the
      fade shortens to the ~15px lip that was asked for. */
   .asot--no-labels .asot__fade--left { width: 15px; }
   .asot__fade--right {
     right: 0;
-    width: 40px;
-    background: linear-gradient(to left, var(--asot-bg, #e8e8e8), transparent);
+    width: 80px;
+    background: linear-gradient(
+      to left,
+      var(--asot-bg, #e8e8e8) 0%,
+      var(--asot-bg, #e8e8e8) 45%,
+      color-mix(in srgb, var(--asot-bg, #e8e8e8), transparent) 72%,
+      color-mix(in srgb, var(--asot-bg, #e8e8e8) 0%, transparent) 100%
+    );
   }
 
   /* No JS (or the script switched off): still readable, just not moving. This

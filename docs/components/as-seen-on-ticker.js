@@ -123,11 +123,22 @@ export function mount(el, ctx) {
             root.style.setProperty('--asot-label-w', '0px');
             return;
         }
+        const labels = originals
+            .map(({ row }) => row.querySelector('.asot__label'))
+            .filter(Boolean);
+
+        // Measure each label's NATURAL width. The CSS stretches every label to
+        // the widest one (so none leaves a transparent gap before the fade),
+        // which means measuring the stretched box would feed the previous
+        // result straight back in — the strip could then only ever grow, and a
+        // shorter label set or a smaller font would never shrink it.
+        for (const label of labels) label.style.width = 'auto';
         let widest = 0;
-        for (const { row } of originals) {
-            const label = row.querySelector('.asot__label');
-            if (label) widest = Math.max(widest, label.getBoundingClientRect().width);
+        for (const label of labels) {
+            widest = Math.max(widest, label.getBoundingClientRect().width,);
         }
+        for (const label of labels) label.style.width = '';
+
         root.style.setProperty('--asot-label-w', `${Math.ceil(widest)}px`);
     }
 
