@@ -111,7 +111,8 @@
   .asot--static.asot--spread .asot__track { justify-content: space-evenly; }
 
   .asot__item {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     white-space: nowrap;
     margin-right: var(--asot-gap, 48px);
     font-size: 1.02rem;
@@ -120,6 +121,31 @@
     color: inherit;
   }
   .asot--static.asot--spread .asot__item { margin-right: 0; }
+
+  /* An entry is a LOGO or the name as text — whichever exists. Sizing is by
+     height, with a per-logo override, because these marks have wildly
+     different aspect ratios: a stacked badge (Fox News) and a long wordmark
+     (Newsmax) set to one height look nothing alike optically. */
+  .asot__logo {
+    display: block;
+    /* Default suits a WORDMARK, whose glyph height is basically the image
+       height — so it wants to be near the text's cap height, not the text's
+       line height, or it towers over the entries beside it. Stacked lockups
+       (a badge, a three-line mark) set a taller --asot-logo-h. */
+    height: var(--asot-logo-h, 19px);
+    width: auto;
+    max-width: 240px;
+    object-fit: contain;
+    /* Greyscale is the look asked for. `brightness` pulls the result toward
+       the ticker's own text colour so a black wordmark and a mid-grey badge
+       don't sit at different weights next to each other. */
+    filter: var(--asot-logo-filter, grayscale(1) contrast(0.9) brightness(0.55));
+    opacity: 0.9;
+  }
+
+  @media (max-width: 768px) {
+    .asot__logo { height: calc(var(--asot-logo-h, 19px) * 0.85); }
+  }
 
   /* Label + fades are absolutely positioned against the sides so they overlay
      the moving track rather than taking part in its layout. */
@@ -206,13 +232,36 @@
   <div class="asot__row">
     <div class="asot__label">Stations:</div>
     <div class="asot__viewport">
+      <!--
+        An entry is a logo where a real one could be sourced, and the name as
+        text otherwise. To add one later: upload the file in Media, then swap
+        the text for
+            <img class="asot__logo" src="<url>" alt="<name>">
+        adding style="--asot-logo-h: 30px" if it needs to sit taller or
+        shorter than the others.
+
+        Logos are the genuine marks (Wikimedia Commons, PD-textlogo — below
+        the threshold of originality, so no copyright; the trademarks remain
+        their owners'). They are used here to state where the site's work has
+        appeared, which is what an "as seen on" strip is for.
+      -->
       <div class="asot__track" data-items>
-        <span class="asot__item">Fox News</span>
-        <span class="asot__item">Newsmax</span>
+        <span class="asot__item">
+          <img class="asot__logo" style="--asot-logo-h: 34px"
+               src="https://cdn.ryanweiss.net/uploads/bbvolvx-H5qT.svg" alt="Fox News">
+        </span>
+        <span class="asot__item">
+          <img class="asot__logo" src="https://cdn.ryanweiss.net/uploads/iY-Ho-4bcg7e.svg" alt="Newsmax">
+        </span>
         <span class="asot__item">Newsmax 2</span>
-        <span class="asot__item">Blaze TV</span>
+        <span class="asot__item">
+          <img class="asot__logo" src="https://cdn.ryanweiss.net/uploads/Lat50TvKo9nX.svg" alt="Blaze TV">
+        </span>
         <span class="asot__item">OAN</span>
-        <span class="asot__item">Real Americas Voice</span>
+        <span class="asot__item">
+          <img class="asot__logo" style="--asot-logo-h: 30px"
+               src="https://cdn.ryanweiss.net/uploads/xGumGw7KZ-6o.svg" alt="Real America's Voice">
+        </span>
         <span class="asot__item">Timcast</span>
       </div>
     </div>
