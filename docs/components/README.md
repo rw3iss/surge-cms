@@ -12,6 +12,7 @@ component editor).
 | File | Component | Site |
 |---|---|---|
 | `as-seen-on-ticker.{html,js}` | As Seen On Ticker | surgemedia.us |
+| `merch-notification-tout.{html,js}` | Merch Notification Tout | surgemedia.us |
 
 The ticker never wraps, in any state — one row per label, always. There is no
 wrapping mode to turn on.
@@ -46,3 +47,28 @@ To add a logo later: upload it in Media, then in the ticker's HTML block swap
 the entry's text for `<img class="asot__logo" src="<url>" alt="<name>">`, with
 `style="--asot-logo-h: 30px"` if it needs to sit taller (stacked lockups do;
 plain wordmarks want the 19px default).
+
+## Merch Notification Tout — it must not depend on the page behind it
+
+The card is used on **two** pages with opposite backgrounds:
+
+| Page | Page background | |
+|---|---|---|
+| `shop-coming-soon` | `swatch:brand-red` | what the card was designed for |
+| `home` | none (white) | where it broke |
+
+The card paints only `rgba(255,255,255,.08)` over a white 45% border, so it
+relies on a red ancestor it cannot see. On the homepage the operator set the
+instance's `textColor` to `#000` so the copy stayed readable — but the button's
+colours are hardcoded in the component's own `<style>` and could not follow, so
+a white-filled, white-bordered button sat on a white page.
+
+It was invisible on both, and only *looked* fine on desktop because the compact
+pill's box-shadow still read as a button. The `@media(max-width:768px)` rule
+stretches the button to `width:100%`, which removes that silhouette and leaves
+red text floating on white — so it was reported as a mobile bug.
+
+The border is therefore `currentColor` (the button's own brand red), not `#fff`:
+the button draws its own edge on any background. Keep it that way. If you give
+the button a new colour, take the border with it — do not reintroduce a value
+that only exists on one of the two pages.

@@ -1,0 +1,70 @@
+<style>
+.merch-tout{border:1px solid rgba(255,255,255,.45);border-radius:12px;background:rgba(255,255,255,.08);padding:24px 28px;margin:0 0 28px}
+.merch-tout__title{margin:0 0 6px;color:#000;font-size:1.35rem;line-height:1.2}
+.merch-tout__lede{margin:0 0 18px;max-width:46rem}
+.merch-tout__actions{display:flex;align-items:center;text-align:center;margin:0 auto;gap:16px;flex-wrap:wrap}
+
+/* The CTA. Styled from scratch and NOT given the site's `btn` class: the
+   theme's `.layout .btn` is a two-class selector, so which one wins would
+   come down to source order — a component has to look the same wherever it
+   is dropped. White fill on the red card inverts the page, so it reads as
+   the one thing to click. */
+.merch-tout .merch-tout__btn{
+  display:inline-block;
+  background:#fff;
+  color:#ED2024;
+  /* currentColor, not #fff: the button's own colour is the brand red, so
+     this draws a red ring. A white ring only exists on a red background —
+     this component was written for one (the shop-coming-soon page) and is
+     also used on the white homepage, where a white pill with a white border
+     is invisible. Desktop got away with it because the compact pill's shadow
+     still read as a button; the mobile rule below stretches it full-width and
+     removes even that, leaving red text floating on white. */
+  border:2px solid currentColor;
+  border-radius:9999px;
+  padding:13px 30px;
+  margin: 0 auto;
+  font:inherit;
+  font-size:1rem;
+  font-weight:800;
+  line-height:1.2;
+  letter-spacing:.01em;
+  text-align:center;
+  cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+  transition:transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+}
+.merch-tout .merch-tout__btn:hover:not(:disabled){
+  background:#fff;
+  transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(0,0,0,.26);
+}
+.merch-tout .merch-tout__btn:active:not(:disabled){transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+/* Visible keyboard focus — the white-on-white ring the theme uses would be
+   invisible against this card. */
+.merch-tout .merch-tout__btn:focus-visible{outline:3px solid #111;outline-offset:3px}
+.merch-tout .merch-tout__btn:disabled{opacity:.65;cursor:default;box-shadow:none;transform:none}
+
+.merch-tout__msg{margin:0 auto; text-align: center; color:#ed2024;font-weight:600}
+.merch-tout__msg--error{color:#ffd9da}
+
+.merch-tout-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.merch-tout-modal{position:relative;background:#fff;color:#1a1a1a;border-radius:12px;padding:26px;max-width:420px;width:100%}
+.merch-tout-modal__close{position:absolute;top:8px;right:12px;background:none;border:0;font-size:26px;line-height:1;cursor:pointer;color:#666}
+.merch-tout-modal h2{margin:0 0 6px;font-size:1.25rem}
+.merch-tout-modal p{margin:0 0 16px;color:#555}
+.merch-tout-modal label{display:block;margin-bottom:12px;font-size:.85rem;font-weight:600}
+.merch-tout-modal label em{font-weight:400;color:#888}
+.merch-tout-modal input{display:block;width:100%;margin-top:4px;padding:9px 11px;border:1px solid #ccc;border-radius:6px;font:inherit}
+.merch-tout-modal .btn{width:100%;background:#ED2024;color:#fff;border:0;padding:12px;border-radius:9999px;font-weight:800;cursor:pointer}
+.merch-tout-modal .btn:hover{background:#d51b1f}
+
+@media(max-width:768px){
+  .merch-tout{padding:20px 16px}
+  .merch-tout .merch-tout__btn{width:100%;white-space:normal}
+}
+</style>
+<section class="merch-tout">
+  <h2 class="merch-tout__title" style="display:none;">Get Notifications for New Merchandise</h2>
+  <p class="merch-tout__lede">Want to hear about new drops? Join our new-merchandise list and we&rsquo;ll email you when something lands.</p>
+</section>
