@@ -41,7 +41,7 @@
     "build": "vite build --config ../../config/cms/vite.config.ts",
     "preview": "vite preview --config ../../config/cms/vite.config.ts",
     "lint": "oxlint -c ../../config/.oxlintrc.json src",
-    "test": "vitest --passWithNoTests",
+    "test": "vitest --config ../../config/cms/vitest.config.ts --passWithNoTests",
     "docs:sdk": "tsx scripts/generate-sdk-modules.ts"
   },
   "devDependencies": {

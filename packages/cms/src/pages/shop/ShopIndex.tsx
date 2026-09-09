@@ -8,6 +8,7 @@ import MerchandiseSignup from './MerchandiseSignup';
 import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
 import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
+import { createLiveResource, } from '../../hooks/createLiveResource';
 import DynamicPage from '../DynamicPage';
 import { storefrontMode, } from '../../stores/shopSettings';
 import PageCustomCss from '../../components/common/PageCustomCss';
@@ -34,13 +35,15 @@ const ShopIndexInner: Component = () => {
     const [cursor, setCursor,] = createSignal<string | undefined>(undefined,);
     const [shopifyHasMore, setShopifyHasMore,] = createSignal(false,);
 
-    const [config] = createResource<StorefrontConfig | null>(async () => {
-        try {
-            return await cms.shop.settings.getPublic();
-        } catch {
-            return null;
-        }
-    },);
+    // Live, not just cached: this one response drives the grid appearance, the
+    // currency, the free-shipping banner AND whether the merchandise tout
+    // renders. A stale read of the last of those omits the button entirely and
+    // nothing re-renders when the refresh lands — see `createLiveResource`.
+    const config = createLiveResource<StorefrontConfig | null>(
+        { module: 'shop', path: '/shop/settings', },
+        () => cms.shop.settings.getPublic(),
+        null,
+    );
 
     // Categories + published collections for the filter sidebar (built-in shop
     // only; Shopify has its own routing). Each carries a `productCount` (active

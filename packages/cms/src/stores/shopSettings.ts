@@ -20,6 +20,27 @@ const [loaded, setLoaded,] = createSignal(false,);
 
 let inFlight: Promise<void> | null = null;
 
+/**
+ * Adopt a background refresh from the client cache.
+ *
+ * `cms.shop.settings.getPublic()` is stale-while-revalidate: it can resolve
+ * with an expired entry and refetch behind it. Without this the store would
+ * hold that stale snapshot for the lifetime of the page — `loaded` is already
+ * true, so `loadShopSettings` returns immediately and never looks again, and a
+ * storefront that has since opened (or closed) stays wrong until a full reload.
+ *
+ * Registered once at module scope rather than per caller: the store is a
+ * singleton, and `subscribe` only fires when the refreshed value actually
+ * differs, so an unchanging setting costs nothing.
+ */
+cms.subscribe<{ settings?: ShopPublicSettings; } | null>(
+    'shop', '/shop/settings', null,
+    (res,) => {
+        setSettings(res?.settings ?? null,);
+        setLoaded(true,);
+    },
+);
+
 /** Fetch once. Concurrent callers share the same request. */
 export function loadShopSettings(): Promise<void> {
     if (loaded()) return Promise.resolve();
