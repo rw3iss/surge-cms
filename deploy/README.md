@@ -19,6 +19,13 @@ its own repo, move `deploy/` there.
 The backend serves BOTH the API and the SPA (SSR + static from `packages/cms/dist`),
 so nginx just reverse-proxies everything to `:3001`.
 
+### The `/fraud` path is NOT this app
+
+`nginx-surge.conf` carries a `location /fraud/` block that serves static files from
+`/var/www/surge-fraud` behind HTTP basic auth. That content belongs to a separate
+project and is published from there, not from this repo. Keep the block in sync here —
+it is part of the origin's config — but do not add its publishing tooling to this tree.
+
 `hotpatch-surge.sh` is the fast path (build dist locally → rsync over
 `packages/*/dist` → restart; migrations apply on boot). `deploy.sh` is the full
 path (rsync source → build on server → restart).
