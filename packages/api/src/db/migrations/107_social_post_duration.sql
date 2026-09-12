@@ -1,0 +1,20 @@
+-- 107_social_post_duration.sql
+--
+-- Runtime of a synced item, in seconds.
+--
+-- Deliberately carries no feature header: social_posts is a base table that
+-- exists whether or not the social feature is enabled (every other social
+-- migration is headerless for the same reason), so gating this column would
+-- make it conditional on a flag the table itself does not depend on.
+--
+-- YouTube already fetched this: `classifyVideo` parses contentDetails.duration
+-- to decide short-vs-video and then discarded the number. Keeping it lets the
+-- post pickers show a length beside the date, which is the difference between
+-- "some video" and "the 45-second one".
+--
+-- Nullable with no default, and NOT backfilled: a missing length is a real
+-- state (nothing else reports one, and rows synced before this migration never
+-- captured it). Callers must render nothing rather than "0:00" — a zero-length
+-- video is a lie, absence is not. Existing YouTube rows fill in on the next
+-- sync, which re-reads contentDetails anyway.
+ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;

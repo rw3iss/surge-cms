@@ -203,6 +203,15 @@ export interface SocialPost {
     sortOrder?: number;
     /** Content kind for providers that classify (YouTube: short | live | video). */
     mediaKind?: 'short' | 'live' | 'video' | null;
+    /**
+     * Runtime in seconds, for providers that report one (YouTube).
+     *
+     * Null is the normal case, not an error: no other provider reports a
+     * length, live broadcasts have none, and rows synced before the column
+     * existed only fill in on their next sync. Render nothing when it is
+     * absent — never a placeholder, since "0:00" reads as a real duration.
+     */
+    durationSeconds?: number | null;
 }
 
 export interface Media {

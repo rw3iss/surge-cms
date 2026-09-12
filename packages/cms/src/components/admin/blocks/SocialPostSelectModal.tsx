@@ -8,7 +8,9 @@
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
+import { formatDuration, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
+import { CONTENT_TYPE_OPTIONS, providerClassifiesContent, } from './socialContentTypes';
 import Pagination from '../common/Pagination';
 
 export interface SocialPost {
@@ -22,11 +24,19 @@ export interface SocialPost {
     likes?: number;
     comments?: number;
     publishedAt?: string;
+    /** Runtime in seconds; absent for providers that don't report one. */
+    durationSeconds?: number | null;
 }
 
 interface SocialPostSelectModalProps {
     provider: string;
     initialPostId?: string;
+    /**
+     * The block's Content type. Seeds the modal's own filter, so opening the
+     * advanced search from a block pinned to Shorts starts on Shorts instead
+     * of silently widening to everything.
+     */
+    kind?: string;
     onSelect: (post: SocialPost,) => void;
     onClose: () => void;
 }
@@ -44,9 +54,15 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
     const [sortDir, setSortDir,] = createSignal<'desc' | 'asc'>('desc',);
     const [search, setSearch,] = createSignal('',);
     const [searchInput, setSearchInput,] = createSignal('',);
+    // Seeded from the block once, then owned by the modal: the operator is
+    // here to look around, and widening the filter to find a post must not
+    // rewrite the block's own Content type setting.
+    const [kind, setKind,] = createSignal(props.kind ?? '',);
+
+    const showKindFilter = () => providerClassifiesContent(props.provider,);
 
     const fetchKey = () =>
-        `${props.provider}:${page()}:${sort()}:${sortDir()}:${search()}`;
+        `${props.provider}:${page()}:${sort()}:${sortDir()}:${search()}:${kind()}`;
 
     const [result,] = createResource(fetchKey, async () => {
         const query: Record<string, unknown> = {
@@ -57,6 +73,8 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
         };
         const q = search().trim();
         if (q) query.search = q;
+        // Only for providers that classify — see providerClassifiesContent.
+        if (showKindFilter() && kind()) query.kind = kind();
         try {
             const res = await cms.social.platformPosts(props.provider, query as any,);
             return {
@@ -116,6 +134,19 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
                             onKeyDown={(e,) => { if (e.key === 'Enter') submitSearch(); }}
                             onBlur={submitSearch}
                         />
+                        <Show when={showKindFilter()}>
+                            <select
+                                class="social-post-modal__kind"
+                                value={kind()}
+                                aria-label="Content type"
+                                title="Content type"
+                                onChange={(e,) => { setKind(e.currentTarget.value,); setPage(1,); }}
+                            >
+                                <For each={CONTENT_TYPE_OPTIONS}>
+                                    {(o,) => <option value={o.value}>{o.label}</option>}
+                                </For>
+                            </select>
+                        </Show>
                         <select
                             class="social-post-modal__sort"
                             value={sort()}
@@ -178,6 +209,12 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
                                                     {post.likes ?? 0} likes · {post.comments ?? 0} comments
                                                     <Show when={post.publishedAt}>
                                                         {' · '}{new Date(post.publishedAt!,).toLocaleDateString()}
+                                                    </Show>
+                                                    {/* After the date, per the spec. Rendered only when the
+                                                        provider reported a real length — most do not, and a
+                                                        placeholder would assert a runtime we don't know. */}
+                                                    <Show when={formatDuration(post.durationSeconds,)}>
+                                                        {(d,) => <>{' · '}<span class="social-media-grid__duration">{d()}</span></>}
                                                     </Show>
                                                 </div>
                                             </div>

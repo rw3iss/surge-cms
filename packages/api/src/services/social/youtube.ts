@@ -191,12 +191,19 @@ export async function resolveCredentials(): Promise<YouTubeCredentials | null> {
     return { apiKey, channelId, };
 }
 
+/** What `videos.list` tells us about one item. */
+export interface YouTubeVideoDetails {
+    kind: YouTubeMediaKind;
+    /** Runtime in seconds; null for a live broadcast or an unparseable value. */
+    durationSeconds: number | null;
+}
+
 /** Fetch `contentDetails`/`liveStreamingDetails` for up to 50 ids. */
 async function fetchVideoDetails(
     ids: string[],
     apiKey: string,
-): Promise<Map<string, YouTubeMediaKind>> {
-    const out = new Map<string, YouTubeMediaKind>();
+): Promise<Map<string, YouTubeVideoDetails>> {
+    const out = new Map<string, YouTubeVideoDetails>();
     if (ids.length === 0) return out;
 
     const url = `${API}/videos?key=${apiKey}`
@@ -212,7 +219,12 @@ async function fetchVideoDetails(
     }
     const data = await res.json() as { items?: Array<Record<string, any>>; };
     for (const v of data.items ?? []) {
-        out.set(v.id as string, classifyVideo(v,),);
+        out.set(v.id as string, {
+            kind: classifyVideo(v,),
+            // Already parsed to classify short-vs-video; keeping the number
+            // costs nothing and is the only place it is available.
+            durationSeconds: parseIsoDuration(v.contentDetails?.duration,),
+        },);
     }
     return out;
 }
@@ -263,12 +275,13 @@ export async function fetchYouTubeVideos(
             .map((i,) => i.id?.videoId as string | undefined)
             .filter((v,): v is string => Boolean(v,));
 
-        const kinds = await fetchVideoDetails(ids, creds.apiKey,);
+        const details = await fetchVideoDetails(ids, creds.apiKey,);
 
         const posts = items.map((item,) => {
             const snippet = item.snippet as Record<string, any>;
             const id = item.id?.videoId as string;
-            const kind = kinds.get(id,) ?? 'video';
+            const detail = details.get(id,);
+            const kind = detail?.kind ?? 'video';
             return {
                 id,
                 content: snippet?.title as string,
@@ -278,7 +291,10 @@ export async function fetchYouTubeVideos(
                 thumbnailUrl: snippet?.thumbnails?.high?.url as string | undefined,
                 authorName: snippet?.channelTitle as string,
                 publishedAt: new Date(snippet?.publishedAt as string,),
-                rawData: { ...item, mediaKind: kind, },
+                // Both ride on rawData: the sync's upsert reads the kind from
+                // there already, so the duration follows the same path rather
+                // than adding a second channel for one field.
+                rawData: { ...item, mediaKind: kind, durationSeconds: detail?.durationSeconds ?? null, },
             } as FetchedPost;
         },);
 

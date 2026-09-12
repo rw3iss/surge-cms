@@ -5,6 +5,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "vitest --run --passWithNoTests",
     "watch": "tsc --watch"
   },
   "devDependencies": {

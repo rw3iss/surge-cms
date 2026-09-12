@@ -61,6 +61,29 @@ export function formatRelativeTime(date: Date | string,): string {
     return `${diffYears}y ago`;
 }
 
+/**
+ * Seconds → clock notation: `0:42`, `12:07`, `1:02:04`.
+ *
+ * Minutes are padded only when an hours part precedes them, matching how
+ * every video player writes a runtime — `2:05`, not `02:05`.
+ *
+ * Returns null rather than a string for anything that is not a real positive
+ * length (null/undefined, NaN, 0, negative). Callers render nothing in that
+ * case: a missing duration is normal (most providers report none), and a
+ * placeholder like "0:00" would state a length that is not true.
+ */
+export function formatDuration(seconds: number | null | undefined,): string | null {
+    if (seconds === null || seconds === undefined) return null;
+    const total = Math.round(Number(seconds,),);
+    if (!Number.isFinite(total,) || total <= 0) return null;
+
+    const h = Math.floor(total / 3600,);
+    const m = Math.floor((total % 3600) / 60,);
+    const s = total % 60;
+    const ss = String(s,).padStart(2, '0',);
+    return h > 0 ? `${h}:${String(m,).padStart(2, '0',)}:${ss}` : `${m}:${ss}`;
+}
+
 export function formatFileSize(bytes: number,): string {
     const units = ['B', 'KB', 'MB', 'GB', 'TB',];
     let unitIndex = 0;

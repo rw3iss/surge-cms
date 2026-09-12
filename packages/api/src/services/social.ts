@@ -347,8 +347,8 @@ export async function upsertSocialPost(
         `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url,
                            author_name, author_avatar, likes, comments, shares,
                            published_at, fetched_at, raw_data, source, post_url, created_by,
-                           media_kind)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16)
+                           media_kind, duration_seconds)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16, $17)
      ON CONFLICT (platform, external_id) DO UPDATE SET
        content = EXCLUDED.content,
        media_url = EXCLUDED.media_url,
@@ -359,8 +359,10 @@ export async function upsertSocialPost(
        fetched_at = NOW(),
        raw_data = EXCLUDED.raw_data,
        -- COALESCE so a re-sync that could not classify (videos.list failed)
-       -- doesn't wipe a kind we already knew.
-       media_kind = COALESCE(EXCLUDED.media_kind, social_posts.media_kind)`,
+       -- doesn't wipe a kind we already knew. Same for the duration, which
+       -- comes from the same call and is absent for exactly the same reasons.
+       media_kind = COALESCE(EXCLUDED.media_kind, social_posts.media_kind),
+       duration_seconds = COALESCE(EXCLUDED.duration_seconds, social_posts.duration_seconds)`,
         [
             platform,
             post.id,
@@ -379,6 +381,15 @@ export async function upsertSocialPost(
             createdBy,
             // Providers that classify their items put the kind on rawData.
             (post.rawData as { mediaKind?: string; } | undefined)?.mediaKind ?? null,
+            // Same channel as mediaKind. Coerced through Number so a string
+            // from a provider can't reach an INTEGER column, and normalised to
+            // null unless it is a finite, non-negative number — a 0 or NaN
+            // duration would render as "0:00", which reads as a real length.
+            (() => {
+                const raw = (post.rawData as { durationSeconds?: unknown; } | undefined)?.durationSeconds;
+                const n = Number(raw,);
+                return raw !== null && raw !== undefined && Number.isFinite(n,) && n > 0 ? Math.round(n,) : null;
+            })(),
         ],
     );
 }

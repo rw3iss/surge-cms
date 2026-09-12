@@ -7,11 +7,12 @@
  * the selected provider, plus an "Edit" button that opens a fuller
  * SocialPostSelectModal for advanced search / pagination.
  */
-import { Component, createMemo, createSignal, For, Index, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
+import { CONTENT_TYPE_OPTIONS, providerClassifiesContent, } from '../socialContentTypes';
 import AnchoredDropdown from '../../common/AnchoredDropdown';
 
 /** Editor for the unified Social block. Picks a provider, sets a count,
@@ -119,16 +120,18 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                 {/* YouTube classifies its items, so an operator can pin the
                     block to Shorts / live / full videos. Other providers don't
                     report a kind, so the control would be a no-op there. */}
-                <Show when={provider() === 'youtube'}>
-                    <FormField label="Content type">
+                <Show when={providerClassifiesContent(provider(),)}>
+                    <FormField
+                        label="Content type"
+                        hint="Also filters the post pickers below, so you only search what the block will show."
+                    >
                         <select
                             value={(props.data.kind as string) || ''}
                             onChange={(e,) => update({ kind: e.currentTarget.value || undefined, },)}
                         >
-                            <option value="">All</option>
-                            <option value="short">Shorts</option>
-                            <option value="video">Full videos</option>
-                            <option value="live">Live / streams</option>
+                            <For each={CONTENT_TYPE_OPTIONS}>
+                                {(o,) => <option value={o.value}>{o.value === '' ? 'All' : o.label}</option>}
+                            </For>
                         </select>
                     </FormField>
                 </Show>
@@ -306,6 +309,25 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
         setShowDropdown(true,);
     };
 
+    // Drop the cached list when the provider or Content type changes.
+    //
+    // `loadRecent` sends both to the server, but it only ran on first focus
+    // (`recent().length === 0`) or on a keystroke. So the sequence that
+    // actually happens — open a slot picker, notice the wrong kind of post,
+    // change Content type above, open the picker again — re-showed the list
+    // fetched under the OLD setting, and the filter looked broken. Clearing
+    // here makes the next focus refetch; `on(..., { defer: true })` skips the
+    // initial run so a freshly-mounted row doesn't discard a list it just
+    // loaded.
+    createEffect(on(
+        () => `${props.provider}:${props.kind ?? ''}`,
+        () => {
+            setRecent([],);
+            if (showDropdown()) void loadRecent();
+        },
+        { defer: true, },
+    ),);
+
     const handleClickOutside = (e: MouseEvent,) => {
         const target = e.target as HTMLElement;
         // The menu is portalled to <body> so it can escape the properties
@@ -426,6 +448,7 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                 <SocialPostSelectModal
                     provider={props.provider}
                     initialPostId={props.item.postId}
+                    kind={props.kind}
                     onSelect={selectPost}
                     onClose={() => setShowModal(false,)}
                 />

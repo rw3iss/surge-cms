@@ -189,12 +189,22 @@
 
 
 
+// Content-type filter and sort are the same kind of control (a select that
+// re-queries), so they share one rule rather than drifting apart.
+.social-post-modal__kind,
 .social-post-modal__sort {
   padding: $spacing-sm $spacing-md;
   border: 1px solid $border-color;
   border-radius: $border-radius-md;
   font-size: $font-size-sm;
   min-width: 130px;
+}
+
+// Wider than the sort control: its longest label ("All content types") does not
+// fit the 130px the sort options need, and a select that clips its own value is
+// unreadable at exactly the moment it matters.
+.social-post-modal__kind {
+  min-width: 160px;
 }
 
 
@@ -554,5 +564,15 @@
     padding: 0 $spacing-sm $spacing-xs;
     font-size: 11px;
     color: $text-light;
+  }
+
+  // The runtime is the one number an operator scans for when picking between
+  // near-identical thumbnails, so it carries a little more weight than the
+  // like/comment counts it sits beside. Tabular figures stop the digits
+  // shifting column to column down the grid.
+  &__duration {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--admin-text, #{$text-color});
   }
 }
