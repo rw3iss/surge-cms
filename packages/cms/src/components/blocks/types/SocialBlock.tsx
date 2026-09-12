@@ -133,6 +133,20 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // (auto-fill keeps columns even); itemHeight fixes card height.
                         ...(itemWidth() ? { '--social-item-width': itemWidth(), } : {}),
                         ...(itemHeight() ? { '--social-item-height': itemHeight(), } : {}),
+                        // An embedded player keeps its natural aspect ratio UNLESS a
+                        // height was configured, in which case the height must win or
+                        // the card grows and the video sits in it with dead space
+                        // below. The stylesheet reads this as
+                        // `aspect-ratio: var(--social-embed-ratio, 16 / 9)`.
+                        //
+                        // Decided here rather than in CSS because this is the only
+                        // place that knows whether a height was actually set — CSS
+                        // cannot test whether a custom property has a value, and the
+                        // row layout's attempt to assume one collapsed every unsized
+                        // player to the iframe's default 150px.
+                        ...((itemHeight() || (layout() === 'row' && rowHeight()))
+                            ? { '--social-embed-ratio': 'auto', }
+                            : {}),
                     }}
                 >
                     <Show

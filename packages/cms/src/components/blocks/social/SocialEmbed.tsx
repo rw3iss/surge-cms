@@ -71,12 +71,19 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 props.mediaKind === 'short' ? '9x16' : '16x9'
                             }`}
                         >
+                            {/* The aspect ratio lives in the stylesheet, keyed off the
+                                wrapper's --9x16/--16x9 class, NOT inline here.
+
+                                An inline style is unbeatable by any rule that doesn't
+                                use !important — which the cascade-layer doctrine rules
+                                out — so an inline `aspect-ratio` made the player's
+                                height uncontrollable: setting Item Height grew the card
+                                and left the video its 16:9 box, with dead space below.
+                                The wrapper class already encodes the ratio, so this was
+                                a duplicate that happened to win. */}
                             <iframe
                                 src={`https://www.youtube.com/embed/${props.externalId}`}
                                 width="100%"
-                                style={props.mediaKind === 'short'
-                                    ? 'aspect-ratio:9/16'
-                                    : 'aspect-ratio:16/9'}
                                 frameborder="0"
                                 // web-share matches what a hand-written embed carries; without
                                 // it the player drops its share affordance.

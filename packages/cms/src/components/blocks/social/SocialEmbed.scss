@@ -67,11 +67,21 @@
     z-index: 1;
   }
 
-  // 16:9 wrapper for YouTube
+  // 16:9 wrapper for YouTube.
+  //
+  // The ratio is declared HERE rather than inline on the iframe: an inline
+  // style can only be beaten with !important, which the cascade-layer doctrine
+  // forbids, so an inline ratio made the player's height uncontrollable.
+  //
+  // It reads through --social-embed-ratio so the one place that knows whether
+  // a height was configured — the renderer, which sets the height vars — can
+  // switch it to `auto` and let the height win. A plain override here would
+  // have to guess, and guessing collapsed the row layout's players to 150px.
   &__iframe-wrapper--16x9 {
     iframe {
       display: block;
       width: 100%;
+      aspect-ratio: var(--social-embed-ratio, 16 / 9);
       border: 0;
     }
   }
@@ -177,9 +187,17 @@
     }
 
     // 1-column layout (single stack)
+    // One column, centred. The 600px is a READING-WIDTH default, not a cap:
+    // it stops a lone card stretching across a 1400px page, which is the right
+    // default and the wrong answer once the operator has stated a width.
+    //
+    // It used to be a literal `max-width: 600px`, which silently beat Item
+    // Width — the container clamped to 600 no matter what the card asked for.
+    // A featured video is exactly the case where you pick 1 Column AND set a
+    // width, so the two controls fought and the visible one lost.
     &--1col {
       grid-template-columns: 1fr;
-      max-width: 600px;
+      max-width: var(--social-item-width, 600px);
       margin-left: auto;
       margin-right: auto;
     }
@@ -292,7 +310,11 @@
 
         iframe {
           height: 100%;
-          aspect-ratio: auto;
+          // NOT `aspect-ratio: auto` — that was only ever inert because an
+          // inline ratio on the iframe outranked it. With the inline style
+          // gone it took effect and collapsed every unsized row player to the
+          // iframe default of 150px. The ratio now yields only when a height
+          // was actually set (--social-embed-ratio).
         }
       }
 
@@ -408,6 +430,22 @@
   }
 
   .social-embed__card-body { flex: 0 0 auto; }
+
+  // An embedded player has to fill the height too, not just a thumbnail card.
+  // Without this the card grew to Item Height while the iframe kept its 16:9
+  // box, leaving dead space under the video — the setting appeared to do
+  // nothing to the thing the operator was actually looking at. Same treatment
+  // the row layout already gives its players.
+  .social-embed__iframe-wrapper {
+    flex: 1;
+    min-height: 0;
+
+    // The ratio is switched off via --social-embed-ratio (set by the renderer
+    // alongside the height), so height: 100% is all that is needed here. The
+    // player letterboxes its own content, so an off-ratio box shows bars
+    // rather than a cropped video.
+    iframe { height: 100%; }
+  }
 }
 
 // ─── Height-constrained social block ───────────────────────────────────
@@ -463,7 +501,7 @@
   iframe {
     width: 100%;
     height: 100%;
-    aspect-ratio: 9 / 16;
+    aspect-ratio: var(--social-embed-ratio, 9 / 16);
     border: 0;
     display: block;
   }

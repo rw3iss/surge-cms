@@ -20,5 +20,14 @@
     "resolveJsonModule": true
   },
   "include": ["../../packages/shared/src/**/*"],
-  "exclude": ["../../packages/shared/node_modules", "../../packages/shared/dist"]
+  // Tests are excluded from the BUILD, not just tidied away: @sitesurge/types
+  // is published to npm, and a compiled `dist/**/*.test.js` both ships dead
+  // weight to consumers and gets picked up as a second, stale copy of every
+  // suite the next time vitest runs (it scans dist too, so a compiled test
+  // that no longer matches its source fails for no real reason).
+  "exclude": [
+    "../../packages/shared/node_modules",
+    "../../packages/shared/dist",
+    "../../packages/shared/src/**/*.test.ts"
+  ]
 }
