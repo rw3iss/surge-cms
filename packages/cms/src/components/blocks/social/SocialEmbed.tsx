@@ -1,5 +1,6 @@
 import type { SocialPlatform, } from '@sitesurge/types';
-import { Component, Match, Show, Switch, } from 'solid-js';
+import { Component, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { attachYouTubePlayer, } from './playbackCoordinator';
 import './SocialEmbed.scss';
 
 interface SocialEmbedProps {
@@ -37,6 +38,14 @@ const PLATFORM_LABELS: Record<SocialPlatform, string> = {
 };
 
 const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
+    // Only the YouTube branch renders an iframe; every other provider is a
+    // thumbnail card that links out and has nothing to pause.
+    let ytIframe: HTMLIFrameElement | undefined;
+    onMount(() => {
+        if (!ytIframe) return;
+        onCleanup(attachYouTubePlayer(ytIframe,),);
+    },);
+
     const platformUrl = () => {
         switch (props.platform) {
             case 'youtube':
@@ -82,7 +91,13 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 The wrapper class already encodes the ratio, so this was
                                 a duplicate that happened to win. */}
                             <iframe
-                                src={`https://www.youtube.com/embed/${props.externalId}`}
+                                // enablejsapi=1 is what lets the page both send the
+                                // player commands and hear when it starts — without it
+                                // the frame ignores postMessage entirely. See
+                                // playbackCoordinator: only one social post plays at a
+                                // time, page-wide.
+                                src={`https://www.youtube.com/embed/${props.externalId}?enablejsapi=1`}
+                                ref={ytIframe}
                                 width="100%"
                                 frameborder="0"
                                 // web-share matches what a hand-written embed carries; without
