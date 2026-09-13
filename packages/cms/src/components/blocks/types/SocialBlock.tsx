@@ -50,6 +50,30 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const rowPadding = () => (settings().rowPadding as string) || undefined;
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
+    /**
+     * Is this height a DEFINITE length — one that gives a box a real size on
+     * its own, without asking its parent?
+     *
+     * Only a definite height may switch off an embedded player's aspect ratio.
+     * A percentage resolves against the parent's height, and these containers
+     * are content-sized: the grid's height comes FROM the posts, so a
+     * percentage inside resolves to `auto`. Dropping the ratio there leaves the
+     * iframe with no intrinsic height at all and it collapses to the HTML
+     * default of 150px — a full-width video squashed into a strip.
+     *
+     * `%` anywhere disqualifies the value, including inside calc()/clamp(),
+     * because such a value is only as definite as the percentage it contains.
+     */
+    const isDefiniteHeight = (v: string | undefined,): boolean => {
+        if (!v) return false;
+        const s = v.trim().toLowerCase();
+        if (!s || s === 'auto' || s.includes('%',)) return false;
+        // A bare number is treated as px elsewhere in the editor; anything with
+        // a real unit is definite. `min-content`/`fit-content`/… are sized by
+        // content, so they are not.
+        return /^-?\d*\.?\d+(px|rem|em|vh|vw|vmin|vmax|pt|pc|cm|mm|in|ch|ex|q)?$/.test(s,);
+    };
+
     /** Content kind (YouTube: short | live | video); undefined = any. */
     const kind = () => (settings().kind as string) || undefined;
 
@@ -155,7 +179,17 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // cannot test whether a custom property has a value, and the
                         // row layout's attempt to assume one collapsed every unsized
                         // player to the iframe's default 150px.
-                        ...((itemHeight() || (layout() === 'row' && rowHeight()))
+                        //
+                        // DEFINITE heights only (see isDefiniteHeight). `height:100%`
+                        // is the natural way to say "fill the slot", and it resolves
+                        // to `auto` here because these containers are sized by their
+                        // content — so switching the ratio off for it collapsed the
+                        // player to 150px, the same failure in a different disguise.
+                        // With the ratio kept, the video takes its natural height and
+                        // pushes the container, and the percentage still stretches it
+                        // whenever an ancestor does have a definite height.
+                        ...((isDefiniteHeight(itemHeight(),)
+                                || (layout() === 'row' && isDefiniteHeight(rowHeight(),)))
                             ? { '--social-embed-ratio': 'auto', }
                             : {}),
                     }}
