@@ -322,6 +322,16 @@
     .asot__item { font-size: 0.9rem; }
     .asot__head { font-size: 0.7rem; margin-bottom: 9px; }
 
+    /* Tighter between rows than on desktop (6px -> 4px). Everything is stacked
+       at this width, so the gaps add up down the strip rather than appearing
+       once. Both spacings are covered: the margin between stacked rows/splits,
+       and the split's own row-gap once its halves wrap onto separate lines. */
+    .asot__row + .asot__row,
+    .asot__split + .asot__row,
+    .asot__row + .asot__split,
+    .asot__split + .asot__split { margin-top: 4px; }
+    .asot__split { row-gap: 4px; }
+
     .asot__label {
       font-size: 0.64rem;
       letter-spacing: 0.11em;
