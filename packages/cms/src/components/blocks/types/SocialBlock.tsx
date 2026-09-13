@@ -113,13 +113,24 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         itemWidth() && layout() !== 'row' ? ' social-block__grid--fixed-width' : ''
                     }`}
                     style={{
-                        // Scroll-container padding: the Horizontal Row layout uses
-                        // its own `rowPadding` (set in the block's main properties)
-                        // when provided, so the block-style padding can stay on the
-                        // block wrapper. Other layouts keep the style padding here.
-                        ...((layout() === 'row' && rowPadding())
-                            ? { padding: rowPadding(), }
-                            : (blockStyle()?.padding ? { padding: blockStyle()!.padding, } : {})),
+                        // ONLY the Row layout's own `rowPadding`, which is a
+                        // separate setting that deliberately lands INSIDE the
+                        // scroller so the first and last cards clear the edge.
+                        //
+                        // The block's STYLE padding is not applied here. It is
+                        // already emitted onto the block wrapper by `blockCss`
+                        // (social blocks use WRAPPER_ONLY targets), so applying it
+                        // again here charged it twice: a 15px padding took 30px off
+                        // each side, and — worse — every percentage the operator set
+                        // on the items then resolved against the doubly-shrunk
+                        // content box. `clamp(300px, 100%, 800px)` on a 360px column
+                        // came out at its 300px floor instead of filling the space,
+                        // which reads as "item width is being ignored" when it is
+                        // in fact being measured against the wrong box.
+                        //
+                        // Block style belongs to the block; the item props below
+                        // (--social-item-width/height) size the posts.
+                        ...(layout() === 'row' && rowPadding() ? { padding: rowPadding(), } : {}),
                         // The block's own Item gap wins over the style panel's gap:
                         // it is the more specific control and the one next to the
                         // width/height fields it pairs with.
