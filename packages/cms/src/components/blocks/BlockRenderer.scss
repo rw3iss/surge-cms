@@ -3,6 +3,27 @@
   // The inline style from block.style.padding will apply directly.
 
   &__inner {
+    // Fill the parent by default, in every layout mode.
+    //
+    // A block-level div does this for free, so this looks redundant — until the
+    // parent `.block` is a flex container (a group with an explicit height
+    // becomes one). Then `.block__inner` is a flex ITEM, and the `margin: 0
+    // auto` that `--contained` and `--wide` use for centering is an AUTO
+    // CROSS-AXIS MARGIN, which disables the default `stretch`. The inner then
+    // shrinks to its content instead of filling its parent, and every
+    // percentage inside it — a group's item width, a social block's item
+    // width — resolves against that shrunken box.
+    //
+    // That is what pinned the homepage's Featured Video column at 360px inside
+    // a 608px slot: nothing was overriding the width, there simply wasn't one,
+    // and `margin: 0 auto` quietly opted the element out of stretching.
+    // `--full` was immune only because it already declared `width: 100%`.
+    //
+    // max-width still caps it and the auto margins still centre it whenever the
+    // cap is the smaller of the two, so the contained/wide behaviour is
+    // unchanged; this only removes the shrink-to-fit.
+    width: 100%;
+
     &--contained {
       // Center to the content column, but DON'T add horizontal padding: the
       // page wrapper already supplies the outer gutter, and nested blocks (e.g.
