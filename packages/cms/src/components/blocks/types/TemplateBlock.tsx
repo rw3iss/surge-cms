@@ -15,6 +15,27 @@ import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../../service
 import { type TplCtx, } from './shared';
 import { BlockRenderer, } from '../BlockRenderer';
 
+/**
+ * Resolve once `el` has rendered children, or give up after ~1s.
+ *
+ * Polled per animation frame rather than derived from a signal: what matters is
+ * the DOM, and no framework signal reports "the children are painted". A
+ * MutationObserver would be tighter but needs the same timeout anyway, since a
+ * component whose template legitimately renders nothing must not hang here.
+ *
+ * Giving up rather than failing is deliberate — the script still mounts, it
+ * just mounts against whatever is there, which is exactly the old behaviour.
+ */
+async function waitForRenderedChildren(el: HTMLElement, frames = 60,): Promise<void> {
+    for (let i = 0; i < frames; i++) {
+        if (el.childElementCount > 0) return;
+        await new Promise<void>((resolve,) => {
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve(),);
+            else setTimeout(resolve, 16,);
+        },);
+    }
+}
+
 export const TemplateBlock: Component<{
     block: Block;
     ctx?: TplCtx;
@@ -62,12 +83,29 @@ export const TemplateBlock: Component<{
     // against an empty container and every `el.querySelector` would miss.
     createEffect(() => {
         const id = templateId();
-        const ready = (tpl()?.blocks ?? []).length >= 0 && !tpl.loading;
-        if (!id || isCycle() || !mountEl || !ready || mounted) return;
+        // How many blocks this component has. NOTE: this used to read
+        // `(tpl()?.blocks ?? []).length >= 0`, which is true for EVERY array
+        // including an empty one — the check did nothing at all.
+        const blockCount = (tpl()?.blocks ?? []).length;
+        if (!id || isCycle() || !mountEl || tpl.loading || mounted) return;
         mounted = true;
         let teardown: (() => void) | undefined;
         let disposed = false;
         void (async () => {
+            // Wait for the blocks to actually be IN THE DOM before handing the
+            // element to the script.
+            //
+            // `tpl.loading` going false is not the same thing: on a client-cache
+            // HIT the resource resolves in ~30ms, before Solid has rendered the
+            // <For> below, so the script mounted into an empty container and the
+            // render then replaced its children — the component's own UI was
+            // added and removed inside the same millisecond. The first visit
+            // worked only because a real network fetch left the DOM ready by
+            // the time it resolved, which is why this looked like "it breaks
+            // when logged in" (an admin's uncached first load vs everyone
+            // else's) rather than a race.
+            if (blockCount > 0) await waitForRenderedChildren(mountEl!,);
+            if (disposed) return;
             const ret = await mountComponentScript({
                 templateId: id,
                 el: mountEl!,

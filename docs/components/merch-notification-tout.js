@@ -17,7 +17,6 @@
 export function mount(el, ctx) {
     const { cms, user } = ctx;
     const SUCCESS = "You're on the list — we'll email you when new merchandise arrives.";
-    let done = false;
 
     // Enhance the component's OWN markup rather than replacing it: `el` wraps
     // the rendered blocks, so the button lands inside the card the HTML block
@@ -44,11 +43,19 @@ export function mount(el, ctx) {
         btn.textContent = 'Signing you up…';
         try {
             await cms.shop.merchandiseSignup(body);
-            done = true;
             say(SUCCESS, true);
-            // remove(), not hidden: the flex container's display would fight
-            // the [hidden] attribute and leave a ghost button on screen.
-            btn.remove();
+            // The button STAYS. It used to be removed on success, which left a
+            // subscriber with no control at all — and because nothing about the
+            // subscription is stored client-side, a reload brought it back
+            // anyway, so the removal only ever hid it for the rest of one page
+            // view. Keeping it means the tout looks the same to everyone, which
+            // is also what stops "am I signed up?" being unanswerable.
+            //
+            // Re-subscribing is safe: the server is idempotent and answers the
+            // same way for an address already on the list (deliberately — see
+            // the note above about not letting a stranger test membership).
+            btn.disabled = false;
+            btn.textContent = 'Get Notifications for New Merchandise';
             closeModal();
         } catch {
             say("We couldn't sign you up just then. Please try again.", false);
@@ -92,7 +99,11 @@ export function mount(el, ctx) {
     };
 
     const onClick = () => {
-        if (done) return;
+        // No `done` short-circuit: the button stays after a successful signup,
+        // so a dead button that silently ignores clicks would be worse than one
+        // that simply re-confirms. `btn.disabled` already prevents a
+        // double-submit while a request is in flight.
+        //
         // Signed in: the server uses the account address, so asking again is theatre.
         if (user) { void subscribe({}); return; }
         openModal();
