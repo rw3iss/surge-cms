@@ -163,12 +163,31 @@ export function mount(el, ctx) {
         // shorter label set or a smaller font would never shrink it.
         for (const label of labels) label.style.width = 'auto';
         let widest = 0;
+        /**
+         * Each row also gets its OWN natural label width.
+         *
+         * Desktop keeps the shared strip so every row's items start at the same
+         * x. Stacked on mobile there is no column to line up with, and a strip
+         * sized to the longest label left the short ones trailing ~55px of dead
+         * background before the fade — so the mobile rules below start each
+         * row's fade right after its own text instead.
+         */
+        const natural = new Map();
         for (const label of labels) {
-            widest = Math.max(widest, label.getBoundingClientRect().width,);
+            const w = label.getBoundingClientRect().width;
+            widest = Math.max(widest, w,);
+            natural.set(label, w,);
         }
         for (const label of labels) label.style.width = '';
 
         root.style.setProperty('--asot-label-w', `${Math.ceil(widest)}px`);
+        // Published on the ROW so the label, the fade and the static viewport
+        // padding — all descendants — can inherit one value.
+        for (const { row, } of originals) {
+            const label = row.querySelector('.asot__label');
+            if (!label || !natural.has(label,)) continue;
+            row.style.setProperty('--asot-row-label-w', `${Math.ceil(natural.get(label,))}px`,);
+        }
     }
 
     function layout() {

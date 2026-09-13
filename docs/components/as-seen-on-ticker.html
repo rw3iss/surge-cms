@@ -320,8 +320,26 @@
   @media (max-width: 768px) {
     .asot { padding: 14px 0 16px; }
     .asot__item { font-size: 0.9rem; }
-    .asot__label { font-size: 0.7rem; }
     .asot__head { font-size: 0.7rem; margin-bottom: 9px; }
+
+    .asot__label {
+      font-size: 0.64rem;
+      letter-spacing: 0.11em;
+      /* Tighter trailing gutter: the fade begins here, and on a 390px screen
+         every px the label keeps is one the items don't get. */
+      padding-right: 7px;
+      /* Each row sizes to its OWN label rather than to the widest one.
+         Rows are stacked at this width, so there is no shared column to line
+         up with — and the shared strip left "Shows:" with ~55px of empty
+         background before the fade once "Publications:" set the width. */
+      width: var(--asot-row-label-w, var(--asot-label-w));
+    }
+    /* The fade follows the same per-row width, or the gradient would still
+       start where the widest label used to end.
+       Only the STATIC viewport gets the padding — a scrolling row deliberately
+       runs its items behind the label, which is the effect the ticker is for. */
+    .asot__fade--left { left: var(--asot-row-label-w, var(--asot-label-w)); }
+    .asot--static .asot__viewport { padding-left: var(--asot-row-label-w, var(--asot-label-w)); }
   }
 
   /* Someone who asked the system not to animate should not be handed a
@@ -343,6 +361,14 @@
     /* Nothing is sliding out from under the label any more, so give the items
        their own space rather than starting underneath it. */
     .asot--scroll .asot__viewport { padding-left: var(--asot-label-w); }
+  }
+
+  /* Reduced motion ON MOBILE: same per-row width as the rest of the mobile
+     rules. Written as a combined query rather than folded into the block
+     above, because that one applies at every width and the shared strip is
+     still what desktop wants. */
+  @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+    .asot--scroll .asot__viewport { padding-left: var(--asot-row-label-w, var(--asot-label-w)); }
   }
 }
 </style>
