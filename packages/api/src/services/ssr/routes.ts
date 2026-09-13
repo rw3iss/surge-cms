@@ -185,7 +185,7 @@ async function loadPageBlocks(
             // assembler can nest children (group/group_item).
             `SELECT id, parent_block_id, type, title, content, settings FROM blocks
              WHERE page_id = $1 AND is_visible = true
-             ORDER BY parent_block_id NULLS FIRST, "order" ASC`,
+             ORDER BY parent_block_id NULLS FIRST, "order" ASC, created_at ASC, id ASC`,
             [pageId,],
         );
         flatBlocks = blocksRes.rows.map((r,) => ({
@@ -554,7 +554,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     // the tree assembler can nest children (group/group_item).
                     `SELECT id, parent_block_id, type, title, content, settings FROM blocks
                      WHERE page_id = $1 AND is_visible = true
-                     ORDER BY parent_block_id NULLS FIRST, "order" ASC`,
+                     ORDER BY parent_block_id NULLS FIRST, "order" ASC, created_at ASC, id ASC`,
                     [page.id,],
                 );
                 flatBlocks = blocksRes.rows.map((r,) => ({

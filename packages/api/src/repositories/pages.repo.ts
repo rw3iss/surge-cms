@@ -220,7 +220,15 @@ export async function findBlocksByPageId(pageId: string, visibleOnly = false,): 
     // collide between parents; then by "order" within each parent.
     const result = await query(
         `SELECT * FROM blocks WHERE page_id = $1 ${visibleClause}
-         ORDER BY parent_block_id NULLS FIRST, "order" ASC`,
+         -- Ties are broken deterministically (created_at, then id) rather than
+         -- left to the planner. Two siblings CAN share an order — a bad write,
+         -- an import, a half-applied reorder — and without a tiebreaker
+         -- Postgres may return them in either sequence, so the editor and the
+         -- public page can disagree and an unrelated UPDATE can silently flip
+         -- them by moving the row in the heap. Determinism here does not make
+         -- a duplicate order correct; it makes it consistently visible instead
+         -- of intermittently wrong.
+         ORDER BY parent_block_id NULLS FIRST, "order" ASC, created_at ASC, id ASC`,
         [pageId,],
     );
     return mapRows<Block>(result.rows,);

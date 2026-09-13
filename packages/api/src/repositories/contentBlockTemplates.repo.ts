@@ -167,7 +167,7 @@ export async function findBlocks(templateId: string,): Promise<ContentBlockTempl
     const r = await query<BlockRow>(
         `SELECT * FROM content_block_template_blocks
          WHERE template_id = $1
-         ORDER BY parent_block_id NULLS FIRST, position`,
+         ORDER BY parent_block_id NULLS FIRST, position, id ASC`,
         [templateId,],
     );
     return r.rows.map(mapBlock,);

@@ -50,7 +50,7 @@ export async function findByTemplate(templateId: string,): Promise<MailTemplateB
     const r = await query<DbRow>(
         `SELECT * FROM mail_template_blocks
          WHERE template_id = $1
-         ORDER BY parent_block_id NULLS FIRST, position`,
+         ORDER BY parent_block_id NULLS FIRST, position, created_at ASC, id ASC`,
         [templateId,],
     );
     // Return the raw shape on this path (the editor reads style.id and

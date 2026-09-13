@@ -15,6 +15,7 @@ import { blockDataToRenderBlock, } from '../../utils/blockData';
 import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
+import { planBlockSync, } from '../../services/blockSyncPlan';
 import { contentPaddingStyle, pageBackgroundStyle, } from '../../utils/appearanceStyle';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
@@ -115,9 +116,14 @@ const AdminPageEditor: Component = () => {
         savedBlocks: BlockData[],
         origIds: Set<string>,
     ) => {
-        const currentIds = new Set(currentBlocks.map(b => b.id),);
-        const deletedIds = [...origIds,].filter(id => !currentIds.has(id,));
-        for (const id of deletedIds) {
+        const plan = planBlockSync({
+            current: currentBlocks,
+            saved: savedBlocks,
+            origIds,
+            serialize: blockDataToPageBlock,
+        },);
+
+        for (const id of plan.deletes) {
             try {
                 await cms.pages.deleteBlock(pageId, id,);
             } catch (err) {
@@ -129,68 +135,28 @@ const AdminPageEditor: Component = () => {
             }
         }
 
-        // Per-parent "order" is a block's index within its siblings. Compute
-        // it for both the current arrangement and the last-saved one so we can
-        // tell which blocks actually changed (data, style, parent, or order).
-        const orderIndex = (list: BlockData[],) => {
-            const byParent = new Map<string | null, number>();
-            const byId = new Map<string, number>();
-            for (const b of list) {
-                const key = b.parentBlockId ?? null;
-                const next = (byParent.get(key,) ?? -1) + 1;
-                byParent.set(key, next,);
-                byId.set(b.id, next,);
-            }
-            return byId;
-        };
-        const orderById = orderIndex(currentBlocks,);
-        const savedOrderById = orderIndex(savedBlocks,);
-        const savedById = new Map(savedBlocks.map(b => [b.id, b,] as const),);
-
-        // Only write blocks that are new or whose serialized payload (incl.
-        // order) differs from what was last saved — a page with one edited
-        // block sends one PUT, not one per block. Parents precede children in
-        // the flat array, so this single forward pass POSTs parents before
-        // children (client UUIDs let FK references resolve).
-        for (const b of currentBlocks) {
-            const order = orderById.get(b.id,) ?? 0;
-            const payload = blockDataToPageBlock(b, order,);
-            if (origIds.has(b.id,)) {
-                const saved = savedById.get(b.id,);
-                const savedPayload = saved
-                    ? blockDataToPageBlock(saved, savedOrderById.get(b.id,) ?? 0,)
-                    : null;
-                if (savedPayload && JSON.stringify(payload,) === JSON.stringify(savedPayload,)) {
-                    continue; // unchanged (data + order) — skip
-                }
-                await cms.pages.updateBlock(pageId, b.id, payload as any,);
+        // Parents precede children in the flat array, so this single forward
+        // pass POSTs parents before children (client UUIDs let FK references
+        // resolve).
+        const byId = new Map(currentBlocks.map(b => [b.id, b,] as const),);
+        for (const w of plan.writes) {
+            const block = byId.get(w.id,);
+            if (!block) continue;
+            const payload = blockDataToPageBlock(block, w.order,);
+            if (w.isNew) {
+                await cms.pages.createBlock(pageId, { ...payload, id: w.id, } as any,);
             } else {
-                await cms.pages.createBlock(pageId, { ...payload, id: b.id, } as any,);
+                await cms.pages.updateBlock(pageId, w.id, payload as any,);
             }
         }
 
-        // Per-parent reorder — only when the existing-block sequence under a
-        // parent actually changed. `updateBlock` above already carries each
-        // moved block's order; this is a belt-and-suspenders atomic reorder,
-        // skipped entirely when nothing moved.
-        const seqByParent = (list: BlockData[],) => {
-            const m = new Map<string | null, string[]>();
-            for (const b of list) {
-                if (!origIds.has(b.id,)) continue; // existing rows only
-                const key = b.parentBlockId ?? null;
-                (m.get(key,) ?? m.set(key, [],).get(key,)!).push(b.id,);
-            }
-            return m;
-        };
-        const currentSeq = seqByParent(currentBlocks,);
-        const savedSeq = seqByParent(savedBlocks,);
-        for (const [parentKey, ids,] of currentSeq.entries()) {
-            if (ids.length < 2) continue;
-            const prev = savedSeq.get(parentKey,) ?? [];
-            if (ids.join(',',) === prev.join(',',)) continue; // order unchanged
+        // Atomic per-parent renumber for any sibling group whose sequence moved.
+        // Runs AFTER the writes so newly created rows already exist and pass the
+        // backend's "these blocks belong to this parent" check.
+        for (const r of plan.reorders) {
             await cms.pages.reorderBlocks(pageId, {
-                parentBlockId: parentKey,
-                blockIds: ids,
+                parentBlockId: r.parentBlockId,
+                blockIds: r.blockIds,
             } as any,);
         }
     };

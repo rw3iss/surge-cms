@@ -55,7 +55,7 @@ export interface PostFilters {
 
 export async function findContentBlocks(postId: string,): Promise<ContentBlock[]> {
     const result = await query(
-        'SELECT * FROM post_content_blocks WHERE post_id = $1 ORDER BY sort_order ASC',
+        'SELECT * FROM post_content_blocks WHERE post_id = $1 ORDER BY sort_order ASC, created_at ASC, id ASC',
         [postId,],
     );
 
