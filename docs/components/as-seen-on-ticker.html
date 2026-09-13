@@ -30,6 +30,15 @@
                           content column (the block that USES this component is
                           still capped at the site max-width, and the ticker is
                           meant to run edge to edge). "false" = stay inside it.
+    data-split-min        minimum width of one half of a SPLIT row (default
+                          250px). Two tickers sit side by side while both clear
+                          it and stack when they don't; mobile always stacks.
+
+  SPLIT ROWS
+  Wrap two `.asot__row`s in a `.asot__split` and they run side by side, each a
+  complete ticker — own label, own fades, own speed-matched duration. Default
+  is 50/50; weight a half with `style="--asot-split-grow: 2"`, or give one a
+  different floor with `style="--asot-split-min: 320px"`.
 
   The base CSS below sits in @layer theme — the LOWEST layer — so this
   component's own block styles, and any style set on the block that uses this
@@ -73,6 +82,57 @@
     overflow: hidden;
   }
   .asot__row + .asot__row { margin-top: 6px; }
+
+  /* ── Split row: two independent tickers side by side ──────────────────
+     Each half is a COMPLETE `.asot__row` — its own label, fades, track and
+     duration. That is the whole trick: `.asot__row` is already
+     `position: relative; overflow: hidden`, so the absolutely-positioned label
+     and fades anchor to the half they belong to, and the script already
+     measures every row's own `clientWidth`. A half therefore behaves exactly
+     like a full-width row without the script knowing splits exist.
+
+     `flex-wrap: wrap` plus a min width is what makes the responsive behaviour
+     fall out for free: the halves sit side by side while both fit, and drop to
+     stacked rows the moment they don't. */
+  .asot__split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    column-gap: var(--asot-split-gap, 0px);
+    /* Row gap, not a margin on the second half. A `+` margin applies to the
+       second row whether or not it has wrapped, so side-by-side halves came
+       out 6px apart vertically — the right ticker sat lower than the left.
+       `row-gap` applies ONLY across wrapped lines, which is precisely the
+       stacked case it is meant for. */
+    row-gap: 6px;
+  }
+  .asot__split + .asot__row,
+  .asot__row + .asot__split,
+  .asot__split + .asot__split { margin-top: 6px; }
+
+  .asot__split > .asot__row {
+    /* Default 50/50. A half can be weighted by setting --asot-split-grow on
+       it (e.g. style="--asot-split-grow: 2" for a 2:1 split); the basis stays
+       0 so the grow factors decide the ratio outright rather than dividing up
+       only the leftover space. */
+    flex: var(--asot-split-grow, 1) 1 0;
+    /* Below this, the halves stop being readable strips and start being two
+       clipped words — so they wrap to their own rows instead. */
+    min-width: var(--asot-split-min, 250px);
+  }
+  /* The base `.asot__row + .asot__row` margin must not reach the halves — it
+     would offset the right one vertically while they sit side by side. Their
+     stacked spacing comes from the container's row-gap instead. */
+  .asot__split > .asot__row + .asot__row { margin-top: 0; }
+
+  /* Mobile always stacks, regardless of the min width.
+     Two 250px halves technically fit a 768px tablet, but a ticker needs a run
+     of readable width to be worth scrolling at all — and this matches the
+     site's own mobile breakpoint, so the ticker breaks where everything else
+     on the page does. */
+  @media (max-width: 768px) {
+    .asot__split > .asot__row { flex-basis: 100%; min-width: 0; }
+  }
 
   .asot__viewport { overflow: hidden; }
   /* While scrolling, the track deliberately runs the full width and the items
@@ -296,8 +356,13 @@
   data-justify="center"
   data-pause-on-hover="true"
   data-full-bleed="true"
+  data-split-min="250px"
 >
   <div class="asot__head">As seen on:</div>
+
+  <!-- Top row, split in half: Stations on the left, Publications on the right.
+       Each half is a full ticker in its own right; see .asot__split above. -->
+  <div class="asot__split">
 
   <div class="asot__row">
     <div class="asot__label">Stations:</div>
@@ -337,6 +402,30 @@
     </div>
     <div class="asot__fade asot__fade--left"></div>
     <div class="asot__fade asot__fade--right"></div>
+  </div>
+
+  <div class="asot__row">
+    <div class="asot__label">Publications:</div>
+    <div class="asot__viewport">
+      <div class="asot__track" data-items>
+        <span class="asot__item">New York Post</span>
+        <span class="asot__item">Shore News Network</span>
+        <span class="asot__item">Philadelphia Inquirer</span>
+        <span class="asot__item">Primetimer</span>
+        <span class="asot__item">Campus Reform</span>
+        <span class="asot__item">College Fix</span>
+        <span class="asot__item">Daily Wire</span>
+        <span class="asot__item">Sky News Australia</span>
+        <span class="asot__item">The Australian</span>
+        <span class="asot__item">Philly Mag</span>
+        <span class="asot__item">Broad + Liberty</span>
+        <span class="asot__item">Catholic365</span>
+      </div>
+    </div>
+    <div class="asot__fade asot__fade--left"></div>
+    <div class="asot__fade asot__fade--right"></div>
+  </div>
+
   </div>
 
   <div class="asot__row">

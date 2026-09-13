@@ -49,6 +49,15 @@ export function mount(el, ctx) {
     })();
     const pauseOnHover = isTrue(conf(root, block, 'tickerPauseOnHover', 'data-pause-on-hover', 'true'));
     const fullBleed = isTrue(conf(root, block, 'tickerFullBleed', 'data-full-bleed', 'true'));
+    /**
+     * Minimum width of one half of a split row.
+     *
+     * Published as a CSS variable rather than acted on here: the wrap itself is
+     * pure flexbox, so the browser re-decides it on every resize for free. The
+     * script would only be able to re-check it when it happens to re-measure,
+     * which is strictly worse.
+     */
+    const splitMin = conf(root, block, 'tickerSplitMin', 'data-split-min', '250px').trim();
 
     // A bare number is a pixel count; anything else is a CSS length the author
     // wrote deliberately (rem, %, clamp(), …) and is passed through.
@@ -62,6 +71,13 @@ export function mount(el, ctx) {
         || (gapIsZero ? 'space-evenly' : 'center');
 
     root.style.setProperty('--asot-gap', gapCss);
+    if (splitMin) {
+        // A bare number is a pixel count, matching how data-gap is read.
+        root.style.setProperty(
+            '--asot-split-min',
+            /^-?\d*\.?\d+$/.test(splitMin) ? `${Number(splitMin)}px` : splitMin,
+        );
+    }
     root.classList.toggle('asot--no-labels', !showLabels);
     root.classList.toggle('asot--spread', gapIsZero);
     root.style.setProperty('--asot-justify', justify);

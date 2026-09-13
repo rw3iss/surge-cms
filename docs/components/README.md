@@ -24,6 +24,30 @@ justify-content for a STATIC row (`center`, `space-around`, …) — a scrolling
 track is exactly as wide as its content, so there is no free space for it to
 distribute. `data-speed="0"` also stops the animation.
 
+### Split rows
+
+Wrapping two `.asot__row`s in a `.asot__split` runs them side by side. Each half
+stays a COMPLETE ticker — its own label, fades, and duration derived from its own
+width at the shared px/sec. Nothing in the script knows splits exist: `.asot__row`
+is already the positioning context for its label and fades, and every row is
+measured on its own `clientWidth`, so a half behaves exactly like a full row.
+
+Default is 50/50. Weight a half with `style="--asot-split-grow: 2"` (basis stays
+0, so the grow factors set the ratio outright rather than dividing the leftover).
+`data-split-min` sets the floor per half, default 250px.
+
+Responsive behaviour is plain flexbox — `flex-wrap: wrap` plus that floor — so
+the browser re-decides it on every resize without the script re-measuring. Below
+768px the halves always stack, matching the site's own mobile breakpoint.
+
+Spacing between stacked halves is the container's **`row-gap`**, never a
+`.asot__row + .asot__row` margin: a `+` margin applies whether or not the second
+row has wrapped, which put the right-hand ticker 6px lower than the left while
+they sat side by side.
+
+Current arrangement: **Stations | Publications** split across the top row, then
+**Shows** full width beneath.
+
 ## As Seen On Ticker — logo assets
 
 Four entries use real logos; the rest are the name as styled text.
