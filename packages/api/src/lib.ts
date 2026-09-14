@@ -132,7 +132,11 @@ async function bootRunningMode(): Promise<void> {
     initMerchandiseAnnounce();
     initPrintifyCron();
     cronRegistry.startAll();
-    logger.info('Cron jobs started',);
+    logger.info(
+        config.cronEnabled
+            ? 'Cron jobs started'
+            : 'Cron jobs DISABLED (CRON_ENABLED=false) — this instance schedules nothing',
+    );
 
     // Load enabled plugins (only when the plugins feature is on — else the
     // `plugins` table doesn't exist yet). Isolated: a bad plugin never crashes boot.

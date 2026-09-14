@@ -1,6 +1,7 @@
 import cron, { ScheduledTask, } from 'node-cron';
 import { CronExpressionParser, } from 'cron-parser';
 import { logger, } from '../utils/logger';
+import { config, } from '../config';
 
 export interface CronJobOptions {
     name: string;
@@ -89,6 +90,14 @@ class CronRegistry {
     }
 
     private scheduleJob(name: string, job: RegisteredJob,): void {
+        // Gated HERE rather than at the startAll() call site, because
+        // `registerAndStart` schedules directly — a feature enabled at runtime,
+        // or a social provider connecting, would otherwise start a job on an
+        // instance that is meant to be inert. One choke point, no way past it.
+        if (!config.cronEnabled) {
+            logger.info(`Cron job "${name}" registered but NOT scheduled (CRON_ENABLED=false)`,);
+            return;
+        }
         job.task = cron.schedule(job.options.schedule, async () => {
             if (job.isRunning) {
                 logger.warn(`Cron job "${name}" still running, skipping this tick`,);

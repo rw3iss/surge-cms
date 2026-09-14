@@ -71,6 +71,9 @@ export interface Config {
         listFrom: string | undefined;
     };
 
+    /** False on a warm standby: register jobs but never schedule them. */
+    cronEnabled: boolean;
+
     dataDir: string;
     pluginsDir: string;
 
@@ -219,6 +222,8 @@ function build(parsed: EnvVars,): Config {
             privateKey: parsed.WEB_PUSH_PRIVATE_KEY ?? '',
             subject: parsed.WEB_PUSH_SUBJECT ?? '',
         },
+
+        cronEnabled: parsed.CRON_ENABLED,
 
         dataDir: parsed.DATA_DIR,
         pluginsDir: parsed.PLUGINS_DIR,

@@ -61,6 +61,18 @@ export const envSchema = z.object({
     WEB_PUSH_PRIVATE_KEY: z.string().optional(),
     WEB_PUSH_SUBJECT: z.string().optional(),
 
+    /**
+     * Run this instance's scheduled jobs. Default true.
+     *
+     * Set false on a WARM STANDBY. The crons are not passive — printify:sync
+     * reconciles the live catalogue and resubmits orders, the mail worker
+     * sends, the publisher publishes — so two instances pointed at the same
+     * external accounts both act on the outside world, and the second one's
+     * actions are never wanted. Serving traffic is safe to duplicate; acting
+     * is not.
+     */
+    CRON_ENABLED: z.string().transform((s,) => s !== 'false').prefault('true',),
+
     DATA_DIR: z.string().default('./data',),
     PLUGINS_DIR: z.string().default('./plugins',),
     UPLOAD_MAX_SIZE_MB: z.string().transform(Number,).prefault('500',),
