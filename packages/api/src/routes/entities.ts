@@ -239,9 +239,19 @@ export const entitiesRoutes = [
     defineRoute({
         method: 'post', path: '/:type/:id/copy', auth: 'staff',
         summary: 'Duplicate an entity (deep copy incl. related content blocks)',
-        input: { params: typeIdParam, },
-        handler: async ({ params, userId, },) =>
-            reply(await entitiesSvc.copy(params.type, params.id, { userId, },), { status: 201, },),
+        input: {
+            params: typeIdParam,
+            // Optional field values for the copy, e.g. { title: 'X (Copy)',
+            // slug: 'x-copy' }. Passthrough rather than a fixed shape: this
+            // route serves every entity type, so the fields differ per type and
+            // the service drops anything that is not a real column.
+            body: z.object({ overrides: z.record(z.string(), z.unknown(),).optional(), },).optional(),
+        },
+        handler: async ({ params, body, userId, },) =>
+            reply(
+                await entitiesSvc.copy(params.type, params.id, { userId, }, body?.overrides ?? {},),
+                { status: 201, },
+            ),
     },),
 ];
 

@@ -51,6 +51,14 @@ export interface EntityEditorShellProps<TEntity,> {
     previewBody: JSX.Element;
     /** Optional extra modals (e.g. post banner media pickers). */
     extraModals?: JSX.Element;
+    /**
+     * Duplicate this entity and go to the copy. Omitted → no Clone button, so
+     * an editor opts in rather than every entity growing one by default.
+     * Resolves once navigation has happened (or the attempt failed).
+     */
+    onClone?: () => Promise<void>;
+    /** Label for the clone button, e.g. 'Clone Page'. */
+    cloneLabel?: string;
 }
 
 /**
@@ -65,6 +73,27 @@ export function EntityEditorShell<TEntity,>(
     const e = props.editor;
 
     const [showRevertConfirm, setShowRevertConfirm,] = createSignal(false,);
+    const [showCloneConfirm, setShowCloneConfirm,] = createSignal(false,);
+    const [cloning, setCloning,] = createSignal(false,);
+
+    /**
+     * Clone, saving first when there are unsaved edits.
+     *
+     * The copy is made SERVER-SIDE from the stored row, so anything not yet
+     * saved would simply be missing from it. Rather than silently producing a
+     * copy of an older version, an unsaved editor asks; a clean one goes
+     * straight through.
+     */
+    const runClone = async () => {
+        setCloning(true,);
+        try {
+            if (e.isDirty()) await e.handleSave();
+            await props.onClone?.();
+        } finally {
+            setCloning(false,);
+            setShowCloneConfirm(false,);
+        }
+    };
 
     /**
      * Throw away local draft edits and reload the saved version.
@@ -126,6 +155,21 @@ export function EntityEditorShell<TEntity,>(
                 onCancel={() => setShowRevertConfirm(false,)}
             />
 
+            <ConfirmModal
+                open={showCloneConfirm()}
+                title="Unsaved changes"
+                message={
+                    'The copy is made from the saved version, so your unsaved edits would not be '
+                    + 'included. Save them first, then clone?'
+                }
+                confirmLabel="Save and clone"
+                cancelLabel="Cancel"
+                loading={cloning()}
+                busyLabel="Cloning…"
+                onConfirm={() => void runClone()}
+                onCancel={() => setShowCloneConfirm(false,)}
+            />
+
             <div class="admin-header admin-header--sticky" ref={headerEl}>
                 <h1>{heading()}</h1>
                 <div class="admin-header__actions">
@@ -167,6 +211,18 @@ export function EntityEditorShell<TEntity,>(
                             <a href={props.publicUrl()} target="_blank" class="ui-button ui-button--secondary ui-button--sm">
                                 {props.labels.viewLabel}
                             </a>
+                        </Show>
+                        {/* Clone. Only for a SAVED entity: there is no stored
+                            row to copy until the first save. */}
+                        <Show when={props.onClone && !e.isDeleted()}>
+                            <button
+                                class="ui-button ui-button--secondary ui-button--sm"
+                                title="Create a copy of this page and open it"
+                                disabled={cloning()}
+                                onClick={() => (e.isDirty() ? setShowCloneConfirm(true,) : void runClone())}
+                            >
+                                {cloning() ? 'Cloning…' : (props.cloneLabel ?? 'Clone')}
+                            </button>
                         </Show>
                     </Show>
                     <button class="ui-button ui-button--primary ui-button--sm" onClick={e.handleSave} disabled={e.saving()}>

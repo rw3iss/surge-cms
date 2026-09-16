@@ -83,7 +83,22 @@ async function uniqueSuffixed(
     table: string,
     col: string,
     base: string,
+    /**
+     * Try `base` unchanged before suffixing. Used for a caller-supplied value:
+     * asking for "home-copy" should GET "home-copy", and only fall back to
+     * "home-copy-1" if that is genuinely taken. An automatic copy still starts
+     * at -1, because there the base is the source row's own value and is taken
+     * by definition.
+     */
+    tryBaseFirst = false,
 ): Promise<string> {
+    if (tryBaseFirst) {
+        const r = await client.query(
+            `SELECT 1 FROM "${table}" WHERE "${col}" = $1 LIMIT 1`,
+            [base,],
+        );
+        if (r.rows.length === 0) return base;
+    }
     for (let n = 1; n <= 1000; n++) {
         const candidate = `${base}-${n}`;
         const r = await client.query(
@@ -101,7 +116,12 @@ async function uniqueSuffixed(
  * Excludes `id` / `created_at` / `updated_at` (defaults mint fresh values) and
  * any GENERATED column; overrides unique columns with fresh values.
  */
-async function cloneBaseRow(client: PoolClient, typeDef: EntityTypeDef, sourceId: string,): Promise<string> {
+async function cloneBaseRow(
+    client: PoolClient,
+    typeDef: EntityTypeDef,
+    sourceId: string,
+    overrides: Record<string, unknown> = {},
+): Promise<string> {
     const table = assertSafeIdentifier(typeDef.tableName, 'table name',);
     const cols = await tableColumns(client, table,);
     if (cols.length === 0) throw new NotFoundError(`Table "${table}"`,);
@@ -129,10 +149,20 @@ async function cloneBaseRow(client: PoolClient, typeDef: EntityTypeDef, sourceId
         if (c.generated || EXCLUDE.has(c.name,)) continue;
         insertCols.push(`"${c.name}"`,);
 
+        // A caller-supplied value wins over the source row's. It still goes
+        // through the unique check below, so a requested slug that is already
+        // taken gets suffixed rather than blowing up on the constraint.
+        const hasOverride = Object.hasOwn(overrides, c.name,);
+        if (hasOverride && !unique.has(c.name,)) {
+            params.push(overrides[c.name],);
+            selectExprs.push(`$${params.length}`,);
+            continue;
+        }
+
         if (unique.has(c.name,)) {
-            const val = row[c.name];
+            const val = hasOverride ? overrides[c.name] : row[c.name];
             if (typeof val === 'string' && val !== '') {
-                const fresh = await uniqueSuffixed(client, table, c.name, val,);
+                const fresh = await uniqueSuffixed(client, table, c.name, val, hasOverride,);
                 params.push(fresh,);
                 selectExprs.push(`$${params.length}`,);
                 continue;
@@ -235,8 +265,14 @@ async function cloneChildTable(
  * Deep-copy one record of `typeDef` (base row + registered child tables),
  * returning the new record's id. MUST run inside a transaction (`client`).
  */
-export async function copyRecord(client: PoolClient, typeDef: EntityTypeDef, sourceId: string,): Promise<string> {
-    const newId = await cloneBaseRow(client, typeDef, sourceId,);
+export async function copyRecord(
+    client: PoolClient,
+    typeDef: EntityTypeDef,
+    sourceId: string,
+    /** Column values to use instead of the source row's (snake_case keys). */
+    overrides: Record<string, unknown> = {},
+): Promise<string> {
+    const newId = await cloneBaseRow(client, typeDef, sourceId, overrides,);
     for (const child of CHILD_TABLES[typeDef.key] ?? []) {
         await cloneChildTable(client, child.table, child.fk, sourceId, newId,);
     }

@@ -469,8 +469,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "methods": [
             {
                 "name": "copy",
-                "signature": "copy(type: string, id: string): Promise<EntityRecord>",
-                "summary": "Deep-duplicate a record (base row + related content blocks); returns the clone, with unique columns (slug/email/…) suffixed so they don't collide."
+                "signature": "copy(type: string, id: string, overrides?: Record<string, unknown>): Promise<EntityRecord>",
+                "summary": "Duplicate a record, deep-copying related content blocks. `overrides` names fields on the COPY (e.g. `{ title: 'X (Copy)', slug: 'x-copy' }`); anything omitted is taken from the source. A unique value that is already taken gets suffixed rather than failing, so a caller can ask for a slug without first checking whether it is free."
             },
             {
                 "name": "count",

@@ -46,8 +46,20 @@ export class EntitiesModule extends ModuleBase {
 
     /** Deep-duplicate a record (base row + related content blocks); returns the
      *  clone, with unique columns (slug/email/…) suffixed so they don't collide. */
-    copy(type: string, id: string,): Promise<EntityRecord> {
-        return this.mutate<EntityRecord>('POST', '/entities/:type/:id/copy', { params: { type, id, }, invalidates: ['entities',], },);
+    /**
+     * Duplicate a record, deep-copying related content blocks.
+     *
+     * `overrides` names fields on the COPY (e.g. `{ title: 'X (Copy)', slug:
+     * 'x-copy' }`); anything omitted is taken from the source. A unique value
+     * that is already taken gets suffixed rather than failing, so a caller can
+     * ask for a slug without first checking whether it is free.
+     */
+    copy(type: string, id: string, overrides?: Record<string, unknown>,): Promise<EntityRecord> {
+        return this.mutate<EntityRecord>('POST', '/entities/:type/:id/copy', {
+            params: { type, id, },
+            body: overrides ? { overrides, } : undefined,
+            invalidates: ['entities',],
+        },);
     }
 
     async count(type: string, query?: EntityQuery,): Promise<number> {

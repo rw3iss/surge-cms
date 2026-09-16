@@ -14,6 +14,7 @@ import { Layout, } from '../../components/layout/Layout';
 import { blockDataToRenderBlock, } from '../../utils/blockData';
 import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
+import { useNavigate, } from '@solidjs/router';
 import { cms, } from '../../services/cmsClient';
 import { planBlockSync, } from '../../services/blockSyncPlan';
 import { contentPaddingStyle, pageBackgroundStyle, } from '../../utils/appearanceStyle';
@@ -580,6 +581,37 @@ const AdminPageEditor: Component = () => {
         </Layout>
     );
 
+    const navigate = useNavigate();
+
+    /**
+     * Duplicate this page and open the copy.
+     *
+     * Naming is requested explicitly rather than left to the copy endpoint's
+     * automatic `-1` suffix: "Home (Copy)" / "home-copy" is what an operator
+     * expects to find in the list. The server still collision-checks, so a
+     * second clone becomes "home-copy-1" instead of failing.
+     */
+    const handleClone = async () => {
+        const current = editor.entity() as { id?: string; title?: string; slug?: string; } | undefined;
+        const id = current?.id;
+        if (!id) return;
+        const baseTitle = current?.title || title() || 'Untitled';
+        const baseSlug = current?.slug || slug();
+        try {
+            const copy = await cms.entities.copy('page', id, {
+                title: `${baseTitle} (Copy)`,
+                ...(baseSlug ? { slug: `${baseSlug}-copy`, } : {}),
+                // A copy starts as a draft: publishing is a decision, and an
+                // exact duplicate of a live page appearing on the site the
+                // moment someone clicks Clone is never what was meant.
+                status: 'draft',
+            },) as { id?: string; };
+            if (copy?.id) navigate(`/admin/pages/${copy.id}`,);
+        } catch (err) {
+            toast.error(`Could not clone this page: ${(err as Error).message}`,);
+        }
+    };
+
     return (
         <EntityEditorShell
             containerStyleExtra={() => pageBackgroundStyle(backgroundColor(),)}
@@ -608,6 +640,8 @@ const AdminPageEditor: Component = () => {
             }}
             properties={properties}
             previewBody={previewBody}
+            onClone={handleClone}
+            cloneLabel="Clone"
         />
     );
 };

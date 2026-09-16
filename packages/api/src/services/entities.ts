@@ -8,7 +8,7 @@ import { type EntityFieldOption, type EntityQuery, type EntityRecord, generateSl
 import * as repo from '../repositories/genericEntity.repo';
 import * as entityManager from '../entities/entityManager';
 import { getEntityDataProvider, } from '../entities/dataProviders';
-import { validateRecord, } from '../entities/columnMap';
+import { columnFor, validateRecord, } from '../entities/columnMap';
 import { copyRecord, } from '../entities/recordCopy';
 import { transaction, } from '../db/client';
 import { cache, CACHE_KEYS, } from './cache';
@@ -137,9 +137,33 @@ export async function update(
  * blocks), all in one transaction. Returns the freshly-minted clone (admin view)
  * so the caller can redirect the operator straight into editing it.
  */
-export async function copy(typeKey: string, id: string, _ctx: { userId?: string; } = {},): Promise<EntityRecord> {
+export async function copy(
+    typeKey: string,
+    id: string,
+    _ctx: { userId?: string; } = {},
+    /**
+     * Field values for the copy, keyed by FIELD name (camelCase, as the API
+     * speaks). Anything not listed is taken from the source row.
+     *
+     * Exists so a caller can name the duplicate — "Title (Copy)" / "slug-copy"
+     * — rather than accepting the automatic `-1` suffix. Unique values are
+     * still collision-checked, so a requested slug that is taken is suffixed
+     * instead of failing.
+     */
+    overrides: Record<string, unknown> = {},
+): Promise<EntityRecord> {
     const t = await requireType(typeKey,);
-    const newId = await transaction((client,) => copyRecord(client, t, id,));
+    // Translate field names to column names; ignore anything that is not a
+    // real column on this type, so a stray key can't reach the INSERT.
+    const byColumn: Record<string, unknown> = {};
+    for (const [k, v,] of Object.entries(overrides,)) {
+        const field = t.fields.find((f,) => f.key === k);
+        if (!field) continue;
+        try {
+            byColumn[columnFor(field,)] = v;
+        } catch { /* non-column field (e.g. blocks) — not overridable */ }
+    }
+    const newId = await transaction((client,) => copyRecord(client, t, id, byColumn,));
     await cache.invalidateEntityCache(typeKey,);
     // Core types keep their own caches alongside the generic entity cache.
     const coreInvalidators: Record<string, () => Promise<void>> = {
