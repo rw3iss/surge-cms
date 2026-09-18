@@ -58,7 +58,9 @@ Four entries use real logos; the rest are the name as styled text.
 | Newsmax | `iY-Ho-4bcg7e.svg` | Wikimedia Commons, PD-textlogo |
 | Real America's Voice | `xGumGw7KZ-6o.svg` | Wikimedia Commons, PD-textlogo |
 | Blaze TV | `Lat50TvKo9nX.svg` | Wikimedia Commons, CC0 — **the TheBlaze/Blaze Media wordmark, not the BlazeTV lockup** |
-| Newsmax 2, OAN, Timcast | — | no freely-licensed mark found |
+| Newsmax 2 | `CX4oLmwlgyVe.png` | supplied by the operator; greyscaled and downscaled before upload |
+| OAN | `CK3ZH84BPJN4.png` | supplied by the operator; greyscaled and downscaled before upload |
+| Timcast | — | no freely-licensed mark found |
 | all nine shows | — | show titles; most have no logo asset at all |
 
 **PD-textlogo** means the mark is below the threshold of originality, so there
@@ -71,6 +73,18 @@ To add a logo later: upload it in Media, then in the ticker's HTML block swap
 the entry's text for `<img class="asot__logo" src="<url>" alt="<name>">`, with
 `style="--asot-logo-h: 30px"` if it needs to sit taller (stacked lockups do;
 plain wordmarks want the 19px default).
+
+**Prepare a raster logo before uploading.** The CSS greyscales at render time,
+but a colour PNG still ships its colour channels to every visitor. Convert to
+greyscale and downscale to ~4x the rendered height — flat graphics cost almost
+nothing at that size (both of the PNGs above are ~10KB) and stay crisp on a
+retina display. Greyscale is idempotent, so the render-time filter still lands
+these at the same weight as the colour SVGs beside them:
+
+```
+sharp(src).grayscale().resize({ height: displayH * 4, fit: 'inside' })
+          .png({ compressionLevel: 9, palette: true })
+```
 
 ## Merch Notification Tout — it must not depend on the page behind it
 
