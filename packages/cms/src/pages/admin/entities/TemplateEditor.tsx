@@ -15,6 +15,7 @@ import { Component, createEffect, createMemo, createResource, createSignal, For,
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
 import { mountComponentScript, } from '../../../services/componentScript';
 import JsEditor from '../../../components/admin/common/JsEditor';
+import Toggle from '../../../components/admin/common/Toggle';
 import EntitySearchSelectModal from '../../../components/admin/entities/EntitySearchSelectModal';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
@@ -103,6 +104,10 @@ const TemplateEditor: Component = () => {
     const [script, setScript,] = createSignal('',);
     const [scriptEnabled, setScriptEnabled,] = createSignal(true,);
     const [scriptOpen, setScriptOpen,] = createSignal(false,);
+    /** Editor filling the window. Deliberately NOT persisted — an expanded
+     *  editor on next open would hide the rest of the page for someone who had
+     *  forgotten they left it that way. */
+    const [scriptExpanded, setScriptExpanded,] = createSignal(false,);
 
     /**
      * Run the component's client module over its own editor previews.
@@ -475,18 +480,35 @@ const TemplateEditor: Component = () => {
                                     <code>ctx.cms</code>, and worked examples.
                                 </span>
                             </p>
-                            <label class="template-script-section__toggle-row">
-                                <input
-                                    type="checkbox"
+                            <div class={`template-script-section__toolbar${
+                                scriptExpanded() ? ' template-script-section__toolbar--stuck' : ''
+                            }`}>
+                                <Toggle
                                     checked={scriptEnabled()}
-                                    onChange={(e,) => setScriptEnabled(e.currentTarget.checked,)}
+                                    onChange={setScriptEnabled}
+                                    label="Run this script (turn off to disable without deleting it)"
                                 />
-                                <span>Run this script (uncheck to disable without deleting it)</span>
-                            </label>
+                                {/* Sits across from the run toggle, on the row
+                                    above the editor — the code is the thing
+                                    being expanded, so the control belongs with
+                                    it rather than in the section header. */}
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary btn-sm template-script-section__expand"
+                                    onClick={() => setScriptExpanded((v,) => !v)}
+                                    aria-pressed={scriptExpanded()}
+                                    title={scriptExpanded() ? 'Shrink the editor' : 'Expand the editor to fill the window'}
+                                >
+                                    {scriptExpanded() ? '⤡ Shrink' : '⤢ Expand'}
+                                </button>
+                            </div>
                             <JsEditor
                                 value={script()}
                                 onChange={setScript}
-                                height="360px"
+                                // Expanded fills the window minus room for the
+                                // sticky admin header, so the toolbar above
+                                // stays reachable without scrolling away.
+                                height={scriptExpanded() ? 'calc(100vh - 5rem)' : '360px'}
                                 placeholder={'export function mount(el, ctx) {\n  // ...\n  return () => {};\n}'}
                             />
                         </div>

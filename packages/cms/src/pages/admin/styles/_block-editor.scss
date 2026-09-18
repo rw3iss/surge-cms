@@ -1598,3 +1598,51 @@
         &__edit { text-align: center; }
     }
 }
+
+// Component JavaScript: the row above the editor. The run toggle sits left and
+// the expand control right, across from it — the control belongs with the code
+// it resizes, not up in the section header.
+.template-script-section__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+    margin-bottom: $spacing-sm;
+
+    // Breathing room between the switch and its label. The shared default is
+    // $spacing-sm (8px) and reads cramped against a full sentence, so this row
+    // doubles it — scoped here rather than changed globally, which would shift
+    // every one of the 30 files using the toggle.
+    .toggle-control {
+        gap: $spacing-md;
+    }
+
+    // The label is a sentence, not a heading — keep it from crowding the
+    // button when the row is narrow enough to wrap.
+    .toggle-control__label {
+        font-size: $font-size-sm;
+        line-height: 1.35;
+    }
+}
+
+// Expanded, the editor is taller than the viewport, so scrolling to read the
+// code puts this row — and the Shrink button on it — behind the sticky admin
+// header. Sticking it just below the header keeps the way out reachable;
+// without it the only escape from full height is a page reload.
+.template-script-section__toolbar--stuck {
+    position: sticky;
+    // Clears `.admin-header`, which is `position: sticky; top: 0` at 70px.
+    top: 70px;
+    z-index: 5;
+    margin-bottom: 0;
+    padding: $spacing-sm 0;
+    // Opaque, or the code scrolls visibly through the row. `--admin-bg` does
+    // not exist; the admin content column is white.
+    background: #fff;
+}
+
+.template-script-section__expand {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}

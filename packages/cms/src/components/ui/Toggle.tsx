@@ -1,7 +1,16 @@
 /**
- * Toggle — the single project-wide on/off switch. Drop-in replacement for
- * `<input type="checkbox">` for binary settings (anything conceptually "on or
- * off", not "pick one/more from a set" — those stay plain checkboxes).
+ * Toggle — the single project-wide on/off switch, and the DEFAULT control for
+ * anything that would otherwise be `<input type="checkbox">`.
+ *
+ * **Project rule: no raw checkboxes.** A boolean gets this switch. A radio
+ * group may use switches too, but prefer restating the choice as independent
+ * toggles where that reads naturally.
+ *
+ * The one exception is SELECTION rather than settings — ticking rows in a table
+ * for a bulk action, or a public form's "choose all that apply". A switch means
+ * "this is now on"; a tick means "this one is included". Those use
+ * `ui/Checkbox`, which is still custom-styled, so no native checkbox is
+ * rendered anywhere either way.
  *
  * Renders switch-first (switch on the left, optional label after) as a
  * `role="switch"` button: one deliberate flip, keyboard-accessible via

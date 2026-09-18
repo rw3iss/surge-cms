@@ -11,6 +11,7 @@
  *    hunts for a Sync button that will never work.
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import Toggle from '../../../components/admin/common/Toggle';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../../components/common/toast';
 import { FormField, } from '../../../components/admin/forms';
@@ -161,10 +162,10 @@ const ProviderDetail: Component<{ provider: ProviderSummary; onSaved: () => void
                         <Show
                             when={f.type !== 'boolean'}
                             fallback={
-                                <input
-                                    type="checkbox"
+                                <Toggle
                                     checked={form()[f.key] !== false}
-                                    onChange={(e,) => set(f.key, e.currentTarget.checked,)}
+                                    onChange={(next,) => set(f.key, next,)}
+                                    ariaLabel={f.label}
                                 />
                             }
                         >

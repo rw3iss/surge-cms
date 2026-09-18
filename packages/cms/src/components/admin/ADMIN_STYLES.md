@@ -3,6 +3,37 @@
 Where admin SCSS lives, when to share with the main site, and how to add
 new styles without breaking the rest.
 
+## Booleans — MANDATORY, no raw checkboxes
+
+**Every boolean uses the `Toggle` switch** (`components/ui/Toggle`, re-exported
+as `components/admin/common/Toggle`) — never `<input type="checkbox">`.
+
+```tsx
+import Toggle from '../common/Toggle';
+
+<Toggle checked={enabled()} onChange={setEnabled} label="Show in navigation" />
+```
+
+A **radio group** may use switches too, but prefer restating the choice as
+independent toggles where that reads naturally; a set of switches where exactly
+one may be on is confusing, so keep a real radio group when the options are
+genuinely exclusive and numerous.
+
+### The one exception: selection, not settings
+
+Ticking rows in a table for a bulk action, or a public form's "choose all that
+apply", is **selection** — a switch says *"this is now on"*, a tick says *"this
+one is included"*. Those use `components/ui/Checkbox`, which is still
+custom-styled (its own indicator, not the browser's), so **no native checkbox is
+rendered anywhere** either way.
+
+### Label spacing
+
+`Toggle` lays out switch-first with `gap: 0.5rem`. That reads cramped when the
+label is a full sentence rather than two words — widen it on the containing row
+(`.my-row .toggle-control { gap: $spacing-md; }`) rather than changing the
+shared default, which would shift every one of the 30+ files using it.
+
 ## Forms & field labels — MANDATORY, one style everywhere
 
 **Every admin form field uses the `FormField` component** (`components/admin/forms`)

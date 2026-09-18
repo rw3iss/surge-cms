@@ -420,3 +420,82 @@
         }
     }
 }
+
+
+// ─── Custom checkboxes, everywhere ──────────────────────────────────────────
+//
+// Project rule (ADMIN_STYLES.md): no NATIVE checkbox is ever rendered. A
+// boolean setting should be a `Toggle` switch; what remains as a checkbox is
+// SELECTION — ticking rows for a bulk action, or picking several categories —
+// where a tick ("this one is included") reads better than a switch ("this is
+// now on").
+//
+// Done as one `appearance: none` rule rather than by converting each call site
+// to a component: the selection checkboxes are nested inside `<label>`
+// elements, and a component that renders its own `<label>` would nest labels —
+// invalid, and it breaks the click target. This also means a checkbox added
+// later is styled correctly without anyone remembering to do anything.
+//
+// `.toggle-control` is excluded: the switch has its own markup and no input.
+.admin-layout input[type="checkbox"],
+.form-renderer input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border: 2px solid $border-color;
+    border-radius: $border-radius-sm;
+    background-color: #fff;
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: background-color $transition-fast, border-color $transition-fast;
+
+    // The tick is drawn with a rotated box rather than an SVG so it needs no
+    // extra element — these inputs are bare `<input>` tags across 12 files.
+    &::before {
+        content: '';
+        width: 5px;
+        height: 9px;
+        margin-top: -2px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg) scale(0);
+        transition: transform $transition-fast;
+    }
+
+    &:checked {
+        background-color: var(--site-primary, #{$primary-color});
+        border-color: var(--site-primary, #{$primary-color});
+
+        &::before { transform: rotate(45deg) scale(1); }
+    }
+
+    // A "some but not all selected" header box. Browsers set this via the
+    // `indeterminate` DOM property, which has no HTML attribute — styling it
+    // costs nothing and it renders correctly wherever it is already used.
+    &:indeterminate {
+        background-color: var(--site-primary, #{$primary-color});
+        border-color: var(--site-primary, #{$primary-color});
+
+        &::before {
+            width: 9px;
+            height: 0;
+            margin-top: 0;
+            border-width: 0 0 2px 0;
+            transform: none;
+        }
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--site-primary, #{$primary-color});
+        outline-offset: 2px;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}

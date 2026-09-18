@@ -1,4 +1,5 @@
 import { isAdminRole, } from '@sitesurge/types';
+import Toggle from '../components/admin/common/Toggle';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -217,14 +218,12 @@ const Login: Component = () => {
                         </div>
 
                         <div class="login__remember">
-                            <label class="login__remember-label">
-                                <input
-                                    type="checkbox"
-                                    checked={rememberMe()}
-                                    onChange={(e,) => setRememberMe(e.currentTarget.checked,)}
-                                />
-                                <span>Remember me for 30 days</span>
-                            </label>
+                            <Toggle
+                                checked={rememberMe()}
+                                onChange={setRememberMe}
+                                label="Remember me for 30 days"
+                                class="login__remember-label"
+                            />
                         </div>
 
                         <button
