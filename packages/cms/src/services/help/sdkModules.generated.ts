@@ -832,6 +832,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /mailing-lists/:id/subscribers — `{ items, total }` wrapper (NON-STANDARD: paging lives inside data, not on meta)."
             },
             {
+                "name": "subscriptionStatus",
+                "signature": "subscriptionStatus(slug: string): Promise<ListSubscriptionStatusResponse>",
+                "summary": "PUBLIC — GET /lists/:slug/subscription. \"Am I on this list?\" for the SIGNED-IN caller only; takes no email and answers `false` when anonymous, so it cannot be used to test someone else's membership."
+            },
+            {
                 "name": "update",
                 "signature": "update(id: string, body: MailingListUpdateBody): Promise<MailingListUpdateResponse>",
                 "summary": "PUT /mailing-lists/:id — update a list (admin)."
@@ -2134,4 +2139,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 368;
+export const SDK_METHOD_COUNT = 369;

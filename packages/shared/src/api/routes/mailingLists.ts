@@ -208,3 +208,20 @@ export interface ListSubscribeBody {
 export type ListSubscribeResponse =
     | { status: SubscriberStatus; id: string; }
     | { status: SubscriberStatus; already: true; };
+
+/**
+ * GET /lists/:slug/subscription — "am I on this list?", for the SIGNED-IN
+ * caller only.
+ *
+ * There is deliberately no request body and no email parameter: the address is
+ * taken from the session. An endpoint that answered for an arbitrary address
+ * would let anyone test whether a given person subscribes to a given list.
+ *
+ * Anonymous callers, an unknown slug and a disabled list all answer
+ * `{ subscribed: false }` rather than erroring — every one of them leads a
+ * front-end to the same decision (show the prompt), and a 404 would turn a
+ * mis-typed slug into a console error on every page load.
+ */
+export interface ListSubscriptionStatusResponse {
+    subscribed: boolean;
+}

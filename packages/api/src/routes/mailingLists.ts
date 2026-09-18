@@ -17,6 +17,7 @@
  * Public sub-router mounted at /api/v1/lists (optional tier — email-only
  * subscribers, captures req.user when present):
  *   POST   /:slug/subscribe                      — { email, name?, phone?, customFields? }
+ *   GET    /:slug/subscription                   — { subscribed } for the CALLER only
  *
  * (Token-based unsubscribe lives in routes/unsubscribe.ts, mounted at
  * the public root.)
@@ -196,5 +197,16 @@ export const listsPublicRoutes = [
             userId: user?.id,
             userEmail: user?.email,
         },),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:slug/subscription', auth: 'optional',
+        summary: "Is the signed-in caller subscribed to this list? Anonymous always answers false.",
+        input: { params: z.object({ slug: z.string(), },), },
+        // No email input, by design. The address comes from the session, so
+        // this cannot be used to test whether someone else is on a list — see
+        // the service for why that matters.
+        handler: ({ params, user, },) =>
+            mailingLists.getSubscriptionStatus(params.slug, { userEmail: user?.email, },),
     },),
 ];

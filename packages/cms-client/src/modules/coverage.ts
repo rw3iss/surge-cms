@@ -214,6 +214,7 @@ export const ROUTE_COVERAGE: string[] = [
 
     // ── lists (public subscribe; same module handle) ──
     'POST /api/v1/lists/:slug/subscribe',
+    'GET /api/v1/lists/:slug/subscription',
 
     // ── mail (send jobs) ──
     'POST /api/v1/mail/send',

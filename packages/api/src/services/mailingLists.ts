@@ -176,6 +176,41 @@ export async function forceConfirmSubscriber(subId: string,) {
 // ─── Public subscribe (double opt-in) ────────────────────────────────
 
 /**
+ * Is the SIGNED-IN caller on this list?
+ *
+ * Deliberately takes the email from the session and NOT from the request, and
+ * answers `false` for an anonymous caller. An endpoint that accepted an
+ * arbitrary address would be a membership oracle — anyone could test whether a
+ * given person subscribes to a given list. That is the same property the shop's
+ * merchandise signup protects by answering identically for a new and an
+ * existing address; this must not undo it by the back door.
+ *
+ * So the contract is narrow on purpose: *"am I on this list?"*, never *"is this
+ * person on this list?"*. Anonymous visitors have no server-side identity, so
+ * their only suppression signal is local to their browser.
+ *
+ * `false` for a missing or disabled list rather than a 404: the caller is a
+ * front-end deciding whether to show a signup prompt, and "there is no such
+ * list" and "you are not on it" lead to the same decision. A 404 would only
+ * turn a mis-typed slug into a console error on every page load.
+ */
+export async function getSubscriptionStatus(
+    slug: string,
+    actor: { userEmail?: string; },
+): Promise<{ subscribed: boolean; }> {
+    if (!actor.userEmail) return { subscribed: false, };
+
+    const list = await lists.findBySlug(slug,);
+    if (!list || !list.isEnabled) return { subscribed: false, };
+
+    const existing = await subs.findByEmail(list.id, actor.userEmail,);
+    // Only a settled 'subscribed' row counts. A `pending_confirmation` row
+    // means a double-opt-in email is sitting unclicked in their inbox, and
+    // re-prompting is exactly the right thing to do there.
+    return { subscribed: existing?.status === 'subscribed', };
+}
+
+/**
  * Public subscribe by list slug. For registered-users-only lists the
  * caller must supply an authenticated user (email/userId derived from
  * the session); otherwise an email is required. Double-opt-in lists

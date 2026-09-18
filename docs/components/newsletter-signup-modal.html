@@ -1,0 +1,191 @@
+<style>
+/* Newsletter signup modal — see newsletter-signup-modal.js.
+   Nothing here is visible until the script portals the overlay into <body>,
+   so these rules are written against `body > .nl-signup-overlay`, NOT against
+   anything inside the component's own subtree. */
+
+/* The config carrier. It has no content and never paints; it exists so the
+   operator can retune the component without editing JavaScript, the same way
+   the ticker's root does. `display:none` rather than the `hidden` attribute:
+   a block style that sets `display` would override the attribute. */
+.nl-signup { display: none !important; }
+
+.nl-signup-overlay{
+  position:fixed;
+  inset:0;
+  /* Above a sticky site header. The header sits in the low thousands, and a
+     modal the header can cover is worse than no modal. */
+  z-index:10000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background:rgba(0,0,0,.6);
+  /* Fades in off the element's own mount — no signal, no class toggle. */
+  animation:nl-signup-fade .18s ease-out;
+}
+
+.nl-signup-modal{
+  position:relative;
+  width:100%;
+  max-width:440px;
+  /* A tall viewport is not guaranteed — a phone in landscape is ~380px high.
+     Cap and scroll rather than letting the dialog run off both ends, which
+     puts the submit button somewhere unreachable. */
+  max-height:calc(100vh - 32px);
+  overflow-y:auto;
+  box-sizing:border-box;
+  padding:30px 28px 26px;
+  border-radius:14px;
+  background:#fff;
+  color:#1a1a1a;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  animation:nl-signup-rise .22s cubic-bezier(.2,.8,.3,1);
+}
+
+.nl-signup-modal__close{
+  position:absolute;
+  top:6px;
+  right:10px;
+  /* 40px square: a 26px glyph is a fine target with a mouse and a poor one
+     with a thumb. The box is invisible; only the glyph reads. */
+  width:40px;
+  height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:none;
+  color:#777;
+  font:inherit;
+  font-size:28px;
+  line-height:1;
+  cursor:pointer;
+  transition:background-color .12s ease,color .12s ease;
+}
+.nl-signup-modal__close:hover{background:rgba(0,0,0,.06);color:#111}
+.nl-signup-modal__close:focus-visible{outline:3px solid var(--site-primary,#ED2024);outline-offset:2px}
+
+.nl-signup-modal__title{
+  margin:0 0 8px;
+  padding-right:34px; /* clear the × */
+  font-size:1.5rem;
+  line-height:1.15;
+  color:inherit;
+}
+.nl-signup-modal__lede{margin:0 0 20px;color:#555;line-height:1.45}
+
+.nl-signup-modal__field{display:block;margin-bottom:14px;font-size:.82rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#444}
+.nl-signup-modal__field em{font-weight:400;text-transform:none;letter-spacing:0;color:#8a8a8a}
+.nl-signup-modal__field input{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin-top:6px;
+  padding:11px 13px;
+  border:1px solid #ccc;
+  border-radius:8px;
+  font:inherit;
+  font-size:1rem;
+  font-weight:400;
+  text-transform:none;
+  letter-spacing:0;
+  color:#1a1a1a;
+}
+.nl-signup-modal__field input:focus{
+  outline:none;
+  border-color:var(--site-primary,#ED2024);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--site-primary,#ED2024) 22%,transparent);
+}
+/* Only after a failed submit — `novalidate` + this class, so the field is not
+   painted red while it is still being typed into for the first time. */
+.nl-signup-modal--invalid .nl-signup-modal__field input:invalid{border-color:#d51b1f}
+
+.nl-signup-modal__msg{margin:0 0 14px;font-weight:600;line-height:1.4;color:#1a7f37}
+.nl-signup-modal__msg--error{color:#d51b1f}
+
+.nl-signup-modal__actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+/* The CTA draws its own border in currentColor rather than a fixed colour.
+   The merch tout learned this the hard way: a button whose edge only exists
+   against one page background disappears on the other. */
+.nl-signup-modal__submit{
+  flex:1 1 auto;
+  min-width:150px;
+  padding:13px 26px;
+  border:2px solid currentColor;
+  border-radius:9999px;
+  background:var(--site-primary,#ED2024);
+  color:var(--site-button-text,#fff);
+  font:inherit;
+  font-size:1rem;
+  font-weight:800;
+  line-height:1.2;
+  cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;
+}
+.nl-signup-modal__submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.24)}
+.nl-signup-modal__submit:active:not(:disabled){transform:translateY(0)}
+.nl-signup-modal__submit:focus-visible{outline:3px solid #111;outline-offset:3px}
+.nl-signup-modal__submit:disabled{opacity:.65;cursor:default;transform:none;box-shadow:none}
+
+.nl-signup-modal__dismiss{
+  flex:0 0 auto;
+  padding:13px 8px;
+  border:0;
+  background:none;
+  color:#777;
+  font:inherit;
+  font-size:.95rem;
+  text-decoration:underline;
+  cursor:pointer;
+}
+.nl-signup-modal__dismiss:hover{color:#111}
+.nl-signup-modal__dismiss:focus-visible{outline:3px solid var(--site-primary,#ED2024);outline-offset:2px}
+
+@keyframes nl-signup-fade{from{opacity:0}to{opacity:1}}
+@keyframes nl-signup-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* A pop-up that slides in is an unpleasant surprise for anyone who asked the
+   system not to animate. The modal still appears — only the motion goes. */
+@media(prefers-reduced-motion:reduce){
+  .nl-signup-overlay,.nl-signup-modal{animation:none}
+}
+
+@media(max-width:768px){
+  .nl-signup-modal{padding:26px 20px 22px}
+  .nl-signup-modal__title{font-size:1.3rem}
+  /* Stack: side by side, "No thanks" ends up as a cramped column beside a
+     wrapped CTA. Full-width each, CTA first. */
+  .nl-signup-modal__actions{flex-direction:column;align-items:stretch;gap:6px}
+  .nl-signup-modal__dismiss{padding:10px 8px}
+}
+</style>
+
+<!-- No visible markup by design: this component's whole job happens in its
+     client module, which portals a dialog into <body>. The element below
+     carries configuration and never renders.
+
+     Every value can also be set on the USING block's settings, which win over
+     these attributes — so the same component can prompt for a different list,
+     or at a different delay, on another page.
+
+       data-list          mailing list SLUG to subscribe to        (newsletter)
+       data-delay         ms to wait after load before showing     (2000)
+       data-dismiss-days  days to stay quiet after a dismissal,
+                          0 = ask again on the very next page view (7)
+       data-title         dialog heading
+       data-lede          paragraph under the heading
+       data-submit-label  CTA text
+       data-dismiss-label text button beside the CTA
+-->
+<div class="nl-signup"
+     data-list="newsletter"
+     data-delay="2000"
+     data-dismiss-days="7"
+     data-title="Stay in the Loop"
+     data-lede="Get our headlines and new drops straight to your inbox. No spam, unsubscribe any time."
+     data-submit-label="Sign me up"
+     data-dismiss-label="No thanks"></div>

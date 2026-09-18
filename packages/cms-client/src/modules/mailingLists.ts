@@ -6,7 +6,7 @@ import type {
     MailingListSubscriberUpdateBody, MailingListSubscriberUpdateResponse,
     MailingListSubscriberDeleteResponse, MailingListSubscribersBulkDeleteBody,
     MailingListSubscribersBulkDeleteResponse, MailingListSubscriberForceConfirmResponse,
-    ListSubscribeBody, ListSubscribeResponse,
+    ListSubscribeBody, ListSubscribeResponse, ListSubscriptionStatusResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -80,5 +80,12 @@ export class MailingListsModule extends ModuleBase {
      *  `/mailing-lists`); double-opt-in-aware union response. */
     subscribe(slug: string, body: ListSubscribeBody,): Promise<ListSubscribeResponse> {
         return this.mutate<ListSubscribeResponse>('POST', '/lists/:slug/subscribe', { params: { slug, }, body, invalidates: ['mailingLists',], },);
+    }
+
+    /** PUBLIC — GET /lists/:slug/subscription. "Am I on this list?" for the
+     *  SIGNED-IN caller only; takes no email and answers `false` when
+     *  anonymous, so it cannot be used to test someone else's membership. */
+    subscriptionStatus(slug: string,): Promise<ListSubscriptionStatusResponse> {
+        return this.get<ListSubscriptionStatusResponse>('/lists/:slug/subscription', { params: { slug, }, },);
     }
 }

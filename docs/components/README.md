@@ -13,6 +13,7 @@ component editor).
 |---|---|---|
 | `as-seen-on-ticker.{html,js}` | As Seen On Ticker | surgemedia.us |
 | `merch-notification-tout.{html,js}` | Merch Notification Tout | surgemedia.us |
+| `newsletter-signup-modal.{html,js}` | Newsletter Signup Modal | surgemedia.us |
 
 The ticker never wraps, in any state — one row per label, always. There is no
 wrapping mode to turn on.
@@ -110,3 +111,70 @@ The border is therefore `currentColor` (the button's own brand red), not `#fff`:
 the button draws its own edge on any background. Keep it that way. If you give
 the button a new colour, take the border with it — do not reintroduce a value
 that only exists on one of the two pages.
+
+## Newsletter Signup Modal — an invisible component
+
+This one renders **nothing**. Its HTML block is a `<style>` plus a `display:none`
+config carrier; the client module decides whether to ask the visitor to join a
+list and portals a dialog into `<body>`. Place it in a block anywhere on the
+page — the end is the conventional spot — and turn OFF default padding, or an
+invisible component still takes vertical space.
+
+### Who gets asked
+
+Three independent suppressions, checked cheapest first:
+
+| # | Signal | Scope | Expires |
+|---|---|---|---|
+| 1 | Signed up here | `localStorage`, this browser | never |
+| 2 | Dismissed here | `localStorage`, this browser | after `dismissDays` (default 7) |
+| 3 | Subscribed on the account | server, signed-in only | n/a |
+
+The order is the point. (1) and (2) are synchronous reads, so a returning
+visitor costs **no request at all**; (3) is the only signal that knows about a
+subscription made on another device, and it is only answerable for someone
+signed in. A positive (3) is written back into (1), so it is asked once per
+browser rather than once per page view.
+
+An anonymous visitor has no server-side identity, so `localStorage` is the only
+signal they have — which is why signing up writes there immediately rather than
+relying on a later lookup.
+
+**Every close is a dismissal** — ×, "No thanks", `Escape`, and the backdrop all
+record the same thing. There is deliberately no way to close it that leaves it
+able to reappear on the next page view; from the visitor's side that is
+indistinguishable from a bug.
+
+**It never opens under `/admin`.** The component renders in the page editor's
+block preview exactly as it does on the site, so without that guard the operator
+gets a modal thrown over the editor every time they open the page holding it.
+
+### Membership is not a public fact
+
+The check calls `GET /lists/:slug/subscription`, which takes **no email** and
+answers `false` for an anonymous caller — it reads the address from the session.
+An endpoint that answered for an arbitrary address would let anyone test whether
+a given person subscribes to a given list, which is the exact property the
+shop's merchandise signup protects by answering identically for a new and an
+existing address. If you extend this endpoint, keep it to *"am I on this
+list?"*, never *"is this person on this list?"*.
+
+### Configuration
+
+Each value can be set on the **using block's settings** (which win) or as a
+`data-` attribute in the component's HTML block, so one component can prompt for
+a different list, or at a different delay, on another page.
+
+| Block setting | Attribute | Default | |
+|---|---|---|---|
+| `listSlug` | `data-list` | `newsletter` | mailing list **slug** |
+| `popupDelay` | `data-delay` | `2000` | ms after load before showing |
+| `dismissDays` | `data-dismiss-days` | `7` | quiet period after a dismissal; **0 = ask again next page view** |
+| `modalTitle` | `data-title` | Stay in the Loop | |
+| `modalLede` | `data-lede` | … | paragraph under the heading |
+| `submitLabel` | `data-submit-label` | Sign me up | |
+| `dismissLabel` | `data-dismiss-label` | No thanks | |
+
+A double-opt-in list gets a different success message ("check your inbox"),
+because telling someone they are subscribed while a confirmation email sits
+unclicked is how a list quietly stops growing.
