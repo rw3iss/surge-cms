@@ -178,3 +178,29 @@ a different list, or at a different delay, on another page.
 A double-opt-in list gets a different success message ("check your inbox"),
 because telling someone they are subscribed while a confirmation email sits
 unclicked is how a list quietly stops growing.
+
+## Publishing a component
+
+`tools/publish-component.mjs` is the step that makes the files in this
+directory true — it pushes one to a running site's API:
+
+```
+CMS_EMAIL=… CMS_PASSWORD=… node tools/publish-component.mjs \
+  --site https://surgemedia.us \
+  --name "Newsletter Signup Modal" \
+  --html docs/components/newsletter-signup-modal.html \
+  --js   docs/components/newsletter-signup-modal.js
+```
+
+Idempotent: it matches an existing component by exact name and updates it in
+place (reusing the html block's row id), otherwise creates one. `--dry-run`
+prints what it would do and needs no credentials, because it makes no requests.
+
+Credentials come from the environment, never an argument — an argument is
+visible in `ps` and lands in shell history. `CMS_TOKEN` takes an already-issued
+admin access token instead.
+
+**An `ssk_` API key will not work.** Key auth attaches no role, and writing a
+component's script is gated on the separate `components:script` permission
+precisely because it is arbitrary code in every visitor's browser. It has to be
+a person.
