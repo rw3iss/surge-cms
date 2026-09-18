@@ -74,9 +74,15 @@ export const envSchema = z.object({
     CRON_ENABLED: z.string().transform((s,) => s !== 'false').prefault('true',),
 
     /**
-     * Node worker processes to fork. `1` (the default) runs exactly as before —
-     * one process, no cluster — so Docker images and npm consumers are
+     * Number of SERVING worker processes. `1` (the default) runs exactly as
+     * before — one process, no cluster — so Docker images and npm consumers are
      * unaffected until they opt in. `auto` uses one per CPU core.
+     *
+     * Above 1 there is also a supervising primary, which does not serve
+     * requests: `node:cluster` shares a socket by having the primary own the
+     * handle, and a primary that listens for itself starves the workers. It
+     * stays near idle, so `CLUSTER_WORKERS=2` on a 2-core box still gives each
+     * worker a core.
      *
      * Worth setting on any box with more than one core: a Node process runs
      * JavaScript on ONE thread, so a single instance cannot use the second core

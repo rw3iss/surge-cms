@@ -46,9 +46,21 @@ say "Restarting service"
 ssh "$SERVER" "sudo systemctl restart surge && sleep 4 && systemctl is-active surge"
 
 say "Health check"
-if curl -fsS --max-time 20 "https://$HOST/api/v1/health" >/dev/null; then
+# Retry rather than ask once. In cluster mode the primary forks workers and each
+# runs its own boot (pools, caches, plugins) before binding, so the port is
+# briefly unserved after `systemctl restart` and a single early probe reports a
+# 502 for a deploy that is in fact fine — observed exactly that.
+healthy=false
+for attempt in $(seq 1 10); do
+  if curl -fsS --max-time 10 "https://$HOST/api/v1/health" >/dev/null 2>&1; then
+    healthy=true
+    break
+  fi
+  sleep 3
+done
+if [ "$healthy" = true ]; then
   printf '\033[1;32m✓ https://%s is healthy\033[0m\n' "$HOST"
 else
-  printf '\033[1;31m✗ health check failed — check: ssh %s "journalctl -u surge -n 60 --no-pager"\033[0m\n' "$SERVER"
+  printf '\033[1;31m✗ health check failed after 10 attempts — check: ssh %s "journalctl -u surge -n 60 --no-pager"\033[0m\n' "$SERVER"
   exit 1
 fi

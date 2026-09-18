@@ -18,7 +18,7 @@
  */
 import fs from 'fs/promises';
 import path from 'path';
-import type { Server } from 'http';
+import { createServer, type Server, } from 'http';
 import { createApp, } from './app';
 import { config, getConfig, loadConfig, } from './config';
 import { closePool, initPool, } from './db/client';
@@ -206,11 +206,11 @@ export async function startServer(): Promise<Server> {
 
     loadConfig();
 
-    // Fork before touching the database. Every worker shares the listening
-    // socket, so the kernel spreads connections across processes — which is the
-    // only way to use a second core, since one Node process runs JavaScript on
-    // one thread.
+    // Fork before touching the database. Workers share the listening socket via
+    // the primary, which is the only way to use a second core — one Node
+    // process runs JavaScript on one thread.
     const role = initCluster(getConfig().clusterWorkers,);
+    const isClusterPrimary = role === 'primary';
 
     const state = await getInstallationState(true,);
     const mode = state.needsSetup ? 'setup' : 'running';
@@ -232,8 +232,21 @@ export async function startServer(): Promise<Server> {
         }
     }
 
-    const app = createApp(mode,);
     const cfg = getConfig();
+
+    // The cluster primary must NOT listen. `node:cluster` shares a socket by
+    // having the primary own the handle and pass accepted connections down; a
+    // primary that also binds the port for itself wins every connection and the
+    // workers sit idle. It supervises and runs the crons instead.
+    if (isClusterPrimary) {
+        logger.info(`Supervising ${cfg.clusterWorkers} worker(s); this process does not serve requests`,);
+        installShutdown(null,);
+        // Callers expect a Server. This one is deliberately not listening —
+        // the workers are.
+        return createServer();
+    }
+
+    const app = createApp(mode,);
     const server = app.listen(cfg.port, () => {
         logger.info(`Server running on port ${cfg.port}`,);
         logger.info(`Environment: ${cfg.env}`,);
@@ -255,8 +268,21 @@ export async function startServer(): Promise<Server> {
         }
     }
 
+    installShutdown(server,);
+
+    return server;
+}
+
+/**
+ * Install signal handlers that close down cleanly.
+ *
+ * `server` is null in the cluster primary, which supervises rather than
+ * listens — it still has crons, a pool and a Redis connection to release, so it
+ * needs the same teardown minus the socket handling.
+ */
+function installShutdown(server: Server | null,): void {
     const openSockets = new Set<import('net').Socket>();
-    server.on('connection', (socket,) => {
+    server?.on('connection', (socket,) => {
         openSockets.add(socket,);
         socket.on('close', () => openSockets.delete(socket,),);
     },);
@@ -284,8 +310,8 @@ export async function startServer(): Promise<Server> {
         forceExitTimer.unref();
 
         try {
-            server.close();
-            if (typeof (server as unknown as { closeAllConnections?: () => void; }).closeAllConnections === 'function') {
+            server?.close();
+            if (server && typeof (server as unknown as { closeAllConnections?: () => void; }).closeAllConnections === 'function') {
                 (server as unknown as { closeAllConnections: () => void; }).closeAllConnections();
             }
             for (const socket of openSockets) socket.destroy();
@@ -328,6 +354,4 @@ export async function startServer(): Promise<Server> {
     process.on('unhandledRejection', (reason,) => {
         logger.error('Unhandled rejection', { reason, },);
     },);
-
-    return server;
 }

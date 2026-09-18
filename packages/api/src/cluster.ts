@@ -44,22 +44,30 @@ import { logger, } from './utils/logger';
 const RESPAWN_DELAY_MS = 1000;
 
 /**
- * Fork `workers - 1` children and return the role this process should play.
+ * Fork `workers` children and return the role this process should play.
+ *
+ * THE PRIMARY DOES NOT SERVE TRAFFIC. That is not a style choice — it is how
+ * `node:cluster` works. Socket sharing happens by the primary owning the
+ * listening handle and handing accepted connections to workers; if the primary
+ * also calls `listen()` for itself it binds the port directly and wins every
+ * connection, leaving the workers idle. Measured exactly that way on the first
+ * attempt: primary at 110% CPU, worker at 0%, throughput no better than one
+ * process.
+ *
+ * So `CLUSTER_WORKERS` counts SERVING processes. The primary is a supervisor
+ * that also runs the once-only work (migrations, crons), which leaves it near
+ * idle — on a 2-core box, two workers still get a core each.
  *
  * Returns `'single'` when clustering is off, so callers can treat "no cluster"
- * and "the primary" identically where it does not matter, and distinguish them
- * where it does (logging, mainly).
+ * and "the primary" identically where it does not matter.
  */
 export function initCluster(workers: number,): 'single' | 'primary' | 'worker' {
     if (workers <= 1) return 'single';
     if (!cluster.isPrimary) return 'worker';
 
-    // The primary serves traffic as well, so it forks one FEWER child than the
-    // requested worker count.
-    const children = workers - 1;
-    logger.info(`Cluster mode: ${workers} processes (primary + ${children} forked)`,);
+    logger.info(`Cluster mode: ${workers} worker(s) + a supervising primary`,);
 
-    for (let i = 0; i < children; i++) cluster.fork();
+    for (let i = 0; i < workers; i++) cluster.fork();
 
     cluster.on('exit', (worker, code, signal,) => {
         // A deliberate shutdown sends SIGTERM; replacing the worker then would
