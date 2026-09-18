@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Express, json, raw, urlencoded, } from 'express';
 import rateLimit from 'express-rate-limit';
+import { RedisRateLimitStore, } from './middleware/rateLimitStore';
 import helmet from 'helmet';
 import path from 'path';
 import { existsSync, } from 'fs';
@@ -105,6 +106,11 @@ export function createApp(mode: AppMode = 'running',): Express {
     const limiter = rateLimit({
         windowMs: config.rateLimit.windowMs,
         max: config.rateLimit.maxRequests,
+        // Counters live in Redis, not process memory. With CLUSTER_WORKERS > 1
+        // an in-memory store gives each worker its own tally, so the configured
+        // ceiling would silently multiply by the worker count. Falls open if
+        // Redis is down — see the store for why that is the right failure.
+        store: new RedisRateLimitStore(),
         message: {
             success: false,
             error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later', },

@@ -73,6 +73,21 @@ export const envSchema = z.object({
      */
     CRON_ENABLED: z.string().transform((s,) => s !== 'false').prefault('true',),
 
+    /**
+     * Node worker processes to fork. `1` (the default) runs exactly as before —
+     * one process, no cluster — so Docker images and npm consumers are
+     * unaffected until they opt in. `auto` uses one per CPU core.
+     *
+     * Worth setting on any box with more than one core: a Node process runs
+     * JavaScript on ONE thread, so a single instance cannot use the second core
+     * however busy it gets. Measured on the 2-core production box, the process
+     * saturated at ~1.2 cores with the second core idle.
+     *
+     * Side effects that must happen ONCE (migrations, seeding, cron scheduling,
+     * resuming mail jobs) are run by the primary only — see `cluster.ts`.
+     */
+    CLUSTER_WORKERS: z.string().prefault('1',),
+
     DATA_DIR: z.string().default('./data',),
     PLUGINS_DIR: z.string().default('./plugins',),
     UPLOAD_MAX_SIZE_MB: z.string().transform(Number,).prefault('500',),

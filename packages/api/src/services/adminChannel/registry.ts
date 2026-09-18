@@ -3,13 +3,19 @@
  * connected to the admin right now. Keyed by CONNECTION (a user may have several
  * tabs); `roster()` aggregates connections down to one entry per user.
  *
- * Purely in-process: presence is ephemeral and node-local. A multi-instance
- * deployment would need a shared pub/sub (Redis) — out of scope for now; the
- * CMS runs as a single node.
+ * The map below holds only THIS process's connections. When the server runs
+ * more than one process (`CLUSTER_WORKERS`), each owns a different slice of the
+ * sockets, so `roster()` merges the local map with every peer's published slice
+ * (`peers.ts`). Without that merge two staff users on two workers would not see
+ * each other — and it would fail silently, the roster simply looking short.
+ *
+ * With a single process there are no peers and this behaves exactly as it did
+ * when it was purely in-memory.
  */
 import type { WebSocket, } from 'ws';
 import type { AdminPresenceUser, UserRole, } from '@sitesurge/types';
 import { getActiveTimeoutMs, } from './config';
+import { remoteConnections, type PeerConnection, } from './peers';
 
 export interface AdminConnection {
     connectionId: string;
@@ -64,6 +70,21 @@ export function connectionCount(): number {
     return connections.size;
 }
 
+/** This process's slice, in the shape peers publish (no socket — not serialisable). */
+export function localSnapshot(): PeerConnection[] {
+    return [...connections.values(),].map((c,) => ({
+        connectionId: c.connectionId,
+        userId: c.userId,
+        displayName: c.displayName,
+        email: c.email,
+        role: c.role,
+        page: c.page,
+        pageLabel: c.pageLabel,
+        lastActiveAt: c.lastActiveAt,
+        reportedActive: c.reportedActive,
+    }),);
+}
+
 /**
  * Aggregate connections into one presence row per user. A user is `active` if
  * ANY of their connections is reported-active AND within the idle timeout; their
@@ -74,7 +95,12 @@ export async function roster(): Promise<AdminPresenceUser[]> {
     const now = Date.now();
     const byUser = new Map<string, AdminPresenceUser & { _lastMs: number; }>();
 
-    for (const c of connections.values()) {
+    // Local connections plus every peer process's. Aggregating by userId
+    // already handles the same person appearing twice, so a user with tabs on
+    // two workers collapses to one row exactly as multiple tabs on one worker do.
+    const all: PeerConnection[] = [...localSnapshot(), ...(await remoteConnections()),];
+
+    for (const c of all) {
         const active = c.reportedActive && (now - c.lastActiveAt) <= timeoutMs;
         const existing = byUser.get(c.userId,);
         if (!existing) {

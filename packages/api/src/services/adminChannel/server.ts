@@ -25,6 +25,7 @@ import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getActiveTimeoutMs, } from './config';
 import * as registry from './registry';
+import * as peers from './peers';
 
 let wss: WebSocketServer | null = null;
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
@@ -83,13 +84,31 @@ function send(ws: WebSocket, payload: unknown,): void {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload,),);
 }
 
-async function broadcastPresence(): Promise<void> {
+/**
+ * Send the current roster to the sockets THIS process owns.
+ *
+ * Split from `broadcastPresence` so a peer's notification can refresh local
+ * clients without publishing again — otherwise two workers would each treat the
+ * other's notification as a change worth announcing and ping-pong forever.
+ */
+async function broadcastLocal(): Promise<void> {
     const users = await registry.roster();
     const payload = JSON.stringify({ type: 'presence', users, },);
     for (const ws of registry.allSockets()) {
         if (ws.readyState === WebSocket.OPEN) ws.send(payload,);
     }
     lastSignature = users.map((u,) => `${u.userId}:${u.active ? 1 : 0}:${u.page ?? ''}:${u.pageLabel ?? ''}`).join('|',);
+}
+
+/**
+ * Announce a local change: tell our own clients, then hand our slice to the
+ * other processes so their clients hear about it too.
+ *
+ * Publishing second is deliberate — our own clients should never wait on Redis.
+ */
+async function broadcastPresence(): Promise<void> {
+    await broadcastLocal();
+    await peers.publish(registry.localSnapshot(),);
 }
 
 /** Heartbeat (drop dead sockets) + re-broadcast when active/idle state drifts. */
@@ -182,6 +201,18 @@ async function onConnection(ws: LiveSocket, user: AuthedUser,): Promise<void> {
 /** Attach the channel to the HTTP server. Idempotent. */
 export function attachAdminChannel(server: Server,): void {
     if (wss) return;
+
+    // Share presence across processes when the server is clustered. A peer's
+    // notification refreshes OUR clients only — `broadcastLocal`, not
+    // `broadcastPresence` — or each side would answer the other's announcement
+    // with one of its own, forever.
+    if (config.clusterWorkers > 1) {
+        void peers.initPeers(
+            `w${process.env.NODE_APP_WORKER_ID ?? process.pid}`,
+            () => { void broadcastLocal(); },
+        );
+    }
+
     wss = new WebSocketServer({ noServer: true, },);
     server.on('upgrade', (req, socket, head,) => {
         let pathname = '';

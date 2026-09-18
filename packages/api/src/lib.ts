@@ -33,6 +33,7 @@ import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCro
 import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
 import { assertNoCycles, } from './features/registry';
+import { initCluster, processLabel, stopCluster, } from './cluster';
 
 // ─── Re-exported surface for embedders / tooling (e.g. @sitesurge/cli) ─────
 export { createApp, type AppMode, } from './app';
@@ -50,8 +51,17 @@ export type { InstallInput, } from './services/setup/types';
 /**
  * Warm up DB/Redis/crons and apply pending migrations. Called by
  * `startServer` when the instance is already installed ('running' mode).
+ *
+ * `runOnceOnlyWork` is false in a forked cluster worker. Everything a worker
+ * needs to SERVE a request (pool, caches, permissions, entity metadata, plugins)
+ * still runs in every process; only the things that must happen exactly once
+ * per machine are skipped — schema migrations, core-entity seeding, cron
+ * scheduling, and resuming interrupted mail jobs. Running those N times would
+ * race the schema and send every scheduled email once per worker.
  */
-async function bootRunningMode(): Promise<void> {
+async function bootRunningMode(
+    { runOnceOnlyWork = true, }: { runOnceOnlyWork?: boolean; } = {},
+): Promise<void> {
     logger.info('Connecting to database...',);
     initPool();
     logger.info('Database connected',);
@@ -59,14 +69,16 @@ async function bootRunningMode(): Promise<void> {
     // Apply any pending migrations. Idempotent; feature-tagged migrations are
     // skipped when their feature is disabled, so new feature-scoped migrations
     // land on the next restart once the feature is enabled — no manual CLI step.
-    try {
-        const result = await runMigrations();
-        if (result.appliedCount > 0) {
-            logger.info(`Boot-time migrations applied: ${result.appliedFilenames.join(', ',)}`,);
+    if (runOnceOnlyWork) {
+        try {
+            const result = await runMigrations();
+            if (result.appliedCount > 0) {
+                logger.info(`Boot-time migrations applied: ${result.appliedFilenames.join(', ',)}`,);
+            }
+        } catch (err) {
+            logger.error('Boot-time migrations failed', { error: err, },);
+            // Don't crash — surface the error and continue serving /health.
         }
-    } catch (err) {
-        logger.error('Boot-time migrations failed', { error: err, },);
-        // Don't crash — surface the error and continue serving /health.
     }
 
     // Register permissions for the core plus every ENABLED feature, so a
@@ -125,18 +137,26 @@ async function bootRunningMode(): Promise<void> {
     await fs.mkdir(avatarDir, { recursive: true, },);
     logger.info(`Data directory: ${path.resolve(config.dataDir,)}`,);
 
-    await initSocialCrons();
-    initScheduledPublisher();
-    // No-op unless the shop feature is on and auto-send is enabled; the handler
-    // checks both, so registration is unconditional and cheap.
-    initMerchandiseAnnounce();
-    initPrintifyCron();
-    cronRegistry.startAll();
-    logger.info(
-        config.cronEnabled
-            ? 'Cron jobs started'
-            : 'Cron jobs DISABLED (CRON_ENABLED=false) — this instance schedules nothing',
-    );
+    // Crons: PRIMARY ONLY. Each registered job is a timer, so a forked worker
+    // that also scheduled them would publish the same post, sync the same
+    // catalogue and send the same merchandise announcement once per process.
+    // Nothing else depends on registration, so a worker simply skips it.
+    if (runOnceOnlyWork) {
+        await initSocialCrons();
+        initScheduledPublisher();
+        // No-op unless the shop feature is on and auto-send is enabled; the handler
+        // checks both, so registration is unconditional and cheap.
+        initMerchandiseAnnounce();
+        initPrintifyCron();
+        cronRegistry.startAll();
+        logger.info(
+            config.cronEnabled
+                ? 'Cron jobs started'
+                : 'Cron jobs DISABLED (CRON_ENABLED=false) — this instance schedules nothing',
+        );
+    } else {
+        logger.info('Cron jobs not scheduled in this process (cluster worker)',);
+    }
 
     // Load enabled plugins (only when the plugins feature is on — else the
     // `plugins` table doesn't exist yet). Isolated: a bad plugin never crashes boot.
@@ -159,12 +179,18 @@ async function bootRunningMode(): Promise<void> {
         logger.warn('Analytics CSP init skipped', { error: err, },);
     }
 
-    // Resume any send jobs left 'running' by a previous crash (idempotent).
-    try {
-        const { resumeRunningJobs, } = await import('./services/mail/sendWorker.js');
-        void resumeRunningJobs();
-    } catch (err) {
-        logger.warn('Could not start send-job resumer', { error: err, },);
+    // Resume send jobs left 'running' by a previous crash — PRIMARY ONLY.
+    //
+    // The worker claims recipients atomically (FOR UPDATE SKIP LOCKED), so N
+    // resumers would not double-send; they would just compete for the same rows
+    // and open N times the SMTP connections for no benefit. One is enough.
+    if (runOnceOnlyWork) {
+        try {
+            const { resumeRunningJobs, } = await import('./services/mail/sendWorker.js');
+            void resumeRunningJobs();
+        } catch (err) {
+            logger.warn('Could not start send-job resumer', { error: err, },);
+        }
     }
 }
 
@@ -179,13 +205,26 @@ export async function startServer(): Promise<Server> {
     assertNoCycles();
 
     loadConfig();
+
+    // Fork before touching the database. Every worker shares the listening
+    // socket, so the kernel spreads connections across processes — which is the
+    // only way to use a second core, since one Node process runs JavaScript on
+    // one thread.
+    const role = initCluster(getConfig().clusterWorkers,);
+
     const state = await getInstallationState(true,);
     const mode = state.needsSetup ? 'setup' : 'running';
-    logger.info(`Boot mode: ${mode}`, { stage: state.stage, blockers: state.blockers, },);
+    logger.info(`Boot mode: ${mode} [${processLabel()}]`, { stage: state.stage, blockers: state.blockers, },);
 
+    // Migrations, seeding, cron scheduling and resuming interrupted mail jobs
+    // must happen exactly ONCE. Running them in every worker would race the
+    // schema and send every scheduled email N times.
+    //
+    // A forked worker still needs its caches and connection pools warmed, so it
+    // runs the same boot with the once-only work skipped.
     if (mode === 'running') {
         try {
-            await bootRunningMode();
+            await bootRunningMode({ runOnceOnlyWork: role !== 'worker', },);
         } catch (error) {
             logger.error('Running-mode boot failed; falling back to setup mode', {
                 error: (error as Error).message,
@@ -231,7 +270,12 @@ export async function startServer(): Promise<Server> {
             process.exit(1,);
         }
         shuttingDown = true;
-        logger.info(`Received ${signal}, shutting down...`,);
+        logger.info(`Received ${signal}, shutting down... [${processLabel()}]`,);
+
+        // Tell the primary to stop treating worker exits as crashes and pass
+        // the signal down. Without this its `exit` handler forks a replacement
+        // for each worker as it dies and the service never stops.
+        stopCluster(signal as NodeJS.Signals,);
 
         const forceExitTimer = setTimeout(() => {
             logger.error(`Shutdown took longer than ${FORCE_EXIT_MS}ms — forcing exit`,);
@@ -254,6 +298,13 @@ export async function startServer(): Promise<Server> {
                 const { flushAll, } = await import('./services/revisions.js');
                 await flushAll();
             } catch { /* non-fatal: never block shutdown on history */ }
+            // Drop this process's presence slice, or its users linger on the
+            // roster until the key's TTL expires — which on a rolling restart
+            // shows staff who have already gone.
+            try {
+                const { shutdownPeers, } = await import('./services/adminChannel/peers.js');
+                await shutdownPeers();
+            } catch { /* presence is a convenience; never block shutdown */ }
             await Promise.allSettled([closePool(), cache.close(),],);
             logger.info('Shutdown complete',);
             clearTimeout(forceExitTimer,);

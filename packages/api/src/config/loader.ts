@@ -1,5 +1,24 @@
 import dotenv from 'dotenv';
+import os from 'node:os';
 import { envSchema, type EnvVars, } from './schema';
+
+/**
+ * How many workers to fork: a positive integer, or `auto` for one per core.
+ *
+ * Anything unparseable falls back to 1 rather than throwing — a typo in an env
+ * var must not stop the site booting, and 1 is the pre-cluster behaviour.
+ * Capped at the core count because extra workers past that only add context
+ * switching and memory; each one is a full copy of the app.
+ */
+export function resolveClusterWorkers(raw: string | undefined,): number {
+    const cores = Math.max(1, os.cpus().length,);
+    if (!raw) return 1;
+    const v = raw.trim().toLowerCase();
+    if (v === 'auto' || v === 'max') return cores;
+    const n = Number.parseInt(v, 10,);
+    if (!Number.isFinite(n,) || n < 1) return 1;
+    return Math.min(n, cores,);
+}
 
 /**
  * Reloadable config loader. The previous module evaluated env at import
@@ -73,6 +92,9 @@ export interface Config {
 
     /** False on a warm standby: register jobs but never schedule them. */
     cronEnabled: boolean;
+
+    /** Worker processes to fork. 1 = no cluster (the default). */
+    clusterWorkers: number;
 
     dataDir: string;
     pluginsDir: string;
@@ -224,6 +246,7 @@ function build(parsed: EnvVars,): Config {
         },
 
         cronEnabled: parsed.CRON_ENABLED,
+        clusterWorkers: resolveClusterWorkers(parsed.CLUSTER_WORKERS,),
 
         dataDir: parsed.DATA_DIR,
         pluginsDir: parsed.PLUGINS_DIR,
