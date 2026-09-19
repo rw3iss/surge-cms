@@ -1,6 +1,8 @@
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
+import { fontStack, } from '../../../utils/appearanceStyle';
+import ConfirmModal from '../common/ConfirmModal';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import { useToast, } from '../../common/toast';
 import ColorPicker from '../appearance/ColorPicker';
@@ -47,6 +49,33 @@ interface SiteHeaderItem {
     order: number;
     /** Sub-items for a 'menu' item — rendered as a hover/focus dropdown. */
     children?: SiteHeaderItem[];
+}
+
+/**
+ * The editor's full state, for Revert. A structural type rather than reusing
+ * the save payload: the payload drops empty strings to `undefined`, and
+ * restoring those would turn a deliberately-cleared field back into a default.
+ */
+interface HeaderSnapshot {
+    items: SiteHeaderItem[];
+    bgColor: string;
+    textColor: string;
+    bgColorAlt: string;
+    textColorAlt: string;
+    defaultPostHeaderStyle: 'default' | 'alt';
+    defaultPageHeaderStyle: 'default' | 'alt';
+    defaultFont: string;
+    textSize: string;
+    headerPadding: string;
+    headerMargin: string;
+    itemSpacing: string;
+    applyGutter: boolean;
+    sticky: boolean;
+    autoHide: boolean;
+    headerPosition: 'static' | 'float';
+    floatRightContent: boolean;
+    showCart: boolean;
+    loggedInFormat: 'inline' | 'menu';
 }
 
 const genId = () => 'hdr-' + Date.now() + '-' + Math.random().toString(36,).slice(2, 7,);
@@ -137,6 +166,18 @@ const SiteHeaderEditor: Component = () => {
     const [loggedInFormat, setLoggedInFormat,] = createSignal<'inline' | 'menu'>('inline',);
     const [selectedItemId, setSelectedItemId,] = createSignal<string | null>(null,);
     const [isDirty, setIsDirty,] = createSignal(false,);
+    /**
+     * The header exactly as it was when last SAVED — taken after load, and
+     * refreshed on every successful save. Revert restores this.
+     *
+     * Snapshotting the resolved SIGNALS rather than the server payload matters:
+     * `onMount` only assigns a field when the response actually carries it, so
+     * a setting the server omits keeps its editor default. Replaying the raw
+     * response would lose those defaults and revert to something the operator
+     * never saw.
+     */
+    const [baseline, setBaseline,] = createSignal<HeaderSnapshot | null>(null,);
+    const [confirmRevert, setConfirmRevert,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
     const [loading, setLoading,] = createSignal(true,);
 
@@ -157,6 +198,66 @@ const SiteHeaderEditor: Component = () => {
     >(null,);
 
     // ─── Load ───
+
+    /** Every piece of editor state a save would persist. */
+    const snapshot = (): HeaderSnapshot => ({
+        // Items are cloned one level deep — `children` arrays would otherwise
+        // stay shared with the live state and a reverted menu would keep the
+        // sub-items that were added after the snapshot.
+        items: items().map((i,) => ({ ...i, children: i.children?.map((c,) => ({ ...c, })), })),
+        bgColor: bgColor(),
+        textColor: textColor(),
+        bgColorAlt: bgColorAlt(),
+        textColorAlt: textColorAlt(),
+        defaultPostHeaderStyle: defaultPostHeaderStyle(),
+        defaultPageHeaderStyle: defaultPageHeaderStyle(),
+        defaultFont: defaultFont(),
+        textSize: textSize(),
+        headerPadding: headerPadding(),
+        headerMargin: headerMargin(),
+        itemSpacing: itemSpacing(),
+        applyGutter: applyGutter(),
+        sticky: sticky(),
+        autoHide: autoHide(),
+        headerPosition: headerPosition(),
+        floatRightContent: floatRightContent(),
+        showCart: showCart(),
+        loggedInFormat: loggedInFormat(),
+    });
+
+    const restore = (snap: HeaderSnapshot,): void => {
+        setItems(snap.items.map((i,) => ({ ...i, children: i.children?.map((c,) => ({ ...c, })), })),);
+        setBgColor(snap.bgColor,);
+        setTextColor(snap.textColor,);
+        setBgColorAlt(snap.bgColorAlt,);
+        setTextColorAlt(snap.textColorAlt,);
+        setDefaultPostHeaderStyle(snap.defaultPostHeaderStyle,);
+        setDefaultPageHeaderStyle(snap.defaultPageHeaderStyle,);
+        setDefaultFont(snap.defaultFont,);
+        setTextSize(snap.textSize,);
+        setHeaderPadding(snap.headerPadding,);
+        setHeaderMargin(snap.headerMargin,);
+        setItemSpacing(snap.itemSpacing,);
+        setApplyGutter(snap.applyGutter,);
+        setSticky(snap.sticky,);
+        setAutoHide(snap.autoHide,);
+        setHeaderPosition(snap.headerPosition,);
+        setFloatRightContent(snap.floatRightContent,);
+        setShowCart(snap.showCart,);
+        setLoggedInFormat(snap.loggedInFormat,);
+        // The selected item may not exist in the restored list, and the edit
+        // panel would otherwise keep showing a row that is no longer there.
+        setSelectedItemId(null,);
+        setEditItem(null,);
+        setIsDirty(false,);
+    };
+
+    const doRevert = (): void => {
+        const snap = baseline();
+        if (snap) restore(snap,);
+        setConfirmRevert(false,);
+        toast.success('Reverted to the last saved header.',);
+    };
 
     onMount(async () => {
         try {
@@ -195,6 +296,10 @@ const SiteHeaderEditor: Component = () => {
         } catch (e) {
             console.error('Failed to load site header settings:', e,);
         } finally {
+            // After the sets, so the baseline is what the operator actually
+            // sees. Taken even when the load failed: reverting to the editor
+            // defaults still beats having the button do nothing.
+            setBaseline(snapshot(),);
             setLoading(false,);
         }
     },);
@@ -301,6 +406,11 @@ const SiteHeaderEditor: Component = () => {
             };
             await cms.settings.siteHeader(payload as any,);
             setIsDirty(false,);
+            // Revert discards UNSAVED changes, so a successful save becomes the
+            // new baseline. Without this, editing after a save and reverting
+            // would jump back past the save and leave the editor disagreeing
+            // with what is stored.
+            setBaseline(snapshot(),);
             toast.success('Site header saved.',);
         } catch (e) {
             toast.error('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'),);
@@ -477,6 +587,32 @@ const SiteHeaderEditor: Component = () => {
         setChildren(arr,);
     };
 
+    /**
+     * The preview's own styles, mirroring what `layout/Header.tsx` applies to
+     * the real bar — from the DRAFT signals, so every setting shows as it is
+     * changed rather than only after a save.
+     *
+     * `font-family` was the omission that prompted this: changing "Default
+     * font" updated nothing here, so the preview quietly disagreed with the
+     * saved result. It goes through the shared `fontStack` rather than being
+     * assigned raw, or a family name with a space in it is invalid CSS and
+     * silently ignored.
+     *
+     * Deliberately NOT mirrored: `applyGutter` (the gutter is a property of the
+     * real page width, which this narrow bar does not have), and
+     * `sticky`/`autoHide`/`headerPosition`, which are scroll behaviours with
+     * nothing to show in a static strip.
+     */
+    const previewStyle = (): Record<string, string | undefined> => ({
+        background: colorCssValue(bgColor(), '',) || undefined,
+        color: colorCssValue(textColor(), '',) || undefined,
+        'font-family': fontStack(defaultFont(),),
+        'font-size': textSize() || undefined,
+        gap: itemSpacing() || undefined,
+        padding: headerPadding() || undefined,
+        margin: headerMargin() || undefined,
+    });
+
     const needsButtonColor = (type: HeaderItemType,) => type === 'button';
 
     const needsCommonStyles = (type: HeaderItemType,) => !['gap', 'flex_spacer',].includes(type,);
@@ -496,14 +632,7 @@ const SiteHeaderEditor: Component = () => {
                 </p>
                 <div
                     class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
-                    style={{
-                        background: colorCssValue(bgColor(), '',) || undefined,
-                        color: colorCssValue(textColor(), '',) || undefined,
-                        'font-size': textSize() || undefined,
-                        gap: itemSpacing() || undefined,
-                        padding: headerPadding() || undefined,
-                        margin: headerMargin() || undefined,
-                    }}
+                    style={previewStyle()}
                 >
                     <Show
                         when={items().length > 0}
@@ -534,7 +663,15 @@ const SiteHeaderEditor: Component = () => {
                                 if (item.type === 'image' && item.width) {
                                     inlineStyle.display = 'block';
                                 }
+                                // Per-item typography, matching what
+                                // `layout/Header.tsx` puts on the real item.
+                                // `fontWeight` and `fontFamily` were missing,
+                                // so setting either showed nothing here until
+                                // the page was saved and reloaded.
                                 if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
+                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
+                                const itemFont = fontStack(item.fontFamily,);
+                                if (itemFont) inlineStyle['font-family'] = itemFont;
                                 if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
                                 {
                                     const tc = colorCssValue(item.textColor, '',);
@@ -606,6 +743,20 @@ const SiteHeaderEditor: Component = () => {
                     >
                         {showSettings() ? 'Hide Settings' : 'Settings'}
                     </button>
+                
+                    {/* Last in the bar, and only when there is something to
+                        undo — a permanently-visible Revert invites a click that
+                        would do nothing. */}
+                    <Show when={isDirty()}>
+                        <button
+                            class="ui-button ui-button--ghost ui-button--sm site-header-editor__revert"
+                            disabled={saving() || !baseline()}
+                            onClick={() => setConfirmRevert(true,)}
+                            title="Discard unsaved changes and restore the last saved header"
+                        >
+                            Revert
+                        </button>
+                    </Show>
                 </div>
 
                 {/* ─── Collapsible Settings ─── */}
@@ -1431,6 +1582,20 @@ const SiteHeaderEditor: Component = () => {
                     }}
                 </Show>
             </Show>
+
+            {/* Reverting throws away work, so it asks first. Outside the
+                `loading` Show so the dialog is not unmounted mid-confirm by an
+                unrelated reload. */}
+            <ConfirmModal
+                open={confirmRevert()}
+                title="Discard unsaved changes?"
+                message="The header will go back to how it was when you last saved. Anything changed since then is lost."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                danger
+                onConfirm={doRevert}
+                onCancel={() => setConfirmRevert(false,)}
+            />
         </div>
     );
 };

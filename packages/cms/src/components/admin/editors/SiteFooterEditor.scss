@@ -58,6 +58,29 @@
         }
     }
 
+    // Secondary to Save: it destroys work, so it must not compete for the
+    // eye with the action the operator usually wants.
+    &__revert {
+        background: none;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        padding: 8px 14px;
+        margin-left: $spacing-sm;
+        font-weight: 500;
+        color: $text-light;
+        cursor: pointer;
+
+        &:hover:not(:disabled) {
+            border-color: $error-color;
+            color: $error-color;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
     &__disabled-note {
         padding: $spacing-lg;
         background-color: $background-dark;

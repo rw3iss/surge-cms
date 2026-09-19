@@ -1,5 +1,5 @@
 import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, SiteLayoutItemType, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, onMount, Show, untrack, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
@@ -7,6 +7,7 @@ import ColorPicker from '../appearance/ColorPicker';
 import FontSelect from '../common/FontSelect';
 import ImageLinkPicker from '../media/ImageLinkPicker';
 import Toggle from '../common/Toggle';
+import ConfirmModal from '../common/ConfirmModal';
 import { resolveImageSrc, } from '../../../utils/imageSrc';
 import Tooltip from '../common/Tooltip';
 import { useToast, } from '../../common/toast';
@@ -130,6 +131,22 @@ const SiteFooterEditor: Component = () => {
     // tight when an operator just wants to edit rows. Same pattern as
     // SiteHeaderEditor's Settings link.
     const [showSettings, setShowSettings,] = createSignal(false,);
+    /** The footer as last SAVED — captured after load, refreshed on save.
+     *  Revert restores this. */
+    const [baseline, setBaseline,] = createSignal<SiteFooterSettings | null>(null,);
+    const [confirmRevert, setConfirmRevert,] = createSignal(false,);
+
+    /**
+     * Deep clone, because the whole footer is one nested object (rows →
+     * columns → items). A shallow copy would leave the baseline sharing those
+     * arrays with the live settings, so editing a row would silently edit the
+     * thing Revert is supposed to restore — and Revert would appear to do
+     * nothing.
+     */
+    const clone = (v: SiteFooterSettings,): SiteFooterSettings =>
+        (typeof structuredClone === 'function'
+            ? structuredClone(v,)
+            : JSON.parse(JSON.stringify(v,),) as SiteFooterSettings);
 
     onMount(async () => {
         try {
@@ -138,6 +155,9 @@ const SiteFooterEditor: Component = () => {
         } catch {
             /* error toasted by the bus */
         }
+        // Before `loaded` flips — the dirty-tracking effect below fires on the
+        // next settings change, and the baseline must already be the clean one.
+        setBaseline(clone(settings(),),);
         setLoaded(true,);
     },);
 
@@ -145,7 +165,11 @@ const SiteFooterEditor: Component = () => {
     createEffect(() => {
         // Read settings() to subscribe — body of effect runs on changes.
         settings();
-        if (loaded()) setDirty(true,);
+        // `loaded` is read UNTRACKED. Tracking it made the effect re-run when
+        // the load finished and flipped the flag, which marked a freshly
+        // loaded footer dirty before the operator had touched anything: Save
+        // was enabled on arrival, and (once it existed) so was Revert.
+        if (untrack(loaded,)) setDirty(true,);
     },);
 
     const update = (mutator: (s: SiteFooterSettings,) => SiteFooterSettings,) => {
@@ -483,6 +507,9 @@ const SiteFooterEditor: Component = () => {
         setSaving(true,);
         try {
             await cms.settings.siteFooter(settings() as any,);
+            // Revert discards UNSAVED changes, so a save becomes the new
+            // baseline; otherwise reverting later would jump back past it.
+            setBaseline(clone(settings(),),);
             toast.success('Footer saved',);
             setDirty(false,);
         } catch (e) {
@@ -490,6 +517,21 @@ const SiteFooterEditor: Component = () => {
         } finally {
             setSaving(false,);
         }
+    };
+
+    const doRevert = (): void => {
+        const snap = baseline();
+        if (snap) {
+            setSettings(clone(snap,),);
+            // A selected row/column/item may not exist in the restored tree,
+            // and the edit panel would keep showing something that is gone.
+            setSelection({ kind: 'none', },);
+            // The dirty effect fires on the setSettings above and would mark
+            // this restore as a change, so clear after it has run.
+            queueMicrotask(() => setDirty(false,),);
+        }
+        setConfirmRevert(false,);
+        toast.success('Reverted to the last saved footer.',);
     };
 
     // ── Selected lookups (helpers for the panels) ─────────────────
@@ -536,6 +578,19 @@ const SiteFooterEditor: Component = () => {
                     >
                         {saving() ? 'Saving…' : 'Save footer'}
                     </button>
+                    {/* Last in the bar, and only when there is something to
+                        undo. */}
+                    <Show when={dirty()}>
+                        <button
+                            type="button"
+                            class="footer-editor__revert"
+                            onClick={() => setConfirmRevert(true,)}
+                            disabled={saving() || !baseline()}
+                            title="Discard unsaved changes and restore the last saved footer"
+                        >
+                            Revert
+                        </button>
+                    </Show>
                 </div>
 
                 {/* General footer settings — collapsed disclosure. Background,
@@ -693,6 +748,17 @@ const SiteFooterEditor: Component = () => {
                     </div>
                 </Show>
             </Show>
+
+            <ConfirmModal
+                open={confirmRevert()}
+                title="Discard unsaved changes?"
+                message="The footer will go back to how it was when you last saved. Anything changed since then is lost."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                danger
+                onConfirm={doRevert}
+                onCancel={() => setConfirmRevert(false,)}
+            />
         </div>
     );
 };
