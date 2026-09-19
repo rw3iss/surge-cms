@@ -16,6 +16,17 @@
     &__label {
         font-size: 0.875rem;
         color: var(--admin-text, #{$text-color});
+        // The label toggles the switch, so it has to look like it does.
+        cursor: pointer;
+        // Without this, repeatedly flipping a setting selects the label text —
+        // a click is a click, but the second one in quick succession is a
+        // double-click and the browser highlights the words.
+        user-select: none;
+    }
+
+    // A disabled switch's label must not invite a click that does nothing.
+    &:has(.toggle-control__switch:disabled) &__label {
+        cursor: not-allowed;
     }
 
     &__switch {

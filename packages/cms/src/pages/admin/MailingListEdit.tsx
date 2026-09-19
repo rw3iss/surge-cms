@@ -319,16 +319,30 @@ interface PolicyRowProps {
     hint?: string;
 }
 
+/**
+ * Text handed to the Toggle as its label, rather than wrapped around it in a
+ * `<label>`. The row is styled `cursor: pointer`, but a `<label>` cannot
+ * activate a `role="switch"` button — it only targets labelable elements — so
+ * the whole row looked clickable and did nothing. Going through the Toggle's
+ * own label gets the click handling and `aria-labelledby` for free.
+ *
+ * Spans, not divs: this now renders inside `.toggle-control__label`, which is a
+ * `<span>`, and a `<div>` inside a `<span>` is invalid.
+ */
 const PolicyRow: Component<PolicyRowProps> = (p,) => (
-    <label class="policy-row">
-        <Toggle checked={p.checked} onChange={p.onChange} ariaLabel={p.label} />
-        <div class="policy-row__text">
-            <span class="policy-row__label">{p.label}</span>
-            <Show when={p.hint}>
-                <span class="policy-row__hint">{p.hint}</span>
-            </Show>
-        </div>
-    </label>
+    <Toggle
+        class="policy-row"
+        checked={p.checked}
+        onChange={p.onChange}
+        label={
+            <span class="policy-row__text">
+                <span class="policy-row__label">{p.label}</span>
+                <Show when={p.hint}>
+                    <span class="policy-row__hint">{p.hint}</span>
+                </Show>
+            </span>
+        }
+    />
 );
 
 export default MailingListEdit;

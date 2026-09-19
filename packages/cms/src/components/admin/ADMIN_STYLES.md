@@ -27,6 +27,27 @@ one is included"*. Those use `components/ui/Checkbox`, which is still
 custom-styled (its own indicator, not the browser's), so **no native checkbox is
 rendered anywhere** either way.
 
+### The label is part of the hit area
+
+Clicking a toggle's **words** flips it, exactly as a native checkbox's
+`<label>` does. A label that looks clickable and is not reads as broken.
+
+This cannot be a real `<label for>`: the control is a `role="switch"` button,
+which is not a labelable element. `Toggle` and `FormField` therefore both route
+label clicks through `utils/labelActivation`, which excludes descendants that
+own their own click — keyed on **focusability, not tag name**, because the help
+tooltip is a `<span tabindex="0">` and flipping a setting because someone
+reached for help is worse than an inert label.
+
+`FormField`'s label activates its control too: a switch is toggled, anything
+else is focused (focus, not a synthetic click — a click would not open a
+`<select>`, and needing two clicks for a dropdown is worse than one). Its label
+is a SIBLING of the control rather than its parent, so the native behaviour
+never applied there either.
+
+If you place a toggle's label yourself instead of passing `label`, you own the
+click handling — prefer passing it.
+
 ### Label spacing
 
 `Toggle` lays out switch-first with `gap: 0.5rem`. That reads cramped when the

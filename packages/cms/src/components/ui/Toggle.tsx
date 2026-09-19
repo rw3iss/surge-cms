@@ -23,7 +23,8 @@
  *   <Toggle checked={enabled()} onChange={setEnabled} />
  *   <Toggle checked={x()} onChange={setX} label="Show advanced" size="sm" />
  */
-import { Component, JSX, Show, } from 'solid-js';
+import { Component, createUniqueId, JSX, Show, } from 'solid-js';
+import { labelClickActivates, } from '../../utils/labelActivation';
 import './Toggle.scss';
 
 export interface ToggleProps {
@@ -43,9 +44,31 @@ export interface ToggleProps {
 }
 
 export const Toggle: Component<ToggleProps> = (p,) => {
+    const labelId = `toggle-label-${createUniqueId()}`;
+
     const onClick = (): void => {
         if (p.disabled) return;
         p.onChange(!p.checked,);
+    };
+
+    /**
+     * Clicking the label flips the switch, the way a native checkbox's
+     * `<label>` does — the words are the bigger, more obvious target, and a
+     * label that looks clickable but is not reads as broken.
+     *
+     * Not built as a real `<label for>` + hidden input: the control is a
+     * `role="switch"` button, which a label cannot target. Not put on the outer
+     * wrapper either — the switch lives there too, so a click on it would fire
+     * both handlers and toggle twice, landing back where it started.
+     *
+     * The walk stops at the label itself rather than using `closest()` on the
+     * document, so an interactive ANCESTOR of the whole toggle (a clickable
+     * card, say) cannot suppress the label.
+     */
+    const onLabelClick = (e: MouseEvent,): void => {
+        if (p.disabled) return;
+        if (!labelClickActivates(e.target as HTMLElement | null, e.currentTarget as HTMLElement,)) return;
+        onClick();
     };
 
     return (
@@ -55,7 +78,13 @@ export const Toggle: Component<ToggleProps> = (p,) => {
             } ${p.class ?? ''}`}
         >
             <Show when={p.label}>
-                <span class="toggle-control__label">{p.label}</span>
+                <span
+                    class="toggle-control__label"
+                    id={labelId}
+                    onClick={onLabelClick}
+                >
+                    {p.label}
+                </span>
             </Show>
             <button
                 type="button"
@@ -63,7 +92,12 @@ export const Toggle: Component<ToggleProps> = (p,) => {
                 onClick={onClick}
                 role="switch"
                 aria-checked={p.checked}
+                // Without this a switch given only `label` had NO accessible
+                // name — the label is a sibling `<span>`, so nothing associated
+                // the two and a screen reader announced a bare "switch".
+                // An explicit `ariaLabel` still wins, for a bare switch.
                 aria-label={p.ariaLabel}
+                aria-labelledby={!p.ariaLabel && p.label ? labelId : undefined}
                 disabled={p.disabled}
             >
                 <span class="toggle-control__knob" />
