@@ -58,6 +58,7 @@ const AdminSocialCompose = lazy(() => import('./pages/admin/social/SocialCompose
 const AdminSocialConfiguration = lazy(() => import('./pages/admin/social/SocialConfigurationPanel'));
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
+const AdminMailingListsSettings = lazy(() => import('./pages/admin/MailingListsSettings'));
 const AdminMailTemplateEdit = lazy(() => import('./pages/admin/MailTemplateEdit'));
 const AdminMailSend = lazy(() => import('./pages/admin/MailSend'));
 const AdminMailJob = lazy(() => import('./pages/admin/MailJob'));
@@ -195,6 +196,8 @@ const App: Component = () => {
 											<Route path="/configuration" component={AdminSocialConfiguration} />
 										</Route>
 										<Route path="/mailing-lists" component={AdminMailingLists} />
+										{/* Before /:id — otherwise "settings" is read as a list id. */}
+										<Route path="/mailing-lists/settings" component={AdminMailingListsSettings} />
 										<Route path="/mailing-lists/:id" component={AdminMailingListEdit} />
 										<Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />
 										<Route path="/mail/send" component={AdminMailSend} />

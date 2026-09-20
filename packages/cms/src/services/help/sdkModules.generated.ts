@@ -1504,6 +1504,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /settings/homepage-hero (public)."
             },
             {
+                "name": "getMailingListsSettings",
+                "signature": "getMailingListsSettings(): Promise<SettingsMailingListsResponse>",
+                "summary": "GET /settings/mailing-lists (admin) — sender defaults for bulk mail."
+            },
+            {
                 "name": "getMailPurposes",
                 "signature": "getMailPurposes(): Promise<Record<string, unknown>>",
                 "summary": "GET /settings/mail-purposes (admin) — per-purpose email overrides. An absent key means \"registry defaults\", not \"off\"."
@@ -1567,6 +1572,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "setKey",
                 "signature": "setKey(key: string, body: SettingsRawKeyBody): Promise<SettingsRawKeyResponse>",
                 "summary": "PUT /settings/:key — write a value to an arbitrary settings row."
+            },
+            {
+                "name": "setMailingListsSettings",
+                "signature": "setMailingListsSettings(body: SettingsMailingListsBody): Promise<SettingsRawKeyResponse>",
+                "summary": "PUT /settings/mailing-lists (admin)."
             },
             {
                 "name": "setMailPurposes",
@@ -2174,4 +2184,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 376;
+export const SDK_METHOD_COUNT = 378;

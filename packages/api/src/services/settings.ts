@@ -425,6 +425,17 @@ const USERS_SETTINGS: KeyedSetting = {
 };
 
 /**
+ * Mailing-list sender defaults. Empty is the right fallback — an unconfigured
+ * install keeps the previous behaviour (site name + MAIL_LIST_FROM).
+ */
+const MAILING_LISTS_SETTINGS: KeyedSetting = {
+    key: 'mailing_lists_settings',
+    cacheKey: 'settings:mailing_lists_settings',
+    entityId: 'mailing_lists_settings',
+    fallback: {},
+};
+
+/**
  * Per-purpose email overrides. An EMPTY object is the right fallback: every
  * purpose already carries its own `defaultEnabled` + default body in the
  * registry, so "not configured" must mean "behave as shipped", not "off".
@@ -506,6 +517,31 @@ export async function getUsersSettings(): Promise<import('@sitesurge/types').Use
     };
 }
 export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);
+
+/**
+ * Mailing-list sender defaults (From name / From email / Reply-to).
+ *
+ * Read by the send worker as the fallback beneath a job's own values, and by
+ * the admin forms as placeholder text — so what the form suggests and what
+ * actually goes out are the same thing.
+ *
+ * Every field is optional: an unconfigured install behaves exactly as before.
+ */
+export async function getMailingListsSettings(): Promise<import('@sitesurge/types').MailingListsSettings> {
+    const raw = await getKeyed(MAILING_LISTS_SETTINGS,) as
+        Partial<import('@sitesurge/types').MailingListsSettings> | null;
+    const clean = (v: string | undefined,) => {
+        const t = (v ?? '').trim();
+        return t.length > 0 ? t : undefined;
+    };
+    return {
+        defaultFromName: clean(raw?.defaultFromName,),
+        defaultFromEmail: clean(raw?.defaultFromEmail,),
+        defaultReplyTo: clean(raw?.defaultReplyTo,),
+    };
+}
+export const setMailingListsSettings = (value: unknown, ctx: AuditContext,) =>
+    setKeyed(MAILING_LISTS_SETTINGS, value, ctx,);
 
 /** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
  *  subject, blocks, autoSend }. An absent key means "registry defaults", so a

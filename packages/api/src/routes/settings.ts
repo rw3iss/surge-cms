@@ -288,6 +288,28 @@ export const settingsRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/mailing-lists', auth: 'admin',
+        summary: 'Mailing-list sender defaults (From name / From email / Reply-to).',
+        handler: () => settings.getMailingListsSettings(),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/mailing-lists', auth: 'admin',
+        summary: 'Update mailing-list sender defaults.',
+        input: {
+            body: z.object({
+                defaultFromName: z.string().max(200,).optional(),
+                // Not `.email()`: the field is optional and an empty string is
+                // how the operator CLEARS it. Validated as an address only when
+                // it carries something.
+                defaultFromEmail: z.string().max(320,).optional(),
+                defaultReplyTo: z.string().max(320,).optional(),
+            },),
+        },
+        handler: ({ body, audit, },) => settings.setMailingListsSettings(body, audit(),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/users', auth: 'admin',
         summary: 'Users-feature settings (email-verification requirement + verification email).',
         handler: () => settings.getUsersSettings(),

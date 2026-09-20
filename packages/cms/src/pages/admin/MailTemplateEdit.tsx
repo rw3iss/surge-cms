@@ -11,7 +11,7 @@ import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createSignal, For, onMount, Show,
 } from 'solid-js';
-import type { MailTemplate, VariableDescriptor, } from '@sitesurge/types';
+import type { MailingListsSettings, MailTemplate, VariableDescriptor, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import { FormField, FormSection, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
@@ -36,6 +36,17 @@ const MailTemplateEdit: Component = () => {
     const [fromName, setFromName,] = createSignal('',);
     const [fromEmail, setFromEmail,] = createSignal('',);
     const [replyTo, setReplyTo,] = createSignal('',);
+    /**
+     * Sender defaults from Settings → Mailing Lists, shown as PLACEHOLDER text.
+     *
+     * Placeholder rather than a pre-filled value on purpose: a blank field
+     * means "use the default", so the template keeps following the setting if
+     * the operator changes it later. Pre-filling would copy the value in and
+     * freeze it — the classic way a defaults page stops having any effect.
+     * The send worker applies the same values, so this shows what will
+     * genuinely be used.
+     */
+    const [listDefaults, setListDefaults,] = createSignal<MailingListsSettings>({},);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
@@ -48,6 +59,12 @@ const MailTemplateEdit: Component = () => {
         try {
             setVariableCatalog(await cms.mailTemplates.variables() as VariableDescriptor[],);
         } catch { /* ignore */ }
+
+        // Sender defaults — shown as placeholders so the operator can see what
+        // a blank field will actually send as.
+        try {
+            setListDefaults(await cms.settings.getMailingListsSettings() as MailingListsSettings,);
+        } catch { /* non-fatal — placeholders fall back to generic text */ }
 
         if (isNew()) return;
         let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
@@ -204,7 +221,7 @@ const MailTemplateEdit: Component = () => {
                                     type="text"
                                     value={fromName()}
                                     onInput={(e,) => setFromName(e.currentTarget.value,)}
-                                    placeholder="Defaults to site name"
+                                    placeholder={listDefaults().defaultFromName || 'Defaults to site name'}
                                 />
                             </FormField>
                             <FormField label="From email" class="template-settings__field--grow">
@@ -212,7 +229,7 @@ const MailTemplateEdit: Component = () => {
                                     type="email"
                                     value={fromEmail()}
                                     onInput={(e,) => setFromEmail(e.currentTarget.value,)}
-                                    placeholder="Defaults to EMAIL_FROM"
+                                    placeholder={listDefaults().defaultFromEmail || 'Defaults to EMAIL_FROM'}
                                 />
                             </FormField>
                         </div>
@@ -224,6 +241,7 @@ const MailTemplateEdit: Component = () => {
                                 type="email"
                                 value={replyTo()}
                                 onInput={(e,) => setReplyTo(e.currentTarget.value,)}
+                                placeholder={listDefaults().defaultReplyTo || 'Defaults to From email'}
                             />
                         </FormField>
                     </FormSection>

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-20T04:17:07.868Z",
+  "generatedAt": "2026-09-20T19:47:46.559Z",
   "totalModules": 41,
-  "totalRoutes": 380,
+  "totalRoutes": 382,
   "modules": [
     {
       "module": "admin-channel",
@@ -2054,6 +2054,20 @@
           "absolutePath": "/api/v1/settings/features/:key/uninstall",
           "auth": "admin",
           "summary": "Permanently remove a feature: drop its tables + data. Irreversible."
+        },
+        {
+          "method": "GET",
+          "path": "/mailing-lists",
+          "absolutePath": "/api/v1/settings/mailing-lists",
+          "auth": "admin",
+          "summary": "Mailing-list sender defaults (From name / From email / Reply-to)."
+        },
+        {
+          "method": "PUT",
+          "path": "/mailing-lists",
+          "absolutePath": "/api/v1/settings/mailing-lists",
+          "auth": "admin",
+          "summary": "Update mailing-list sender defaults."
         },
         {
           "method": "GET",

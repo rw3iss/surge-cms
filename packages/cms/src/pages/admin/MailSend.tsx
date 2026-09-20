@@ -13,7 +13,7 @@ import {
     Component, createMemo, createSignal, For, onMount, Show,
 } from 'solid-js';
 import { createStore, } from 'solid-js/store';
-import type { MailingList, MailTemplate, } from '@sitesurge/types';
+import type { MailingList, MailingListsSettings, MailTemplate, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import { FormField, } from '../../components/admin/forms';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
@@ -65,6 +65,11 @@ const MailSend: Component = () => {
         blocksJson: string;
     } | null>(null,);
 
+    /** Sender defaults (Settings → Mailing Lists), shown as placeholders so a
+     *  blank field visibly states what it will send as. The send worker applies
+     *  the same values, so the hint cannot disagree with the outcome. */
+    const [listDefaults, setListDefaults,] = createSignal<MailingListsSettings>({},);
+
     onMount(async () => {
         try {
             const [lr, tr,] = await Promise.all([cms.mailingLists.list(), cms.mailTemplates.list(),],);
@@ -73,6 +78,9 @@ const MailSend: Component = () => {
         } catch {
             /* error toasted by the bus */
         }
+        try {
+            setListDefaults(await cms.settings.getMailingListsSettings() as MailingListsSettings,);
+        } catch { /* non-fatal — placeholders fall back to generic text */ }
     },);
 
     const selectedList = createMemo(() => lists().find((l,) => l.id === draft.listId,) ?? null,);
@@ -221,13 +229,13 @@ const MailSend: Component = () => {
                                 <input type="text" value={draft.preheader} onInput={(e,) => setDraft('preheader', e.currentTarget.value,)} />
                             </FormField>
                             <FormField label="From name" hint="Optional — defaults to the site name.">
-                                <input type="text" value={draft.fromName} onInput={(e,) => setDraft('fromName', e.currentTarget.value,)} />
+                                <input type="text" value={draft.fromName} placeholder={listDefaults().defaultFromName || 'Site name'} onInput={(e,) => setDraft('fromName', e.currentTarget.value,)} />
                             </FormField>
                             <FormField label="From email" hint="Optional — defaults to the site's configured sender address.">
-                                <input type="email" value={draft.fromEmail} onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)} />
+                                <input type="email" value={draft.fromEmail} placeholder={listDefaults().defaultFromEmail || 'Configured sender address'} onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)} />
                             </FormField>
                             <FormField label="Reply-to" class="form-group--full" hint="Optional — replies go here; defaults to the From email if blank.">
-                                <input type="email" value={draft.replyTo} onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)} />
+                                <input type="email" value={draft.replyTo} placeholder={listDefaults().defaultReplyTo || 'From email'} onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)} />
                             </FormField>
                         </div>
                     </section>

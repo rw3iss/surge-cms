@@ -19,7 +19,7 @@ import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/factory';
 import { buildVariableContext, } from './variables';
 import { resolveMailTemplate, } from './templateRuntime';
-import { isFeatureEnabledServer, } from '../settings';
+import { getMailingListsSettings, isFeatureEnabledServer, } from '../settings';
 import { generateUnsubscribeToken, } from './unsubscribe';
 import type { MailingListSubscriber, OutboundMessage, } from '@sitesurge/types';
 import type { MailProvider, } from './providers/types';
@@ -90,6 +90,11 @@ export async function kickJob(jobId: string,): Promise<void> {
 
     const provider = getProvider();
     const site = await siteContext();
+    // Operator-configured sender defaults for bulk mail. These sit BENEATH the
+    // job's own values (a template or a send that names a sender keeps it) and
+    // ABOVE the env/site fallbacks — so configuring them in Settings changes
+    // what actually goes out, not just what the admin form suggests.
+    const listDefaults = await getMailingListsSettings();
     const fe = frontendUrl();
     const concurrency = Math.max(1, config.mail.sendConcurrency,);
     const delay = Math.max(0, config.mail.sendDelayMs,);
@@ -145,11 +150,17 @@ export async function kickJob(jobId: string,): Promise<void> {
 
                 await sendWithRetry(provider, {
                     to: r.email,
-                    fromName: job.fromName ?? site.name,
-                    // Per-template From overrides; else the dedicated mailing-list
-                    // sender (MAIL_LIST_FROM); else the transactional EMAIL_FROM.
-                    fromEmail: job.fromEmail ?? config.mail.listFrom ?? config.email.from ?? 'no-reply@example.com',
-                    replyTo: job.replyTo,
+                    fromName: job.fromName ?? listDefaults.defaultFromName ?? site.name,
+                    // Per-template From override; else the operator's mailing-list
+                    // default (Settings → Mailing Lists); else the dedicated
+                    // mailing-list sender (MAIL_LIST_FROM); else the
+                    // transactional EMAIL_FROM.
+                    fromEmail: job.fromEmail
+                        ?? listDefaults.defaultFromEmail
+                        ?? config.mail.listFrom
+                        ?? config.email.from
+                        ?? 'no-reply@example.com',
+                    replyTo: job.replyTo ?? listDefaults.defaultReplyTo,
                     subject,
                     html,
                     headers,

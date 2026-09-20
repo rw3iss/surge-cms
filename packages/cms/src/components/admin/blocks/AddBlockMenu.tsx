@@ -9,6 +9,7 @@ import {
 } from '../../../config/blockTypes';
 import { fetchRecent, getRecent, type RecentItem, } from '../../../services/recentItems';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
+import { computeMenuPlacement, } from '../../../utils/menuPlacement';
 
 /**
  * Categorized "+ Add Block" picker. Renders a portal-mounted panel
@@ -37,13 +38,23 @@ interface AddBlockMenuProps {
 const MENU_OFFSET_PX = 6;
 const MENU_MIN_WIDTH = 240;
 const MENU_MAX_HEIGHT_VH = 70;
+/** Below this much room underneath the trigger, the menu flips above it.
+ *  Roughly two category headers plus a few items — less than this and the
+ *  panel is a scrolling sliver. */
+const MENU_MIN_USABLE_PX = 260;
 const SUBMENU_OFFSET_PX = 4;
 const SUBMENU_WIDTH = 240;
 const HOVER_CLOSE_DELAY_MS = 120;
 
 export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
     const [open, setOpen,] = createSignal(false,);
-    const [pos, setPos,] = createSignal({ top: 0, left: 0, maxHeight: 400, },);
+    const [pos, setPos,] = createSignal({
+        placement: 'below' as 'below' | 'above',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        maxHeight: 400,
+    },);
     // Sections start collapsed — keeps the menu compact and lets the
     // operator open the one they want without scrolling past everything.
     const [collapsed, setCollapsed,] = createSignal<Record<string, boolean>>(
@@ -78,28 +89,26 @@ export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
         return map;
     },);
 
-    /** Compute panel position relative to the trigger using fixed coords. */
+    /** Compute panel position relative to the trigger using fixed coords.
+     *  The flip rule (below by default, above when the bottom is cramped) lives
+     *  in `utils/menuPlacement` so it can be unit-tested. */
     const reposition = () => {
         if (!triggerRef) return;
         const r = triggerRef.getBoundingClientRect();
         const vh = window.innerHeight;
         const vw = window.innerWidth;
 
-        const desiredMaxHeight = Math.floor(vh * (MENU_MAX_HEIGHT_VH / 100),);
-        const top = r.bottom + MENU_OFFSET_PX;
-        let left = r.left;
-
-        if (left + MENU_MIN_WIDTH > vw - 12) {
-            left = Math.max(12, vw - MENU_MIN_WIDTH - 12,);
-        }
-        // Always open directly BELOW the trigger and cap the height to the
-        // space available below, so the panel stays anchored to its own button
-        // (it scrolls internally when short). Flipping the menu above the
-        // trigger made the bottom "Add Block" render its menu high in the
-        // viewport — visually under the top button.
-        const spaceBelow = vh - top - 12;
-        const maxHeight = Math.min(desiredMaxHeight, Math.max(160, spaceBelow,),);
-        setPos({ top, left, maxHeight, },);
+        setPos(computeMenuPlacement(
+            { top: r.top, bottom: r.bottom, left: r.left, },
+            {
+                viewportHeight: vh,
+                viewportWidth: vw,
+                offset: MENU_OFFSET_PX,
+                minWidth: MENU_MIN_WIDTH,
+                maxHeightVh: MENU_MAX_HEIGHT_VH,
+                minUsable: MENU_MIN_USABLE_PX,
+            },
+        ),);
     };
 
     const onWindowEvent = (e: MouseEvent | TouchEvent,) => {
@@ -224,7 +233,13 @@ export const AddBlockMenu: Component<AddBlockMenuProps> = (props,) => {
                         class="add-block-menu__panel"
                         role="menu"
                         style={{
-                            top: `${pos().top}px`,
+                            // Anchored by `top` when opening downward and by
+                            // `bottom` when flipped up, so a flipped panel's
+                            // lower edge sits against the trigger whatever its
+                            // height turns out to be.
+                            ...(pos().placement === 'above'
+                                ? { bottom: `${pos().bottom}px`, }
+                                : { top: `${pos().top}px`, }),
                             left: `${pos().left}px`,
                             'max-height': `${pos().maxHeight}px`,
                             'min-width': `${MENU_MIN_WIDTH}px`,

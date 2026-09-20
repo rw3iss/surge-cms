@@ -329,6 +329,34 @@ export type SettingsUsersResponse = UsersSettings;
 /** Body for PUT /settings/users (admin). */
 export type SettingsUsersBody = UsersSettings;
 
+/**
+ * Mailing-list defaults (site_settings key `mailing_lists_settings`).
+ *
+ * The sender identity for bulk mail, in ONE place. Previously From name / From
+ * email / Reply-to existed only per template and per send, so every new
+ * template started blank and the operator had to retype the list address (or
+ * forget to, and have the message go out under the transactional sender).
+ *
+ * These are DEFAULTS, not overrides: a template or a send that sets its own
+ * value keeps it. They apply at send time, so configuring them changes what
+ * actually ships — not merely what the form suggests.
+ */
+export interface MailingListsSettings {
+    /** e.g. "Frank Scales, Surge Media". Falls back to the site name. */
+    defaultFromName?: string;
+    /** e.g. "newsletter@lists.surgemedia.us". Falls back to MAIL_LIST_FROM,
+     *  then the transactional EMAIL_FROM. */
+    defaultFromEmail?: string;
+    /** Where replies go. Falls back to the From email. */
+    defaultReplyTo?: string;
+}
+
+/** GET /settings/mailing-lists (admin). */
+export type SettingsMailingListsResponse = MailingListsSettings;
+
+/** Body for PUT /settings/mailing-lists (admin). */
+export type SettingsMailingListsBody = MailingListsSettings;
+
 // ─── PUT/DELETE /settings/:key ────────────────────────────────────────
 
 /** Params for the arbitrary-key upsert/delete routes. */

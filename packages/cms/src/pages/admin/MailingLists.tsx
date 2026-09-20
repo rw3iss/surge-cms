@@ -76,6 +76,7 @@ const MailingLists: Component = () => {
             <div class="admin-header">
                 <h1>Mailing Lists</h1>
                 <div class="admin-header__actions">
+                    <A href="/admin/mailing-lists/settings" class="ui-button ui-button--secondary">Settings</A>
                     <A href="/admin/mail/send" class="ui-button ui-button--secondary">Send a Message…</A>
                     <A href="/admin/mailing-lists/new" class="ui-button ui-button--primary">+ New List</A>
                 </div>

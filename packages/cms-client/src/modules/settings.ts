@@ -12,6 +12,7 @@ import type {
     SettingsSwatchUsagesResponse, SettingsFeatureUninstallResponse,
     SettingsServerLogsResponse,
     SettingsUsersResponse, SettingsUsersBody,
+    SettingsMailingListsResponse, SettingsMailingListsBody,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
     PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
     ShopStripeStatusResponse,
@@ -201,6 +202,18 @@ export class SettingsModule extends ModuleBase {
     /** PUT /settings/users (admin). */
     usersSettings(body: SettingsUsersBody,): Promise<SettingsRawKeyResponse> {
         return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/users', {
+            body, invalidates: ['settings',],
+        },);
+    }
+
+    /** GET /settings/mailing-lists (admin) — sender defaults for bulk mail. */
+    getMailingListsSettings(): Promise<SettingsMailingListsResponse> {
+        return this.get<SettingsMailingListsResponse>('/settings/mailing-lists',);
+    }
+
+    /** PUT /settings/mailing-lists (admin). */
+    setMailingListsSettings(body: SettingsMailingListsBody,): Promise<SettingsRawKeyResponse> {
+        return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/mailing-lists', {
             body, invalidates: ['settings',],
         },);
     }
