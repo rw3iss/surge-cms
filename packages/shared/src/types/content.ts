@@ -276,6 +276,21 @@ export interface AppearanceSettings {
     /** Base `font-size` for rich-text body copy. Default `1rem` (= Base Font
      *  Size), so enabling it changes nothing until an operator asks. */
     paragraphFontSize?: string;
+    // Miscellaneous
+    /**
+     * Default `border-radius` for BUTTONS across the public site — header and
+     * footer button items, the base `.btn`, and the auth forms (sign in,
+     * register, forgot/reset password).
+     *
+     * Separate from `borderRadius`, which is the general surface radius for
+     * cards, inputs and panels. Buttons are routinely a different shape from
+     * the boxes around them (a pill button on square cards is a normal design),
+     * and one value could not express both.
+     *
+     * Empty = fall back to `borderRadius`, then the built-in 6px.
+     */
+    buttonBorderRadius?: string;
+
     // Layout
     gutterWidth?: string;
     borderRadius?: string;
@@ -503,6 +518,9 @@ export interface SiteLayoutItem {
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
+    /** Per-item `border-radius` for a BUTTON item. Empty = the site default
+     *  (Settings → Appearance → Miscellaneous → Button Border Radius). */
+    borderRadius?: string;
     /** Font for this item — a font `customId` from the Font manager. Empty
      *  inherits the header/footer default (or the site font). Only meaningful
      *  for text-rendering items (text / text_link / button / menu). */

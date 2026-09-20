@@ -27,6 +27,9 @@ interface SiteHeaderItem {
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
+    /** Per-item `border-radius` for a BUTTON item. Empty = the site default
+     *  (Settings → Appearance → Miscellaneous → Button Border Radius). */
+    borderRadius?: string;
     fontSize?: string;
     /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
     fontWeight?: string;
@@ -292,6 +295,11 @@ function HeaderItem(props: { item: SiteHeaderItem; },) {
                         ...baseStyle(),
                         background: colorCssValue(item().buttonColor, '#333',),
                         color: '#fff',
+                        // Per-item radius. Undefined leaves the stylesheet's
+                        // `--site-button-radius` chain in charge, so an empty
+                        // field means "use the site default" rather than "no
+                        // radius".
+                        ...(item().borderRadius ? { 'border-radius': item().borderRadius, } : {}),
                     }}
                 >
                     {item().text}

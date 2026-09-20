@@ -59,6 +59,14 @@ export function appearanceCssVars(
     const headingFont = fontStack(a.headingFontFamily,);
     if (headingFont) s['--site-heading-font'] = headingFont;
     if (a.headingWeight) s['--site-heading-weight'] = a.headingWeight;
+    /*
+     * Button radius. OUTSIDE the `excludeLayout` block on purpose: that block
+     * holds the six tokens the public site emits through the global appearance
+     * stylesheet instead (so per-breakpoint @media can override them). This one
+     * is not emitted there, so excluding it would leave the public site without
+     * the token entirely — the setting would work in the admin and nowhere else.
+     */
+    if (a.buttonBorderRadius) s['--site-button-radius'] = a.buttonBorderRadius;
     // The 6 LAYOUT tokens are excluded on the public site (excludeLayout) —
     // they're emitted in the global appearance stylesheet on `.layout` instead,
     // so per-breakpoint @media rules can override them (an inline var on the

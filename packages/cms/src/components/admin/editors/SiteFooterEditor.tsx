@@ -1839,6 +1839,18 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                         onInput={(e,) => props.onChange({ buttonColor: e.currentTarget.value, },)}
                     />
                 </label>
+                <label class="footer-editor__field">
+                    <span>Border radius</span>
+                    <input
+                        type="text"
+                        value={props.item.borderRadius ?? ''}
+                        // Empty means "site default" — the stylesheet's
+                        // --site-button-radius chain stays in charge — not
+                        // "square corners".
+                        placeholder="Site default (Appearance → Miscellaneous)"
+                        onInput={(e,) => props.onChange({ borderRadius: e.currentTarget.value, },)}
+                    />
+                </label>
             </Show>
 
             <Show when={t() === 'gap'}>

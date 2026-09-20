@@ -203,7 +203,7 @@
 
   &__btn {
     padding: $spacing-sm $spacing-md;
-    border-radius: $border-radius-md;
+    border-radius: var(--site-button-radius, var(--site-radius, #{$border-radius-md}));
     font-weight: 500;
     text-decoration: none;
     transition: all $transition-fast;
@@ -253,7 +253,7 @@
     height: 34px;
     padding: 0;
     border: 1px solid $border-color;
-    border-radius: $border-radius-md;
+    border-radius: var(--site-button-radius, var(--site-radius, #{$border-radius-md}));
     background: none;
     color: $text-light;
     cursor: pointer;
@@ -437,7 +437,7 @@
     align-items: center;
     justify-content: center;
     padding: 8px 16px;
-    border-radius: var(--site-radius, 6px);
+    border-radius: var(--site-button-radius, var(--site-radius, 6px));
     background: var(--site-primary, #{$primary-color});
     color: var(--site-button-text, #fff);
     font-weight: 600;
@@ -593,7 +593,7 @@
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    border-radius: $border-radius-md;
+    border-radius: var(--site-button-radius, var(--site-radius, #{$border-radius-md}));
     white-space: nowrap;
     font-weight: 500;
     transition: opacity $transition-fast;

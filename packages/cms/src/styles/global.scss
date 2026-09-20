@@ -652,7 +652,10 @@ html:not([data-active-outlines='show']) {
     gap: $spacing-xs;
     padding: $spacing-sm $spacing-lg;
     border: 1px solid transparent;
-    border-radius: var(--site-radius, 6px);
+    // Buttons have their own radius token, falling back to the general
+    // surface radius — a pill button on square cards is a normal design,
+    // and one value cannot express both.
+    border-radius: var(--site-button-radius, var(--site-radius, 6px));
     font: inherit;
     font-weight: 600;
     line-height: 1.2;

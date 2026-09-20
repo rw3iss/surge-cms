@@ -689,6 +689,9 @@ function AppearancePanel() {
     const [paragraphLineHeight, setParagraphLineHeight,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphLineHeight,);
     const [paragraphMargin, setParagraphMargin,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphMargin,);
     const [paragraphFontSize, setParagraphFontSize,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphFontSize,);
+    // Miscellaneous. Empty = inherit the general Border Radius below it, so an
+    // untouched site looks exactly as it did.
+    const [buttonBorderRadius, setButtonBorderRadius,] = createSignal('',);
 
     // Layout
     const [gutterWidth, setGutterWidth,] = createSignal('',);
@@ -729,6 +732,7 @@ function AppearancePanel() {
                 if (d.paragraphLineHeight) setParagraphLineHeight(d.paragraphLineHeight,);
                 if (d.paragraphMargin) setParagraphMargin(d.paragraphMargin,);
                 if (d.paragraphFontSize) setParagraphFontSize(d.paragraphFontSize,);
+                if (d.buttonBorderRadius) setButtonBorderRadius(d.buttonBorderRadius,);
                 if (d.gutterWidth) setGutterWidth(d.gutterWidth,);
                 if (d.pagePadding) setPagePadding(d.pagePadding,);
                 if (d.postPadding) setPostPadding(d.postPadding,);
@@ -770,6 +774,7 @@ function AppearancePanel() {
                 paragraphLineHeight: paragraphLineHeight(),
                 paragraphMargin: paragraphMargin(),
                 paragraphFontSize: paragraphFontSize(),
+                buttonBorderRadius: buttonBorderRadius(),
                 gutterWidth: gutterWidth() || undefined,
                 pagePadding: pagePadding() || undefined,
                 postPadding: postPadding() || undefined,
@@ -885,6 +890,30 @@ function AppearancePanel() {
                     Manage the color swatches available throughout the admin color picker.
                 </p>
                 <SiteColorsPanel />
+            </div>
+
+            {/* ─── Miscellaneous (right column, under Color Swatches) ───
+                A home for one-off appearance values that belong to no larger
+                group. Without it each new knob either bloated Layout or was
+                dropped somewhere arbitrary. */}
+            <div class="theme-section">
+                <h4 class="theme-section__title">Miscellaneous</h4>
+                <div class="theme-section__fields">
+                    <ThemeField
+                        label="Button Border Radius"
+                        sublabel="All site buttons"
+                        tooltip="Corner radius for every button on the public site — header and footer button items, the standard button, and the sign-in / register / forgot-password / reset forms. Any CSS value: 6px, 0, 9999px for a pill. Empty inherits the general Border Radius. A header or footer button that sets its own radius still wins."
+                    >
+                        <input
+                            type="text"
+                            value={buttonBorderRadius()}
+                            onInput={(e,) => { setButtonBorderRadius(e.currentTarget.value,); markDirty(); }}
+                            placeholder="Inherit border radius"
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+                </div>
             </div>
             </div>
 

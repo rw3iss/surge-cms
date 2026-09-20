@@ -29,6 +29,9 @@ interface SiteHeaderItem {
     mediaId?: string;
     openInNewTab?: boolean;
     buttonColor?: string;
+    /** Per-item `border-radius` for a BUTTON item. Empty = the site default
+     *  (Settings → Appearance → Miscellaneous → Button Border Radius). */
+    borderRadius?: string;
     fontSize?: string;
     /** CSS font-weight ('100'..'900' or keyword). Empty/undefined → inherit. */
     fontWeight?: string;
@@ -1252,6 +1255,24 @@ const SiteHeaderEditor: Component = () => {
                                             value={item().buttonColor || '#333333'}
                                             onChange={(hex,) => updateEditField('buttonColor', hex,)}
                                         />
+                                    </div>
+                                </Show>
+
+                                {/* Button border radius */}
+                                <Show when={needsButtonColor(currentType(),)}>
+                                    <div class="site-header-edit-panel__field">
+                                        <label class="site-header-edit-panel__label">Border Radius</label>
+                                        <input
+                                            type="text"
+                                            class="site-header-edit-panel__input site-header-edit-panel__input--short"
+                                            value={item().borderRadius || ''}
+                                            placeholder="Site default"
+                                            onChange={(e,) => updateEditField('borderRadius', e.currentTarget.value,)}
+                                        />
+                                        <p class="form-help-muted">
+                                            Any CSS value. Empty uses the site default
+                                            (Appearance → Miscellaneous).
+                                        </p>
                                     </div>
                                 </Show>
 

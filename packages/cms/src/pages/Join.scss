@@ -186,7 +186,7 @@
     width: 100%;
     padding: $spacing-md;
     border: none;
-    border-radius: $border-radius-md;
+    border-radius: var(--site-button-radius, var(--site-radius, #{$border-radius-md}));
     font-size: $font-size-base;
     font-weight: 600;
     cursor: pointer;

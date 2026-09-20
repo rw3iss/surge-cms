@@ -145,6 +145,10 @@ function FooterItem(props: { item: SiteLayoutItem; footerTextColor?: string; },)
                         ...baseStyle(),
                         'background-color': colorCssValue(item().buttonColor, '#3498cf',),
                         color: buttonTextColor(),
+                        // Undefined leaves the stylesheet's --site-button-radius
+                        // chain in charge: empty means "site default", not
+                        // "square".
+                        ...(item().borderRadius ? { 'border-radius': item().borderRadius, } : {}),
                     }}
                 >
                     {item().text}
