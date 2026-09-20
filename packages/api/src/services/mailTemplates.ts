@@ -13,6 +13,7 @@ import { NotFoundError, } from '../core/errors';
 import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from './mail/renderer';
+import { buildSiteVariables, } from '@sitesurge/types';
 import { expandDynamicBlocks, } from './mail/expandBlocks';
 import { loadMailRenderContext, } from './mail/siteContext';
 import { buildSampleContext, describeVariables, } from './mail/variables';
@@ -204,13 +205,24 @@ export async function preview(input: PreviewInput,) {
     // overrides from the preview form's variable inputs.
     const ctx = buildSampleContext(input.variables ?? {},);
 
-    // Make the preview a REAL representation: use the actual (cached) site
-    // values for `site.*` rather than the static catalog samples ("SiteSurge"),
-    // unless the operator explicitly overrode them in the preview form.
+    // Make the preview a REAL representation: use the actual site values for
+    // `site.*` rather than the static catalog samples, unless the operator
+    // explicitly overrode one in the preview form.
+    //
+    // Built by the SHARED `buildSiteVariables` — the same function the send
+    // worker uses — so the preview cannot show a different logo from the one
+    // that ships. This previously covered only `name` and `url`, so every other
+    // site field (including the logo) previewed as "example.com" placeholder
+    // text while the sent email carried the real thing.
     const overrides = input.variables ?? {};
+    const realSite = buildSiteVariables(
+        { ...renderCtx.siteSettings, siteName: renderCtx.siteName, },
+        renderCtx.siteUrl,
+    ) as unknown as Record<string, unknown>;
     const site = (ctx.site && typeof ctx.site === 'object' ? ctx.site : {}) as Record<string, unknown>;
-    if (overrides['site.name'] === undefined) site.name = renderCtx.siteName;
-    if (overrides['site.url'] === undefined) site.url = renderCtx.siteUrl;
+    for (const [key, value,] of Object.entries(realSite,)) {
+        if (overrides[`site.${key}`] === undefined) site[key] = value;
+    }
     ctx.site = site;
 
     return {
