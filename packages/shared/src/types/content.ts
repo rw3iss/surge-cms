@@ -273,6 +273,9 @@ export interface AppearanceSettings {
     paragraphLineHeight?: string;
     /** `margin` shorthand for `<p>` in rich text. Any CSS value. */
     paragraphMargin?: string;
+    /** Base `font-size` for rich-text body copy. Default `1rem` (= Base Font
+     *  Size), so enabling it changes nothing until an operator asks. */
+    paragraphFontSize?: string;
     // Layout
     gutterWidth?: string;
     borderRadius?: string;

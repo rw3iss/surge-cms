@@ -115,8 +115,11 @@
   overflow-y: auto;
   padding: $spacing-md;
   font-family: $font-family;
-  font-size: $font-size-base;
-  line-height: $line-height-base;
+  // font-size / line-height deliberately NOT set here. They come from the
+  // appearance typography rules (Settings → Appearance → Typography), which
+  // the admin injects so this editor matches the rendered output and the
+  // email. Hard-coding them here meant the editor showed one size and the
+  // delivered mail another, which is the whole point of a WYSIWYG.
   color: var(--admin-page-text, #{$text-color});
   outline: none;
   cursor: text;
@@ -132,10 +135,12 @@
   }
 
   // Typography styles for rich content
+  // line-height + margin come from the appearance typography rules, not from
+  // here. They used to be set locally, which put them at the SAME specificity
+  // and layer as the injected defaults — leaving which one won down to
+  // stylesheet order. Removing them makes the setting authoritative.
   h1, h2, h3, h4 {
     font-family: $font-family-heading;
-    line-height: $line-height-tight;
-    margin: $spacing-md 0 $spacing-sm;
 
     &:first-child {
       margin-top: 0;
@@ -147,9 +152,7 @@
   h3 { font-size: $font-size-xl; }
   h4 { font-size: $font-size-lg; }
 
-  p {
-    margin: 0 0 $spacing-sm;
-  }
+  // `p` margin also comes from the typography settings; see above.
 
   blockquote {
     margin: $spacing-sm 0;

@@ -82,8 +82,29 @@ export function blockStyleLayoutCss(
             : undefined;
     }
 
-    if (s.fontSize) out['font-size'] = s.fontSize;
-    if (s.lineHeight) out['line-height'] = s.lineHeight;
+    /*
+     * Font size and line height are published TWICE: as the property, and as a
+     * custom property.
+     *
+     * The plain property lands on the block WRAPPER, and rich-text content
+     * inherits it — which is how a block-level font size reaches its
+     * paragraphs today. But the site's rich-text defaults have to live on a
+     * DESCENDANT (`.rich-text` / its headings), and a descendant's own
+     * declaration beats an inherited one however the layers are arranged. The
+     * block's setting would silently stop working the moment a default existed.
+     *
+     * Custom properties inherit too, so the defaults read
+     * `var(--block-font-size, <default>)` and a block that sets one wins
+     * without needing `!important` or a specificity war.
+     */
+    if (s.fontSize) {
+        out['font-size'] = s.fontSize;
+        out['--block-font-size'] = s.fontSize;
+    }
+    if (s.lineHeight) {
+        out['line-height'] = s.lineHeight;
+        out['--block-line-height'] = s.lineHeight;
+    }
     const ff = opts.resolveFont(s.fontFamily,);
     if (ff) out['font-family'] = ff;
 

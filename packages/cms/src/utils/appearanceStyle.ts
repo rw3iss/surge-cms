@@ -136,12 +136,31 @@ export function appearanceCssVars(
  */
 export function richTextTypographyCss(a: AppearanceSettings | null | undefined,): string {
     const t = resolveTypography(a ?? {},);
-    const headings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6',]
-        .map((h,) => `.rich-text ${h}`)
+    /*
+     * BOTH rich-text surfaces:
+     *   `.rich-text`   — the rendered block (site + deselected admin preview)
+     *   `.rte-content` — the contentEditable the admin block list shows while
+     *                    a rich-text block is SELECTED
+     * They are different elements, and covering only the first meant the
+     * editor looked nothing like the output an operator was editing toward.
+     */
+    const roots = ['.rich-text', '.rte-content',];
+    const headings = roots
+        .flatMap((r,) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6',].map((h,) => `${r} ${h}`),)
         .join(',',);
+    const paragraphs = roots.map((r,) => `${r} p`).join(',',);
+
+    /*
+     * `var(--block-line-height, …)` / `var(--block-font-size, …)`: a block that
+     * sets its own size or leading publishes those custom properties on its
+     * wrapper (see `blockStyleCss`). Custom properties inherit, so the block's
+     * value reaches these descendants and wins — the defaults apply only when
+     * the block said nothing.
+     */
     return `@layer theme{`
-        + `${headings}{line-height:${t.headingLineHeight};margin:${t.headingMargin}}`
-        + `.rich-text p{line-height:${t.paragraphLineHeight};margin:${t.paragraphMargin}}`
+        + `${headings}{line-height:var(--block-line-height,${t.headingLineHeight});margin:${t.headingMargin}}`
+        + `${paragraphs}{line-height:var(--block-line-height,${t.paragraphLineHeight});margin:${t.paragraphMargin}}`
+        + `${roots.join(',',)}{font-size:var(--block-font-size,${t.paragraphFontSize})}`
         + `}`;
 }
 

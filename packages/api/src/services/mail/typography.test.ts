@@ -81,6 +81,21 @@ describe('applyTypographyInline', () => {
         expect(out,).not.toContain('</h1 style',);
     },);
 
+    it('gives paragraphs the base font size, but leaves headings alone', () => {
+        // A heading's size is part of what makes it a heading; overriding it
+        // with body-copy size would flatten the hierarchy.
+        const p = applyTypographyInline('<p>Body</p>', T,);
+        expect(p,).toContain(`font-size:${T.paragraphFontSize}`,);
+        const h = applyTypographyInline('<h1>Title</h1>', T,);
+        expect(h,).not.toContain('font-size',);
+    },);
+
+    it('does not overwrite a font size the author set on a paragraph', () => {
+        const out = applyTypographyInline('<p style="font-size:22px">Big</p>', T,);
+        expect(out,).toContain('font-size:22px',);
+        expect(out,).not.toContain(T.paragraphFontSize,);
+    },);
+
     it('is a no-op on empty input', () => {
         expect(applyTypographyInline('', T,),).toBe('',);
     },);
@@ -111,5 +126,8 @@ describe('resolveTypography', () => {
     it('ships the values the product asked for', () => {
         expect(TYPOGRAPHY_DEFAULTS.headingLineHeight,).toBe('1.15em',);
         expect(TYPOGRAPHY_DEFAULTS.headingMargin,).toBe('10px 0px',);
+        // 1rem = the site's Base Font Size, so adding this setting changed
+        // nothing for existing sites until someone edits it.
+        expect(TYPOGRAPHY_DEFAULTS.paragraphFontSize,).toBe('1rem',);
     },);
 },);

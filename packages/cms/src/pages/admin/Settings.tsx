@@ -688,6 +688,7 @@ function AppearancePanel() {
     const [headingMargin, setHeadingMargin,] = createSignal(TYPOGRAPHY_DEFAULTS.headingMargin,);
     const [paragraphLineHeight, setParagraphLineHeight,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphLineHeight,);
     const [paragraphMargin, setParagraphMargin,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphMargin,);
+    const [paragraphFontSize, setParagraphFontSize,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphFontSize,);
 
     // Layout
     const [gutterWidth, setGutterWidth,] = createSignal('',);
@@ -727,6 +728,7 @@ function AppearancePanel() {
                 if (d.headingMargin) setHeadingMargin(d.headingMargin,);
                 if (d.paragraphLineHeight) setParagraphLineHeight(d.paragraphLineHeight,);
                 if (d.paragraphMargin) setParagraphMargin(d.paragraphMargin,);
+                if (d.paragraphFontSize) setParagraphFontSize(d.paragraphFontSize,);
                 if (d.gutterWidth) setGutterWidth(d.gutterWidth,);
                 if (d.pagePadding) setPagePadding(d.pagePadding,);
                 if (d.postPadding) setPostPadding(d.postPadding,);
@@ -767,6 +769,7 @@ function AppearancePanel() {
                 headingMargin: headingMargin(),
                 paragraphLineHeight: paragraphLineHeight(),
                 paragraphMargin: paragraphMargin(),
+                paragraphFontSize: paragraphFontSize(),
                 gutterWidth: gutterWidth() || undefined,
                 pagePadding: pagePadding() || undefined,
                 postPadding: postPadding() || undefined,
@@ -1024,6 +1027,21 @@ function AppearancePanel() {
                             value={paragraphLineHeight()}
                             onInput={(e,) => { setParagraphLineHeight(e.currentTarget.value,); markDirty(); }}
                             placeholder={TYPOGRAPHY_DEFAULTS.paragraphLineHeight}
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Paragraph Font Size"
+                        sublabel="Body copy in rich text"
+                        tooltip="Base font size for rich-text body copy — on the site, in the admin's block editor, and in email. Default 1rem, which is exactly the Base Font Size above. A block that sets its own font size still overrides this."
+                    >
+                        <input
+                            type="text"
+                            value={paragraphFontSize()}
+                            onInput={(e,) => { setParagraphFontSize(e.currentTarget.value,); markDirty(); }}
+                            placeholder={TYPOGRAPHY_DEFAULTS.paragraphFontSize}
                             style={{ width: '140px', }}
                             class="theme-field__input"
                         />

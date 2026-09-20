@@ -27,6 +27,13 @@ export interface TypographyDefaults {
     paragraphLineHeight: string;
     /** `margin` shorthand for `<p>` inside rich text. */
     paragraphMargin: string;
+    /**
+     * Base `font-size` for rich-text body copy.
+     *
+     * `1rem` by default, i.e. exactly the site's Base Font Size — so turning
+     * this on changes nothing until an operator asks it to.
+     */
+    paragraphFontSize: string;
 }
 
 export const TYPOGRAPHY_DEFAULTS: TypographyDefaults = {
@@ -36,6 +43,7 @@ export const TYPOGRAPHY_DEFAULTS: TypographyDefaults = {
     // are short and large, paragraphs are long and small.
     paragraphLineHeight: '1.5',
     paragraphMargin: '10px 0px',
+    paragraphFontSize: '1rem',
 };
 
 /** Resolve the effective values, treating empty strings as "unset". */
@@ -51,6 +59,7 @@ export function resolveTypography(
         headingMargin: pick(a?.headingMargin, TYPOGRAPHY_DEFAULTS.headingMargin,),
         paragraphLineHeight: pick(a?.paragraphLineHeight, TYPOGRAPHY_DEFAULTS.paragraphLineHeight,),
         paragraphMargin: pick(a?.paragraphMargin, TYPOGRAPHY_DEFAULTS.paragraphMargin,),
+        paragraphFontSize: pick(a?.paragraphFontSize, TYPOGRAPHY_DEFAULTS.paragraphFontSize,),
     };
 }
 
@@ -87,6 +96,12 @@ export function applyTypographyInline(html: string, t: TypographyDefaults,): str
                 new RegExp(`(^|;)\\s*${prop}\\s*:`, 'i',).test(styleText,);
 
             const additions: string[] = [];
+            // Body copy also carries the base size in email, where there is no
+            // stylesheet to inherit one from. Headings are left alone: their
+            // size is part of what makes an h1 an h1.
+            if (!isHeading && !declares('font-size',)) {
+                additions.push(`font-size:${t.paragraphFontSize}`,);
+            }
             // `margin-top`/`margin-bottom` count as declaring the margin: a
             // pasted heading sets those two rather than the shorthand, and
             // adding a shorthand alongside would depend on order to decide the
