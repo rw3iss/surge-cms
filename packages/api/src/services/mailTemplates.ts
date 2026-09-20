@@ -15,6 +15,7 @@ import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from './mail/renderer';
 import { buildSiteVariables, } from '@sitesurge/types';
 import { expandDynamicBlocks, } from './mail/expandBlocks';
+import { absolutiseUrls, } from './mail/postProcess';
 import { loadMailRenderContext, } from './mail/siteContext';
 import { buildSampleContext, describeVariables, } from './mail/variables';
 import { resolveMailTemplate, } from './mail/templateRuntime';
@@ -225,8 +226,14 @@ export async function preview(input: PreviewInput,) {
     }
     ctx.site = site;
 
+    // Absolutise links exactly as the send path does, so the preview cannot
+    // show a relative (dead-in-an-inbox) link where the sent mail has a working
+    // one. Resolve templates FIRST: an href may be a `{{ }}` token, which is
+    // deliberately left alone by the absolutiser.
+    const resolvedHtml = await resolveMailTemplate(result.html, ctx,);
+
     return {
-        html: await resolveMailTemplate(result.html, ctx,),
+        html: absolutiseUrls(resolvedHtml, renderCtx.siteUrl,),
         subject: await resolveMailTemplate(result.subject, ctx,),
         preheader: result.preheader ? await resolveMailTemplate(result.preheader, ctx,) : undefined,
         detectedVariables: result.detectedVariables,
