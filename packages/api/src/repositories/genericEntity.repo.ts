@@ -13,7 +13,6 @@ import {
     isColumnField,
 } from '@sitesurge/types';
 import { query, } from '../db';
-import { buildSortClause, } from './base.repo';
 import { assertSafeIdentifier, columnFor, snakeCase, } from '../entities/columnMap';
 
 /** Column-backed fields (excludes `blocks`). */
@@ -43,6 +42,42 @@ function sortAllowlist(typeDef: EntityTypeDef,): Record<string, string> {
     if (typeDef.hasStatus) allow.status = 'status';
     for (const f of columnFields(typeDef,)) allow[f.key] = `"${columnFor(f,)}"`;
     return allow;
+}
+
+/**
+ * `ORDER BY` for a generic entity, normalised so ANY field type sorts sensibly.
+ *
+ * `buildSortClause` (the shared helper) emits a bare `ORDER BY col DIR`, which
+ * is wrong for entity data in three ways an operator would notice:
+ *
+ *  1. **NULLs.** Postgres puts NULLs FIRST for DESC. "Newest posts by
+ *     publishedAt, newest first" therefore led with every UNPUBLISHED post —
+ *     the rows with no date at all. An empty value must never outrank a real
+ *     one, so NULLS LAST is forced in BOTH directions.
+ *  2. **Case.** Text sorts by byte value under most collations, so `Zebra`
+ *     comes before `apple`. Sorting a title A–Z has to be case-insensitive to
+ *     mean what the operator expects.
+ *  3. **Ties.** Equal values in an unstable order make pagination repeat or
+ *     skip rows between pages. `id` is appended as a deterministic tiebreak.
+ *
+ * Numbers and dates are compared on the column directly — they are already
+ * ordered types, and lowering them would sort them as strings ("10" < "9").
+ */
+const TEXTUAL_FIELD_TYPES = new Set(['text', 'longtext', 'richtext', 'slug', 'email', 'url', 'enum',],);
+
+export function buildEntitySortClause(typeDef: EntityTypeDef, q: EntityQuery,): string {
+    const allow = sortAllowlist(typeDef,);
+    const column = (q.sortBy && allow[q.sortBy]) || allow.createdAt || 'created_at';
+    const direction = q.sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+    const field = typeDef.fields.find((f,) => f.key === q.sortBy);
+    // Standard columns (slug/status) are textual too; id/timestamps are not.
+    const textual = field
+        ? TEXTUAL_FIELD_TYPES.has(field.type,)
+        : (q.sortBy === 'slug' || q.sortBy === 'status');
+
+    const expr = textual ? `LOWER(${column}::text)` : column;
+    return `ORDER BY ${expr} ${direction} NULLS LAST, id ${direction}`;
 }
 
 /** Build a parameterized WHERE from filter/search/status. */
@@ -132,10 +167,14 @@ export async function list(
     const table = `"${assertSafeIdentifier(typeDef.tableName, 'table name',)}"`;
     const params: unknown[] = [];
     const where = buildWhere(typeDef, q, params,);
-    // An explicit sort always wins — the default only fills the gap.
-    const order = (!q.sortBy && opts.defaultOrderBy)
+    // An explicit sort always wins — the default only fills the gap. A bare
+    // `sortOrder` counts as explicit: it means "the default FIELD, in this
+    // direction" (oldest-first), which a caller can now ask for from the
+    // picker's direction toggle without choosing a field. Testing `sortBy`
+    // alone would silently ignore that and keep the default order.
+    const order = (!q.sortBy && !q.sortOrder && opts.defaultOrderBy)
         ? opts.defaultOrderBy
-        : buildSortClause(q.sortBy, q.sortOrder, sortAllowlist(typeDef,), 'createdAt',);
+        : buildEntitySortClause(typeDef, q,);
     const page = Math.max(1, q.page ?? 1,);
     const limit = Math.min(200, Math.max(1, q.limit ?? 20,),);
     const offset = (page - 1) * limit;

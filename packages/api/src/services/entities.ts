@@ -16,8 +16,30 @@ import { NotFoundError, ValidationError, } from '../middleware/error';
 
 import { UUID_RE, } from '../utils/uuid';
 
-function hashQuery(q: EntityQuery,): string {
-    return createHash('sha1',).update(JSON.stringify(q,),).digest('hex',).slice(0, 16,);
+/**
+ * Cache key for a query.
+ *
+ * Keys are SORTED before hashing, at both levels: `JSON.stringify` preserves
+ * INSERTION order, so `{sortBy, limit}` and `{limit, sortBy}` — the same query,
+ * built by two different callers — hashed differently and each took its own
+ * cache slot. Every caller missed the other's entry, and the wasted slots
+ * multiplied once queries started carrying sort and filter clauses.
+ *
+ * Only two levels deep because that is the whole shape: the query is flat apart
+ * from `filter`, whose values are `{op, value}` pairs.
+ */
+export function hashQuery(q: EntityQuery,): string {
+    const stable = (v: unknown,): unknown => {
+        if (typeof v !== 'object' || v === null || Array.isArray(v,)) return v;
+        const out: Record<string, unknown> = {};
+        // `sort()` (not `toSorted()`, which needs lib es2023) — `Object.keys`
+        // already returned a fresh array, so there is nothing to mutate.
+        for (const k of Object.keys(v as object,).sort()) {
+            out[k] = stable((v as Record<string, unknown>)[k],);
+        }
+        return out;
+    };
+    return createHash('sha1',).update(JSON.stringify(stable(q,),),).digest('hex',).slice(0, 16,);
 }
 
 /**

@@ -103,6 +103,21 @@
         }
     }
 
+    // A true outline: no fill, primary border AND primary label. Distinct from
+    // `--secondary`, which has a primary border but a filled background and
+    // body-coloured text. For actions that should read as a button rather than
+    // a link without competing with a filled primary CTA next to them.
+    &--outline {
+        background: transparent;
+        color: var(--site-primary, #{$primary-color});
+        border: 1px solid var(--site-primary, #{$primary-color});
+
+        &:not(:disabled):hover {
+            background: var(--site-primary, #{$primary-color});
+            color: var(--site-button-text, #fff);
+        }
+    }
+
     &--ghost {
         background: transparent;
         color: var(--site-primary, #{$text-light});

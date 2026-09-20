@@ -120,18 +120,22 @@ const EntityBlockEdit: Component<{
                     </select>
                 </label>
 
+                {/* The binding action. Outlined + full width (see
+                    `.block-edit-form > .ui-button`) because opening the picker
+                    IS the step here — as a bare small button it read as a link
+                    and got skipped. */}
                 <Show when={cfg().binding.mode === 'single'}>
-                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('single',)}>
+                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('single',)}>
                         {(cfg().binding as { ref?: string; }).ref ? `Entity: ${(cfg().binding as { ref: string; }).ref}` : 'Select entity…'}
                     </button>
                 </Show>
                 <Show when={cfg().binding.mode === 'list'}>
-                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('multiple',)}>
+                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('multiple',)}>
                         Select entities ({((cfg().binding as { refs?: string[]; }).refs ?? []).length})
                     </button>
                 </Show>
                 <Show when={cfg().binding.mode === 'query'}>
-                    <button type="button" class="ui-button ui-button--sm" onClick={() => setModalMode('query',)}>
+                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('query',)}>
                         Configure query…
                     </button>
                 </Show>
@@ -167,6 +171,11 @@ const EntityBlockEdit: Component<{
                 <EntitySearchSelectModal
                     entityType={cfg().entityType}
                     mode={modalMode()!}
+                    // Reopening a configured query resumes it, rather than
+                    // starting blank and overwriting the saved sort/filters.
+                    initialQuery={cfg().binding.mode === 'query'
+                        ? (cfg().binding as { query?: EntityQuery; }).query
+                        : undefined}
                     onClose={() => setModalMode(null,)}
                     onSelect={(result,) => {
                         const m = modalMode();

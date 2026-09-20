@@ -32,6 +32,15 @@ export interface EntitySearchSelectModalProps {
     mode: 'single' | 'multiple' | 'query';
     /** Multiple mode: cap on how many records may be selected. */
     max?: number;
+    /**
+     * Query mode: the query already saved on the block, so reopening the modal
+     * RESUMES it instead of starting blank.
+     *
+     * Without this, "Configure query…" always opened empty and pressing "Use
+     * query" overwrote the saved one — so tweaking the limit silently discarded
+     * the sort and every filter clause.
+     */
+    initialQuery?: EntityQuery;
     onSelect: (result: EntitySearchResult,) => void;
     onClose: () => void;
 }
@@ -46,6 +55,34 @@ interface FilterClause {
 }
 
 const blankClause = (): FilterClause => ({ field: '', op: 'eq', value: '', });
+
+/**
+ * Rebuild the editable clause rows from a saved `EntityQuery.filter`.
+ *
+ * The saved shape allows a BARE value as shorthand for equality (`{ status:
+ * 'active' }`), so that case has to be widened back to an explicit `eq` row —
+ * otherwise reopening a hand-written query would show an empty operator and
+ * saving would drop the clause.
+ */
+function clausesFromFilter(
+    filter: Record<string, EntityFilterValue> | undefined,
+): FilterClause[] {
+    const rows: FilterClause[] = [];
+    for (const [field, raw,] of Object.entries(filter ?? {},)) {
+        if (raw != null && typeof raw === 'object' && 'op' in raw) {
+            const v = raw.value;
+            rows.push({
+                field,
+                op: raw.op,
+                value: Array.isArray(v,) ? v.join(',',) : String(v ?? '',),
+            },);
+        } else {
+            rows.push({ field, op: 'eq', value: String(raw ?? '',), },);
+        }
+    }
+    // Always leave one row, so the controls are visible on an empty query.
+    return rows.length ? rows : [blankClause(),];
+}
 /** The wire value stays the short token the API expects; only the LABEL is
  *  spelled out, because "ne" and "lte" are not words. */
 const FILTER_OPS: { op: FilterOp; label: string; short: string; }[] = [
@@ -83,11 +120,15 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const [loading, setLoading,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
 
-    const [search, setSearch,] = createSignal('',);
-    const [sortBy, setSortBy,] = createSignal<string>('',);
-    const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>('desc',);
+    // Seeded from the saved query (query mode) — read once, at mount: the modal
+    // is unmounted between openings, so there is no stale-props case.
+    const seed = props.initialQuery ?? {};
+
+    const [search, setSearch,] = createSignal(seed.search ?? '',);
+    const [sortBy, setSortBy,] = createSignal<string>(seed.sortBy ?? '',);
+    const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>(seed.sortOrder ?? 'desc',);
     const [page, setPage,] = createSignal(1,);
-    const [limit, setLimit,] = createSignal(20,);
+    const [limit, setLimit,] = createSignal(seed.limit ?? 20,);
 
     const [selected, setSelected,] = createSignal<EntityRecord[]>([],);
 
@@ -112,7 +153,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      * lost focus on the first keystroke. A store patches the row in place: the
      * array and the untouched rows keep their identity and the DOM survives.
      */
-    const [clauses, setClauses,] = createStore<FilterClause[]>([blankClause(),],);
+    const [clauses, setClauses,] = createStore<FilterClause[]>(clausesFromFilter(seed.filter,),);
 
     const patchClause = (i: number, change: Partial<FilterClause>,) =>
         setClauses(i, change,);
@@ -180,6 +221,64 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         return [...std, ...sortableFields().filter((k,) => k !== 'slug' && k !== 'status'),];
     };
 
+    /**
+     * Everything the backend will sort by, in the order an operator looks for
+     * it: the standard columns every record has, then the type's own fields.
+     *
+     * Derived from the type definition rather than from the visible COLUMNS —
+     * the table only shows the first four fields, so clicking a header could
+     * never reach `publishedAt` on a post. "The most recent N posts" was
+     * therefore unexpressible, which is what this dropdown is for.
+     *
+     * The empty key means "the backend's default", which is `createdAt`; it is
+     * labelled as such rather than as "Default", since an operator picking a
+     * sort wants to know what they are getting.
+     */
+    const sortOptions = (): { key: string; label: string; }[] => {
+        const opts = [
+            { key: '', label: 'Date created', },
+            { key: 'updatedAt', label: 'Date updated', },
+        ];
+        const def = typeDef();
+        if (!def) return opts;
+        if (def.hasStatus) opts.push({ key: 'status', label: 'Status', },);
+        if (def.hasSlug) opts.push({ key: 'slug', label: 'Slug', },);
+        for (const key of sortableFields()) {
+            if (key === 'slug' || key === 'status') continue;
+            opts.push({ key, label: fieldLabel(key,), },);
+        }
+        return opts;
+    };
+
+    /**
+     * The sort half of a query, shared by the live fetch and the saved query so
+     * the preview can't disagree with what gets stored.
+     *
+     * `sortOrder` rides ALONE when no field is picked: the backend's default
+     * sort is `createdAt`, so "no field, ascending" is a real request (oldest
+     * first), not a no-op — without this the direction toggle would appear
+     * dead until a field was chosen.
+     */
+    const sortParams = (): Pick<EntityQuery, 'sortBy' | 'sortOrder'> => {
+        if (sortBy()) return { sortBy: sortBy(), sortOrder: sortOrder(), };
+        return sortOrder() === 'desc' ? {} : { sortOrder: sortOrder(), };
+    };
+
+    /**
+     * Re-apply the selected sort field once the option list actually exists.
+     *
+     * The type definition loads asynchronously, so on first paint the dropdown
+     * holds only the two standard options. A `<select>` whose value matches no
+     * option falls back to the first one and is NOT re-synced when the options
+     * arrive — the signal would say `publishedAt` while the control read "Date
+     * created". Same treatment as the entity/template selects in EntityBlock.
+     */
+    let sortSelect: HTMLSelectElement | undefined;
+    createEffect(() => {
+        sortOptions();
+        if (sortSelect) sortSelect.value = sortBy();
+    },);
+
     const currentSort = () => (sortBy() ? `${sortBy()}_${sortOrder()}` : '');
 
     const handleSort = (value: string,) => {
@@ -226,7 +325,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
 
     const buildQuery = (): EntityQuery => ({
         ...(search() ? { search: search(), } : {}),
-        ...(sortBy() ? { sortBy: sortBy(), sortOrder: sortOrder(), } : {}),
+        ...sortParams(),
         ...(props.mode === 'query' ? { limit: limit(), } : {}),
         ...(() => {
             const filter = buildFilter();
@@ -242,7 +341,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                 page: page(),
                 limit: PAGE_LIMIT,
                 ...(search() ? { search: search(), } : {}),
-                ...(sortBy() ? { sortBy: sortBy(), sortOrder: sortOrder(), } : {}),
+                ...sortParams(),
             };
             const filter = buildFilter();
             if (filter) query.filter = filter;
@@ -322,6 +421,33 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         value={search()}
                         onInput={(e,) => onSearchInput(e.currentTarget.value,)}
                     />
+                    {/* Sort applies in every mode — narrowing what you pick from
+                        is as useful as narrowing what you save. Only query mode
+                        PERSISTS it (via buildQuery). */}
+                    <label class="entity-search-modal__sort">
+                        Sort
+                        <select
+                            ref={sortSelect}
+                            value={sortBy()}
+                            onChange={(e,) => { setSortBy(e.currentTarget.value,); setPage(1,); }}
+                        >
+                            <For each={sortOptions()}>
+                                {(o,) => <option value={o.key}>{o.label}</option>}
+                            </For>
+                        </select>
+                    </label>
+                    <button
+                        type="button"
+                        class="entity-search-modal__sort-dir"
+                        title={sortOrder() === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
+                        aria-label={`Sort direction: ${sortOrder() === 'asc' ? 'ascending' : 'descending'}`}
+                        onClick={() => {
+                            setSortOrder(sortOrder() === 'asc' ? 'desc' : 'asc',);
+                            setPage(1,);
+                        }}
+                    >
+                        {sortOrder() === 'asc' ? '↑' : '↓'}
+                    </button>
                     <Show when={props.mode === 'query'}>
                         <label class="entity-search-modal__limit">
                             Limit

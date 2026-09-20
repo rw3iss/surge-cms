@@ -36,9 +36,23 @@ describe('genericEntity.repo list ordering', () => {
         expect(rowSql(),).not.toContain('created_at',);
     },);
 
+    it('a bare sortOrder also overrides defaultOrderBy', async () => {
+        // The picker's direction toggle can be flipped without choosing a
+        // field, meaning "the default field, oldest first". Treating only
+        // `sortBy` as explicit would leave the default order in place and make
+        // the toggle look broken on any type that has one.
+        await list(TYPE, { sortOrder: 'asc', }, { defaultOrderBy: 'ORDER BY position ASC', },);
+        expect(rowSql(),).toContain('ORDER BY created_at ASC',);
+        expect(rowSql(),).not.toContain('position',);
+    },);
+
     it('an explicit sortBy overrides defaultOrderBy', async () => {
         await list(TYPE, { sortBy: 'slug', sortOrder: 'asc', }, { defaultOrderBy: 'ORDER BY position ASC', },);
-        expect(rowSql(),).toContain('ORDER BY slug ASC',);
+        // Sorts by slug ascending and ignores the default. The expression is
+        // `LOWER(slug::text)` rather than a bare column because entity sorting
+        // is normalised — see `buildEntitySortClause` and its own test file for
+        // the case/NULL/tiebreak rules.
+        expect(rowSql(),).toContain('ORDER BY LOWER(slug::text) ASC',);
         expect(rowSql(),).not.toContain('position',);
     },);
 },);

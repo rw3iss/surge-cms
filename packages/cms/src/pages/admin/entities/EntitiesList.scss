@@ -395,6 +395,44 @@
 
     &__toolbar input[type='search'] { flex: 1 1 220px; }
 
+    // "Sort" label + its field dropdown, sharing the Limit label's look so the
+    // toolbar reads as one row of controls.
+    &__sort {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+
+        // Long field labels ("Published at") need room, but not the whole row —
+        // the search box keeps the slack.
+        select { max-width: 11rem; }
+    }
+
+    // Direction toggle: square, sized to sit level with the dropdown beside it.
+    &__sort-dir {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid var(--admin-border, #{$border-color});
+        border-radius: $border-radius-sm;
+        background: none;
+        color: var(--admin-text, #{$text-color});
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover {
+            border-color: var(--site-primary, #{$primary-color});
+            color: var(--site-primary, #{$primary-color});
+        }
+    }
+
     // "Limit" label + its (narrow) number field.
     &__limit {
         display: inline-flex;

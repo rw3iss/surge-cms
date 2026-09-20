@@ -154,10 +154,23 @@
   }
 
   // Action buttons (Select entity / Configure query) sit on their own row,
-  // left-aligned, full-ish width for tap targets.
-  > .btn {
+  // FULL width: they are the panel's action for that binding, not an inline
+  // link, and a small button floating in a column of full-width fields reads
+  // as a link. `.btn` is the legacy class, `.ui-button` the current one —
+  // matching only `.btn` left these rendering inline.
+  > .btn,
+  > .ui-button {
     align-self: stretch;
-    justify-content: center;
+    // Block (not inline-flex) so `text-overflow` applies to the button's own
+    // text: a long binding label ("Entity: some-long-product-slug") would
+    // otherwise force the whole properties panel wider, since `.ui-button`
+    // never wraps.
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    // A little air beyond the panel's own gap — this sits between the field
+    // above and the binding summary below, and is a separate step from both.
+    margin: $spacing-xs 0;
   }
 }
 
