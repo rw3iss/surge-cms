@@ -107,12 +107,14 @@ const EntityBlockEdit: Component<{
                         value={cfg().binding.mode}
                         onChange={(e,) => {
                             const mode = e.currentTarget.value as EntityBinding['mode'];
-                            if (mode === 'single') setBinding({ mode, ref: '', },);
+                            if (mode === 'none') setBinding({ mode, },);
+                            else if (mode === 'single') setBinding({ mode, ref: '', },);
                             else if (mode === 'list') setBinding({ mode, refs: [], },);
                             else if (mode === 'query') setBinding({ mode, query: {}, },);
                             else setBinding({ mode: 'context', },);
                         }}
                     >
+                        <option value="none">None — just render the template</option>
                         <option value="context">Current page entity</option>
                         <option value="single">A specific entity</option>
                         <option value="list">Several specific entities</option>

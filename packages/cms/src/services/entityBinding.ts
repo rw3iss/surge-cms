@@ -45,10 +45,21 @@ export async function resolveRecords(
     const cap = (arr: EntityRecord[],) => (maxRecords && maxRecords > 0 ? arr.slice(0, maxRecords,) : arr);
     try {
         switch (binding.mode) {
+            // Render the template once with nothing bound.
+            case 'none':
+                return [{} as EntityRecord,];
             case 'context': {
                 const { singular, } = entityVars(entityType,);
                 const wrapped = ctx?.[singular] ?? ctx?.[entityType];
-                return wrapped?.data ? [wrapped.data as EntityRecord,] : [];
+                if (wrapped?.data) return [wrapped.data as EntityRecord,];
+                // No current-page entity — a mail template, a standalone
+                // template preview, a generic page. Render the template ONCE
+                // with nothing bound rather than nothing at all: a template
+                // that doesn't use the entity (a social feed, a static tout)
+                // then works, and one that does shows its structure with empty
+                // values, which is debuggable. Rendering nothing looked
+                // identical to a broken block.
+                return [{} as EntityRecord,];
             }
             case 'single': {
                 const rec = binding.ref ? await getOne(entityType, binding.ref,) : null;

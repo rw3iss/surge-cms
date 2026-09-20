@@ -8,6 +8,7 @@
  * SocialPostSelectModal for advanced search / pagination.
  */
 import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
+import { resolveSocialCount, } from '@sitesurge/types';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
@@ -55,10 +56,10 @@ function resolveItems(data: Record<string, any>,): SocialItem[] {
 const SocialBlock: Component<SocialBlockProps> = (props,) => {
     const provider = () => (props.data.provider || '') as string;
     const items = (): SocialItem[] => resolveItems(props.data);
-    const count = (): number => {
-        const c = Number(props.data.count ?? items().length ?? 1);
-        return Number.isFinite(c,) && c > 0 ? Math.min(50, Math.max(1, c,),) : 1;
-    };
+    /** The effective post count, resolved the SAME way the renderer resolves it.
+     *  Showing a different default here than the renderer uses is what made the
+     *  field unchangeable — see resolveSocialCount. */
+    const count = (): number => resolveSocialCount(props.data as never,);
 
     const [connections, setConnections,] = createSignal<any[]>([],);
     onMount(async () => {

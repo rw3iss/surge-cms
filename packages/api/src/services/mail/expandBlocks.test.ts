@@ -169,6 +169,32 @@ describe('expandDynamicBlocks', () => {
         expect(child?.settings.content,).toBe('<p>static</p>',);
     },);
 
+    it('renders the template ONCE for a `none` binding', async () => {
+        // A template that references no entity at all — a "latest video" tout
+        // whose only block is a social feed. Nothing to resolve, but there is
+        // very much something to render.
+        findBlocksResolved.mockResolvedValue([tplBlock('t1', '<p>static</p>',),],);
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: {
+                entityType: 'post', templateId: 'tpl-1', binding: { mode: 'none', },
+            }, },
+        },),],);
+        expect(out.filter((b,) => b.parentBlockId === 'e1').length,).toBe(1,);
+        expect(entityGet,).not.toHaveBeenCalled();
+    },);
+
+    it('renders ONCE for a `context` binding, since email has no page entity', async () => {
+        // Previously returned nothing, so the block vanished from the email
+        // with no indication why — indistinguishable from a broken block.
+        findBlocksResolved.mockResolvedValue([tplBlock('t1', '<p>static</p>',),],);
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: {
+                entityType: 'post', templateId: 'tpl-1', binding: { mode: 'context', },
+            }, },
+        },),],);
+        expect(out.filter((b,) => b.parentBlockId === 'e1').length,).toBe(1,);
+    },);
+
     it('caps a query binding so an email cannot expand unbounded', async () => {
         findBlocksResolved.mockResolvedValue([tplBlock(),],);
         entityList.mockResolvedValue({

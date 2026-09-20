@@ -77,3 +77,33 @@ export function usesPlayer(
     if (mediaDisplay !== 'full') return false;
     return platform === 'youtube';
 }
+
+/**
+ * Default number of posts an auto-feed social block shows.
+ *
+ * 6 preserves what the renderer has always used; the admin panel used to
+ * display `1` for an unset block instead, which made the setting impossible to
+ * change through the UI — the field already showed the value the operator
+ * wanted, so typing it fired no change event, nothing was written, and the
+ * renderer went on using 6.
+ */
+export const SOCIAL_DEFAULT_COUNT = 6;
+
+/**
+ * How many posts a social block should show.
+ *
+ * ONE resolution, shared by the renderer and the admin panel, because those two
+ * disagreeing is exactly the bug above. `limit` is the legacy key and still
+ * wins where present; `count` is what the panel writes.
+ */
+export function resolveSocialCount(
+    settings: { limit?: unknown; count?: unknown; items?: unknown; } | null | undefined,
+): number {
+    const raw = settings ?? {};
+    const explicit = Number(raw.limit ?? raw.count,);
+    if (Number.isFinite(explicit,) && explicit > 0) return Math.min(50, Math.floor(explicit,),);
+    // A pinned block with slots implies its own count.
+    const pinned = Array.isArray(raw.items,) ? raw.items.length : 0;
+    if (pinned > 0) return Math.min(50, pinned,);
+    return SOCIAL_DEFAULT_COUNT;
+}

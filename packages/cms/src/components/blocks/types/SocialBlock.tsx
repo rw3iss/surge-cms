@@ -4,7 +4,7 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import { resolveSocialDisplay, } from '@sitesurge/types';
+import { resolveSocialCount, resolveSocialDisplay, } from '@sitesurge/types';
 import type { Block, SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { Component, For, Show, createResource, } from 'solid-js';
 import { A, } from '@solidjs/router';
@@ -37,8 +37,10 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
         return Array.isArray(list,) ? (list as SocialBlockItem[]) : [];
     };
     const filledItems = () => items().filter(i => i.postId || i.postUrl,);
-    const count = (): number => Number(settings().count ?? items().length ?? 0);
-    const limit = () => (settings().limit as number) || count() || 6;
+    /** Shared with the admin panel — the two defaulting differently is what
+     *  made "Number of posts" impossible to change (the field showed 1, the
+     *  renderer used 6, so typing 1 was not a change and never saved). */
+    const limit = () => resolveSocialCount(settings() as never,);
     const layout = () => (settings().layout as string) || 'grid';
     const snapScroll = () => settings().snapScroll as boolean ?? false;
     const rowHeight = () => (settings().rowHeight as string) || undefined;
@@ -224,7 +226,11 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                             </For>
                         }
                     >
-                        <For each={posts()}>
+                        {/* Sliced as well as requested: the count is the block's
+                            setting, so it should hold even if the feed returns
+                            more than asked (a cached response, a provider that
+                            ignores the limit). */}
+                        <For each={(posts() ?? []).slice(0, limit(),)}>
                             {(post,) => (
                                 <SocialEmbed
                                     platform={post.platform}

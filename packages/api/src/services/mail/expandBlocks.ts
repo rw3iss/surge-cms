@@ -36,7 +36,7 @@ interface EntityCfg {
     entityType?: string;
     templateId?: string;
     binding?: {
-        mode?: 'context' | 'single' | 'list' | 'query';
+        mode?: 'none' | 'context' | 'single' | 'list' | 'query';
         ref?: string;
         refs?: string[];
         query?: Record<string, unknown>;
@@ -63,9 +63,10 @@ const MAX_DEPTH = 5;
 /**
  * Resolve which records an entity block binds to.
  *
- * `context` mode returns nothing: an email has no "current page entity", so
- * binding to one is meaningless here. Returning empty (rather than guessing a
- * record) keeps the email honest about it.
+ * `none` and `context` both resolve to ONE empty record — render the template
+ * once with nothing bound. An email has no "current page entity", and a
+ * template that never references the entity (a "latest video" tout) is the
+ * common case; skipping the block made it silently invisible.
  */
 async function resolveRecords(cfg: EntityCfg,): Promise<Record<string, unknown>[]> {
     const type = cfg.entityType;
@@ -74,6 +75,16 @@ async function resolveRecords(cfg: EntityCfg,): Promise<Record<string, unknown>[
 
     try {
         switch (binding.mode) {
+            // Nothing bound — render the template once, as-is.
+            case 'none':
+                return [{},];
+            case 'context':
+                // An email has no "current page entity". Render the template
+                // once with nothing bound rather than skipping the block: a
+                // template that doesn't use the entity (a social feed, a
+                // static tout) is the common case here, and rendering nothing
+                // is indistinguishable from a broken block.
+                return [{},];
             case 'single': {
                 if (!binding.ref) return [];
                 const rec = await entitiesService.get(type, binding.ref,);
