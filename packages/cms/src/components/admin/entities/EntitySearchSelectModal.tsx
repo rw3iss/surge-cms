@@ -23,6 +23,7 @@ import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
 import EntityValueInput from './EntityValueInput';
+import { humaniseKey, } from '../../../utils/humaniseKey';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
 export type EntitySearchResult = EntityRecord | EntityRecord[] | EntityQuery;
@@ -83,6 +84,7 @@ function clausesFromFilter(
     // Always leave one row, so the controls are visible on an empty query.
     return rows.length ? rows : [blankClause(),];
 }
+
 /** The wire value stays the short token the API expects; only the LABEL is
  *  spelled out, because "ne" and "lte" are not words. */
 const FILTER_OPS: { op: FilterOp; label: string; short: string; }[] = [
@@ -206,10 +208,12 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      *  type carries (status/slug) first, then its schema fields — so you can
      *  filter e.g. `status = active`. */
     /** Human label for a field key — the schema's own label when it has one,
-     *  else the raw key. `is_featured` reads better as "Is featured". */
+     *  else the key humanised. Core types label their fields with the raw key
+     *  (`publishedAt`, `featured_image`), which read as code sitting beside
+     *  "Date created" and "Status" in the very same dropdown. */
     const fieldLabel = (key: string,): string => {
         const f = typeDef()?.fields.find((x,) => x.key === key,);
-        return f?.label && f.label !== f.key ? f.label : key;
+        return f?.label && f.label !== f.key ? f.label : humaniseKey(key,);
     };
 
     const filterFields = () => {
