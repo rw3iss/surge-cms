@@ -13,9 +13,13 @@ import { beforeEach, describe, expect, it, vi, } from 'vitest';
 const findBlocksResolved = vi.fn();
 const entityGet = vi.fn();
 const entityList = vi.fn();
+const listPlatformPosts = vi.fn();
 
 vi.mock('../../repositories/contentBlockTemplates.repo', () => ({
     findBlocksResolved: (...a: unknown[]) => findBlocksResolved(...a,),
+}),);
+vi.mock('../socialFeed', () => ({
+    listPlatformPosts: (...a: unknown[]) => listPlatformPosts(...a,),
 }),);
 vi.mock('../entities', () => ({
     get: (...a: unknown[]) => entityGet(...a,),
@@ -55,6 +59,7 @@ beforeEach(() => {
     findBlocksResolved.mockReset();
     entityGet.mockReset();
     entityList.mockReset();
+    listPlatformPosts.mockReset();
 },);
 
 describe('expandDynamicBlocks', () => {
@@ -208,5 +213,119 @@ describe('expandDynamicBlocks', () => {
         },),],);
         const passed = entityList.mock.calls[0][1] as { limit: number; };
         expect(passed.limit,).toBeLessThanOrEqual(25,);
+    },);
+},);
+
+/**
+ * Auto-feed social blocks in email.
+ *
+ * `renderSocial` reads pinned `items` and nothing else — it is synchronous and
+ * cannot query the feed — so a block set to "latest videos" rendered as NOTHING
+ * in an email while showing correctly on the site. Resolving the feed here, into
+ * the shape that renderer already consumes, is what closes the gap.
+ */
+describe('social auto-feed resolution', () => {
+    const socialBlock = (settings: Record<string, unknown>,): FlatMailBlock => ({
+        id: 's1', parentBlockId: null, blockType: 'social', position: 0,
+        settings: { provider: 'youtube', kind: 'video', ...settings, },
+        style: {},
+    });
+
+    const ytPost = (id: string,) => ({
+        externalId: id, mediaUrl: `https://youtube.com/watch?v=${id}`,
+        content: `Video ${id}`, authorName: 'Frank Scales',
+        thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    });
+
+    it('materialises feed posts into the items renderSocial reads', async () => {
+        listPlatformPosts.mockResolvedValue({ data: [ytPost('AAA',),], },);
+        const out = await expandDynamicBlocks([socialBlock({},),],);
+        const items = out[0].settings.items as Array<Record<string, unknown>>;
+        expect(items,).toHaveLength(1,);
+        expect(items[0],).toMatchObject({
+            postId: 'AAA',
+            postUrl: 'https://youtube.com/watch?v=AAA',
+            thumbnailUrl: 'https://i.ytimg.com/vi/AAA/hqdefault.jpg',
+        },);
+    },);
+
+    it('honours the block\'s post count', async () => {
+        listPlatformPosts.mockResolvedValue({
+            data: [ytPost('A',), ytPost('B',), ytPost('C',),],
+        },);
+        const out = await expandDynamicBlocks([socialBlock({ count: 1, },),],);
+        expect((out[0].settings.items as unknown[]),).toHaveLength(1,);
+        expect(listPlatformPosts.mock.calls[0][0].limit,).toBe(1,);
+    },);
+
+    it('passes the kind filter through', async () => {
+        // A block set to "Shorts" that emails every kind is not doing what the
+        // panel says.
+        listPlatformPosts.mockResolvedValue({ data: [ytPost('A',),], },);
+        await expandDynamicBlocks([socialBlock({ kind: 'short', },),],);
+        expect(listPlatformPosts.mock.calls[0][0].kind,).toBe('short',);
+    },);
+
+    it('never includes hidden posts', async () => {
+        // An email is public; a post hidden from the site is hidden from it.
+        listPlatformPosts.mockResolvedValue({ data: [ytPost('A',),], },);
+        await expandDynamicBlocks([socialBlock({},),],);
+        expect(listPlatformPosts.mock.calls[0][0].includeHidden,).toBe(false,);
+    },);
+
+    it('leaves a PINNED block completely alone', async () => {
+        // Pinned slots are the operator's explicit choice; replacing them with
+        // the feed would silently change what ships.
+        const pinned = socialBlock({
+            usePinned: true,
+            items: [{ postId: 'PINNED', postUrl: 'https://x.test', },],
+        },);
+        const out = await expandDynamicBlocks([pinned,],);
+        expect((out[0].settings.items as Array<{ postId: string; }>)[0].postId,).toBe('PINNED',);
+        expect(listPlatformPosts,).not.toHaveBeenCalled();
+    },);
+
+    it('treats filled slots on a legacy block as pinned', async () => {
+        // Blocks predating the `usePinned` flag imply it from having slots;
+        // without that an existing hand-curated block would start auto-feeding.
+        const legacy = socialBlock({ items: [{ postId: 'OLD', },], },);
+        await expandDynamicBlocks([legacy,],);
+        expect(listPlatformPosts,).not.toHaveBeenCalled();
+    },);
+
+    it('does nothing without a provider', async () => {
+        await expandDynamicBlocks([socialBlock({ provider: undefined, },),],);
+        expect(listPlatformPosts,).not.toHaveBeenCalled();
+    },);
+
+    it('survives a feed that returns nothing or throws', async () => {
+        listPlatformPosts.mockResolvedValue({ data: [], },);
+        const empty = await expandDynamicBlocks([socialBlock({},),],);
+        expect(empty[0].settings.items,).toBeUndefined();
+
+        listPlatformPosts.mockRejectedValue(new Error('provider down',),);
+        const failed = await expandDynamicBlocks([socialBlock({},),],);
+        expect(failed[0],).toBeDefined();
+    },);
+
+    it('resolves a social block nested INSIDE an entity template', async () => {
+        // The reported case: an entity block whose template is a single
+        // auto-feed social block. The social block only exists after the
+        // entity expands, so the pass must reach it on a later round.
+        findBlocksResolved.mockResolvedValue([{
+            id: 'inner', parentBlockId: null, blockType: 'social', position: 0,
+            settings: { provider: 'youtube', kind: 'video', count: 1, }, style: {},
+        },],);
+        listPlatformPosts.mockResolvedValue({ data: [ytPost('NESTED',),], },);
+
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: {
+                entityType: 'post', templateId: 'tpl-1', binding: { mode: 'none', },
+            }, },
+        },),],);
+        const inner = out.find((b,) => b.parentBlockId === 'e1');
+        expect(inner,).toBeDefined();
+        const items = inner!.settings.items as Array<Record<string, unknown>>;
+        expect(items?.[0]?.postId,).toBe('NESTED',);
     },);
 },);

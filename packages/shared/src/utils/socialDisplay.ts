@@ -107,3 +107,24 @@ export function resolveSocialCount(
     if (pinned > 0) return Math.min(50, pinned,);
     return SOCIAL_DEFAULT_COUNT;
 }
+
+/**
+ * Is this social block showing an AUTO-FEED (recent posts) rather than pinned
+ * slots?
+ *
+ * Shared so the web renderer, the admin panel and the email expansion agree.
+ * The rule has a legacy arm: `usePinned` is explicit now, but blocks predating
+ * the flag imply pinning from having filled slots — without that, an existing
+ * hand-curated block would silently start auto-feeding.
+ */
+export function isSocialAutoFeed(
+    settings: { usePinned?: unknown; items?: unknown; } | null | undefined,
+): boolean {
+    const raw = settings ?? {};
+    if (raw.usePinned !== undefined) return !raw.usePinned;
+    const filled = Array.isArray(raw.items,)
+        ? (raw.items as Array<{ postId?: unknown; postUrl?: unknown; }>)
+            .filter((i,) => i && (i.postId || i.postUrl)).length
+        : 0;
+    return filled === 0;
+}

@@ -16,7 +16,9 @@
  * Runs in the shared path used by BOTH preview and send, so the two cannot
  * disagree about what an email contains.
  */
+import { isSocialAutoFeed, resolveSocialCount, } from '@sitesurge/types';
 import * as contentBlockTemplates from '../../repositories/contentBlockTemplates.repo';
+import * as socialFeed from '../socialFeed';
 import * as entitiesService from '../entities';
 import { logger, } from '../../utils/logger';
 import { resolveMailTemplate, } from './templateRuntime';
@@ -173,6 +175,55 @@ async function cloneBlocks(
 }
 
 /**
+ * Materialise an auto-feed social block's posts into `settings.items`.
+ *
+ * The email renderer reads pinned `items` and nothing else — it is synchronous
+ * and cannot query the feed — so a block set to "latest videos" rendered as
+ * NOTHING in an email while showing fine on the site. Resolving here, into the
+ * exact shape `renderSocial` already consumes, means that renderer needs no
+ * changes and pinned/auto-feed blocks take the same path.
+ *
+ * Returns the block's new settings, or null when there is nothing to do.
+ */
+async function resolveSocialFeed(
+    block: FlatMailBlock,
+): Promise<Record<string, unknown> | null> {
+    const settings = block.settings;
+    if (!isSocialAutoFeed(settings,)) return null;
+    const platform = settings.provider as string | undefined;
+    if (!platform) return null;
+
+    const limit = resolveSocialCount(settings as never,);
+    const kind = (settings.kind as string) || undefined;
+
+    const res = await socialFeed.listPlatformPosts({
+        platform: platform as never,
+        page: 1,
+        limit,
+        sort: 'date',
+        sortDir: 'desc',
+        ...(kind ? { kind, } : {}),
+        // An email is public; a hidden post is hidden from it too.
+        includeHidden: false,
+    } as never,);
+
+    const posts = (res?.data ?? []) as unknown as Array<Record<string, unknown>>;
+    if (posts.length === 0) return null;
+
+    return {
+        ...settings,
+        // Exactly the shape renderSocial expects from a pinned slot.
+        items: posts.slice(0, limit,).map((p,) => ({
+            postId: p.externalId,
+            postUrl: p.mediaUrl,
+            content: p.content,
+            authorName: p.authorName,
+            thumbnailUrl: p.thumbnailUrl,
+        }),),
+    };
+}
+
+/**
  * Expand every `entity` / `template` block into its resolved subtree.
  *
  * Returns a NEW flat list: the original blocks (unchanged, so their styles
@@ -195,7 +246,8 @@ export async function expandDynamicBlocks(
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template') && !done.has(b.id,),
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social')
+            && !done.has(b.id,),
     );
     if (pending.length === 0) return blocks;
 
@@ -229,6 +281,14 @@ export async function expandDynamicBlocks(
                     );
                     out.push(...cloned,);
                     offset += tplBlocks.length;
+                }
+            } else if (block.blockType === 'social') {
+                // Not an expansion — the block stays, its settings gain the
+                // resolved posts. Mutating `out` in place keeps its position.
+                const resolved = await resolveSocialFeed(block,);
+                if (resolved) {
+                    const idx = out.findIndex((b,) => b.id === block.id);
+                    if (idx >= 0) out[idx] = { ...out[idx], settings: resolved, };
                 }
             } else if (block.blockType === 'template') {
                 const templateId = block.settings.templateId as string | undefined;
