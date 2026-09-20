@@ -142,12 +142,31 @@ const AdminPostEditor: Component = () => {
     // who is about to be credited instead of an empty field that silently
     // publishes an anonymous article. The backend also defaults this on create;
     // doing it here as well makes the choice VISIBLE and editable before save.
+    let authorSelect: HTMLSelectElement | undefined;
     createEffect(() => {
+        // `auth.user` is a PROPERTY on the store, not an accessor — calling it
+        // threw and killed the effect silently.
+        const staff = staffUsers() ?? [];
         if (!editor.isNew() || authorId()) return;
-        const me = auth.user();
+        const me = auth.user;
         if (!me) return;
         // Only if the current user can actually be an author (staff).
-        if (staffUsers().some((u,) => u.id === me.id)) setAuthorId(me.id,);
+        if (staff.some((u,) => u.id === me.id)) setAuthorId(me.id,);
+    },);
+
+    /**
+     * Re-apply the selected author once the option list exists.
+     *
+     * `staffUsers` loads asynchronously, so on first paint the dropdown holds
+     * only the "—" placeholder. A `<select>` whose value matches no option
+     * falls back to the first one and is NOT re-synced when the options
+     * arrive — the signal said "Ryan Weiss" while the control read "—".
+     * Skipped while the field has focus so it can't yank a live selection.
+     */
+    createEffect(() => {
+        staffUsers();
+        const v = authorId();
+        if (authorSelect && document.activeElement !== authorSelect) authorSelect.value = v;
     },);
 
     // ─── Offer to restore a localStorage draft for NEW posts ───
@@ -453,6 +472,7 @@ const AdminPostEditor: Component = () => {
                     </FormField>
                     <FormField label="Author" hint="Staff user credited as the post's author.">
                         <select
+                            ref={authorSelect}
                             value={authorId()}
                             onChange={(e,) => { setAuthorId(e.currentTarget.value,); editor.markDirty(); }}
                         >
