@@ -269,6 +269,22 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         />
                     </div>
 
+                    <div class="form-group">
+                        <Toggle
+                            checked={props.data.showAuthor === true}
+                            onChange={(next,) => update({ showAuthor: next, },)}
+                            label="Show author / channel"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <Toggle
+                            checked={props.data.showDate === true}
+                            onChange={(next,) => update({ showDate: next, },)}
+                            label="Show post date"
+                        />
+                    </div>
+
                     {/* Show comments — preserved from old SocialMedia editor */}
                     <div class="form-group">
                         <Toggle

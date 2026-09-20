@@ -8,6 +8,18 @@ interface SocialItem {
     thumbnailUrl?: string;
     content?: string;
     authorName?: string;
+    publishedAt?: string;
+}
+
+/** `Sep 20, 2026` — short, unambiguous, and locale-independent so the sent
+ *  mail reads the same wherever the worker happens to run. */
+function formatPostDate(value: string | undefined,): string {
+    if (!value) return '';
+    const d = new Date(value,);
+    if (Number.isNaN(d.getTime(),)) return '';
+    return d.toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+    },);
 }
 
 /**
@@ -39,26 +51,22 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
 
     // Same settings the web renderer honours, so a block configured as a small
     // thumbnail with no title looks the same in the inbox.
-    const { mediaDisplay, showTitle, } = resolveSocialDisplay(node.settings as never,);
+    const { mediaDisplay, showTitle, showAuthor, showDate, } = resolveSocialDisplay(node.settings as never,);
     // `full` is uncapped on the web; in email it still needs a definite pixel
     // width, because Outlook ignores `max-width` on an image.
     const width = SOCIAL_THUMB_WIDTH[mediaDisplay] ?? 600;
 
-    // A video kind gets the play affordance; a plain post card doesn't.
-    const isVideo = String(node.settings.kind ?? '',) === 'video'
-        || String(node.settings.kind ?? '',) === 'short'
-        || String(node.settings.provider ?? '',) === 'youtube';
-
     const rows = valid.map((i,) => {
         const url = escapeHtml(i.postUrl ?? '#',);
         const title = escapeHtml(String(i.content ?? '',).trim(),);
-        const author = i.authorName
-            ? `<div style="color:${ctx.textColor};opacity:0.7;font-size:13px;padding:0 0 4px">${escapeHtml(i.authorName,)}</div>`
-            : '';
+        const date = showDate ? escapeHtml(formatPostDate(i.publishedAt,),) : '';
 
-        // Full-bleed thumbnail, mirroring the site's embed footprint. `width`
-        // as an ATTRIBUTE as well as CSS — Outlook ignores `max-width` on
-        // images and will otherwise render at the file's intrinsic size.
+        // The thumbnail links to the post — with no player available in email,
+        // the image IS the affordance. A separate "Watch" button was redundant
+        // (and read as an advert), so it is gone rather than made optional.
+        //
+        // `width` as an ATTRIBUTE as well as CSS: Outlook ignores `max-width`
+        // on images and otherwise renders at the file's intrinsic size.
         const thumb = i.thumbnailUrl
             ? `<a href="${url}" style="display:block;text-decoration:none">
                    <img src="${escapeHtml(i.thumbnailUrl,)}" alt="${title}" width="${width}"
@@ -66,21 +74,28 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
                </a>`
             : '';
 
-        const play = isVideo
-            ? `<div style="padding:8px 0 0">
-                   <a href="${url}" style="display:inline-block;text-decoration:none;background:${ctx.linkColor};color:#ffffff;font-size:13px;line-height:1;padding:8px 14px;border-radius:999px">&#9654;&nbsp; Watch</a>
-               </div>`
+        // Title left, date right, on one row — a two-cell table because that is
+        // the only layout email clients agree on (no flexbox in Outlook).
+        // Emitted only when there is something to put in it.
+        const titleCell = showTitle && title
+            ? `<a href="${url}" style="color:${ctx.textColor};text-decoration:none">${title}</a>`
+            : '';
+        const metaRow = (titleCell || date)
+            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:10px 0 0">
+                   <tr>
+                     <td style="color:${ctx.textColor};font-size:16px;line-height:1.4;font-weight:600;vertical-align:top">${titleCell}</td>
+                     ${date
+                        ? `<td style="color:${ctx.textColor};opacity:0.6;font-size:13px;line-height:1.4;text-align:right;white-space:nowrap;padding-left:12px;vertical-align:top">${date}</td>`
+                        : ''}
+                   </tr>
+               </table>`
             : '';
 
-        // An <h3> to match the web renderer's heading, with the margin zeroed —
-        // a client's default h3 margin would break the card's spacing.
-        const caption = showTitle && title
-            ? `<h3 style="margin:10px 0 0;color:${ctx.textColor};font-size:16px;line-height:1.4;font-weight:600">
-                   <a href="${url}" style="color:${ctx.textColor};text-decoration:none">${title}</a>
-               </h3>`
+        const author = showAuthor && i.authorName
+            ? `<div style="color:${ctx.textColor};opacity:0.7;font-size:13px;padding:6px 0 0">${escapeHtml(i.authorName,)}</div>`
             : '';
 
-        return `<tr><td style="padding:0 0 16px">${thumb}${author ? `<div style="padding:10px 0 0">${author}</div>` : ''}${caption}${play}</td></tr>`;
+        return `<tr><td style="padding:0 0 16px">${thumb}${metaRow}${author}</td></tr>`;
     },).join('\n',);
 
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;

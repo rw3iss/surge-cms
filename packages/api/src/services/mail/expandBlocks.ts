@@ -219,6 +219,9 @@ async function resolveSocialFeed(
             content: p.content,
             authorName: p.authorName,
             thumbnailUrl: p.thumbnailUrl,
+            // Carried so `showDate` has something to render; a pinned slot
+            // saved before this existed simply has no date and shows none.
+            publishedAt: p.publishedAt,
         }),),
     };
 }

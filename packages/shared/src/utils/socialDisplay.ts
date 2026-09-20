@@ -25,9 +25,16 @@ export const SOCIAL_MEDIA_DISPLAYS: readonly SocialMediaDisplay[] = ['full', 'me
 export const SOCIAL_DISPLAY_DEFAULTS: {
     mediaDisplay: SocialMediaDisplay;
     showTitle: boolean;
+    showAuthor: boolean;
+    showDate: boolean;
 } = {
     mediaDisplay: 'full',
     showTitle: true,
+    // Author and date default OFF: a post card is the video, and the channel
+    // name under every item is noise when the whole email comes from that
+    // channel. Both were previously rendered unconditionally.
+    showAuthor: false,
+    showDate: false,
 };
 
 /**
@@ -43,10 +50,21 @@ export const SOCIAL_THUMB_WIDTH: Record<SocialMediaDisplay, number | null> = {
     small: 160,
 };
 
+/** What a social post renders around its media. */
+export interface SocialDisplay {
+    mediaDisplay: SocialMediaDisplay;
+    showTitle: boolean;
+    showAuthor: boolean;
+    showDate: boolean;
+}
+
 /** Resolve the display settings off a block's settings bag. */
 export function resolveSocialDisplay(
-    settings: { mediaDisplay?: unknown; showTitle?: unknown; } | null | undefined,
-): { mediaDisplay: SocialMediaDisplay; showTitle: boolean; } {
+    settings:
+        | { mediaDisplay?: unknown; showTitle?: unknown; showAuthor?: unknown; showDate?: unknown; }
+        | null
+        | undefined,
+): SocialDisplay {
     const raw = settings ?? {};
     const size = raw.mediaDisplay;
     return {
@@ -56,6 +74,9 @@ export function resolveSocialDisplay(
         // Explicit `false` turns it off; anything else (including an absent
         // key on every pre-existing block) keeps the title.
         showTitle: raw.showTitle !== false,
+        // Opt-IN, so an absent key on an existing block means off.
+        showAuthor: raw.showAuthor === true,
+        showDate: raw.showDate === true,
     };
 }
 

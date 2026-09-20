@@ -513,12 +513,59 @@
 // inline from SOCIAL_THUMB_WIDTH, because the value is shared with the email
 // renderer and belongs in one place rather than duplicated as a magic number
 // here.
+// Meta block beneath the media:
+//   [title]        [date]
+//   [author?]
+// Mirrored by the email renderer as a two-cell table (no flexbox in Outlook),
+// so the two surfaces lay out the same.
+.social-embed__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem 0 0;
+}
+
+.social-embed__meta-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
 .social-embed__title {
-    margin: 0.5rem 0 0;
+    margin: 0;
     font-size: 1rem;
     line-height: 1.35;
     font-weight: 600;
+    // `min-width: 0` lets a long title shrink instead of pushing the date off
+    // the row — the classic flex overflow trap.
+    min-width: 0;
+
+    a {
+        color: var(--site-text, #{$text-color});
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}
+
+.social-embed__date {
+    flex: 0 0 auto;
+    font-size: 0.8125rem;
+    opacity: 0.6;
+    white-space: nowrap;
     color: var(--site-text, #{$text-color});
+}
+
+.social-embed__author {
+    font-size: 0.8125rem;
+    opacity: 0.7;
+    color: var(--site-text, #{$text-color});
+}
+
+.social-embed__card-media {
+    display: block;
+    text-decoration: none;
 }
 
 // A capped card is a link-out, so keep it compact: the body stops stretching

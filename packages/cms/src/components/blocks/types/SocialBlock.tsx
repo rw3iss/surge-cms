@@ -221,6 +221,9 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                         mediaKind={(item as { mediaKind?: any; }).mediaKind ?? kind() as any}
                                         mediaDisplay={display().mediaDisplay}
                                         showTitle={display().showTitle}
+                                        showAuthor={display().showAuthor}
+                                        showDate={display().showDate}
+                                        publishedAt={(item as { publishedAt?: string; }).publishedAt}
                                     />
                                 )}
                             </For>
@@ -242,6 +245,9 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                     mediaKind={(post as { mediaKind?: any; }).mediaKind ?? kind() as any}
                                     mediaDisplay={display().mediaDisplay}
                                     showTitle={display().showTitle}
+                                    showAuthor={display().showAuthor}
+                                    showDate={display().showDate}
+                                    publishedAt={(post as { publishedAt?: string; }).publishedAt}
                                 />
                             )}
                         </For>
