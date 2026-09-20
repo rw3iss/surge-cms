@@ -1,3 +1,4 @@
+import { buildSiteVariables, } from '@sitesurge/types';
 import { Component, createMemo, createResource, For, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import { hasTemplateSyntax, renderTemplate, } from '../../services/template';
@@ -58,7 +59,14 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
                 user: u
                     ? { name: u.displayName, displayName: u.displayName, email: u.email, role: u.role, id: u.id, avatarUrl: u.avatarUrl }
                     : null,
-                site: (siteSettings() ?? null) as Record<string, unknown> | null,
+                // The SHARED bag, not the raw settings object: mail and SSR
+                // build the same shape, so `{{site.logo}}` / `{{site.name}}`
+                // mean the same thing wherever a template is rendered. The raw
+                // keys are still included, so `{{site.siteName}}` keeps working.
+                site: buildSiteVariables(
+                    siteSettings() as never,
+                    typeof window === 'undefined' ? '' : window.location.origin,
+                ) as unknown as Record<string, unknown>,
             },);
             const nodes = await renderTemplate(src.html, rt,);
             // Flatten to ONE HTML string, replacing each whole-entity segment with

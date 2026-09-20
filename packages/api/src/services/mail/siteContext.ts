@@ -22,6 +22,14 @@ export interface MailRenderContext {
     breakpoints: SiteBreakpoint[];
     /** Rich-text heading/paragraph rhythm (Settings → Appearance → Typography). */
     typography: TypographyDefaults;
+    /**
+     * Branding fields for the `{{site.*}}` bag (logo / favicon / tagline / …).
+     *
+     * Shaped like the PUBLIC settings projection so `buildSiteVariables` can
+     * consume it unchanged — the same function the page and SSR runtimes call,
+     * which is what stops `{{site.logo}}` meaning three different things.
+     */
+    siteSettings: Record<string, unknown>;
 }
 
 export async function loadMailRenderContext(): Promise<MailRenderContext> {
@@ -57,9 +65,25 @@ export async function loadMailRenderContext(): Promise<MailRenderContext> {
         || ''
     ).replace(/\/+$/, '',);
 
+    // Logo/favicon live inside the `site_branding` row; the top-level keys are
+    // the legacy location. Same resolution order as `getPublicSettings`, so the
+    // email and the site agree on which image is "the logo".
+    const branding = (settings.site_branding ?? {}) as {
+        logo?: { url?: string; };
+        favicon?: { url?: string; };
+    };
+
     return {
         siteName: (settings.site_name as string) ?? 'Site',
         siteUrl,
+        siteSettings: {
+            siteName: (settings.site_name as string) ?? 'Site',
+            siteTagline: settings.site_tagline,
+            siteDescription: settings.site_description,
+            logo: branding.logo?.url || settings.logo,
+            favicon: branding.favicon?.url || settings.favicon,
+            contactEmail: settings.contact_email,
+        },
         palette,
         breakpoints,
         // Resolved here rather than at each call site, so the send path and the

@@ -13,6 +13,37 @@ export { ENTITIES, } from '@sitesurge/types';
 
 export interface SyntaxExample { title: string; code: string; desc: string; }
 export interface FunctionDoc { sig: string; desc: string; }
+export interface GlobalVariableDoc { path: string; desc: string; }
+
+/**
+ * Variables available EVERYWHERE, with no entity in scope.
+ *
+ * `site.*` resolves identically on the public site, in server-rendered HTML
+ * and in email — one shared bag (`buildSiteVariables` in `@sitesurge/types`).
+ * They were previously undocumented and built three different ways per
+ * surface, so the same tag gave different output depending on where it ran.
+ */
+export const GLOBAL_VARIABLES: { group: string; items: GlobalVariableDoc[]; }[] = [
+    {
+        group: 'Site',
+        items: [
+            { path: '{{ site.name }}', desc: 'Site name (Settings → General).' },
+            { path: '{{ site.logo }}', desc: 'Logo image URL (Settings → Site Branding → Logo). Absolute, so it also works in email. Empty when no logo is set.' },
+            { path: '{{ site.favicon }}', desc: 'Favicon URL. Absolute.' },
+            { path: '{{ site.url }}', desc: 'Canonical site URL, no trailing slash.' },
+            { path: '{{ site.tagline }}', desc: 'Tagline, when configured.' },
+            { path: '{{ site.description }}', desc: 'Site description (used for meta description).' },
+            { path: '{{ site.email }}', desc: 'Public contact address, when configured.' },
+        ],
+    },
+    {
+        group: 'Current user',
+        items: [
+            { path: '{{ user.displayName }}', desc: 'The signed-in user. Empty for anonymous visitors and in server-rendered HTML (a crawler is anonymous).' },
+            { path: '{{ user.email }}', desc: 'Signed-in user\'s email address.' },
+        ],
+    },
+];
 
 export const OVERVIEW =
     'Anywhere inside a content block you can embed `{{ … }}` to pull in live data. '

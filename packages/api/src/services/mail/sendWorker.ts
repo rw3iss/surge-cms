@@ -48,17 +48,46 @@ async function sendWithRetry(
     throw lastErr;
 }
 
-async function siteContext(): Promise<{ name: string; url: string; }> {
+/**
+ * Site identity + branding for the per-recipient `{{site.*}}` bag.
+ *
+ * Reads the branding rows too, so `{{site.logo}}` resolves in a sent email.
+ * Logo/favicon come from `site_branding` with the legacy top-level keys as a
+ * fallback — the same order `getPublicSettings` uses, so the email and the
+ * site never disagree about which image is "the logo".
+ */
+async function siteContext(): Promise<{
+    name: string;
+    url: string;
+    settings: Record<string, unknown>;
+}> {
     const r = await query<{ key: string; value: unknown; }>(
-        `SELECT key, value FROM site_settings WHERE key IN ('site_name', 'site_url')`,
+        `SELECT key, value FROM site_settings
+         WHERE key IN ('site_name', 'site_url', 'site_tagline', 'site_description',
+                       'site_branding', 'logo', 'favicon', 'contact_email')`,
     );
-    let name = 'Site';
-    let url = '';
-    for (const row of r.rows) {
-        if (row.key === 'site_name' && typeof row.value === 'string') name = row.value;
-        if (row.key === 'site_url' && typeof row.value === 'string') url = row.value;
-    }
-    return { name, url, };
+    const rows: Record<string, unknown> = {};
+    for (const row of r.rows) rows[row.key] = row.value;
+
+    const name = typeof rows.site_name === 'string' ? rows.site_name : 'Site';
+    const url = typeof rows.site_url === 'string' ? rows.site_url : '';
+    const branding = (rows.site_branding ?? {}) as {
+        logo?: { url?: string; };
+        favicon?: { url?: string; };
+    };
+
+    return {
+        name,
+        url,
+        settings: {
+            siteName: name,
+            siteTagline: rows.site_tagline,
+            siteDescription: rows.site_description,
+            logo: branding.logo?.url || rows.logo,
+            favicon: branding.favicon?.url || rows.favicon,
+            contactEmail: rows.contact_email,
+        },
+    };
 }
 
 function frontendUrl(): string {
@@ -123,6 +152,8 @@ export async function kickJob(jobId: string,): Promise<void> {
                     // worker is responsible for and RFC 8058 depends on.
                     ...(job.context ?? {}),
                     ...buildVariableContext({
+                        // Full site bag, so `{{site.logo}}` resolves in mail.
+                        siteSettings: site.settings,
                         subscriber: (sub ?? {
                             id: '',
                             listId: list.id,

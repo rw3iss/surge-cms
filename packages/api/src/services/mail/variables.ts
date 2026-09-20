@@ -8,12 +8,17 @@
  *   detectVariables(text)       — scan for { paths } used in a string
  *   describeVariables()         — catalog for the editor UI
  */
+import { buildSiteVariables, type SiteVariables, } from '@sitesurge/types';
 import type { MailingList, MailingListSubscriber, VariableDescriptor, } from '@sitesurge/types';
 
 export interface VariableContext {
     user: { name: string; email: string; phone: string; custom: Record<string, unknown>; };
     list: { name: string; description: string; slug: string; };
-    site: { name: string; url: string; };
+    /** The SHARED site bag (name / url / logo / favicon / tagline / …) — the
+     *  same shape the page and SSR runtimes build, so a template means the
+     *  same thing in an email as on the site. Was `{ name, url }`, which is
+     *  why `{{site.logo}}` rendered empty in mail. */
+    site: SiteVariables;
     unsubscribe_url: string;
     view_in_browser_url: string;
 }
@@ -24,6 +29,9 @@ export interface BuildContextArgs {
     siteName: string;
     siteUrl: string;
     unsubscribeUrl: string;
+    /** Public site settings, for the full `{{site.*}}` bag. Optional so an
+     *  older caller still gets name/url rather than nothing. */
+    siteSettings?: Record<string, unknown> | null;
 }
 
 export function buildVariableContext(args: BuildContextArgs,): VariableContext {
@@ -39,7 +47,12 @@ export function buildVariableContext(args: BuildContextArgs,): VariableContext {
             description: args.list.description ?? '',
             slug: args.list.slug,
         },
-        site: { name: args.siteName, url: args.siteUrl, },
+        site: buildSiteVariables(
+            // `siteName` is passed separately by every caller and is the
+            // authoritative one here, so it overrides the settings row.
+            { ...(args.siteSettings ?? {}), siteName: args.siteName, },
+            args.siteUrl,
+        ),
         unsubscribe_url: args.unsubscribeUrl,
         // V1: documented but resolved to empty. A real archive page
         // ships post-V1.
@@ -81,6 +94,10 @@ export function describeVariables(): VariableDescriptor[] {
         { path: 'list.slug',           description: 'Mailing list slug.', sample: 'newsletter', },
         { path: 'site.name',           description: 'Site name.', sample: 'SiteSurge', },
         { path: 'site.url',            description: 'Site URL.', sample: 'https://example.com', },
+        { path: 'site.logo',           description: 'Site logo image URL (Settings → Site Branding).', sample: 'https://example.com/logo.png', },
+        { path: 'site.favicon',        description: 'Site favicon URL.', sample: 'https://example.com/favicon.ico', },
+        { path: 'site.tagline',        description: 'Site tagline, when set.', sample: 'Independent journalism', },
+        { path: 'site.description',    description: 'Site description.', sample: 'News and commentary.', },
         { path: 'unsubscribe_url',     description: 'One-click unsubscribe URL.', sample: 'https://example.com/u/sample-token', },
         { path: 'view_in_browser_url', description: 'Public archive URL. V1: empty.', sample: '', },
     ];

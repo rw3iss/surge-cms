@@ -14,13 +14,17 @@
  * only the SSR-specific serializer + the collections/counts/`user` resolvers.
  */
 import {
+    buildSiteVariables,
     entityRef,
     hasTemplateSyntax,
     renderTemplateToString,
+    type SiteVariables,
     type TemplateRuntime,
 } from '@sitesurge/types';
 import { logger, } from '../../utils/logger';
 import * as entityManager from '../../entities/entityManager';
+import { config, } from '../../config';
+import { getPublicSettings, } from '../settings';
 import { escapeHtml, } from './blocks/_util';
 import {
     type AsyncMemo,
@@ -103,13 +107,20 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
     }
 }
 
-function buildSsrRuntime(entities: Record<string, Rec | null>,): TemplateRuntime {
+function buildSsrRuntime(
+    entities: Record<string, Rec | null>,
+    site: SiteVariables,
+): TemplateRuntime {
     const s = (v: unknown,): string => (v == null ? '' : String(v,));
 
     const context: Record<string, unknown> = {};
     for (const [name, data,] of Object.entries(entities,)) {
         if (data) context[name] = entityRef(name, data, String(data.id ?? data.slug ?? '',),);
     }
+    // `{{site.*}}` was absent entirely from SSR, so a block using the site name
+    // or logo rendered it as nothing in the server HTML and then correctly on
+    // hydration — a visible flash, and invisible to crawlers.
+    context.site = site;
 
     const resolveExtra = async (name: string, args: unknown[], memo: AsyncMemo,): Promise<unknown> => {
         switch (name) {
@@ -156,13 +167,36 @@ function buildSsrRuntime(entities: Record<string, Rec | null>,): TemplateRuntime
  * Fast-paths content with no template syntax. Never throws — on any failure the
  * original content is returned so SSR never breaks.
  */
+/**
+ * The `{{site.*}}` bag for SSR, cached briefly.
+ *
+ * SSR resolves templates once per block, so an uncached settings read here
+ * would be one query per block per page render.
+ */
+let siteVarsCache: { value: SiteVariables; at: number; } | null = null;
+const SITE_VARS_TTL_MS = 60_000;
+
+async function loadSiteVariables(): Promise<SiteVariables> {
+    const now = Date.now();
+    if (siteVarsCache && now - siteVarsCache.at < SITE_VARS_TTL_MS) return siteVarsCache.value;
+    try {
+        const settings = await getPublicSettings();
+        const value = buildSiteVariables(settings as never, config.frontendUrl,);
+        siteVarsCache = { value, at: now, };
+        return value;
+    } catch {
+        // Never fail a page render over a settings read.
+        return buildSiteVariables(null, config.frontendUrl,);
+    }
+}
+
 export async function resolveContentForSsr(
     content: string | null | undefined,
     entities: Record<string, Rec | null> = {},
 ): Promise<string> {
     if (!content || !hasTemplateSyntax(content,)) return content ?? '';
     try {
-        const rt = buildSsrRuntime(entities,);
+        const rt = buildSsrRuntime(entities, await loadSiteVariables(),);
         return await renderTemplateToString(content, rt, (kind, data, options,) => entityToHtml(kind, data as Rec | null, options,),);
     } catch (e) {
         logger.warn('SSR template resolution failed', { error: (e as Error).message, },);

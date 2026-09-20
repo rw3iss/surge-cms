@@ -4,6 +4,7 @@ import { Component, createSignal, For, Show, } from 'solid-js';
 import {
     ENTITIES,
     FUNCTIONS,
+    GLOBAL_VARIABLES,
     LOGIC_EXAMPLES,
     OVERVIEW,
     SYNTAX_EXAMPLES,
@@ -99,6 +100,33 @@ const HelpVariables: Component = () => (
                                         <tr>
                                             <td><code>{fn.sig}</code></td>
                                             <td class="form-help-muted">{fn.desc}</td>
+                                        </tr>
+                                    )}
+                                </For>
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </For>
+        </section>
+
+        <section class="help-doc__section">
+            <h2>Site &amp; global variables</h2>
+            <p class="form-help-muted">
+                Available in every block, with no entity in scope. These resolve the same
+                way on the site, in server-rendered HTML and in email.
+            </p>
+            <For each={GLOBAL_VARIABLES}>
+                {(grp,) => (
+                    <div class="help-doc__fn-group">
+                        <h3>{grp.group}</h3>
+                        <table class="help-doc__fn-table">
+                            <tbody>
+                                <For each={grp.items}>
+                                    {(v,) => (
+                                        <tr>
+                                            <td><code>{v.path}</code></td>
+                                            <td class="form-help-muted">{v.desc}</td>
                                         </tr>
                                     )}
                                 </For>
