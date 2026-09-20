@@ -10,6 +10,7 @@
 import { describe, expect, it, } from 'vitest';
 import { richTextTypographyCss, } from './appearanceStyle';
 import { blockStyleLayoutCss, } from '@sitesurge/types';
+import { STRIPPED_PROPS, stripsFontSize, } from './pasteCleanup';
 
 describe('richTextTypographyCss', () => {
     it('covers the rendered output AND the admin editor', () => {
@@ -72,3 +73,43 @@ describe('block styles publish the override custom properties', () => {
         expect(out['--block-line-height'],).toBeUndefined();
     },);
 },);
+
+describe('paste cleanup rules', () => {
+    /*
+     * The RULES are asserted here; the DOM transform that applies them is
+     * verified in a browser, because this package's test environment has no
+     * DOM and adding one for a selector string is not worth a dependency.
+     */
+    it('strips the properties a word processor imposes', () => {
+        // Google Docs writes all four onto every block it copies.
+        expect(STRIPPED_PROPS,).toContain('line-height',);
+        expect(STRIPPED_PROPS,).toContain('margin-top',);
+        expect(STRIPPED_PROPS,).toContain('margin-bottom',);
+        expect(STRIPPED_PROPS,).toContain('margin',);
+    });
+
+    it('drops font-size from INLINE runs, so the paragraph governs', () => {
+        // A `<span style="font-size:12pt">` is describing the SOURCE document.
+        // Left in, the Paragraph Font Size setting can never reach the text —
+        // and a link whose style gets stripped elsewhere then renders at a
+        // different size from the sentence around it.
+        for (const tag of ['span', 'a', 'font', 'strong', 'em', 'b', 'i', 'u',]) {
+            expect(stripsFontSize(tag,), tag,).toBe(true,);
+        }
+        expect(stripsFontSize('SPAN',),).toBe(true,);
+    });
+
+    it('KEEPS font-size on block elements', () => {
+        // A heading's size is meaningful; dropping it would flatten a pasted
+        // document's hierarchy.
+        for (const tag of ['h1', 'h2', 'h3', 'p', 'div', 'li', 'blockquote',]) {
+            expect(stripsFontSize(tag,), tag,).toBe(false,);
+        }
+    });
+
+    it('does not strip colour or weight — those are real decisions', () => {
+        expect(STRIPPED_PROPS,).not.toContain('color',);
+        expect(STRIPPED_PROPS,).not.toContain('font-weight',);
+        expect(STRIPPED_PROPS,).not.toContain('background-color',);
+    });
+});

@@ -23,7 +23,36 @@
  * bold, colour, links. These four are the ones that silently override the
  * site's typography and that nobody chose on purpose.
  */
-const STRIPPED_PROPS = ['line-height', 'margin', 'margin-top', 'margin-bottom',];
+export const STRIPPED_PROPS = ['line-height', 'margin', 'margin-top', 'margin-bottom',];
+
+/**
+ * Elements whose pasted `font-size` is dropped as well.
+ *
+ * A word processor stamps its own body size onto every inline run — a `<span>`
+ * carrying `font-size:12pt` is describing the SOURCE document, not a decision
+ * anyone made here. Left in place it overrides the paragraph, so the site's
+ * Paragraph Font Size setting cannot reach the text, and any element that
+ * happens NOT to carry it (a link, once the mail sanitiser strips its style)
+ * renders at a visibly different size from the words beside it.
+ *
+ * Block elements are deliberately NOT included: a heading's size is meaningful,
+ * and dropping it would flatten a pasted document's hierarchy.
+ */
+export const INLINE_FONT_SIZE_TAGS = 'span, a, font, strong, em, b, i, u';
+
+/**
+ * Should this tag lose a pasted `font-size`?
+ *
+ * Exported as a pure predicate so the RULE is testable without a DOM — this
+ * package's test environment has none, and adding one just for a selector
+ * string is not worth a dependency. The transform itself is verified in a
+ * browser.
+ */
+export function stripsFontSize(tagName: string,): boolean {
+    return INLINE_FONT_SIZE_TAGS.split(',',)
+        .map((t,) => t.trim())
+        .includes(tagName.toLowerCase(),);
+}
 
 export function cleanPastedHtml(html: string, doc: Document = document,): string {
     if (!html) return html;
@@ -41,6 +70,7 @@ export function cleanPastedHtml(html: string, doc: Document = document,): string
     for (const el of Array.from(root.querySelectorAll('[style]',),)) {
         const style = (el as HTMLElement).style;
         for (const prop of STRIPPED_PROPS) style.removeProperty(prop,);
+        if (el.matches(INLINE_FONT_SIZE_TAGS,)) style.removeProperty('font-size',);
         // An emptied style attribute is just noise in the stored HTML.
         if (!(el as HTMLElement).getAttribute('style',)?.trim()) el.removeAttribute('style',);
     }

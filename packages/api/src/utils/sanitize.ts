@@ -43,7 +43,11 @@ const ALLOWED_TAGS = [
 ];
 
 const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
-    'a': ['href', 'title', 'target', 'rel',],
+    // `style` is allowed here for the same reason it is on `span`: without it
+    // a link inside styled text lost its sizing while the spans around it kept
+    // theirs, so a link rendered at a different size from the sentence it sits
+    // in. The asymmetry was the bug, not the style attribute.
+    'a': ['href', 'title', 'target', 'rel', 'style',],
     'img': ['src', 'alt', 'title', 'width', 'height', 'loading',],
     'iframe': ['src', 'width', 'height', 'frameborder', 'allowfullscreen', 'loading', 'allow',],
     'video': ['src', 'width', 'height', 'controls', 'autoplay', 'loop', 'muted', 'poster',],
