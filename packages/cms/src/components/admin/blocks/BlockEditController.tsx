@@ -1,5 +1,6 @@
-import { batch, Component, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
+import { batch, Component, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
+import { clearStyleDraft, setStyleDraft, } from '../../../stores/blockStyleDraft';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import TemplateReference from './TemplateReference';
@@ -147,11 +148,28 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
         }
     };
 
-    // Style edits update only the local `currentStyle` while editing — the
-    // block (and thus its preview + saved output) is NOT touched until the
-    // operator clicks Save in the style panel (`handleSaveStyle`). This keeps
-    // the inputs from re-rendering the preview mid-edit, which stole focus /
-    // scrolled the page.
+    // Style edits still do NOT write to the block while editing — `onUpdate`
+    // replaces the block's data, re-rendering this whole controller and
+    // stealing focus from the input being typed in.
+    //
+    // They are instead published to a side channel (`stores/blockStyleDraft`)
+    // that only `BlockPreview` reads, so the preview tracks the controls live
+    // while the block tree — and therefore this panel — stays untouched.
+    // Without it, choosing a padding or a colour was guesswork until Save.
+    const publishDraft = (style: BlockStyleData,) => {
+        setCurrentStyle(style,);
+        setStyleDraft(props.block.id, style as unknown as Record<string, unknown>,);
+    };
+
+    // Stop previewing: Save has already committed the value to the block, and
+    // for Cancel, dropping the draft IS the revert (the preview falls back to
+    // the block's saved style).
+    const stopDraft = () => clearStyleDraft(props.block.id,);
+
+    // A block unmounted mid-edit (deleted, or the editor navigated away) must
+    // not leave its draft behind — a later block reusing the id would inherit
+    // someone else's in-progress style.
+    onCleanup(() => clearStyleDraft(props.block.id,));
 
     const handleSaveStyle = () => {
         const style = currentStyle();
@@ -163,6 +181,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
             delete (customProps as any).updatedAt;
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: customProps, }, },);
         }
+        stopDraft();
         setEditingStyle(false,);
     };
 
@@ -294,7 +313,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                     </Show>
                     <Show when={editingStyle() && selectedStyleId() !== 'none'}>
                         <button class="btn btn--xs btn--primary" onClick={handleSaveStyle}>Save</button>
-                        <button class="btn btn--xs btn--ghost" onClick={() => setEditingStyle(false,)}>Cancel</button>
+                        <button class="btn btn--xs btn--ghost" onClick={() => { stopDraft(); setEditingStyle(false,); }}>Cancel</button>
                     </Show>
                 </div>
             </div>
@@ -335,7 +354,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 fallback={
                     <BlockStyleEditor
                         style={currentStyle()}
-                        onChange={setCurrentStyle}
+                        onChange={publishDraft}
                         breakpoints={appearance()?.breakpoints ?? []}
                         allowSaveTemplate={true}
                         onSaveTemplate={handleSaveTemplate}

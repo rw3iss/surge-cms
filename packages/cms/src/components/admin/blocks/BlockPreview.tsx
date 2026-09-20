@@ -1,6 +1,7 @@
 import { Component, onCleanup, onMount, Show, } from 'solid-js';
 import { BlockRenderer, } from '../../blocks/BlockRenderer';
 import { BlockStyleService, } from '../../../services/blockStyles';
+import { styleDraft, } from '../../../stores/blockStyleDraft';
 import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import type { BlockData, } from './ContentBlock';
 
@@ -36,7 +37,11 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         const { title, content, __styleRef: _drop, ...rest } = props.block.data || {};
 
         // Resolve style from styleRef or data.__styleRef (shared resolver).
-        const resolvedStyle = BlockStyleService.resolve(props.block,);
+        // An in-progress edit from the style panel WINS, so the preview tracks
+        // the controls live; the panel clears the draft on Save (the value is
+        // on the block by then) and on Cancel (which makes falling back to the
+        // saved style the revert).
+        const resolvedStyle = styleDraft(props.block.id,) ?? BlockStyleService.resolve(props.block,);
 
         // The preview breakpoint is NOT simulated here any more.
         //
@@ -82,6 +87,15 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         // showed the "template / Click edit to configure" placeholder even for
         // a fully configured block.
         if (props.block.type === 'template') return !d.templateId;
+        // Same for `entity`: its configuration lives under `data.entity`
+        // ({ entityType, templateId, binding }), so the generic check below —
+        // which looks for `content` / `url` / `postId` / … — never matched and
+        // a fully configured block showed "Entity / Click edit to configure"
+        // forever. Once a template is chosen there is something real to draw,
+        // so hand it to the renderer that already draws it on the public site.
+        if (props.block.type === 'entity') {
+            return !(d.entity as { templateId?: string; } | undefined)?.templateId;
+        }
         // Hero is "empty" only when none of its visual fields are set —
         // title or subtitle alone is enough to render meaningfully.
         if (props.block.type === 'hero') {

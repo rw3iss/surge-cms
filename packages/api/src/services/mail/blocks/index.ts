@@ -72,6 +72,19 @@ export type BlockEmailRenderer = (
     ctx: EmailRenderCtx,
 ) => BlockEmailRendererOut;
 
+/**
+ * Render a container's children as rows of its own sub-table.
+ *
+ * Used by the block types whose content is resolved ahead of time
+ * (`entity` / `template`). Emits nothing when nothing resolved, so an
+ * unconfigured block doesn't leave an empty styled cell behind.
+ */
+const renderChildren: BlockEmailRenderer = (node, ctx,) => {
+    const rows = node.children.map((c,) => renderNode(c, ctx,),).filter(Boolean,).join('\n',);
+    if (!rows) return '';
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+};
+
 export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     rich_text: renderRichText,
     text: renderRichText,
@@ -95,14 +108,16 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     group_item: () => '',
     // gallery is legacy (folded into image). Try the image renderer.
     gallery: renderImage,
-    // `entity` blocks render a content-block template with a bound entity — a
-    // dynamic, client-resolved block. Emails skip it for now (no template
-    // resolution in the sync mail emitter path).
-    entity: () => '',
-    // `template` pulls its blocks from another table at render time; the mail
-    // emitter is synchronous and has no fetch, so it cannot resolve one. Skipped
-    // rather than half-rendered.
-    template: () => '',
+    // `entity` and `template` don't carry content of their own — they point at
+    // a content-block template (and, for `entity`, the record to bind). That
+    // needs DB reads, which this synchronous emitter cannot do, so
+    // `expandDynamicBlocks` resolves them into CHILDREN before rendering and
+    // these arms simply emit that subtree. `renderNode` still wraps the result
+    // in the block's own styled cell, so custom styles apply as they do
+    // everywhere else. Both were `() => ''` — an entity block rendered as
+    // nothing at all, with no indication why.
+    entity: renderChildren,
+    template: renderChildren,
 };
 
 function toResult(out: BlockEmailRendererOut,): BlockEmailRenderResult {

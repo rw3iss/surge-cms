@@ -18,6 +18,7 @@ import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { logAudit, } from './audit';
 import { renderMailHtml, } from './mail/renderer';
 import { kickJob, } from './mail/sendWorker';
+import { expandDynamicBlocks, } from './mail/expandBlocks';
 import { loadMailRenderContext, } from './mail/siteContext';
 import type { AuditContext, } from './types';
 import { uuidOrNull, } from '../utils/uuid';
@@ -73,8 +74,10 @@ export async function send(input: SendInput, ctx: AuditContext,): Promise<{ jobI
         style: (b.style ?? {}) as Record<string, unknown>,
     }));
     const resolvedBlocks = await templateBlocks.populateBlockStyles(blocksForRender,);
+    // Same expansion the preview runs — see services/mail/expandBlocks.
+    const expandedBlocks = await expandDynamicBlocks(resolvedBlocks as never,);
     const rendered = renderMailHtml({
-        blocks: resolvedBlocks,
+        blocks: expandedBlocks,
         subject: input.subject,
         preheader: input.preheader,
         ...renderCtx,

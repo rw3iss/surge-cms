@@ -13,6 +13,7 @@ import { NotFoundError, } from '../core/errors';
 import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from './mail/renderer';
+import { expandDynamicBlocks, } from './mail/expandBlocks';
 import { loadMailRenderContext, } from './mail/siteContext';
 import { buildSampleContext, describeVariables, } from './mail/variables';
 import { resolveMailTemplate, } from './mail/templateRuntime';
@@ -188,8 +189,12 @@ export async function preview(input: PreviewInput,) {
     // property bags so the renderer sees a plain style record.
     const resolved = await templateBlocks.populateBlockStyles(blocksForRender,);
 
+    // Resolve entity/template blocks into real subtrees. Shared with the send
+    // path so the preview cannot show something different from what ships.
+    const expanded = await expandDynamicBlocks(resolved as never,);
+
     const result = renderMailHtml({
-        blocks: resolved,
+        blocks: expanded,
         subject: input.subject ?? '',
         preheader: input.preheader,
         ...renderCtx,
