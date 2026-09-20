@@ -15,11 +15,13 @@ import { createSafeResource, } from '../../hooks/createSafeResource';
 import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { invalidatePostsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
+import { useAuth, } from '../../stores/auth';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { generateBlockId, } from '../../utils/blockId';
 import type { Post, } from '@sitesurge/types';
 
 const AdminPostEditor: Component = () => {
+    const auth = useAuth();
     // ─── Post property signals ───
     const [title, setTitle,] = createSignal('',);
     const [slug, setSlug,] = createSignal('',);
@@ -134,6 +136,18 @@ const AdminPostEditor: Component = () => {
             deleteError: 'Failed to delete post',
             restoreError: 'Failed to restore post',
         },
+    },);
+
+    // Default a NEW post's author to the signed-in user, so the dropdown shows
+    // who is about to be credited instead of an empty field that silently
+    // publishes an anonymous article. The backend also defaults this on create;
+    // doing it here as well makes the choice VISIBLE and editable before save.
+    createEffect(() => {
+        if (!editor.isNew() || authorId()) return;
+        const me = auth.user();
+        if (!me) return;
+        // Only if the current user can actually be an author (staff).
+        if (staffUsers().some((u,) => u.id === me.id)) setAuthorId(me.id,);
     },);
 
     // ─── Offer to restore a localStorage draft for NEW posts ───

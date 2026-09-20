@@ -1,3 +1,4 @@
+import { buildDocumentTitle, } from '@sitesurge/types';
 import { Link, Meta, Title, } from '@solidjs/meta';
 import { Component, createMemo, For, Show, } from 'solid-js';
 import {
@@ -54,10 +55,14 @@ const DEFAULT_LOCALE = 'en_US';
  * Generates Open Graph, Twitter Card, JSON-LD structured data,
  * and AI engine optimization tags from a single props set.
  *
- * Tab title format is always "{Site Name} - {Page Title}" using the
- * dynamic site name from the global settings store (falls back to
- * the DEFAULT_SITE_NAME constant until settings are loaded). Passing
- * an explicit `siteName` prop overrides the store.
+ * Title format is "{Page Title} | {Site Name}", composed by the SHARED
+ * `buildDocumentTitle` so this matches the SSR head byte for byte. The site
+ * name comes from the global settings store (falling back to DEFAULT_SITE_NAME
+ * until settings load); an explicit `siteName` prop overrides the store.
+ *
+ * Pass `title` as the entity's RESOLVED title — its `metaTitle` when set, else
+ * its display title (`resolvePageTitle` does this). A page that hardcodes a
+ * label here throws away whatever the operator wrote in the SEO fields.
  */
 const SeoHead: Component<SeoHeadProps> = (props,) => {
     // Trigger settings load on first render of any page that mounts SeoHead.
@@ -66,17 +71,13 @@ const SeoHead: Component<SeoHeadProps> = (props,) => {
     const siteName = () =>
         props.siteName || siteSettingsSignal()?.siteName || DEFAULT_SITE_NAME;
     const locale = () => props.locale || DEFAULT_LOCALE;
-    const fullTitle = createMemo(() => {
-        const pageTitle = props.title?.trim();
-        const site = siteName();
-        if (!pageTitle) return site;
-        // Avoid double-prefix if caller already included the site name.
-        if (pageTitle === site) return site;
-        if (pageTitle.startsWith(`${site} -`,) || pageTitle.startsWith(`${site} |`,)) {
-            return pageTitle;
-        }
-        return `${site} - ${pageTitle}`;
-    },);
+    // Composed by the SHARED helper, which the SSR head builder also calls.
+    // These two MUST agree: this one runs a frame after the server's and
+    // overwrites it in the DOM, which is what a JavaScript-rendering crawler
+    // indexes. When the formats differed ("{Site} - {Page}" here vs
+    // "{Page} | {Site}" there) every server-side meta tag was optimised for a
+    // title that no search engine ever saw.
+    const fullTitle = createMemo(() => buildDocumentTitle(props.title, siteName(),));
 
     const robotsContent = createMemo(() => {
         const parts: string[] = [];

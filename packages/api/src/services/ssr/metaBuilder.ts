@@ -3,6 +3,7 @@
  * Produces HTML <head> fragments for Open Graph, Twitter Card,
  * JSON-LD, and AEO tags based on the content type of the current route.
  */
+import { buildDocumentTitle, } from '@sitesurge/types';
 import { escapeHtml, } from '../../utils/html';
 
 export interface MetaTags {
@@ -20,6 +21,15 @@ export interface MetaTags {
     keywords?: string[];
     noindex?: boolean;
     nofollow?: boolean;
+    /**
+     * The route resolved to nothing — the response must carry HTTP 404.
+     *
+     * Distinct from `noindex`, which is a real page we simply don't want
+     * indexed (`/login`). A 200 for a nonexistent URL is a SOFT 404: the
+     * crawler is told the page exists, indexes it, and every typo'd or scraped
+     * link becomes another canonical URL competing with the real ones.
+     */
+    notFound?: boolean;
     siteName?: string;
     locale?: string;
     /** Operator-configured favicon URL. Emitted as `<link rel="icon">` so the
@@ -53,28 +63,12 @@ function buildRobots(meta: MetaTags,): string {
 export function buildMetaHtml(meta: MetaTags,): string {
     const siteName = meta.siteName || 'RW';
     const locale = meta.locale || 'en_US';
-    // Title format: "{Page Title} | {Site Name}" — the page's own words FIRST.
-    //
-    // This used to be "{Site Name} - {Page Title}". Search engines truncate the
-    // title around 60 characters and weight the leading words most, so leading
-    // with the brand spent the most valuable part of every listing repeating
-    // the same string, and pushed article headlines toward the cut-off. Brand
-    // as a suffix is the near-universal convention for exactly that reason.
-    const pageTitle = (meta.title || '').trim();
-    let title: string;
-    if (!pageTitle || pageTitle === siteName) {
-        title = siteName;
-    } else if (
-        // Already carries the brand (either order) — leave it alone.
-        pageTitle.startsWith(`${siteName} -`,) ||
-        pageTitle.startsWith(`${siteName} |`,) ||
-        pageTitle.endsWith(`| ${siteName}`,) ||
-        pageTitle.endsWith(`- ${siteName}`,)
-    ) {
-        title = pageTitle;
-    } else {
-        title = `${pageTitle} | ${siteName}`;
-    }
+    // Composed by the SHARED helper, which the SPA's SeoHead also calls — the
+    // two must produce the identical string. When they disagreed, the client's
+    // title silently replaced this one in the rendered DOM (which is what a
+    // JavaScript-rendering crawler indexes), so the whole head was optimised
+    // for a title nobody ever saw. See `@sitesurge/types` utils/pageTitle.
+    const title = buildDocumentTitle(meta.title, siteName,);
     const lines: string[] = [];
 
     lines.push(`<title>${escapeHtml(title,)}</title>`,);

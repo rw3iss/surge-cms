@@ -153,17 +153,33 @@ async function getStaticHtml(pathname: string,): Promise<string | null> {
 }
 
 /**
- * Main SSR entry point: render a public URL with server-side meta tags.
- * Returns the full HTML response or null if the path should be handled differently.
+ * The rendered page plus the status code it must be served with.
+ *
+ * The status is NOT always 200: a URL that resolves to no content has to
+ * answer 404, or the crawler is told a nonexistent page exists and indexes it.
+ * Returning only HTML made that unrepresentable.
  */
-export async function renderPublicRoute(pathname: string, distDir: string,): Promise<string | null> {
+export interface SsrRender {
+    html: string;
+    status: number;
+}
+
+/**
+ * Main SSR entry point: render a public URL with server-side meta tags.
+ * Returns the rendered HTML + status, or null if the path should be handled
+ * differently (not a public route).
+ */
+export async function renderPublicRoute(
+    pathname: string,
+    distDir: string,
+): Promise<SsrRender | null> {
     if (!isPublicRoute(pathname,)) return null;
 
     // 1. Check for pre-rendered static HTML
     const staticHtml = await getStaticHtml(pathname,);
     if (staticHtml) {
         logger.debug(`SSR: Served static HTML for ${pathname}`,);
-        return staticHtml;
+        return { html: staticHtml, status: 200, };
     }
 
     // 1b. Drop stale rendered HTML if the frontend build changed since we last
@@ -172,15 +188,19 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
 
     // 2. Check Redis cache
     const cacheKey = cache.CACHE_KEYS.ssrPath(pathname,);
-    const cached = await cache.get<string>(cacheKey,);
+    // Cached as the PAIR, so a 404 stays a 404 when served from cache. Storing
+    // only the HTML meant a cache hit resurrected the soft 200.
+    const cached = await cache.get<SsrRender | string>(cacheKey,);
     if (cached) {
         logger.debug(`SSR: Cache hit for ${pathname}`,);
-        return cached;
+        // Tolerate entries written by the previous (string-only) shape.
+        return typeof cached === 'string' ? { html: cached, status: 200, } : cached;
     }
 
     // 3. Load the base template
     const template = await loadTemplate(distDir,);
     if (!template) return null;
+    const ok = (html: string,) => ({ html, status: 200, });
 
     // 4. Resolve content meta for this route
     let meta;
@@ -188,10 +208,10 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
         meta = await resolveRouteMeta(pathname,);
     } catch (error) {
         logger.error(`SSR: Failed to resolve meta for ${pathname}`, { error, },);
-        return template; // Fall back to plain template
+        return ok(template,); // Fall back to plain template
     }
 
-    if (!meta) return template;
+    if (!meta) return ok(template,);
 
     // 4a. Attach the site favicon (global, same for every route) so the head
     //     builder can emit a <link rel="icon"> for the operator's icon. Set
@@ -212,7 +232,7 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
         logger.error(`SSR: buildMetaHtml failed for ${pathname}`, {
             error: (error as Error).message,
         },);
-        return template;
+        return ok(template,);
     }
     let html = injectMeta(template, metaHtml,);
 
@@ -241,10 +261,11 @@ export async function renderPublicRoute(pathname: string, distDir: string,): Pro
     }
 
     // 6. Cache the rendered HTML
-    await cache.set(cacheKey, html, CACHE_TTL,);
+    const result: SsrRender = { html, status: meta.notFound ? 404 : 200, };
+    await cache.set(cacheKey, result, CACHE_TTL,);
 
     logger.debug(`SSR: Rendered and cached ${pathname}`,);
-    return html;
+    return result;
 }
 
 /** Invalidate a single SSR cache entry */

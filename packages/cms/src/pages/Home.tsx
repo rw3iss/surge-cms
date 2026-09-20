@@ -1,10 +1,10 @@
-import { buildBlockTree, type Page, } from '@sitesurge/types';
+import { buildBlockTree, type Page, resolvePageTitle, } from '@sitesurge/types';
 import { Component, createEffect, createResource, For, onCleanup, Show, } from 'solid-js';
 import { BlockRenderer, } from '../components/blocks/BlockRenderer';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { setActiveHeaderPosition, setActiveHeaderStyle, } from '../stores/headerStyle';
-import { siteDescription, siteLogo, siteName, } from '../stores/siteSettings';
+import { siteDescription, siteLogo, siteName, siteSeo, } from '../stores/siteSettings';
 import { buildOrganization, } from '../utils/schema';
 import './Home.scss';
 
@@ -37,10 +37,27 @@ const Home: Component = () => {
         setActiveHeaderPosition(null,);
     },);
 
+    /**
+     * The homepage `<title>`, resolved the same way the SSR head resolves it:
+     * the operator's `seo.homeTitle`, else the homepage page row's own
+     * metaTitle/title, else the site name. `buildDocumentTitle` appends the
+     * brand, so this is the page half only.
+     */
+    const homeTitle = () =>
+        siteSeo().homeTitle
+        || resolvePageTitle(page() as { metaTitle?: string; title?: string; } | null,)
+        || siteName();
+
     return (
         <div class="home">
             <SeoHead
-                title="Home"
+                // NOT the literal "Home". The homepage title is the site's most
+                // valuable, and this route has no CMS entity to carry a
+                // metaTitle — so it comes from Settings → SEO (`seo.homeTitle`),
+                // exactly as the SSR head resolves it. Hardcoding "Home" here
+                // overwrote the server's optimised title in the rendered DOM,
+                // which is the title search engines actually index.
+                title={homeTitle()}
                 description={siteDescription()}
                 canonical={canonicalUrl}
                 type="website"

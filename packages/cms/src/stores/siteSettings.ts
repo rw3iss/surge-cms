@@ -1,4 +1,4 @@
-import type { SiteSettings, } from '@sitesurge/types';
+import { buildDocumentTitle, type SiteSettings, } from '@sitesurge/types';
 import { createSignal, } from 'solid-js';
 import { cms, } from '../services/cmsClient';
 import { FEATURES, FeatureConfig, FeatureKey, getDependents as registryDependents, getFeature, } from '../config/features';
@@ -134,14 +134,20 @@ export function getEnabledDependents(key: FeatureKey,): FeatureKey[] {
 export function allFeatures(): typeof FEATURES { return FEATURES; }
 
 /**
- * Format a page title as "{Site Name} - {Page Title}".
- * If `pageTitle` is empty, returns just the site name.
- * If `pageTitle` already starts with the site name, returns it unchanged.
+ * Operator-written SEO copy (Settings → SEO). Carries the titles for `/` and
+ * `/posts`, which have no CMS entity of their own to hold a `metaTitle`.
+ */
+export function siteSeo(): NonNullable<SiteSettings['seo']> {
+    return siteSettings()?.seo ?? {};
+}
+
+/**
+ * Format a page title as "{Page Title} | {Site Name}".
+ *
+ * Delegates to the SHARED `buildDocumentTitle` — this was a third local copy of
+ * that rule, and it had already drifted to the opposite word order, so the same
+ * page could be titled two different ways depending on which helper ran.
  */
 export function formatPageTitle(pageTitle?: string | null,): string {
-    const site = siteName();
-    if (!pageTitle || !pageTitle.trim()) return site;
-    const t = pageTitle.trim();
-    if (t === site || t.startsWith(`${site} -`,) || t.startsWith(`${site} |`,)) return t;
-    return `${site} - ${t}`;
+    return buildDocumentTitle(pageTitle, siteName(),);
 }

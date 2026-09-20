@@ -209,6 +209,64 @@ async function loadPageBlocks(
 
 
 /**
+ * Load a post's content blocks for SSR.
+ *
+ * Posts do NOT share the pages `blocks` table — `post_content_blocks` uses
+ * `sort_order` instead of `"order"`, has no `parent_block_id` (so no nesting),
+ * and keeps everything in a `data` JSONB rather than separate `content` /
+ * `settings` columns. Hence a second loader rather than a parameter on
+ * `loadPageBlocks`.
+ *
+ * Why this exists at all: `buildPostBody` used to render only the legacy
+ * `posts.content` column. Every post authored in the block editor has that
+ * column EMPTY, so crawlers received the headline, date and excerpt and none of
+ * the article — measured at 45 words of 628 on a live post, while the page's
+ * `NewsArticle` schema asserted a full article. The body Google indexes and the
+ * structured data describing it disagreed.
+ *
+ * Errors degrade to an empty list: a missing block row should cost the article
+ * its body, not its whole page.
+ */
+async function loadPostBlocks(
+    postId: string,
+    templateEntity: Parameters<typeof resolveContentForSsr>[1],
+): Promise<SsrBlockInput[]> {
+    let flat: SsrBlockInput[] = [];
+    try {
+        const res = await query<{
+            id: string;
+            type: string;
+            data: Record<string, unknown> | null;
+        }>(
+            `SELECT id, type, data FROM post_content_blocks
+             WHERE post_id = $1
+             ORDER BY sort_order ASC, created_at ASC, id ASC`,
+            [postId,],
+        );
+        flat = res.rows.map((r,) => {
+            const data = r.data ?? {};
+            return {
+                id: r.id,
+                parentBlockId: null,
+                type: r.type,
+                title: (data.title as string) ?? null,
+                // Post blocks keep their HTML under `data.content`; the shared
+                // block renderers read a top-level `content`.
+                content: (data.content as string) ?? null,
+                settings: data,
+            };
+        },);
+    } catch {
+        return [];
+    }
+
+    return Promise.all(flat.map(async (b,) => ({
+        ...b,
+        content: await resolveContentForSsr(b.content, templateEntity,),
+    }),),);
+}
+
+/**
  * The home page's indexable body. Renders the CMS homepage's blocks when one is
  * configured (`pages.is_homepage`), so the words on the page are actually in the
  * HTML; falls back to the site name + tagline when there is no homepage row.
@@ -365,13 +423,20 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             [slug,],
         ).catch(() => null,);
         const row = res?.rows[0];
-        if (!row) return null;
+        // A published post with this slug does not exist. SSR owns this
+        // route, so the miss is authoritative: 404 rather than handing the
+        // SPA a 200 for a URL that resolves to nothing.
+        if (!row) return notFoundMeta(SITE_NAME,);
         const post = mapRow(row,) as any;
         // Resolve any {{ … }} template syntax in the post body (the post itself
         // is exposed as `post` to the templates).
         const resolvedContent = await resolveContentForSsr(post.content, { post, },);
+        // The article body. Block-authored posts leave `posts.content` empty,
+        // so without this the SSR body is a headline and an excerpt.
+        const postBlocks = await loadPostBlocks(post.id, { post, },);
+        const blocksHtml = postBlocks.map((b,) => b.content || '',).join(' ',);
         const description = post.metaDescription || post.excerpt ||
-            truncateText(stripHtml(resolvedContent || '',), 200,) ||
+            truncateText(stripHtml(resolvedContent || blocksHtml || '',), 200,) ||
             `${post.title} — published by ${SITE_NAME}`;
         const section = Array.isArray(post.categories,) ? post.categories[0] : undefined;
         const image = post.featuredImage || logo;
@@ -416,6 +481,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                 title: post.title,
                 excerpt: post.excerpt,
                 content: resolvedContent,
+                blocks: postBlocks,
                 author: post.author,
                 publishedAt: post.publishedAt,
                 tags: post.tags,
@@ -435,7 +501,10 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             [slug,],
         ).catch(() => null,);
         const row = res?.rows[0];
-        if (!row) return null;
+        // A published post with this slug does not exist. SSR owns this
+        // route, so the miss is authoritative: 404 rather than handing the
+        // SPA a 200 for a URL that resolves to nothing.
+        if (!row) return notFoundMeta(SITE_NAME,);
         const campaign = mapRow(row,) as any;
         const description = campaign.shortDescription ||
             truncateText(stripHtml(campaign.description || '',), 200,) ||
@@ -611,14 +680,69 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         }
     }
 
-    // Unknown route — return generic meta (let the SPA handle rendering)
+    // ─── Nothing matched ───
+    //
+    // A route the SPA genuinely serves gets generic meta; anything else is a
+    // 404. Previously EVERYTHING landed here with a self-referencing canonical
+    // and `index, follow`, so every typo, scraped link and probe became an
+    // indexable page — an unbounded soft-404 surface on a site with ~18 real
+    // URLs.
+    if (STATIC_PUBLIC_ROUTES.has(path,) || SPA_OWNED_PREFIXES.some((p,) => path.startsWith(p,),)) {
+        return {
+            title: SITE_NAME,
+            description: SITE_DESCRIPTION,
+            canonical: url,
+            type: 'website',
+            image: logo,
+            siteName: SITE_NAME,
+        };
+    }
+
+    return notFoundMeta(SITE_NAME,);
+}
+
+/**
+ * Public SPA routes that always exist, with no CMS entity behind them.
+ *
+ * These must never 404: there is no row to look up, so the "nothing matched"
+ * fallthrough would otherwise condemn the sign-in page.
+ */
+const STATIC_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
+    '/', '/login', '/join', '/subscribe', '/search', '/profile', '/verify',
+    '/posts', '/campaigns', '/donate', '/events', '/shop', '/setup',
+    '/forgot-password', '/reset-password',
+],);
+
+/**
+ * Prefixes the SPA resolves CLIENT-side and SSR does not own.
+ *
+ * SSR cannot tell whether `/shop/some-product` exists — it has no product
+ * resolver — so it must not guess. Left at 200 deliberately: a false 404 on a
+ * real product is far worse than a soft 200 on a fake one, and these are the
+ * routes to give their own resolvers next (see the SEO audit).
+ *
+ * The prefixes SSR DOES own (`/posts/`, `/campaigns/`) are absent on purpose —
+ * a miss there is a genuine, verified 404.
+ */
+const SPA_OWNED_PREFIXES: readonly string[] = [
+    '/shop/', '/events/', '/forms/', '/u/', '/lists/', '/orders/',
+];
+
+/**
+ * Meta for a URL that resolves to nothing.
+ *
+ * `noindex, nofollow` AND no canonical — a canonical on a 404 invites the
+ * crawler to treat the URL as real. The body is deliberately absent so the SPA
+ * renders its own styled not-found page.
+ */
+function notFoundMeta(siteName: string,): MetaTags {
     return {
-        title: SITE_NAME,
-        description: SITE_DESCRIPTION,
-        canonical: url,
-        type: 'website',
-        image: logo,
-        siteName: SITE_NAME,
+        title: 'Page Not Found',
+        description: 'The page you are looking for could not be found.',
+        noindex: true,
+        nofollow: true,
+        notFound: true,
+        siteName,
     };
 }
 

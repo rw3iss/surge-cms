@@ -396,6 +396,27 @@ export interface SiteSettings {
     /** Site-wide defaults set in Settings → General. Used to pre-fill authoring
      *  forms (e.g. a new event's timezone) rather than hard-coding a guess. */
     defaults?: SiteDefaults;
+    /** Editable SEO copy (Settings → SEO). Public so the SPA composes the same
+     *  `<title>` the SSR head emitted — see `utils/pageTitle`. */
+    seo?: SiteSeoSettings;
+}
+
+/**
+ * Operator-written titles for the two routes that have no CMS entity of their
+ * own to carry a `metaTitle` — the site root and the post index.
+ *
+ * "Home" and "News" are terrible titles for the two most important URLs on a
+ * site, and neither route has a page row to override them, so they live here.
+ */
+export interface SiteSeoSettings {
+    /** `<title>` for `/`. Falls back to the site name. */
+    homeTitle?: string;
+    /** `<title>` for `/posts`. */
+    postsTitle?: string;
+    /** Brand alias for schema.org `alternateName` (e.g. "Surge Philly"). */
+    alternateName?: string;
+    /** Geographic focus for schema.org `areaServed`. */
+    areaServed?: string;
 }
 
 /**

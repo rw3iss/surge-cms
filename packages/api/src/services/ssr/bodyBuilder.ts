@@ -23,7 +23,11 @@ import { escapeHtml, isoToReadable, } from './blocks/_util';
 export interface PostBody {
     title: string;
     excerpt?: string | null;
+    /** The LEGACY `posts.content` HTML column. Empty for any post authored in
+     *  the block editor — which is all of them on a modern install. */
     content?: string | null;
+    /** The post's content blocks. Where the article actually lives. */
+    blocks?: SsrBlockInput[];
     author?: string | null;
     publishedAt?: string | null;
     tags?: string[] | null;
@@ -70,6 +74,21 @@ export function buildPostBody(p: PostBody,): string {
         // pipeline before injecting — same ruleset used for all
         // user-submitted HTML elsewhere in the app.
         parts.push(`  <div class="ssr-post__content">${sanitize(p.content,)}</div>`,);
+    }
+
+    // The article body. Block-authored posts keep their text here; the legacy
+    // `content` column above is empty for them, which is why a post used to
+    // server-render as a headline and an excerpt and nothing else.
+    if (Array.isArray(p.blocks,) && p.blocks.length > 0) {
+        const rendered = p.blocks.map((b,) => renderBlockForSeo(b,)).filter(Boolean,);
+        // A dynamic block (form, social feed, …) renders as a naming COMMENT,
+        // which is truthy but carries nothing to index. A post made only of
+        // those would otherwise emit an empty content wrapper that looks like
+        // an article body and isn't.
+        const hasSubstance = rendered.some((h,) => h.replace(/<!--[\s\S]*?-->/g, '',).trim() !== '');
+        if (hasSubstance) {
+            parts.push(`  <div class="ssr-post__content">${rendered.join('\n',)}</div>`,);
+        }
     }
 
     if (Array.isArray(p.tags,) && p.tags.length > 0) {

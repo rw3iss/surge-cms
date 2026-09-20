@@ -268,6 +268,12 @@ export async function getPublicSettings(): Promise<SiteSettings> {
         // Authoring defaults (timezone/currency). Public because the admin
         // forms that consume them load through the same projection.
         defaults: (settings.defaults as SiteSettings['defaults']) || {},
+        // Editable SEO copy. PUBLIC because the SPA has to compose the same
+        // <title> the SSR head already emitted — the client's title overwrites
+        // the server's in the rendered DOM, so without these the homepage
+        // reverted to the literal word "Home" and discarded whatever the
+        // operator wrote in Settings → SEO.
+        seo: (settings.seo as SiteSettings['seo']) || {},
         features,
     };
 

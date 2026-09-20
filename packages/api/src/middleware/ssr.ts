@@ -36,11 +36,12 @@ export function createSsrMiddleware(distDir: string,) {
         }
 
         try {
-            const html = await renderPublicRoute(pathname, distDir,);
-            if (html === null) {
+            const rendered = await renderPublicRoute(pathname, distDir,);
+            if (rendered === null) {
                 // Not a public route — let the SPA fallback or other handlers take over
                 return next();
             }
+            const { html, status, } = rendered;
 
             // Anonymous public pages get a short edge micro-cache so a CDN
             // absorbs traffic spikes (origin renders each hot page ~once/TTL).
@@ -48,8 +49,13 @@ export function createSsrMiddleware(distDir: string,) {
             // plugin-config-derived (no per-request nonce), so a cached copy is
             // correct for every anonymous visitor; a plugin change propagates
             // within the TTL. Hashed JS/CSS assets are cached separately (1y).
-            res.status(200,).setHeader('Content-Type', 'text/html; charset=utf-8',);
-            if (isCacheablePublicHtml(req,)) applyPublicHtmlCacheHeaders(res,);
+            // The resolver's status, not a hardcoded 200 — a URL that matched no
+            // content answers 404 so it is never indexed as a real page.
+            res.status(status,).setHeader('Content-Type', 'text/html; charset=utf-8',);
+            // A 404 is never edge-cached: the page it denies may be published a
+            // minute later, and a CDN holding the negative answer would keep
+            // serving it after the content exists.
+            if (status === 200 && isCacheablePublicHtml(req,)) applyPublicHtmlCacheHeaders(res,);
             else res.setHeader('Cache-Control', 'no-store',);
             res.send(html,);
         } catch (error) {

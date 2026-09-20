@@ -334,11 +334,20 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             data.excerpt,
             content,
             data.featuredImage,
-            // author_id is a UUID FK. An explicit authorId in the body wins
-            // (the editor picked an author, possibly null to clear it);
-            // otherwise default to the creating user. Synthetic actors
-            // (api-key:<name>, system) become NULL rather than 500ing.
-            uuidOrNull(data.authorId !== undefined ? (data.authorId as string | null) : authorId,),
+            // author_id is a UUID FK. On CREATE a post always gets an author:
+            // an explicit one when the editor picked someone, otherwise the
+            // creating user.
+            //
+            // This used to honour an explicit null as "no author", which made
+            // every post authorless in practice — the editor's Author signal
+            // starts empty and it sends `authorId: authorId() || null`, so the
+            // create payload always carried null. The result was articles with
+            // no byline and a NewsArticle schema with no `author`, which is the
+            // hardest possible position to rank a news site from. Clearing an
+            // author remains possible on UPDATE, where it is a deliberate act.
+            // Synthetic actors (api-key:<name>, system) still become NULL
+            // rather than 500ing.
+            uuidOrNull((data.authorId as string | null) || authorId,),
             data.status || 'draft',
             data.isPrivate || false,
             data.accessLevel || 'public',
