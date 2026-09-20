@@ -413,11 +413,14 @@
         select { max-width: 11rem; }
     }
 
-    // Direction toggle: square, sized to sit level with the dropdown beside it.
+    // Direction toggle. Stretches to the row's height rather than pinning one,
+    // so it stays level with the dropdown beside it whatever the field metrics
+    // work out to.
     &__sort-dir {
         flex: 0 0 auto;
+        align-self: stretch;
         width: 32px;
-        height: 32px;
+        min-height: 32px;
         padding: 0;
         border: 1px solid var(--admin-border, #{$border-color});
         border-radius: $border-radius-sm;

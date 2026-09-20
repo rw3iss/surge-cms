@@ -337,7 +337,20 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         })(),
     });
 
+    /**
+     * Sequence number of the newest request. Responses that are not the newest
+     * are DISCARDED.
+     *
+     * Every control here refetches, and the responses can land out of order —
+     * so picking a sort field and then flipping the direction could leave the
+     * first request's rows on screen while the controls showed the second
+     * request's settings. The table then contradicted the sort it displayed,
+     * which reads as "sorting is broken" rather than "that was stale".
+     */
+    let fetchSeq = 0;
+
     const fetchRecords = async () => {
+        const seq = ++fetchSeq;
         setLoading(true,);
         setError(null,);
         try {
@@ -350,14 +363,18 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             const filter = buildFilter();
             if (filter) query.filter = filter;
             const res = await cms.entities.list(props.entityType, query,);
+            if (seq !== fetchSeq) return;
             setItems(res.data ?? [],);
             setTotalPages(res.meta?.totalPages ?? 1,);
             setTotal(res.meta?.total ?? 0,);
         } catch (e) {
+            if (seq !== fetchSeq) return;
             setError(e instanceof Error ? e.message : 'Failed to load records',);
             setItems([],);
         }
-        setLoading(false,);
+        // Superseded requests leave `loading` alone — the newer one owns it and
+        // will clear it when IT finishes.
+        if (seq === fetchSeq) setLoading(false,);
     };
 
     onMount(async () => {
