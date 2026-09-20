@@ -1,6 +1,7 @@
 import type { AppearanceSettings, BreakpointLayout, } from '@sitesurge/types';
 import { colorCssValue, } from '../services/colorResolver';
 import { breakpointMediaCondition, } from './breakpointMedia';
+import { resolveTypography, } from '@sitesurge/types';
 
 /**
  * Resolve a font value to a CSS `font-family` string. Values are usually a
@@ -115,6 +116,35 @@ export function appearanceCssVars(
  *      padding, max-width, radius) picks up the breakpoint value automatically.
  * Returns '' when there's nothing to emit.
  */
+/**
+ * Heading/paragraph rhythm for rich-text content, as a stylesheet rule.
+ *
+ * WHY A RULE, NOT INLINE STYLE: these are DEFAULTS. A rule can be overridden by
+ * a block's own style; an inline style could not, and would stop being a
+ * default the moment anyone tried to change one block.
+ *
+ * WHY `@layer theme`: this string is injected at runtime into a `<style>` tag,
+ * and unlayered CSS beats EVERY layer — including `block`. Left unlayered these
+ * defaults would outrank the per-block styles they are supposed to yield to.
+ * Naming the lowest layer puts them underneath, where a default belongs.
+ *
+ * WHY IT IS NOT SCOPED TO `.layout`: the admin renders the same rich-text
+ * content in its block previews, and the mail-template editor's preview is how
+ * an operator judges what the email will look like. Scoped to the public
+ * layout, the editor showed a different line-height from the delivered mail —
+ * reported as "the preview doesn't match the email". One selector, both places.
+ */
+export function richTextTypographyCss(a: AppearanceSettings | null | undefined,): string {
+    const t = resolveTypography(a ?? {},);
+    const headings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6',]
+        .map((h,) => `.rich-text ${h}`)
+        .join(',',);
+    return `@layer theme{`
+        + `${headings}{line-height:${t.headingLineHeight};margin:${t.headingMargin}}`
+        + `.rich-text p{line-height:${t.paragraphLineHeight};margin:${t.paragraphMargin}}`
+        + `}`;
+}
+
 export function appearanceGlobalCss(a: AppearanceSettings | null | undefined,): string {
     if (!a) return '';
     const vars = (l: BreakpointLayout,): string => {
@@ -134,11 +164,10 @@ export function appearanceGlobalCss(a: AppearanceSettings | null | undefined,): 
     const rules: string[] = [];
     const base = vars(a,);
     if (base) rules.push(`.layout{${base}}`,);
-    // Default block padding: previously stamped inline on every .block; now one
-    // global rule (opt-in via the .block--default-pad class the renderer adds
-    // when no explicit padding + not suppressed), so it's DRY + overridable by
-    // the breakpoint media queries below.
-    rules.push('.layout .block--default-pad{padding:var(--site-block-padding,0)}',);
+
+    // Rich-text rhythm. Emitted by `richTextTypographyCss` so the admin can
+    // inject the SAME rules — see that function for why.
+    rules.push(richTextTypographyCss(a,),);
 
     for (const bp of a.breakpoints ?? []) {
         if (!bp.layout) continue;

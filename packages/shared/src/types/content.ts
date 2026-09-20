@@ -259,6 +259,20 @@ export interface AppearanceSettings {
     fontSize?: number;
     headingWeight?: string;
     lineHeight?: string;
+    /**
+     * Rich-text rhythm. Applied to h1–h6 / `<p>` inside `.rich-text` content
+     * on the site AND inlined into email, so a block reads the same wherever
+     * it renders. Empty = the shared default (`TYPOGRAPHY_DEFAULTS`).
+     *
+     * These are DEFAULTS: a block's own style panel, or an inline style on the
+     * element, still wins.
+     */
+    headingLineHeight?: string;
+    /** `margin` shorthand for h1–h6 in rich text. Any CSS value. */
+    headingMargin?: string;
+    paragraphLineHeight?: string;
+    /** `margin` shorthand for `<p>` in rich text. Any CSS value. */
+    paragraphMargin?: string;
     // Layout
     gutterWidth?: string;
     borderRadius?: string;

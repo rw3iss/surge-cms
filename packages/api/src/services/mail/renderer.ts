@@ -13,7 +13,8 @@
  *   - The send worker, which calls this once per job and substitutes
  *     per-recipient variables over the result before each send.
  */
-import type { SiteBreakpoint, } from '@sitesurge/types';
+import type { SiteBreakpoint, TypographyDefaults, } from '@sitesurge/types';
+import { resolveTypography, } from '@sitesurge/types';
 import { detectVariables, } from './variables';
 import { EmailBlockNode, EmailRenderCtx, renderNode, } from './blocks';
 import { buildEmailResponsiveCss, } from './blocks/responsiveCss';
@@ -43,6 +44,8 @@ export interface RenderInput {
     linkColor?: string;
     /** Named responsive breakpoints — emit an `@media` rule per block override. */
     breakpoints?: SiteBreakpoint[];
+    /** Rich-text rhythm from Settings → Appearance; defaults applied when unset. */
+    typography?: Partial<TypographyDefaults>;
 }
 
 export interface RenderResult {
@@ -82,6 +85,9 @@ export function renderMailHtml(input: RenderInput,): RenderResult {
         textColor: input.textColor ?? '#333333',
         bgColor: input.bgColor ?? '#ffffff',
         linkColor: input.linkColor ?? '#3498cf',
+        // Falls back to the shared defaults when the site has not set them, so
+        // an email always has a definite rhythm rather than the mail client's.
+        typography: resolveTypography(input.typography,),
     };
 
     // Only ENABLED blocks render — a block flagged `settings.disabled` is kept

@@ -1,4 +1,5 @@
 import { createEffect, createSignal, type JSX, Show, } from 'solid-js';
+import { cleanPastedHtml, } from '../../../utils/pasteCleanup';
 import Toggle from '../../ui/Toggle';
 import './RichTextEditor.scss';
 
@@ -107,6 +108,25 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
             editorRef.innerHTML = next;
         }
     },);
+
+    /**
+     * Clean pasted rich text before it enters the document.
+     *
+     * A word processor puts `line-height` and `margin` on every heading and
+     * paragraph it copies. Inline style beats any stylesheet, so that content
+     * permanently overrides the site's typography — and the operator has no
+     * idea where it came from, because they only pressed Ctrl+V.
+     *
+     * Plain-text pastes fall through to the browser untouched; there is
+     * nothing to clean and intercepting them would lose the native behaviour.
+     */
+    const handlePaste = (e: ClipboardEvent,): void => {
+        const html = e.clipboardData?.getData('text/html',);
+        if (!html) return;
+        e.preventDefault();
+        document.execCommand('insertHTML', false, cleanPastedHtml(html,),);
+        flush();
+    };
 
     const execCommand = (command: string, value?: string,) => {
         document.execCommand(command, false, value,);
@@ -286,6 +306,7 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                 class="rte-content"
                 contentEditable
                 onBlur={flush}
+                onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 style={props.contentStyle}
                 data-placeholder={props.placeholder || 'Start typing...'}

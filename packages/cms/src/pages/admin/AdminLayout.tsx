@@ -14,7 +14,7 @@ import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '.
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
 import { ensureFontFaces, } from '../../services/fonts';
-import { appearanceCssVars, } from '../../utils/appearanceStyle';
+import { appearanceCssVars, richTextTypographyCss, } from '../../utils/appearanceStyle';
 import './AdminLayout.scss';
 
 /** Minimal outline SVG icons for sidebar nav items (16x16 viewBox) */
@@ -164,6 +164,30 @@ const AdminLayout: ParentComponent = (props,) => {
     // the existing appearance + admin-appearance vars so the layout
     // root carries one consolidated style block.
     void loadSwatches();
+    /*
+     * The rich-text rhythm rules, injected into the ADMIN as well.
+     *
+     * Block previews here render the same rich-text content the site and the
+     * email do, and the mail-template editor's preview is how an operator
+     * judges what will be delivered. Without these rules the admin fell back to
+     * browser defaults, so the preview showed a different line-height from the
+     * email that arrived — reported as exactly that.
+     *
+     * A separate <style> from the public site's `site-appearance-css`, because
+     * the admin is not inside `.layout` and does not want the layout tokens.
+     */
+    createEffect(() => {
+        if (typeof document === 'undefined') return;
+        const tagId = 'admin-richtext-typography-css';
+        let tag = document.getElementById(tagId,) as HTMLStyleElement | null;
+        if (!tag) {
+            tag = document.createElement('style',);
+            tag.id = tagId;
+            document.head.appendChild(tag,);
+        }
+        tag.textContent = richTextTypographyCss(appearance(),);
+    },);
+
     const layoutStyle = createMemo(() => ({
         ...appearanceCssVars(appearance(), 'admin',),
         ...adminAppearanceCssVars(adminAppearance(),),

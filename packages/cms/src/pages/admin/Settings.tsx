@@ -16,6 +16,7 @@ import Tooltip from '../../components/admin/common/Tooltip';
 import { cms, } from '../../services/cmsClient';
 import { FeatureCascadeError, } from '@sitesurge/client';
 import { fetchSwatchUsages, generateUniqueSwatchId, isValidSwatchId, loadSwatches, saveSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
+import { TYPOGRAPHY_DEFAULTS, } from '@sitesurge/types';
 import type { BreakpointLayout, SiteBreakpoint, SiteSwatch, } from '@sitesurge/types';
 import { CURRENCIES, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
 import { reloadAdminAppearance, } from '../../stores/adminAppearance';
@@ -681,6 +682,12 @@ function AppearancePanel() {
     const [headingWeight, setHeadingWeight,] = createSignal('700',);
     const [codeTabWidth, setCodeTabWidth,] = createSignal<'4' | '2' | 'tab'>('4',);
     const [lineHeight, setLineHeight,] = createSignal('1.5',);
+    // Rich-text rhythm. Defaults read from the shared TYPOGRAPHY_DEFAULTS so the
+    // form, the site CSS and the email inliner cannot drift apart.
+    const [headingLineHeight, setHeadingLineHeight,] = createSignal(TYPOGRAPHY_DEFAULTS.headingLineHeight,);
+    const [headingMargin, setHeadingMargin,] = createSignal(TYPOGRAPHY_DEFAULTS.headingMargin,);
+    const [paragraphLineHeight, setParagraphLineHeight,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphLineHeight,);
+    const [paragraphMargin, setParagraphMargin,] = createSignal(TYPOGRAPHY_DEFAULTS.paragraphMargin,);
 
     // Layout
     const [gutterWidth, setGutterWidth,] = createSignal('',);
@@ -716,6 +723,10 @@ function AppearancePanel() {
                 if (d.headingWeight) setHeadingWeight(d.headingWeight,);
                 if (d.codeTabWidth) setCodeTabWidth(d.codeTabWidth,);
                 if (d.lineHeight) setLineHeight(d.lineHeight,);
+                if (d.headingLineHeight) setHeadingLineHeight(d.headingLineHeight,);
+                if (d.headingMargin) setHeadingMargin(d.headingMargin,);
+                if (d.paragraphLineHeight) setParagraphLineHeight(d.paragraphLineHeight,);
+                if (d.paragraphMargin) setParagraphMargin(d.paragraphMargin,);
                 if (d.gutterWidth) setGutterWidth(d.gutterWidth,);
                 if (d.pagePadding) setPagePadding(d.pagePadding,);
                 if (d.postPadding) setPostPadding(d.postPadding,);
@@ -752,6 +763,10 @@ function AppearancePanel() {
                 headingWeight: headingWeight(),
                 codeTabWidth: codeTabWidth(),
                 lineHeight: lineHeight(),
+                headingLineHeight: headingLineHeight(),
+                headingMargin: headingMargin(),
+                paragraphLineHeight: paragraphLineHeight(),
+                paragraphMargin: paragraphMargin(),
                 gutterWidth: gutterWidth() || undefined,
                 pagePadding: pagePadding() || undefined,
                 postPadding: postPadding() || undefined,
@@ -964,6 +979,66 @@ function AppearancePanel() {
                             value={lineHeight()}
                             onInput={(e,) => { setLineHeight(e.currentTarget.value,); markDirty(); }}
                             placeholder="1.5"
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Heading Line Height"
+                        sublabel="H1–H6 in rich text"
+                        tooltip="Line spacing for headings inside rich-text content, on the site AND in email. A DEFAULT: a block's own style, or an inline style on the element, still wins. Any CSS value — 1.15em, 1.2, 120%."
+                    >
+                        <input
+                            type="text"
+                            value={headingLineHeight()}
+                            onInput={(e,) => { setHeadingLineHeight(e.currentTarget.value,); markDirty(); }}
+                            placeholder={TYPOGRAPHY_DEFAULTS.headingLineHeight}
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Heading Margin"
+                        sublabel="H1–H6 in rich text"
+                        tooltip="Margin shorthand for headings inside rich-text content. Any CSS margin value — '10px 0px', '1rem 0', '10px 0 6px'."
+                    >
+                        <input
+                            type="text"
+                            value={headingMargin()}
+                            onInput={(e,) => { setHeadingMargin(e.currentTarget.value,); markDirty(); }}
+                            placeholder={TYPOGRAPHY_DEFAULTS.headingMargin}
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Paragraph Line Height"
+                        sublabel="<p> in rich text"
+                        tooltip="Line spacing for paragraphs inside rich-text content, on the site and in email. Body copy needs more leading than a heading."
+                    >
+                        <input
+                            type="text"
+                            value={paragraphLineHeight()}
+                            onInput={(e,) => { setParagraphLineHeight(e.currentTarget.value,); markDirty(); }}
+                            placeholder={TYPOGRAPHY_DEFAULTS.paragraphLineHeight}
+                            style={{ width: '140px', }}
+                            class="theme-field__input"
+                        />
+                    </ThemeField>
+
+                    <ThemeField
+                        label="Paragraph Margin"
+                        sublabel="<p> in rich text"
+                        tooltip="Margin shorthand for paragraphs inside rich-text content. Any CSS margin value."
+                    >
+                        <input
+                            type="text"
+                            value={paragraphMargin()}
+                            onInput={(e,) => { setParagraphMargin(e.currentTarget.value,); markDirty(); }}
+                            placeholder={TYPOGRAPHY_DEFAULTS.paragraphMargin}
                             style={{ width: '140px', }}
                             class="theme-field__input"
                         />

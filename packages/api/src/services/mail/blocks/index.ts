@@ -27,7 +27,7 @@ import { renderPostList, } from './postList';
 import { renderCarousel, } from './carousel';
 import { renderDocument, } from './document';
 import { cellStyleFromBlock, inlineStyle, } from './_util';
-import type { BlockType, } from '@sitesurge/types';
+import type { BlockType, TypographyDefaults, } from '@sitesurge/types';
 
 export interface EmailBlockNode {
     id: string;
@@ -45,6 +45,14 @@ export interface EmailRenderCtx {
     textColor: string;
     bgColor: string;
     linkColor: string;
+    /**
+     * Rich-text heading/paragraph rhythm, resolved from Settings → Appearance.
+     *
+     * Carried on the context because email has no usable stylesheet: the
+     * values must be inlined onto each tag, and the block renderers are the
+     * only place that sees the tags.
+     */
+    typography: TypographyDefaults;
 }
 
 export interface BlockEmailRenderResult {

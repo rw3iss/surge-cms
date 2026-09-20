@@ -14,3 +14,4 @@ export * from './recurrence';
 export * from './currencies';
 export * from './calendarGrid';
 export * from './markdown';
+export * from './typography';
