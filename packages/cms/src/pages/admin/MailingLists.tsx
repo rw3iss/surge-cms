@@ -1,7 +1,10 @@
 /**
- * Mailing Lists admin index. Renders two collapsible sections — Lists
- * and Templates — plus a "Send a Message…" CTA at the top. Templates
- * section is a placeholder until Phase 3 wires the template editor.
+ * Mailing Lists admin index: Lists, Templates, Scheduled Sends and Jobs,
+ * plus a "Send a Message…" CTA at the top.
+ *
+ * Scheduled Sends is its own component (`components/admin/mail/ScheduledSends`)
+ * because it owns a modal and its own resource; the rest of this page is
+ * read-only tables.
  */
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
@@ -9,6 +12,7 @@ import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { MailSendJob, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
+import ScheduledSends from '../../components/admin/mail/ScheduledSends';
 
 type JobWithListName = MailSendJob & { listName: string | null; };
 
@@ -171,6 +175,10 @@ const MailingLists: Component = () => {
                     </Show>
                 </Show>
             </section>
+
+            {/* Schedules sit above Jobs: what is GOING to send reads before
+                what already did. */}
+            <ScheduledSends lists={lists() ?? []} templates={templates() ?? []} />
 
             <section class="admin-section admin-section--wide">
                 <header class="admin-section__header">

@@ -108,6 +108,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '037_add_send_job_template_snapshot.sql',
             '078_mail_recipient_sending_status.sql',
             '106_mail_send_job_context.sql',
+            '108_create_mail_schedules.sql',
         ],
     },
     shop: {

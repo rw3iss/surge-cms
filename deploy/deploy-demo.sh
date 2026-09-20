@@ -48,9 +48,20 @@ say "Restarting $SERVICE"
 ssh "$SERVER" "sudo systemctl restart $SERVICE && sleep 4 && systemctl is-active $SERVICE"
 
 say "Health check"
-if curl -fsS --max-time 20 "https://$HOST/api/v1/health" >/dev/null; then
+# Retries, matching deploy.sh. In cluster mode the primary forks workers that
+# each run their own boot before binding, so the port is briefly unserved after
+# a restart and a single early probe reports a 502 for a healthy deploy.
+healthy=false
+for attempt in $(seq 1 10); do
+  if curl -fsS --max-time 10 "https://$HOST/api/v1/health" >/dev/null 2>&1; then
+    healthy=true
+    break
+  fi
+  sleep 3
+done
+if [ "$healthy" = true ]; then
   printf '\033[1;32m✓ https://%s is healthy\033[0m\n' "$HOST"
 else
-  printf '\033[1;31m✗ https://%s failed its health check\033[0m\n' "$HOST"
+  printf '\033[1;31m✗ https://%s failed its health check after 10 attempts\033[0m\n' "$HOST"
   exit 1
 fi

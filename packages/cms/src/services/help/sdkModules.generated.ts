@@ -797,6 +797,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /mailing-lists — create a list (admin)."
             },
             {
+                "name": "createSchedule",
+                "signature": "createSchedule(body: MailScheduleCreateBody): Promise<MailScheduleCreateResponse>",
+                "summary": "POST /mail-schedules"
+            },
+            {
+                "name": "deleteSchedule",
+                "signature": "deleteSchedule(id: string): Promise<MailScheduleDeleteResponse>",
+                "summary": "DELETE /mail-schedules/:id"
+            },
+            {
                 "name": "forceConfirmSubscriber",
                 "signature": "forceConfirmSubscriber(listId: string, subId: string): Promise<MailingListSubscriberForceConfirmResponse>",
                 "summary": "POST /mailing-lists/:id/subscribers/:subId/force-confirm — pending → subscribed."
@@ -822,6 +832,26 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "DELETE /mailing-lists/:id/subscribers/:subId."
             },
             {
+                "name": "schedule",
+                "signature": "schedule(id: string): Promise<MailScheduleGetResponse>",
+                "summary": "GET /mail-schedules/:id"
+            },
+            {
+                "name": "schedules",
+                "signature": "schedules(): Promise<MailScheduleListResponse>",
+                "summary": "GET /mail-schedules — every scheduled send."
+            },
+            {
+                "name": "scheduleTimezone",
+                "signature": "scheduleTimezone(): Promise<MailScheduleTimezoneResponse>",
+                "summary": "GET /mail-schedules/timezone — the site's authoring zone, for form defaults."
+            },
+            {
+                "name": "setScheduleEnabled",
+                "signature": "setScheduleEnabled(id: string, enabled: boolean): Promise<MailScheduleSetEnabledResponse>",
+                "summary": "PATCH /mail-schedules/:id/enabled — pause or resume."
+            },
+            {
                 "name": "subscribe",
                 "signature": "subscribe(slug: string, body: ListSubscribeBody): Promise<ListSubscribeResponse>",
                 "summary": "PUBLIC — POST /lists/:slug/subscribe. Literal `/lists` path (NOT `/mailing-lists`); double-opt-in-aware union response."
@@ -840,6 +870,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "update",
                 "signature": "update(id: string, body: MailingListUpdateBody): Promise<MailingListUpdateResponse>",
                 "summary": "PUT /mailing-lists/:id — update a list (admin)."
+            },
+            {
+                "name": "updateSchedule",
+                "signature": "updateSchedule(id: string, body: MailScheduleUpdateBody): Promise<MailScheduleUpdateResponse>",
+                "summary": "PUT /mail-schedules/:id"
             },
             {
                 "name": "updateSubscriber",
@@ -2139,4 +2174,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 369;
+export const SDK_METHOD_COUNT = 376;

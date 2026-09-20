@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-18T00:35:29.873Z",
-  "totalModules": 40,
-  "totalRoutes": 373,
+  "generatedAt": "2026-09-20T04:17:07.868Z",
+  "totalModules": 41,
+  "totalRoutes": 380,
   "modules": [
     {
       "module": "admin-channel",
@@ -1010,6 +1010,61 @@
           "absolutePath": "/api/v1/mail/jobs/:id",
           "auth": "admin",
           "summary": "Cancel a send job."
+        }
+      ]
+    },
+    {
+      "module": "mail-schedules",
+      "mountPath": "/api/v1/mail-schedules",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/mail-schedules",
+          "auth": "admin",
+          "summary": "List every scheduled send."
+        },
+        {
+          "method": "GET",
+          "path": "/timezone",
+          "absolutePath": "/api/v1/mail-schedules/timezone",
+          "auth": "admin",
+          "summary": "The site's authoring timezone, used to default a new schedule."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/mail-schedules",
+          "auth": "admin",
+          "summary": "Create a scheduled send."
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "absolutePath": "/api/v1/mail-schedules/:id",
+          "auth": "admin",
+          "summary": "Fetch one scheduled send."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "absolutePath": "/api/v1/mail-schedules/:id",
+          "auth": "admin",
+          "summary": "Update a scheduled send."
+        },
+        {
+          "method": "PATCH",
+          "path": "/:id/enabled",
+          "absolutePath": "/api/v1/mail-schedules/:id/enabled",
+          "auth": "admin",
+          "summary": "Pause or resume a scheduled send."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "absolutePath": "/api/v1/mail-schedules/:id",
+          "auth": "admin",
+          "summary": "Delete a scheduled send."
         }
       ]
     },

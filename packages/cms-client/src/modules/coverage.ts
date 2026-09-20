@@ -216,6 +216,15 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/lists/:slug/subscribe',
     'GET /api/v1/lists/:slug/subscription',
 
+    // ── mail-schedules (scheduled sends; same module handle) ──
+    'GET /api/v1/mail-schedules',
+    'GET /api/v1/mail-schedules/timezone',
+    'POST /api/v1/mail-schedules',
+    'GET /api/v1/mail-schedules/:id',
+    'PUT /api/v1/mail-schedules/:id',
+    'PATCH /api/v1/mail-schedules/:id/enabled',
+    'DELETE /api/v1/mail-schedules/:id',
+
     // ── mail (send jobs) ──
     'POST /api/v1/mail/send',
     'GET /api/v1/mail/jobs',

@@ -686,3 +686,71 @@
         cursor: help;
     }
 }
+
+// ── Scheduled sends ──────────────────────────────────────────────────
+.schedule-row {
+    &__name {
+        font-weight: 600;
+        color: var(--admin-text, #{$text-color});
+    }
+
+    &__actions {
+        display: flex;
+        gap: $spacing-xs;
+        // Right-aligned and non-wrapping: the action cluster is the last
+        // column, and a wrapped button changes the row height for every row.
+        justify-content: flex-end;
+        white-space: nowrap;
+    }
+
+    // A failure reason belongs next to the failure, not only in the log.
+    &__error {
+        max-width: 22rem;
+        // Long provider errors would otherwise stretch the column past the
+        // viewport and push the action buttons off screen.
+        overflow-wrap: anywhere;
+    }
+}
+
+tr.is-paused {
+    // Dimmed, not hidden: a paused schedule still needs to be findable to be
+    // resumed, but must not read as active at a glance.
+    opacity: 0.62;
+}
+
+.schedule-modal {
+    padding: $spacing-lg;
+
+    &__title {
+        margin: 0 0 $spacing-lg;
+        font-size: $font-size-lg;
+    }
+
+    // Repeats / date / time read as one sentence, so they share a row —
+    // and wrap together on a narrow panel rather than each going full width.
+    &__row {
+        display: flex;
+        gap: $spacing-md;
+        flex-wrap: wrap;
+
+        > * { flex: 1 1 10rem; min-width: 0; }
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+        margin-top: $spacing-lg;
+        padding-top: $spacing-md;
+        border-top: 1px solid $border-color;
+    }
+
+    // Pushed to the far end, away from Save — it is the one irreversible
+    // action in the dialog.
+    &__delete {
+        margin-left: auto;
+
+        &:hover:not(:disabled) { color: $error-color; }
+    }
+}

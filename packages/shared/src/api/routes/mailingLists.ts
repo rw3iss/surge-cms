@@ -225,3 +225,84 @@ export type ListSubscribeResponse =
 export interface ListSubscriptionStatusResponse {
     subscribed: boolean;
 }
+
+// ─── Scheduled sends (/api/v1/mail-schedules) ───────────────────────────────
+
+export type MailScheduleFrequency = 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/**
+ * A standing instruction to mail a list.
+ *
+ * `templateId` is a REFERENCE, resolved at send time, so editing the template
+ * changes future sends. `blocks` is the escape hatch for a one-off body that
+ * should not live in the shared template; when present it wins.
+ *
+ * `timeOfDay` + `timezone` are a WALL-CLOCK time, not an offset — 09:00 stays
+ * 09:00 across a daylight-saving change, which an offset cannot express.
+ */
+export interface MailSchedule {
+    id: string;
+    name: string;
+    listId: string;
+    /** Joined for display. */
+    listName?: string;
+    templateId: string | null;
+    templateName?: string | null;
+
+    /** Per-schedule overrides; null = inherit from the template at send time. */
+    subject: string | null;
+    preheader: string | null;
+    fromName: string | null;
+    fromEmail: string | null;
+    replyTo: string | null;
+    blocks: unknown[] | null;
+
+    frequency: MailScheduleFrequency;
+    /** `HH:MM:SS` in `timezone`. */
+    timeOfDay: string;
+    /** IANA zone, e.g. `America/New_York`. */
+    timezone: string;
+    /** `YYYY-MM-DD` in `timezone`. */
+    startDate: string;
+    enabled: boolean;
+
+    /** Null when nothing further is due (a fired `once`, or exhausted). */
+    nextRunAt: string | null;
+    lastRunAt: string | null;
+    lastStatus: 'sent' | 'failed' | 'skipped' | null;
+    lastError: string | null;
+    lastJobId: string | null;
+    runCount: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface MailScheduleCreateBody {
+    name: string;
+    listId: string;
+    templateId?: string | null;
+    subject?: string | null;
+    preheader?: string | null;
+    fromName?: string | null;
+    fromEmail?: string | null;
+    replyTo?: string | null;
+    blocks?: unknown[] | null;
+    frequency: MailScheduleFrequency;
+    /** `HH:MM` (24-hour). */
+    timeOfDay: string;
+    /** Omit to use the site's authoring timezone. */
+    timezone?: string | null;
+    /** `YYYY-MM-DD`. */
+    startDate: string;
+    enabled?: boolean;
+}
+
+export type MailScheduleUpdateBody = MailScheduleCreateBody;
+
+export type MailScheduleListResponse = MailSchedule[];
+export type MailScheduleGetResponse = MailSchedule;
+export type MailScheduleCreateResponse = MailSchedule;
+export type MailScheduleUpdateResponse = MailSchedule;
+export type MailScheduleSetEnabledResponse = MailSchedule;
+export interface MailScheduleDeleteResponse { deleted: boolean; }
+export interface MailScheduleTimezoneResponse { timezone: string; }

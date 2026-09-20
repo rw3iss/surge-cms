@@ -7,6 +7,9 @@ import type {
     MailingListSubscriberDeleteResponse, MailingListSubscribersBulkDeleteBody,
     MailingListSubscribersBulkDeleteResponse, MailingListSubscriberForceConfirmResponse,
     ListSubscribeBody, ListSubscribeResponse, ListSubscriptionStatusResponse,
+    MailScheduleListResponse, MailScheduleGetResponse, MailScheduleCreateBody,
+    MailScheduleCreateResponse, MailScheduleUpdateBody, MailScheduleUpdateResponse,
+    MailScheduleSetEnabledResponse, MailScheduleDeleteResponse, MailScheduleTimezoneResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -87,5 +90,46 @@ export class MailingListsModule extends ModuleBase {
      *  anonymous, so it cannot be used to test someone else's membership. */
     subscriptionStatus(slug: string,): Promise<ListSubscriptionStatusResponse> {
         return this.get<ListSubscriptionStatusResponse>('/lists/:slug/subscription', { params: { slug, }, },);
+    }
+
+    // ─── Scheduled sends (/mail-schedules) ────────────────────────────
+    //
+    // Same module handle: a schedule is a mailing-list concept, and sharing
+    // the cache identity means creating one invalidates the list view that
+    // shows it.
+
+    /** GET /mail-schedules — every scheduled send. */
+    schedules(): Promise<MailScheduleListResponse> {
+        return this.get<MailScheduleListResponse>('/mail-schedules',);
+    }
+
+    /** GET /mail-schedules/:id */
+    schedule(id: string,): Promise<MailScheduleGetResponse> {
+        return this.get<MailScheduleGetResponse>('/mail-schedules/:id', { params: { id, }, },);
+    }
+
+    /** GET /mail-schedules/timezone — the site's authoring zone, for form defaults. */
+    scheduleTimezone(): Promise<MailScheduleTimezoneResponse> {
+        return this.get<MailScheduleTimezoneResponse>('/mail-schedules/timezone',);
+    }
+
+    /** POST /mail-schedules */
+    createSchedule(body: MailScheduleCreateBody,): Promise<MailScheduleCreateResponse> {
+        return this.mutate<MailScheduleCreateResponse>('POST', '/mail-schedules', { body, invalidates: ['mailingLists',], },);
+    }
+
+    /** PUT /mail-schedules/:id */
+    updateSchedule(id: string, body: MailScheduleUpdateBody,): Promise<MailScheduleUpdateResponse> {
+        return this.mutate<MailScheduleUpdateResponse>('PUT', '/mail-schedules/:id', { params: { id, }, body, invalidates: ['mailingLists',], },);
+    }
+
+    /** PATCH /mail-schedules/:id/enabled — pause or resume. */
+    setScheduleEnabled(id: string, enabled: boolean,): Promise<MailScheduleSetEnabledResponse> {
+        return this.mutate<MailScheduleSetEnabledResponse>('PATCH', '/mail-schedules/:id/enabled', { params: { id, }, body: { enabled, }, invalidates: ['mailingLists',], },);
+    }
+
+    /** DELETE /mail-schedules/:id */
+    deleteSchedule(id: string,): Promise<MailScheduleDeleteResponse> {
+        return this.mutate<MailScheduleDeleteResponse>('DELETE', '/mail-schedules/:id', { params: { id, }, invalidates: ['mailingLists',], },);
     }
 }
