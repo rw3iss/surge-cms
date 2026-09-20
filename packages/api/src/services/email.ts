@@ -8,6 +8,7 @@
 import { config, } from '../config';
 import { logger, } from '../utils/logger';
 import { getProvider, } from './mail/providers/factory';
+import { finalizeEmail, } from './mail/postProcess';
 
 interface EmailOptions {
     to: string;
@@ -23,13 +24,24 @@ interface EmailOptions {
 export async function sendEmail(options: EmailOptions,): Promise<void> {
     try {
         const provider = getProvider();
+        // Every transactional email funnels through here, so this is where the
+        // two email-vs-web corrections belong:
+        //  - relative links (`/posts/x`) are dead in an inbox — absolutise them
+        //  - an HTML-only message scores as spam — derive the text alternative
+        // `options.text` still wins when a caller wrote one by hand.
+        //
+        // NOTE the `text` field already existed on EmailOptions and was never
+        // forwarded to the provider, so even callers that supplied one sent
+        // HTML-only.
+        const finalized = finalizeEmail(options.html, config.frontendUrl ?? '',);
         await provider.send({
             to: options.to,
             fromName: options.fromName,
             fromEmail: options.fromEmail ?? config.email.from ?? 'no-reply@example.com',
             replyTo: options.replyTo,
             subject: options.subject,
-            html: options.html,
+            html: finalized.html,
+            text: options.text ?? finalized.text,
             headers: options.headers,
         },);
         logger.info('Email sent', { to: options.to, subject: options.subject, },);

@@ -55,6 +55,21 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction,)
         return next();
     }
 
+    // Skip for RFC 8058 one-click unsubscribe. Gmail/Yahoo/Apple POST to the
+    // `List-Unsubscribe` URL directly; a mailbox provider cannot carry our CSRF
+    // token, so the check 403'd every attempt — while the email advertised
+    // `List-Unsubscribe-Post`, promising it would work. A dead unsubscribe
+    // button is how a sender earns spam reports, which is the fastest way to
+    // lose a domain's reputation.
+    //
+    // Same reasoning as the webhooks above: no cookie ambient authority is at
+    // stake. The caller is unauthenticated and the endpoint's credential is the
+    // signed high-entropy token in the path, verified in services/unsubscribe.
+    // Unsubscribing is also idempotent and self-inflicted at worst.
+    if (/^\/u\/[^/]+$/.test(req.path,)) {
+        return next();
+    }
+
     // Header-authenticated requests (Bearer JWT or API key) skip the
     // cookie CSRF check: a cross-site attacker cannot set the
     // Authorization header from a form/img/script tag, so there is no

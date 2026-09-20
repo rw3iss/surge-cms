@@ -506,3 +506,31 @@
     display: block;
   }
 }
+
+// ─── Media size + title (block settings: mediaDisplay / showTitle) ───
+//
+// `full` is intentionally uncapped — the max-width for `medium`/`small` is set
+// inline from SOCIAL_THUMB_WIDTH, because the value is shared with the email
+// renderer and belongs in one place rather than duplicated as a magic number
+// here.
+.social-embed__title {
+    margin: 0.5rem 0 0;
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 600;
+    color: var(--site-text, #{$text-color});
+}
+
+// A capped card is a link-out, so keep it compact: the body stops stretching
+// to the grid track and sits under its own thumbnail.
+.social-embed__card--medium,
+.social-embed__card--small {
+    .social-embed__card-image {
+        width: 100%;
+        height: auto;
+    }
+}
+
+.social-embed__card--small .social-embed__title {
+    font-size: 0.875rem;
+}

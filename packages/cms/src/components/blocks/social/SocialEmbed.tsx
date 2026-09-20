@@ -1,4 +1,10 @@
-import type { SocialPlatform, } from '@sitesurge/types';
+import {
+    resolveSocialDisplay,
+    type SocialMediaDisplay,
+    SOCIAL_THUMB_WIDTH,
+    type SocialPlatform,
+    usesPlayer,
+} from '@sitesurge/types';
 import { Component, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { attachYouTubePlayer, } from './playbackCoordinator';
 import './SocialEmbed.scss';
@@ -17,6 +23,17 @@ interface SocialEmbedProps {
      * auto-pulled Shorts looked and behaved differently from hand-embedded ones.
      */
     mediaKind?: 'short' | 'live' | 'video' | null;
+    /**
+     * Media presentation, from the block's settings.
+     *
+     * `full` (default) keeps the previous behaviour — an embedded player for
+     * YouTube, a full-width card otherwise. `medium`/`small` render a capped
+     * THUMBNAIL that links out: at those widths a player is the wrong element,
+     * since it would still load an iframe and still claim a 16:9 box.
+     */
+    mediaDisplay?: SocialMediaDisplay;
+    /** Show the post's title beneath the media. */
+    showTitle?: boolean;
 }
 
 const PLATFORM_COLORS: Record<SocialPlatform, string> = {
@@ -38,6 +55,12 @@ const PLATFORM_LABELS: Record<SocialPlatform, string> = {
 };
 
 const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
+    /** The block's media/title settings, defaulted. Shared with the email
+     *  renderer so a block looks the same in both. */
+    const display = () => resolveSocialDisplay({
+        mediaDisplay: props.mediaDisplay, showTitle: props.showTitle,
+    },);
+
     // Only the YouTube branch renders an iframe; every other provider is a
     // thumbnail card that links out and has nothing to pause.
     let ytIframe: HTMLIFrameElement | undefined;
@@ -72,8 +95,14 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
             </div>
 
             <div class="social-embed__content">
-                <Switch fallback={<PostCard {...props} url={platformUrl()} />}>
-                    {/* YouTube: iframe embed works well at 16:9 */}
+                <Switch fallback={<PostCard {...props} url={platformUrl()} display={display()} />}>
+                    {/* A capped size always renders as a thumbnail — the player
+                        is only appropriate when it can fill the space. */}
+                    <Match when={!usesPlayer(props.platform, display().mediaDisplay,)
+                        && display().mediaDisplay !== 'full'}>
+                        <PostCard {...props} url={platformUrl()} display={display()} />
+                    </Match>
+                    {/* YouTube at full size: iframe embed works well at 16:9 */}
                     <Match when={props.platform === 'youtube'}>
                         <div
                             class={`social-embed__iframe-wrapper social-embed__iframe-wrapper--${
@@ -108,22 +137,25 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 title={props.content || 'YouTube video'}
                             />
                         </div>
+                        <Show when={display().showTitle && props.content}>
+                            <h3 class="social-embed__title">{props.content}</h3>
+                        </Show>
                     </Match>
 
                     {/* Everything else: compact card with thumbnail + caption.
                         No iframes — renders cleanly at any size, loads instantly,
                         and links to the original post. */}
                     <Match when={props.platform === 'instagram'}>
-                        <PostCard {...props} url={platformUrl()} />
+                        <PostCard {...props} url={platformUrl()} display={display()} />
                     </Match>
                     <Match when={props.platform === 'facebook'}>
-                        <PostCard {...props} url={platformUrl()} />
+                        <PostCard {...props} url={platformUrl()} display={display()} />
                     </Match>
                     <Match when={props.platform === 'twitter'}>
-                        <PostCard {...props} url={platformUrl()} />
+                        <PostCard {...props} url={platformUrl()} display={display()} />
                     </Match>
                     <Match when={props.platform === 'tiktok'}>
-                        <PostCard {...props} url={platformUrl()} />
+                        <PostCard {...props} url={platformUrl()} display={display()} />
                     </Match>
                 </Switch>
             </div>
@@ -140,7 +172,13 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
  * this by hiding the broken image and showing a placeholder gradient
  * with the platform icon instead.
  */
-const PostCard: Component<SocialEmbedProps & { url: string; }> = (props,) => {
+const PostCard: Component<SocialEmbedProps & {
+    url: string;
+    display: { mediaDisplay: SocialMediaDisplay; showTitle: boolean; };
+}> = (props,) => {
+    /** Cap the thumbnail at the configured size. `full` is uncapped so it keeps
+     *  behaving as a fluid element rather than a very wide fixed one. */
+    const thumbWidth = () => SOCIAL_THUMB_WIDTH[props.display.mediaDisplay];
     const handleImageError = (e: Event,) => {
         const img = e.target as HTMLImageElement;
         // Replace with a styled placeholder
@@ -154,7 +192,8 @@ const PostCard: Component<SocialEmbedProps & { url: string; }> = (props,) => {
             href={props.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="social-embed__card"
+            class={`social-embed__card social-embed__card--${props.display.mediaDisplay}`}
+            style={thumbWidth() ? { 'max-width': `${thumbWidth()}px`, } : undefined}
         >
             <Show when={props.thumbnailUrl}>
                 <img
@@ -177,8 +216,8 @@ const PostCard: Component<SocialEmbedProps & { url: string; }> = (props,) => {
                 <Show when={props.authorName}>
                     <span class="social-embed__card-author">{props.authorName}</span>
                 </Show>
-                <Show when={props.content}>
-                    <p class="social-embed__card-text">{props.content}</p>
+                <Show when={props.display.showTitle && props.content}>
+                    <h3 class="social-embed__card-text social-embed__title">{props.content}</h3>
                 </Show>
                 <span class="social-embed__card-link">
                     View on {PLATFORM_LABELS[props.platform]} &rarr;

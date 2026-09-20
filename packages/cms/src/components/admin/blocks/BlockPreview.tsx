@@ -96,6 +96,12 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         if (props.block.type === 'entity') {
             return !(d.entity as { templateId?: string; } | undefined)?.templateId;
         }
+        // A `social` block in AUTO-FEED mode has no pinned `items` and stores
+        // its provider under `provider` — not the `platform`/`socialPlatform`
+        // the generic check looks for — so a working feed block showed
+        // "Click edit to configure" instead of its posts. Configured means a
+        // provider is chosen; the feed supplies the rest.
+        if (props.block.type === 'social') return !d.provider && !d.platform && !d.socialPlatform;
         // Hero is "empty" only when none of its visual fields are set —
         // title or subtitle alone is enough to render meaningfully.
         if (props.block.type === 'hero') {

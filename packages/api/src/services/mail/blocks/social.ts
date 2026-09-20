@@ -1,3 +1,4 @@
+import { resolveSocialDisplay, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
 import { BlockEmailRenderer, } from './index';
 import { escapeHtml, } from './_util';
 
@@ -36,6 +37,13 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
     const valid = items.filter((i,) => i.postUrl || i.postId);
     if (valid.length === 0) return '';
 
+    // Same settings the web renderer honours, so a block configured as a small
+    // thumbnail with no title looks the same in the inbox.
+    const { mediaDisplay, showTitle, } = resolveSocialDisplay(node.settings as never,);
+    // `full` is uncapped on the web; in email it still needs a definite pixel
+    // width, because Outlook ignores `max-width` on an image.
+    const width = SOCIAL_THUMB_WIDTH[mediaDisplay] ?? 600;
+
     // A video kind gets the play affordance; a plain post card doesn't.
     const isVideo = String(node.settings.kind ?? '',) === 'video'
         || String(node.settings.kind ?? '',) === 'short'
@@ -53,8 +61,8 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
         // images and will otherwise render at the file's intrinsic size.
         const thumb = i.thumbnailUrl
             ? `<a href="${url}" style="display:block;text-decoration:none">
-                   <img src="${escapeHtml(i.thumbnailUrl,)}" alt="${title}" width="600"
-                        style="display:block;width:100%;max-width:100%;height:auto;border:0;border-radius:4px" />
+                   <img src="${escapeHtml(i.thumbnailUrl,)}" alt="${title}" width="${width}"
+                        style="display:block;width:100%;max-width:${width}px;height:auto;border:0;border-radius:4px" />
                </a>`
             : '';
 
@@ -64,10 +72,12 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
                </div>`
             : '';
 
-        const caption = title
-            ? `<div style="color:${ctx.textColor};font-size:16px;line-height:1.4;padding:10px 0 0">
+        // An <h3> to match the web renderer's heading, with the margin zeroed —
+        // a client's default h3 margin would break the card's spacing.
+        const caption = showTitle && title
+            ? `<h3 style="margin:10px 0 0;color:${ctx.textColor};font-size:16px;line-height:1.4;font-weight:600">
                    <a href="${url}" style="color:${ctx.textColor};text-decoration:none">${title}</a>
-               </div>`
+               </h3>`
             : '';
 
         return `<tr><td style="padding:0 0 16px">${thumb}${author ? `<div style="padding:10px 0 0">${author}</div>` : ''}${caption}${play}</td></tr>`;

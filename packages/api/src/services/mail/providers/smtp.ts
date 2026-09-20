@@ -48,6 +48,9 @@ export class SmtpMailProvider implements MailProvider {
             to: msg.to,
             subject: msg.subject,
             html: msg.html,
+            // Sending both makes the message multipart/alternative. HTML-only
+            // mail scores against you on every send.
+            text: msg.text,
             replyTo: msg.replyTo,
             headers: msg.headers,
         },);

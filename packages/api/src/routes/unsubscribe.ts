@@ -26,6 +26,32 @@ export const unsubscribeRoutes = [
         },
     },),
 
+    /**
+     * RFC 8058 one-click unsubscribe.
+     *
+     * Mailbox providers POST here when the reader presses the native
+     * "Unsubscribe" button — the header `List-Unsubscribe-Post:
+     * List-Unsubscribe=One-Click` is a promise that this works. It did not:
+     * only a GET route existed, so the POST 403'd on CSRF and Gmail's button
+     * silently failed. Gmail has required working one-click unsubscribe from
+     * bulk senders since February 2024.
+     *
+     * Returns 200 with a short body rather than the HTML page — the caller is a
+     * machine and will not render it. Uses the same idempotent service as the
+     * GET, so a provider that retries cannot cause an error.
+     */
+    defineRoute({
+        method: 'post', path: '/u/:token', auth: 'public', raw: true,
+        summary: 'One-click unsubscribe (RFC 8058) — called by mailbox providers.',
+        handler: async ({ req, res, },) => {
+            const result = await unsubscribe.unsubscribe((req.params.token as string),);
+            // 200 even for an already-unsubscribed or unknown token: a provider
+            // that sees an error may retry, or may flag the sender. The action
+            // is idempotent and there is nothing for the caller to fix.
+            res.status(200,).type('text/plain',).send('OK',);
+        },
+    },),
+
     defineRoute({
         method: 'get', path: '/u/:token/resubscribe', auth: 'public', raw: true,
         summary: 'Resubscribe to a mailing list (raw HTML page).',

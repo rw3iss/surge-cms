@@ -18,6 +18,7 @@ import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/factory';
 import { buildVariableContext, } from './variables';
+import { finalizeEmail, } from './postProcess';
 import { resolveMailTemplate, } from './templateRuntime';
 import { getMailingListsSettings, isFeatureEnabledServer, } from '../settings';
 import { generateUnsubscribeToken, } from './unsubscribe';
@@ -175,9 +176,24 @@ export async function kickJob(jobId: string,): Promise<void> {
                 if (unsubscribeUrl) {
                     // RFC 8058 one-click unsubscribe — required for
                     // Gmail/Apple Mail native "Unsubscribe" buttons.
-                    headers['List-Unsubscribe'] = `<${unsubscribeUrl}>`;
+                    //
+                    // The mailto: is listed alongside the URL because some
+                    // providers prefer (or only support) the mail form. Order
+                    // matters: providers take the FIRST usable entry, and the
+                    // https one is what `List-Unsubscribe-Post` refers to.
+                    const replyAddr = job.replyTo ?? listDefaults.defaultReplyTo;
+                    headers['List-Unsubscribe'] = replyAddr
+                        ? `<${unsubscribeUrl}>, <mailto:${replyAddr}?subject=unsubscribe>`
+                        : `<${unsubscribeUrl}>`;
                     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
                 }
+
+                // Absolutise relative links (dead in an inbox) and derive the
+                // plain-text alternative. Done per recipient because the HTML
+                // is only final after the per-recipient token substitution
+                // above — a text part derived earlier would quote the
+                // unsubstituted `{{unsubscribe_url}}`.
+                const finalized = finalizeEmail(html, site.url || fe,);
 
                 await sendWithRetry(provider, {
                     to: r.email,
@@ -193,7 +209,8 @@ export async function kickJob(jobId: string,): Promise<void> {
                         ?? 'no-reply@example.com',
                     replyTo: job.replyTo ?? listDefaults.defaultReplyTo,
                     subject,
-                    html,
+                    html: finalized.html,
+                    text: finalized.text,
                     headers,
                 },);
                 await recipients.setStatus(r.id, 'sent',);

@@ -16,4 +16,5 @@ export * from './calendarGrid';
 export * from './markdown';
 export * from './pageTitle';
 export * from './siteVariables';
+export * from './socialDisplay';
 export * from './typography';

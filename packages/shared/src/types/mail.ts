@@ -116,6 +116,14 @@ export interface OutboundMessage {
     replyTo?: string;
     subject: string;
     html: string;
+    /**
+     * Plain-text alternative, making the message `multipart/alternative`.
+     *
+     * Not optional in practice: HTML-only bulk mail is a standing spam signal
+     * (SpamAssassin's `MIME_HTML_ONLY`) and some clients prefer text. Derived
+     * from the HTML by `services/mail/postProcess.htmlToText`.
+     */
+    text?: string;
     headers?: Record<string, string>;
 }
 

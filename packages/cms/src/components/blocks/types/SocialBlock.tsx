@@ -4,6 +4,7 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
+import { resolveSocialDisplay, } from '@sitesurge/types';
 import type { Block, SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { Component, For, Show, createResource, } from 'solid-js';
 import { A, } from '@solidjs/router';
@@ -76,6 +77,13 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
 
     /** Content kind (YouTube: short | live | video); undefined = any. */
     const kind = () => (settings().kind as string) || undefined;
+
+    /**
+     * Media size + title visibility. Applied to BOTH the pinned and the
+     * auto-feed branch — they render the same component, so a setting that
+     * reached only one of them would be a bug waiting to be reported.
+     */
+    const display = () => resolveSocialDisplay(settings() as never,);
 
     /**
      * Pinning is explicit now (`usePinned`), not inferred from whether any slot
@@ -209,6 +217,8 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                         // A pinned slot has no stored kind, so fall back to
                                         // whatever the block is configured to show.
                                         mediaKind={(item as { mediaKind?: any; }).mediaKind ?? kind() as any}
+                                        mediaDisplay={display().mediaDisplay}
+                                        showTitle={display().showTitle}
                                     />
                                 )}
                             </For>
@@ -224,6 +234,8 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                     thumbnailUrl={post.thumbnailUrl}
                                     authorName={post.authorName}
                                     mediaKind={(post as { mediaKind?: any; }).mediaKind ?? kind() as any}
+                                    mediaDisplay={display().mediaDisplay}
+                                    showTitle={display().showTitle}
                                 />
                             )}
                         </For>

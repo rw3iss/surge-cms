@@ -244,6 +244,30 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                     </div>
                     </Show>
 
+                    {/* Media presentation — applies to BOTH pinned slots and the
+                        auto-feed, since they render through the same component. */}
+                    <FormField
+                        label="Media size"
+                        hint="Full shows the embedded player (YouTube) or a full-width image. Medium and small show a thumbnail that links to the post."
+                    >
+                        <select
+                            value={(props.data.mediaDisplay as string) || 'full'}
+                            onChange={(e,) => update({ mediaDisplay: e.currentTarget.value, },)}
+                        >
+                            <option value="full">Full (player / full width)</option>
+                            <option value="medium">Medium thumbnail</option>
+                            <option value="small">Small thumbnail</option>
+                        </select>
+                    </FormField>
+
+                    <div class="form-group">
+                        <Toggle
+                            checked={props.data.showTitle !== false}
+                            onChange={(next,) => update({ showTitle: next, },)}
+                            label="Show title"
+                        />
+                    </div>
+
                     {/* Show comments — preserved from old SocialMedia editor */}
                     <div class="form-group">
                         <Toggle
