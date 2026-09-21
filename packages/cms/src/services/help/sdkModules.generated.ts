@@ -1494,6 +1494,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /settings/appearance (public) — public appearance settings."
             },
             {
+                "name": "getBackupDestination",
+                "signature": "getBackupDestination(): Promise<SettingsBackupDestinationResponse>",
+                "summary": "GET /settings/backup-destination (admin) — secret is masked."
+            },
+            {
                 "name": "getCmsVersion",
                 "signature": "getCmsVersion(): Promise<SettingsCmsVersionResponse>",
                 "summary": "GET /settings/cms-version (admin) — installed vs latest CMS version."
@@ -1564,6 +1569,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "REPLACE the whole database with an uploaded dump. Irreversible. `confirm` must be the literal string `REPLACE`; the server rejects anything else, so a mis-wired call cannot wipe a site."
             },
             {
+                "name": "runBackup",
+                "signature": "runBackup(): Promise<BackupRunResponse>",
+                "summary": "POST /settings/backup-destination/run — dump + store at the destination."
+            },
+            {
+                "name": "setBackupDestination",
+                "signature": "setBackupDestination(body: SettingsBackupDestinationBody): Promise<SettingsRawKeyResponse>",
+                "summary": "PUT /settings/backup-destination (admin). Echo the masked secret back to leave it unchanged."
+            },
+            {
                 "name": "setHomepageHero",
                 "signature": "setHomepageHero(body: SettingsHomepageHeroBody): Promise<SettingsRawKeyResponse>",
                 "summary": "PUT /settings/homepage-hero (admin)."
@@ -1607,6 +1622,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "swatchUsages",
                 "signature": "swatchUsages(id: string): Promise<SettingsSwatchUsagesResponse>",
                 "summary": "GET /settings/site-colors/usages/:id (admin) — `swatch:{id}` ref count."
+            },
+            {
+                "name": "testBackupDestination",
+                "signature": "testBackupDestination(): Promise<BackupDestinationTestResponse>",
+                "summary": "POST /settings/backup-destination/test — writes and removes a probe."
             },
             {
                 "name": "uninstallFeature",
@@ -2184,4 +2204,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 378;
+export const SDK_METHOD_COUNT = 382;
