@@ -262,3 +262,55 @@ describe('container-query variant for the editor preview', () => {
         expect(css,).not.toContain('@media',);
     },);
 },);
+
+/**
+ * `color` on a block wrapper only INHERITS, and a descendant that declares its
+ * own colour beats an inherited one however the layers are arranged. A styled
+ * text element inside a component — a social post's title — therefore cannot
+ * honour the block's Text Color by inheritance alone; it has to read a custom
+ * property, the same arrangement `--block-font-size` already uses.
+ */
+describe('--block-text-color', () => {
+    it('is published alongside color on the default pass', () => {
+        const css = blockCss(ID, { textColor: '#ff0000', }, undefined, OPTS,)!;
+        expect(css,).toContain('color:#ff0000',);
+        expect(css,).toContain('--block-text-color:#ff0000',);
+    },);
+
+    it('is published for a per-breakpoint override too', () => {
+        // Without this a block whose mobile override changes the text colour
+        // would move the wrapper and leave the title behind.
+        const css = blockCss(
+            ID,
+            { textColor: '#111111', breakpoints: { mobile: { textColor: '#00ff00', }, }, },
+            [MOBILE,],
+            OPTS,
+        )!;
+        expect(css,).toContain('--block-text-color:#00ff00',);
+    },);
+
+    it('lands on the same element as `color`', () => {
+        // The invariant this file already states for every other property: an
+        // override is powerless if it targets a different element than the
+        // default. Both must sit on the wrapper.
+        const css = blockCss(ID, { textColor: '#abcdef', }, undefined, OPTS,)!;
+        const rule = css.split('}',).find(r => r.includes('--block-text-color',))!;
+        expect(rule,).toContain(WRAPPER,);
+        expect(rule,).toContain('color:#abcdef',);
+    },);
+
+    it('is absent when the block sets no text colour', () => {
+        const css = blockCss(ID, { padding: '4px', }, undefined, OPTS,);
+        expect(css ?? '',).not.toContain('--block-text-color',);
+    },);
+
+    it('passes the value through the colour resolver, like `color`', () => {
+        // Swatch refs (`swatch:xyz`) must resolve before they reach CSS.
+        const css = blockCss(ID, { textColor: 'swatch:brand', }, undefined, {
+            ...OPTS,
+            resolveColor: (v?: string,) => (v === 'swatch:brand' ? '#ED2024' : v),
+        },)!;
+        expect(css,).toContain('--block-text-color:#ED2024',);
+        expect(css,).not.toContain('swatch:brand',);
+    },);
+},);

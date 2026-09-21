@@ -78,12 +78,14 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
         // the only layout email clients agree on (no flexbox in Outlook).
         // Emitted only when there is something to put in it.
         const titleCell = showTitle && title
+            // 17px / 1.35 matches `.social-embed__title` on the web, so the
+            // same block reads the same in an inbox as in the editor.
             ? `<a href="${url}" style="color:${ctx.textColor};text-decoration:none">${title}</a>`
             : '';
         const metaRow = (titleCell || date)
             ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:10px 0 0">
                    <tr>
-                     <td style="color:${ctx.textColor};font-size:16px;line-height:1.4;font-weight:600;vertical-align:top">${titleCell}</td>
+                     <td style="color:${ctx.textColor};font-size:17px;line-height:1.35;font-weight:600;vertical-align:top">${titleCell}</td>
                      ${date
                         ? `<td style="color:${ctx.textColor};opacity:0.6;font-size:13px;line-height:1.4;text-align:right;white-space:nowrap;padding-left:12px;vertical-align:top">${date}</td>`
                         : ''}

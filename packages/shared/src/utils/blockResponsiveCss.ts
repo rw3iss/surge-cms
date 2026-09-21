@@ -56,7 +56,24 @@ function declarationRecord(
     } else if (bgColor) {
         rec.background = opts.resolveColor(bgColor,);
     }
-    if (override.textColor) rec.color = opts.resolveColor(override.textColor as string,);
+    if (override.textColor) {
+        const c = opts.resolveColor(override.textColor as string,);
+        rec.color = c;
+        /*
+         * Published as a custom property too, for the same reason as
+         * `--block-font-size` (see blockStyleCss): `color` on the wrapper only
+         * INHERITS, and a descendant that declares its own colour beats an
+         * inherited one however the cascade layers are arranged.
+         *
+         * A component with a styled text element — a social post's title, say —
+         * therefore has to opt in by reading this variable, or the block's Text
+         * Color silently does nothing to it. That is exactly what happened to
+         * `.social-embed__title`, which hardcoded `var(--site-text, …)` and so
+         * ignored the block while inheriting a colour from whatever context the
+         * admin happened to provide.
+         */
+        rec['--block-text-color'] = c;
+    }
     if (override.padding) rec.padding = override.padding as string;
     return rec;
 }
