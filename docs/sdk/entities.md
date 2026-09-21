@@ -92,3 +92,57 @@ const tpl  = await cms.contentBlockTemplates.create('recipe', { name: 'Recipe ca
 await cms.contentBlockTemplates.saveBlocks('recipe', tpl.id, [/* block subtree */]);
 const withBlocks = await cms.contentBlockTemplates.getOne('recipe', tpl.id);
 ```
+
+## Freshness: where entity reads are cached, and where they are not
+
+An `entity` block bound to a `query` ("the newest published post") is a LIVE
+view of the database, so it is read with `cache: false` from the browser and
+served from the server's Redis cache instead. That is deliberate, and the
+reasoning generalises:
+
+> **Cache where invalidation is authoritative.** A writer can drop a Redis key
+> for everyone. It cannot reach the `localStorage` of a visitor who is not the
+> one publishing. A per-browser cache in front of a live query means the
+> correctness of the front page depends on when that particular browser last
+> happened to refetch.
+
+`cms.entities.list()` and `.getOne()` take a third `QueryOptions` argument;
+pass `{ cache: false }` on any surface that must reflect the database as it is
+right now. The entity-block resolver (`services/entityBinding.ts`) and the
+record picker (`EntitySearchSelectModal`) both do.
+
+### Core types are cached twice
+
+`post`, `page`, `campaign`, `form` and `user` are core entity types adopting
+their existing tables, so one row is reachable through the bespoke module
+(`posts:*`) AND the generic entity service (`entity:post:list:*`). Every core
+invalidator in `services/cache.ts` therefore also drops the mirrored
+`entity:<type>:*` prefix. **If you add a bespoke write path for a core type,
+call the named invalidator** — do not delete keys directly; the mirrored bust
+lives inside the invalidator precisely so no call site has to remember it.
+
+### Bounded staleness in the client
+
+The SWR cache serves a stale entry for at most `DEFAULT_MAX_STALE_MS` (5 min)
+past expiry; beyond that it blocks on a fetch, falling back to the stale value
+only if that fetch fails. Before this bound existed, `read()` returned any
+cached entry however old and the revalidated value never reached the caller
+mid-render — a page was observed rendering an entry that had expired 22 hours
+earlier.
+
+### Gotcha: a template that hardcodes what it should interpolate
+
+If an entity block updates *some* fields and not others, suspect the template
+before the cache. A template authored by pasting rendered markup keeps the
+pasted values as literal text; only the fields written as `{{ }}` ever change.
+A block whose link and excerpt track the newest record while its heading and
+date do not is not a stale cache — it is a template with `{{post.slug}}` and
+`{{post.excerpt}}` but no `{{post.title}}`.
+
+To check a template quickly:
+
+```sql
+SELECT settings->>'content' FROM content_block_template_blocks WHERE id = '<id>';
+```
+
+and confirm every field that should vary appears as `{{post.field}}`.
