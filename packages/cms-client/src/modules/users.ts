@@ -28,40 +28,40 @@ export class UsersModule extends ModuleBase {
     }
 
     create(body: UserCreateBody,): Promise<UserCreateResponse> {
-        return this.mutate<UserCreateResponse>('POST', '/users', { body, invalidates: ['users',], },);
+        return this.mutate<UserCreateResponse>('POST', '/users', { body, invalidates: ['users', 'entities',], },);
     }
 
     update(id: string, body: UserUpdateBody,): Promise<UserUpdateResponse> {
-        return this.mutate<UserUpdateResponse>('PUT', '/users/:id', { params: { id, }, body, invalidates: ['users',], },);
+        return this.mutate<UserUpdateResponse>('PUT', '/users/:id', { params: { id, }, body, invalidates: ['users', 'entities',], },);
     }
 
     remove(id: string,): Promise<UserDeleteResponse> {
-        return this.mutate<UserDeleteResponse>('DELETE', '/users/:id', { params: { id, }, invalidates: ['users',], },);
+        return this.mutate<UserDeleteResponse>('DELETE', '/users/:id', { params: { id, }, invalidates: ['users', 'entities',], },);
     }
 
     /** POST /users/:id/password — set a new password. */
     setPassword(id: string, body: UserPasswordBody,): Promise<UserPasswordResponse> {
-        return this.mutate<UserPasswordResponse>('POST', '/users/:id/password', { params: { id, }, body, invalidates: ['users',], },);
+        return this.mutate<UserPasswordResponse>('POST', '/users/:id/password', { params: { id, }, body, invalidates: ['users', 'entities',], },);
     }
 
     /** POST /users/:id/avatar — multipart upload (field "avatar"; resized to 256×256 webp). */
     uploadAvatar(id: string, file: Blob,): Promise<UserAvatarUploadResponse> {
         const form = new FormData();
         form.append('avatar', file,);
-        return super.uploadForm<UserAvatarUploadResponse>('/users/:id/avatar', form, { params: { id, }, invalidates: ['users',], },);
+        return super.uploadForm<UserAvatarUploadResponse>('/users/:id/avatar', form, { params: { id, }, invalidates: ['users', 'entities',], },);
     }
 
     // ─── Bans ─────────────────────────────────────────────────────
     ban(id: string, body?: UserBanBody,): Promise<UserBanResponse> {
-        return this.mutate<UserBanResponse>('POST', '/users/:id/ban', { params: { id, }, body, invalidates: ['users',], },);
+        return this.mutate<UserBanResponse>('POST', '/users/:id/ban', { params: { id, }, body, invalidates: ['users', 'entities',], },);
     }
 
     unban(id: string,): Promise<UserUnbanResponse> {
-        return this.mutate<UserUnbanResponse>('POST', '/users/:id/unban', { params: { id, }, invalidates: ['users',], },);
+        return this.mutate<UserUnbanResponse>('POST', '/users/:id/unban', { params: { id, }, invalidates: ['users', 'entities',], },);
     }
 
     banIp(body: UserBanIpBody,): Promise<UserBanIpResponse> {
-        return this.mutate<UserBanIpResponse>('POST', '/users/ban-ip', { body, invalidates: ['users',], },);
+        return this.mutate<UserBanIpResponse>('POST', '/users/ban-ip', { body, invalidates: ['users', 'entities',], },);
     }
 
     /** GET /users/banned/list — active bans. Page meta on the envelope. */
@@ -71,6 +71,6 @@ export class UsersModule extends ModuleBase {
 
     /** DELETE /users/banned/:banId — remove a ban row. */
     removeBan(banId: string,): Promise<UserBanDeleteResponse> {
-        return this.mutate<UserBanDeleteResponse>('DELETE', '/users/banned/:banId', { params: { banId, }, invalidates: ['users',], },);
+        return this.mutate<UserBanDeleteResponse>('DELETE', '/users/banned/:banId', { params: { banId, }, invalidates: ['users', 'entities',], },);
     }
 }

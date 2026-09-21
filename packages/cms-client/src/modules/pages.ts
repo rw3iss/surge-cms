@@ -40,19 +40,19 @@ export class PagesModule extends ModuleBase {
     }
 
     create(body: PageCreateBody,): Promise<PageCreateResponse> {
-        return this.mutate<PageCreateResponse>('POST', '/pages', { body, invalidates: ['pages',], },);
+        return this.mutate<PageCreateResponse>('POST', '/pages', { body, invalidates: ['pages', 'entities',], },);
     }
 
     update(id: string, body: PageUpdateBody,): Promise<PageUpdateResponse> {
-        return this.mutate<PageUpdateResponse>('PUT', '/pages/:id', { params: { id, }, body, invalidates: ['pages',], },);
+        return this.mutate<PageUpdateResponse>('PUT', '/pages/:id', { params: { id, }, body, invalidates: ['pages', 'entities',], },);
     }
 
     remove(id: string,): Promise<PageDeleteResponse> {
-        return this.mutate<PageDeleteResponse>('DELETE', '/pages/:id', { params: { id, }, invalidates: ['pages',], },);
+        return this.mutate<PageDeleteResponse>('DELETE', '/pages/:id', { params: { id, }, invalidates: ['pages', 'entities',], },);
     }
 
     bulk(body: PageBulkBody,): Promise<PageBulkResponse> {
-        return this.mutate<PageBulkResponse>('POST', '/pages/bulk', { body, invalidates: ['pages',], },);
+        return this.mutate<PageBulkResponse>('POST', '/pages/bulk', { body, invalidates: ['pages', 'entities',], },);
     }
 
     // ─── Revisions ────────────────────────────────────────────────
@@ -77,23 +77,23 @@ export class PagesModule extends ModuleBase {
     }
 
     restoreRevision(id: string, version: number,): Promise<PageRevisionRestoreResponse> {
-        return this.mutate<PageRevisionRestoreResponse>('POST', '/pages/:id/revisions/:version/restore', { params: { id, version, }, invalidates: ['pages',], },);
+        return this.mutate<PageRevisionRestoreResponse>('POST', '/pages/:id/revisions/:version/restore', { params: { id, version, }, invalidates: ['pages', 'entities',], },);
     }
 
     // ─── Block CRUD ───────────────────────────────────────────────
     createBlock(pageId: string, body: PageBlockBody,): Promise<PageBlockCreateResponse> {
-        return this.mutate<PageBlockCreateResponse>('POST', '/pages/:pageId/blocks', { params: { pageId, }, body, invalidates: ['pages',], },);
+        return this.mutate<PageBlockCreateResponse>('POST', '/pages/:pageId/blocks', { params: { pageId, }, body, invalidates: ['pages', 'entities',], },);
     }
 
     updateBlock(pageId: string, blockId: string, body: PageBlockUpdateBody,): Promise<PageBlockUpdateResponse> {
-        return this.mutate<PageBlockUpdateResponse>('PUT', '/pages/:pageId/blocks/:blockId', { params: { pageId, blockId, }, body, invalidates: ['pages',], },);
+        return this.mutate<PageBlockUpdateResponse>('PUT', '/pages/:pageId/blocks/:blockId', { params: { pageId, blockId, }, body, invalidates: ['pages', 'entities',], },);
     }
 
     deleteBlock(pageId: string, blockId: string,): Promise<PageBlockDeleteResponse> {
-        return this.mutate<PageBlockDeleteResponse>('DELETE', '/pages/:pageId/blocks/:blockId', { params: { pageId, blockId, }, invalidates: ['pages',], },);
+        return this.mutate<PageBlockDeleteResponse>('DELETE', '/pages/:pageId/blocks/:blockId', { params: { pageId, blockId, }, invalidates: ['pages', 'entities',], },);
     }
 
     reorderBlocks(pageId: string, body: PageReorderBlocksBody,): Promise<PageReorderBlocksResponse> {
-        return this.mutate<PageReorderBlocksResponse>('PUT', '/pages/:pageId/blocks/reorder', { params: { pageId, }, body, invalidates: ['pages',], },);
+        return this.mutate<PageReorderBlocksResponse>('PUT', '/pages/:pageId/blocks/reorder', { params: { pageId, }, body, invalidates: ['pages', 'entities',], },);
     }
 }

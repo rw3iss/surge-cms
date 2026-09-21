@@ -34,19 +34,19 @@ export class PostsModule extends ModuleBase {
     }
 
     create(body: PostCreateBody,): Promise<PostCreateResponse> {
-        return this.mutate<PostCreateResponse>('POST', '/posts', { body, invalidates: ['posts',], },);
+        return this.mutate<PostCreateResponse>('POST', '/posts', { body, invalidates: ['posts', 'entities',], },);
     }
 
     update(id: string, body: PostUpdateBody,): Promise<PostUpdateResponse> {
-        return this.mutate<PostUpdateResponse>('PUT', '/posts/:id', { params: { id, }, body, invalidates: ['posts',], },);
+        return this.mutate<PostUpdateResponse>('PUT', '/posts/:id', { params: { id, }, body, invalidates: ['posts', 'entities',], },);
     }
 
     remove(id: string,): Promise<PostDeleteResponse> {
-        return this.mutate<PostDeleteResponse>('DELETE', '/posts/:id', { params: { id, }, invalidates: ['posts',], },);
+        return this.mutate<PostDeleteResponse>('DELETE', '/posts/:id', { params: { id, }, invalidates: ['posts', 'entities',], },);
     }
 
     bulk(body: PostBulkBody,): Promise<PostBulkResponse> {
-        return this.mutate<PostBulkResponse>('POST', '/posts/bulk', { body, invalidates: ['posts',], },);
+        return this.mutate<PostBulkResponse>('POST', '/posts/bulk', { body, invalidates: ['posts', 'entities',], },);
     }
 
     // ─── Revisions ────────────────────────────────────────────────
@@ -69,10 +69,10 @@ export class PostsModule extends ModuleBase {
     }
 
     restoreRevision(id: string, version: number,): Promise<PostRevisionRestoreResponse> {
-        return this.mutate<PostRevisionRestoreResponse>('POST', '/posts/:id/revisions/:version/restore', { params: { id, version, }, invalidates: ['posts',], },);
+        return this.mutate<PostRevisionRestoreResponse>('POST', '/posts/:id/revisions/:version/restore', { params: { id, version, }, invalidates: ['posts', 'entities',], },);
     }
 
     reorderBlocks(id: string, body: PostReorderBlocksBody,): Promise<PostReorderBlocksResponse> {
-        return this.mutate<PostReorderBlocksResponse>('PUT', '/posts/:id/blocks/reorder', { params: { id, }, body, invalidates: ['posts',], },);
+        return this.mutate<PostReorderBlocksResponse>('PUT', '/posts/:id/blocks/reorder', { params: { id, }, body, invalidates: ['posts', 'entities',], },);
     }
 }

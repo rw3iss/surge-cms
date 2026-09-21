@@ -118,3 +118,91 @@ describe('CacheManager.read — failing background revalidation', () => {
         await expect(c.read('cold', failing,),).rejects.toThrow('not found',);
     },);
 },);
+
+describe('CacheManager staleness bound', () => {
+    /** Adapter pre-loaded with one entry whose expiry is `agoMs` in the past. */
+    function withAged(agoMs: number, value = 'OLD',) {
+        const adapter = new MemoryAdapter();
+        const now = Date.now();
+        void adapter.set('k', { value, storedAt: now - agoMs - 1000, expiresAt: now - agoMs, },);
+        return adapter;
+    }
+
+    it('blocks and returns FRESH once an entry is past the bound', async () => {
+        // The bug: an entry that expired 22 hours ago was served indefinitely,
+        // because read() returned any cached value and the caller never saw
+        // the background refresh.
+        const c = new CacheManager({
+            adapter: withAged(22 * 3600_000,), enabled: true, defaultTtl: 1000, maxStaleMs: 300_000,
+        },);
+        const fresh = vi.fn().mockResolvedValue('NEW',);
+        expect(await c.read('k', fresh,),).toBe('NEW',);
+        expect(fresh,).toHaveBeenCalledOnce();
+    },);
+
+    it('still serves stale-while-revalidate INSIDE the bound', async () => {
+        // The bound must not destroy SWR — a mildly stale entry should still
+        // paint instantly and refresh behind.
+        const c = new CacheManager({
+            adapter: withAged(10_000,), enabled: true, defaultTtl: 1000, maxStaleMs: 300_000,
+        },);
+        const fresh = vi.fn().mockResolvedValue('NEW',);
+        expect(await c.read('k', fresh,),).toBe('OLD',);
+        await new Promise((r,) => setTimeout(r, 10,),);
+        expect(fresh,).toHaveBeenCalled();
+    },);
+
+    it('falls back to the stale value when the blocking fetch fails', async () => {
+        // Offline or a server blip: very old data beats an error, since the
+        // caller had a usable value a moment ago.
+        const c = new CacheManager({
+            adapter: withAged(22 * 3600_000,), enabled: true, defaultTtl: 1000, maxStaleMs: 300_000,
+        },);
+        const failing = vi.fn().mockRejectedValue(new Error('offline',),);
+        expect(await c.read('k', failing,),).toBe('OLD',);
+        expect(failing,).toHaveBeenCalled();
+    },);
+
+    it('treats an entry with no expiresAt as too stale', async () => {
+        const adapter = new MemoryAdapter();
+        void adapter.set('k', { value: 'OLD', storedAt: Date.now(), } as never,);
+        const c = new CacheManager({ adapter, enabled: true, defaultTtl: 1000, },);
+        expect(await c.read('k', vi.fn().mockResolvedValue('NEW',),),).toBe('NEW',);
+    },);
+
+    it('keeps ttl:0 as pure SWR rather than always blocking', async () => {
+        // ttl:0 means "serve instantly, always refresh behind". A bound
+        // expressed as a MULTIPLE of the ttl would collapse to zero here and
+        // silently turn that setting into "always block".
+        const c = new CacheManager({ adapter: new MemoryAdapter(), enabled: true, defaultTtl: 0, },);
+        await c.read('k', vi.fn().mockResolvedValue('OLD',),);
+        expect(await c.read('k', vi.fn().mockResolvedValue('NEW',),),).toBe('OLD',);
+    },);
+
+    it('writes the refreshed value so the next read is fresh', async () => {
+        const c = new CacheManager({
+            adapter: withAged(22 * 3600_000,), enabled: true, defaultTtl: 60_000, maxStaleMs: 300_000,
+        },);
+        await c.read('k', vi.fn().mockResolvedValue('NEW',),);
+        const second = vi.fn().mockResolvedValue('NEWER',);
+        expect(await c.read('k', second,),).toBe('NEW',);
+        expect(second,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('CacheManager staleness bound — measured from expiry', () => {
+    it('allows the full stale window regardless of how long the entry was fresh', async () => {
+        // A long-lived entry (10min ttl) that expired only 10s ago is barely
+        // stale and must still serve instantly. Measuring the bound from
+        // `storedAt` instead of `expiresAt` would count the 10 minutes it
+        // spent FRESH against the 5-minute stale allowance and block here —
+        // pulling blocking fetches a whole TTL earlier than intended.
+        const adapter = new MemoryAdapter();
+        const now = Date.now();
+        const ttl = 600_000;
+        void adapter.set('k', { value: 'OLD', storedAt: now - ttl - 10_000, expiresAt: now - 10_000, },);
+        const c = new CacheManager({ adapter, enabled: true, defaultTtl: ttl, maxStaleMs: 300_000, },);
+        const fresh = vi.fn().mockResolvedValue('NEW',);
+        expect(await c.read('k', fresh,),).toBe('OLD',);
+    },);
+},);

@@ -160,6 +160,29 @@ export async function invalidateSitemapCache(): Promise<void> {
     await del(CACHE_KEYS.sitemapXml,);
 }
 
+/**
+ * Core content types are ALSO generic entity types, and they are cached twice.
+ *
+ * `post`, `page`, `campaign`, `form` and `user` are seeded as `origin:'core'`
+ * entity types adopting their existing tables, so the same row is readable two
+ * ways: through the bespoke module (`posts:*`, `page:slug:*`, …) and through
+ * the generic entity service (`entity:post:list:*`). Core CRUD still lives in
+ * the bespoke modules, and those only ever knew about their own keys — so
+ * publishing a post dropped `posts:*` and left `entity:post:list:*` intact.
+ *
+ * The visible symptom is an entity block or carousel bound to a query
+ * ("newest published post") that keeps rendering the PREVIOUS article: the
+ * block reads through the entity cache, which the writer never invalidated.
+ *
+ * `invalidateShopProductCache` already carried this fix for `product`. It is
+ * called here from inside each core invalidator rather than added at the call
+ * sites, because there are dozens of call sites and one that forgets
+ * reintroduces the bug silently — nothing fails, the page is just wrong.
+ */
+async function invalidateMirroredEntityCache(type: string,): Promise<void> {
+    await delPattern(`${CACHE_KEYS.entityPrefix(type,)}*`,);
+}
+
 export async function invalidatePageCache(pageId?: string,): Promise<void> {
     if (pageId) {
         await del(`page:${pageId}`,);
@@ -176,6 +199,7 @@ export async function invalidatePageCache(pageId?: string,): Promise<void> {
     await del('page:homepage',);
     await delPattern('pages:*',);
     await delPattern('navigation:*',);
+    await invalidateMirroredEntityCache('page',);
     // Invalidate SSR cache for all public pages when any page changes
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
@@ -187,6 +211,7 @@ export async function invalidatePostCache(postId?: string,): Promise<void> {
         await del(`post:slug:*`,);
     }
     await delPattern('posts:*',);
+    await invalidateMirroredEntityCache('post',);
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
 }
@@ -197,6 +222,7 @@ export async function invalidateCampaignCache(campaignId?: string,): Promise<voi
     }
     await delPattern('campaigns:*',);
     await delPattern('donations:*',);
+    await invalidateMirroredEntityCache('campaign',);
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
 }
@@ -210,6 +236,7 @@ export async function invalidateFormCache(formId?: string,): Promise<void> {
     // otherwise field edits stay stale for the 300s TTL.
     await delPattern('form:slug:*',);
     await delPattern('forms:*',);
+    await invalidateMirroredEntityCache('form',);
     await invalidateSitemapCache();
 }
 
@@ -217,6 +244,7 @@ export async function invalidateUserCache(userId?: string,): Promise<void> {
     if (userId) {
         await del(`user:${userId}`,);
     }
+    await invalidateMirroredEntityCache('user',);
 }
 
 /** Invalidate mailing-list catalog + per-list caches. */

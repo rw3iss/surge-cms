@@ -54,18 +54,18 @@ export class CampaignsModule extends ModuleBase {
     }
 
     create(body: CampaignCreateBody,): Promise<CampaignCreateResponse> {
-        return this.mutate<CampaignCreateResponse>('POST', '/campaigns', { body, invalidates: ['campaigns',], },);
+        return this.mutate<CampaignCreateResponse>('POST', '/campaigns', { body, invalidates: ['campaigns', 'entities',], },);
     }
 
     update(id: string, body: CampaignUpdateBody,): Promise<CampaignUpdateResponse> {
-        return this.mutate<CampaignUpdateResponse>('PUT', '/campaigns/:id', { params: { id, }, body, invalidates: ['campaigns',], },);
+        return this.mutate<CampaignUpdateResponse>('PUT', '/campaigns/:id', { params: { id, }, body, invalidates: ['campaigns', 'entities',], },);
     }
 
     remove(id: string,): Promise<CampaignDeleteResponse> {
-        return this.mutate<CampaignDeleteResponse>('DELETE', '/campaigns/:id', { params: { id, }, invalidates: ['campaigns',], },);
+        return this.mutate<CampaignDeleteResponse>('DELETE', '/campaigns/:id', { params: { id, }, invalidates: ['campaigns', 'entities',], },);
     }
 
     bulk(body: CampaignBulkBody,): Promise<CampaignBulkResponse> {
-        return this.mutate<CampaignBulkResponse>('POST', '/campaigns/bulk', { body, invalidates: ['campaigns',], },);
+        return this.mutate<CampaignBulkResponse>('POST', '/campaigns/bulk', { body, invalidates: ['campaigns', 'entities',], },);
     }
 }

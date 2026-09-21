@@ -24,9 +24,28 @@ export function entityVars(entityType: string,): { singular: string; plural: str
     return { singular: entityType, plural: `${entityType}s`, };
 }
 
+/**
+ * Entity-block reads bypass the per-browser SWR cache.
+ *
+ * An `entity` block bound to a query ("the newest published post") is a LIVE
+ * view of the database, and it is frequently the most prominent thing on a
+ * page — a featured-article tout, a product carousel. Serving it from a cache
+ * held in one visitor's localStorage means the correctness of the front page
+ * depends on when that particular browser last happened to refetch, which no
+ * writer can influence: publishing a post clears the cache of the browser that
+ * published it and of nobody else. That is how a homepage came to show an
+ * article that had been superseded a day earlier.
+ *
+ * This is not the same as "uncached". The server caches the identical read in
+ * Redis for the entity type's `indexTtlSeconds`, and that cache IS dropped by
+ * every writer, so the cost here is one conditional round trip to an in-memory
+ * store — while the freshness guarantee becomes global instead of per-browser.
+ */
+const LIVE: { cache: false; } = { cache: false, };
+
 async function getOne(entityType: string, ref: string,): Promise<EntityRecord | null> {
     try {
-        return await cms.entities.getOne(entityType, ref,);
+        return await cms.entities.getOne(entityType, ref, LIVE,);
     } catch {
         return null;
     }
@@ -73,7 +92,7 @@ export async function resolveRecords(
                 const res = await cms.entities.list(entityType, {
                     ...binding.query,
                     limit: maxRecords || binding.query?.limit || 20,
-                } as never,);
+                } as never, LIVE,);
                 return cap((res.data ?? []) as EntityRecord[],);
             }
             default:

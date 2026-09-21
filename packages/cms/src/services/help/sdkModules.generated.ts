@@ -489,13 +489,13 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "getOne",
-                "signature": "getOne(type: string, idOrSlug: string): Promise<EntityRecord>",
+                "signature": "getOne(type: string, idOrSlug: string, opts?: QueryOptions): Promise<EntityRecord>",
                 "summary": ""
             },
             {
                 "name": "list",
-                "signature": "list(type: string, query?: EntityQuery): Promise<Paginated<EntityRecord>>",
-                "summary": ""
+                "signature": "list(type: string, query?: EntityQuery, opts?: QueryOptions): Promise<Paginated<EntityRecord>>",
+                "summary": "List/query records. `opts` reaches the SWR cache — pass `{ cache: false }` for a surface that must reflect the database as it is right now. That is not as expensive as it sounds: the server caches the same read in Redis, and unlike a per-browser cache that one is invalidated by every writer."
             },
             {
                 "name": "remove",

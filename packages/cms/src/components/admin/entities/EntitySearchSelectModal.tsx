@@ -362,7 +362,13 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             };
             const filter = buildFilter();
             if (filter) query.filter = filter;
-            const res = await cms.entities.list(props.entityType, query,);
+            // Always live. This modal is how an operator answers "which records
+            // does my query actually match?", so a cached answer is worse than
+            // a slow one: it had been showing the records that matched when the
+            // page was last loaded, which is how a query block could keep
+            // pointing at a superseded article while the modal agreed with it.
+            // Re-reads on every open, page, sort and filter change.
+            const res = await cms.entities.list(props.entityType, query, { cache: false, },);
             if (seq !== fetchSeq) return;
             setItems(res.data ?? [],);
             setTotalPages(res.meta?.totalPages ?? 1,);

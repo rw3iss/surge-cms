@@ -37,7 +37,7 @@ export class FormsModule extends ModuleBase {
 
     /** POST /forms/slug/:slug/submit — public submission (enforces auth/dups server-side). */
     submit(slug: string, body: FormSubmitBody,): Promise<FormSubmitResponse> {
-        return this.mutate<FormSubmitResponse>('POST', '/forms/slug/:slug/submit', { params: { slug, }, body, invalidates: ['forms',], },);
+        return this.mutate<FormSubmitResponse>('POST', '/forms/slug/:slug/submit', { params: { slug, }, body, invalidates: ['forms', 'entities',], },);
     }
 
     /** GET /forms/:id (admin) — form with questions, any status. */
@@ -66,14 +66,14 @@ export class FormsModule extends ModuleBase {
     /** DELETE /forms/:id/submissions/:submissionId (staff) — delete one. */
     deleteSubmission(formId: string, submissionId: string,): Promise<FormSubmissionDeleteResponse> {
         return this.mutate<FormSubmissionDeleteResponse>('DELETE', '/forms/:id/submissions/:submissionId', {
-            params: { id: formId, submissionId, }, invalidates: ['forms',],
+            params: { id: formId, submissionId, }, invalidates: ['forms', 'entities',],
         },);
     }
 
     /** POST /forms/:id/submissions/bulk-delete (staff) — delete several. */
     bulkDeleteSubmissions(formId: string, ids: string[],): Promise<FormSubmissionsBulkDeleteResponse> {
         return this.mutate<FormSubmissionsBulkDeleteResponse>('POST', '/forms/:id/submissions/bulk-delete', {
-            params: { id: formId, }, body: { ids, }, invalidates: ['forms',],
+            params: { id: formId, }, body: { ids, }, invalidates: ['forms', 'entities',],
         },);
     }
 
@@ -87,31 +87,31 @@ export class FormsModule extends ModuleBase {
     }
 
     create(body: FormCreateBody,): Promise<FormCreateResponse> {
-        return this.mutate<FormCreateResponse>('POST', '/forms', { body, invalidates: ['forms',], },);
+        return this.mutate<FormCreateResponse>('POST', '/forms', { body, invalidates: ['forms', 'entities',], },);
     }
 
     update(id: string, body: FormUpdateBody,): Promise<FormUpdateResponse> {
-        return this.mutate<FormUpdateResponse>('PUT', '/forms/:id', { params: { id, }, body, invalidates: ['forms',], },);
+        return this.mutate<FormUpdateResponse>('PUT', '/forms/:id', { params: { id, }, body, invalidates: ['forms', 'entities',], },);
     }
 
     remove(id: string,): Promise<FormDeleteResponse> {
-        return this.mutate<FormDeleteResponse>('DELETE', '/forms/:id', { params: { id, }, invalidates: ['forms',], },);
+        return this.mutate<FormDeleteResponse>('DELETE', '/forms/:id', { params: { id, }, invalidates: ['forms', 'entities',], },);
     }
 
     bulk(body: FormBulkBody,): Promise<FormBulkResponse> {
-        return this.mutate<FormBulkResponse>('POST', '/forms/bulk', { body, invalidates: ['forms',], },);
+        return this.mutate<FormBulkResponse>('POST', '/forms/bulk', { body, invalidates: ['forms', 'entities',], },);
     }
 
     // ─── Questions ────────────────────────────────────────────────
     createQuestion(id: string, body: FormQuestionCreateBody,): Promise<FormQuestionCreateResponse> {
-        return this.mutate<FormQuestionCreateResponse>('POST', '/forms/:id/questions', { params: { id, }, body, invalidates: ['forms',], },);
+        return this.mutate<FormQuestionCreateResponse>('POST', '/forms/:id/questions', { params: { id, }, body, invalidates: ['forms', 'entities',], },);
     }
 
     updateQuestion(formId: string, questionId: string, body: FormQuestionUpdateBody,): Promise<FormQuestionUpdateResponse> {
-        return this.mutate<FormQuestionUpdateResponse>('PUT', '/forms/:formId/questions/:questionId', { params: { formId, questionId, }, body, invalidates: ['forms',], },);
+        return this.mutate<FormQuestionUpdateResponse>('PUT', '/forms/:formId/questions/:questionId', { params: { formId, questionId, }, body, invalidates: ['forms', 'entities',], },);
     }
 
     deleteQuestion(formId: string, questionId: string,): Promise<FormQuestionDeleteResponse> {
-        return this.mutate<FormQuestionDeleteResponse>('DELETE', '/forms/:formId/questions/:questionId', { params: { formId, questionId, }, invalidates: ['forms',], },);
+        return this.mutate<FormQuestionDeleteResponse>('DELETE', '/forms/:formId/questions/:questionId', { params: { formId, questionId, }, invalidates: ['forms', 'entities',], },);
     }
 }

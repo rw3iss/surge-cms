@@ -11,6 +11,7 @@ import type {
     EntityTypeUpdateBody,
     Paginated,
 } from '@sitesurge/types';
+import type { QueryOptions, } from '../core/types';
 import { ModuleBase, } from './base';
 
 /** Serialize an EntityQuery to wire params (filter → JSON string). */
@@ -24,12 +25,27 @@ function toParams(query?: EntityQuery,): Record<string, unknown> {
 export class EntitiesModule extends ModuleBase {
     protected readonly module = 'entities';
 
-    list(type: string, query?: EntityQuery,): Promise<Paginated<EntityRecord>> {
-        return this.getPaged<EntityRecord>('/entities/:type', { params: { type, }, query: toParams(query,), },);
+    /**
+     * List/query records.
+     *
+     * `opts` reaches the SWR cache — pass `{ cache: false }` for a surface that
+     * must reflect the database as it is right now. That is not as expensive as
+     * it sounds: the server caches the same read in Redis, and unlike a
+     * per-browser cache that one is invalidated by every writer.
+     */
+    list(type: string, query?: EntityQuery, opts?: QueryOptions,): Promise<Paginated<EntityRecord>> {
+        return this.getPaged<EntityRecord>('/entities/:type', {
+            params: { type, },
+            query: toParams(query,),
+            options: opts,
+        },);
     }
 
-    getOne(type: string, idOrSlug: string,): Promise<EntityRecord> {
-        return this.get<EntityRecord>('/entities/:type/:idOrSlug', { params: { type, idOrSlug, }, },);
+    getOne(type: string, idOrSlug: string, opts?: QueryOptions,): Promise<EntityRecord> {
+        return this.get<EntityRecord>('/entities/:type/:idOrSlug', {
+            params: { type, idOrSlug, },
+            options: opts,
+        },);
     }
 
     create(type: string, body: Record<string, unknown>,): Promise<EntityRecord> {
