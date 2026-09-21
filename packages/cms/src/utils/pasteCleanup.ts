@@ -54,6 +54,43 @@ export function stripsFontSize(tagName: string,): boolean {
         .includes(tagName.toLowerCase(),);
 }
 
+/**
+ * Font stacks that are ADMIN CHROME, never content.
+ *
+ * Copying a `{{ variable }}` out of the in-admin reference — the obvious way to
+ * get one into a template — carries that chip's computed style with it, because
+ * the clipboard serialises computed values, not the custom properties behind
+ * them. `--admin-font-mono` arrives as its resolved stack and the token then
+ * renders as red monospace inside an otherwise-Arial sentence, in the editor
+ * and in every email sent from it.
+ *
+ * All three admin faces are listed, not just the mono one: copying a whole
+ * paragraph from anywhere in the admin drags `--admin-font-body` along the
+ * same way, which pins the text to a font the recipient almost certainly does
+ * not have and which the site's own font setting can then never reach.
+ *
+ * This matches on the FIRST family only, so a stack is recognised however the
+ * browser reorders or re-quotes the rest.
+ */
+export const CHROME_FONT_FAMILIES = [
+    'jetbrains mono', // --admin-font-mono  (variable chips, slugs, IDs)
+    'ibm plex sans',  // --admin-font-body  (admin body copy)
+    'manrope',        // --admin-font-display (admin headings)
+];
+
+/**
+ * Does this `font-family` value name an admin-chrome stack?
+ *
+ * A pure predicate so the rule is testable without a DOM.
+ */
+export function isChromeFont(fontFamily: string,): boolean {
+    const first = (fontFamily || '').split(',',)[0]
+        .trim()
+        .replace(/^["']|["']$/g, '',)
+        .toLowerCase();
+    return CHROME_FONT_FAMILIES.includes(first,);
+}
+
 export function cleanPastedHtml(html: string, doc: Document = document,): string {
     if (!html) return html;
 
@@ -71,6 +108,14 @@ export function cleanPastedHtml(html: string, doc: Document = document,): string
         const style = (el as HTMLElement).style;
         for (const prop of STRIPPED_PROPS) style.removeProperty(prop,);
         if (el.matches(INLINE_FONT_SIZE_TAGS,)) style.removeProperty('font-size',);
+        // Admin chrome is not content. A monospace stack copied out of the
+        // variable reference is describing a UI chip, not a typographic choice
+        // — and it takes `letter-spacing` with it, which is equally not a
+        // decision anyone made about this sentence.
+        if (isChromeFont(style.getPropertyValue('font-family',),)) {
+            style.removeProperty('font-family',);
+            style.removeProperty('letter-spacing',);
+        }
         // An emptied style attribute is just noise in the stored HTML.
         if (!(el as HTMLElement).getAttribute('style',)?.trim()) el.removeAttribute('style',);
     }

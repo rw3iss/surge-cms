@@ -22,5 +22,28 @@ export const renderRichText: BlockEmailRenderer = (node, ctx,) => {
 
     // The wrapping <td> applies padding + alignment + color from
     // block.style; we just emit the inner HTML here.
-    return { content, cellStyle: { 'line-height': typography.paragraphLineHeight, }, };
+    return {
+        content,
+        cellStyle: {
+            'line-height': typography.paragraphLineHeight,
+            /*
+             * Base size on the CELL, mirroring the web exactly.
+             *
+             * `richTextTypographyCss` puts `font-size` on the `.rich-text`
+             * ROOT, so everything inside inherits it — `<p>`, a bare text
+             * node, and the `<div>`s a contentEditable emits for soft-wrapped
+             * lines like a signature. `applyTypographyInline` only reaches
+             * `<p>` and `<h1>`–`<h6>`, so in email those `<div>`s inherited
+             * the email body size instead and a signature rendered visibly
+             * smaller than the paragraph above it.
+             *
+             * Setting it here rather than adding `div` to the inliner is the
+             * faithful fix: it reproduces the web's single inherited base for
+             * EVERY element the editor can produce, including ones not yet
+             * thought of, and it cannot add the paragraph MARGIN to a
+             * signature's tight lines — which enumerating tags would have.
+             */
+            'font-size': typography.paragraphFontSize,
+        },
+    };
 };
