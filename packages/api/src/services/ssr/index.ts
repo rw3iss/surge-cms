@@ -13,7 +13,7 @@ import path from 'path';
 import { cache, } from '../cache';
 import { logger, } from '../../utils/logger';
 import { buildMetaHtml, } from './metaBuilder';
-import { getSiteAnalyticsId, getSiteFavicon, isPublicRoute, resolveRouteMeta, } from './routes';
+import { getSiteAnalyticsId, getSiteFavicon, getSiteNav, isPublicRoute, resolveRouteMeta, } from './routes';
 import { gtagSnippet, isValidGaId, } from '../../utils/gtag';
 
 const CACHE_TTL = 300; // 5 minutes
@@ -249,11 +249,33 @@ export async function renderPublicRoute(
         },);
     }
 
-    // 5b. Inject the pre-rendered body when the resolver produced one.
-    //     Failures here are non-fatal — fall back to the default
-    //     loading-shell template so the page still serves.
+    // 5b. Inject the pre-rendered body, wrapped in the site nav.
+    //
+    //     The nav is what makes the rest of the site reachable without JS: the
+    //     header and footer are SPA-rendered, so before this the SSR HTML of
+    //     every page linked to almost nothing and Search Console reported the
+    //     other pages as "Discovered — currently not indexed".
+    //
+    //     Order is header-nav, body, footer-nav, because that is the order a
+    //     crawler reads the document in and the article should not be buried
+    //     under two link lists.
+    //
+    //     Failures here are non-fatal — fall back to the default loading-shell
+    //     template so the page still serves.
     try {
-        html = injectBody(html, meta.body,);
+        let nav = { header: '', footer: '', };
+        try {
+            nav = await getSiteNav();
+        } catch (error) {
+            logger.error(`SSR: nav lookup failed for ${pathname}`, {
+                error: (error as Error).message,
+            },);
+        }
+        // Nav alone is still worth emitting on a route with no body of its
+        // own — the links are the point, and a 404 page that links back into
+        // the site is better for both crawlers and people.
+        const composed = [nav.header, meta.body, nav.footer,].filter(Boolean,).join('\n',);
+        html = injectBody(html, composed || undefined,);
     } catch (error) {
         logger.error(`SSR: injectBody failed for ${pathname}`, {
             error: (error as Error).message,

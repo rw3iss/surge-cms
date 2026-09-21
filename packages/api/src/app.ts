@@ -9,6 +9,7 @@ import path from 'path';
 import { existsSync, } from 'fs';
 import { adminDistPath, } from '@sitesurge/admin';
 import { config, } from './config';
+import { canonicalUrlMiddleware, } from './middleware/canonicalUrl';
 import { pluginAwareCsp, } from './middleware/csp';
 import { csrfProtection, csrfToken, } from './middleware/csrf';
 import { errorHandler, notFoundHandler, } from './middleware/error';
@@ -220,6 +221,12 @@ export function createApp(mode: AppMode = 'running',): Express {
         index: false,
         fallthrough: false,
     },),);
+    // Collapse duplicate addresses (/index.html, trailing slashes) onto one
+    // canonical URL BEFORE anything can serve them. It has to sit after the
+    // /assets mount (those paths are legitimately served as-is) and before
+    // express.static, which would otherwise hand back the raw SPA shell for
+    // /index.html — a crawlable 200 with the wrong title and no canonical tag.
+    app.use(canonicalUrlMiddleware,);
     app.use(createSsrMiddleware(distDir,),);
     /**
      * Never cache the service-worker entry points.

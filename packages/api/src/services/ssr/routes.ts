@@ -12,6 +12,8 @@ import {
     buildPostListBody,
 } from './bodyBuilder';
 import { assembleSsrBlockTree, type SsrBlockInput, } from './blocks';
+import { buildSiteNav, } from './navBuilder';
+import type { SiteFooterSettings, SiteHeaderSettings, } from '@sitesurge/types';
 import type { MetaTags, } from './metaBuilder';
 import { resolveContentForSsr, } from './templateRuntime';
 import {
@@ -145,6 +147,43 @@ export async function getSiteAnalyticsId(): Promise<string | undefined> {
 export function invalidateSiteMetaCache(): void {
     siteMetaCache = null;
     siteMetaCacheAt = 0;
+    siteNavCache = null;
+    siteNavCacheAt = 0;
+}
+
+// ─── Site navigation (SSR) ──────────────────────────────────────────
+//
+// Read and cached exactly like the site meta above, and invalidated by the
+// same call: the header and footer are edited in the same Settings area, and
+// two caches with two lifetimes is how a stale nav outlives a fixed one.
+
+let siteNavCache: { header: string; footer: string; } | null = null;
+let siteNavCacheAt = 0;
+
+/**
+ * The server-rendered header/footer nav fragments.
+ *
+ * Empty strings on any failure — a nav is an enhancement, and a settings read
+ * that fails must not cost the page its body.
+ */
+export async function getSiteNav(): Promise<{ header: string; footer: string; }> {
+    const now = Date.now();
+    if (siteNavCache && now - siteNavCacheAt < SITE_META_TTL_MS) return siteNavCache;
+    try {
+        const res = await query(
+            `SELECT key, value FROM site_settings WHERE key IN ('site_header', 'site_footer')`,
+        );
+        const map: Record<string, unknown> = {};
+        for (const row of res.rows) map[row.key] = row.value;
+        siteNavCache = buildSiteNav(
+            map.site_header as SiteHeaderSettings | undefined,
+            map.site_footer as SiteFooterSettings | undefined,
+        );
+    } catch {
+        siteNavCache = { header: '', footer: '', };
+    }
+    siteNavCacheAt = now;
+    return siteNavCache;
 }
 
 function siteUrl(): string {
@@ -314,7 +353,12 @@ export async function resolveRouteMeta(pathname: string,): Promise<MetaTags | nu
 
 async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null> {
     const path = pathname.split('?',)[0].replace(/\/+$/, '',) || '/';
-    const url = `${siteUrl()}${path === '/' ? '' : path}`;
+    // Note the homepage keeps its trailing slash. It used to be trimmed, which
+    // made the canonical tag say `https://site.us` while the sitemap said
+    // `https://site.us/` — two spellings of the home page, given to the crawler
+    // by us, in the same crawl. That is precisely the disagreement a canonical
+    // exists to settle.
+    const url = `${siteUrl()}${path}`;
     const site = await getSiteMeta();
     const SITE_NAME = site.name;
     const SITE_DESCRIPTION = site.description;
