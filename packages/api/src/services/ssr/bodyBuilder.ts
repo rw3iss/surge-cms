@@ -117,20 +117,30 @@ export interface PageBody {
  * runtime feeds anyway, and the SPA will render them when it mounts.
  */
 export function buildPageBody(p: PageBody,): string {
+    // Render the blocks FIRST, because whether the page needs a synthesised
+    // <h1> depends on whether its content already carries one.
+    const blockHtml: string[] = [];
+    if (Array.isArray(p.blocks,) && p.blocks.length > 0) {
+        for (const block of p.blocks) {
+            const html = renderBlockForSeo(block,);
+            if (html) blockHtml.push(`  ${html}`,);
+        }
+    }
+
     const parts: string[] = [];
     parts.push('<article class="ssr-page">',);
-    if (p.showTitle !== false && p.title) {
+    // Emit the page title as an <h1> only when the content does not already
+    // provide one. Two h1s is a weaker signal than one, and the synthesised
+    // heading is worse than the authored one: the SPA does not render it, so
+    // it is a heading only a crawler ever sees.
+    const contentHasH1 = blockHtml.some(h => /<h1[\s>]/i.test(h,),);
+    if (p.showTitle !== false && p.title && !contentHasH1) {
         parts.push(`  <h1>${escapeHtml(p.title,)}</h1>`,);
     }
     if (p.description) {
         parts.push(`  <p class="ssr-page__description">${escapeHtml(p.description,)}</p>`,);
     }
-    if (Array.isArray(p.blocks,) && p.blocks.length > 0) {
-        for (const block of p.blocks) {
-            const html = renderBlockForSeo(block,);
-            if (html) parts.push(`  ${html}`,);
-        }
-    }
+    parts.push(...blockHtml,);
     parts.push('</article>',);
     return parts.join('\n',);
 }
