@@ -231,7 +231,7 @@ const SocialMeta: Component<SocialEmbedProps & { url: string; display: SocialDis
  */
 const PostCard: Component<SocialEmbedProps & {
     url: string;
-    display: { mediaDisplay: SocialMediaDisplay; showTitle: boolean; };
+    display: SocialDisplay;
 }> = (props,) => {
     /** Cap the thumbnail at the configured size. `full` is uncapped so it keeps
      *  behaving as a fluid element rather than a very wide fixed one. */

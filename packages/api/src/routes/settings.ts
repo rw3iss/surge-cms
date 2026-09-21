@@ -298,6 +298,71 @@ export const settingsRoutes = [
      * every password hash on the site. There is no reason for the browser to
      * ever hold it.
      */
+    /** Media storage config. Secret masked, as with the backup destination. */
+    defineRoute({
+        method: 'get', path: '/media-storage', auth: 'admin',
+        summary: 'Media storage settings (secret masked).',
+        handler: async () => {
+            const s = await settings.getMediaStorageSettings();
+            return {
+                ...s,
+                s3: { ...s.s3, secretAccessKey: s.s3.secretAccessKey ? SECRET_MASK : '', },
+            };
+        },
+    },),
+
+    defineRoute({
+        method: 'put', path: '/media-storage', auth: 'admin',
+        summary: 'Update media storage settings.',
+        input: {
+            body: z.object({
+                provider: z.enum(['local', 's3',],),
+                localDir: z.string().max(500,).optional(),
+                s3: z.object({
+                    endpoint: z.string().max(500,).optional(),
+                    region: z.string().max(60,).optional(),
+                    bucket: z.string().max(200,).optional(),
+                    accessKeyId: z.string().max(200,).optional(),
+                    secretAccessKey: z.string().max(400,).optional(),
+                    cdnUrl: z.string().max(500,).optional(),
+                },).optional(),
+            },),
+        },
+        handler: async ({ body, audit, },) => {
+            // An echoed mask means "unchanged" — otherwise opening the form and
+            // pressing Save would wipe a working credential.
+            const current = await settings.getMediaStorageSettings();
+            const secret = body.s3?.secretAccessKey;
+            await settings.setMediaStorageSettings({
+                ...body,
+                s3: {
+                    ...(body.s3 ?? {}),
+                    secretAccessKey: (!secret || secret === SECRET_MASK)
+                        ? current.s3.secretAccessKey
+                        : secret,
+                },
+            }, audit(),);
+            return settings.getMediaStorageSettings();
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/media-storage/test', auth: 'admin',
+        summary: 'Verify the configured media storage is writable.',
+        handler: async () => {
+            const s = await settings.getMediaStorageSettings();
+            // Reuse the backup destination prober: the shape is the same
+            // (endpoint/region/bucket/keys) and a second implementation of
+            // "can we actually write here?" would be one to keep in step.
+            return backupDestinations.testDestination({
+                destination: s.provider === 's3' ? 's3' : 'local',
+                local: { path: s.localDir ?? '', },
+                s3: { ...s.s3, prefix: '', bucket: s.s3.bucket ?? '', },
+                retentionDays: 0,
+            } as never,);
+        },
+    },),
+
     defineRoute({
         method: 'get', path: '/backup-destination', auth: 'admin',
         summary: 'Backup destination settings (secret masked).',

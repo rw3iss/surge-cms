@@ -1519,6 +1519,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /settings/mail-purposes (admin) — per-purpose email overrides. An absent key means \"registry defaults\", not \"off\"."
             },
             {
+                "name": "getMediaStorage",
+                "signature": "getMediaStorage(): Promise<SettingsMediaStorageResponse>",
+                "summary": "GET /settings/media-storage (admin) — secret is masked."
+            },
+            {
                 "name": "getPublic",
                 "signature": "getPublic(): Promise<SettingsPublicResponse>",
                 "summary": "GET /settings/public — curated public projection (cached, public)."
@@ -1609,6 +1614,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "PUT /settings/mail-purposes (admin) — replaces the whole map."
             },
             {
+                "name": "setMediaStorage",
+                "signature": "setMediaStorage(body: SettingsMediaStorageBody): Promise<SettingsMediaStorageResponse>",
+                "summary": "PUT /settings/media-storage (admin). Echo the masked secret to keep it."
+            },
+            {
                 "name": "siteBranding",
                 "signature": "siteBranding(body: SettingsSiteBrandingBody): Promise<SettingsRawKeyResponse>",
                 "summary": "PUT /settings/site-branding (admin)."
@@ -1637,6 +1647,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "testBackupDestination",
                 "signature": "testBackupDestination(): Promise<BackupDestinationTestResponse>",
                 "summary": "POST /settings/backup-destination/test — writes and removes a probe."
+            },
+            {
+                "name": "testMediaStorage",
+                "signature": "testMediaStorage(): Promise<MediaStorageTestResponse>",
+                "summary": "POST /settings/media-storage/test — writes and removes a probe."
             },
             {
                 "name": "uninstallFeature",
@@ -2214,4 +2229,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 384;
+export const SDK_METHOD_COUNT = 387;

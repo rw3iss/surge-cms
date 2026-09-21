@@ -1,4 +1,5 @@
 import { Title, } from '@solidjs/meta';
+import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import VideoPlayer from '../../components/blocks/media/VideoPlayer';
 import { cms, } from '../../services/cmsClient';
@@ -147,6 +148,8 @@ const AdminMedia: Component = () => {
             <Title>Media - Admin - RW</Title>
             <div class="admin-header">
                 <h1>Media Library</h1>
+                <div class="admin-header__actions">
+                <A href="/admin/media/settings" class="ui-button ui-button--secondary">Settings</A>
                 <label class="ui-button ui-button--primary">
                     Upload File
                     <input
@@ -156,6 +159,7 @@ const AdminMedia: Component = () => {
                         style={{ display: 'none', }}
                     />
                 </label>
+                </div>
             </div>
 
             <div

@@ -59,6 +59,7 @@ const AdminSocialConfiguration = lazy(() => import('./pages/admin/social/SocialC
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
 const AdminMailingListsSettings = lazy(() => import('./pages/admin/MailingListsSettings'));
+const AdminMediaSettings = lazy(() => import('./pages/admin/MediaSettings'));
 const AdminMailTemplateEdit = lazy(() => import('./pages/admin/MailTemplateEdit'));
 const AdminMailSend = lazy(() => import('./pages/admin/MailSend'));
 const AdminMailJob = lazy(() => import('./pages/admin/MailJob'));
@@ -202,6 +203,8 @@ const App: Component = () => {
 										<Route path="/mail-templates/:id" component={AdminMailTemplateEdit} />
 										<Route path="/mail/send" component={AdminMailSend} />
 										<Route path="/mail/jobs/:id" component={AdminMailJob} />
+										{/* Before /media, so "settings" is not read as a media id. */}
+										<Route path="/media/settings" component={AdminMediaSettings} />
 										<Route path="/media" component={AdminMedia} />
 										<Route path="/entities" component={AdminEntitiesList} />
 										<Route path="/entities/:type" component={AdminEntityDetail} />

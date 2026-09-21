@@ -15,6 +15,7 @@ import type {
     SettingsMailingListsResponse, SettingsMailingListsBody,
     SettingsBackupDestinationResponse, SettingsBackupDestinationBody,
     BackupDestinationTestResponse, BackupRunResponse, BackupListResponse,
+    SettingsMediaStorageResponse, SettingsMediaStorageBody, MediaStorageTestResponse,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
     PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
     ShopStripeStatusResponse,
@@ -206,6 +207,23 @@ export class SettingsModule extends ModuleBase {
         return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/users', {
             body, invalidates: ['settings',],
         },);
+    }
+
+    /** GET /settings/media-storage (admin) — secret is masked. */
+    getMediaStorage(): Promise<SettingsMediaStorageResponse> {
+        return this.get<SettingsMediaStorageResponse>('/settings/media-storage',);
+    }
+
+    /** PUT /settings/media-storage (admin). Echo the masked secret to keep it. */
+    setMediaStorage(body: SettingsMediaStorageBody,): Promise<SettingsMediaStorageResponse> {
+        return this.mutate<SettingsMediaStorageResponse>('PUT', '/settings/media-storage', {
+            body, invalidates: ['settings',],
+        },);
+    }
+
+    /** POST /settings/media-storage/test — writes and removes a probe. */
+    testMediaStorage(): Promise<MediaStorageTestResponse> {
+        return this.mutate<MediaStorageTestResponse>('POST', '/settings/media-storage/test', {},);
     }
 
     /** GET /settings/backup-destination (admin) — secret is masked. */

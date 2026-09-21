@@ -425,6 +425,17 @@ const USERS_SETTINGS: KeyedSetting = {
 };
 
 /**
+ * Media storage. Empty is the right fallback — an unconfigured install keeps
+ * whatever the environment says, which is how every existing deployment works.
+ */
+const MEDIA_STORAGE: KeyedSetting = {
+    key: 'media_storage',
+    cacheKey: 'settings:media_storage',
+    entityId: 'media_storage',
+    fallback: {},
+};
+
+/**
  * Backup destination. Empty is the right fallback — an unconfigured install
  * keeps the previous behaviour (download through the admin, nothing stored).
  */
@@ -614,6 +625,36 @@ export async function getBackupSettings(): Promise<import('@sitesurge/types').Ba
 
 export const setBackupSettings = (value: unknown, ctx: AuditContext,) =>
     setKeyed(BACKUP_SETTINGS, value, ctx,);
+
+/**
+ * Media storage settings.
+ *
+ * ENVIRONMENT WINS, same as the backup destination: an existing deployment
+ * configured through `.env` must not change behaviour the moment this feature
+ * ships, and an operator may legitimately prefer to keep object-store
+ * credentials out of the database.
+ */
+export async function getMediaStorageSettings(): Promise<import('@sitesurge/types').MediaStorageSettings> {
+    const raw = await getKeyed(MEDIA_STORAGE,) as
+        Partial<import('@sitesurge/types').MediaStorageSettings> | null;
+    const env = process.env;
+
+    return {
+        provider: (env.STORAGE_PROVIDER as never) || raw?.provider || 'local',
+        localDir: env.UPLOAD_DIR || raw?.localDir || '',
+        s3: {
+            endpoint: env.S3_ENDPOINT || raw?.s3?.endpoint || '',
+            region: env.AWS_REGION || raw?.s3?.region || 'auto',
+            bucket: env.S3_BUCKET || raw?.s3?.bucket || '',
+            accessKeyId: env.AWS_ACCESS_KEY_ID || raw?.s3?.accessKeyId || '',
+            secretAccessKey: env.AWS_SECRET_ACCESS_KEY || raw?.s3?.secretAccessKey || '',
+            cdnUrl: env.S3_CDN_URL || raw?.s3?.cdnUrl || '',
+        },
+    };
+}
+
+export const setMediaStorageSettings = (value: unknown, ctx: AuditContext,) =>
+    setKeyed(MEDIA_STORAGE, value, ctx,);
 
 /** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
  *  subject, blocks, autoSend }. An absent key means "registry defaults", so a
