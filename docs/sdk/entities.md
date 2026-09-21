@@ -189,3 +189,28 @@ start working while a `::before` scrim and a `5cqi` font size still would not,
 producing a template that is *more* nearly right and just as silently broken.
 Choosing an email-safe equivalent is a design decision, not a transformation a
 renderer can make.
+
+### Rich text: one inherited base size
+
+`renderRichText` sets `font-size` on the wrapping `<td>`, mirroring
+`richTextTypographyCss`, which sets it on the `.rich-text` root. Everything
+inside inherits one base size.
+
+This matters because `applyTypographyInline` only reaches `<p>` and `<h1>`–`<h6>`.
+A contentEditable emits `<div>` for the soft-wrapped lines of a signature, and
+those have no size of their own — on the web they inherit from `.rich-text`, but
+in email, before this, they fell back to the email body's size and a signature
+rendered visibly smaller than the paragraph above it.
+
+Setting the base on the cell is preferred to adding `div` to the tag inliner: it
+covers every element the editor can produce, and it cannot apply the paragraph
+MARGIN to a signature's deliberately tight lines.
+
+**Admin chrome is not content.** Copying a `{{ variable }}` out of the in-admin
+reference carries the chip's *computed* style, because the clipboard serialises
+resolved values rather than the custom properties behind them — so
+`--admin-font-mono` arrives as a literal `"JetBrains Mono", …` stack and the
+token renders as red monospace in an otherwise-Arial sentence. `pasteCleanup`
+drops `font-family` (and the `letter-spacing` riding with it) when the first
+family is one of the three admin faces. It matches the FIRST family only, so a
+deliberate `monospace` is left alone.
