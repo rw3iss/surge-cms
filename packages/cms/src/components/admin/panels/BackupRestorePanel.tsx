@@ -13,6 +13,7 @@ import { Component, createResource, createSignal, For, onMount, Show, } from 'so
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import { FormField, } from '../forms';
+import Toggle from '../common/Toggle';
 import ModalShell from '../common/ModalShell';
 import './BackupRestorePanel.scss';
 
@@ -85,14 +86,40 @@ const BackupRestorePanel: Component = () => {
     const [running, setRunning,] = createSignal(false,);
 
     onMount(async () => {
-        try { setDest(await cms.settings.getBackupDestination() as BackupSettings,); }
-        catch { /* error bus */ }
+        try {
+            const d = await cms.settings.getBackupDestination() as BackupSettings;
+            setDest(d,);
+            if (d.destination !== 'download') await loadStored();
+        } catch { /* error bus */ }
     },);
 
     /** Patch one field without losing the rest of the shape. */
     const patch = (p: Partial<BackupSettings>,) => setDest({ ...(dest() as BackupSettings), ...p, },);
     const patchS3 = (p: Partial<BackupSettings['s3']>,) =>
         patch({ s3: { ...(dest()!.s3 ?? {}), ...p, } as BackupSettings['s3'], },);
+    const patchSchedule = (p: Partial<BackupSettings['schedule']>,) =>
+        patch({ schedule: { ...(dest()!.schedule ?? {}), ...p, } as BackupSettings['schedule'], },);
+
+    const [stored, setStored,] = createSignal<Array<{ id: string; filename: string; bytes: number; createdAt: string; }>>([],);
+    const [restoringId, setRestoringId,] = createSignal<string | null>(null,);
+
+    const loadStored = async () => {
+        try { setStored(await cms.settings.listBackups() as never,); } catch { /* error bus */ }
+    };
+
+    /** Restore from a stored backup. Guarded by the same typed confirmation as
+     *  the upload path — this replaces the entire live database. */
+    const restoreStored = async (id: string, filename: string,) => {
+        const typed = window.prompt(
+            `This REPLACES the entire live database with ${filename}. This cannot be undone.\n\nType REPLACE to confirm:`,
+        );
+        if (typed !== 'REPLACE') return;
+        setRestoringId(id,);
+        try {
+            await cms.settings.restoreFromDestination(id,);
+            toast.success('Database restored. Reload the admin.',);
+        } catch { /* error bus */ } finally { setRestoringId(null,); }
+    };
 
     const saveDest = async () => {
         setSavingDest(true,);
@@ -116,6 +143,7 @@ const BackupRestorePanel: Component = () => {
         try {
             const r = await cms.settings.runBackup();
             toast.success(`Backup stored: ${r.location} (${Math.round(r.bytes / 1024,)} KB)`,);
+            await loadStored();
         } catch { /* error bus */ } finally { setRunning(false,); }
     };
 
@@ -240,6 +268,58 @@ const BackupRestorePanel: Component = () => {
                             </FormField>
                         </Show>
 
+                        {/* ─── Automatic backups ─── */}
+                        <Show when={d().destination !== 'download'}>
+                            <div class="backup-panel__subsection">
+                                <Toggle
+                                    checked={d().schedule?.enabled === true}
+                                    onChange={(next,) => patchSchedule({ enabled: next, },)}
+                                    label="Run backups automatically"
+                                />
+                                <Show when={d().schedule?.enabled}>
+                                    <div class="admin-form-row-2">
+                                        <FormField label="Frequency">
+                                            <select
+                                                value={d().schedule?.frequency ?? 'daily'}
+                                                onChange={(e,) => patchSchedule({ frequency: e.currentTarget.value as never, },)}
+                                            >
+                                                <option value="daily">Daily</option>
+                                                <option value="weekly">Weekly</option>
+                                                <option value="monthly">Monthly</option>
+                                            </select>
+                                        </FormField>
+                                        <FormField label="Time" hint="Wall clock — stays put across daylight-saving changes.">
+                                            <input
+                                                type="time"
+                                                value={(d().schedule?.timeOfDay ?? '02:00').slice(0, 5,)}
+                                                onChange={(e,) => patchSchedule({ timeOfDay: e.currentTarget.value, },)}
+                                            />
+                                        </FormField>
+                                    </div>
+                                    <FormField label="Time zone" hint="IANA name, e.g. America/New_York.">
+                                        <input
+                                            type="text"
+                                            value={d().schedule?.timezone ?? 'UTC'}
+                                            placeholder="UTC"
+                                            onBlur={(e,) => patchSchedule({ timezone: e.currentTarget.value, },)}
+                                        />
+                                    </FormField>
+                                    <p class="form-help">
+                                        <Show when={d().nextRunAt} fallback={<>Save to schedule the first run.</>}>
+                                            Next run: <strong>{new Date(d().nextRunAt!,).toLocaleString()}</strong>
+                                        </Show>
+                                        <Show when={d().lastRunAt}>
+                                            {' · '}Last run: {new Date(d().lastRunAt!,).toLocaleString()}{' '}
+                                            <strong>{d().lastStatus === 'ok' ? 'succeeded' : 'FAILED'}</strong>
+                                            <Show when={d().lastStatus === 'failed' && d().lastError}>
+                                                {' — '}{d().lastError}
+                                            </Show>
+                                        </Show>
+                                    </p>
+                                </Show>
+                            </div>
+                        </Show>
+
                         <div class="backup-panel__actions">
                             <button
                                 type="button"
@@ -272,6 +352,35 @@ const BackupRestorePanel: Component = () => {
                             A backup contains every password hash and API key on the site. Treat
                             the destination as you would the database itself.
                         </p>
+
+                        <Show when={d().destination !== 'download' && stored().length > 0}>
+                            <div class="backup-panel__subsection">
+                                <h4>Stored backups</h4>
+                                <table class="admin-table">
+                                    <tbody>
+                                        <For each={stored()}>
+                                            {(b,) => (
+                                                <tr>
+                                                    <td>{b.filename}</td>
+                                                    <td>{(b.bytes / 1024 / 1024).toFixed(2)} MB</td>
+                                                    <td>{new Date(b.createdAt,).toLocaleString()}</td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            class="ui-button ui-button--sm ui-button--danger"
+                                                            disabled={restoringId() !== null}
+                                                            onClick={() => restoreStored(b.id, b.filename,)}
+                                                        >
+                                                            {restoringId() === b.id ? 'Restoring…' : 'Restore'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </For>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Show>
                     </div>
                 )}
             </Show>

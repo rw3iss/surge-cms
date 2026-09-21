@@ -1549,6 +1549,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /settings/users (admin) — email-verification requirement + email."
             },
             {
+                "name": "listBackups",
+                "signature": "listBackups(): Promise<BackupListResponse>",
+                "summary": "GET /settings/backup-destination/list — backups at the destination."
+            },
+            {
                 "name": "listSwatches",
                 "signature": "listSwatches(): Promise<SettingsSiteColorsResponse>",
                 "summary": "GET /settings/site-colors (public) — the swatch palette (bare array)."
@@ -1567,6 +1572,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "restoreBackup",
                 "signature": "restoreBackup(file: Blob, confirm: 'REPLACE'): Promise<{ bytes: number; format: 'custom' | 'plain'; migrationsApplied: string[]; warnings: string[]; }>",
                 "summary": "REPLACE the whole database with an uploaded dump. Irreversible. `confirm` must be the literal string `REPLACE`; the server rejects anything else, so a mis-wired call cannot wipe a site."
+            },
+            {
+                "name": "restoreFromDestination",
+                "signature": "restoreFromDestination(id: string): Promise<unknown>",
+                "summary": "POST /settings/backup-destination/restore — restore from a stored backup. Replaces the entire live database; `confirm` must be 'REPLACE'."
             },
             {
                 "name": "runBackup",
@@ -2204,4 +2214,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 382;
+export const SDK_METHOD_COUNT = 384;

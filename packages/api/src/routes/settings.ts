@@ -8,6 +8,7 @@ import { ForbiddenError, ValidationError, } from '../core/errors';
 import { requirePermission, } from '../services/permissions';
 import * as backup from '../services/backup';
 import * as backupDestinations from '../services/backup/destinations';
+import * as backupSchedule from '../services/backup/schedule';
 import { SECRET_MASK, } from '../services/shop/providers/settings';
 import * as serverLogs from '../services/serverLogs';
 import * as settings from '../services/settings';
@@ -327,7 +328,14 @@ export const settingsRoutes = [
                     accessKeyId: z.string().max(200,).optional(),
                     secretAccessKey: z.string().max(400,).optional(),
                 },).optional(),
-                retentionDays: z.number().int().min(0,).max(3650,).optional(),
+                // Capped at a year; 0 means keep everything.
+                retentionDays: z.number().int().min(0,).max(365,).optional(),
+                schedule: z.object({
+                    enabled: z.boolean(),
+                    frequency: z.enum(['daily', 'weekly', 'monthly',],),
+                    timeOfDay: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Use HH:MM',),
+                    timezone: z.string().max(64,),
+                },).optional(),
             },),
         },
         handler: async ({ body, audit, },) => {
@@ -344,7 +352,36 @@ export const settingsRoutes = [
                         : secret,
                 },
             };
-            return settings.setBackupSettings(merged, audit(),);
+            await settings.setBackupSettings(merged, audit(),);
+            // Recompute the cursor NOW so enabling or retiming a backup takes
+            // effect immediately rather than after the next tick — and so a
+            // disabled schedule stops being due.
+            await backupSchedule.rescheduleBackups();
+            return settings.getBackupSettings();
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/backup-destination/list', auth: 'admin',
+        summary: 'List backups stored at the configured destination.',
+        handler: async () => backupDestinations.listBackups(await settings.getBackupSettings(),),
+    },),
+
+    /**
+     * Restore directly from a stored backup.
+     *
+     * Same `confirm: 'REPLACE'` gate as the upload path — this replaces the
+     * entire live database, and a mis-click must not be able to do it.
+     */
+    defineRoute({
+        method: 'post', path: '/backup-destination/restore', auth: 'admin',
+        summary: 'Restore the database from a backup at the configured destination.',
+        input: { body: z.object({ id: z.string().min(1,), confirm: z.literal('REPLACE',), },), },
+        handler: async ({ body, req, },) => {
+            await requirePermission(req as never, 'settings.backup:restore',);
+            const cfg = await settings.getBackupSettings();
+            const path = await backupDestinations.fetchBackup(cfg, body.id,);
+            return backup.restoreBackup(path,);
         },
     },),
 

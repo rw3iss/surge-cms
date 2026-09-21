@@ -590,7 +590,25 @@ export async function getBackupSettings(): Promise<import('@sitesurge/types').Ba
             accessKeyId: env.BACKUP_S3_ACCESS_KEY_ID || raw?.s3?.accessKeyId || '',
             secretAccessKey: env.BACKUP_S3_SECRET_ACCESS_KEY || raw?.s3?.secretAccessKey || '',
         },
-        retentionDays: Number(env.BACKUP_RETENTION_DAYS ?? raw?.retentionDays ?? 30,) || 0,
+        // Clamped to a year. 0 means keep everything, which is a deliberate
+        // choice rather than "unset" — hence the ?? chain rather than `||`.
+        retentionDays: Math.min(365, Math.max(0,
+            Number(env.BACKUP_RETENTION_DAYS ?? raw?.retentionDays ?? 30,) || 0,
+        ),),
+        schedule: {
+            // OFF by default: a schedule that silently started writing to an
+            // unconfigured destination would be worse than no schedule.
+            enabled: raw?.schedule?.enabled === true,
+            frequency: raw?.schedule?.frequency ?? 'daily',
+            // 02:00 local — low traffic, and a dump holds locks.
+            timeOfDay: raw?.schedule?.timeOfDay || '02:00',
+            timezone: raw?.schedule?.timezone || 'UTC',
+        },
+        nextRunAt: raw?.nextRunAt ?? null,
+        lastRunAt: raw?.lastRunAt ?? null,
+        lastStatus: raw?.lastStatus ?? null,
+        lastError: raw?.lastError ?? null,
+        lastLocation: raw?.lastLocation ?? null,
     };
 }
 

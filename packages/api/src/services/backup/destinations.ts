@@ -205,3 +205,99 @@ export async function pruneOldBackups(settings: BackupSettings,): Promise<number
     }
     return removed;
 }
+
+/**
+ * List the backups we created at the configured destination, newest first.
+ *
+ * Filtered to our own filename pattern for the same reason the retention sweep
+ * is: a bucket or folder is often shared, and offering someone else's file as
+ * "a backup you can restore" would be actively dangerous.
+ */
+export async function listBackups(settings: BackupSettings,): Promise<Array<{
+    id: string; filename: string; bytes: number; createdAt: string;
+}>> {
+    const out: Array<{ id: string; filename: string; bytes: number; createdAt: string; }> = [];
+    try {
+        if (settings.destination === 'local' && settings.local?.path) {
+            const dir = settings.local.path;
+            for (const name of await readdir(dir,)) {
+                if (!BACKUP_NAME_RE.test(name,)) continue;
+                const info = await stat(join(dir, name,),);
+                out.push({
+                    id: join(dir, name,), filename: name,
+                    bytes: info.size, createdAt: new Date(info.mtimeMs,).toISOString(),
+                },);
+            }
+        } else if (settings.destination === 's3' && settings.s3?.bucket) {
+            const cfg = settings.s3;
+            const { ListObjectsV2Command, } = await import('@aws-sdk/client-s3');
+            const client = await s3Client(cfg,);
+            const res = await client.send(new ListObjectsV2Command({
+                Bucket: cfg.bucket,
+                ...(cfg.prefix ? { Prefix: cfg.prefix.replace(/^\/+/, '',), } : {}),
+            },),);
+            for (const obj of res.Contents ?? []) {
+                const filename = (obj.Key ?? '').split('/',).pop() ?? '';
+                if (!BACKUP_NAME_RE.test(filename,)) continue;
+                out.push({
+                    id: obj.Key!, filename,
+                    bytes: obj.Size ?? 0,
+                    createdAt: (obj.LastModified ?? new Date(0,)).toISOString(),
+                },);
+            }
+        }
+    } catch (e) {
+        logger.warn('Listing backups failed', { error: (e as Error).message, },);
+    }
+    return out.sort((a, b,) => b.createdAt.localeCompare(a.createdAt,));
+}
+
+/**
+ * Download a stored backup to a local temp file, ready for `restoreBackup`.
+ *
+ * Returns the path; the caller is responsible for removing it. `id` must be one
+ * the listing produced — it is re-validated against the filename pattern so a
+ * crafted key cannot pull an arbitrary object out of the bucket and feed it to
+ * the restore path.
+ */
+export async function fetchBackup(settings: BackupSettings, id: string,): Promise<string> {
+    const filename = id.split('/',).pop() ?? '';
+    if (!BACKUP_NAME_RE.test(filename,)) {
+        throw new AppError(400, 'BACKUP_NOT_FOUND', 'That is not a backup this site created.',);
+    }
+
+    if (settings.destination === 'local') {
+        const dir = settings.local?.path ?? '';
+        // Must resolve INSIDE the configured directory — `..` in the id would
+        // otherwise reach any file the process can read.
+        const full = join(dir, filename,);
+        if (!full.startsWith(dir,)) {
+            throw new AppError(400, 'BACKUP_NOT_FOUND', 'Invalid backup path.',);
+        }
+        return full;
+    }
+
+    if (settings.destination === 's3' && settings.s3?.bucket) {
+        const { GetObjectCommand, } = await import('@aws-sdk/client-s3');
+        const { mkdtemp, } = await import('fs/promises');
+        const { tmpdir, } = await import('os');
+        const { createWriteStream, } = await import('fs');
+        const client = await s3Client(settings.s3,);
+        const res = await client.send(new GetObjectCommand({
+            Bucket: settings.s3.bucket, Key: id,
+        },),);
+        const dir = await mkdtemp(join(tmpdir(), 'sitesurge-restore-',),);
+        const dest = join(dir, filename,);
+        await new Promise<void>((resolve, reject,) => {
+            const write = createWriteStream(dest,);
+            const body = res.Body as NodeJS.ReadableStream;
+            body.on('error', reject,);
+            write.on('error', reject,);
+            write.on('finish', () => resolve(),);
+            body.pipe(write,);
+        },);
+        return dest;
+    }
+
+    throw new AppError(400, 'BACKUP_DEST_INVALID', 'No restorable destination is configured.',);
+}

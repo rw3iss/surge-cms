@@ -47,6 +47,24 @@ export interface BackupS3Config {
     secretAccessKey?: string;
 }
 
+/** How often an automatic backup runs. */
+export type BackupFrequency = 'daily' | 'weekly' | 'monthly';
+
+export const BACKUP_FREQUENCIES: readonly BackupFrequency[] = ['daily', 'weekly', 'monthly',];
+
+/** Longest retention the UI offers — a year. */
+export const BACKUP_RETENTION_MAX_DAYS = 365;
+
+/** Automatic-backup schedule. */
+export interface BackupScheduleConfig {
+    enabled: boolean;
+    frequency: BackupFrequency;
+    /** Wall-clock `HH:MM` in `timezone`. */
+    timeOfDay: string;
+    /** IANA zone. Wall clock, not an offset, so 02:00 stays 02:00 across DST. */
+    timezone: string;
+}
+
 /** The stored `backup_settings` row. */
 export interface BackupSettings {
     destination: BackupDestinationKind;
@@ -58,7 +76,38 @@ export interface BackupSettings {
      * Only applies to destinations we manage the listing for (local, s3).
      */
     retentionDays: number;
+    /** Automatic backups. Disabled by default — a schedule that silently
+     *  started writing to an unconfigured destination would be worse than
+     *  none. */
+    schedule: BackupScheduleConfig;
+    /**
+     * When the next automatic backup is due (ISO), or null when disabled.
+     *
+     * Stored rather than held in memory: node-cron tasks vanish on restart,
+     * and a schedule that exists in settings but never fires is the exact
+     * failure this whole design avoids. A cursor in the database restores
+     * itself by construction.
+     */
+    nextRunAt?: string | null;
+    /** Outcome of the last automatic run, for the admin to see. */
+    lastRunAt?: string | null;
+    lastStatus?: 'ok' | 'failed' | null;
+    lastError?: string | null;
+    lastLocation?: string | null;
 }
+
+/** One stored backup, as listed from the destination. */
+export interface StoredBackup {
+    /** Object key or absolute path. */
+    id: string;
+    filename: string;
+    bytes: number;
+    /** ISO timestamp. */
+    createdAt: string;
+}
+
+/** GET /settings/backup-destination/list (admin). */
+export type BackupListResponse = StoredBackup[];
 
 /** GET /settings/backup-destination (admin). */
 export type SettingsBackupDestinationResponse = BackupSettings;

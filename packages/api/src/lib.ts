@@ -30,6 +30,7 @@ import { getInstallationState, } from './services/installation';
 import { initPrintifyCron, } from './services/printify/cron';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
+import { initBackupCron, } from './services/backup/cron';
 import { initMailScheduleCron, } from './services/mail/scheduleCron';
 import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
@@ -148,6 +149,7 @@ async function bootRunningMode(
         // No-op unless the shop feature is on and auto-send is enabled; the handler
         // checks both, so registration is unconditional and cheap.
         initMerchandiseAnnounce();
+        initBackupCron();
         // Sweeps due mailing-list schedules. No-ops when the feature is off.
         initMailScheduleCron();
         initPrintifyCron();

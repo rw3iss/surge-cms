@@ -14,7 +14,7 @@ import type {
     SettingsUsersResponse, SettingsUsersBody,
     SettingsMailingListsResponse, SettingsMailingListsBody,
     SettingsBackupDestinationResponse, SettingsBackupDestinationBody,
-    BackupDestinationTestResponse, BackupRunResponse,
+    BackupDestinationTestResponse, BackupRunResponse, BackupListResponse,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
     PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
     ShopStripeStatusResponse,
@@ -224,6 +224,19 @@ export class SettingsModule extends ModuleBase {
     /** POST /settings/backup-destination/test — writes and removes a probe. */
     testBackupDestination(): Promise<BackupDestinationTestResponse> {
         return this.mutate<BackupDestinationTestResponse>('POST', '/settings/backup-destination/test', {},);
+    }
+
+    /** GET /settings/backup-destination/list — backups at the destination. */
+    listBackups(): Promise<BackupListResponse> {
+        return this.get<BackupListResponse>('/settings/backup-destination/list',);
+    }
+
+    /** POST /settings/backup-destination/restore — restore from a stored
+     *  backup. Replaces the entire live database; `confirm` must be 'REPLACE'. */
+    restoreFromDestination(id: string,): Promise<unknown> {
+        return this.mutate('POST', '/settings/backup-destination/restore', {
+            body: { id, confirm: 'REPLACE', }, invalidates: ['settings',],
+        },);
     }
 
     /** POST /settings/backup-destination/run — dump + store at the destination. */
