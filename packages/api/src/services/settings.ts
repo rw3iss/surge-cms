@@ -425,6 +425,17 @@ const USERS_SETTINGS: KeyedSetting = {
 };
 
 /**
+ * Backup destination. Empty is the right fallback — an unconfigured install
+ * keeps the previous behaviour (download through the admin, nothing stored).
+ */
+const BACKUP_SETTINGS: KeyedSetting = {
+    key: 'backup_settings',
+    cacheKey: 'settings:backup_settings',
+    entityId: 'backup_settings',
+    fallback: {},
+};
+
+/**
  * Mailing-list sender defaults. Empty is the right fallback — an unconfigured
  * install keeps the previous behaviour (site name + MAIL_LIST_FROM).
  */
@@ -542,6 +553,49 @@ export async function getMailingListsSettings(): Promise<import('@sitesurge/type
 }
 export const setMailingListsSettings = (value: unknown, ctx: AuditContext,) =>
     setKeyed(MAILING_LISTS_SETTINGS, value, ctx,);
+
+/** Default local backup directory. NOT under /tmp: most systems clear /tmp on
+ *  reboot, and a backup that vanishes on restart is not a backup. */
+const DEFAULT_BACKUP_DIR = '/var/backups/sitesurge';
+
+/**
+ * Backup destination settings.
+ *
+ * ENVIRONMENT WINS over the stored row, for one specific reason: these
+ * credentials are how you reach your backups, and they would otherwise live
+ * ONLY inside the database those backups exist to recover. Losing the database
+ * would lose the way to find its own backups. An operator who sets
+ * `BACKUP_S3_*` in `.env` keeps a copy outside the blast radius.
+ */
+export async function getBackupSettings(): Promise<import('@sitesurge/types').BackupSettings> {
+    const raw = await getKeyed(BACKUP_SETTINGS,) as
+        Partial<import('@sitesurge/types').BackupSettings> | null;
+    const env = process.env;
+
+    const envBucket = env.BACKUP_S3_BUCKET;
+    const destination = (env.BACKUP_DESTINATION as never)
+        ?? raw?.destination
+        ?? (envBucket ? 's3' : 'download');
+
+    return {
+        destination,
+        local: {
+            path: env.BACKUP_LOCAL_PATH || raw?.local?.path || DEFAULT_BACKUP_DIR,
+        },
+        s3: {
+            endpoint: env.BACKUP_S3_ENDPOINT || raw?.s3?.endpoint || '',
+            region: env.BACKUP_S3_REGION || raw?.s3?.region || 'auto',
+            bucket: envBucket || raw?.s3?.bucket || '',
+            prefix: env.BACKUP_S3_PREFIX || raw?.s3?.prefix || '',
+            accessKeyId: env.BACKUP_S3_ACCESS_KEY_ID || raw?.s3?.accessKeyId || '',
+            secretAccessKey: env.BACKUP_S3_SECRET_ACCESS_KEY || raw?.s3?.secretAccessKey || '',
+        },
+        retentionDays: Number(env.BACKUP_RETENTION_DAYS ?? raw?.retentionDays ?? 30,) || 0,
+    };
+}
+
+export const setBackupSettings = (value: unknown, ctx: AuditContext,) =>
+    setKeyed(BACKUP_SETTINGS, value, ctx,);
 
 /** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
  *  subject, blocks, autoSend }. An absent key means "registry defaults", so a

@@ -7,6 +7,8 @@ import { defineRoute, } from '../api/defineRoute';
 import { ForbiddenError, ValidationError, } from '../core/errors';
 import { requirePermission, } from '../services/permissions';
 import * as backup from '../services/backup';
+import * as backupDestinations from '../services/backup/destinations';
+import { SECRET_MASK, } from '../services/shop/providers/settings';
 import * as serverLogs from '../services/serverLogs';
 import * as settings from '../services/settings';
 import * as stripeCreds from '../services/payment/credentials';
@@ -284,6 +286,100 @@ export const settingsRoutes = [
         handler: async ({ params, audit, },) => {
             const result = await settings.uninstallFeature(params.key as never, audit(),);
             return { message: `Removed ${params.key}`, ...result, };
+        },
+    },),
+
+    /**
+     * Backup destination config.
+     *
+     * The secret is MASKED on read. It is an object-store key that can write to
+     * (and, with most policies, read) every database dump you have — which is
+     * every password hash on the site. There is no reason for the browser to
+     * ever hold it.
+     */
+    defineRoute({
+        method: 'get', path: '/backup-destination', auth: 'admin',
+        summary: 'Backup destination settings (secret masked).',
+        handler: async () => {
+            const s = await settings.getBackupSettings();
+            return {
+                ...s,
+                s3: {
+                    ...s.s3,
+                    secretAccessKey: s.s3.secretAccessKey ? SECRET_MASK : '',
+                },
+            };
+        },
+    },),
+
+    defineRoute({
+        method: 'put', path: '/backup-destination', auth: 'admin',
+        summary: 'Update backup destination settings.',
+        input: {
+            body: z.object({
+                destination: z.enum(['download', 'local', 's3',],),
+                local: z.object({ path: z.string().max(500,), },).optional(),
+                s3: z.object({
+                    endpoint: z.string().max(500,).optional(),
+                    region: z.string().max(60,).optional(),
+                    bucket: z.string().max(200,).optional(),
+                    prefix: z.string().max(200,).optional(),
+                    accessKeyId: z.string().max(200,).optional(),
+                    secretAccessKey: z.string().max(400,).optional(),
+                },).optional(),
+                retentionDays: z.number().int().min(0,).max(3650,).optional(),
+            },),
+        },
+        handler: async ({ body, audit, },) => {
+            // An echoed mask means "unchanged" — without this, opening the form
+            // and pressing Save would wipe a working credential.
+            const current = await settings.getBackupSettings();
+            const secret = body.s3?.secretAccessKey;
+            const merged = {
+                ...body,
+                s3: {
+                    ...(body.s3 ?? {}),
+                    secretAccessKey: (!secret || secret === SECRET_MASK)
+                        ? current.s3.secretAccessKey
+                        : secret,
+                },
+            };
+            return settings.setBackupSettings(merged, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/backup-destination/test', auth: 'admin',
+        summary: 'Verify the configured backup destination is writable.',
+        handler: async () => backupDestinations.testDestination(await settings.getBackupSettings(),),
+    },),
+
+    /**
+     * Generate a dump and store it at the configured destination.
+     *
+     * Separate from `GET /settings/backup` (which streams a download) so an
+     * operator can prove the destination works end to end before relying on it.
+     */
+    defineRoute({
+        method: 'post', path: '/backup-destination/run', auth: 'admin',
+        summary: 'Run a backup and store it at the configured destination.',
+        handler: async () => {
+            const cfg = await settings.getBackupSettings();
+            const meta = await backup.createBackup('custom',);
+            try {
+                const stored = await backupDestinations.storeBackup(cfg, meta.path, meta.filename,);
+                const pruned = await backupDestinations.pruneOldBackups(cfg,);
+                return {
+                    ok: true,
+                    location: stored.location,
+                    bytes: stored.bytes,
+                    detail: pruned > 0 ? `Removed ${pruned} expired backup(s).` : undefined,
+                };
+            } finally {
+                // The temp dump is removed whether or not the upload worked —
+                // a failed destination must not fill the server's disk.
+                await backup.cleanup(meta,);
+            }
         },
     },),
 

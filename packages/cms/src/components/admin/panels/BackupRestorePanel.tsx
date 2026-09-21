@@ -8,9 +8,11 @@
  * user table too, so getting it wrong can lock the operator out of their own
  * site.
  */
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import type { BackupSettings, } from '@sitesurge/types';
+import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
+import { FormField, } from '../forms';
 import ModalShell from '../common/ModalShell';
 import './BackupRestorePanel.scss';
 
@@ -76,6 +78,47 @@ const BackupRestorePanel: Component = () => {
         }
     };
 
+    // ─── Destination ───
+    const [dest, setDest,] = createSignal<BackupSettings | null>(null,);
+    const [savingDest, setSavingDest,] = createSignal(false,);
+    const [testing, setTesting,] = createSignal(false,);
+    const [running, setRunning,] = createSignal(false,);
+
+    onMount(async () => {
+        try { setDest(await cms.settings.getBackupDestination() as BackupSettings,); }
+        catch { /* error bus */ }
+    },);
+
+    /** Patch one field without losing the rest of the shape. */
+    const patch = (p: Partial<BackupSettings>,) => setDest({ ...(dest() as BackupSettings), ...p, },);
+    const patchS3 = (p: Partial<BackupSettings['s3']>,) =>
+        patch({ s3: { ...(dest()!.s3 ?? {}), ...p, } as BackupSettings['s3'], },);
+
+    const saveDest = async () => {
+        setSavingDest(true,);
+        try {
+            await cms.settings.setBackupDestination(dest() as never,);
+            toast.success('Backup destination saved.',);
+        } catch { /* error bus */ } finally { setSavingDest(false,); }
+    };
+
+    const testDest = async () => {
+        setTesting(true,);
+        try {
+            const r = await cms.settings.testBackupDestination();
+            if (r.ok) toast.success(r.detail || 'Destination is writable.',);
+            else toast.error(r.detail || 'Destination test failed.',);
+        } catch { /* error bus */ } finally { setTesting(false,); }
+    };
+
+    const runNow = async () => {
+        setRunning(true,);
+        try {
+            const r = await cms.settings.runBackup();
+            toast.success(`Backup stored: ${r.location} (${Math.round(r.bytes / 1024,)} KB)`,);
+        } catch { /* error bus */ } finally { setRunning(false,); }
+    };
+
     return (
         <div class="backup-panel">
             <Show when={tooling() && !tooling()!.available}>
@@ -87,6 +130,150 @@ const BackupRestorePanel: Component = () => {
                     </p>
                     <p class="backup-panel__detail">{tooling()!.detail}</p>
                 </div>
+            </Show>
+
+            {/* ─── Where backups are stored ─────────────────────────────── */}
+            <Show when={dest()}>
+                {(d,) => (
+                    <div class="backup-panel__section">
+                        <h3>Backup destination</h3>
+                        <p class="form-help">
+                            Where a backup is stored when you run one. <strong>Download only</strong>
+                            keeps the current behaviour — nothing is stored, you pull a copy
+                            through the browser.
+                        </p>
+
+                        <FormField label="Destination">
+                            <select
+                                value={d().destination}
+                                onChange={(e,) => patch({ destination: e.currentTarget.value as never, },)}
+                            >
+                                <option value="download">Download only (nothing stored)</option>
+                                <option value="local">Server folder</option>
+                                <option value="s3">S3-compatible (AWS S3, Cloudflare R2, Backblaze, MinIO)</option>
+                            </select>
+                        </FormField>
+
+                        <Show when={d().destination === 'local'}>
+                            <FormField
+                                label="Folder"
+                                hint="Absolute path on the server. Avoid /tmp — most systems clear it on reboot."
+                            >
+                                <input
+                                    type="text"
+                                    value={d().local?.path ?? ''}
+                                    placeholder="/var/backups/sitesurge"
+                                    onBlur={(e,) => patch({ local: { path: e.currentTarget.value, }, },)}
+                                />
+                            </FormField>
+                        </Show>
+
+                        <Show when={d().destination === 's3'}>
+                            <FormField
+                                label="Endpoint"
+                                hint="Required for R2 and other S3-compatible stores. Leave blank for AWS S3."
+                            >
+                                <input
+                                    type="text"
+                                    value={d().s3?.endpoint ?? ''}
+                                    placeholder="https://<account-id>.r2.cloudflarestorage.com"
+                                    onBlur={(e,) => patchS3({ endpoint: e.currentTarget.value, },)}
+                                />
+                            </FormField>
+                            <div class="admin-form-row-2">
+                                <FormField label="Bucket">
+                                    <input
+                                        type="text"
+                                        value={d().s3?.bucket ?? ''}
+                                        onBlur={(e,) => patchS3({ bucket: e.currentTarget.value, },)}
+                                    />
+                                </FormField>
+                                <FormField label="Region" hint="Use `auto` for Cloudflare R2.">
+                                    <input
+                                        type="text"
+                                        value={d().s3?.region ?? ''}
+                                        placeholder="auto"
+                                        onBlur={(e,) => patchS3({ region: e.currentTarget.value, },)}
+                                    />
+                                </FormField>
+                            </div>
+                            <FormField label="Folder prefix" hint="Optional, e.g. db-backups.">
+                                <input
+                                    type="text"
+                                    value={d().s3?.prefix ?? ''}
+                                    placeholder="db-backups"
+                                    onBlur={(e,) => patchS3({ prefix: e.currentTarget.value, },)}
+                                />
+                            </FormField>
+                            <div class="admin-form-row-2">
+                                <FormField label="Access key ID">
+                                    <input
+                                        type="text"
+                                        value={d().s3?.accessKeyId ?? ''}
+                                        onBlur={(e,) => patchS3({ accessKeyId: e.currentTarget.value, },)}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Secret access key"
+                                    hint="Stored server-side and never sent back to the browser."
+                                >
+                                    <input
+                                        type="password"
+                                        value={d().s3?.secretAccessKey ?? ''}
+                                        onBlur={(e,) => patchS3({ secretAccessKey: e.currentTarget.value, },)}
+                                    />
+                                </FormField>
+                            </div>
+                        </Show>
+
+                        <Show when={d().destination !== 'download'}>
+                            <FormField
+                                label="Keep backups for (days)"
+                                hint="0 keeps everything. Only files this CMS created are ever removed."
+                            >
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={d().retentionDays ?? 0}
+                                    onBlur={(e,) => patch({ retentionDays: Number(e.currentTarget.value,) || 0, },)}
+                                />
+                            </FormField>
+                        </Show>
+
+                        <div class="backup-panel__actions">
+                            <button
+                                type="button"
+                                class="ui-button ui-button--primary"
+                                disabled={savingDest()}
+                                onClick={saveDest}
+                            >
+                                {savingDest() ? 'Saving…' : 'Save destination'}
+                            </button>
+                            <Show when={d().destination !== 'download'}>
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--secondary"
+                                    disabled={testing()}
+                                    onClick={testDest}
+                                >
+                                    {testing() ? 'Testing…' : 'Test connection'}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--secondary"
+                                    disabled={running() || tooling()?.available === false}
+                                    onClick={runNow}
+                                >
+                                    {running() ? 'Backing up…' : 'Back up now'}
+                                </button>
+                            </Show>
+                        </div>
+                        <p class="form-help backup-panel__note">
+                            A backup contains every password hash and API key on the site. Treat
+                            the destination as you would the database itself.
+                        </p>
+                    </div>
+                )}
             </Show>
 
             <div class="backup-panel__section">

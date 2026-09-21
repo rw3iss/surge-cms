@@ -50,6 +50,7 @@ export * from './routes/forms';
 export * from './routes/pages';
 export * from './routes/auth';
 export * from './routes/connections';
+export * from './routes/backupDestinations';
 export * from './routes/settings';
 export * from './routes/feed';
 export * from './routes/sitemap';

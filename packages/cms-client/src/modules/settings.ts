@@ -13,6 +13,8 @@ import type {
     SettingsServerLogsResponse,
     SettingsUsersResponse, SettingsUsersBody,
     SettingsMailingListsResponse, SettingsMailingListsBody,
+    SettingsBackupDestinationResponse, SettingsBackupDestinationBody,
+    BackupDestinationTestResponse, BackupRunResponse,
     SettingsCmsVersionResponse, SettingsUpdateCmsResponse,
     PaymentContext, PaymentCredentialsResponse, PaymentCredentialsUpdateBody,
     ShopStripeStatusResponse,
@@ -204,6 +206,29 @@ export class SettingsModule extends ModuleBase {
         return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/users', {
             body, invalidates: ['settings',],
         },);
+    }
+
+    /** GET /settings/backup-destination (admin) — secret is masked. */
+    getBackupDestination(): Promise<SettingsBackupDestinationResponse> {
+        return this.get<SettingsBackupDestinationResponse>('/settings/backup-destination',);
+    }
+
+    /** PUT /settings/backup-destination (admin). Echo the masked secret back
+     *  to leave it unchanged. */
+    setBackupDestination(body: SettingsBackupDestinationBody,): Promise<SettingsRawKeyResponse> {
+        return this.mutate<SettingsRawKeyResponse>('PUT', '/settings/backup-destination', {
+            body, invalidates: ['settings',],
+        },);
+    }
+
+    /** POST /settings/backup-destination/test — writes and removes a probe. */
+    testBackupDestination(): Promise<BackupDestinationTestResponse> {
+        return this.mutate<BackupDestinationTestResponse>('POST', '/settings/backup-destination/test', {},);
+    }
+
+    /** POST /settings/backup-destination/run — dump + store at the destination. */
+    runBackup(): Promise<BackupRunResponse> {
+        return this.mutate<BackupRunResponse>('POST', '/settings/backup-destination/run', {},);
     }
 
     /** GET /settings/mailing-lists (admin) — sender defaults for bulk mail. */

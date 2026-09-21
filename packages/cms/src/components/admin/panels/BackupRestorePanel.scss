@@ -164,3 +164,11 @@
         flex-wrap: wrap;
     }
 }
+
+// Destination action row — Save / Test / Back up now sit together.
+.backup-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 0;
+}
