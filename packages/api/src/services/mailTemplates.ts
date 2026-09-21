@@ -14,6 +14,7 @@ import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
 import { renderMailHtml, } from './mail/renderer';
 import { buildSiteVariables, } from '@sitesurge/types';
+import { lintBlocksForEmail, } from './mail/cssLint';
 import { expandDynamicBlocks, } from './mail/expandBlocks';
 import { absolutiseUrls, } from './mail/postProcess';
 import { loadMailRenderContext, } from './mail/siteContext';
@@ -237,5 +238,11 @@ export async function preview(input: PreviewInput,) {
         subject: await resolveMailTemplate(result.subject, ctx,),
         preheader: result.preheader ? await resolveMailTemplate(result.preheader, ctx,) : undefined,
         detectedVariables: result.detectedVariables,
+        // Lint the EXPANDED tree, not the operator's blocks: the CSS that
+        // actually ships usually lives in an entity template pulled in by an
+        // `entity` block, which is nowhere in the template the operator is
+        // looking at. Warning only about blocks they can see would have missed
+        // the one that caused this.
+        cssWarnings: lintBlocksForEmail(expanded as never,),
     };
 }

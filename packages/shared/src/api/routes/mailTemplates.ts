@@ -94,6 +94,23 @@ export interface MailTemplatePreviewBody {
     variables?: Record<string, string>;
 }
 
+/**
+ * One piece of CSS in the template that email clients will not honour.
+ *
+ * A Custom HTML block reaches the inbox verbatim, so the admin preview — a
+ * browser with a full CSS engine — flatters it. These call out the constructs
+ * that silently do not survive, which is how a newsletter can arrive
+ * recognisable but visibly wrong.
+ */
+export interface MailCssWarning {
+    /** Stable identifier (`style-block`, `pseudo-element`, …). */
+    code: string;
+    /** What will go wrong, in the author's terms. */
+    message: string;
+    /** The suggested email-safe replacement. */
+    fix: string;
+}
+
 /** POST /mail-templates/preview — rendered HTML plus the resolved
  *  subject/preheader and the set of `{{tokens}}` detected in the output. */
 export interface MailTemplatePreviewResponse {
@@ -101,6 +118,10 @@ export interface MailTemplatePreviewResponse {
     subject: string;
     preheader?: string;
     detectedVariables: string[];
+    /** Email-compatibility warnings for the EXPANDED tree — including blocks
+     *  pulled in by an `entity` block, which the operator cannot see from the
+     *  template they are editing. */
+    cssWarnings?: MailCssWarning[];
 }
 
 // ─── GET /mail-templates/:id ──────────────────────────────────────────

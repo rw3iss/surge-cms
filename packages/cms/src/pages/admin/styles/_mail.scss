@@ -1,0 +1,20 @@
+
+// Email-compatibility warnings in the preview modal. Sits above the iframe:
+// the frame shows the browser's flattering render, and this says what an
+// inbox will not reproduce.
+.mail-preview-modal__warnings {
+    margin: 0 0 0.5rem;
+
+    .mail-preview-modal__vars-toggle {
+        color: inherit;
+    }
+}
+
+.mail-preview-modal__warning-list {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+
+    li + li {
+        margin-top: 0.5rem;
+    }
+}

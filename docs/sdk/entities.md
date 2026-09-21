@@ -146,3 +146,46 @@ SELECT settings->>'content' FROM content_block_template_blocks WHERE id = '<id>'
 ```
 
 and confirm every field that should vary appears as `{{post.field}}`.
+
+## Custom HTML in email: what does not survive
+
+A Custom HTML block reaches the inbox **verbatim** — `services/mail/blocks/html.ts`
+passes it through untouched. The admin preview renders it in a browser with a
+full CSS engine, so it flatters the template: anything the block relies on a
+STYLESHEET for is lost, while its inline styles survive. The result arrives
+recognisable but wrong, which is why it reads as a data or caching problem
+rather than a styling one.
+
+Constructs that cannot work in email, and their replacements:
+
+| Construct | Why | Instead |
+|---|---|---|
+| `<style>` block | Gmail and others strip stylesheets | put each declaration in a `style="…"` attribute |
+| `::before` / `::after` | no element exists to inline onto | layer a gradient into `background-image` on the element itself |
+| `container-type`, `cqi`/`cqw`/`cqh` | container queries exist in no mail client | a fixed value sized for the email width (600px default) |
+| `clamp()` | unsupported in Outlook and others | the single value it resolves to at that width |
+| `display:flex` / `grid`, `gap` | Outlook ignores both | tables, or margins/padding on the items |
+| `var(--…)` | the site stylesheet is not in the inbox | the resolved value |
+| `position:absolute/fixed/sticky` | Outlook ignores them | normal flow, padding, tables |
+
+A dark scrim behind a headline is the common case. On the web it is a
+`::before` overlay; in email it is one declaration:
+
+```css
+background-image: linear-gradient(to bottom, rgba(0,0,0,.05), rgba(0,0,0,.65)),
+                  url('…');
+```
+
+### The preview warns you
+
+`POST /mail-templates/preview` returns `cssWarnings[]` (`services/mail/cssLint.ts`),
+shown above the preview frame. It lints the **expanded** tree, so CSS inside an
+entity template pulled in by an `entity` block is covered — that block's content
+is not visible in the mail template being edited, and is exactly where this bites.
+
+**It lints rather than rewrites, deliberately.** Inlining the inlinable subset
+is the obvious alternative and is a trap: `background-size` and `padding` would
+start working while a `::before` scrim and a `5cqi` font size still would not,
+producing a template that is *more* nearly right and just as silently broken.
+Choosing an email-safe equivalent is a design decision, not a transformation a
+renderer can make.

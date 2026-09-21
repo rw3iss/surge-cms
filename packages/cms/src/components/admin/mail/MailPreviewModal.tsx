@@ -6,8 +6,9 @@
  *
  * Re-renders on a 250ms debounce whenever variables change.
  */
-import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, on, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
+import type { MailCssWarning, MailTemplatePreviewResponse, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import VariableForm from './VariableForm';
 
@@ -28,6 +29,8 @@ const MailPreviewModal: Component<Props> = (p,) => {
     const [varsOpen, setVarsOpen,] = createSignal(false,);
     const [loading, setLoading,] = createSignal(true,);
     const [error, setError,] = createSignal<string | null>(null,);
+    const [cssWarnings, setCssWarnings,] = createSignal<MailCssWarning[]>([],);
+    const [warnOpen, setWarnOpen,] = createSignal(false,);
 
     const fetchPreview = async (): Promise<void> => {
         setLoading(true,);
@@ -38,10 +41,11 @@ const MailPreviewModal: Component<Props> = (p,) => {
                 subject: p.subject,
                 preheader: p.preheader,
                 variables: vars(),
-            } as any,) as { html: string; subject: string; preheader?: string; detectedVariables: string[]; };
+            } as any,) as MailTemplatePreviewResponse;
             setHtml(d.html,);
             setRenderedSubject(d.subject,);
             setDetected(d.detectedVariables,);
+            setCssWarnings(d.cssWarnings ?? [],);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Preview failed.',);
         } finally {
@@ -91,6 +95,35 @@ const MailPreviewModal: Component<Props> = (p,) => {
 
                     <Show when={error()}>
                         <div class="alert alert--error">{error()}</div>
+                    </Show>
+
+
+                    {/* What the preview CANNOT show you. This modal renders in a
+                        browser with a full CSS engine; an inbox has far less of
+                        one, so a Custom HTML block can look right here and arrive
+                        wrong. Placed ABOVE the frame because the whole point is
+                        that the frame below is the flattering version. */}
+                    <Show when={cssWarnings().length > 0}>
+                        <div class="alert alert--warning mail-preview-modal__warnings">
+                            <button
+                                type="button"
+                                class="mail-preview-modal__vars-toggle"
+                                onClick={() => setWarnOpen(!warnOpen(),)}
+                            >
+                                {warnOpen() ? '▼' : '▶'} {cssWarnings().length} style
+                                {cssWarnings().length === 1 ? '' : 's'} may not survive in email
+                            </button>
+                            <Show when={warnOpen()}>
+                                <ul class="mail-preview-modal__warning-list">
+                                    <For each={cssWarnings()}>{(w,) => (
+                                        <li>
+                                            <strong>{w.message}</strong>
+                                            <div class="form-help-muted">{w.fix}</div>
+                                        </li>
+                                    )}</For>
+                                </ul>
+                            </Show>
+                        </div>
                     </Show>
 
                     <iframe
