@@ -598,3 +598,82 @@
 .social-embed__card--small .social-embed__title {
     font-size: 0.875rem;
 }
+
+// ─── Horizontal-row navigation ───
+//
+// The row is a scroll container, so these controls only move `scrollLeft` —
+// they agree with a drag or a trackpad swipe for free, because both move the
+// same thing. Every variant is rendered only when the row actually overflows.
+
+// Side arrows overlay the row's edges, so the block is their containing block.
+.social-block--nav-side-arrows {
+  position: relative;
+}
+
+.social-block__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  // Sits OUTSIDE the row's own `rowPadding`, so the dots clear the cards
+  // rather than floating inside the scroller's inset.
+  margin-top: 10px;
+}
+
+.social-block__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--block-text-color, #{$text-color});
+  opacity: 0.25;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+
+  &:hover { opacity: 0.55; }
+
+  &--active {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+}
+
+.social-block__nav-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: $text-color;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+
+  &:hover:not(:disabled) { background: #fff; }
+
+  // Kept in the layout rather than hidden at the ends: a control that
+  // disappears when you reach the last page makes the row jump under the
+  // cursor mid-click.
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  // Overlaid on the row's left/right edges.
+  &--side {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+  }
+
+  &--prev { left: 0; }
+  &--next { right: 0; }
+}

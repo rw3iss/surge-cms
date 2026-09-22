@@ -4,9 +4,14 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import { resolveSocialCount, resolveSocialDisplay, } from '@sitesurge/types';
+import {
+    resolveSocialCount,
+    resolveSocialDisplay,
+    resolveSocialNavigation,
+    resolveSocialNavPadding,
+} from '@sitesurge/types';
 import type { Block, SocialPlatform, SocialPost, } from '@sitesurge/types';
-import { Component, For, Show, createResource, } from 'solid-js';
+import { Component, For, Show, createResource, createSignal, onCleanup, onMount, } from 'solid-js';
 import { A, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
 import { toFlexAlign, } from '../../../utils/cssAlign';
@@ -51,6 +56,58 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     // Padding INSIDE the horizontal scroll row (row layout only) — set via the
     // block's main Edit properties, independent of the block-style padding.
     const rowPadding = () => (settings().rowPadding as string) || undefined;
+
+    /*
+     * Horizontal-row navigation.
+     *
+     * The row is a scroll container, so "paging" is just scrolling by one
+     * viewport width — no transform track, no index arithmetic to keep in sync
+     * with the DOM. That also means a drag or a trackpad swipe stays the
+     * primary interaction and these controls agree with it for free, because
+     * both move the same `scrollLeft`.
+     */
+    const navigation = () => resolveSocialNavigation(settings() as never,);
+    const navPadding = () => resolveSocialNavPadding(settings() as never,);
+
+    let scroller: HTMLDivElement | undefined;
+    const [page, setPage,] = createSignal(0,);
+    const [pageCount, setPageCount,] = createSignal(1,);
+
+    const measure = (): void => {
+        const el = scroller;
+        if (!el) return;
+        // `clientWidth` is one page. Round rather than ceil on the position so a
+        // half-scrolled row reports the page it is mostly showing.
+        const pages = el.clientWidth > 0 ? Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth,),) : 1;
+        setPageCount(pages,);
+        setPage(Math.min(pages - 1, Math.round(el.scrollLeft / Math.max(1, el.clientWidth,),),),);
+    };
+
+    const goTo = (p: number,): void => {
+        const el = scroller;
+        if (!el) return;
+        const target = Math.max(0, Math.min(pageCount() - 1, p,),);
+        el.scrollTo({ left: target * el.clientWidth, behavior: 'smooth', },);
+        setPage(target,);
+    };
+
+    onMount(() => {
+        if (!scroller) return;
+        measure();
+        const el = scroller;
+        el.addEventListener('scroll', measure, { passive: true, },);
+        // The page count depends on the container's width AND the cards', both
+        // of which change after images load and on resize.
+        const ro = new ResizeObserver(measure,);
+        ro.observe(el,);
+        onCleanup(() => {
+            el.removeEventListener('scroll', measure,);
+            ro.disconnect();
+        },);
+    },);
+
+    /** Arrows are pointless when everything already fits. */
+    const hasOverflow = () => pageCount() > 1;
     const blockStyle = () => props.block.style as Record<string, any> | undefined;
 
     /**
@@ -124,7 +181,7 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     );
 
     return (
-        <div class="social-block">
+        <div class={`social-block social-block--nav-${navigation()}`}>
             <Show
                 when={useAutoFeed() ? (posts()?.length ?? 0) > 0 : filledItems().length > 0}
                 fallback={
@@ -134,6 +191,7 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                 }
             >
                 <div
+                    ref={scroller}
                     // The resolved alignment as an attribute, so the stylesheet can
                     // branch on it statically. It cannot branch on --block-h-align:
                     // `safe` is only valid with POSITIONAL values, and
@@ -253,6 +311,74 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         </For>
                     </Show>
                 </div>
+
+                {/* Side arrows sit OVER the row's own edges; bottom arrows and
+                    dots sit under it. Both are suppressed when nothing
+                    overflows — a control that cannot move anything is worse
+                    than no control. */}
+                <Show when={navigation() === 'side-arrows' && hasOverflow()}>
+                    <button
+                        type="button"
+                        class="social-block__nav-arrow social-block__nav-arrow--side social-block__nav-arrow--prev"
+                        style={{ padding: navPadding(), }}
+                        aria-label="Previous"
+                        disabled={page() <= 0}
+                        onClick={() => goTo(page() - 1,)}
+                    >
+                        <span aria-hidden="true">‹</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="social-block__nav-arrow social-block__nav-arrow--side social-block__nav-arrow--next"
+                        style={{ padding: navPadding(), }}
+                        aria-label="Next"
+                        disabled={page() >= pageCount() - 1}
+                        onClick={() => goTo(page() + 1,)}
+                    >
+                        <span aria-hidden="true">›</span>
+                    </button>
+                </Show>
+
+                <Show when={navigation() === 'dots' && hasOverflow()}>
+                    <div class="social-block__nav social-block__nav--dots" style={{ padding: navPadding(), }}>
+                        <For each={Array.from({ length: pageCount(), },)}>
+                            {(_, i,) => (
+                                <button
+                                    type="button"
+                                    class={`social-block__dot${page() === i() ? ' social-block__dot--active' : ''}`}
+                                    aria-label={`Go to page ${i() + 1}`}
+                                    aria-current={page() === i() ? 'true' : undefined}
+                                    onClick={() => goTo(i(),)}
+                                />
+                            )}
+                        </For>
+                    </div>
+                </Show>
+
+                <Show when={navigation() === 'bottom-arrows' && hasOverflow()}>
+                    <div class="social-block__nav social-block__nav--arrows">
+                        <button
+                            type="button"
+                            class="social-block__nav-arrow"
+                            style={{ padding: navPadding(), }}
+                            aria-label="Previous"
+                            disabled={page() <= 0}
+                            onClick={() => goTo(page() - 1,)}
+                        >
+                            <span aria-hidden="true">‹</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="social-block__nav-arrow"
+                            style={{ padding: navPadding(), }}
+                            aria-label="Next"
+                            disabled={page() >= pageCount() - 1}
+                            onClick={() => goTo(page() + 1,)}
+                        >
+                            <span aria-hidden="true">›</span>
+                        </button>
+                    </div>
+                </Show>
             </Show>
         </div>
     );

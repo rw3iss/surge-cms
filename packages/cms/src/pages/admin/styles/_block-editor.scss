@@ -1646,3 +1646,15 @@
     flex: 0 0 auto;
     white-space: nowrap;
 }
+
+// ─── Social block properties panel ───
+//
+// The panel had no container styles at all, so its FormFields stacked with
+// zero separation and read as one dense wall. `$spacing-md` matches
+// `.block-edit-form`, which is the panel layout every other block editor uses.
+.block-social-feed {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  width: 100%;
+}

@@ -38,6 +38,17 @@ export interface FormFieldProps {
     error?: string;
     /** Single-row layout: label on the left, control on the right. */
     inline?: boolean;
+    /**
+     * Put the hint BESIDE the control instead of under it, with the control
+     * taking about half the width.
+     *
+     * A column of full-width inputs each trailed by two lines of explanation
+     * scrolls far more than it needs to, and the explanations dominate the
+     * controls. Beside, the hint reads as an annotation on a field rather than
+     * a paragraph of its own. Wraps back to underneath when the panel is too
+     * narrow to hold both.
+     */
+    hintBeside?: boolean;
     /** Optional explicit class on the outer wrapper for ad-hoc tweaks. */
     class?: string;
     children: JSX.Element;
@@ -78,8 +89,8 @@ const FormField: Component<FormFieldProps> = (props,) => {
     return (
         <div
             class={`admin-form-field ${props.inline ? 'admin-form-field--inline' : ''} ${
-                props.error ? 'admin-form-field--invalid' : ''
-            } ${props.class || ''}`}
+                props.hintBeside ? 'admin-form-field--hint-beside' : ''
+            } ${props.error ? 'admin-form-field--invalid' : ''} ${props.class || ''}`}
         >
             <label class="admin-form-field__label" onClick={onLabelClick}>
                 <span class="admin-form-field__label-text">{props.label}</span>

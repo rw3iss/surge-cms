@@ -149,3 +149,71 @@ export function isSocialAutoFeed(
         : 0;
     return filled === 0;
 }
+
+/**
+ * Navigation affordance for the Horizontal Row layout.
+ *
+ * The row is a scroll container, so on a touchpad or phone it is already
+ * navigable by dragging — this adds a visible, clickable control for everyone
+ * else, which is also the only affordance that tells a visitor there is more
+ * content off the edge.
+ *
+ * `none` is the default so existing row blocks are unchanged.
+ */
+export type SocialNavigation =
+    /** No control; the row scrolls by drag/wheel only. */
+    | 'none'
+    /** One dot per page, under the row. */
+    | 'dots'
+    /** A left/right pair under the row, where the dots would be. */
+    | 'bottom-arrows'
+    /** A left/right pair overlaid on the row's own left and right edges. */
+    | 'side-arrows';
+
+export const SOCIAL_NAVIGATIONS: readonly SocialNavigation[] = [
+    'none',
+    'dots',
+    'bottom-arrows',
+    'side-arrows',
+];
+
+/** Admin-facing labels, so the panel and any docs cannot drift. */
+export const SOCIAL_NAVIGATION_LABELS: Record<SocialNavigation, string> = {
+    'none': 'None',
+    'dots': 'Dots',
+    'bottom-arrows': 'Bottom arrows',
+    'side-arrows': 'Side arrows',
+};
+
+/**
+ * Resolve a block's navigation setting.
+ *
+ * Only the Row layout scrolls, so navigation is meaningless anywhere else and
+ * resolves to `none` regardless of what is stored — a block switched from Row
+ * to Grid must not keep painting arrows over a static grid.
+ */
+export function resolveSocialNavigation(
+    settings: { navigation?: unknown; layout?: unknown; } | null | undefined,
+): SocialNavigation {
+    const raw = settings ?? {};
+    if ((raw.layout ?? 'grid') !== 'row') return 'none';
+    const v = String(raw.navigation ?? '',);
+    return (SOCIAL_NAVIGATIONS as readonly string[]).includes(v,)
+        ? (v as SocialNavigation)
+        : 'none';
+}
+
+/**
+ * Padding applied to the navigation control, so dots/arrows can be nudged
+ * clear of the cards.
+ *
+ * For an arrow PAIR the same value applies to both, mirrored — the operator is
+ * positioning one control that happens to have two halves, and asking them to
+ * keep two values in sync to keep it symmetrical would be a trap.
+ */
+export function resolveSocialNavPadding(
+    settings: { navPadding?: unknown; } | null | undefined,
+): string | undefined {
+    const v = String(settings?.navPadding ?? '',).trim();
+    return v || undefined;
+}

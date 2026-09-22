@@ -12,6 +12,7 @@ import { resolveSocialCount, } from '@sitesurge/types';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
+import { SOCIAL_NAVIGATION_LABELS, SOCIAL_NAVIGATIONS, } from '@sitesurge/types';
 import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 import { CONTENT_TYPE_OPTIONS, providerClassifiesContent, } from '../socialContentTypes';
 import AnchoredDropdown from '../../common/AnchoredDropdown';
@@ -124,7 +125,8 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                 <Show when={providerClassifiesContent(provider(),)}>
                     <FormField
                         label="Content type"
-                        hint="Also filters the post pickers below, so you only search what the block will show."
+                        hintBeside
+                        hint="Also filters the pickers below."
                     >
                         <select
                             value={(props.data.kind as string) || ''}
@@ -139,7 +141,11 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
 
                 <Show when={provider()}>
                     {/* Count */}
-                    <FormField label="Number of posts" hint="Leave slots empty to auto-fill from recent posts; pick specific posts to pin.">
+                    <FormField
+                        label="Number of posts"
+                        hintBeside
+                        hint="Empty slots auto-fill from recent posts."
+                    >
                         <input
                             type="number"
                             min="1"
@@ -161,13 +167,46 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </select>
                     </FormField>
 
+                    {/* Navigation — only the Horizontal Row layout scrolls, so
+                        only it has anywhere to navigate TO. Kept next to
+                        Layout because it is a property of that choice. */}
+                    <Show when={(props.data.layout || 'grid') === 'row'}>
+                        <FormField label="Show navigation" hintBeside>
+                            <select
+                                value={props.data.navigation || 'none'}
+                                onChange={(e,) => update({ navigation: e.currentTarget.value, },)}
+                            >
+                                <For each={SOCIAL_NAVIGATIONS}>
+                                    {(n,) => <option value={n}>{SOCIAL_NAVIGATION_LABELS[n]}</option>}
+                                </For>
+                            </select>
+                        </FormField>
+
+                        {/* Only meaningful once there is a control to position. */}
+                        <Show when={(props.data.navigation || 'none') !== 'none'}>
+                            <FormField
+                                label="Navigation padding"
+                                hintBeside
+                                hint="Nudges the dots/arrows clear of the cards."
+                            >
+                                <input
+                                    type="text"
+                                    value={props.data.navPadding || ''}
+                                    onChange={(e,) => update({ navPadding: e.currentTarget.value || undefined, },)}
+                                    placeholder="e.g. 8px"
+                                />
+                            </FormField>
+                        </Show>
+                    </Show>
+
                     {/* Row Padding — only the Horizontal Row layout scrolls, so
                         this controls the padding INSIDE the scroll container
                         (independent of the block's style padding). */}
                     <Show when={(props.data.layout || 'grid') === 'row'}>
                         <FormField
                             label="Row Padding"
-                            hint="Optional. Any CSS padding value (e.g. 12px, 8px 16px). Applied inside the horizontal scroll row — separate from the block's style padding."
+                            hintBeside
+                            hint="Inside the scroll row — separate from the block's padding."
                         >
                             <input
                                 type="text"
@@ -178,7 +217,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </FormField>
                     </Show>
 
-                    <FormField label="Item width" hint="Optional. Any CSS width (e.g. 300px, 20rem). Sizes every post evenly across the grid.">
+                    <FormField label="Item width" hintBeside>
                         <input
                             type="text"
                             value={props.data.itemWidth || ''}
@@ -189,7 +228,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
 
                     <FormField
                         label="Item gap"
-                        hint="Optional. Any CSS length (e.g. 16px, 1.5rem, clamp(8px, 2vw, 24px)). Space between items, in every layout."
+                        hintBeside
                     >
                         <input
                             type="text"
@@ -199,7 +238,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         />
                     </FormField>
 
-                    <FormField label="Item height" hint="Optional. Any CSS height (e.g. 320px). Makes every post the same height.">
+                    <FormField label="Item height" hintBeside>
                         <input
                             type="text"
                             value={props.data.itemHeight || ''}
@@ -249,7 +288,8 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         auto-feed, since they render through the same component. */}
                     <FormField
                         label="Media size"
-                        hint="Full shows the embedded player (YouTube) or a full-width image. Medium and small show a thumbnail that links to the post."
+                        hintBeside
+                        hint="Full embeds the player; medium/small link out."
                     >
                         <select
                             value={(props.data.mediaDisplay as string) || 'full'}

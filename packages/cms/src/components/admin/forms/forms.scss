@@ -96,6 +96,40 @@
     font-size: $font-size-xs;
     color: $text-light;
   }
+
+  // Hint BESIDE the control rather than under it.
+  //
+  // A panel of full-width inputs each trailed by two lines of explanation
+  // scrolls far more than it needs to, and the explanation ends up louder than
+  // the field. `flex-wrap` is what makes this responsive without a media
+  // query: once the control's 50% and the hint's min-width no longer fit side
+  // by side, the hint drops underneath on its own — which is also what happens
+  // in a narrow properties panel, not just on a phone.
+  &--hint-beside {
+    .admin-form-field__control {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: $spacing-sm;
+
+      // The control itself takes about half, with a floor so it never becomes
+      // too small to type in.
+      > input[type='text'],
+      > input[type='number'],
+      > input[type='search'],
+      > input[type='url'],
+      > select {
+        flex: 0 1 50%;
+        width: auto;
+        min-width: 100px;
+      }
+    }
+
+    .admin-form-field__hint {
+      flex: 1 1 12ch;
+      min-width: 12ch;
+    }
+  }
 }
 
 // ─── Canonical admin field label, applied to the label patterns that predate
