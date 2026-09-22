@@ -195,3 +195,24 @@
     margin: $spacing-sm 0;
   }
 }
+
+// The font picker in the toolbar. FontSelect is a custom dropdown (it renders
+// each option in its own face), so it needs a width cap here — left to itself
+// it grows to the longest family name and pushes the formatting buttons off.
+.rte-toolbar__font {
+    min-width: 120px;
+    max-width: 180px;
+
+    .font-select__trigger {
+        // Match the neighbouring Format <select>'s height so the toolbar row
+        // does not step.
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+
+    // The customId in parentheses is useful in Appearance, where an operator is
+    // managing the fonts; in a writing toolbar it is noise.
+    .font-select__id {
+        display: none;
+    }
+}

@@ -1,5 +1,7 @@
 import { createEffect, createSignal, type JSX, Show, } from 'solid-js';
 import { cleanPastedHtml, } from '../../../utils/pasteCleanup';
+import { inlineFontStack, siteFontStack, } from '../../../utils/richTextFont';
+import FontSelect from '../common/FontSelect';
 import Toggle from '../../ui/Toggle';
 import './RichTextEditor.scss';
 
@@ -19,6 +21,9 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
     const [linkUrl, setLinkUrl,] = createSignal('',);
     // Whether the link should open in a new tab (adds target="_blank").
     const [linkNewWindow, setLinkNewWindow,] = createSignal(false,);
+    /** The font shown in the toolbar picker. Reflects the last applied
+     *  choice; it is not read back from the caret. */
+    const [font, setFont,] = createSignal('',);
 
     // The selection is lost once focus moves to the link URL input, so we
     // snapshot the editor's Range when the dialog opens and restore it before
@@ -198,6 +203,63 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
         }
     };
 
+    /**
+     * Apply a Font-Manager font to the current selection.
+     *
+     * `styleWithCSS` is what makes `fontName` emit a `<span style="font-family:…">`
+     * instead of a deprecated `<font face>`: a face attribute takes a BARE
+     * family name, so it could carry neither the quotes a multi-word family
+     * needs nor the fallback list — and the fallback is the whole point when
+     * this text is read in an inbox.
+     *
+     * execCommand rather than hand-wrapping the Range because it already
+     * handles the cases that make a naive wrap wrong: a selection spanning
+     * several elements, a partial text node, and merging with an adjacent run
+     * that already has the same font.
+     */
+    /**
+     * Strip the inline `font-family` from every element the selection touches,
+     * leaving all other formatting intact.
+     *
+     * A span that carried nothing but the font is unwrapped rather than left
+     * behind as an empty wrapper — otherwise clearing and re-applying a few
+     * times leaves a pile of meaningless spans in the saved HTML.
+     */
+    const clearFontFamily = (): void => {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0 || !editorRef) return;
+        const range = sel.getRangeAt(0,);
+        const styled = Array.from(editorRef.querySelectorAll<HTMLElement>('[style*="font-family"]',),)
+            .filter(el => range.intersectsNode(el,));
+        for (const el of styled) {
+            el.style.removeProperty('font-family',);
+            const hasOtherStyle = (el.getAttribute('style',) || '').trim() !== '';
+            const isBareSpan = el.tagName === 'SPAN' && !hasOtherStyle && !el.className;
+            if (!hasOtherStyle) el.removeAttribute('style',);
+            if (isBareSpan) el.replaceWith(...Array.from(el.childNodes,),);
+        }
+    };
+
+    const applyFont = (customId: string,) => {
+        if (!restoreSelection()) return;
+        const stack = inlineFontStack(customId, siteFontStack(),);
+        document.execCommand('styleWithCSS', false, 'true',);
+        if (stack) {
+            document.execCommand('fontName', false, stack,);
+        } else {
+            // Clearing removes ONLY the inline family, so the block's own font
+            // applies again. Not `removeFormat`, which would also strip bold,
+            // italic and links from the selection — clearing a font should not
+            // cost the author their emphasis. And not "apply the default",
+            // which would pin the run to whatever the default happens to be
+            // today.
+            clearFontFamily();
+        }
+        document.execCommand('styleWithCSS', false, 'false',);
+        setFont(customId,);
+        props.onChange?.(editorRef?.innerHTML ?? '',);
+    };
+
     const formatBlock = (tag: string,) => {
         execCommand('formatBlock', tag,);
     };
@@ -221,6 +283,15 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
                         <option value="blockquote">Quote</option>
                         <option value="pre">Code Block</option>
                     </select>
+                    {/* Font — the same picker the Appearance / header / footer
+                        editors use, so an operator sees one font list with the
+                        same previews everywhere. */}
+                    <FontSelect
+                        class="rte-toolbar__font"
+                        value={font()}
+                        noneLabel="Font"
+                        onChange={applyFont}
+                    />
                 </div>
                 <div class="rte-toolbar__group">
                     <button type="button" onClick={() => execCommand('bold',)} title="Bold (Ctrl+B)">
