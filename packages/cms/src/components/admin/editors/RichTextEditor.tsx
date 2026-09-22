@@ -1,4 +1,4 @@
-import { createEffect, createSignal, type JSX, Show, } from 'solid-js';
+import { createEffect, createSignal, type JSX, onCleanup, onMount, Show, } from 'solid-js';
 import { cleanPastedHtml, } from '../../../utils/pasteCleanup';
 import { inlineFontStack, siteFontStack, } from '../../../utils/richTextFont';
 import FontSelect from '../common/FontSelect';
@@ -42,6 +42,35 @@ export default function RichTextEditor(props: RichTextEditorProps,) {
         }
         savedRange = null;
     };
+
+    /**
+     * Remember the selection whenever it is inside the editor — and ONLY then.
+     *
+     * `saveSelection()` above clears the snapshot when the selection is
+     * elsewhere, which is right for the link dialog (it snapshots at the moment
+     * it opens) but fatal here: clicking a toolbar control moves focus out of
+     * the editor, so a tracker that cleared on "outside" would wipe the very
+     * range the control is about to act on.
+     *
+     * This is why the font picker did nothing at all. `restoreSelection()`
+     * returned false, `applyFont` bailed before touching the document, and the
+     * dropdown never even updated — no error anywhere, just an inert control.
+     */
+    const trackSelection = (): void => {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0 || !editorRef) return;
+        const r = sel.getRangeAt(0,);
+        if (editorRef.contains(r.commonAncestorContainer,)) savedRange = r.cloneRange();
+    };
+
+    onMount(() => {
+        // `selectionchange` is the only event that fires for every way a
+        // selection can change — mouse, keyboard, touch, and programmatic.
+        document.addEventListener('selectionchange', trackSelection,);
+    },);
+    onCleanup(() => {
+        document.removeEventListener('selectionchange', trackSelection,);
+    },);
 
     const restoreSelection = (): boolean => {
         if (!savedRange || !editorRef) return false;
