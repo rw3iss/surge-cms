@@ -70,3 +70,46 @@ describe('blockStyleLayoutCss', () => {
         expect(out['overflow-y'],).toBe('hidden',);
     });
 });
+
+/**
+ * Text Align has to reach the MEDIA block types too.
+ *
+ * image / video / document / url_link / campaign / gallery / form lay their
+ * inner out as a flex column, where horizontal position is `align-items` and
+ * `text-align` moves nothing. That rule hardcoded `center`, so those blocks
+ * ignored Text Align on the web while the email renderer honoured it — the
+ * same block, aligned two different ways, by construction.
+ */
+describe('--block-align-items', () => {
+    it.each([
+        ['left', 'flex-start',],
+        ['start', 'flex-start',],
+        ['center', 'center',],
+        ['right', 'flex-end',],
+        ['end', 'flex-end',],
+    ],)('maps text-align %s → %s', (align, expected,) => {
+        const out = blockStyleLayoutCss({ textAlign: align, }, opts,);
+        expect(out['--block-align-items'],).toBe(expected,);
+    },);
+
+    it('still emits text-align itself', () => {
+        // The variable is an ADDITION — inline content still needs the real
+        // property.
+        const out = blockStyleLayoutCss({ textAlign: 'right', }, opts,);
+        expect(out['text-align'],).toBe('right',);
+    },);
+
+    it('is absent when no text align is saved', () => {
+        // Absent means the consuming rule's `center` fallback applies, which is
+        // what every existing block relies on.
+        const out = blockStyleLayoutCss({ padding: '4px', }, opts,);
+        expect(out['--block-align-items'],).toBeUndefined();
+    },);
+
+    it('falls back to center for a value with no flex equivalent', () => {
+        // `justify` has none — stretching an image across the column is not
+        // what justified text means.
+        const out = blockStyleLayoutCss({ textAlign: 'justify', }, opts,);
+        expect(out['--block-align-items'],).toBe('center',);
+    },);
+},);

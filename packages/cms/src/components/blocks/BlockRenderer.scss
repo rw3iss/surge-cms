@@ -70,7 +70,18 @@
     }
   }
 
-  // Center media / embed block types horizontally within their container
+  // Media / embed block types lay their inner out as a flex COLUMN, so the
+  // horizontal position of their content is `align-items` — `text-align` does
+  // not move a block-level <img> at all.
+  //
+  // This used to hardcode `center`, which meant Text Align was inert for these
+  // types: an image sat centred whatever the operator chose, while the EMAIL
+  // renderer read `style.textAlign` and left-aligned the same block. The two
+  // surfaces disagreed by construction, and the editor showed the wrong one.
+  //
+  // `--block-align-items` is published from the block's Text Align (see
+  // blockStyleLayoutCss). The `center` fallback is what a block with no saved
+  // Text Align gets, so existing blocks are unchanged.
   &--image,
   &--video,
   &--document,
@@ -81,7 +92,7 @@
     .block__inner {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: var(--block-align-items, center);
     }
   }
 

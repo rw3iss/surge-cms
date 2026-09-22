@@ -61,6 +61,22 @@ export function normalizeCssWidth(width: unknown,): string | undefined {
  * the properties the style actually sets (everything else omitted), so the
  * result can be spread into a larger style object without clobbering.
  */
+/**
+ * `text-align` value → the `align-items` that expresses the same intent in a
+ * flex column.
+ *
+ * `justify` has no flex equivalent — stretching an image to fill the column is
+ * not what "justified" means anywhere — so it falls back with everything
+ * unrecognised to the consuming rule's own default.
+ */
+const FLEX_ALIGN: Record<string, string> = {
+    left: 'flex-start',
+    start: 'flex-start',
+    center: 'center',
+    right: 'flex-end',
+    end: 'flex-end',
+};
+
 export function blockStyleLayoutCss(
     style: Record<string, any> | undefined,
     opts: BlockStyleCssOptions,
@@ -68,7 +84,29 @@ export function blockStyleLayoutCss(
     const s = style || {};
     const out: CssRecord = {};
 
-    if (s.textAlign) out['text-align'] = s.textAlign;
+    if (s.textAlign) {
+        out['text-align'] = s.textAlign;
+        /*
+         * The same choice, expressed as a flex alignment.
+         *
+         * The media block types (image / video / document / url_link /
+         * campaign / gallery / form) lay their inner out as a flex COLUMN, so
+         * their content's horizontal position is `align-items`, not
+         * `text-align` — a block-level `<img>` does not move for text
+         * alignment at all. That rule hardcoded `center`, so an image sat
+         * centred no matter what Text Align said, while the EMAIL renderer
+         * read `style.textAlign` and left-aligned the very same block. The two
+         * surfaces disagreed by construction.
+         *
+         * Published as a custom property rather than `align-items` directly:
+         * this record lands on the block WRAPPER, and the flex container that
+         * needs it is the `.block__inner` DESCENDANT.
+         *
+         * The consuming rule keeps `center` as its fallback, so a block that
+         * has never had a Text Align saved is unchanged.
+         */
+        out['--block-align-items'] = FLEX_ALIGN[String(s.textAlign,)] ?? 'center';
+    }
 
     // Vertical alignment turns the block into a flex column so its content can
     // be pushed to the center/bottom. 'top' (or unset) leaves normal flow.
