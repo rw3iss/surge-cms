@@ -643,8 +643,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
+  // A fixed box, not min-*: the glyph is narrow and its line box is tall, so
+  // anything that lets the content size the button produces an oval.
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
   padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 50%;
@@ -665,13 +668,33 @@
     cursor: default;
   }
 
-  // Overlaid on the row's left/right edges.
-  &--side {
+}
+
+// Each arrow sits in its OWN slot, and Navigation Padding is applied to the
+// slot rather than the button.
+//
+// Padding on the button inflates its content box: a 32px circle with 10px
+// padding becomes 32 wide (held by min-width) and 40 tall (glyph + padding),
+// i.e. an oval. The slot absorbs the padding and the button keeps its shape,
+// which is what "nudge the control" was meant to do. It also gives both halves
+// of a pair the same offset without the operator mirroring two values.
+.social-block__nav-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  // Side arrows: the SLOT is what overlays the row edge, so the padding moves
+  // the button inward from that edge.
+  &--prev,
+  &--next {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     z-index: 2;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+
+    .social-block__nav-arrow {
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+    }
   }
 
   &--prev { left: 0; }

@@ -317,26 +317,28 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                     overflows — a control that cannot move anything is worse
                     than no control. */}
                 <Show when={navigation() === 'side-arrows' && hasOverflow()}>
-                    <button
-                        type="button"
-                        class="social-block__nav-arrow social-block__nav-arrow--side social-block__nav-arrow--prev"
-                        style={{ padding: navPadding(), }}
-                        aria-label="Previous"
-                        disabled={page() <= 0}
-                        onClick={() => goTo(page() - 1,)}
-                    >
-                        <span aria-hidden="true">‹</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="social-block__nav-arrow social-block__nav-arrow--side social-block__nav-arrow--next"
-                        style={{ padding: navPadding(), }}
-                        aria-label="Next"
-                        disabled={page() >= pageCount() - 1}
-                        onClick={() => goTo(page() + 1,)}
-                    >
-                        <span aria-hidden="true">›</span>
-                    </button>
+                    <span class="social-block__nav-slot social-block__nav-slot--prev" style={{ padding: navPadding(), }}>
+                        <button
+                            type="button"
+                            class="social-block__nav-arrow"
+                            aria-label="Previous"
+                            disabled={page() <= 0}
+                            onClick={() => goTo(page() - 1,)}
+                        >
+                            <span aria-hidden="true">‹</span>
+                        </button>
+                    </span>
+                    <span class="social-block__nav-slot social-block__nav-slot--next" style={{ padding: navPadding(), }}>
+                        <button
+                            type="button"
+                            class="social-block__nav-arrow"
+                            aria-label="Next"
+                            disabled={page() >= pageCount() - 1}
+                            onClick={() => goTo(page() + 1,)}
+                        >
+                            <span aria-hidden="true">›</span>
+                        </button>
+                    </span>
                 </Show>
 
                 <Show when={navigation() === 'dots' && hasOverflow()}>
@@ -357,26 +359,28 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
 
                 <Show when={navigation() === 'bottom-arrows' && hasOverflow()}>
                     <div class="social-block__nav social-block__nav--arrows">
-                        <button
-                            type="button"
-                            class="social-block__nav-arrow"
-                            style={{ padding: navPadding(), }}
-                            aria-label="Previous"
-                            disabled={page() <= 0}
-                            onClick={() => goTo(page() - 1,)}
-                        >
-                            <span aria-hidden="true">‹</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="social-block__nav-arrow"
-                            style={{ padding: navPadding(), }}
-                            aria-label="Next"
-                            disabled={page() >= pageCount() - 1}
-                            onClick={() => goTo(page() + 1,)}
-                        >
-                            <span aria-hidden="true">›</span>
-                        </button>
+                        <span class="social-block__nav-slot" style={{ padding: navPadding(), }}>
+                            <button
+                                type="button"
+                                class="social-block__nav-arrow"
+                                aria-label="Previous"
+                                disabled={page() <= 0}
+                                onClick={() => goTo(page() - 1,)}
+                            >
+                                <span aria-hidden="true">‹</span>
+                            </button>
+                        </span>
+                        <span class="social-block__nav-slot" style={{ padding: navPadding(), }}>
+                            <button
+                                type="button"
+                                class="social-block__nav-arrow"
+                                aria-label="Next"
+                                disabled={page() >= pageCount() - 1}
+                                onClick={() => goTo(page() + 1,)}
+                            >
+                                <span aria-hidden="true">›</span>
+                            </button>
+                        </span>
                     </div>
                 </Show>
             </Show>
