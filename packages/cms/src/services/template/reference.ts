@@ -134,16 +134,18 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
                 },
             },
             {
-                sig: 'formatDate(value?)',
+                sig: 'formatDate(value?, format?)',
                 desc:
-                    'A date, as "Mon D, YYYY". Takes NO format string — the output is fixed, so a date '
-                    + 'reads the same everywhere on the site. Accepts a Date or any parseable date string '
-                    + '(an ISO timestamp from an entity field works). Called with NO argument it gives '
-                    + "today, so it pairs with `now` and `year`. A value that is supplied but empty still "
-                    + 'renders nothing — an undated post shows a blank, never today.',
+                    'A date. With no arguments it gives today; with just a format it gives today in that '
+                    + 'format; with a date it formats that date, defaulting to "Mon D, YYYY". '
+                    + 'Tokens: YYYY YY · MMMM MMM MM M · DD D · dddd ddd · HH H hh h · mm · ss · A a. '
+                    + 'Put words in [square brackets] to keep them literal. A date that is supplied but '
+                    + 'empty renders NOTHING even with a format — an undated post shows a blank, never '
+                    + "today, so there is no formatDate(null, 'YYYY') shortcut.",
                 example: {
-                    code: '{{ formatDate(post.publishedAt) }} · {{ formatDate() }}',
-                    result: 'Sep 24, 2026 · today',
+                    code: "{{ formatDate('YYYY') }} · {{ formatDate() }} · "
+                        + "{{ formatDate(post.publishedAt, 'YYYY-MM-DD') }} · {{ formatDate('[on] MMM D') }}",
+                    result: '2026 · Sep 24, 2026 · 2026-09-24 · on Sep 24',
                 },
             },
             {

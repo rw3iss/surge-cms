@@ -14,7 +14,7 @@
  *   if (v !== UNRESOLVED) return v;   // handled here
  *   // …runtime-specific names (post, posts, …)…
  */
-import { formatDate, formatNumber, } from '../utils/format';
+import { formatDate, formatDatePattern, formatNumber, looksLikeDateFormat, } from '../utils/format';
 import { truncate, } from '../utils/validation';
 
 /** Returned when `name` is not one of the shared value functions, so callers
@@ -67,18 +67,45 @@ export function resolveValueFunction(name: string, args: unknown[],): unknown | 
         case 'truncate': return truncate(s(args[0],), typeof args[1] === 'number' ? (args[1] as number) : 100,);
         case 'formatDate': {
             /*
-             * No argument at all → today, so `{{formatDate()}}` reads as "now"
-             * the way `{{now}}` and `{{year}}` do.
+             * Four shapes, resolved in this order:
              *
-             * The test is `args.length`, NOT whether args[0] is falsy, and the
-             * difference is load-bearing: `{{formatDate(post.publishedAt)}}` on
-             * a post with no published date must keep rendering NOTHING. Were
-             * an empty value to fall through to "today", an unpublished post
-             * would silently date itself as published this morning — a wrong
-             * answer is worse than a blank one.
+             *   formatDate()                 → today, default format
+             *   formatDate('YYYY')           → today, that format
+             *   formatDate(value)            → that date, default format
+             *   formatDate(value, 'YYYY')    → that date, that format
+             *
+             * **An EMPTY date renders empty, whatever the format.** There is
+             * deliberately no `formatDate(null, 'FMT')` meaning "today": a
+             * literal null and a post's missing `publishedAt` arrive here as
+             * the same value, so honouring one would silently date an
+             * unpublished post as published this morning. Omitting the date
+             * argument is how you ask for today, and that IS distinguishable
+             * (`args.length === 0`).
+             *
+             * A wrong date is worse than a blank one, so the blank wins.
              */
+            const fmt = typeof args[1] === 'string' && args[1] ? (args[1] as string) : '';
+
             if (args.length === 0) return formatDate(new Date(),);
-            return args[0] ? formatDate(args[0] as string | Date,) : '';
+
+            // A lone string argument is ambiguous: a date or a format? Every
+            // real pattern fails to parse as a Date and every date string
+            // parses, so the two sets do not overlap — see looksLikeDateFormat.
+            if (args.length === 1 && typeof args[0] === 'string' && looksLikeDateFormat(args[0],)) {
+                return formatDatePattern(new Date(), args[0],);
+            }
+
+            // A supplied-but-empty date is a missing value, not a request for
+            // today — see above.
+            if (!args[0]) return '';
+
+            if (fmt) return formatDatePattern(args[0] as string | Date, fmt,);
+
+            // Guard the default path: Intl THROWS RangeError on an invalid
+            // date, so one bad field would take down the whole render rather
+            // than leaving one blank. formatDatePattern already guards itself.
+            const d = args[0] instanceof Date ? args[0] : new Date(String(args[0],),);
+            return Number.isNaN(d.getTime(),) ? '' : formatDate(d,);
         }
         case 'formatCurrency': {
             const value = Number(args[0],) || 0;

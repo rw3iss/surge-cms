@@ -20,6 +20,97 @@ export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOpt
 }
 
 /**
+ * Format a date against a token PATTERN (`YYYY-MM-DD`, `MMM D, YYYY`, `HH:mm`).
+ *
+ * Exists because `formatDate` renders one fixed shape, and a template author
+ * writing `{{ formatDate('YYYY') }}` wants a year, not "Sep 24, 2026". Intl
+ * cannot express an arbitrary token string, so the tokens are substituted
+ * directly — but the month and weekday NAMES still come from Intl, so
+ * `MMM` here and the default `formatDate` agree on "Sep" rather than drifting
+ * apart through a hand-written array.
+ *
+ * Tokens (longest match wins, so `MMMM` is not read as `MMM` + `M`):
+ *
+ * | Token  | Example   |   | Token | Example |
+ * |--------|-----------|---|-------|---------|
+ * | `YYYY` | 2026      |   | `HH`  | 09      |
+ * | `YY`   | 26        |   | `H`   | 9       |
+ * | `MMMM` | September |   | `hh`  | 09      |
+ * | `MMM`  | Sep       |   | `h`   | 9       |
+ * | `MM`   | 09        |   | `mm`  | 05      |
+ * | `M`    | 9         |   | `ss`  | 07      |
+ * | `DD`   | 24        |   | `A`   | AM      |
+ * | `D`    | 24        |   | `a`   | am      |
+ * | `dddd` | Wednesday |   |       |         |
+ * | `ddd`  | Wed       |   |       |         |
+ *
+ * Text between tokens is preserved. Anything in square brackets is emitted
+ * literally (`[on] MMM D` → "on Sep 24"), which is the escape hatch for a word
+ * that would otherwise be eaten — "Day" would become "24ay" without it.
+ */
+export function formatDatePattern(date: Date | string, pattern: string,): string {
+    const d = typeof date === 'string' ? new Date(date,) : date;
+    if (Number.isNaN(d.getTime(),)) return '';
+
+    const pad = (n: number,): string => String(n,).padStart(2, '0',);
+    const name = (opts: Intl.DateTimeFormatOptions,): string =>
+        new Intl.DateTimeFormat('en-US', opts,).format(d,);
+
+    const h24 = d.getHours();
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+
+    const TOKENS: Record<string, () => string> = {
+        YYYY: () => String(d.getFullYear(),),
+        YY: () => pad(d.getFullYear() % 100,),
+        MMMM: () => name({ month: 'long', },),
+        MMM: () => name({ month: 'short', },),
+        MM: () => pad(d.getMonth() + 1,),
+        M: () => String(d.getMonth() + 1,),
+        DD: () => pad(d.getDate(),),
+        D: () => String(d.getDate(),),
+        dddd: () => name({ weekday: 'long', },),
+        ddd: () => name({ weekday: 'short', },),
+        HH: () => pad(h24,),
+        H: () => String(h24,),
+        hh: () => pad(h12,),
+        h: () => String(h12,),
+        mm: () => pad(d.getMinutes(),),
+        ss: () => pad(d.getSeconds(),),
+        A: () => (h24 < 12 ? 'AM' : 'PM'),
+        a: () => (h24 < 12 ? 'am' : 'pm'),
+    };
+
+    // ONE pass, longest token first. A sequence of per-token replaces would
+    // rewrite text it had already produced — `YYYY` → "2026" is safe, but
+    // `MMMM` → "September" contains "Sep", and a later `S`-ish token would
+    // chew through its own output.
+    const pattern_re = /\[([^\]]*)\]|YYYY|YY|MMMM|MMM|MM|M|dddd|ddd|DD|D|HH|H|hh|h|mm|ss|A|a/g;
+    return pattern.replace(pattern_re, (match, literal?: string,) => {
+        if (literal !== undefined) return literal;
+        return TOKENS[match]?.() ?? match;
+    },);
+}
+
+/**
+ * Does this string look like a date FORMAT rather than a date?
+ *
+ * Used to tell `formatDate('YYYY')` from `formatDate('2026-09-24')`. The
+ * primary signal is that the string does not parse as a date — every real
+ * pattern (`YYYY`, `MMM D, YYYY`, `HH:mm`) is an invalid Date, and every date
+ * string is a valid one, so the two sets do not overlap.
+ *
+ * The token check is a second, POSITIVE signal, so that a string which is
+ * merely nonsense ("hello") is not silently treated as a format producing
+ * today's date. It has to look like a pattern, not just fail to be a date.
+ */
+export function looksLikeDateFormat(value: string,): boolean {
+    const v = value.trim();
+    if (!v) return false;
+    if (!Number.isNaN(new Date(v,).getTime(),)) return false;
+    return /YYYY|YY|MMMM|MMM|MM|dddd|ddd|DD|HH|hh|mm|ss/.test(v,);
+}
+
+/**
  * Admin-standard short date ("Aug 12, 2026"), or an em-dash for a null/empty
  * value. This is the single formatter behind the ~13 per-page `formatDate`
  * copies that all did `toLocaleDateString({month:'short',day,year})` with a
