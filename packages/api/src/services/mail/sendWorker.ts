@@ -167,6 +167,20 @@ export async function kickJob(jobId: string,): Promise<void> {
                         siteName: site.name,
                         siteUrl: site.url,
                         unsubscribeUrl,
+                        // From the JOB, not the template row: the job stores
+                        // what it was created with, so {{template.name}} still
+                        // reports what was actually sent after the template is
+                        // renamed or deleted.
+                        template: {
+                            id: job.templateId,
+                            name: job.templateName,
+                            subject: job.subject,
+                            preheader: job.preheader,
+                            fromName: job.fromName,
+                            fromEmail: job.fromEmail,
+                            replyTo: job.replyTo,
+                            wasModified: job.templateWasModified,
+                        },
                     },),
                 };
                 const subject = await resolveMailTemplate(job.subject, ctx as unknown as Record<string, unknown>,);

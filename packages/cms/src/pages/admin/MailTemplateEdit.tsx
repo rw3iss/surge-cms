@@ -470,6 +470,7 @@ const MailTemplateEdit: Component = () => {
                     blocks={previewBlocks()}
                     subject={subject()}
                     preheader={preheader()}
+                    templateName={name()}
                     onClose={() => setShowPreview(false,)}
                 />
             </Show>

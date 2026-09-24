@@ -93,4 +93,55 @@ export const ENTITIES: EntityDoc[] = [
             { name: 'showInNav', type: 'boolean', }, { name: 'createdAt', type: 'date', }, { name: 'updatedAt', type: 'date', },
         ],
     },
+    /*
+     * Mail-only bags. These are NOT fetched with `list(...)` / `template(...)`
+     * — there is no such function. They are bound automatically while an email
+     * is being rendered, and resolve to nothing on a page or in server-rendered
+     * HTML, because a page is not being sent to anybody.
+     */
+    {
+        name: 'Mailing list',
+        kind: 'list (email only)',
+        desc: 'The list the email is going to. Bound automatically at send time; empty elsewhere.',
+        fields: [
+            { name: 'name', type: 'string', note: 'e.g. "Weekly Newsletter"', },
+            { name: 'description', type: 'string', note: 'Blank when the list has none', },
+            { name: 'slug', type: 'string', },
+            { name: 'id', type: 'string', },
+            { name: 'subscriberCount', type: 'number', note: 'Subscribed members at send time', },
+            { name: 'doubleOptIn', type: 'boolean', },
+            { name: 'registeredUsersOnly', type: 'boolean', },
+            { name: 'isEnabled', type: 'boolean', },
+        ],
+    },
+    {
+        name: 'Mail template',
+        kind: 'template (email only)',
+        desc:
+            'The template this email was built from, as captured AT SEND TIME — so it survives the '
+            + 'template later being renamed or deleted.',
+        fields: [
+            { name: 'name', type: 'string', },
+            { name: 'id', type: 'string', },
+            { name: 'subject', type: 'string', note: 'After `{{ }}` resolution', },
+            { name: 'preheader', type: 'string', },
+            { name: 'fromName', type: 'string', note: 'Falls back to the list/site default', },
+            { name: 'fromEmail', type: 'string', },
+            { name: 'replyTo', type: 'string', },
+            { name: 'wasModified', type: 'boolean', note: 'Blocks were edited after picking the template', },
+        ],
+    },
+    {
+        name: 'Subscriber',
+        kind: 'user (email only)',
+        desc:
+            'The recipient. Shares the `user` name with the signed-in site visitor, because a template '
+            + 'saying `{{user.name}}` means "the person reading this" on either surface.',
+        fields: [
+            { name: 'name', type: 'string', note: 'Blank for email-only subscribers', },
+            { name: 'email', type: 'string', },
+            { name: 'phone', type: 'string', },
+            { name: 'custom', type: 'object', note: 'Custom fields, e.g. `{{user.custom.city}}`', },
+        ],
+    },
 ];

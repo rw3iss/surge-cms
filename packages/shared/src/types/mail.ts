@@ -130,5 +130,13 @@ export interface OutboundMessage {
 export interface VariableDescriptor {
     path: string;
     description: string;
-    sample: string;
+    /**
+     * Preview value for this path.
+     *
+     * Not `string`: a variable's real type is part of its documentation, and
+     * previewing `list.subscriberCount` as the STRING "1234" would quietly
+     * mislead anyone writing `{{ if list.subscriberCount > 100 }}`. Booleans,
+     * numbers and the custom-fields object each preview as themselves.
+     */
+    sample: unknown;
 }

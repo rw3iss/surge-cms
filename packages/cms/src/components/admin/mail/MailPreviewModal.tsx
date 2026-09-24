@@ -16,6 +16,10 @@ interface Props {
     blocks: unknown[];
     subject: string;
     preheader?: string;
+    /** The template's own name, so `{{template.name}}` previews the REAL value
+     *  rather than the catalog's placeholder. The other `template.*` paths keep
+     *  their samples: they are only decided when the send job is created. */
+    templateName?: string;
     onClose: () => void;
 }
 
@@ -40,7 +44,15 @@ const MailPreviewModal: Component<Props> = (p,) => {
                 blocks: p.blocks,
                 subject: p.subject,
                 preheader: p.preheader,
-                variables: vars(),
+                variables: {
+                    // Real values win over the sample bag; the operator's own
+                    // overrides in the form still win over these, because
+                    // `vars()` is spread last.
+                    ...(p.templateName ? { 'template.name': p.templateName, } : {}),
+                    'template.subject': p.subject,
+                    ...(p.preheader ? { 'template.preheader': p.preheader, } : {}),
+                    ...vars(),
+                },
             } as any,) as MailTemplatePreviewResponse;
             setHtml(d.html,);
             setRenderedSubject(d.subject,);

@@ -13,7 +13,23 @@ import type { MailingList, MailingListSubscriber, VariableDescriptor, } from '@s
 
 export interface VariableContext {
     user: { name: string; email: string; phone: string; custom: Record<string, unknown>; };
-    list: { name: string; description: string; slug: string; };
+    list: {
+        name: string; description: string; slug: string; id: string;
+        subscriberCount: number; doubleOptIn: boolean;
+        registeredUsersOnly: boolean; isEnabled: boolean;
+    };
+    /**
+     * The template this email was built from, as captured AT SEND TIME.
+     *
+     * Taken from the send JOB rather than re-read from the template row: the
+     * job stores the name and meta it was created with, so `{{template.name}}`
+     * still says what was actually sent after the template is renamed or
+     * deleted. Re-reading would quietly rewrite history.
+     */
+    template: {
+        name: string; id: string; subject: string; preheader: string;
+        fromName: string; fromEmail: string; replyTo: string; wasModified: boolean;
+    };
     /** The SHARED site bag (name / url / logo / favicon / tagline / …) — the
      *  same shape the page and SSR runtimes build, so a template means the
      *  same thing in an email as on the site. Was `{ name, url }`, which is
@@ -32,6 +48,13 @@ export interface BuildContextArgs {
     /** Public site settings, for the full `{{site.*}}` bag. Optional so an
      *  older caller still gets name/url rather than nothing. */
     siteSettings?: Record<string, unknown> | null;
+    /** Template meta as captured on the send job. Optional: a caller that has
+     *  no job (a transactional send) still gets every other bag. */
+    template?: {
+        id?: string | null; name?: string | null; subject?: string | null;
+        preheader?: string | null; fromName?: string | null; fromEmail?: string | null;
+        replyTo?: string | null; wasModified?: boolean | null;
+    } | null;
 }
 
 export function buildVariableContext(args: BuildContextArgs,): VariableContext {
@@ -46,6 +69,21 @@ export function buildVariableContext(args: BuildContextArgs,): VariableContext {
             name: args.list.name,
             description: args.list.description ?? '',
             slug: args.list.slug,
+            id: args.list.id,
+            subscriberCount: args.list.subscriberCount ?? 0,
+            doubleOptIn: args.list.doubleOptIn,
+            registeredUsersOnly: args.list.registeredUsersOnly,
+            isEnabled: args.list.isEnabled,
+        },
+        template: {
+            name: args.template?.name ?? '',
+            id: args.template?.id ?? '',
+            subject: args.template?.subject ?? '',
+            preheader: args.template?.preheader ?? '',
+            fromName: args.template?.fromName ?? '',
+            fromEmail: args.template?.fromEmail ?? '',
+            replyTo: args.template?.replyTo ?? '',
+            wasModified: args.template?.wasModified ?? false,
         },
         site: buildSiteVariables(
             // `siteName` is passed separately by every caller and is the
@@ -89,9 +127,23 @@ export function describeVariables(): VariableDescriptor[] {
         { path: 'user.name',           description: 'Subscriber name (blank for email-only subscribers).', sample: 'Sample Subscriber', },
         { path: 'user.email',          description: 'Subscriber email.', sample: 'subscriber@example.com', },
         { path: 'user.phone',          description: 'Subscriber phone (optional).', sample: '', },
+        { path: 'user.custom',         description: 'Custom subscriber fields, e.g. {{user.custom.city}}.', sample: {}, },
         { path: 'list.name',           description: 'Mailing list name.', sample: 'Weekly Newsletter', },
         { path: 'list.description',    description: 'Mailing list description.', sample: '', },
         { path: 'list.slug',           description: 'Mailing list slug.', sample: 'newsletter', },
+        { path: 'list.id',             description: 'Mailing list id.', sample: '00000000-0000-0000-0000-000000000000', },
+        { path: 'list.subscriberCount', description: 'Subscribed members at send time.', sample: 1234, },
+        { path: 'list.doubleOptIn',    description: 'Whether the list confirms subscriptions by email.', sample: false, },
+        { path: 'list.registeredUsersOnly', description: 'Whether only registered users may subscribe.', sample: false, },
+        { path: 'list.isEnabled',      description: 'Whether the list is accepting sends.', sample: true, },
+        { path: 'template.name',       description: 'Template name, as captured at send time.', sample: 'Weekly Digest', },
+        { path: 'template.id',         description: 'Template id.', sample: '00000000-0000-0000-0000-000000000000', },
+        { path: 'template.subject',    description: 'Subject line actually sent.', sample: 'This week at Surge Media', },
+        { path: 'template.preheader',  description: 'Preheader actually sent.', sample: 'The stories that mattered', },
+        { path: 'template.fromName',   description: 'From name (falls back to the list/site default).', sample: 'Surge Media', },
+        { path: 'template.fromEmail',  description: 'From address.', sample: 'newsletter@example.com', },
+        { path: 'template.replyTo',    description: 'Reply-To address.', sample: 'hello@example.com', },
+        { path: 'template.wasModified', description: 'Blocks were edited after picking the template.', sample: false, },
         { path: 'site.name',           description: 'Site name.', sample: 'SiteSurge', },
         { path: 'site.url',            description: 'Site URL.', sample: 'https://example.com', },
         { path: 'site.logo',           description: 'Site logo image URL (Settings → Site Branding).', sample: 'https://example.com/logo.png', },

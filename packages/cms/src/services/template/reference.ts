@@ -54,6 +54,15 @@ export const GLOBAL_VARIABLES: { group: string; items: GlobalVariableDoc[]; }[] 
             { path: '{{ user.email }}', desc: 'Signed-in user\'s email address.' },
         ],
     },
+    {
+        group: 'Email only',
+        items: [
+            { path: '{{ list.name }}', desc: 'The mailing list this email is going to. Also `description`, `slug`, `id`, `subscriberCount`, `doubleOptIn`, `registeredUsersOnly`, `isEnabled`.' },
+            { path: '{{ template.name }}', desc: 'The template the email was built from, captured AT SEND TIME so it survives a later rename. Also `id`, `subject`, `preheader`, `fromName`, `fromEmail`, `replyTo`, `wasModified`.' },
+            { path: '{{ user.name }}', desc: 'In an email this is the RECIPIENT, not a signed-in visitor. Also `email`, `phone`, and `custom.*` for custom subscriber fields.' },
+            { path: '{{ unsubscribe_url }}', desc: 'One-click unsubscribe link. Every bulk send must carry one.' },
+        ],
+    },
 ];
 
 export const OVERVIEW =
