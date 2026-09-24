@@ -113,7 +113,7 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
             { sig: 'postCount', desc: 'Total published posts (no parentheses needed).' },
             { sig: 'campaignCount', desc: 'Total campaigns.' },
             { sig: 'formCount', desc: 'Total forms.' },
-            { sig: 'now', desc: 'The current date.' },
+            { sig: 'now', desc: 'The current date (a raw date — use formatDate() for a formatted one).' },
             { sig: 'year', desc: 'The current year.' },
         ],
     },
@@ -134,14 +134,16 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
                 },
             },
             {
-                sig: 'formatDate(value)',
+                sig: 'formatDate(value?)',
                 desc:
                     'A date, as "Mon D, YYYY". Takes NO format string — the output is fixed, so a date '
                     + 'reads the same everywhere on the site. Accepts a Date or any parseable date string '
-                    + '(an ISO timestamp from an entity field works). Empty input renders nothing.',
+                    + '(an ISO timestamp from an entity field works). Called with NO argument it gives '
+                    + "today, so it pairs with `now` and `year`. A value that is supplied but empty still "
+                    + 'renders nothing — an undated post shows a blank, never today.',
                 example: {
-                    code: '{{ formatDate(post.publishedAt) }}',
-                    result: 'Sep 24, 2026',
+                    code: '{{ formatDate(post.publishedAt) }} · {{ formatDate() }}',
+                    result: 'Sep 24, 2026 · today',
                 },
             },
             {

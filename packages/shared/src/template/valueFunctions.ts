@@ -65,7 +65,21 @@ export function resolveValueFunction(name: string, args: unknown[],): unknown | 
         case 'lower': return s(args[0],).toLowerCase();
         case 'trim': return s(args[0],).trim();
         case 'truncate': return truncate(s(args[0],), typeof args[1] === 'number' ? (args[1] as number) : 100,);
-        case 'formatDate': return args[0] ? formatDate(args[0] as string | Date,) : '';
+        case 'formatDate': {
+            /*
+             * No argument at all → today, so `{{formatDate()}}` reads as "now"
+             * the way `{{now}}` and `{{year}}` do.
+             *
+             * The test is `args.length`, NOT whether args[0] is falsy, and the
+             * difference is load-bearing: `{{formatDate(post.publishedAt)}}` on
+             * a post with no published date must keep rendering NOTHING. Were
+             * an empty value to fall through to "today", an unpublished post
+             * would silently date itself as published this morning — a wrong
+             * answer is worse than a blank one.
+             */
+            if (args.length === 0) return formatDate(new Date(),);
+            return args[0] ? formatDate(args[0] as string | Date,) : '';
+        }
         case 'formatCurrency': {
             const value = Number(args[0],) || 0;
             // 2nd arg: showDecimals (boolean, or the strings 'true'/'false' when
