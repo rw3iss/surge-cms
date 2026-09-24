@@ -20,6 +20,9 @@ import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
+import { useEditorDraft, } from '../../hooks/useEditorDraft';
+import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
@@ -53,6 +56,60 @@ const MailTemplateEdit: Component = () => {
     const [showPreview, setShowPreview,] = createSignal(false,);
     const [variableCatalog, setVariableCatalog,] = createSignal<VariableDescriptor[]>([],);
     const [varsRefOpen, setVarsRefOpen,] = createSignal(false,);
+    const [showRevertConfirm, setShowRevertConfirm,] = createSignal(false,);
+    const [showDeleteConfirm, setShowDeleteConfirm,] = createSignal(false,);
+
+    /**
+     * The block list as last SAVED.
+     *
+     * The BlockEditor derives each block's "Unsaved changes" bar by diffing
+     * against this. It was never passed, so `savedSnapshots` stayed empty and
+     * every block compared against `undefined` — which the diff treats as a
+     * brand-new block, i.e. permanently dirty. That is why saving never
+     * cleared the bar: nothing ever told the editor what "saved" looked like.
+     */
+    const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
+
+    /** Everything a save writes, in one object — the unit of comparison. */
+    const formState = () => ({
+        name: name(),
+        description: description(),
+        isEnabled: isEnabled(),
+        subject: subject(),
+        preheader: preheader(),
+        fromName: fromName(),
+        fromEmail: fromEmail(),
+        replyTo: replyTo(),
+        blocks: blocks(),
+    });
+    type FormState = ReturnType<typeof formState>;
+
+    const draft = useEditorDraft<FormState>({ current: formState, },);
+
+    /** Saving a NEW template redirects to its own edit URL; guarding that would
+     *  ask the operator to confirm losing changes they just saved. */
+    const guard = useNavigationGuard({
+        isDirty: draft.isDirty,
+        isSelfNavigation: (to,) => to.startsWith('/admin/mail-templates/',),
+    },);
+
+    /** Put every field back to the state this page was opened with. */
+    const revertDraft = (): void => {
+        const base = draft.revert();
+        setShowRevertConfirm(false,);
+        if (!base) return;
+        setName(base.name,);
+        setDescription(base.description,);
+        setIsEnabled(base.isEnabled,);
+        setSubject(base.subject,);
+        setPreheader(base.preheader,);
+        setFromName(base.fromName,);
+        setFromEmail(base.fromEmail,);
+        setReplyTo(base.replyTo,);
+        setBlocks(base.blocks,);
+        setSavedBlocks(structuredClone(base.blocks,),);
+        toast.info('Reverted to the last saved version.',);
+    };
 
     onMount(async () => {
         // Load the variable catalog once on mount; cheap, no DB read.
@@ -66,7 +123,10 @@ const MailTemplateEdit: Component = () => {
             setListDefaults(await cms.settings.getMailingListsSettings() as MailingListsSettings,);
         } catch { /* non-fatal — placeholders fall back to generic text */ }
 
-        if (isNew()) return;
+        if (isNew()) {
+            draft.capture(formState(),);
+            return;
+        }
         let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
         try {
             d = await cms.mailTemplates.getById(params.id,) as MailTemplate & { blocks: BackendBlock[]; };
@@ -82,9 +142,27 @@ const MailTemplateEdit: Component = () => {
             setFromName(d.fromName ?? '',);
             setFromEmail(d.fromEmail ?? '',);
             setReplyTo(d.replyTo ?? '',);
-            setBlocks(backendToEditor(d.blocks ?? [],),);
+            const loaded = backendToEditor(d.blocks ?? [],);
+            setBlocks(loaded,);
+            setSavedBlocks(structuredClone(loaded,),);
         }
+        // The baseline is whatever the page opened with — what Revert restores
+        // and what "unsaved changes" is measured against.
+        draft.capture(formState(),);
     },);
+
+    /**
+     * Make the current state the saved state.
+     *
+     * Two things, and BOTH are needed: the draft baseline (drives the header's
+     * unsaved-changes bar and Revert) and `savedBlocks` (drives the per-block
+     * bar inside the BlockEditor). Updating only one leaves the other claiming
+     * unsaved changes forever, which is the bug this fixes.
+     */
+    const commitSaved = (): void => {
+        setSavedBlocks(structuredClone(blocks(),),);
+        draft.capture(formState(),);
+    };
 
     const handleSave = async (): Promise<void> => {
         setSaving(true,);
@@ -105,20 +183,35 @@ const MailTemplateEdit: Component = () => {
                 if (blocks().length > 0) {
                     await cms.mailTemplates.replaceBlocks(created.id, { blocks: editorToBackend(blocks(),), } as any,);
                 }
+                // Commit BEFORE navigating: the guard would otherwise see a
+                // dirty form and challenge the editor's own redirect.
+                commitSaved();
+                toast.success('Template saved',);
                 navigate(`/admin/mail-templates/${created.id}`,);
             } else {
                 await cms.mailTemplates.update(params.id, meta as any,);
                 await cms.mailTemplates.replaceBlocks(params.id, { blocks: editorToBackend(blocks(),), } as any,);
+                commitSaved();
+                toast.success('Template saved',);
             }
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Save failed.',);
+            const msg = e instanceof Error ? e.message : 'Save failed.';
+            setError(msg,);
+            toast.error(msg,);
         } finally { setSaving(false,); }
     };
 
     const handleDelete = async (): Promise<void> => {
-        if (!confirm('Delete this template? This cannot be undone.',)) return;
-        await cms.mailTemplates.remove(params.id,);
-        navigate('/admin/mailing-lists',);
+        try {
+            await cms.mailTemplates.remove(params.id,);
+            // Clear the baseline first: the row is gone, so the navigation
+            // guard has nothing left to protect and must not challenge it.
+            draft.reset();
+            toast.success('Template deleted',);
+            navigate('/admin/mailing-lists',);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Failed to delete template',);
+        }
     };
 
     /** Clone this template (its saved state + blocks) and open the copy. */
@@ -141,22 +234,95 @@ const MailTemplateEdit: Component = () => {
         <div class="mail-template-edit-page mailing-list-edit-page">
             <Title>{isNew() ? 'New Template' : name() || 'Edit Template'} - Admin</Title>
 
-            <div class="admin-header">
+            {/* Leaving with unsaved edits — the admin's own modal, not a
+                native confirm box that cannot say which editor it came from. */}
+            <ConfirmModal
+                open={guard.pending()}
+                title="Unsaved changes"
+                message={
+                    'This template has changes that have not been saved. Leaving now discards them.'
+                }
+                confirmLabel="Discard and leave"
+                cancelLabel="Stay on this page"
+                danger
+                onConfirm={guard.confirmLeave}
+                onCancel={guard.cancelLeave}
+            />
+
+            <ConfirmModal
+                open={showRevertConfirm()}
+                title="Discard draft edits"
+                message={
+                    'This removes every unsaved change to this template and restores the version '
+                    + 'that is currently saved. It cannot be undone.'
+                }
+                confirmLabel="Discard edits"
+                danger
+                onConfirm={revertDraft}
+                onCancel={() => setShowRevertConfirm(false,)}
+            />
+
+            <ConfirmModal
+                open={showDeleteConfirm()}
+                title="Delete template"
+                message="Delete this template? This cannot be undone."
+                confirmLabel="Delete"
+                danger
+                onConfirm={() => { setShowDeleteConfirm(false,); void handleDelete(); }}
+                onCancel={() => setShowDeleteConfirm(false,)}
+            />
+
+            <div class="admin-header admin-header--sticky">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>
                 <h1>{isNew() ? 'New Mail Template' : name() || '…'}</h1>
                 <div class="admin-header__actions">
-                    <Show when={!isNew()}>
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)}>Preview</button>
-                        <button type="button" class="ui-button ui-button--secondary" onClick={handleCopy} disabled={copying()}>
-                            {copying() ? 'Copying…' : 'Copy'}
+                    {/* Mirrors the page editor: the unsaved-changes note and
+                        Revert sit with the actions, so one glance answers
+                        "is there anything outstanding?" */}
+                    <Show when={draft.isDirty()}>
+                        <span class="admin-header__dirty">Unsaved changes</span>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--ghost ui-button--sm"
+                            title="Remove all current draft edits and return this template to its saved version."
+                            onClick={() => setShowRevertConfirm(true,)}
+                        >
+                            Revert
                         </button>
-                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
                     </Show>
-                    <Show when={isNew()}>
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)} disabled={blocks().length === 0}>Preview</button>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--ghost ui-button--sm"
+                        onClick={() => setShowPreview(true,)}
+                        disabled={isNew() && blocks().length === 0}
+                    >
+                        Preview
+                    </button>
+                    <Show when={!isNew()}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary ui-button--sm"
+                            title="Create a copy of this template and open it"
+                            onClick={handleCopy}
+                            disabled={copying()}
+                        >
+                            {copying() ? 'Cloning…' : 'Clone'}
+                        </button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--danger ui-button--sm"
+                            onClick={() => setShowDeleteConfirm(true,)}
+                        >
+                            Delete
+                        </button>
                     </Show>
-                    <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
-                        {saving() ? 'Saving…' : 'Save'}
+                    <button
+                        type="button"
+                        class="ui-button ui-button--primary ui-button--sm"
+                        onClick={handleSave}
+                        disabled={saving()}
+                    >
+                        {saving() ? 'Saving…' : 'Save Template'}
                     </button>
                 </div>
             </div>
@@ -251,6 +417,7 @@ const MailTemplateEdit: Component = () => {
             <BlockEditor
                 title="Content Blocks"
                 blocks={blocks()}
+                savedBlocks={savedBlocks()}
                 onBlocksChange={setBlocks}
             />
 

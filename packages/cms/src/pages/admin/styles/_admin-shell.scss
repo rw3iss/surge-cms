@@ -920,3 +920,23 @@
   .badge--donation-failed    { background: #fee2e2; color: #991b1b; }
   .badge--donation-refunded  { background: #e5e7eb; color: #374151; }
 }
+
+// "Unsaved changes" note in a sticky editor header, sitting immediately left
+// of the Revert button. A quiet label, not an alert: unsaved work is the
+// normal state of an editor being used, so it should read as status rather
+// than as something having gone wrong.
+.admin-header__dirty {
+  flex: 0 0 auto;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-text-muted, #{$text-light});
+  white-space: nowrap;
+
+  // On phones the actions row wraps; the label would otherwise be the thing
+  // pushing a button onto its own line.
+  @include mobile-only {
+    display: none;
+  }
+}
