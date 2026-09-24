@@ -86,6 +86,46 @@
     td:first-child { white-space: nowrap; }
     code { font-family: var(--admin-font-mono, ui-monospace, Menlo, monospace); font-size: 12px; color: var(--site-primary, #{$primary-color}); }
   }
+
+  // Worked example under a function's description: the call, an arrow, and the
+  // string it actually produces. Wraps rather than scrolls, because a reader
+  // comparing input to output needs both visible at once.
+  &__fn-example {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(0, 0, 0, 0.08);
+
+    code {
+      // Override the table's `white-space: nowrap` on the first cell — these
+      // live in the SECOND cell, but a long call still needs to wrap.
+      white-space: normal;
+      word-break: break-word;
+    }
+  }
+
+  &__fn-arrow {
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 12px;
+  }
+
+  // The result is not code the operator types, so it reads as output: neutral
+  // colour rather than the accent used for callable syntax.
+  //
+  // Selected through its parent to outrank `.help-doc__fn-table code`, which
+  // is (0,1,1) and would otherwise win. NOT `!important` — this codebase
+  // removed it deliberately, since it outranks any later cascade layer.
+  // Written out rather than nested: `&` may only start a compound selector,
+  // so `&__fn-example code&__fn-result` is not valid SCSS.
+  .help-doc__fn-example code.help-doc__fn-result {
+    color: var(--admin-text, #{$text-color});
+    background: var(--admin-bg-subtle, rgba(0, 0, 0, 0.04));
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
 }
 
 .help-entity {

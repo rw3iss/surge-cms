@@ -12,7 +12,18 @@ export type { EntityDoc, EntityField, } from '@sitesurge/types';
 export { ENTITIES, } from '@sitesurge/types';
 
 export interface SyntaxExample { title: string; code: string; desc: string; }
-export interface FunctionDoc { sig: string; desc: string; }
+/**
+ * One function in the reference table.
+ *
+ * `example` is a REAL call and the string it actually produces — every one in
+ * this file was produced by running the function, not written from memory, so
+ * the page cannot drift from the implementation without someone noticing.
+ */
+export interface FunctionDoc {
+    sig: string;
+    desc: string;
+    example?: { code: string; result: string; };
+}
 export interface GlobalVariableDoc { path: string; desc: string; }
 
 /**
@@ -109,12 +120,67 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
     {
         group: 'Value utilities',
         items: [
-            { sig: 'formatCurrency(value, showDecimals?, currency?)', desc: 'Formats a currency amount (major unit, e.g. 55 → $55.00; 1234.5 → $1,234.50). Always shows 2 decimals; pass false to hide them (55 → $55). Default USD.' },
-            { sig: 'formatDate(value)', desc: 'Localized date.' },
-            { sig: 'formatNumber(n)', desc: 'Thousands-separated number.' },
-            { sig: 'upper(text) / lower(text)', desc: 'Change case.' },
-            { sig: 'truncate(text, length?)', desc: 'Shorten with an ellipsis (default 100).' },
-            { sig: 'default(value, fallback)', desc: 'Use `fallback` when `value` is empty/null.' },
+            {
+                sig: 'formatCurrency(value, showDecimals?, currency?)',
+                desc:
+                    'Money. `value` is in MAJOR units (55 means fifty-five dollars, not 55 cents). '
+                    + '`showDecimals` defaults to true — pass false for whole amounts. `currency` is any '
+                    + 'ISO 4217 code (USD, EUR, GBP, CAD, AUD, JPY…), default USD; the symbol and digit '
+                    + 'grouping follow the code. An unrecognised code falls back to USD rather than failing.',
+                example: {
+                    code: '{{ formatCurrency(55) }} · {{ formatCurrency(55, false) }} · '
+                        + "{{ formatCurrency(1234.5) }} · {{ formatCurrency(55, true, 'EUR') }}",
+                    result: '$55.00 · $55 · $1,234.50 · €55.00',
+                },
+            },
+            {
+                sig: 'formatDate(value)',
+                desc:
+                    'A date, as "Mon D, YYYY". Takes NO format string — the output is fixed, so a date '
+                    + 'reads the same everywhere on the site. Accepts a Date or any parseable date string '
+                    + '(an ISO timestamp from an entity field works). Empty input renders nothing.',
+                example: {
+                    code: '{{ formatDate(post.publishedAt) }}',
+                    result: 'Sep 24, 2026',
+                },
+            },
+            {
+                sig: 'formatNumber(n)',
+                desc:
+                    'Thousands separators, en-US. No options; decimals are kept as given and never padded, '
+                    + 'so use formatCurrency for money.',
+                example: {
+                    code: '{{ formatNumber(1234567) }} · {{ formatNumber(1234.5) }}',
+                    result: '1,234,567 · 1,234.5',
+                },
+            },
+            {
+                sig: 'upper(text) / lower(text) / trim(text)',
+                desc: 'Change case, or strip leading and trailing whitespace.',
+                example: {
+                    code: "{{ upper('surge media') }} · {{ lower('Surge Media') }}",
+                    result: 'SURGE MEDIA · surge media',
+                },
+            },
+            {
+                sig: 'truncate(text, length?)',
+                desc:
+                    'Shorten to `length` characters (default 100), appending "…". The ellipsis counts '
+                    + 'toward the length, so the result is never longer than asked. Text already within '
+                    + 'the limit is returned untouched, with no ellipsis.',
+                example: {
+                    code: "{{ truncate('The quick brown fox jumps over the lazy dog', 20) }}",
+                    result: 'The quick brown f...',
+                },
+            },
+            {
+                sig: 'default(value, fallback)',
+                desc: 'Use `fallback` when `value` is null, undefined or an empty string. Zero and false are kept.',
+                example: {
+                    code: "{{ default(user.name, 'there') }}",
+                    result: 'there — when no one is signed in',
+                },
+            },
         ],
     },
 ];

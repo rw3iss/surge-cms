@@ -99,7 +99,23 @@ const HelpVariables: Component = () => (
                                     {(fn,) => (
                                         <tr>
                                             <td><code>{fn.sig}</code></td>
-                                            <td class="form-help-muted">{fn.desc}</td>
+                                            <td class="form-help-muted">
+                                                {fn.desc}
+                                                {/* The worked example sits under the description
+                                                    rather than in a third column: the signatures
+                                                    are already long, and a third column would
+                                                    squeeze all three into unreadable slivers on
+                                                    anything narrower than a desktop. */}
+                                                <Show when={fn.example}>
+                                                    {(ex,) => (
+                                                        <div class="help-doc__fn-example">
+                                                            <code>{ex().code}</code>
+                                                            <span class="help-doc__fn-arrow" aria-hidden="true">→</span>
+                                                            <code class="help-doc__fn-result">{ex().result}</code>
+                                                        </div>
+                                                    )}
+                                                </Show>
+                                            </td>
                                         </tr>
                                     )}
                                 </For>
