@@ -20,6 +20,16 @@ export interface RuntimeOptions {
     user?: Record<string, unknown> | null;
     /** Public site settings for `{{site.*}}`. */
     site?: Record<string, unknown> | null;
+    /**
+     * Extra root variables, merged LAST so they win.
+     *
+     * For variables the server binds at render time and the client cannot
+     * derive — an email's `{{list.*}}` / `{{template.*}}`. Overriding matters
+     * for `user`: in an email that is the RECIPIENT, not the signed-in admin,
+     * so a mail preview must not show the operator's own name where the sent
+     * copy will have the subscriber's.
+     */
+    variables?: Record<string, unknown> | null;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -121,6 +131,8 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
     }
     if (opts.user) context.user = opts.user;
     if (opts.site) context.site = opts.site;
+    // Last, so an editor-supplied bag beats the defaults above.
+    for (const [k, v,] of Object.entries(opts.variables ?? {},)) context[k] = v;
 
     const s = (v: unknown): string => (v == null ? '' : String(v));
 

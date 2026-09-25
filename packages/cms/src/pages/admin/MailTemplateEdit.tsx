@@ -9,7 +9,7 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
-    Component, createSignal, For, onMount, Show,
+    Component, createEffect, createSignal, For, onCleanup, onMount, Show,
 } from 'solid-js';
 import type { MailingListsSettings, MailTemplate, VariableDescriptor, } from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
@@ -23,6 +23,7 @@ import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { useEditorDraft, } from '../../hooks/useEditorDraft';
 import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
+import { expandVariablePaths, setPreviewVariables, } from '../../stores/previewVariables';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
@@ -227,6 +228,31 @@ const MailTemplateEdit: Component = () => {
             setCopying(false,);
         }
     };
+
+    /*
+     * Publish the mail variable bag for the admin BLOCK previews.
+     *
+     * `{{list.*}}` / `{{template.*}}` are bound by the send worker, so the
+     * client runtime has no source for them and a block preview rendered a
+     * blank where the sent email will have a value — visible in the Custom
+     * HTML editor's Preview tab, which resolves through that runtime.
+     *
+     * Samples come from the same catalog the Variables reference below shows,
+     * so the two cannot disagree. The fields the editor genuinely knows are
+     * overridden with their REAL values.
+     */
+    createEffect(() => {
+        const flat: Record<string, unknown> = {};
+        for (const v of variableCatalog()) flat[v.path] = v.sample;
+        if (name()) flat['template.name'] = name();
+        flat['template.subject'] = subject();
+        if (preheader()) flat['template.preheader'] = preheader();
+        setPreviewVariables(expandVariablePaths(flat,),);
+    },);
+
+    // Leave the store empty for every other editor, or a page preview would
+    // inherit this one's sample subscriber.
+    onCleanup(() => setPreviewVariables(undefined,));
 
     const previewBlocks = (): unknown[] => editorToBackend(blocks(),);
 

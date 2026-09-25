@@ -4,6 +4,7 @@ import { Portal, } from 'solid-js/web';
 import { hasTemplateSyntax, renderTemplate, } from '../../services/template';
 import { buildRuntime, type RuntimeOptions, } from '../../services/template/runtime';
 import { useUser, } from '../../stores/auth';
+import { previewVariables, } from '../../stores/previewVariables';
 import { siteSettings, } from '../../stores/siteSettings';
 import TemplateEntity from './TemplateEntity';
 import './TemplatedContent.scss';
@@ -50,7 +51,7 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
     const uid = createMemo(() => auth.user?.id ?? null,);
 
     const [resolved] = createResource(
-        () => ({ html: props.html ?? '', entities: props.entities, uid: uid() }),
+        () => ({ html: props.html ?? '', entities: props.entities, uid: uid(), vars: previewVariables() }),
         async (src): Promise<Resolved> => {
             if (!hasTemplateSyntax(src.html)) return { html: src.html, entities: [], };
             const u = auth.user;
@@ -67,6 +68,10 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
                     siteSettings() as never,
                     typeof window === 'undefined' ? '' : window.location.origin,
                 ) as unknown as Record<string, unknown>,
+                // Editor-supplied variables the client cannot derive (an
+                // email's list/template bags). Empty outside those editors, so
+                // page and post previews are unaffected.
+                variables: src.vars,
             },);
             const nodes = await renderTemplate(src.html, rt,);
             // Flatten to ONE HTML string, replacing each whole-entity segment with
