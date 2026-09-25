@@ -1,5 +1,5 @@
+import { escapeHtml, mediaRadius, } from './_util';
 import { BlockEmailRenderer, } from './index';
-import { escapeHtml, } from './_util';
 
 /**
  * Video → fallback. Email clients can't play <video>; we render a
@@ -11,9 +11,17 @@ export const renderVideo: BlockEmailRenderer = (node, ctx,) => {
     const url = String(node.settings.url ?? node.settings.videoUrl ?? '#',);
     const title = String(node.settings.title ?? 'Watch the video',);
 
-    const inner = poster
-        ? `<img src="${escapeHtml(poster,)}" alt="${escapeHtml(title,)}" width="600" style="display:block;max-width:100%;border:0" />`
-        : `<div style="padding:48px;text-align:center;background:#222;color:#fff;font-size:18px">▶ ${escapeHtml(title,)}</div>`;
+    // Both arms take the block's radius — the poster and the no-poster
+    // placeholder are equally "the block's visible box".
+    const radius = mediaRadius(node,);
+    const radiusCss = radius ? `;border-radius:${radius}` : '';
+    const inner = poster ?
+        `<img src="${escapeHtml(poster,)}" alt="${
+            escapeHtml(title,)
+        }" width="600" style="display:block;max-width:100%;border:0${radiusCss}" />` :
+        `<div style="padding:48px;text-align:center;background:#222;color:#fff;font-size:18px${radiusCss}">▶ ${
+            escapeHtml(title,)
+        }</div>`;
 
     return `
         <a href="${escapeHtml(url,)}" style="text-decoration:none;display:block">${inner}</a>

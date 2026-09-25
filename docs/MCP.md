@@ -204,12 +204,16 @@ Two style fields behave unlike the rest:
   bag may carry its own `customCss`, which overrides the base one inside that
   breakpoint's media query.
 
-In **email**, a radius is emitted on the block's cell (Outlook for Windows squares
-it off; everything else honours it) and `customCss` is split by what email can
-deliver: `&`/bare declarations are inlined onto the cell, a simple element rule
-(`p`, `.price`, `a.btn`) is inlined onto matching tags, and anything else —
-combinators, pseudo-classes, media queries — goes to a scoped head `<style>`, which
-not every client honours.
+In **email**, a radius is emitted on the block's cell AND — for the blocks whose
+visible box is a picture (`social`, `image`, `video`, `carousel`, `url_link`) — on
+that picture, because a mail client ignores `overflow` on a table cell and the cell
+has no background to round. Outlook for Windows squares corners off either way.
+
+`customCss` is split by what email can deliver: `&`/bare declarations are inlined
+onto the cell; tag/class/id compounds joined by descendant or child combinators
+(`p`, `.price`, `td a img`, `div > p`) are inlined onto matching elements; anything
+else — pseudo-classes, attribute selectors, sibling combinators, media queries —
+goes to a scoped head `<style>`, which not every client honours.
 
 ### Wiring reference blocks
 

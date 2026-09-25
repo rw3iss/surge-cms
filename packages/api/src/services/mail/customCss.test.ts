@@ -78,7 +78,7 @@ describe('planCustomCss — what becomes an inline style', () => {
     it('splits a comma list into one inline rule per selector', () => {
         const p = plan('h1, h2 { margin: 0 }',);
         expect(p.inline,).toHaveLength(2,);
-        expect(p.inline.map(r => r.match.tag),).toEqual(['h1', 'h2',],);
+        expect(p.inline.map(r => r.match.subject.tag),).toEqual(['h1', 'h2',],);
     });
 
     it("sends a comma list's `&` to the cell and its tag to the inline pass", () => {
@@ -89,12 +89,24 @@ describe('planCustomCss — what becomes an inline style', () => {
 });
 
 describe('planCustomCss — what stays in the stylesheet', () => {
-    it('leaves a descendant selector alone rather than guessing', () => {
-        // There is no DOM here. A matcher that "mostly" handled combinators
-        // would corrupt the message on the cases it got wrong.
-        const p = plan('div p { color: red }',);
-        expect(p.inline,).toHaveLength(0,);
-        expect(p.stylesheet,).toContain(`${SCOPE} div p`,);
+    it('leaves a SIBLING combinator alone — the scan cannot answer it', () => {
+        /*
+         * `+` and `~` need the elements already closed beside the subject, and
+         * the scan keeps only the OPEN ones. A descendant or child step is
+         * answerable from that stack; a sibling step is not, so it stays a
+         * stylesheet rule rather than being half-honoured.
+         */
+        for (const sel of ['h1 + p', 'h1 ~ p',]) {
+            const p = plan(`${sel} { color: red }`,);
+            expect(p.inline,).toHaveLength(0,);
+            expect(p.stylesheet,).toContain(SCOPE,);
+        }
+    });
+
+    it('leaves an attribute selector and a universal selector alone', () => {
+        // Neither is decidable from a compound this parser understands.
+        expect(plan('[data-x] { color: red }',).inline,).toHaveLength(0,);
+        expect(plan('* { color: red }',).inline,).toHaveLength(0,);
     });
 
     it('leaves a pseudo-class alone — there is no hover in an attribute', () => {
@@ -126,16 +138,19 @@ describe('planCustomCss — what stays in the stylesheet', () => {
     });
 
     it('scopes the leftover sheet to this block', () => {
-        const p = plan('div p { color: red }',);
+        const p = plan('div p:hover { color: red }',);
         expect(p.stylesheet,).toContain('data-block-id',);
-        expect(p.stylesheet,).not.toMatch(/(^|[{};])\s*div p\s*\{/,);
+        expect(p.stylesheet,).not.toMatch(/(^|[{};])\s*div p:hover\s*\{/,);
     });
 
     it('drops nothing: every rule lands in exactly one of the three groups', () => {
-        const p = plan('& { padding: 0 } p { color: red } div p { margin: 0 } @media screen { a { color: blue } }',);
+        const p = plan(
+            '& { padding: 0 } p { color: red } div p { margin: 0 } a:hover { color: teal } @media screen { a { color: blue } }',
+        );
         expect(p.cell,).toEqual({ padding: '0', },);
-        expect(p.inline,).toHaveLength(1,);
-        expect(p.stylesheet,).toContain('div p',);
+        // `p` and `div p` are both inlinable now; `a:hover` and the @media are not.
+        expect(p.inline,).toHaveLength(2,);
+        expect(p.stylesheet,).toContain('a:hover',);
         expect(p.stylesheet,).toContain('@media screen',);
     });
 
@@ -279,5 +294,110 @@ describe('importantify', () => {
         const out = importantify('@media (max-width:1px){a{color:red}}',);
         expect(out,).toContain('@media (max-width:1px)',);
         expect(out,).toContain('color:red !important',);
+    });
+});
+
+describe('applyInlineRules — descendant and child combinators', () => {
+    const rule = (css: string,) => plan(css,).inline;
+    const apply = (html: string, css: string,) => applyInlineRules(html, rule(css,),);
+
+    it('matches a descendant through intervening elements', () => {
+        // The case that started this: an email social block renders as
+        // `<td><a><img></a></td>`, and `td a img` has to reach that image.
+        const html = '<table><tr><td><a href="#"><img src="x.png" /></a></td></tr></table>';
+        const out = apply(html, 'td a img { border-radius: 15px }',);
+        expect(out,).toContain('<img src="x.png" style="border-radius:15px" />',);
+    });
+
+    it('requires EVERY ancestor in the selector, in order', () => {
+        // `a` is missing, so `td a img` must not match.
+        expect(apply('<td><img src="x.png" /></td>', 'td a img { color: red }',),)
+            .toBe('<td><img src="x.png" /></td>',);
+        // Present but in the wrong order.
+        expect(apply('<a><td><img src="x.png" /></td></a>', 'td a img { color: red }',),)
+            .not.toContain('color:red',);
+    });
+
+    it('does not match an element OUTSIDE the ancestor', () => {
+        // The second <img> has left the <a>, so only the first is styled.
+        const out = apply(
+            '<td><a><img src="in.png" /></a><img src="out.png" /></td>',
+            'td a img { color: red }',
+        );
+        expect(out,).toContain('<img src="in.png" style="color:red" />',);
+        expect(out,).toContain('<img src="out.png" />',);
+    });
+
+    it('closes the ancestor properly, so a later sibling subtree is unaffected', () => {
+        const out = apply(
+            '<div class="a"><p>one</p></div><p>two</p>',
+            '.a p { color: red }',
+        );
+        expect(out,).toContain('<p style="color:red">one</p>',);
+        expect(out,).toContain('<p>two</p>',);
+    });
+
+    it('honours a CHILD combinator as immediate parent only', () => {
+        const css = 'div > p { color: red }';
+        expect(apply('<div><p>x</p></div>', css,),).toContain('color:red',);
+        // A <span> in between makes it a grandchild, not a child.
+        expect(apply('<div><span><p>x</p></span></div>', css,),).not.toContain('color:red',);
+    });
+
+    it('mixes descendant and child steps', () => {
+        const css = 'table td > a { color: red }';
+        expect(apply('<table><tr><td><a>x</a></td></tr></table>', css,),).toContain('color:red',);
+        expect(apply('<table><tr><td><span><a>x</a></span></td></tr></table>', css,),)
+            .not.toContain('color:red',);
+    });
+
+    it('matches a compound with several classes', () => {
+        const css = 'a.btn.large { color: red }';
+        expect(apply('<a class="btn large">x</a>', css,),).toContain('color:red',);
+        // One class missing is not a match.
+        expect(apply('<a class="btn">x</a>', css,),).not.toContain('color:red',);
+    });
+
+    it('does not let a void element swallow what follows it', () => {
+        /*
+         * `<img>` never closes, so pushing it onto the stack would make every
+         * later element look like its descendant — and `img p` would start
+         * matching paragraphs that are nowhere near an image.
+         */
+        const out = apply('<div><img src="x.png" /><p>after</p></div>', 'img p { color: red }',);
+        expect(out,).not.toContain('color:red',);
+    });
+
+    it('treats a <br> the same way', () => {
+        expect(apply('<div><br><p>after</p></div>', 'br p { color: red }',),)
+            .not.toContain('color:red',);
+    });
+
+    it('does not read a tag name out of a comment', () => {
+        const out = apply('<!-- <div> --><p>x</p>', 'div p { color: red }',);
+        expect(out,).toContain('<!-- <div> -->',);
+        expect(out,).not.toContain('color:red',);
+    });
+
+    it('survives an unclosed tag without losing the rest of the document', () => {
+        // Tolerance matters more than precision here: a stray `</div>` must not
+        // clear the stack and silently stop every later rule from matching.
+        const out = apply('</div><div class="a"><p>x</p></div>', '.a p { color: red }',);
+        expect(out,).toContain('color:red',);
+    });
+
+    it('preserves the document byte-for-byte when nothing matches', () => {
+        const html = '<table><tr><td class="x"><a href="?a=1&b=2">t</a></td></tr></table>';
+        expect(apply(html, '.nope p { color: red }',),).toBe(html,);
+    });
+
+    it('still merges over an existing style on a nested match', () => {
+        const out = apply(
+            '<td><a><img style="border-radius:4px;display:block" /></a></td>',
+            'td a img { border-radius: 15px }',
+        );
+        expect(out,).toContain('display:block',);
+        expect(out,).toContain('border-radius:15px',);
+        expect(out,).not.toContain('border-radius:4px',);
     });
 });

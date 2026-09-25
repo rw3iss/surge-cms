@@ -1,5 +1,5 @@
+import { escapeHtml, mediaRadius, } from './_util';
 import { BlockEmailRenderer, } from './index';
-import { escapeHtml, } from './_util';
 
 /**
  * URL-link block. The editor writes `url`, `title`, `description`, `image`,
@@ -20,14 +20,18 @@ export const renderUrlLink: BlockEmailRenderer = (node, ctx,) => {
     const description = String(node.settings.description ?? '',);
     const image = String(node.settings.image ?? '',);
 
-    const thumb = image
-        ? `<div style="padding-bottom:8px"><a href="${escapeHtml(url,)}"><img src="${escapeHtml(image,)}" alt="" style="max-width:100%;border-radius:4px;border:0" /></a></div>`
-        : '';
-    const anchor =
-        `<a href="${escapeHtml(url,)}" style="color:${ctx.linkColor};text-decoration:underline;font-weight:600">${escapeHtml(title,)}</a>`;
-    const desc = description
-        ? `<div style="font-size:14px;color:#666;padding-top:4px">${escapeHtml(description,)}</div>`
-        : '';
+    const radius = mediaRadius(node, '4px',);
+    const thumb = image ?
+        `<div style="padding-bottom:8px"><a href="${escapeHtml(url,)}"><img src="${
+            escapeHtml(image,)
+        }" alt="" style="max-width:100%;border-radius:${radius};border:0" /></a></div>` :
+        '';
+    const anchor = `<a href="${
+        escapeHtml(url,)
+    }" style="color:${ctx.linkColor};text-decoration:underline;font-weight:600">${escapeHtml(title,)}</a>`;
+    const desc = description ?
+        `<div style="font-size:14px;color:#666;padding-top:4px">${escapeHtml(description,)}</div>` :
+        '';
 
     return `${thumb}${anchor}${desc}`;
 };

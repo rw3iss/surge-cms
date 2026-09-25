@@ -122,10 +122,33 @@ export function cellStyleFromBlock(
      * The web renderer pairs a radius with `overflow:hidden` to clip whatever
      * is painted inside it. There is no point doing that here: `overflow` on a
      * table cell is not something email clients implement, so it would be dead
-     * weight in every message. An image that must itself be round needs the
-     * radius on the <img>, which is the image block's business.
+     * weight in every message. Instead, the renderers whose visible box IS a
+     * media element put the radius on that element — see `mediaRadius`.
      */
     if (s.borderRadius) out['border-radius'] = String(s.borderRadius,);
 
     return out;
+}
+
+/**
+ * The radius for a media element that FILLS its block — a social thumbnail, an
+ * image, a video poster, a carousel still.
+ *
+ * On the web these are clipped by the block wrapper's `border-radius` plus the
+ * `overflow: hidden` that comes with it. Email has neither: `overflow` does
+ * nothing on a table cell, and the cell has no background of its own, so a
+ * radius there is invisible while the square image sits on top of it. The
+ * operator sets Border Radius, the site rounds the picture, and the email does
+ * not — which reads as the setting being broken.
+ *
+ * So the block's radius is pushed onto the element that is actually visible.
+ * `fallback` keeps each renderer's existing default for blocks that set none,
+ * so an untouched email is unchanged.
+ */
+export function mediaRadius(
+    node: EmailBlockNode,
+    fallback?: string,
+): string | undefined {
+    const own = (node.style as { borderRadius?: unknown; } | undefined)?.borderRadius;
+    return typeof own === 'string' && own.trim() ? own.trim() : fallback;
 }

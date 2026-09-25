@@ -126,11 +126,11 @@ describe('custom CSS in email — the inline group', () => {
 describe('custom CSS in email — the stylesheet group', () => {
     it('sends what cannot be inlined to the head <style>, scoped and important', () => {
         const css = buildEmailResponsiveCss(
-            [{ id: 'b1', blockType: 'html', style: { customCss: 'div p { color: red }', }, },],
+            [{ id: 'b1', blockType: 'html', style: { customCss: 'div p:hover { color: red }', }, },],
             [MOBILE,],
             {},
         );
-        expect(css,).toContain('[data-block-id="b1"] div p',);
+        expect(css,).toContain('[data-block-id="b1"] div p:hover',);
         expect(css,).toContain('color:red !important',);
     });
 
@@ -178,8 +178,8 @@ describe('custom CSS in email — the stylesheet group', () => {
                 id: 'b1',
                 blockType: 'html',
                 style: {
-                    customCss: 'div p { color: red }',
-                    breakpoints: { mobile: { customCss: 'div p { color: blue }', }, },
+                    customCss: 'div p:hover { color: red }',
+                    breakpoints: { mobile: { customCss: 'div p:hover { color: blue }', }, },
                 },
             },],
             [MOBILE,],
@@ -192,13 +192,13 @@ describe('custom CSS in email — the stylesheet group', () => {
     it("keeps one block's rules off another block", () => {
         const css = buildEmailResponsiveCss(
             [
-                { id: 'b1', blockType: 'html', style: { customCss: 'div p { color: red }', }, },
+                { id: 'b1', blockType: 'html', style: { customCss: 'div p:hover { color: red }', }, },
                 { id: 'b2', blockType: 'html', style: {}, },
             ],
             [],
             {},
         );
-        expect(css,).toContain('[data-block-id="b1"] div p',);
+        expect(css,).toContain('[data-block-id="b1"] div p:hover',);
         expect(css,).not.toContain('[data-block-id="b2"]',);
         expect(css,).not.toMatch(/(^|[{};])\s*div p\s*\{/,);
     });
@@ -206,5 +206,102 @@ describe('custom CSS in email — the stylesheet group', () => {
     it('emits nothing at all when no block has custom CSS or overrides', () => {
         expect(buildEmailResponsiveCss([{ id: 'b1', blockType: 'html', style: {}, },], [MOBILE,], {},),)
             .toBe('',);
+    });
+});
+
+describe('border radius reaches the MEDIA, not just the cell', () => {
+    /*
+     * The bug this pins: a social block with Border Radius set rendered a
+     * square thumbnail in email. The radius was on the wrapping <td>, which has
+     * no background of its own, so nothing visible changed — and `overflow`,
+     * which does the clipping on the web, is not implemented on a table cell by
+     * any mail client. The element the reader actually sees has to carry it.
+     */
+    const mediaNode = (
+        blockType: string,
+        settings: Record<string, unknown>,
+        style: Record<string, unknown>,
+    ): EmailBlockNode => ({ id: 'b1', blockType, settings, style, children: [], });
+
+    const CASES: Array<[string, Record<string, unknown>,]> = [
+        ['social', { items: [{ postUrl: 'https://x.test/1', thumbnailUrl: 'https://x.test/t.jpg', },], },],
+        ['image', { images: [{ url: 'https://x.test/i.png', },], },],
+        ['video', { posterUrl: 'https://x.test/p.jpg', url: 'https://x.test/v', },],
+        ['carousel', { slides: [{ imageUrl: 'https://x.test/s.jpg', link: 'https://x.test', },], },],
+        ['url_link', { url: 'https://x.test', image: 'https://x.test/o.png', },],
+    ];
+
+    it.each(CASES,)('%s puts the block radius on its <img>', (type, settings,) => {
+        const html = renderNode(mediaNode(type, settings, { borderRadius: '15px', },), CTX,);
+        const img = /<img[^>]*>/.exec(html,)?.[0] ?? '';
+        expect(img, `${type} emitted no <img>`,).not.toBe('',);
+        expect(img,).toContain('border-radius:15px',);
+    },);
+
+    it.each(CASES,)('%s leaves its own default alone when no radius is set', (type, settings,) => {
+        // An untouched email must be byte-identical to before this change.
+        const img = /<img[^>]*>/.exec(renderNode(mediaNode(type, settings, {},), CTX,),)?.[0] ?? '';
+        expect(img,).not.toContain('border-radius:15px',);
+    },);
+
+    it('social keeps its 4px default, and the operator replaces it', () => {
+        const [, settings,] = CASES[0];
+        const plain = /<img[^>]*>/.exec(renderNode(mediaNode('social', settings, {},), CTX,),)![0];
+        expect(plain,).toContain('border-radius:4px',);
+        const rounded = /<img[^>]*>/.exec(
+            renderNode(mediaNode('social', settings, { borderRadius: '15px', },), CTX,),
+        )![0];
+        expect(rounded,).toContain('border-radius:15px',);
+        expect(rounded,).not.toContain('border-radius:4px',);
+    });
+
+    it('image emits NO radius when the block sets none', () => {
+        // Unlike social, the image block never had a default — adding one would
+        // silently round every existing image in every existing email.
+        const [, settings,] = CASES[1];
+        const img = /<img[^>]*>/.exec(renderNode(mediaNode('image', settings, {},), CTX,),)![0];
+        expect(img,).not.toContain('border-radius',);
+    });
+
+    it('still puts the radius on the cell as well', () => {
+        // Harmless where the cell has a background, and it is what a client
+        // that ignores the image style would fall back to.
+        const [, settings,] = CASES[0];
+        const html = renderNode(mediaNode('social', settings, { borderRadius: '15px', },), CTX,);
+        expect(cellStyle(html,),).toContain('border-radius:15px',);
+    });
+
+    it('rounds the video placeholder too when there is no poster', () => {
+        const html = renderNode(
+            mediaNode('video', { url: 'https://x.test/v', title: 'T', }, { borderRadius: '15px', },),
+            CTX,
+        );
+        expect(html,).toContain('border-radius:15px',);
+    });
+});
+
+describe('custom CSS reaches media inside a block', () => {
+    it("inlines `td a img` onto a social block's thumbnail", () => {
+        // The operator's own route to the same result, and the reason the email
+        // inliner understands descendant combinators at all.
+        const html = renderNode({
+            id: 'b1',
+            blockType: 'social',
+            settings: { items: [{ postUrl: 'https://x.test/1', thumbnailUrl: 'https://x.test/t.jpg', },], },
+            style: { customCss: 'td a img { border-radius: 15px }', },
+            children: [],
+        }, CTX,);
+        const img = /<img[^>]*>/.exec(html,)![0];
+        expect(img,).toContain('border-radius:15px',);
+        expect(img,).not.toContain('border-radius:4px',);
+    });
+
+    it('does not put that rule in the head <style> once it is inlined', () => {
+        const css = buildEmailResponsiveCss(
+            [{ id: 'b1', blockType: 'social', style: { customCss: 'td a img { border-radius: 15px }', }, },],
+            [],
+            {},
+        );
+        expect(css,).toBe('',);
     });
 });
