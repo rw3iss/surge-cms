@@ -150,3 +150,84 @@ describe('renderSocial — item border radius', () => {
         expect(img(settings,),).toContain('border-radius:15px',);
     });
 });
+
+describe('renderSocial — the other Item properties reach email', () => {
+    /*
+     * These were read by the web renderer and ignored here, so an operator
+     * could size their posts on the site and get none of it in the inbox. The
+     * two now read the same resolver.
+     */
+    const render = (settings: Record<string, unknown>,) => renderSocial(node(settings,), ctx,);
+    const imgOf = (settings: Record<string, unknown>,) => /<img[^>]*>/.exec(render(settings,),)?.[0] ?? '';
+    /** The `<td>` wrapping one post (not the meta table's cells). */
+    const rowCellOf = (settings: Record<string, unknown>,) =>
+        /<td style="padding:[^"]*"/.exec(render(settings,),)?.[0] ?? '';
+
+    it('item width caps the thumbnail', () => {
+        expect(imgOf({ itemWidth: '300px', },),).toContain('max-width:300px',);
+    });
+
+    it('item width BEATS the media-size preset', () => {
+        // The preset is a default; an explicit width is an instruction.
+        const out = imgOf({ mediaDisplay: 'small', itemWidth: '300px', },);
+        expect(out,).toContain('max-width:300px',);
+        expect(out,).not.toContain('max-width:160px',);
+    });
+
+    it('keeps the numeric width ATTRIBUTE for Outlook', () => {
+        // Outlook ignores max-width and reads the attribute, and `clamp()` has
+        // no integer to give it — so the preset still supplies one.
+        const out = imgOf({ itemWidth: 'clamp(200px,80vw,800px)', },);
+        expect(out,).toContain('width="600"',);
+        expect(out,).toContain('max-width:clamp(200px,80vw,800px)',);
+    });
+
+    it('falls back to the preset width when no item width is set', () => {
+        expect(imgOf({ mediaDisplay: 'medium', },),).toContain('max-width:320px',);
+        expect(imgOf({},),).toContain('max-width:600px',);
+    });
+
+    it('item height crops rather than squashes', () => {
+        // Without object-fit a fixed height distorts the picture.
+        const out = imgOf({ itemHeight: '200px', },);
+        expect(out,).toContain('height:200px',);
+        expect(out,).toContain('object-fit:cover',);
+    });
+
+    it('leaves height auto when none is set, and emits no object-fit', () => {
+        const out = imgOf({},);
+        expect(out,).toContain('height:auto',);
+        expect(out,).not.toContain('object-fit',);
+    });
+
+    it('item gap spaces the posts', () => {
+        expect(rowCellOf({ itemGap: '2rem', },),).toContain('padding:0 0 2rem',);
+    });
+
+    it('keeps the 16px default gap when none is set', () => {
+        // An untouched block must render exactly as it did before.
+        expect(rowCellOf({},),).toContain('padding:0 0 16px',);
+    });
+
+    it('an EMPTY item setting does not shadow the default', () => {
+        // The reason the resolver answers undefined rather than '': an empty
+        // string would win the `??` and emit `padding:0 0 ` / `max-width:`.
+        expect(rowCellOf({ itemGap: '', },),).toContain('padding:0 0 16px',);
+        expect(imgOf({ itemWidth: '', },),).toContain('max-width:600px',);
+        expect(imgOf({ itemHeight: '', },),).toContain('height:auto',);
+    });
+
+    it('applies every item property at once without corrupting the style', () => {
+        const out = imgOf({
+            itemWidth: '300px',
+            itemHeight: '200px',
+            itemBorderRadius: '8px',
+        },);
+        expect(out,).toContain('max-width:300px',);
+        expect(out,).toContain('height:200px',);
+        expect(out,).toContain('border-radius:8px',);
+        // No empty declarations left behind by the interpolation.
+        expect(out,).not.toMatch(/;\s*;/,);
+        expect(out,).not.toMatch(/:\s*;/,);
+    });
+});

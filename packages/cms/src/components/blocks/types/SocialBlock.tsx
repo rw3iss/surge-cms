@@ -7,7 +7,7 @@
 import {
     resolveSocialCount,
     resolveSocialDisplay,
-    resolveSocialItemRadius,
+    resolveSocialItemBox,
     resolveSocialNavigation,
     resolveSocialNavPadding,
 } from '@sitesurge/types';
@@ -49,10 +49,14 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const layout = () => (settings().layout as string) || 'grid';
     const snapScroll = () => settings().snapScroll as boolean ?? false;
     const rowHeight = () => (settings().rowHeight as string) || undefined;
-    const itemWidth = () => (settings().itemWidth as string) || undefined;
-    const itemHeight = () => (settings().itemHeight as string) || undefined;
+    /** Every "Item …" setting, read through the SAME resolver the email
+     *  renderer uses — picking them out of the bag here and ignoring them there
+     *  is how an operator's sizing reached the site but not the inbox. */
+    const itemBox = () => resolveSocialItemBox(settings() as never,);
+    const itemWidth = () => itemBox().width;
+    const itemHeight = () => itemBox().height;
     /** Gap between items, any CSS length. Falls back to the block style's gap. */
-    const itemGap = () => (settings().itemGap as string) || undefined;
+    const itemGap = () => itemBox().gap;
     // Padding INSIDE the horizontal scroll row (row layout only) — set via the
     // block's main Edit properties, independent of the block-style padding.
     const rowPadding = () => (settings().rowPadding as string) || undefined;
@@ -68,7 +72,7 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
      */
     const navigation = () => resolveSocialNavigation(settings() as never,);
     const navPadding = () => resolveSocialNavPadding(settings() as never,);
-    const itemRadius = () => resolveSocialItemRadius(settings() as never,);
+    const itemRadius = () => itemBox().borderRadius;
 
     let scroller: HTMLDivElement | undefined;
     const [page, setPage,] = createSignal(0,);

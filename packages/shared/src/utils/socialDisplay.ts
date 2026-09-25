@@ -237,6 +237,49 @@ export function resolveSocialNavPadding(
 export function resolveSocialItemRadius(
     settings: { itemBorderRadius?: unknown; } | null | undefined,
 ): string | undefined {
-    const v = String(settings?.itemBorderRadius ?? '',).trim();
-    return v || undefined;
+    return resolveSocialItemBox(settings,).borderRadius;
+}
+
+/** The per-post box settings, as CSS values. */
+export interface SocialItemBox {
+    /** Cap on each post's width. */
+    width?: string;
+    /** Fixed height for each post. */
+    height?: string;
+    /** Space between posts. */
+    gap?: string;
+    /** Corner radius on each post. */
+    borderRadius?: string;
+}
+
+/**
+ * Every "Item …" setting in one place, so the web renderer and the email
+ * renderer read them identically.
+ *
+ * These were previously picked out of the settings bag ad hoc by the web
+ * renderer and ignored entirely by the email renderer, which is how an operator
+ * could size and round their posts on the site and get none of it in the inbox.
+ * One resolver is what stops the two surfaces disagreeing about what the
+ * operator asked for.
+ *
+ * Empty strings become `undefined` so a caller can use `??` without an empty
+ * value winning and emitting `width:`.
+ */
+export function resolveSocialItemBox(
+    settings:
+        | { itemWidth?: unknown; itemHeight?: unknown; itemGap?: unknown; itemBorderRadius?: unknown; }
+        | null
+        | undefined,
+): SocialItemBox {
+    const raw = settings ?? {};
+    const val = (v: unknown,) => {
+        const s = String(v ?? '',).trim();
+        return s || undefined;
+    };
+    return {
+        width: val(raw.itemWidth,),
+        height: val(raw.itemHeight,),
+        gap: val(raw.itemGap,),
+        borderRadius: val(raw.itemBorderRadius,),
+    };
 }

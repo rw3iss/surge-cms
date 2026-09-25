@@ -1,4 +1,4 @@
-import { resolveSocialDisplay, resolveSocialItemRadius, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
+import { resolveSocialDisplay, resolveSocialItemBox, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
 import { escapeHtml, mediaRadius, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
@@ -69,10 +69,44 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
      *
      * 4px stays the default for a block that sets neither.
      */
-    const radius = resolveSocialItemRadius(node.settings as never,) ?? mediaRadius(node, '4px',);
+    const box = resolveSocialItemBox(node.settings as never,);
+    const radius = box.borderRadius ?? mediaRadius(node, '4px',);
     // `full` is uncapped on the web; in email it still needs a definite pixel
     // width, because Outlook ignores `max-width` on an image.
     const width = SOCIAL_THUMB_WIDTH[mediaDisplay] ?? 600;
+
+    /*
+     * "Item width" caps the post, exactly as it does on the site.
+     *
+     * It wins over the Media size preset because it is the explicit, specific
+     * instruction — the preset is a default. The `width` ATTRIBUTE stays the
+     * numeric preset either way: Outlook reads the attribute and ignores
+     * `max-width`, and an item width like `clamp(200px, 80vw, 800px)` has no
+     * integer to give it.
+     */
+    const maxWidth = box.width ?? `${width}px`;
+
+    /*
+     * "Item height" crops the post to a fixed height.
+     *
+     * `object-fit: cover` is what makes that a crop rather than a squash, and
+     * Outlook for Windows does not implement it — so a FIXED height there
+     * stretches the image. Emitted anyway, because the operator asked for a
+     * height and silently dropping a setting is worse than one client getting
+     * it wrong; the common values (`clamp()`, `vw`) are invalid in Word's
+     * engine and are dropped there, leaving the image at natural proportions.
+     */
+    const heightCss = box.height ? `height:${box.height};object-fit:cover` : 'height:auto';
+
+    /*
+     * "Item gap" spaces the posts.
+     *
+     * As bottom padding on each row rather than a `gap`, which no mail client
+     * implements on a table. 16px stays the default so an unset block is
+     * unchanged; the last row keeps it too, since trimming it would leave the
+     * block's own padding to do a job it may not be set up for.
+     */
+    const gap = box.gap ?? '16px';
 
     const rows = valid.map((i,) => {
         const url = escapeHtml(i.postUrl ?? '#',);
@@ -88,7 +122,7 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
         const thumb = i.thumbnailUrl ?
             `<a href="${url}" style="display:block;text-decoration:none">
                    <img src="${escapeHtml(i.thumbnailUrl,)}" alt="${title}" width="${width}"
-                        style="display:block;width:100%;max-width:${width}px;height:auto;border:0;border-radius:${radius}" />
+                        style="display:block;width:100%;max-width:${maxWidth};${heightCss};border:0;border-radius:${radius}" />
                </a>` :
             '';
 
@@ -119,7 +153,7 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
             }</div>` :
             '';
 
-        return `<tr><td style="padding:0 0 16px">${thumb}${metaRow}${author}</td></tr>`;
+        return `<tr><td style="padding:0 0 ${gap}">${thumb}${metaRow}${author}</td></tr>`;
     },).join('\n',);
 
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;

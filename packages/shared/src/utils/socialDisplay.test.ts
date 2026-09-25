@@ -7,7 +7,7 @@
  * (rounded panel, square videos, or the reverse) impossible to state.
  */
 import { describe, expect, it, } from 'vitest';
-import { resolveSocialItemRadius, } from './socialDisplay';
+import { resolveSocialItemBox, resolveSocialItemRadius, } from './socialDisplay';
 
 describe('resolveSocialItemRadius', () => {
     it('returns the stored value', () => {
@@ -40,5 +40,50 @@ describe('resolveSocialItemRadius', () => {
         // Empty means "square posts", not "same as the block". A rounded panel
         // holding square videos is a normal design and has to stay sayable.
         expect(resolveSocialItemRadius({ borderRadius: '15px', } as never,),).toBeUndefined();
+    });
+});
+
+describe('resolveSocialItemBox', () => {
+    it('reads every Item setting', () => {
+        expect(resolveSocialItemBox({
+            itemWidth: '300px',
+            itemHeight: '200px',
+            itemGap: '1.5rem',
+            itemBorderRadius: '8px',
+        },),).toEqual({ width: '300px', height: '200px', gap: '1.5rem', borderRadius: '8px', },);
+    });
+
+    it('keeps a clamp() intact rather than trying to understand it', () => {
+        // These are CSS values passed through, not numbers to reason about.
+        expect(resolveSocialItemBox({ itemWidth: 'clamp(200px,80vw,800px)', },).width,)
+            .toBe('clamp(200px,80vw,800px)',);
+    });
+
+    it('turns empty and whitespace values into undefined', () => {
+        // So a caller can `??` past them; an empty string would win and emit
+        // `width:` into the markup.
+        const box = resolveSocialItemBox({ itemWidth: '', itemHeight: '   ', itemGap: undefined, },);
+        expect(box,).toEqual({
+            width: undefined,
+            height: undefined,
+            gap: undefined,
+            borderRadius: undefined,
+        },);
+    });
+
+    it('is all-undefined for a block with no settings', () => {
+        for (const v of [null, undefined, {},]) {
+            expect(resolveSocialItemBox(v,),).toEqual({
+                width: undefined,
+                height: undefined,
+                gap: undefined,
+                borderRadius: undefined,
+            },);
+        }
+    });
+
+    it('backs resolveSocialItemRadius, so the two cannot disagree', () => {
+        const s = { itemBorderRadius: '8px', };
+        expect(resolveSocialItemRadius(s,),).toBe(resolveSocialItemBox(s,).borderRadius,);
     });
 });
