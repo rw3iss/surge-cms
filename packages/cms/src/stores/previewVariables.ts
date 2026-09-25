@@ -80,3 +80,58 @@ export function buildMailPreviewVariables(
     }
     return expandVariablePaths(flat,);
 }
+
+/** The subset of a mailing list the `{{list.*}}` bag is built from. */
+export interface MailListLike {
+    id?: string; name?: string; slug?: string; description?: string;
+    subscriberCount?: number; doubleOptIn?: boolean;
+    registeredUsersOnly?: boolean; isEnabled?: boolean;
+}
+
+/** The subset of a template/send draft the `{{template.*}}` bag is built from. */
+export interface MailTemplateLike {
+    id?: string | null; name?: string | null; subject?: string | null;
+    preheader?: string | null; fromName?: string | null;
+    fromEmail?: string | null; replyTo?: string | null; wasModified?: boolean;
+}
+
+/**
+ * Map a REAL list + template onto the flat `{{ }}` paths.
+ *
+ * One mapping, used by every surface that knows the actual values, so the send
+ * composer and the template editor cannot disagree about what `{{list.slug}}`
+ * means. Anything absent simply isn't returned, and the sample from the
+ * catalog stands — a preview showing a plausible placeholder is better than
+ * one showing a blank where a value will appear.
+ */
+export function mailVariableOverrides(
+    list?: MailListLike | null,
+    template?: MailTemplateLike | null,
+): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const put = (path: string, value: unknown,): void => {
+        // `false` and `0` are real answers and must survive; only genuinely
+        // absent values fall back to the sample.
+        if (value !== undefined && value !== null) out[path] = value;
+    };
+
+    put('list.name', list?.name,);
+    put('list.description', list?.description,);
+    put('list.slug', list?.slug,);
+    put('list.id', list?.id,);
+    put('list.subscriberCount', list?.subscriberCount,);
+    put('list.doubleOptIn', list?.doubleOptIn,);
+    put('list.registeredUsersOnly', list?.registeredUsersOnly,);
+    put('list.isEnabled', list?.isEnabled,);
+
+    put('template.name', template?.name,);
+    put('template.id', template?.id,);
+    put('template.subject', template?.subject,);
+    put('template.preheader', template?.preheader,);
+    put('template.fromName', template?.fromName,);
+    put('template.fromEmail', template?.fromEmail,);
+    put('template.replyTo', template?.replyTo,);
+    put('template.wasModified', template?.wasModified,);
+
+    return out;
+}

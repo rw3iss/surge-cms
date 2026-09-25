@@ -10,15 +10,20 @@
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import {
-    Component, createMemo, createSignal, For, onMount, Show,
+    Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show,
 } from 'solid-js';
 import { createStore, } from 'solid-js/store';
-import type { MailingList, MailingListsSettings, MailTemplate, } from '@sitesurge/types';
+import type {
+    MailingList, MailingListsSettings, MailTemplate, VariableDescriptor,
+} from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import { FormField, } from '../../components/admin/forms';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { cms, } from '../../services/cmsClient';
+import {
+    buildMailPreviewVariables, mailVariableOverrides, setPreviewVariables,
+} from '../../stores/previewVariables';
 
 interface DraftStore {
     listId: string;
@@ -73,6 +78,11 @@ const MailSend: Component = () => {
     onMount(async () => {
         try {
             const [lr, tr,] = await Promise.all([cms.mailingLists.list(), cms.mailTemplates.list(),],);
+            // Sample values for the variables this page cannot know (the
+            // recipient, the unsubscribe URL — both per-recipient).
+            cms.mailTemplates.variables()
+                .then((v,) => setVariableCatalog(v as VariableDescriptor[],))
+                .catch(() => { /* samples are a nicety; real values still resolve */ });
             setLists(lr as MailingList[],);
             setTemplates(tr as MailTemplate[],);
         } catch {
@@ -84,6 +94,40 @@ const MailSend: Component = () => {
     },);
 
     const selectedList = createMemo(() => lists().find((l,) => l.id === draft.listId,) ?? null,);
+    const selectedTemplate = createMemo(() => templates().find((t,) => t.id === draft.templateId,) ?? null,);
+
+    /*
+     * Publish the `{{ }}` bag for the Content area's block previews.
+     *
+     * This composer is the one surface that knows the REAL list and template,
+     * so it publishes actual values rather than the catalog's samples: the
+     * operator is looking at what this specific send will say. Everything it
+     * does NOT know (the recipient, the unsubscribe URL — both per-recipient,
+     * decided by the send worker) falls back to a sample.
+     *
+     * `site.*` is excluded by buildMailPreviewVariables, so the real site bag
+     * the runtime already built survives.
+     */
+    const [variableCatalog, setVariableCatalog,] = createSignal<VariableDescriptor[]>([],);
+    createEffect(() => {
+        setPreviewVariables(buildMailPreviewVariables(
+            variableCatalog(),
+            mailVariableOverrides(selectedList(), {
+                // Meta comes from the DRAFT, not the stored template: the
+                // operator may have edited the subject for this send only, and
+                // the preview should show what is about to go out.
+                id: draft.templateId,
+                name: selectedTemplate()?.name,
+                subject: draft.subject,
+                preheader: draft.preheader,
+                fromName: draft.fromName,
+                fromEmail: draft.fromEmail,
+                replyTo: draft.replyTo,
+                wasModified: isModifiedFromTemplate(),
+            },),
+        ),);
+    },);
+    onCleanup(() => setPreviewVariables(undefined,));
 
     const loadTemplate = async (id: string,): Promise<void> => {
         if (id === '' || id === '__new__') {
