@@ -7,15 +7,15 @@
  * the selected provider, plus an "Edit" button that opens a fuller
  * SocialPostSelectModal for advanced search / pagination.
  */
-import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
-import { resolveSocialCount, } from '@sitesurge/types';
 import { cms, } from '@/services/cmsClient';
+import { resolveSocialCount, } from '@sitesurge/types';
+import { SOCIAL_NAVIGATION_LABELS, SOCIAL_NAVIGATIONS, } from '@sitesurge/types';
+import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
+import AnchoredDropdown from '../../common/AnchoredDropdown';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
-import { SOCIAL_NAVIGATION_LABELS, SOCIAL_NAVIGATIONS, } from '@sitesurge/types';
-import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 import { CONTENT_TYPE_OPTIONS, providerClassifiesContent, } from '../socialContentTypes';
-import AnchoredDropdown from '../../common/AnchoredDropdown';
+import SocialPostSelectModal, { type SocialPost, } from '../SocialPostSelectModal';
 
 /** Editor for the unified Social block. Picks a provider, sets a count,
  *  and either auto-fills (no slots filled) or hand-picks posts via the
@@ -56,7 +56,7 @@ function resolveItems(data: Record<string, any>,): SocialItem[] {
 
 const SocialBlock: Component<SocialBlockProps> = (props,) => {
     const provider = () => (props.data.provider || '') as string;
-    const items = (): SocialItem[] => resolveItems(props.data);
+    const items = (): SocialItem[] => resolveItems(props.data,);
     /** The effective post count, resolved the SAME way the renderer resolves it.
      *  Showing a different default here than the renderer uses is what made the
      *  field unchangeable — see resolveSocialCount. */
@@ -70,7 +70,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
         } catch { /* ignore — bus toasts; provider list just stays empty */ }
     },);
 
-    const connectedSet = () => new Set(connections().map((c: any,) => c.provider as string,),);
+    const connectedSet = () => new Set(connections().map((c: any,) => c.provider as string),);
 
     const update = (patch: Record<string, any>,) => props.onUpdate({ ...props.data, ...patch, },);
 
@@ -96,7 +96,14 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
         writeItems(list,);
     };
 
-    const clearItem = (idx: number,) => updateItem(idx, { postId: undefined, postUrl: undefined, thumbnailUrl: undefined, content: undefined, authorName: undefined, });
+    const clearItem = (idx: number,) =>
+        updateItem(idx, {
+            postId: undefined,
+            postUrl: undefined,
+            thumbnailUrl: undefined,
+            content: undefined,
+            authorName: undefined,
+        },);
 
     return (
         <div class="block-social-feed">
@@ -119,9 +126,11 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                     </select>
                 </FormField>
 
-                {/* YouTube classifies its items, so an operator can pin the
+                {
+                    /* YouTube classifies its items, so an operator can pin the
                     block to Shorts / live / full videos. Other providers don't
-                    report a kind, so the control would be a no-op there. */}
+                    report a kind, so the control would be a no-op there. */
+                }
                 <Show when={providerClassifiesContent(provider(),)}>
                     <FormField
                         label="Content type"
@@ -167,9 +176,11 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </select>
                     </FormField>
 
-                    {/* Navigation — only the Horizontal Row layout scrolls, so
+                    {
+                        /* Navigation — only the Horizontal Row layout scrolls, so
                         only it has anywhere to navigate TO. Kept next to
-                        Layout because it is a property of that choice. */}
+                        Layout because it is a property of that choice. */
+                    }
                     <Show when={(props.data.layout || 'grid') === 'row'}>
                         <FormField label="Show navigation" hintBeside>
                             <select
@@ -199,9 +210,11 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </Show>
                     </Show>
 
-                    {/* Row Padding — only the Horizontal Row layout scrolls, so
+                    {
+                        /* Row Padding — only the Horizontal Row layout scrolls, so
                         this controls the padding INSIDE the scroll container
-                        (independent of the block's style padding). */}
+                        (independent of the block's style padding). */
+                    }
                     <Show when={(props.data.layout || 'grid') === 'row'}>
                         <FormField
                             label="Row Padding"
@@ -247,9 +260,24 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         />
                     </FormField>
 
-                    {/* Pinning is opt-in. Showing 20 empty pickers for a block
+                    <FormField
+                        label="Item border radius"
+                        hintBeside
+                        hint="Rounds each post. Separate from the block's own Border Radius, which rounds the panel around them."
+                    >
+                        <input
+                            type="text"
+                            value={props.data.itemBorderRadius || ''}
+                            onChange={(e,) => update({ itemBorderRadius: e.currentTarget.value || undefined, },)}
+                            placeholder="e.g. 8px, 0 0 15px 15px"
+                        />
+                    </FormField>
+
+                    {
+                        /* Pinning is opt-in. Showing 20 empty pickers for a block
                         that is going to auto-fill anyway buried every other
-                        setting; the toggle keeps the default case to one line. */}
+                        setting; the toggle keeps the default case to one line. */
+                    }
                     <div class="form-group">
                         <Toggle
                             label="Specific posts"
@@ -258,34 +286,35 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                             ariaLabel="Choose specific posts"
                         />
                         <p class="form-help-muted">
-                            Off: automatically shows the latest posts. On: shows only the
-                            posts you pick below.
+                            Off: automatically shows the latest posts. On: shows only the posts you pick below.
                         </p>
                     </div>
 
                     {/* Per-slot pickers */}
                     <Show when={props.data.usePinned}>
-                    <div class="form-group">
-                        <label>Posts</label>
-                        <div class="social-slot-list">
-                            <Index each={padToCount(count(),)}>
-                                {(item, idx,) => (
-                                    <SocialSlotRow
-                                        item={item()}
-                                        provider={provider()}
-                                        kind={props.data.kind as string | undefined}
-                                        index={idx}
-                                        onChange={(patch,) => updateItem(idx, patch,)}
-                                        onClear={() => clearItem(idx,)}
-                                    />
-                                )}
-                            </Index>
+                        <div class="form-group">
+                            <label>Posts</label>
+                            <div class="social-slot-list">
+                                <Index each={padToCount(count(),)}>
+                                    {(item, idx,) => (
+                                        <SocialSlotRow
+                                            item={item()}
+                                            provider={provider()}
+                                            kind={props.data.kind as string | undefined}
+                                            index={idx}
+                                            onChange={(patch,) => updateItem(idx, patch,)}
+                                            onClear={() => clearItem(idx,)}
+                                        />
+                                    )}
+                                </Index>
+                            </div>
                         </div>
-                    </div>
                     </Show>
 
-                    {/* Media presentation — applies to BOTH pinned slots and the
-                        auto-feed, since they render through the same component. */}
+                    {
+                        /* Media presentation — applies to BOTH pinned slots and the
+                        auto-feed, since they render through the same component. */
+                    }
                     <FormField
                         label="Media size"
                         hintBeside
@@ -382,7 +411,11 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                 ...(props.kind ? { kind: props.kind, } : {}),
             } as any,);
             setRecent((res.data || []) as unknown as SocialPost[],);
-        } catch { /* ignore — bus toasts; recent list just stays empty */ } finally { setLoading(false,); }
+        } catch {
+            /* ignore — bus toasts; recent list just stays empty */
+        } finally {
+            setLoading(false,);
+        }
     };
 
     const onFocus = () => {
@@ -434,7 +467,7 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
         if (!q) return recent();
         return recent().filter(p =>
             (p.content || '').toLowerCase().includes(q,) ||
-            (p.authorName || '').toLowerCase().includes(q,),
+            (p.authorName || '').toLowerCase().includes(q,)
         );
     },);
 
@@ -478,7 +511,9 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                     class="social-slot-row__dropdown"
                     maxHeight={320}
                 >
-                    <Show when={loading()} fallback={
+                    <Show
+                        when={loading()}
+                        fallback={
                             <Show
                                 when={filtered().length > 0}
                                 fallback={<div class="social-slot-row__empty">No recent posts.</div>}
@@ -500,7 +535,8 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                                     )}
                                 </For>
                             </Show>
-                        }>
+                        }
+                    >
                         <div class="social-slot-row__loading">Loading…</div>
                     </Show>
                 </AnchoredDropdown>

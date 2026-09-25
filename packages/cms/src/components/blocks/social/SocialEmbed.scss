@@ -1,7 +1,14 @@
 .social-embed {
   position: relative;
   background: $background;
-  border-radius: $border-radius-lg;
+  // The block's "Item border radius" setting, published by SocialBlock as a
+  // custom property so it inherits down to every post without the renderer
+  // touching each card. Falls back to the card default, so an unset block is
+  // unchanged.
+  border-radius: var(--social-item-radius, #{$border-radius-lg});
+  // Load-bearing for the setting, not decoration: a radius rounds the border
+  // box while the iframe painted inside it keeps its square corners, so
+  // without this the setting appears to do nothing on a video.
   overflow: hidden;
   box-shadow: $shadow-md;
   transition: box-shadow $transition-base;

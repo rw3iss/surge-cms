@@ -68,9 +68,9 @@ export function resolveSocialDisplay(
     const raw = settings ?? {};
     const size = raw.mediaDisplay;
     return {
-        mediaDisplay: SOCIAL_MEDIA_DISPLAYS.includes(size as SocialMediaDisplay,)
-            ? (size as SocialMediaDisplay)
-            : SOCIAL_DISPLAY_DEFAULTS.mediaDisplay,
+        mediaDisplay: SOCIAL_MEDIA_DISPLAYS.includes(size as SocialMediaDisplay,) ?
+            (size as SocialMediaDisplay) :
+            SOCIAL_DISPLAY_DEFAULTS.mediaDisplay,
         // Explicit `false` turns it off; anything else (including an absent
         // key on every pre-existing block) keeps the title.
         showTitle: raw.showTitle !== false,
@@ -143,10 +143,10 @@ export function isSocialAutoFeed(
 ): boolean {
     const raw = settings ?? {};
     if (raw.usePinned !== undefined) return !raw.usePinned;
-    const filled = Array.isArray(raw.items,)
-        ? (raw.items as Array<{ postId?: unknown; postUrl?: unknown; }>)
-            .filter((i,) => i && (i.postId || i.postUrl)).length
-        : 0;
+    const filled = Array.isArray(raw.items,) ?
+        (raw.items as Array<{ postId?: unknown; postUrl?: unknown; }>)
+            .filter((i,) => i && (i.postId || i.postUrl)).length :
+        0;
     return filled === 0;
 }
 
@@ -198,9 +198,9 @@ export function resolveSocialNavigation(
     const raw = settings ?? {};
     if ((raw.layout ?? 'grid') !== 'row') return 'none';
     const v = String(raw.navigation ?? '',);
-    return (SOCIAL_NAVIGATIONS as readonly string[]).includes(v,)
-        ? (v as SocialNavigation)
-        : 'none';
+    return (SOCIAL_NAVIGATIONS as readonly string[]).includes(v,) ?
+        (v as SocialNavigation) :
+        'none';
 }
 
 /**
@@ -215,5 +215,28 @@ export function resolveSocialNavPadding(
     settings: { navPadding?: unknown; } | null | undefined,
 ): string | undefined {
     const v = String(settings?.navPadding ?? '',).trim();
+    return v || undefined;
+}
+
+/**
+ * Corner radius for each POST, distinct from the block's own Border Radius.
+ *
+ * The two are different boxes and an operator wants them separately: the block
+ * radius rounds the panel the posts sit in, this rounds each video. Expressing
+ * one with the other is impossible — rounding the block does nothing to the
+ * square iframe inside it, and rounding every post does not round the panel.
+ *
+ * This is a block SETTING rather than a style-panel property because it
+ * describes the block's content — like Item width and Item gap beside it —
+ * rather than the block's own box, which is what the style panel governs.
+ *
+ * Empty means "no rounding", NOT "inherit the block radius": a block with
+ * rounded corners and square videos inside it is an ordinary design, and
+ * inheriting would make it unexpressible.
+ */
+export function resolveSocialItemRadius(
+    settings: { itemBorderRadius?: unknown; } | null | undefined,
+): string | undefined {
+    const v = String(settings?.itemBorderRadius ?? '',).trim();
     return v || undefined;
 }

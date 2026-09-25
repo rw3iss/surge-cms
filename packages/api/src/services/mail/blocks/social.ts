@@ -1,4 +1,4 @@
-import { resolveSocialDisplay, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
+import { resolveSocialDisplay, resolveSocialItemRadius, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
 import { escapeHtml, mediaRadius, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
@@ -56,14 +56,20 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
     // thumbnail with no title looks the same in the inbox.
     const { mediaDisplay, showTitle, showAuthor, showDate, } = resolveSocialDisplay(node.settings as never,);
     /*
-     * The block's Border Radius, on the thumbnail rather than the cell.
+     * The radius the still image carries.
      *
-     * On the site this block is an iframe clipped by the block wrapper's radius
-     * + overflow. Email has no iframe and no overflow, so the still IS the
-     * block's visible box and has to carry the rounding itself, or the setting
-     * appears to do nothing. 4px stays the default for blocks that set none.
+     * Two settings can ask for one, and the more specific wins:
+     *
+     *   1. "Item border radius" — the block setting that rounds each POST. On
+     *      the web it goes on `.social-embed`, which clips the iframe inside
+     *      it; here the still IS the post, so it goes straight on the image.
+     *   2. The block's own Border Radius. On the site that rounds the panel and
+     *      clips the posts within it; email has no `overflow` on a cell, so the
+     *      still has to carry it or the setting appears to do nothing.
+     *
+     * 4px stays the default for a block that sets neither.
      */
-    const radius = mediaRadius(node, '4px',);
+    const radius = resolveSocialItemRadius(node.settings as never,) ?? mediaRadius(node, '4px',);
     // `full` is uncapped on the web; in email it still needs a definite pixel
     // width, because Outlook ignores `max-width` on an image.
     const width = SOCIAL_THUMB_WIDTH[mediaDisplay] ?? 600;

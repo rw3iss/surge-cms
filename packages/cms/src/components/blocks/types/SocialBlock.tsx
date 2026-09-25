@@ -7,12 +7,13 @@
 import {
     resolveSocialCount,
     resolveSocialDisplay,
+    resolveSocialItemRadius,
     resolveSocialNavigation,
     resolveSocialNavPadding,
 } from '@sitesurge/types';
 import type { Block, SocialPlatform, SocialPost, } from '@sitesurge/types';
-import { Component, For, Show, createResource, createSignal, onCleanup, onMount, } from 'solid-js';
 import { A, } from '@solidjs/router';
+import { Component, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { toFlexAlign, } from '../../../utils/cssAlign';
 import SocialEmbed from '../social/SocialEmbed';
@@ -35,13 +36,12 @@ interface SocialBlockItem {
 
 export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const settings = () => (props.block.settings || {}) as Record<string, any>;
-    const provider = (): SocialPlatform | undefined =>
-        settings().provider as SocialPlatform | undefined;
+    const provider = (): SocialPlatform | undefined => settings().provider as SocialPlatform | undefined;
     const items = (): SocialBlockItem[] => {
         const list = settings().items;
         return Array.isArray(list,) ? (list as SocialBlockItem[]) : [];
     };
-    const filledItems = () => items().filter(i => i.postId || i.postUrl,);
+    const filledItems = () => items().filter(i => i.postId || i.postUrl);
     /** Shared with the admin panel — the two defaulting differently is what
      *  made "Number of posts" impossible to change (the field showed 1, the
      *  renderer used 6, so typing 1 was not a change and never saved). */
@@ -68,6 +68,7 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
      */
     const navigation = () => resolveSocialNavigation(settings() as never,);
     const navPadding = () => resolveSocialNavPadding(settings() as never,);
+    const itemRadius = () => resolveSocialItemRadius(settings() as never,);
 
     let scroller: HTMLDivElement | undefined;
     const [page, setPage,] = createSignal(0,);
@@ -152,9 +153,9 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
      * Legacy blocks predate the flag, so filled slots still imply pinning for
      * them — otherwise an existing hand-curated block would start auto-feeding.
      */
-    const usePinned = () => (settings().usePinned === undefined
-        ? filledItems().length > 0
-        : Boolean(settings().usePinned,));
+    const usePinned = () => (settings().usePinned === undefined ?
+        filledItems().length > 0 :
+        Boolean(settings().usePinned,));
     const useAutoFeed = () => !usePinned();
 
     const [posts,] = createResource(
@@ -226,9 +227,9 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // The block's own Item gap wins over the style panel's gap:
                         // it is the more specific control and the one next to the
                         // width/height fields it pairs with.
-                        ...(itemGap()
-                            ? { gap: itemGap(), }
-                            : (blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {})),
+                        ...(itemGap() ?
+                            { gap: itemGap(), } :
+                            (blockStyle()?.gap ? { gap: blockStyle()!.gap, } : {})),
                         // rowHeight only constrains card height in the row layout;
                         // the outer block dimensions are left to the block style system.
                         ...(layout() === 'row' && rowHeight() ? { '--social-row-height': rowHeight(), } : {}),
@@ -236,6 +237,14 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // (auto-fill keeps columns even); itemHeight fixes card height.
                         ...(itemWidth() ? { '--social-item-width': itemWidth(), } : {}),
                         ...(itemHeight() ? { '--social-item-height': itemHeight(), } : {}),
+                        // Each post's own corner radius, inherited by every
+                        // `.social-embed` below rather than applied per card —
+                        // the auto-feed and pinned branches render the same
+                        // component, and setting it in one place is what keeps
+                        // them from drifting. `.social-embed` is already
+                        // `overflow: hidden`, so the iframe inside it is
+                        // clipped to the rounding.
+                        ...(itemRadius() ? { '--social-item-radius': itemRadius(), } : {}),
                         // An embedded player keeps its natural aspect ratio UNLESS a
                         // height was configured, in which case the height must win or
                         // the card grows and the video sits in it with dead space
@@ -256,10 +265,10 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // With the ratio kept, the video takes its natural height and
                         // pushes the container, and the percentage still stretches it
                         // whenever an ancestor does have a definite height.
-                        ...((isDefiniteHeight(itemHeight(),)
-                                || (layout() === 'row' && isDefiniteHeight(rowHeight(),)))
-                            ? { '--social-embed-ratio': 'auto', }
-                            : {}),
+                        ...((isDefiniteHeight(itemHeight(),) ||
+                                (layout() === 'row' && isDefiniteHeight(rowHeight(),))) ?
+                            { '--social-embed-ratio': 'auto', } :
+                            {}),
                     }}
                 >
                     <Show
@@ -287,10 +296,12 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                             </For>
                         }
                     >
-                        {/* Sliced as well as requested: the count is the block's
+                        {
+                            /* Sliced as well as requested: the count is the block's
                             setting, so it should hold even if the feed returns
                             more than asked (a cached response, a provider that
-                            ignores the limit). */}
+                            ignores the limit). */
+                        }
                         <For each={(posts() ?? []).slice(0, limit(),)}>
                             {(post,) => (
                                 <SocialEmbed
@@ -312,12 +323,17 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                     </Show>
                 </div>
 
-                {/* Side arrows sit OVER the row's own edges; bottom arrows and
+                {
+                    /* Side arrows sit OVER the row's own edges; bottom arrows and
                     dots sit under it. Both are suppressed when nothing
                     overflows — a control that cannot move anything is worse
-                    than no control. */}
+                    than no control. */
+                }
                 <Show when={navigation() === 'side-arrows' && hasOverflow()}>
-                    <span class="social-block__nav-slot social-block__nav-slot--prev" style={{ padding: navPadding(), }}>
+                    <span
+                        class="social-block__nav-slot social-block__nav-slot--prev"
+                        style={{ padding: navPadding(), }}
+                    >
                         <button
                             type="button"
                             class="social-block__nav-arrow"
@@ -328,7 +344,10 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                             <span aria-hidden="true">‹</span>
                         </button>
                     </span>
-                    <span class="social-block__nav-slot social-block__nav-slot--next" style={{ padding: navPadding(), }}>
+                    <span
+                        class="social-block__nav-slot social-block__nav-slot--next"
+                        style={{ padding: navPadding(), }}
+                    >
                         <button
                             type="button"
                             class="social-block__nav-arrow"
