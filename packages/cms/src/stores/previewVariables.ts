@@ -43,3 +43,40 @@ export function expandVariablePaths(flat: Record<string, unknown>,): Record<stri
     }
     return out;
 }
+
+/**
+ * Build the preview bag for a mail template from the variable catalog.
+ *
+ * `site.*` is deliberately EXCLUDED. The catalog's site entries are
+ * placeholders ("SiteSurge", "https://example.com/logo.png"), and this bag
+ * merges LAST in the runtime — so publishing them replaced the real site bag
+ * built from live settings, and `{{site.logo}}` previewed as a 404ing
+ * example.com URL instead of the actual logo.
+ *
+ * The server preview settled the same question the same way: real site values
+ * beat catalog samples, so a preview cannot show a different logo from the one
+ * that ships. The client holds those real values too, so it has no reason to
+ * fall back to a sample.
+ *
+ * `overrides` are values the editor genuinely knows (the template's own name,
+ * subject, preheader) and win over the samples.
+ */
+export function buildMailPreviewVariables(
+    catalog: ReadonlyArray<{ path: string; sample: unknown; }>,
+    overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+    // Applied to overrides too, not just the catalog: the exclusion is this
+    // function's guarantee, and a guarantee with a back door is not one.
+    const isSite = (path: string,): boolean => path === 'site' || path.startsWith('site.',);
+
+    const flat: Record<string, unknown> = {};
+    for (const v of catalog) {
+        if (isSite(v.path,)) continue;
+        flat[v.path] = v.sample;
+    }
+    for (const [k, v,] of Object.entries(overrides,)) {
+        if (isSite(k,)) continue;
+        if (v !== undefined && v !== '') flat[k] = v;
+    }
+    return expandVariablePaths(flat,);
+}

@@ -23,7 +23,7 @@ import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { useEditorDraft, } from '../../hooks/useEditorDraft';
 import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
-import { expandVariablePaths, setPreviewVariables, } from '../../stores/previewVariables';
+import { buildMailPreviewVariables, setPreviewVariables, } from '../../stores/previewVariables';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
@@ -242,12 +242,11 @@ const MailTemplateEdit: Component = () => {
      * overridden with their REAL values.
      */
     createEffect(() => {
-        const flat: Record<string, unknown> = {};
-        for (const v of variableCatalog()) flat[v.path] = v.sample;
-        if (name()) flat['template.name'] = name();
-        flat['template.subject'] = subject();
-        if (preheader()) flat['template.preheader'] = preheader();
-        setPreviewVariables(expandVariablePaths(flat,),);
+        setPreviewVariables(buildMailPreviewVariables(variableCatalog(), {
+            'template.name': name(),
+            'template.subject': subject(),
+            'template.preheader': preheader(),
+        },),);
     },);
 
     // Leave the store empty for every other editor, or a page preview would

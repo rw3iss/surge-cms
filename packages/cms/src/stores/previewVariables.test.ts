@@ -7,7 +7,7 @@
  * which is the bug this store exists to fix.
  */
 import { describe, expect, it, } from 'vitest';
-import { expandVariablePaths, } from './previewVariables';
+import { buildMailPreviewVariables, expandVariablePaths, } from './previewVariables';
 
 describe('expandVariablePaths', () => {
     it('nests dotted paths', () => {
@@ -62,5 +62,66 @@ describe('expandVariablePaths', () => {
 
     it('returns an empty bag for no paths', () => {
         expect(expandVariablePaths({},),).toEqual({},);
+    },);
+},);
+
+/**
+ * The bag must not smuggle placeholder `site.*` over the real thing.
+ *
+ * The catalog exists to preview variables the client CANNOT derive. Site
+ * values are not among them: the admin loads real settings, and this bag
+ * merges last in the runtime — so publishing the catalog's
+ * "https://example.com/logo.png" replaced the actual logo with a 404.
+ */
+
+const CATALOG = [
+    { path: 'site.name', sample: 'SiteSurge', },
+    { path: 'site.logo', sample: 'https://example.com/logo.png', },
+    { path: 'site.url', sample: 'https://example.com', },
+    { path: 'list.name', sample: 'Weekly Newsletter', },
+    { path: 'list.subscriberCount', sample: 1234, },
+    { path: 'template.name', sample: 'Weekly Digest', },
+    { path: 'user.name', sample: 'Sample Subscriber', },
+    { path: 'unsubscribe_url', sample: 'https://example.com/u/tok', },
+];
+
+describe('buildMailPreviewVariables', () => {
+    it('EXCLUDES site.* so the real site bag survives', () => {
+        const bag = buildMailPreviewVariables(CATALOG,);
+        expect(bag.site,).toBeUndefined();
+    },);
+
+    it('keeps the variables the client cannot derive', () => {
+        const bag = buildMailPreviewVariables(CATALOG,);
+        expect((bag.list as Record<string, unknown>).name,).toBe('Weekly Newsletter',);
+        expect((bag.template as Record<string, unknown>).name,).toBe('Weekly Digest',);
+        expect((bag.user as Record<string, unknown>).name,).toBe('Sample Subscriber',);
+        expect(bag.unsubscribe_url,).toBe('https://example.com/u/tok',);
+    },);
+
+    it('lets real editor values beat the samples', () => {
+        const bag = buildMailPreviewVariables(CATALOG, { 'template.name': 'Ryan Test Template', },);
+        expect((bag.template as Record<string, unknown>).name,).toBe('Ryan Test Template',);
+    },);
+
+    it('ignores an empty or undefined override, keeping the sample', () => {
+        // A blank subject field should preview the sample, not an empty string
+        // that looks like a broken variable.
+        const bag = buildMailPreviewVariables(CATALOG, {
+            'template.name': '', 'template.subject': undefined,
+        },);
+        expect((bag.template as Record<string, unknown>).name,).toBe('Weekly Digest',);
+    },);
+
+    it('preserves sample types', () => {
+        const bag = buildMailPreviewVariables(CATALOG,);
+        expect((bag.list as Record<string, unknown>).subscriberCount,).toBe(1234,);
+    },);
+
+    it('excludes site.* even when an override names one', () => {
+        // Nothing in the editor should be able to reintroduce a placeholder
+        // logo by the back door.
+        const bag = buildMailPreviewVariables(CATALOG, { 'site.logo': 'https://example.com/x.png', },);
+        expect(bag.site,).toBeUndefined();
     },);
 },);
