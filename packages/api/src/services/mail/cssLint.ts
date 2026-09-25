@@ -21,6 +21,8 @@
  * constructs cannot survive lets them choose an email-safe equivalent, which
  * is a decision about design, not a transformation a renderer can make.
  */
+import { parseCssRules, } from '@sitesurge/types';
+import { parseDeclarations, } from './blocks/customCss';
 
 /** One thing about this HTML that email clients will not render faithfully. */
 export interface EmailCssWarning {
@@ -44,27 +46,23 @@ const RULES: Rule[] = [
     {
         code: 'style-block',
         match: /<style[\s>]/i,
-        message:
-            'A <style> block is present. Gmail and several other clients strip stylesheets, '
-            + 'so every rule in it is lost while inline styles survive.',
+        message: 'A <style> block is present. Gmail and several other clients strip stylesheets, ' +
+            'so every rule in it is lost while inline styles survive.',
         fix: 'Move each declaration onto the element it targets as a style="…" attribute.',
     },
     {
         code: 'pseudo-element',
         match: /::?(before|after)\b/i,
-        message:
-            'A ::before / ::after pseudo-element is used. It cannot be expressed as an inline '
-            + 'style, so it disappears along with the stylesheet.',
-        fix:
-            'For an overlay or scrim, layer a gradient into background-image on the element '
-            + 'itself: background-image: linear-gradient(...), url(...).',
+        message: 'A ::before / ::after pseudo-element is used. It cannot be expressed as an inline ' +
+            'style, so it disappears along with the stylesheet.',
+        fix: 'For an overlay or scrim, layer a gradient into background-image on the element ' +
+            'itself: background-image: linear-gradient(...), url(...).',
     },
     {
         code: 'container-query',
         match: /container-type\s*:|(?:^|[\s(,])\d*\.?\d+cq[iwhb]\b|\d*\.?\d+cqm(?:in|ax)\b/i,
-        message:
-            'Container queries (container-type, or cqi/cqw/cqh units) are not supported by any '
-            + 'email client.',
+        message: 'Container queries (container-type, or cqi/cqw/cqh units) are not supported by any ' +
+            'email client.',
         fix: 'Use a fixed value sized for the email width (600px by default).',
     },
     {
@@ -88,9 +86,8 @@ const RULES: Rule[] = [
     {
         code: 'css-variable',
         match: /var\s*\(\s*--/i,
-        message:
-            'A CSS custom property (var(--…)) is used. The site stylesheet that defines it is '
-            + 'not present in an inbox, so the fallback — or nothing — is what renders.',
+        message: 'A CSS custom property (var(--…)) is used. The site stylesheet that defines it is ' +
+            'not present in an inbox, so the fallback — or nothing — is what renders.',
         fix: 'Substitute the resolved value.',
     },
     {
@@ -122,17 +119,96 @@ export function lintEmailHtml(html: string,): EmailCssWarning[] {
     return out;
 }
 
-/** Lint every custom-HTML block in a rendered tree, de-duplicated by code. */
+/**
+ * Block settings a Custom CSS declaration can silently take over.
+ *
+ * Both are the operator's own instructions, and the CSS legitimately wins —
+ * a selector is more specific than a control, and that is the rule everywhere
+ * else in this system. What it must not be is INVISIBLE: a setting that reads
+ * `0px 0px 15px 15px` in the panel while the inbox shows `15px` looks like the
+ * setting is broken, and the CSS that is actually responsible is in a
+ * collapsed field on a different panel.
+ *
+ * Most of these rules are "email cannot do this". This one is "you asked for
+ * the same thing twice, differently" — worth saying for exactly the case where
+ * the CSS is a leftover workaround for a setting that has since been added.
+ */
+const SHADOWABLE: Array<{
+    blockType: string;
+    /** Key in the block's settings bag. */
+    setting: string;
+    /** What the operator sees on the panel. */
+    label: string;
+    /** The CSS property that overrides it. */
+    property: string;
+}> = [
+    {
+        blockType: 'social',
+        setting: 'itemBorderRadius',
+        label: 'Item border radius',
+        property: 'border-radius',
+    },
+];
+
+/** Every property a block's Custom CSS declares, across all its rules. */
+function declaredProperties(customCss: string,): Set<string> {
+    const out = new Set<string>();
+    const walk = (css: string,) => {
+        for (const rule of parseCssRules(css,)) {
+            // An at-rule's body is a nested sheet, not declarations.
+            if (rule.atRule) {
+                walk(rule.body,);
+                continue;
+            }
+            for (const prop of Object.keys(parseDeclarations(rule.body,),)) out.add(prop,);
+        }
+    };
+    walk(customCss,);
+    return out;
+}
+
+/** Warn where a block's Custom CSS takes over one of its own settings. */
+function lintShadowedSettings(
+    block: { blockType?: string; settings?: Record<string, unknown>; style?: Record<string, unknown>; },
+): EmailCssWarning[] {
+    const customCss = String(block.style?.customCss ?? '',);
+    if (!customCss.trim()) return [];
+    const declared = declaredProperties(customCss,);
+    const out: EmailCssWarning[] = [];
+    for (const s of SHADOWABLE) {
+        if (block.blockType !== s.blockType) continue;
+        const value = String(block.settings?.[s.setting] ?? '',).trim();
+        if (!value || !declared.has(s.property,)) continue;
+        out.push({
+            code: `shadowed-${s.setting}`,
+            message: `This block's Custom CSS sets ${s.property}, which overrides its "${s.label}" ` +
+                `setting (${value}). The CSS wins, so the setting has no effect in the email.`,
+            fix: `Remove the ${s.property} rule from the block's Custom CSS to use "${s.label}", ` +
+                `or clear "${s.label}" if the CSS is what you want.`,
+        },);
+    }
+    return out;
+}
+
+/**
+ * Lint a rendered tree, de-duplicated by code.
+ *
+ * Two passes over different material: custom-HTML block CONTENT, which email
+ * renders verbatim, and any block's Custom CSS, which can quietly take over a
+ * setting on the same block.
+ */
 export function lintBlocksForEmail(
-    blocks: Array<{ blockType?: string; settings?: Record<string, unknown>; }>,
+    blocks: Array<{ blockType?: string; settings?: Record<string, unknown>; style?: Record<string, unknown>; }>,
 ): EmailCssWarning[] {
     const seen = new Map<string, EmailCssWarning>();
+    const add = (w: EmailCssWarning,) => {
+        if (!seen.has(w.code,)) seen.set(w.code, w,);
+    };
     for (const b of blocks) {
+        for (const w of lintShadowedSettings(b,)) add(w,);
         if (b.blockType !== 'html') continue;
         const content = String(b.settings?.content ?? b.settings?.html ?? '',);
-        for (const w of lintEmailHtml(content,)) {
-            if (!seen.has(w.code,)) seen.set(w.code, w,);
-        }
+        for (const w of lintEmailHtml(content,)) add(w,);
     }
     return [...seen.values(),];
 }
