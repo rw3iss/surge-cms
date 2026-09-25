@@ -113,11 +113,11 @@ export function blockStyleLayoutCss(
     if (s.verticalAlign && s.verticalAlign !== 'top') {
         out.display = 'flex';
         out['flex-direction'] = 'column';
-        out['justify-content'] = s.verticalAlign === 'center'
-            ? 'center'
-            : s.verticalAlign === 'bottom'
-            ? 'flex-end'
-            : undefined;
+        out['justify-content'] = s.verticalAlign === 'center' ?
+            'center' :
+            s.verticalAlign === 'bottom' ?
+            'flex-end' :
+            undefined;
     }
 
     /*
@@ -155,6 +155,24 @@ export function blockStyleLayoutCss(
     }
     if (s.minHeight) out['min-height'] = s.minHeight;
     if (s.maxHeight) out['max-height'] = s.maxHeight;
+
+    if (s.borderRadius) {
+        out['border-radius'] = s.borderRadius;
+        /*
+         * Clip the content so the corner is actually round.
+         *
+         * A border-radius rounds the BORDER BOX; anything painted inside —
+         * a background image, a full-bleed `<img>`, a child with its own
+         * background — still squares off the corner unless the box clips.
+         *
+         * Applied only WITH a radius, and only when the operator has not set
+         * an overflow themselves. Clipping every block unconditionally would
+         * be a site-wide behavioural change: a dropdown, tooltip or
+         * deliberately overflowing card inside any existing block would start
+         * being cut off, with no setting to point at.
+         */
+        if (!s.overflowX && !s.overflowY) out.overflow = 'hidden';
+    }
 
     // Horizontal alignment → a CSS var the block's item row/grid reads as its
     // justify-content (e.g. the social grid).

@@ -26,11 +26,24 @@ export interface BlockStyle {
     minHeight?: string; // CSS min-height value
     height?: string; // CSS height value
     maxHeight?: string; // CSS max-height value (same value space as min-height)
+    /** CSS border-radius. Any valid value ('8px', '50%', '8px 0 8px 0').
+     *  Setting one also clips the block's content, so a rounded corner
+     *  actually looks rounded — see blockStyleLayoutCss. */
+    borderRadius?: string;
     padding?: string; // CSS padding value
     margin?: string; // CSS margin value
     gap?: string; // CSS gap value
     overflowX?: string; // CSS overflow-x value
     overflowY?: string; // CSS overflow-y value
+    /**
+     * Free-form CSS for this block, injected as a scoped `<style>`.
+     *
+     * Selectors are rewritten to sit under the block's own wrapper, so a rule
+     * here cannot leak out and restyle the rest of the page. `&` refers to the
+     * block wrapper itself. Per-breakpoint copies live in the breakpoint
+     * override bag under the same key.
+     */
+    customCss?: string;
     /** Per-breakpoint style overrides, keyed by `SiteBreakpoint.id`. Each entry
      *  holds only the presentation props that differ at that breakpoint (a prop
      *  absent = inherit the base/default style; `null` = explicitly cleared).

@@ -189,6 +189,28 @@ Set it via `apply_block_style` (`target: "page" | "post"`) or via the block's ow
 **or** a `swatch:{id}` reference; `swatch:{id}` values track the swatch palette
 (`list_swatches` / `set_swatches` / `swatch_usages`), so editing a swatch cascades.
 
+Two style fields behave unlike the rest:
+
+- **`borderRadius`** — any CSS radius (`"8px"`, `"50%"`, `"8px 0 8px 0"`). Setting
+  one also clips the block (`overflow: hidden`), because a radius rounds the border
+  box while a background image or full-bleed child still squares the corner. The
+  clip is applied ONLY alongside a radius, and only when neither `overflowX` nor
+  `overflowY` is set — an explicit overflow always wins.
+- **`customCss`** — free-form CSS for that one block. Every selector is rewritten
+  under the block's own wrapper before it is emitted, so `p { … }` means "the
+  paragraphs in this block" and cannot reach the rest of the page; `&` is the block
+  itself (`&:hover`, `& > p`). It is emitted last within the block's cascade layer,
+  so it overrides the fields above it. Capped at 16 KB per block. Each breakpoint
+  bag may carry its own `customCss`, which overrides the base one inside that
+  breakpoint's media query.
+
+In **email**, a radius is emitted on the block's cell (Outlook for Windows squares
+it off; everything else honours it) and `customCss` is split by what email can
+deliver: `&`/bare declarations are inlined onto the cell, a simple element rule
+(`p`, `.price`, `a.btn`) is inlined onto matching tags, and anything else —
+combinators, pseudo-classes, media queries — goes to a scoped head `<style>`, which
+not every client honours.
+
 ### Wiring reference blocks
 
 Some blocks reference an existing entity by id/url — look them up first:

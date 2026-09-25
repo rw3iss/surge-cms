@@ -10,7 +10,7 @@ import { mapRow, mapRows, } from '../utils/mapRow';
  * default-flip), so they're not here. Add a new style property in ONE place:
  * this list (+ a migration + the shared `BlockStyle` type / DTO / zod schema).
  */
-const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string]> = [
+const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string,]> = [
     ['backgroundColor', 'background_color',],
     ['backgroundImage', 'background_image',],
     ['backgroundPosition', 'background_position',],
@@ -26,6 +26,8 @@ const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string]> = [
     ['minHeight', 'min_height',],
     ['height', 'height',],
     ['maxHeight', 'max_height',],
+    ['borderRadius', 'border_radius',],
+    ['customCss', 'custom_css',],
     ['padding', 'padding',],
     ['margin', 'margin',],
     ['gap', 'gap',],
@@ -61,7 +63,7 @@ export async function create(data: Partial<BlockStyle>,): Promise<BlockStyle> {
     const values: unknown[] = [
         data.name,
         data.isDefault || false,
-        ...STYLE_COLUMNS.map(([key,],) => data[key],),
+        ...STYLE_COLUMNS.map(([key,],) => data[key]),
     ];
     const placeholders = values.map((_, i,) => `$${i + 1}`).join(', ',);
     const result = await query(

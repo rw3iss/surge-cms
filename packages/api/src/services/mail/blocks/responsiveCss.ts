@@ -10,8 +10,9 @@
  * iOS honor it; Gmail app supports media queries; some clients strip it), so
  * this is a progressive enhancement over the always-correct inline base styles.
  */
-import { breakpointMediaCondition, type SiteBreakpoint, } from '@sitesurge/types';
+import { breakpointMediaCondition, scopeCss, type SiteBreakpoint, } from '@sitesurge/types';
 import { resolveColorForEmail, } from './_util';
+import { importantify, planCustomCss, } from './customCss';
 
 interface BlockLike {
     id: string;
@@ -39,6 +40,7 @@ function overrideToDecls(ov: Record<string, unknown>, palette: Record<string, st
     if (ov.width) out.width = String(ov.width,);
     if (ov.height) out.height = String(ov.height,);
     if (ov.maxWidth) out['max-width'] = String(ov.maxWidth,);
+    if (ov.borderRadius) out['border-radius'] = String(ov.borderRadius,);
     return out;
 }
 
@@ -47,24 +49,57 @@ export function buildEmailResponsiveCss(
     breakpoints: SiteBreakpoint[],
     palette: Record<string, string>,
 ): string {
-    if (!breakpoints.length) return '';
-    const bpById = new Map(breakpoints.map((b,) => [b.id, b,] as const,),);
+    const bpById = new Map(breakpoints.map((b,) => [b.id, b,] as const),);
     // media condition → rule strings (grouped so each breakpoint is one @media).
     const byCond = new Map<string, string[]>();
+    // Unconditional rules (a block's base Custom CSS that could not be inlined).
+    const base: string[] = [];
 
     for (const b of blocks) {
-        const bps = (b.style as { breakpoints?: Record<string, Record<string, unknown>>; } | undefined)?.breakpoints;
+        const style = b.style as {
+            customCss?: string;
+            breakpoints?: Record<string, Record<string, unknown>>;
+        } | undefined;
+
+        /*
+         * Whatever of the block's Custom CSS could NOT be inlined onto an
+         * element (descendant selectors, pseudo-classes, the operator's own
+         * media queries). `renderNode` already inlined the rest; this is the
+         * remainder, and it is best-effort by nature — see `customCss.ts`.
+         */
+        const leftover = planCustomCss(style?.customCss, `[data-block-id="${b.id}"]`,).stylesheet;
+        if (leftover) base.push(importantify(leftover,),);
+
+        const bps = style?.breakpoints;
         if (!bps) continue;
         for (const [bpId, override,] of Object.entries(bps,)) {
             const bp = bpById.get(bpId,);
             if (!bp || !override || typeof override !== 'object') continue;
             const cond = breakpointMediaCondition(bp,);
             if (!cond) continue;
+
+            const sel = `[data-block-id="${b.id}"]`;
+
+            /*
+             * The breakpoint's own Custom CSS. Nothing about it can be inlined
+             * — an inline style carries no media condition — so the ENTIRE
+             * sheet goes here, including the parts that would have been
+             * inlined at the base level.
+             */
+            const bpCustom = (override as { customCss?: string; }).customCss;
+            if (typeof bpCustom === 'string' && bpCustom.trim()) {
+                const scoped = importantify(scopeCss(bpCustom, sel,),);
+                if (scoped) {
+                    const arr = byCond.get(cond,) ?? [];
+                    arr.push(scoped,);
+                    byCond.set(cond, arr,);
+                }
+            }
+
             const decls = overrideToDecls(override, palette,);
             const keys = Object.keys(decls,);
             if (!keys.length) continue;
 
-            const sel = `[data-block-id="${b.id}"]`;
             const isImage = b.blockType === 'image' || b.blockType === 'gallery';
             const cellDecls: string[] = [];
             const imgDecls: string[] = [];
@@ -83,9 +118,11 @@ export function buildEmailResponsiveCss(
         }
     }
 
-    if (!byCond.size) return '';
-    const css = Array.from(byCond.entries(),)
-        .map(([cond, rules,],) => `@media ${cond}{${rules.join('',)}}`,)
-        .join('',);
+    if (!byCond.size && !base.length) return '';
+    // Unconditional rules first, so a breakpoint's @media still overrides them.
+    const css = base.join('',) +
+        Array.from(byCond.entries(),)
+            .map(([cond, rules,],) => `@media ${cond}{${rules.join('',)}}`)
+            .join('',);
     return `<style type="text/css">${css}</style>\n`;
 }

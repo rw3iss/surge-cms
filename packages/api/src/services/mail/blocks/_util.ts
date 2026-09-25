@@ -15,8 +15,8 @@ export { escapeHtml, } from '../../../utils/html';
 
 export function inlineStyle(obj: Record<string, string | number | undefined>,): string {
     return Object.entries(obj,)
-        .filter(([, v,],) => v !== undefined && v !== '' && v !== null,)
-        .map(([k, v,],) => `${k}:${v}`,)
+        .filter(([, v,],) => v !== undefined && v !== '' && v !== null)
+        .map(([k, v,],) => `${k}:${v}`)
         .join(';',);
 }
 
@@ -111,6 +111,21 @@ export function cellStyleFromBlock(
     if (s.verticalAlign && s.verticalAlign !== 'top') {
         out['vertical-align'] = String(s.verticalAlign,);
     }
+
+    /*
+     * Border radius. Honoured by Apple Mail, iOS Mail, Gmail (web + apps) and
+     * Outlook.com; Outlook for Windows renders with Word, which has no notion
+     * of a rounded box and squares the corner off. That is a clean degradation
+     * — the block is still the right size, colour and position — so it is
+     * emitted rather than withheld.
+     *
+     * The web renderer pairs a radius with `overflow:hidden` to clip whatever
+     * is painted inside it. There is no point doing that here: `overflow` on a
+     * table cell is not something email clients implement, so it would be dead
+     * weight in every message. An image that must itself be round needs the
+     * radius on the <img>, which is the image block's business.
+     */
+    if (s.borderRadius) out['border-radius'] = String(s.borderRadius,);
 
     return out;
 }

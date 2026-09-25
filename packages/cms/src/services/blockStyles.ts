@@ -17,7 +17,28 @@ export type BlockStyleData = Omit<BlockStyle, 'createdAt' | 'updatedAt'>;
 export const BLOCK_STYLE_DEFAULTS: Required<
     Pick<
         BlockStyleData,
-        'backgroundColor' | 'backgroundImage' | 'backgroundPosition' | 'textColor' | 'textAlign' | 'verticalAlign' | 'horizontalAlign' | 'fontFamily' | 'fontSize' | 'lineHeight' | 'width' | 'maxWidth' | 'minHeight' | 'height' | 'maxHeight' | 'padding' | 'margin' | 'gap' | 'overflowX' | 'overflowY'
+        | 'backgroundColor'
+        | 'backgroundImage'
+        | 'backgroundPosition'
+        | 'textColor'
+        | 'textAlign'
+        | 'verticalAlign'
+        | 'horizontalAlign'
+        | 'fontFamily'
+        | 'fontSize'
+        | 'lineHeight'
+        | 'width'
+        | 'maxWidth'
+        | 'minHeight'
+        | 'height'
+        | 'maxHeight'
+        | 'borderRadius'
+        | 'customCss'
+        | 'padding'
+        | 'margin'
+        | 'gap'
+        | 'overflowX'
+        | 'overflowY'
     >
 > = {
     backgroundColor: '',
@@ -35,6 +56,8 @@ export const BLOCK_STYLE_DEFAULTS: Required<
     minHeight: '',
     height: '',
     maxHeight: '',
+    borderRadius: '',
+    customCss: '',
     padding: '',
     margin: '',
     gap: '',
@@ -80,7 +103,9 @@ export const BlockStyleService = {
     /** Idempotent fire-and-forget loader. Editors call this on mount so
      *  the cache is populated before any block renders for the first
      *  time. */
-    preload(): void { void this.getAll(); },
+    preload(): void {
+        void this.getAll();
+    },
 
     invalidateCache() {
         setStyles([],);
@@ -131,8 +156,8 @@ export const BlockStyleService = {
         styleRef?: { templateId?: string; custom?: Record<string, any>; };
         data?: Record<string, any>;
     },): BlockStyleData | undefined {
-        const ref = (block.data?.__styleRef as { templateId?: string; custom?: Record<string, any>; } | undefined)
-            || block.styleRef;
+        const ref = (block.data?.__styleRef as { templateId?: string; custom?: Record<string, any>; } | undefined) ||
+            block.styleRef;
         if (!ref) return undefined;
         if (ref.custom) return ref.custom as BlockStyleData;
         if (ref.templateId) {

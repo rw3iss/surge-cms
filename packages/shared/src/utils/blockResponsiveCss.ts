@@ -19,12 +19,9 @@
  * wrapper, so a responsive gap can't be expressed with a wrapper selector).
  */
 import type { SiteBreakpoint, } from '../types/content';
-import { blockStyleLayoutCss, type BlockStyleCssResolvers, } from './blockStyleCss';
-import {
-    breakpointContainerCondition,
-    breakpointMediaCondition,
-    PREVIEW_CONTAINER,
-} from './breakpoints';
+import { type BlockStyleCssResolvers, blockStyleLayoutCss, } from './blockStyleCss';
+import { breakpointContainerCondition, breakpointMediaCondition, PREVIEW_CONTAINER, } from './breakpoints';
+import { scopeCss, } from './scopeCss';
 
 export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
     /** Resolve a stored color value (hex / swatch ref) to a literal CSS color. */
@@ -134,7 +131,7 @@ export type CascadeLayer = 'tpl' | 'block' | 'block-bp';
 
 /** Wrap rules in their layer. Empty input yields no at-rule at all. */
 function inLayer(layer: CascadeLayer, rules: string[],): string[] {
-    return rules.length ? [`@layer ${layer}{${rules.join('')}}`,] : [];
+    return rules.length ? [`@layer ${layer}{${rules.join('',)}}`,] : [];
 }
 
 /**
@@ -195,6 +192,36 @@ function makeSelectorsFor(blockId: string, targets: PropTargets,): (prop: string
     return (prop: string,) => (targets[prop] ?? fallback).map((d,) => (d ? `${base} ${d}` : base));
 }
 
+/** The wrapper selector operator CSS is scoped to. */
+function blockScope(blockId: string,): string {
+    return `.block[data-block-id="${escapeId(blockId,)}"]`;
+}
+
+/**
+ * The operator's own CSS for one style bag, scoped to this block.
+ *
+ * Emitted AFTER the generated declarations in the same layer, so an operator
+ * writing `& { padding: 0 }` beats the padding the style panel produced. That is
+ * the only reading that makes the field useful: someone reaches for Custom CSS
+ * precisely when the controls cannot express what they want.
+ *
+ * `atRule` wraps the whole scoped sheet for a breakpoint pass. Nesting an
+ * operator's own `@media` inside ours is legal CSS and behaves as the
+ * intersection of the two conditions, which is what "a media query inside my
+ * mobile CSS" should mean.
+ */
+function customCssRules(
+    styleBag: Record<string, unknown>,
+    scope: string,
+    atRule?: string,
+): string[] {
+    const raw = styleBag.customCss;
+    if (typeof raw !== 'string' || !raw.trim()) return [];
+    const scoped = scopeCss(raw, scope,);
+    if (!scoped) return [];
+    return [atRule ? `${atRule}{${scoped}}` : scoped,];
+}
+
 /**
  * ALL of a block's CSS: its default style plus every per-breakpoint override,
  * as one layered stylesheet. Returns null when the block has no style at all.
@@ -208,6 +235,14 @@ function makeSelectorsFor(blockId: string, targets: PropTargets,): (prop: string
  * earlier (`tpl`), so a using block's own style wins without any ordering logic
  * — which matters because a template's `<style>` is nested INSIDE the instance's
  * wrapper and would otherwise win on document order.
+ *
+ * `style.customCss` (and each breakpoint bag's own `customCss`) is the
+ * operator's free-form CSS. It is scoped to this block by `scopeCss` and emitted
+ * LAST within its layer, so it overrides what the style controls produced — the
+ * field exists for the cases those controls cannot express. Base custom CSS
+ * lands in the default layer and a breakpoint's in `block-bp`, so the
+ * per-breakpoint sheet overrides the base one by layer order rather than by
+ * source position.
  */
 export function blockCss(
     blockId: string | undefined,
@@ -219,6 +254,7 @@ export function blockCss(
 ): string | null {
     if (!blockId || !style) return null;
     const selectorsFor = makeSelectorsFor(blockId, targets,);
+    const scope = blockScope(blockId,);
 
     // `breakpoints` is the override bag, not a CSS property — exclude it from
     // the default pass or it would serialize as garbage declarations.
@@ -227,7 +263,12 @@ export function blockCss(
     };
 
     const out: string[] = [
-        ...inLayer(defaultLayer, rulesFor(defaults, selectorsFor, opts,),),
+        ...inLayer(defaultLayer, [
+            ...rulesFor(defaults, selectorsFor, opts,),
+            // The operator's base CSS closes the layer, so it wins over the
+            // controls above it on equal specificity.
+            ...customCssRules(defaults, scope,),
+        ],),
     ];
 
     if (bps && breakpoints?.length) {
@@ -245,7 +286,10 @@ export function blockCss(
             if (!override || Object.keys(override,).length === 0) continue;
             const media = breakpointMediaCondition(bp,);
             if (media) {
-                bpRules.push(...rulesFor(override, selectorsFor, bpOpts, `@media ${media}`,),);
+                bpRules.push(
+                    ...rulesFor(override, selectorsFor, bpOpts, `@media ${media}`,),
+                    ...customCssRules(override, scope, `@media ${media}`,),
+                );
             }
             // The SAME declarations again as a container query, for the editor's
             // device preview. That preview caps a container's width and leaves
@@ -260,8 +304,10 @@ export function blockCss(
             // override up for free instead of needing its own special case.
             const contained = breakpointContainerCondition(bp,);
             if (contained) {
+                const at = `@container ${PREVIEW_CONTAINER} ${contained}`;
                 bpRules.push(
-                    ...rulesFor(override, selectorsFor, bpOpts, `@container ${PREVIEW_CONTAINER} ${contained}`,),
+                    ...rulesFor(override, selectorsFor, bpOpts, at,),
+                    ...customCssRules(override, scope, at,),
                 );
             }
         }

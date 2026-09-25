@@ -12,9 +12,10 @@
  * `entity` block. Writes are admin-only.
  */
 import { z, } from 'zod';
+import { blockStyleRecord, } from '../api/blockStyleInput';
 import { defineRoute, reply, } from '../api/defineRoute';
-import * as cbtSvc from '../services/contentBlockTemplates';
 import { NotFoundError, } from '../core/errors';
+import * as cbtSvc from '../services/contentBlockTemplates';
 import * as permissions from '../services/permissions';
 
 /**
@@ -54,19 +55,23 @@ const blockSchema = z.object({
     blockType: z.string(),
     position: z.number().int(),
     settings: z.record(z.string(), z.unknown(),).optional(),
-    style: z.record(z.string(), z.unknown(),).optional(),
+    style: blockStyleRecord.optional(),
 },);
 const blocksBody = z.object({ blocks: z.array(blockSchema,), },);
 
 export const componentsRoutes = [
     defineRoute({
-        method: 'get', path: '/templates', auth: 'optional',
+        method: 'get',
+        path: '/templates',
+        auth: 'optional',
         summary: 'List global (entity-less) block templates',
         handler: async () => cbtSvc.listGlobal(),
     },),
 
     defineRoute({
-        method: 'get', path: '/templates/:id', auth: 'optional',
+        method: 'get',
+        path: '/templates/:id',
+        auth: 'optional',
         summary: 'Get a global block template + its blocks',
         input: { params: idParam, },
         handler: async ({ params, },) => {
@@ -89,8 +94,11 @@ export const componentsRoutes = [
      * so an absent or disabled script returns an empty module instead.
      */
     defineRoute({
-        method: 'get', path: '/templates/:id/client.js', auth: 'public', raw: true,
-        summary: 'Serve a component\'s browser ES module (same-origin).',
+        method: 'get',
+        path: '/templates/:id/client.js',
+        auth: 'public',
+        raw: true,
+        summary: "Serve a component's browser ES module (same-origin).",
         input: { params: idParam, },
         handler: async ({ params, res, },) => {
             const template = await cbtSvc.findById(params.id,);
@@ -107,7 +115,9 @@ export const componentsRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/templates', auth: 'admin',
+        method: 'post',
+        path: '/templates',
+        auth: 'admin',
         summary: 'Create a global block template',
         input: { body: createSchema, },
         handler: async ({ body, user, },) => {
@@ -118,7 +128,9 @@ export const componentsRoutes = [
     },),
 
     defineRoute({
-        method: 'put', path: '/templates/:id', auth: 'admin',
+        method: 'put',
+        path: '/templates/:id',
+        auth: 'admin',
         summary: 'Update a global block template',
         input: { params: idParam, body: updateSchema, },
         handler: async ({ params, body, user, },) => {
@@ -130,7 +142,9 @@ export const componentsRoutes = [
     },),
 
     defineRoute({
-        method: 'delete', path: '/templates/:id', auth: 'admin',
+        method: 'delete',
+        path: '/templates/:id',
+        auth: 'admin',
         summary: 'Delete a global block template',
         input: { params: idParam, },
         handler: async ({ params, },) => {
@@ -140,15 +154,19 @@ export const componentsRoutes = [
     },),
 
     defineRoute({
-        method: 'get', path: '/templates/:id/blocks', auth: 'optional',
-        summary: 'Get a global template\'s resolved blocks',
+        method: 'get',
+        path: '/templates/:id/blocks',
+        auth: 'optional',
+        summary: "Get a global template's resolved blocks",
         input: { params: idParam, },
         handler: async ({ params, },) => cbtSvc.findBlocksResolved(params.id,),
     },),
 
     defineRoute({
-        method: 'put', path: '/templates/:id/blocks', auth: 'admin',
-        summary: 'Replace a global template\'s blocks',
+        method: 'put',
+        path: '/templates/:id/blocks',
+        auth: 'admin',
+        summary: "Replace a global template's blocks",
         input: { params: idParam, body: blocksBody, },
         handler: async ({ params, body, },) => {
             await cbtSvc.replaceBlocks(params.id, body.blocks,);

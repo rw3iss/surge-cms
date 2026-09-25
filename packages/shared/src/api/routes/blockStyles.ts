@@ -40,6 +40,9 @@ export interface BlockStyleCreateBody {
     minHeight?: string | null;
     height?: string | null;
     maxHeight?: string | null;
+    borderRadius?: string | null;
+    /** Free-form CSS, scoped to the block at render time. */
+    customCss?: string | null;
     padding?: string | null;
     margin?: string | null;
     gap?: string | null;

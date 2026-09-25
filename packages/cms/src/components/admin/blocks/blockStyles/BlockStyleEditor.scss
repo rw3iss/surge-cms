@@ -177,4 +177,20 @@
     &__template-spacer {
         flex: 1;
     }
+
+    // Custom CSS row. Separated from the controls above it by a rule, because
+    // it is a different KIND of thing — everything above sets one property,
+    // this is a stylesheet.
+    &__css {
+        margin-top: $spacing-xs;
+        padding-top: $spacing-sm;
+        border-top: 1px solid $border-color;
+    }
+
+    &__css-head {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 4px;
+    }
 }

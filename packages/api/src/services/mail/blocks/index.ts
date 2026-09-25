@@ -11,23 +11,24 @@
  * wrapping entirely (no current block uses rawRow, but it's there
  * for future use).
  */
-import { renderRichText, } from './richText';
-import { renderImage, } from './image';
-import { renderUrlLink, } from './urlLink';
-import { renderSpacer, } from './spacer';
+import type { BlockType, TypographyDefaults, } from '@sitesurge/types';
+import { cellStyleFromBlock, inlineStyle, } from './_util';
+import { renderCampaign, } from './campaign';
+import { renderCarousel, } from './carousel';
+import { applyInlineRules, planCustomCss, } from './customCss';
+import { renderDocument, } from './document';
+import { renderEvent, } from './event';
+import { renderForm, } from './form';
+import { renderGroup, } from './group';
 import { renderHero, } from './hero';
 import { renderHtml, } from './html';
-import { renderGroup, } from './group';
-import { renderVideo, } from './video';
-import { renderSocial, } from './social';
-import { renderForm, } from './form';
-import { renderCampaign, } from './campaign';
-import { renderEvent, } from './event';
+import { renderImage, } from './image';
 import { renderPostList, } from './postList';
-import { renderCarousel, } from './carousel';
-import { renderDocument, } from './document';
-import { cellStyleFromBlock, inlineStyle, } from './_util';
-import type { BlockType, TypographyDefaults, } from '@sitesurge/types';
+import { renderRichText, } from './richText';
+import { renderSocial, } from './social';
+import { renderSpacer, } from './spacer';
+import { renderUrlLink, } from './urlLink';
+import { renderVideo, } from './video';
 
 export interface EmailBlockNode {
     id: string;
@@ -80,7 +81,7 @@ export type BlockEmailRenderer = (
  * unconfigured block doesn't leave an empty styled cell behind.
  */
 const renderChildren: BlockEmailRenderer = (node, ctx,) => {
-    const rows = node.children.map((c,) => renderNode(c, ctx,),).filter(Boolean,).join('\n',);
+    const rows = node.children.map((c,) => renderNode(c, ctx,)).filter(Boolean,).join('\n',);
     if (!rows) return '';
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
 };
@@ -136,10 +137,21 @@ export function renderNode(node: EmailBlockNode, ctx: EmailRenderCtx,): string {
     if (out.rawRow !== undefined) return out.rawRow;
     if (!out.content) return '';
 
-    const style = { ...cellStyleFromBlock(node, ctx,), ...(out.cellStyle ?? {}), };
+    /*
+     * The operator's Custom CSS, split by what email can actually deliver:
+     * declarations for the block go onto this cell, simple element rules go
+     * onto the markup inside it, and the rest is left for the head <style>
+     * (see buildEmailResponsiveCss). Merged LAST so it beats both the style
+     * controls and the renderer's own cell style — the same precedence the web
+     * gets from closing the block's cascade layer.
+     */
+    const custom = planCustomCss((node.style as { customCss?: string; } | undefined)?.customCss, '',);
+    const content = applyInlineRules(out.content, custom.inline,);
+
+    const style = { ...cellStyleFromBlock(node, ctx,), ...(out.cellStyle ?? {}), ...custom.cell, };
     const styleAttr = inlineStyle(style,);
     const styleStr = styleAttr ? ` style="${styleAttr}"` : '';
     // `data-block-id` lets the head `<style>` scope per-breakpoint @media rules
     // to this block (see buildEmailResponsiveCss).
-    return `<tr><td data-block-id="${node.id}"${styleStr}>${out.content}</td></tr>`;
+    return `<tr><td data-block-id="${node.id}"${styleStr}>${content}</td></tr>`;
 }

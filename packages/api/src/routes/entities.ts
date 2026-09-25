@@ -3,8 +3,9 @@
  * generic instance CRUD for every registered type. Thin manifest handlers;
  * business logic lives in `services/entities.ts` + `services/entityTypes.ts`.
  */
-import { z, } from 'zod';
 import { isStaffRole, } from '@sitesurge/types';
+import { z, } from 'zod';
+import { blockStyleRecord, } from '../api/blockStyleInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as cbtSvc from '../services/contentBlockTemplates';
@@ -43,12 +44,16 @@ const fieldSchema = z.object({
 },).passthrough();
 
 const routingSchema = z.object({
-    detailEnabled: z.boolean(), detailPrefix: z.string(),
-    indexEnabled: z.boolean(), indexPrefix: z.string(),
+    detailEnabled: z.boolean(),
+    detailPrefix: z.string(),
+    indexEnabled: z.boolean(),
+    indexPrefix: z.string(),
 },).partial();
 const cachingSchema = z.object({
-    indexEnabled: z.boolean(), indexTtlSeconds: z.number(),
-    recordEnabled: z.boolean(), recordTtlSeconds: z.number(),
+    indexEnabled: z.boolean(),
+    indexTtlSeconds: z.number(),
+    recordEnabled: z.boolean(),
+    recordTtlSeconds: z.number(),
 },).partial();
 
 const createTypeSchema = z.object({
@@ -81,7 +86,7 @@ const templateBlockSchema = z.object({
     blockType: z.string(),
     position: z.number().int(),
     settings: z.record(z.string(), z.unknown(),).optional(),
-    style: z.record(z.string(), z.unknown(),).optional(),
+    style: blockStyleRecord.optional(),
 },);
 const templateBlocksBody = z.object({ blocks: z.array(templateBlockSchema,), },);
 
@@ -92,11 +97,17 @@ function meta(total: number, page = 1, limit = 20,) {
 export const entitiesRoutes = [
     // ── Entity types (schema) ──
     defineRoute({
-        method: 'get', path: '/types', auth: 'staff', summary: 'List entity types',
+        method: 'get',
+        path: '/types',
+        auth: 'staff',
+        summary: 'List entity types',
         handler: async () => typesSvc.listTypes(),
     },),
     defineRoute({
-        method: 'get', path: '/types/:key', auth: 'staff', summary: 'Get an entity type',
+        method: 'get',
+        path: '/types/:key',
+        auth: 'staff',
+        summary: 'Get an entity type',
         input: { params: keyParam, },
         handler: async ({ params, },) => {
             const t = await typesSvc.getType(params.key,);
@@ -105,17 +116,26 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'post', path: '/types', auth: 'admin', summary: 'Create a custom entity type',
+        method: 'post',
+        path: '/types',
+        auth: 'admin',
+        summary: 'Create a custom entity type',
         input: { body: createTypeSchema, },
         handler: async ({ body, },) => reply(await typesSvc.createType(body as never,), { status: 201, },),
     },),
     defineRoute({
-        method: 'put', path: '/types/:key', auth: 'admin', summary: 'Update an entity type (schema/props)',
+        method: 'put',
+        path: '/types/:key',
+        auth: 'admin',
+        summary: 'Update an entity type (schema/props)',
         input: { params: keyParam, body: updateTypeSchema, },
         handler: async ({ params, body, },) => typesSvc.updateType(params.key, body as never,),
     },),
     defineRoute({
-        method: 'delete', path: '/types/:key', auth: 'admin', summary: 'Delete a custom entity type',
+        method: 'delete',
+        path: '/types/:key',
+        auth: 'admin',
+        summary: 'Delete a custom entity type',
         input: { params: keyParam, },
         handler: async ({ params, },) => {
             await typesSvc.deleteType(params.key,);
@@ -127,14 +147,20 @@ export const entitiesRoutes = [
     // Registered BEFORE the `/:type/:idOrSlug` + `/:type` instance routes so
     // `/:type/templates` isn't captured by the single-entity matcher.
     defineRoute({
-        method: 'get', path: '/:type/templates', auth: 'staff', summary: 'List content-block templates for a type',
+        method: 'get',
+        path: '/:type/templates',
+        auth: 'staff',
+        summary: 'List content-block templates for a type',
         input: { params: typeParam, },
         handler: async ({ params, },) => cbtSvc.listByType(params.type,),
     },),
     defineRoute({
         // Public read: the public site renders `entity` blocks by fetching the
         // bound template's blocks (page content — not sensitive).
-        method: 'get', path: '/:type/templates/:id', auth: 'optional', summary: 'Get a content-block template + its blocks',
+        method: 'get',
+        path: '/:type/templates/:id',
+        auth: 'optional',
+        summary: 'Get a content-block template + its blocks',
         input: { params: templateIdParam, },
         handler: async ({ params, },) => {
             const template = await cbtSvc.findById(params.id,);
@@ -143,13 +169,19 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'post', path: '/:type/templates', auth: 'admin', summary: 'Create a content-block template',
+        method: 'post',
+        path: '/:type/templates',
+        auth: 'admin',
+        summary: 'Create a content-block template',
         input: { params: typeParam, body: templateCreateSchema, },
         handler: async ({ params, body, },) =>
             reply(await cbtSvc.create({ ...body, entityTypeKey: params.type, },), { status: 201, },),
     },),
     defineRoute({
-        method: 'put', path: '/:type/templates/:id', auth: 'admin', summary: 'Update a content-block template',
+        method: 'put',
+        path: '/:type/templates/:id',
+        auth: 'admin',
+        summary: 'Update a content-block template',
         input: { params: templateIdParam, body: templateUpdateSchema, },
         handler: async ({ params, body, },) => {
             const template = await cbtSvc.update(params.id, body,);
@@ -158,7 +190,10 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'delete', path: '/:type/templates/:id', auth: 'admin', summary: 'Delete a content-block template',
+        method: 'delete',
+        path: '/:type/templates/:id',
+        auth: 'admin',
+        summary: 'Delete a content-block template',
         input: { params: templateIdParam, },
         handler: async ({ params, },) => {
             await cbtSvc.remove(params.id,);
@@ -166,12 +201,18 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'get', path: '/:type/templates/:id/blocks', auth: 'optional', summary: 'Get a template\'s resolved blocks',
+        method: 'get',
+        path: '/:type/templates/:id/blocks',
+        auth: 'optional',
+        summary: "Get a template's resolved blocks",
         input: { params: templateIdParam, },
         handler: async ({ params, },) => cbtSvc.findBlocksResolved(params.id,),
     },),
     defineRoute({
-        method: 'put', path: '/:type/templates/:id/blocks', auth: 'admin', summary: 'Replace a template\'s blocks',
+        method: 'put',
+        path: '/:type/templates/:id/blocks',
+        auth: 'admin',
+        summary: "Replace a template's blocks",
         input: { params: templateIdParam, body: templateBlocksBody, },
         handler: async ({ params, body, },) => {
             await cbtSvc.replaceBlocks(params.id, body.blocks,);
@@ -183,7 +224,9 @@ export const entitiesRoutes = [
     // Registered BEFORE `/:type/:idOrSlug` so `/:type/fields/:field/values`
     // isn't captured by the single-entity matcher.
     defineRoute({
-        method: 'get', path: '/:type/fields/:field/values', auth: 'staff',
+        method: 'get',
+        path: '/:type/fields/:field/values',
+        auth: 'staff',
         summary: 'Distinct/enum values of a field (filter dropdowns + value suggestions)',
         input: {
             params: z.object({ type: z.string(), field: z.string(), },),
@@ -197,13 +240,20 @@ export const entitiesRoutes = [
 
     // ── Instances (generic CRUD) ──
     defineRoute({
-        method: 'get', path: '/:type', auth: 'optional', summary: 'List/query entities of a type',
+        method: 'get',
+        path: '/:type',
+        auth: 'optional',
+        summary: 'List/query entities of a type',
         input: { params: typeParam, query: listQuery, },
         handler: async ({ params, query, user, },) => {
             const admin = isStaffRole(user?.role,);
             const q: Record<string, unknown> = {
-                page: query.page, limit: query.limit, sortBy: query.sortBy, sortOrder: query.sortOrder,
-                search: query.search, status: query.status,
+                page: query.page,
+                limit: query.limit,
+                sortBy: query.sortBy,
+                sortOrder: query.sortOrder,
+                search: query.search,
+                status: query.status,
                 filter: query.filter ? safeJson(query.filter,) : undefined,
             };
             if (!admin && !q.status) q.status = 'published'; // no-op for statusless types
@@ -212,24 +262,36 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'get', path: '/:type/:idOrSlug', auth: 'optional', summary: 'Get one entity by id or slug',
+        method: 'get',
+        path: '/:type/:idOrSlug',
+        auth: 'optional',
+        summary: 'Get one entity by id or slug',
         input: { params: typeRefParam, },
         handler: async ({ params, user, },) =>
             entitiesSvc.get(params.type, params.idOrSlug, { admin: isStaffRole(user?.role,), },),
     },),
     defineRoute({
-        method: 'post', path: '/:type', auth: 'staff', summary: 'Create an entity',
+        method: 'post',
+        path: '/:type',
+        auth: 'staff',
+        summary: 'Create an entity',
         input: { params: typeParam, body: instanceBody, },
         handler: async ({ params, body, userId, },) =>
             reply(await entitiesSvc.create(params.type, body, { userId, },), { status: 201, },),
     },),
     defineRoute({
-        method: 'put', path: '/:type/:id', auth: 'staff', summary: 'Update an entity',
+        method: 'put',
+        path: '/:type/:id',
+        auth: 'staff',
+        summary: 'Update an entity',
         input: { params: typeIdParam, body: instanceBody, },
         handler: async ({ params, body, },) => entitiesSvc.update(params.type, params.id, body,),
     },),
     defineRoute({
-        method: 'delete', path: '/:type/:id', auth: 'staff', summary: 'Delete an entity',
+        method: 'delete',
+        path: '/:type/:id',
+        auth: 'staff',
+        summary: 'Delete an entity',
         input: { params: typeIdParam, },
         handler: async ({ params, },) => {
             await entitiesSvc.remove(params.type, params.id,);
@@ -237,7 +299,9 @@ export const entitiesRoutes = [
         },
     },),
     defineRoute({
-        method: 'post', path: '/:type/:id/copy', auth: 'staff',
+        method: 'post',
+        path: '/:type/:id/copy',
+        auth: 'staff',
         summary: 'Duplicate an entity (deep copy incl. related content blocks)',
         input: {
             params: typeIdParam,

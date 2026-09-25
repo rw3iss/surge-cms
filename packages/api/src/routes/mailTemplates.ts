@@ -13,13 +13,14 @@
  *
  * Business logic lives in `services/mailTemplates.ts`.
  */
-import { z, } from 'zod';
 import type {
     MailTemplateBlockInput,
     MailTemplateBlocksReplaceBody,
     MailTemplateCreateBody,
     MailTemplatePreviewBody,
 } from '@sitesurge/types';
+import { z, } from 'zod';
+import { blockStyleRecord, } from '../api/blockStyleInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as mailTemplates from '../services/mailTemplates';
 
@@ -40,7 +41,7 @@ const blockSchema = z.object({
     blockType: z.string().min(1,),
     position: z.number().int().min(0,),
     settings: z.record(z.string(), z.unknown(),).optional(),
-    style: z.record(z.string(), z.unknown(),).optional(),
+    style: blockStyleRecord.optional(),
 },) satisfies z.ZodType<MailTemplateBlockInput>;
 
 const previewSchema = z.object({
@@ -53,21 +54,26 @@ const previewSchema = z.object({
 const idParams = z.object({ id: z.string(), },);
 
 export const mailTemplatesRoutes = [
-
     defineRoute({
-        method: 'get', path: '/variables', auth: 'admin',
+        method: 'get',
+        path: '/variables',
+        auth: 'admin',
         summary: 'Variable catalog for the template reference UI.',
         handler: () => mailTemplates.variables(),
     },),
 
     defineRoute({
-        method: 'get', path: '/', auth: 'admin',
+        method: 'get',
+        path: '/',
+        auth: 'admin',
         summary: 'List all mail templates.',
         handler: () => mailTemplates.list(),
     },),
 
     defineRoute({
-        method: 'post', path: '/', auth: 'admin',
+        method: 'post',
+        path: '/',
+        auth: 'admin',
         summary: 'Create a mail template.',
         input: { body: templateSchema, },
         handler: async ({ body, audit, },) => {
@@ -77,28 +83,36 @@ export const mailTemplatesRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/preview', auth: 'admin',
+        method: 'post',
+        path: '/preview',
+        auth: 'admin',
         summary: 'Render preview HTML for an in-progress block set with variables resolved.',
         input: { body: previewSchema, },
         handler: ({ body, },) => mailTemplates.preview(body,),
     },),
 
     defineRoute({
-        method: 'get', path: '/:id', auth: 'admin',
+        method: 'get',
+        path: '/:id',
+        auth: 'admin',
         summary: 'Fetch a template (meta + block tree).',
         input: { params: idParams, },
         handler: ({ params, },) => mailTemplates.getById(params.id,),
     },),
 
     defineRoute({
-        method: 'put', path: '/:id', auth: 'admin',
+        method: 'put',
+        path: '/:id',
+        auth: 'admin',
         summary: 'Update template metadata.',
         input: { params: idParams, body: templateSchema.partial(), },
         handler: ({ params, body, audit, },) => mailTemplates.update(params.id, body, audit(),),
     },),
 
     defineRoute({
-        method: 'delete', path: '/:id', auth: 'admin',
+        method: 'delete',
+        path: '/:id',
+        auth: 'admin',
         summary: 'Delete a template.',
         input: { params: idParams, },
         handler: async ({ params, audit, },) => {
@@ -108,18 +122,24 @@ export const mailTemplatesRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/:id/copy', auth: 'admin',
+        method: 'post',
+        path: '/:id/copy',
+        auth: 'admin',
         summary: 'Clone a template (meta + block tree) into a new template.',
         input: { params: idParams, },
         handler: async ({ params, audit, },) => reply(await mailTemplates.copy(params.id, audit(),), { status: 201, },),
     },),
 
     defineRoute({
-        method: 'put', path: '/:id/blocks', auth: 'admin',
-        summary: 'Replace a template\'s whole block tree (transactional).',
+        method: 'put',
+        path: '/:id/blocks',
+        auth: 'admin',
+        summary: "Replace a template's whole block tree (transactional).",
         input: {
             params: idParams,
-            body: z.object({ blocks: z.array(blockSchema,).default([],), },) satisfies z.ZodType<MailTemplateBlocksReplaceBody>,
+            body: z.object({ blocks: z.array(blockSchema,).default([],), },) satisfies z.ZodType<
+                MailTemplateBlocksReplaceBody
+            >,
         },
         handler: async ({ params, body, },) => {
             const result = await mailTemplates.replaceBlocks(params.id, body.blocks,);
