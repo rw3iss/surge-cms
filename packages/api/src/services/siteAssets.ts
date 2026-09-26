@@ -125,6 +125,78 @@ export async function getSiteAsset(kind: SiteAssetKind,): Promise<SiteAsset | nu
     }
 }
 
+/** Icon sizes served at `/apple-touch-icon.png` and `/icons/icon-<n>x<n>.png`. */
+export const SQUARE_ICON_SIZES = [180, 192, 512,] as const;
+export type SquareIconSize = typeof SQUARE_ICON_SIZES[number];
+
+/**
+ * A square PNG icon at `size`, generated from the branding.
+ *
+ * The favicon is the right source (it is designed to be square); the logo is
+ * the fallback, centred on white so a wide wordmark is not cropped. These
+ * files were referenced by the page head, the web manifest and every link
+ * preview's image — and did not exist, so each answered with the HTML shell.
+ */
+export async function getSquareIcon(size: SquareIconSize,): Promise<SiteAsset | null> {
+    const key = `icon${size}`;
+    const source = (await getSiteAsset('favicon',)) ?? (await getSiteAsset('logo',));
+    if (!source) return null;
+
+    const memoKey = `${key}:${source.etag}`;
+    const hit = memo.get(memoKey,);
+    if (hit) return hit.asset;
+    try {
+        const sharp = (await import('sharp')).default;
+        const body = await sharp(source.body, { density: 300, },)
+            .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1, }, },)
+            .flatten({ background: '#ffffff', },)
+            .png()
+            .toBuffer();
+        const asset: SiteAsset = {
+            body,
+            contentType: 'image/png',
+            etag: `"${createHash('sha1',).update(body,).digest('hex',).slice(0, 20,)}"`,
+        };
+        for (const k of memo.keys()) if (k.startsWith(`${key}:`,)) memo.delete(k,);
+        memo.set(memoKey, { asset, at: Date.now(), },);
+        return asset;
+    } catch (e) {
+        logger.warn('site icon generation failed', { size, error: (e as Error).message, },);
+        return null;
+    }
+}
+
+/**
+ * The web app manifest, from Site Settings.
+ *
+ * It was a build-time file naming the product ("SiteSurge") rather than the
+ * site, and some link previews and every "Add to Home Screen" read it.
+ */
+export async function buildWebManifest(): Promise<Record<string, unknown>> {
+    const s = await getPublicSettings();
+    const name = s.siteName || 'Site';
+    const primary = s.appearance?.primaryColor;
+    const background = s.appearance?.backgroundColor;
+    // A swatch reference means nothing outside the site's own CSS.
+    const hex = (v: string | undefined, fallback: string,) => (v && /^#[0-9a-f]{3,8}$/i.test(v,) ? v : fallback);
+    return {
+        name,
+        short_name: name.length > 12 ? name.split(/\s+/,)[0] : name,
+        description: s.siteDescription || s.siteTagline || '',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        lang: 'en',
+        theme_color: hex(primary, '#ffffff',),
+        background_color: hex(background, '#ffffff',),
+        icons: [
+            { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', },
+            { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', },
+            { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable', },
+        ],
+    };
+}
+
 /**
  * Tell Cloudflare to forget the edge copies, after a branding change.
  *
@@ -141,7 +213,16 @@ export async function purgeSiteAssetsFromEdge(): Promise<void> {
         const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${purgeToken}`, 'Content-Type': 'application/json', },
-            body: JSON.stringify({ files: [`${base}/logo.png`, `${base}/favicon.ico`,], },),
+            body: JSON.stringify({
+                files: [
+                    `${base}/logo.png`,
+                    `${base}/favicon.ico`,
+                    `${base}/apple-touch-icon.png`,
+                    `${base}/icons/icon-192x192.png`,
+                    `${base}/icons/icon-512x512.png`,
+                    `${base}/manifest.webmanifest`,
+                ],
+            },),
             signal: AbortSignal.timeout(10_000,),
         },);
         if (!res.ok) logger.warn('Cloudflare purge failed', { status: res.status, body: await res.text(), },);

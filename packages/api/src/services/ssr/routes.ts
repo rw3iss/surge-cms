@@ -2,20 +2,14 @@
  * Route resolver for SSR meta generation.
  * Matches URLs to content types and builds the appropriate meta tags.
  */
+import type { SiteFooterSettings, SiteHeaderSettings, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
 import { mapRow, } from '../../utils/mapRow';
-import {
-    buildGenericBody,
-    buildPageBody,
-    buildPostBody,
-    buildPostListBody,
-} from './bodyBuilder';
 import { assembleSsrBlockTree, type SsrBlockInput, } from './blocks';
-import { buildSiteNav, } from './navBuilder';
-import type { SiteFooterSettings, SiteHeaderSettings, } from '@sitesurge/types';
+import { buildGenericBody, buildPageBody, buildPostBody, buildPostListBody, } from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
-import { resolveContentForSsr, } from './templateRuntime';
+import { buildSiteNav, } from './navBuilder';
 import {
     buildArticleSchema,
     buildBreadcrumbSchema,
@@ -27,6 +21,7 @@ import {
     stripHtml,
     truncateText,
 } from './schema';
+import { resolveContentForSsr, } from './templateRuntime';
 
 const FALLBACK_SITE_NAME = 'RW';
 /**
@@ -81,8 +76,12 @@ async function getSiteMeta(): Promise<SiteMeta> {
         // Favicon lives inside the `site_branding` JSON (favicon.url); the
         // legacy top-level `favicon` key is a fallback. Mirrors the resolution
         // in services/settings.ts getPublicSettings().
-        const branding = map.site_branding as { favicon?: { url?: string; }; } | undefined;
+        const branding = map.site_branding as { favicon?: { url?: string; }; logo?: { url?: string; }; } | undefined;
         const favicon = branding?.favicon?.url || (map.favicon as string | undefined) || undefined;
+        // Same for the logo. This read ONLY the legacy top-level `logo` key,
+        // which Settings → Site Branding never writes — so every link preview
+        // fell back to a default icon that does not exist on disk.
+        const brandingLogo = branding?.logo?.url || (map.logo as string | undefined) || undefined;
         const analytics = map.analytics as {
             googleAnalyticsId?: string;
             googleSiteVerification?: string;
@@ -109,7 +108,11 @@ async function getSiteMeta(): Promise<SiteMeta> {
             areaServed: seo.areaServed || undefined,
             name: (map.site_name as string) || FALLBACK_SITE_NAME,
             description: (map.site_description as string) || FALLBACK_SITE_DESCRIPTION,
-            logo: (map.logo as string) || undefined,
+            // `/logo.png` rather than the stored URL: it is the same image,
+            // always a PNG on this site's own origin. Link-preview crawlers
+            // (iMessage, Slack, Facebook) will not render an SVG logo, and some
+            // refuse a CDN host.
+            logo: brandingLogo ? `${siteUrl()}/logo.png` : undefined,
             favicon,
             analyticsId: analytics?.googleAnalyticsId || undefined,
             googleSiteVerification: analytics?.googleSiteVerification || undefined,
@@ -191,9 +194,10 @@ function siteUrl(): string {
 }
 
 function publisherLogo(site: SiteMeta,): string {
+    // `/icons/icon-512x512.png` is generated from Site Branding too
+    // (routes/siteAssets), so the fallback resolves to a real image.
     return site.logo || `${siteUrl()}/icons/icon-512x512.png`;
 }
-
 
 /**
  * Load a page's visible blocks, resolve `{{ }}` templates, and assemble them
@@ -234,7 +238,7 @@ async function loadPageBlocks(
             title: r.title,
             content: r.content,
             settings: r.settings,
-        }),);
+        }));
     } catch {
         return assembleSsrBlockTree([],);
     }
@@ -242,10 +246,9 @@ async function loadPageBlocks(
     flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
         ...b,
         content: await resolveContentForSsr(b.content, templateEntity,),
-    }),),);
+    })),);
     return assembleSsrBlockTree(flatBlocks,);
 }
-
 
 /**
  * Load a post's content blocks for SSR.
@@ -302,7 +305,7 @@ async function loadPostBlocks(
     return Promise.all(flat.map(async (b,) => ({
         ...b,
         content: await resolveContentForSsr(b.content, templateEntity,),
-    }),),);
+    })),);
 }
 
 /**
@@ -417,11 +420,11 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
              WHERE status = 'published' AND is_private = false
              ORDER BY COALESCE(published_at, created_at) DESC
              LIMIT 30`,
-        ).catch(() => null,);
+        ).catch(() => null);
         const listItems = listRes?.rows || [];
         const countRes = await query(
             `SELECT COUNT(*)::int AS count FROM posts WHERE status = 'published'`,
-        ).catch(() => null,);
+        ).catch(() => null);
         const count = countRes?.rows[0]?.count || 0;
         return {
             title: POSTS_TITLE,
@@ -438,12 +441,15 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                 url,
                 itemCount: count,
             },),
-            body: buildPostListBody(SITE_NAME, listItems.map(r => ({
-                title: r.title,
-                slug: r.slug,
-                excerpt: r.excerpt,
-                publishedAt: r.published_at,
-            }),),),
+            body: buildPostListBody(
+                SITE_NAME,
+                listItems.map(r => ({
+                    title: r.title,
+                    slug: r.slug,
+                    excerpt: r.excerpt,
+                    publishedAt: r.published_at,
+                })),
+            ),
         };
     }
 
@@ -465,7 +471,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.slug = $1 AND p.status = 'published'`,
             [slug,],
-        ).catch(() => null,);
+        ).catch(() => null);
         const row = res?.rows[0];
         // A published post with this slug does not exist. SSR owns this
         // route, so the miss is authoritative: 404 rather than handing the
@@ -478,7 +484,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         // The article body. Block-authored posts leave `posts.content` empty,
         // so without this the SSR body is a headline and an excerpt.
         const postBlocks = await loadPostBlocks(post.id, { post, },);
-        const blocksHtml = postBlocks.map((b,) => b.content || '',).join(' ',);
+        const blocksHtml = postBlocks.map((b,) => b.content || '').join(' ',);
         const description = post.metaDescription || post.excerpt ||
             truncateText(stripHtml(resolvedContent || blocksHtml || '',), 200,) ||
             `${post.title} — published by ${SITE_NAME}`;
@@ -543,7 +549,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     goal_amount_cents, current_amount_cents
              FROM campaigns WHERE slug = $1 AND is_published = true`,
             [slug,],
-        ).catch(() => null,);
+        ).catch(() => null);
         const row = res?.rows[0];
         // A published post with this slug does not exist. SSR owns this
         // route, so the miss is authoritative: 404 rather than handing the
@@ -610,7 +616,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
 
     // ─── Noindex routes ───
     const noindexRoutes = ['/login', '/join', '/subscribe', '/search', '/forms',];
-    if (noindexRoutes.some((p,) => path === p || path.startsWith(`${p}/`,),)) {
+    if (noindexRoutes.some((p,) => path === p || path.startsWith(`${p}/`,))) {
         const names: Record<string, string> = {
             '/login': 'Sign In',
             '/join': 'Join',
@@ -618,7 +624,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             '/search': 'Search',
             '/forms': 'Form',
         };
-        const base = Object.keys(names,).find((k,) => path === k || path.startsWith(`${k}/`,),);
+        const base = Object.keys(names,).find((k,) => path === k || path.startsWith(`${k}/`,));
         return {
             title: base ? names[base] : SITE_NAME,
             description: SITE_DESCRIPTION,
@@ -639,7 +645,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     meta_keywords, og_image, updated_at, title_alignment, show_title
              FROM pages WHERE slug = $1 AND status = 'published'`,
             [slug,],
-        ).catch(() => null,);
+        ).catch(() => null);
         const row = res?.rows[0];
         if (row) {
             const page = mapRow(row,) as any;
@@ -677,7 +683,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     title: r.title,
                     content: r.content,
                     settings: r.settings,
-                }),);
+                }));
             } catch { /* ignore — fall through to title-only body */ }
 
             // Resolve any {{ … }} template syntax in block content (flat, before
@@ -686,7 +692,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
                 ...b,
                 content: await resolveContentForSsr(b.content, { page, },),
-            }),),);
+            })),);
             // Assemble the flat list into a tree so container blocks recurse.
             const blocks = assembleSsrBlockTree(flatBlocks,);
 
@@ -731,7 +737,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     // and `index, follow`, so every typo, scraped link and probe became an
     // indexable page — an unbounded soft-404 surface on a site with ~18 real
     // URLs.
-    if (STATIC_PUBLIC_ROUTES.has(path,) || SPA_OWNED_PREFIXES.some((p,) => path.startsWith(p,),)) {
+    if (STATIC_PUBLIC_ROUTES.has(path,) || SPA_OWNED_PREFIXES.some((p,) => path.startsWith(p,))) {
         return {
             title: SITE_NAME,
             description: SITE_DESCRIPTION,
@@ -752,9 +758,21 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
  * fallthrough would otherwise condemn the sign-in page.
  */
 const STATIC_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
-    '/', '/login', '/join', '/subscribe', '/search', '/profile', '/verify',
-    '/posts', '/campaigns', '/donate', '/events', '/shop', '/setup',
-    '/forgot-password', '/reset-password',
+    '/',
+    '/login',
+    '/join',
+    '/subscribe',
+    '/search',
+    '/profile',
+    '/verify',
+    '/posts',
+    '/campaigns',
+    '/donate',
+    '/events',
+    '/shop',
+    '/setup',
+    '/forgot-password',
+    '/reset-password',
 ],);
 
 /**
@@ -769,7 +787,12 @@ const STATIC_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
  * a miss there is a genuine, verified 404.
  */
 const SPA_OWNED_PREFIXES: readonly string[] = [
-    '/shop/', '/events/', '/forms/', '/u/', '/lists/', '/orders/',
+    '/shop/',
+    '/events/',
+    '/forms/',
+    '/u/',
+    '/lists/',
+    '/orders/',
 ];
 
 /**
@@ -798,7 +821,9 @@ export function isPublicRoute(path: string,): boolean {
     if (path.startsWith('/avatars/',)) return false;
     if (path.startsWith('/assets/',)) return false;
     if (path.startsWith('/icons/',)) return false;
-    if (path === '/favicon.ico' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/feed.xml') return false;
+    if (path === '/favicon.ico' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/feed.xml') {
+        return false;
+    }
     if (path === '/manifest.webmanifest' || path === '/sw.js') return false;
     // Static asset extensions
     if (/\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|json)$/i.test(path,)) return false;

@@ -5,7 +5,14 @@
  */
 import { beforeEach, describe, expect, it, vi, } from 'vitest';
 
-let branding: { logo?: string; favicon?: string; } = {};
+let branding: {
+    logo?: string;
+    favicon?: string;
+    siteName?: string;
+    siteDescription?: string;
+    siteTagline?: string;
+    appearance?: Record<string, string>;
+} = {};
 vi.mock('./settings', () => ({ getPublicSettings: async () => branding, }),);
 
 const PNG = Buffer.from('89504e470d0a1a0a', 'hex',);
@@ -17,7 +24,8 @@ const fetchMock = vi.fn(async (url: string,) =>
 );
 vi.stubGlobal('fetch', fetchMock,);
 
-const { getSiteAsset, __resetSiteAssetMemo, } = await import('./siteAssets');
+const { buildWebManifest, getSiteAsset, getSquareIcon, __resetSiteAssetMemo, } = await import('./siteAssets');
+const sharp = (await import('sharp')).default;
 
 beforeEach(() => {
     __resetSiteAssetMemo();
@@ -80,5 +88,49 @@ describe('getSiteAsset', () => {
     it('returns null, not a throw, when the upstream fails', async () => {
         branding = { logo: 'https://cdn.test/missing.png', };
         expect(await getSiteAsset('logo',),).toBeNull();
+    });
+});
+
+describe('getSquareIcon', () => {
+    it('is null with no favicon or logo', async () => {
+        expect(await getSquareIcon(180,),).toBeNull();
+    });
+
+    it('renders a square PNG of the requested size from the branding', async () => {
+        // A real, wide image, so "square" is actually being enforced.
+        const wide = await sharp({ create: { width: 300, height: 100, channels: 4, background: '#ed2024', }, },).png()
+            .toBuffer();
+        fetchMock.mockImplementationOnce(async () =>
+            new Response(wide, { headers: { 'content-type': 'image/png', }, },)
+        );
+        branding = { logo: 'https://cdn.test/uploads/wide.png', };
+        const icon = await getSquareIcon(512,);
+        const meta = await sharp(icon!.body,).metadata();
+        expect(icon!.contentType,).toBe('image/png',);
+        expect([meta.width, meta.height,],).toEqual([512, 512,],);
+    });
+});
+
+describe('buildWebManifest', () => {
+    it('names the SITE, not the product', async () => {
+        branding = { siteName: 'Surge Media', siteDescription: 'Conservative news.', };
+        const m = await buildWebManifest();
+        expect(m.name,).toBe('Surge Media',);
+        expect(m.description,).toBe('Conservative news.',);
+        expect(JSON.stringify(m,),).not.toContain('SiteSurge',);
+    });
+
+    it('uses literal hex colours and ignores a swatch reference', async () => {
+        branding = { siteName: 'S', appearance: { primaryColor: '#ED2024', backgroundColor: 'swatch:abc', }, };
+        const m = await buildWebManifest();
+        expect(m.theme_color,).toBe('#ED2024',);
+        expect(m.background_color,).toBe('#ffffff',);
+    });
+
+    it('points its icons at the generated files', async () => {
+        branding = { siteName: 'S', };
+        const srcs = ((await buildWebManifest()).icons as Array<{ src: string; }>).map(i => i.src);
+        expect(srcs,).toContain('/icons/icon-192x192.png',);
+        expect(srcs,).toContain('/icons/icon-512x512.png',);
     });
 });

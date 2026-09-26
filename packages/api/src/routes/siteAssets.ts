@@ -7,7 +7,14 @@
  */
 import type { Request, Response, } from 'express';
 import { defineRoute, } from '../api/defineRoute';
-import { getSiteAsset, type SiteAssetKind, } from '../services/siteAssets';
+import {
+    buildWebManifest,
+    getSiteAsset,
+    getSquareIcon,
+    type SiteAsset,
+    type SiteAssetKind,
+    type SquareIconSize,
+} from '../services/siteAssets';
 
 /*
  * Five minutes at the browser AND the edge. Short on purpose: these URLs are
@@ -19,7 +26,10 @@ import { getSiteAsset, type SiteAssetKind, } from '../services/siteAssets';
 const CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 
 async function serve(kind: SiteAssetKind, req: Request, res: Response,): Promise<void> {
-    const asset = await getSiteAsset(kind,);
+    send(await getSiteAsset(kind,), req, res,);
+}
+
+function send(asset: SiteAsset | null, req: Request, res: Response,): void {
     if (!asset) {
         res.status(404,).set('Cache-Control', 'public, max-age=60',).type('text/plain',).send('Not found',);
         return;
