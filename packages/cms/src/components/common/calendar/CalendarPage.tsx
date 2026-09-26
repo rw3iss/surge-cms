@@ -11,12 +11,12 @@
  * The admin keeps what is genuinely admin-only in its own page: the URL-routed
  * modal, the year dropdown and the Add button, injected here via `toolbar`.
  */
-import { Component, JSX, Show, createResource, createSignal, } from 'solid-js';
 import type { EventOccurrence, } from '@sitesurge/types';
-import { monthGridWindow, MONTHS, stepMonth, } from './calendarGrid';
-import Calendar from './Calendar';
-import EventList from './EventList';
+import { Component, createResource, createSignal, JSX, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import Calendar from './Calendar';
+import { monthGridWindow, MONTHS, stepMonth, } from './calendarGrid';
+import EventList from './EventList';
 import './CalendarPage.scss';
 
 export interface CalendarPageProps {
@@ -27,6 +27,9 @@ export interface CalendarPageProps {
     onAdd?: (selectedDate: string | null,) => void;
     /** Admin only — double-clicking a day. */
     onCreateOn?: (date: string,) => void;
+    /** Admin only — the single-clicked day changed (null = cleared), so a page
+     *  button outside the calendar can create an event on it. */
+    onSelectDate?: (date: string | null,) => void;
     /**
      * Extra controls rendered in the toolbar, receiving the live month cursor
      * so a caller can add e.g. a year dropdown without this shell knowing
@@ -54,7 +57,7 @@ const CalendarPage: Component<CalendarPageProps> = (props,) => {
     const [month, setMonth,] = createSignal(today.getMonth() + 1,);
     const [selectedDate, setSelectedDate,] = createSignal<string | null>(null,);
 
-    const [occurrences] = createResource(
+    const [occurrences,] = createResource(
         () => ({ ...monthGridWindow(year(), month(),), k: props.refreshKey ?? 0, }),
         async (w,) => {
             try {
@@ -69,16 +72,21 @@ const CalendarPage: Component<CalendarPageProps> = (props,) => {
 
     const step = (delta: number,) => {
         const next = stepMonth(year(), month(), delta,);
-        setYear(next.year,); setMonth(next.month,);
+        setYear(next.year,);
+        setMonth(next.month,);
     };
 
     const goToday = () => {
         const n = new Date();
-        setYear(n.getFullYear(),); setMonth(n.getMonth() + 1,);
+        setYear(n.getFullYear(),);
+        setMonth(n.getMonth() + 1,);
     };
 
     const cursor = (): CalendarCursor => ({
-        year: year(), month: month(), setYear, setMonth,
+        year: year(),
+        month: month(),
+        setYear,
+        setMonth,
         loading: occurrences.loading,
     });
 
@@ -86,9 +94,13 @@ const CalendarPage: Component<CalendarPageProps> = (props,) => {
         <div class={`calendar-page calendar-page--${props.mode} ${props.class ?? ''}`}>
             <div class="calendar-page__toolbar">
                 <button
-                    type="button" class="calendar-page__nav-btn"
-                    onClick={() => step(-1,)} aria-label="Previous month"
-                >‹</button>
+                    type="button"
+                    class="calendar-page__nav-btn"
+                    onClick={() => step(-1,)}
+                    aria-label="Previous month"
+                >
+                    ‹
+                </button>
 
                 <Show
                     when={props.toolbar}
@@ -98,9 +110,13 @@ const CalendarPage: Component<CalendarPageProps> = (props,) => {
                 </Show>
 
                 <button
-                    type="button" class="calendar-page__nav-btn"
-                    onClick={() => step(1,)} aria-label="Next month"
-                >›</button>
+                    type="button"
+                    class="calendar-page__nav-btn"
+                    onClick={() => step(1,)}
+                    aria-label="Next month"
+                >
+                    ›
+                </button>
                 <button type="button" class="calendar-page__today" onClick={goToday}>Today</button>
 
                 <Show when={occurrences.loading}>
@@ -116,7 +132,10 @@ const CalendarPage: Component<CalendarPageProps> = (props,) => {
                         month={month()}
                         occurrences={occurrences() ?? []}
                         selectedDate={selectedDate()}
-                        onSelectDate={setSelectedDate}
+                        onSelectDate={(d,) => {
+                            setSelectedDate(d,);
+                            props.onSelectDate?.(d,);
+                        }}
                         onCreateOn={props.onCreateOn}
                         onSelectOccurrence={props.onSelectOccurrence}
                     />

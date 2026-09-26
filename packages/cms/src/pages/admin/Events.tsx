@@ -7,15 +7,15 @@
  * and `/admin/events/:id` open it directly, so an event is linkable and the
  * back button behaves.
  */
-import { Title, } from '@solidjs/meta';
-import { A, useLocation, useNavigate, useParams, } from '@solidjs/router';
-import { Component, For, Show, createEffect, createMemo, createSignal, } from 'solid-js';
 import type { CalendarEvent, EventOccurrence, } from '@sitesurge/types';
-import CalendarPage from '../../components/common/calendar/CalendarPage';
+import { Title, } from '@solidjs/meta';
+import { A, useLocation, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
+import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { MONTHS, yearOptions, } from '../../components/common/calendar/calendarGrid';
-import EventModal from './events/EventModal';
+import CalendarPage from '../../components/common/calendar/CalendarPage';
 import { cms, } from '../../services/cmsClient';
 import { siteSettings, } from '../../stores/siteSettings';
+import EventModal from './events/EventModal';
 import './events/Events.scss';
 
 const AdminEvents: Component = () => {
@@ -27,8 +27,21 @@ const AdminEvents: Component = () => {
     const [modalOpen, setModalOpen,] = createSignal(false,);
     /** Bumped after a save/delete so the shell refetches. */
     const [refreshKey, setRefreshKey,] = createSignal(0,);
-    /** Remembered so "Add Event" can pre-fill the day the user picked. */
-    const [pickedDate, setPickedDate,] = createSignal<string | null>(null,);
+    /** The day single-clicked in the calendar, so the header "+ Add Event"
+     *  can create on it. */
+    const [selectedDay, setSelectedDay,] = createSignal<string | null>(null,);
+    const [search,] = useSearchParams();
+    /**
+     * The new event's day, from `?date=` on `/events/new`.
+     *
+     * In the URL rather than a signal because `/events/new` is a separate route
+     * from `/events`: navigating there REMOUNTS this component, which wiped a
+     * remembered date and left the modal opening on today whatever was clicked.
+     */
+    const newEventDate = () => {
+        const d = String(search.date ?? '',);
+        return /^\d{4}-\d{2}-\d{2}$/.test(d,) ? d : null;
+    };
     /**
      * "The slug was changed" notice.
      *
@@ -61,9 +74,17 @@ const AdminEvents: Component = () => {
      */
     createEffect(() => {
         const isNewRoute = location.pathname.replace(/\/+$/, '',).endsWith('/events/new',);
-        if (isNewRoute) { setEditing(null,); setModalOpen(true,); return; }
+        if (isNewRoute) {
+            setEditing(null,);
+            setModalOpen(true,);
+            return;
+        }
         const id = params.id;
-        if (!id) { setModalOpen(false,); setEditing(null,); return; }
+        if (!id) {
+            setModalOpen(false,);
+            setEditing(null,);
+            return;
+        }
         void (async () => {
             try {
                 setEditing(await cms.events.getOne(id,),);
@@ -74,13 +95,21 @@ const AdminEvents: Component = () => {
         })();
     },);
 
+    /** Double-clicked day (passed in) wins, then the selected day, then today
+     *  (the modal's own default when no date is given). */
     const openNew = (date?: string | null,) => {
-        if (date) setPickedDate(date,);
-        navigate('/admin/events/new',);
+        const day = date || selectedDay();
+        navigate(`/admin/events/new${day ? `?date=${day}` : ''}`,);
     };
     const openEvent = (occ: EventOccurrence,) => navigate(`/admin/events/${occ.event.id}`,);
-    const closeModal = () => { setLocalNotice('',); navigate('/admin/events',); };
-    const afterWrite = () => { closeModal(); setRefreshKey((k,) => k + 1); };
+    const closeModal = () => {
+        setLocalNotice('',);
+        navigate('/admin/events',);
+    };
+    const afterWrite = () => {
+        closeModal();
+        setRefreshKey((k,) => k + 1);
+    };
 
     /**
      * A save whose slug the server had to de-duplicate stays open so the user
@@ -93,7 +122,11 @@ const AdminEvents: Component = () => {
         opts?: { keepOpen?: boolean; notice?: string; },
     ) => {
         setRefreshKey((k,) => k + 1);
-        if (!opts?.keepOpen) { setLocalNotice('',); closeModal(); return; }
+        if (!opts?.keepOpen) {
+            setLocalNotice('',);
+            closeModal();
+            return;
+        }
 
         setEditing(saved,);
         setNoticeDismissed(false,);
@@ -119,9 +152,12 @@ const AdminEvents: Component = () => {
                 <div class="admin-header__actions">
                     <A href="/admin/events/settings" class="ui-button ui-button--secondary">Event Settings</A>
                     <button
-                        type="button" class="ui-button ui-button--primary"
-                        onClick={() => openNew(pickedDate(),)}
-                    >+ Add Event</button>
+                        type="button"
+                        class="ui-button ui-button--primary"
+                        onClick={() => openNew()}
+                    >
+                        + Add Event
+                    </button>
                 </div>
             </div>
 
@@ -131,6 +167,7 @@ const AdminEvents: Component = () => {
                 onSelectOccurrence={openEvent}
                 onCreateOn={(date,) => openNew(date,)}
                 onAdd={(date,) => openNew(date,)}
+                onSelectDate={setSelectedDay}
                 // Month/year dropdowns are admin-only; the shell exposes its
                 // cursor so this page can drive them without owning the state.
                 toolbar={(c,) => (
@@ -148,11 +185,14 @@ const AdminEvents: Component = () => {
             <Show when={modalOpen()}>
                 <EventModal
                     event={editing()}
-                    defaultDate={pickedDate()}
+                    defaultDate={newEventDate()}
                     defaultTimezone={defaults().timezone}
                     defaultCurrency={defaults().currency}
                     notice={slugNotice()}
-                    onDismissNotice={() => { setLocalNotice('',); setNoticeDismissed(true,); }}
+                    onDismissNotice={() => {
+                        setLocalNotice('',);
+                        setNoticeDismissed(true,);
+                    }}
                     onClose={closeModal}
                     onSaved={afterSave}
                     onDeleted={afterWrite}

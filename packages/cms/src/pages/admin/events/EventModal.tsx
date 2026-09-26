@@ -11,16 +11,14 @@
  *
  * "All day" and "multi-day" are therefore mutually exclusive in the UI.
  */
-import { Component, For, Index, Show, createEffect, createMemo, createSignal, } from 'solid-js';
 import type { CalendarEvent, CalendarEventInput, EventTicketTier, } from '@sitesurge/types';
-import {
-    EVENT_REGISTRATION_FIELDS, generateSlug, isKnownTimeZone, TIMEZONES,
-} from '@sitesurge/types';
-import { FormField, } from '../../../components/admin/forms';
+import { EVENT_REGISTRATION_FIELDS, generateSlug, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
+import { Component, createEffect, createMemo, createSignal, For, Index, Show, } from 'solid-js';
 import ModalShell from '../../../components/admin/common/ModalShell';
 import Toggle from '../../../components/admin/common/Toggle';
-import RegistrantsTable from './RegistrantsTable';
+import { FormField, } from '../../../components/admin/forms';
 import { cms, } from '../../../services/cmsClient';
+import RegistrantsTable from './RegistrantsTable';
 import './EventModal.scss';
 
 export interface EventModalProps {
@@ -115,12 +113,17 @@ const EventModal: Component<EventModalProps> = (props,) => {
     createEffect(() => {
         const e = props.event;
         if (e) {
-            setTitle(e.title,); setSlug(e.slug,); setSlugTouched(true,);
-            setDescription(e.description ?? '',); setLocation(e.location ?? '',);
+            setTitle(e.title,);
+            setSlug(e.slug,);
+            setSlugTouched(true,);
+            setDescription(e.description ?? '',);
+            setLocation(e.location ?? '',);
             const s = splitIso(e.startsAt,);
-            setStartDate(s.date,); setStartTime(s.time,);
+            setStartDate(s.date,);
+            setStartTime(s.time,);
             const en = splitIso(e.endsAt,);
-            setEndDate(en.date,); setEndTime(en.time,);
+            setEndDate(en.date,);
+            setEndTime(en.time,);
             setAllDay(e.allDay,);
             setMultiDay(Boolean(e.endsAt && en.date && en.date !== s.date,),);
             setTimezone(e.timezone ?? props.defaultTimezone ?? '',);
@@ -133,7 +136,13 @@ const EventModal: Component<EventModalProps> = (props,) => {
             setTicketingEnabled(e.ticketingEnabled,);
             void loadTiers(e.id,);
         } else {
-            setStartDate(props.defaultDate || splitIso(new Date().toISOString(),).date,);
+            // Today in the operator's LOCAL calendar. `toISOString()` is UTC, so
+            // after 8pm Eastern it named tomorrow.
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1,).padStart(2, '0',)}-${
+                String(now.getDate(),).padStart(2, '0',)
+            }`;
+            setStartDate(props.defaultDate || today,);
             setTimezone(props.defaultTimezone ?? '',);
         }
     },);
@@ -152,36 +161,37 @@ const EventModal: Component<EventModalProps> = (props,) => {
     },);
 
     const toggleField = (key: string,) => {
-        setRegistrationFields((prev,) =>
-            prev.includes(key,) ? prev.filter((k,) => k !== key) : [...prev, key,]);
+        setRegistrationFields((prev,) => prev.includes(key,) ? prev.filter((k,) => k !== key) : [...prev, key,]);
     };
 
-    const addTier = () => setTiers((t,) => [...t, {
-        name: t.length === 0 ? 'Default Ticket Price' : '',
-        priceCents: 0,
-        currency: props.defaultCurrency ?? 'USD',
-        quantityAvailable: null,
-    },]);
+    const addTier = () =>
+        setTiers((t,) => [...t, {
+            name: t.length === 0 ? 'Default Ticket Price' : '',
+            priceCents: 0,
+            currency: props.defaultCurrency ?? 'USD',
+            quantityAvailable: null,
+        },]);
 
     const updateTier = (i: number, patch: Partial<EventTicketTier>,) =>
         setTiers((t,) => t.map((x, idx,) => (idx === i ? { ...x, ...patch, } : x)));
 
     const removeTier = (i: number,) => setTiers((t,) => t.filter((_, idx,) => idx !== i));
 
-    const canSave = createMemo(() => Boolean(title().trim() && startDate(),),);
+    const canSave = createMemo(() => Boolean(title().trim() && startDate(),));
 
     const save = async () => {
         if (!canSave() || saving()) return;
-        setSaving(true,); setError('',);
+        setSaving(true,);
+        setError('',);
         try {
             const startsAt = joinIso(startDate(), startTime(), allDay(),);
             if (!startsAt) throw new Error('A start date is required.',);
 
             // End instant: multi-day uses the end DATE; a same-day event with an
             // end time uses the start date.
-            const endsAt = multiDay()
-                ? joinIso(endDate() || startDate(), endTime(), allDay(),)
-                : (endTime() ? joinIso(startDate(), endTime(), false,) : null);
+            const endsAt = multiDay() ?
+                joinIso(endDate() || startDate(), endTime(), allDay(),) :
+                (endTime() ? joinIso(startDate(), endTime(), false,) : null);
 
             if (endsAt && new Date(endsAt,) < new Date(startsAt,)) {
                 throw new Error('The event cannot end before it starts.',);
@@ -197,9 +207,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 allDay: allDay(),
                 timezone: timezone() || null,
                 recurrenceRule: recurrence() || null,
-                recurrenceUntil: recurrence() && recurrenceUntil()
-                    ? joinIso(recurrenceUntil(), '23:59', false,)
-                    : null,
+                recurrenceUntil: recurrence() && recurrenceUntil() ?
+                    joinIso(recurrenceUntil(), '23:59', false,) :
+                    null,
                 status: status(),
                 registrationEnabled: registrationEnabled(),
                 registrationFields: registrationFields(),
@@ -207,20 +217,23 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 ticketingEnabled: ticketingEnabled(),
             };
 
-            const saved = props.event
-                ? await cms.events.update(props.event.id, body,)
-                : await cms.events.create(body,);
+            const saved = props.event ?
+                await cms.events.update(props.event.id, body,) :
+                await cms.events.create(body,);
 
             // Tiers are a separate resource; only write them when relevant.
             if (ticketingEnabled()) {
-                await cms.events.replaceTiers(saved.id, tiers().map((t, i,) => ({
-                    id: t.id,
-                    name: (t.name || 'Ticket').trim(),
-                    priceCents: Number(t.priceCents ?? 0,),
-                    currency: t.currency || props.defaultCurrency || 'USD',
-                    quantityAvailable: t.quantityAvailable ?? null,
-                    position: i,
-                }),),);
+                await cms.events.replaceTiers(
+                    saved.id,
+                    tiers().map((t, i,) => ({
+                        id: t.id,
+                        name: (t.name || 'Ticket').trim(),
+                        priceCents: Number(t.priceCents ?? 0,),
+                        currency: t.currency || props.defaultCurrency || 'USD',
+                        quantityAvailable: t.quantityAvailable ?? null,
+                        position: i,
+                    })),
+                );
             }
             // The server owns slug uniqueness, so what we asked for and what was
             // stored can differ ("summer-gala" → "summer-gala-1"). Show the real
@@ -231,8 +244,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 setSlugTouched(true,);
                 props.onSaved(saved, {
                     keepOpen: true,
-                    notice: `"${requested}" was already taken, `
-                        + `so this event was saved as "${saved.slug}".`,
+                    notice: `"${requested}" was already taken, ` +
+                        `so this event was saved as "${saved.slug}".`,
                 },);
                 return;
             }
@@ -271,280 +284,327 @@ const EventModal: Component<EventModalProps> = (props,) => {
             ariaLabel={isNew() ? 'New event' : 'Edit event'}
             class="event-modal"
         >
-                <header class="event-modal__head">
-                    <h2>{isNew() ? 'New Event' : 'Edit Event'}</h2>
-                </header>
+            <header class="event-modal__head">
+                <h2>{isNew() ? 'New Event' : 'Edit Event'}</h2>
+            </header>
 
-                <div class="event-modal__body">
-                    <Show when={error()}>
-                        <div class="alert alert--error">{error()}</div>
-                    </Show>
+            <div class="event-modal__body">
+                <Show when={error()}>
+                    <div class="alert alert--error">{error()}</div>
+                </Show>
 
-                    <FormField label="Event name" required>
+                <FormField label="Event name" required>
+                    <input
+                        type="text"
+                        value={title()}
+                        maxLength={255}
+                        onInput={(e,) => setTitle(e.currentTarget.value,)}
+                        placeholder="Community Town Hall"
+                    />
+                </FormField>
+
+                <Show when={props.notice}>
+                    <div class="alert alert--warning">{props.notice}</div>
+                </Show>
+
+                <FormField label="URL slug" hint="Used in the event's public address.">
+                    <div class="event-modal__slug">
                         <input
-                            type="text" value={title()} maxLength={255}
-                            onInput={(e,) => setTitle(e.currentTarget.value,)}
-                            placeholder="Community Town Hall"
+                            type="text"
+                            value={slug()}
+                            onInput={(e,) => {
+                                setSlug(e.currentTarget.value,);
+                                setSlugTouched(true,);
+                                // The notice describes the value that was just
+                                // replaced; keeping it would misdescribe this one.
+                                props.onDismissNotice?.();
+                            }}
+                            placeholder="community-town-hall"
                         />
-                    </FormField>
-
-                    <Show when={props.notice}>
-                        <div class="alert alert--warning">{props.notice}</div>
-                    </Show>
-
-                    <FormField label="URL slug" hint="Used in the event's public address.">
-                        <div class="event-modal__slug">
-                            <input
-                                type="text" value={slug()}
-                                onInput={(e,) => {
-                                    setSlug(e.currentTarget.value,);
-                                    setSlugTouched(true,);
-                                    // The notice describes the value that was just
-                                    // replaced; keeping it would misdescribe this one.
-                                    props.onDismissNotice?.();
+                        <Show when={slug()}>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--sm ui-button--secondary"
+                                onClick={() => {
+                                    setSlug('',);
+                                    setSlugTouched(false,);
                                 }}
-                                placeholder="community-town-hall"
-                            />
-                            <Show when={slug()}>
-                                <button
-                                    type="button" class="ui-button ui-button--sm ui-button--secondary"
-                                    onClick={() => { setSlug('',); setSlugTouched(false,); }}
-                                    title="Clear and re-derive from the name"
-                                >Clear</button>
-                            </Show>
-                        </div>
-                    </FormField>
-
-                    <FormField
-                        label="Description"
-                        hint="Markdown supported — **bold**, *italic*, [links](/x), lists, > quotes, `code`."
-                    >
-                        <textarea
-                            rows={3} value={description()}
-                            onInput={(e,) => setDescription(e.currentTarget.value,)}
-                        />
-                    </FormField>
-
-                    <FormField label="Location">
-                        <input
-                            type="text" value={location()} maxLength={255}
-                            onInput={(e,) => setLocation(e.currentTarget.value,)}
-                            placeholder="Philadelphia, PA"
-                        />
-                    </FormField>
-
-                    {/* ── When ── */}
-                    <div class="event-modal__row">
-                        <FormField label={multiDay() ? 'Start date' : 'Date'} required>
-                            <input
-                                type="date" value={startDate()}
-                                onInput={(e,) => setStartDate(e.currentTarget.value,)}
-                            />
-                        </FormField>
-                        <Show when={multiDay()}>
-                            <FormField label="End date">
-                                <input
-                                    type="date" value={endDate()} min={startDate()}
-                                    onInput={(e,) => setEndDate(e.currentTarget.value,)}
-                                />
-                            </FormField>
-                        </Show>
-                    </div>
-
-                    <div class="event-modal__row">
-                        <FormField
-                            label="Start time"
-                            hint={allDay() ? 'Disabled for an all-day event.' : undefined}
-                        >
-                            <input
-                                type="time" value={startTime()} disabled={allDay()}
-                                onInput={(e,) => setStartTime(e.currentTarget.value,)}
-                            />
-                        </FormField>
-                        <FormField label="End time" hint="Optional.">
-                            <input
-                                type="time" value={endTime()} disabled={allDay()}
-                                onInput={(e,) => setEndTime(e.currentTarget.value,)}
-                            />
-                        </FormField>
-                    </div>
-
-                    <div class="event-modal__toggles">
-                        {/* Mutually exclusive: "all day" and "multi-day" describe
-                            different shapes, and both at once is unrenderable. */}
-                        <Show when={!multiDay()}>
-                            <FormField label="All-day event" inline>
-                                <Toggle checked={allDay()} onChange={setAllDay} ariaLabel="All-day event" />
-                            </FormField>
-                        </Show>
-                        <FormField label="Multi-day event" inline>
-                            <Toggle
-                                checked={multiDay()}
-                                onChange={(v,) => { setMultiDay(v,); if (v) setAllDay(false,); }}
-                                ariaLabel="Multi-day event"
-                            />
-                        </FormField>
-                    </div>
-
-                    <FormField label="Timezone">
-                        <select value={timezone()} onChange={(e,) => setTimezone(e.currentTarget.value,)}>
-                            <option value="">Site default</option>
-                            <Show when={timezone() && !isKnownTimeZone(timezone(),)}>
-                                <option value={timezone()}>{timezone()}</option>
-                            </Show>
-                            <For each={TIMEZONES}>{(tz,) => <option value={tz.value}>{tz.label}</option>}</For>
-                        </select>
-                    </FormField>
-
-                    {/* ── Repeat ── */}
-                    <div class="event-modal__row">
-                        <FormField label="Repeats">
-                            <select value={recurrence()} onChange={(e,) => setRecurrence(e.currentTarget.value,)}>
-                                <For each={RECURRENCE_OPTIONS}>
-                                    {(o,) => <option value={o.value}>{o.label}</option>}
-                                </For>
-                            </select>
-                        </FormField>
-                        <Show when={recurrence()}>
-                            <FormField label="Repeat until" hint="Leave empty to repeat indefinitely.">
-                                <input
-                                    type="date" value={recurrenceUntil()} min={startDate()}
-                                    onInput={(e,) => setRecurrenceUntil(e.currentTarget.value,)}
-                                />
-                            </FormField>
-                        </Show>
-                    </div>
-
-                    {/* ── Registration ── */}
-                    <FormField label="Allow event registration" inline>
-                        <Toggle
-                            checked={registrationEnabled()}
-                            onChange={setRegistrationEnabled}
-                            ariaLabel="Allow event registration"
-                        />
-                    </FormField>
-
-                    <Show when={registrationEnabled()}>
-                        <FormField label="Required information" hint="What an attendee must provide.">
-                            <div class="event-modal__checks">
-                                <For each={EVENT_REGISTRATION_FIELDS}>
-                                    {(f,) => (
-                                        <label class="event-modal__check">
-                                            <input
-                                                type="checkbox"
-                                                checked={registrationFields().includes(f.key,)}
-                                                // Email is the identity a registration is keyed on.
-                                                disabled={f.key === 'email'}
-                                                onChange={() => toggleField(f.key,)}
-                                            />
-                                            <span>{f.label}{f.key === 'email' ? ' (always required)' : ''}</span>
-                                        </label>
-                                    )}
-                                </For>
-                            </div>
-                        </FormField>
-
-                        <FormField label="Show number of registrants on the event page" inline>
-                            <Toggle
-                                checked={showRegistrantCount()}
-                                onChange={setShowRegistrantCount}
-                                ariaLabel="Show registrant count"
-                            />
-                        </FormField>
-
-                        <FormField label="Sell tickets" inline>
-                            <Toggle
-                                checked={ticketingEnabled()}
-                                onChange={(v,) => { setTicketingEnabled(v,); if (v && tiers().length === 0) addTier(); }}
-                                ariaLabel="Sell tickets"
-                            />
-                        </FormField>
-                    </Show>
-
-                    {/* ── Ticket tiers ── */}
-                    <Show when={registrationEnabled() && ticketingEnabled()}>
-                        <div class="event-modal__tiers">
-                            <p class="form-help-muted">
-                                Leave a quantity empty for unlimited. A zero-priced tier with a
-                                quantity is how you run a free event with a capacity limit.
-                            </p>
-                            {/*
-                              * <Index>, not <For>: <For> is keyed by item IDENTITY, and
-                              * updateTier replaces the object on every keystroke — so each
-                              * character rebuilt the row and the field lost focus. <Index>
-                              * keys by POSITION, so the inputs are never recreated.
-                              *
-                              * State is committed on `change` (which fires on blur/Enter),
-                              * not on `input`, so typing is never interrupted mid-value —
-                              * "12.50" is no longer read as 1 → 12 → 12.5 → 12.50.
-                              */}
-                            <Index each={tiers()}>
-                                {(tier, i,) => (
-                                    <div class="event-modal__tier">
-                                        <input
-                                            type="text" placeholder="Item name"
-                                            value={tier().name ?? ''}
-                                            onChange={(e,) => updateTier(i, { name: e.currentTarget.value, },)}
-                                        />
-                                        <input
-                                            type="number" min="0" step="0.01" placeholder="0.00"
-                                            value={((tier().priceCents ?? 0) / 100).toFixed(2,)}
-                                            onChange={(e,) => updateTier(i, {
-                                                priceCents: Math.round(Number(e.currentTarget.value || 0,) * 100,),
-                                            },)}
-                                        />
-                                        <input
-                                            type="number" min="0" placeholder="Unlimited"
-                                            value={tier().quantityAvailable ?? ''}
-                                            onChange={(e,) => updateTier(i, {
-                                                quantityAvailable: e.currentTarget.value === ''
-                                                    ? null : Number(e.currentTarget.value,),
-                                            },)}
-                                        />
-                                        <button
-                                            type="button" class="ui-button ui-button--sm ui-button--danger"
-                                            onClick={() => removeTier(i,)}
-                                        >✕</button>
-                                    </div>
-                                )}
-                            </Index>
-                            <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addTier}>
-                                + Add another price
+                                title="Clear and re-derive from the name"
+                            >
+                                Clear
                             </button>
-                        </div>
-                    </Show>
+                        </Show>
+                    </div>
+                </FormField>
 
-                    {/* Only meaningful once the event exists and can have
-                        attendees — a new event has no occurrence to list. */}
-                    <Show when={!isNew() && registrationEnabled() && props.event}>
-                        <RegistrantsTable
-                            eventId={props.event!.id}
-                            occurrenceDate={props.event!.startsAt.slice(0, 10,)}
+                <FormField
+                    label="Description"
+                    hint="Markdown supported — **bold**, *italic*, [links](/x), lists, > quotes, `code`."
+                >
+                    <textarea
+                        rows={3}
+                        value={description()}
+                        onInput={(e,) => setDescription(e.currentTarget.value,)}
+                    />
+                </FormField>
+
+                <FormField label="Location">
+                    <input
+                        type="text"
+                        value={location()}
+                        maxLength={255}
+                        onInput={(e,) => setLocation(e.currentTarget.value,)}
+                        placeholder="Philadelphia, PA"
+                    />
+                </FormField>
+
+                {/* ── When ── */}
+                <div class="event-modal__row">
+                    <FormField label={multiDay() ? 'Start date' : 'Date'} required>
+                        <input
+                            type="date"
+                            value={startDate()}
+                            onInput={(e,) => setStartDate(e.currentTarget.value,)}
                         />
+                    </FormField>
+                    <Show when={multiDay()}>
+                        <FormField label="End date">
+                            <input
+                                type="date"
+                                value={endDate()}
+                                min={startDate()}
+                                onInput={(e,) => setEndDate(e.currentTarget.value,)}
+                            />
+                        </FormField>
                     </Show>
+                </div>
 
-                    <FormField label="Status">
-                        <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as never,)}>
-                            <option value="published">Published</option>
-                            <option value="draft">Draft</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                <div class="event-modal__row">
+                    <FormField
+                        label="Start time"
+                        hint={allDay() ? 'Disabled for an all-day event.' : undefined}
+                    >
+                        <input
+                            type="time"
+                            value={startTime()}
+                            disabled={allDay()}
+                            onInput={(e,) => setStartTime(e.currentTarget.value,)}
+                        />
+                    </FormField>
+                    <FormField label="End time" hint="Optional.">
+                        <input
+                            type="time"
+                            value={endTime()}
+                            disabled={allDay()}
+                            onInput={(e,) => setEndTime(e.currentTarget.value,)}
+                        />
                     </FormField>
                 </div>
 
-                <footer class="event-modal__foot">
-                    <Show when={!isNew()}>
-                        <button type="button" class="ui-button ui-button--danger" onClick={remove}>Delete</button>
+                <div class="event-modal__toggles">
+                    {
+                        /* Mutually exclusive: "all day" and "multi-day" describe
+                            different shapes, and both at once is unrenderable. */
+                    }
+                    <Show when={!multiDay()}>
+                        <FormField label="All-day event" inline>
+                            <Toggle checked={allDay()} onChange={setAllDay} ariaLabel="All-day event" />
+                        </FormField>
                     </Show>
-                    <span class="event-modal__spacer" />
-                    <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose}>Cancel</button>
-                    <button
-                        type="button" class="ui-button ui-button--primary"
-                        onClick={save} disabled={!canSave() || saving()}
-                    >
-                        {saving() ? 'Saving…' : 'Save Event'}
-                    </button>
-                </footer>
+                    <FormField label="Multi-day event" inline>
+                        <Toggle
+                            checked={multiDay()}
+                            onChange={(v,) => {
+                                setMultiDay(v,);
+                                if (v) setAllDay(false,);
+                            }}
+                            ariaLabel="Multi-day event"
+                        />
+                    </FormField>
+                </div>
+
+                <FormField label="Timezone">
+                    <select value={timezone()} onChange={(e,) => setTimezone(e.currentTarget.value,)}>
+                        <option value="">Site default</option>
+                        <Show when={timezone() && !isKnownTimeZone(timezone(),)}>
+                            <option value={timezone()}>{timezone()}</option>
+                        </Show>
+                        <For each={TIMEZONES}>{(tz,) => <option value={tz.value}>{tz.label}</option>}</For>
+                    </select>
+                </FormField>
+
+                {/* ── Repeat ── */}
+                <div class="event-modal__row">
+                    <FormField label="Repeats">
+                        <select value={recurrence()} onChange={(e,) => setRecurrence(e.currentTarget.value,)}>
+                            <For each={RECURRENCE_OPTIONS}>
+                                {(o,) => <option value={o.value}>{o.label}</option>}
+                            </For>
+                        </select>
+                    </FormField>
+                    <Show when={recurrence()}>
+                        <FormField label="Repeat until" hint="Leave empty to repeat indefinitely.">
+                            <input
+                                type="date"
+                                value={recurrenceUntil()}
+                                min={startDate()}
+                                onInput={(e,) => setRecurrenceUntil(e.currentTarget.value,)}
+                            />
+                        </FormField>
+                    </Show>
+                </div>
+
+                {/* ── Registration ── */}
+                <FormField label="Allow event registration" inline>
+                    <Toggle
+                        checked={registrationEnabled()}
+                        onChange={setRegistrationEnabled}
+                        ariaLabel="Allow event registration"
+                    />
+                </FormField>
+
+                <Show when={registrationEnabled()}>
+                    <FormField label="Required information" hint="What an attendee must provide.">
+                        <div class="event-modal__checks">
+                            <For each={EVENT_REGISTRATION_FIELDS}>
+                                {(f,) => (
+                                    <label class="event-modal__check">
+                                        <input
+                                            type="checkbox"
+                                            checked={registrationFields().includes(f.key,)}
+                                            // Email is the identity a registration is keyed on.
+                                            disabled={f.key === 'email'}
+                                            onChange={() => toggleField(f.key,)}
+                                        />
+                                        <span>{f.label}{f.key === 'email' ? ' (always required)' : ''}</span>
+                                    </label>
+                                )}
+                            </For>
+                        </div>
+                    </FormField>
+
+                    <FormField label="Show number of registrants on the event page" inline>
+                        <Toggle
+                            checked={showRegistrantCount()}
+                            onChange={setShowRegistrantCount}
+                            ariaLabel="Show registrant count"
+                        />
+                    </FormField>
+
+                    <FormField label="Sell tickets" inline>
+                        <Toggle
+                            checked={ticketingEnabled()}
+                            onChange={(v,) => {
+                                setTicketingEnabled(v,);
+                                if (v && tiers().length === 0) addTier();
+                            }}
+                            ariaLabel="Sell tickets"
+                        />
+                    </FormField>
+                </Show>
+
+                {/* ── Ticket tiers ── */}
+                <Show when={registrationEnabled() && ticketingEnabled()}>
+                    <div class="event-modal__tiers">
+                        <p class="form-help-muted">
+                            Leave a quantity empty for unlimited. A zero-priced tier with a quantity is how you run a
+                            free event with a capacity limit.
+                        </p>
+                        {
+                            /*
+                             * <Index>, not <For>: <For> is keyed by item IDENTITY, and
+                             * updateTier replaces the object on every keystroke — so each
+                             * character rebuilt the row and the field lost focus. <Index>
+                             * keys by POSITION, so the inputs are never recreated.
+                             *
+                             * State is committed on `change` (which fires on blur/Enter),
+                             * not on `input`, so typing is never interrupted mid-value —
+                             * "12.50" is no longer read as 1 → 12 → 12.5 → 12.50.
+                             */
+                        }
+                        <Index each={tiers()}>
+                            {(tier, i,) => (
+                                <div class="event-modal__tier">
+                                    <input
+                                        type="text"
+                                        placeholder="Item name"
+                                        value={tier().name ?? ''}
+                                        onChange={(e,) => updateTier(i, { name: e.currentTarget.value, },)}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={((tier().priceCents ?? 0) / 100).toFixed(2,)}
+                                        onChange={(e,) =>
+                                            updateTier(i, {
+                                                priceCents: Math.round(Number(e.currentTarget.value || 0,) * 100,),
+                                            },)}
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Unlimited"
+                                        value={tier().quantityAvailable ?? ''}
+                                        onChange={(e,) =>
+                                            updateTier(i, {
+                                                quantityAvailable: e.currentTarget.value === '' ?
+                                                    null :
+                                                    Number(e.currentTarget.value,),
+                                            },)}
+                                    />
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--sm ui-button--danger"
+                                        onClick={() => removeTier(i,)}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            )}
+                        </Index>
+                        <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addTier}>
+                            + Add another price
+                        </button>
+                    </div>
+                </Show>
+
+                {
+                    /* Only meaningful once the event exists and can have
+                        attendees — a new event has no occurrence to list. */
+                }
+                <Show when={!isNew() && registrationEnabled() && props.event}>
+                    <RegistrantsTable
+                        eventId={props.event!.id}
+                        occurrenceDate={props.event!.startsAt.slice(0, 10,)}
+                    />
+                </Show>
+
+                <FormField label="Status">
+                    <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as never,)}>
+                        <option value="published">Published</option>
+                        <option value="draft">Draft</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </FormField>
+            </div>
+
+            <footer class="event-modal__foot">
+                <Show when={!isNew()}>
+                    <button type="button" class="ui-button ui-button--danger" onClick={remove}>Delete</button>
+                </Show>
+                <span class="event-modal__spacer" />
+                <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose}>Cancel</button>
+                <button
+                    type="button"
+                    class="ui-button ui-button--primary"
+                    onClick={save}
+                    disabled={!canSave() || saving()}
+                >
+                    {saving() ? 'Saving…' : 'Save Event'}
+                </button>
+            </footer>
         </ModalShell>
     );
 };
