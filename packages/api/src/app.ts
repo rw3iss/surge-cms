@@ -85,21 +85,36 @@ export function createApp(mode: AppMode = 'running',): Express {
     // no CSP in dev). Extended at runtime by enabled plugins.
     if (config.isProduction) app.use(pluginAwareCsp,);
 
-    app.use(
-        cors({
-            origin: (origin, callback,) => {
-                if (!origin) return callback(null, true,);
-                if (config.corsOrigins.includes(origin,) || !config.isProduction) {
-                    return callback(null, true,);
-                }
-                logger.warn('CORS blocked request', { origin, },);
-                return callback(new Error('Not allowed by CORS',),);
-            },
-            credentials: true,
-            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',],
-            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token',],
-        },),
-    );
+    const corsMiddleware = cors({
+        origin: (origin, callback,) => {
+            if (!origin) return callback(null, true,);
+            if (config.corsOrigins.includes(origin,) || !config.isProduction) {
+                return callback(null, true,);
+            }
+            logger.warn('CORS blocked request', { origin, },);
+            return callback(new Error('Not allowed by CORS',),);
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token',],
+    },);
+    /*
+     * A READ from an origin we do not recognise is served, just without CORS
+     * headers — the browser then withholds the response from that origin's
+     * script, which is the protection CORS actually provides.
+     *
+     * It used to be a 500. Any page that loads one of our URLs with an Origin
+     * header — Google Workspace's email-footer image dialog fetching
+     * `/logo.png` from admin.google.com — got a server error and reported the
+     * image as blocked "for security reasons". Writes from a foreign origin
+     * still fail as before; CSRF is not relaxed.
+     */
+    app.use((req, res, next,) => {
+        const origin = req.headers.origin;
+        const isRead = req.method === 'GET' || req.method === 'HEAD';
+        if (isRead && origin && config.isProduction && !config.corsOrigins.includes(origin,)) return next();
+        return corsMiddleware(req, res, next,);
+    },);
 
     app.use(compression(),);
     app.use(cookieParser(),);
