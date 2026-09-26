@@ -1,15 +1,15 @@
-import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
-import { useNavigate, } from '@solidjs/router';
 import type { ShopAddress, ShopCheckoutTotals, } from '@sitesurge/types';
+import { useNavigate, } from '@solidjs/router';
+import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
+import { For, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
+import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import { useAuth, } from '../../stores/auth';
 import { cartItems, cartSubtotal, clearCart, removeFromCart, } from '../../stores/shopCart';
-import ShopStoreGuard from './ShopStoreGuard';
 import { money, shipBreakdown, } from './shopFormat';
-import { For, } from 'solid-js';
-import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
+import ShopStoreGuard from './ShopStoreGuard';
 import './shop.scss';
 
 const ShopCheckoutInner: Component = () => {
@@ -41,7 +41,9 @@ const ShopCheckoutInner: Component = () => {
     const [phone, setPhone,] = createSignal('',);
 
     const [totals, setTotals,] = createSignal<ShopCheckoutTotals | null>(null,);
-    const [shipping, setShipping,] = createSignal<{ useAdditionalItemRate?: boolean; additionalItemCents?: number; } | undefined>(undefined,);
+    const [shipping, setShipping,] = createSignal<
+        { useAdditionalItemRate?: boolean; additionalItemCents?: number; } | undefined
+    >(undefined,);
     const [shippingMethod, setShippingMethod,] = createSignal<string | undefined>(undefined,);
     const [previewing, setPreviewing,] = createSignal(false,);
     const [cardReady, setCardReady,] = createSignal(false,);
@@ -60,13 +62,27 @@ const ShopCheckoutInner: Component = () => {
 
     // Total shippable units in the cart (used to break shipping into first /
     // additional lines for display).
-    const shippableUnits = () => cartItems().reduce((sum, l,) => sum + l.qty, 0,);
+    const shippableUnits = () => cartItems().reduce((sum, l,) => sum + (l.kind === 'event_ticket' ? 0 : l.qty), 0,);
     const shipBd = () => {
         const t = totals();
         return t ? shipBreakdown(t.shippingCents, shippableUnits(), shipping(),) : null;
     };
 
-    const lines = () => cartItems().map((l,) => ({ variantId: l.variantId, qty: l.qty, }));
+    // A ticket line carries what checkout needs to re-price it from the event.
+    const lines = () =>
+        cartItems().map((l,) =>
+            l.kind === 'event_ticket' ?
+                {
+                    variantId: l.variantId,
+                    qty: l.qty,
+                    kind: 'event_ticket' as const,
+                    eventId: l.eventId,
+                    occurrenceDate: l.occurrenceDate,
+                    tierId: l.tierId,
+                    attendee: l.attendee,
+                } :
+                { variantId: l.variantId, qty: l.qty, }
+        );
 
     /** Per-group shipping choice, keyed by group. */
     const [groupMethod, setGroupMethod,] = createSignal<Record<string, string>>({},);
@@ -86,7 +102,7 @@ const ShopCheckoutInner: Component = () => {
 
     /** Choose a method for one group and re-price. */
     const selectGroupMethod = (key: string, id: string,) => {
-        setGroupMethod((m,) => ({ ...m, [key]: id, }),);
+        setGroupMethod((m,) => ({ ...m, [key]: id, }));
         schedulePreview();
     };
 
@@ -121,7 +137,7 @@ const ShopCheckoutInner: Component = () => {
             // whose id changed on a resync) so they don't wedge checkout.
             const gone = t.unavailableVariantIds ?? [];
             if (gone.length > 0) {
-                gone.forEach((id,) => removeFromCart(id,),);
+                gone.forEach((id,) => removeFromCart(id,));
                 setNotice('Some items were no longer available and have been removed from your cart.',);
             }
             // Adopt the server-chosen method when we have none, or ours is no
@@ -136,7 +152,7 @@ const ShopCheckoutInner: Component = () => {
             for (const g of t.groups ?? []) {
                 if (g.shippingMethod && !groupMethod()[g.key]) adopt[g.key] = g.shippingMethod;
             }
-            if (Object.keys(adopt,).length) setGroupMethod((m,) => ({ ...adopt, ...m, }),);
+            if (Object.keys(adopt,).length) setGroupMethod((m,) => ({ ...adopt, ...m, }));
         } catch {
             /* keep last totals; final total is authoritative on create */
         } finally {
@@ -204,11 +220,21 @@ const ShopCheckoutInner: Component = () => {
     /** Step 1 → 2: validate, tokenize the card (→ brand/last4 for review), lock
      *  in shipping, and show the confirmation screen. No order is placed yet. */
     const continueToConfirm = async () => {
-        setError(''); setNotice('',);
-        if (cartItems().length === 0) { setError('Your cart is empty.',); return; }
+        setError('',);
+        setNotice('',);
+        if (cartItems().length === 0) {
+            setError('Your cart is empty.',);
+            return;
+        }
         const invalid = validateForm();
-        if (invalid) { setError(invalid,); return; }
-        if (!stripeInstance || !cardElement) { setError('Payment system not ready.',); return; }
+        if (invalid) {
+            setError(invalid,);
+            return;
+        }
+        if (!stripeInstance || !cardElement) {
+            setError('Payment system not ready.',);
+            return;
+        }
         setContinuing(true,);
         try {
             const pm = await stripeInstance.createPaymentMethod({
@@ -314,8 +340,10 @@ const ShopCheckoutInner: Component = () => {
                 fallback={<div class="shop-store__empty">Your cart is empty.</div>}
             >
                 <form class="shop-checkout__layout" onSubmit={handleSubmit}>
-                    {/* The form stays mounted (Stripe card iframe must persist);
-                        it's HIDDEN on the confirm step and the review shows instead. */}
+                    {
+                        /* The form stays mounted (Stripe card iframe must persist);
+                        it's HIDDEN on the confirm step and the review shows instead. */
+                    }
                     <div class="shop-checkout__form" classList={{ 'shop-checkout__form--hidden': step() !== 'form', }}>
                         <h2>Contact</h2>
                         <label for="checkout-email">Email</label>
@@ -339,7 +367,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="given-name"
                                     value={firstName()}
-                                    onInput={(e,) => { setFirstName(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setFirstName(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                             <div>
@@ -350,7 +381,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="family-name"
                                     value={lastName()}
-                                    onInput={(e,) => { setLastName(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setLastName(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                         </div>
@@ -361,7 +395,10 @@ const ShopCheckoutInner: Component = () => {
                             type="text"
                             autocomplete="address-line1"
                             value={line1()}
-                            onInput={(e,) => { setLine1(e.currentTarget.value,); schedulePreview(); }}
+                            onInput={(e,) => {
+                                setLine1(e.currentTarget.value,);
+                                schedulePreview();
+                            }}
                         />
                         <label for="checkout-address2">Address line 2</label>
                         <input
@@ -370,7 +407,10 @@ const ShopCheckoutInner: Component = () => {
                             type="text"
                             autocomplete="address-line2"
                             value={line2()}
-                            onInput={(e,) => { setLine2(e.currentTarget.value,); schedulePreview(); }}
+                            onInput={(e,) => {
+                                setLine2(e.currentTarget.value,);
+                                schedulePreview();
+                            }}
                         />
                         <div class="shop-checkout__row">
                             <div>
@@ -381,7 +421,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="address-level2"
                                     value={city()}
-                                    onInput={(e,) => { setCity(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setCity(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                             <div>
@@ -392,7 +435,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="address-level1"
                                     value={stateRegion()}
-                                    onInput={(e,) => { setStateRegion(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setStateRegion(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                         </div>
@@ -405,7 +451,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="postal-code"
                                     value={postalCode()}
-                                    onInput={(e,) => { setPostalCode(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setPostalCode(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                             <div>
@@ -416,7 +465,10 @@ const ShopCheckoutInner: Component = () => {
                                     type="text"
                                     autocomplete="country"
                                     value={country()}
-                                    onInput={(e,) => { setCountry(e.currentTarget.value,); schedulePreview(); }}
+                                    onInput={(e,) => {
+                                        setCountry(e.currentTarget.value,);
+                                        schedulePreview();
+                                    }}
                                 />
                             </div>
                         </div>
@@ -449,11 +501,13 @@ const ShopCheckoutInner: Component = () => {
                             <div class="shop-checkout__review-block">
                                 <h3>Shipping &amp; billing address</h3>
                                 <p>
-                                    {fullName()}<br />
+                                    {fullName()}
+                                    <br />
                                     {line1()}
                                     <Show when={line2()}>, {line2()}</Show>
                                     <br />
-                                    {city()}, {stateRegion()} {postalCode()}<br />
+                                    {city()}, {stateRegion()} {postalCode()}
+                                    <br />
                                     {country()}
                                     <Show when={phone()}>
                                         <br />
@@ -464,8 +518,9 @@ const ShopCheckoutInner: Component = () => {
                             <div class="shop-checkout__review-block">
                                 <h3>Payment</h3>
                                 <p>
-                                    {cardBrand() ? cardBrand().charAt(0,).toUpperCase() + cardBrand().slice(1,) : 'Card'}
-                                    {' '}ending in {cardLast4() || '••••'}
+                                    {cardBrand() ?
+                                        cardBrand().charAt(0,).toUpperCase() + cardBrand().slice(1,) :
+                                        'Card'} ending in {cardLast4() || '••••'}
                                 </p>
                             </div>
                             <button
@@ -489,7 +544,8 @@ const ShopCheckoutInner: Component = () => {
                                         </Show>
                                         <div class="shop-checkout__item-info">
                                             <span class="shop-checkout__item-name">
-                                                {l.title}{l.variantTitle ? ` — ${l.variantTitle}` : ''}
+                                                {l.title}
+                                                {l.variantTitle ? ` — ${l.variantTitle}` : ''}
                                             </span>
                                             <span class="shop-checkout__item-qty">Qty {l.qty}</span>
                                         </div>
@@ -511,11 +567,13 @@ const ShopCheckoutInner: Component = () => {
                             <Show when={totals()}>
                                 {(t,) => (
                                     <>
-                                        {/* Grouped: one shipping line (and where
+                                        {
+                                            /* Grouped: one shipping line (and where
                                             offered, one selector) per fulfiller.
                                             Two suppliers really is two parcels,
                                             so showing one merged figure would
-                                            misrepresent what arrives. */}
+                                            misrepresent what arrives. */
+                                        }
                                         <Show when={showGroups(t(),)}>
                                             <For each={t().groups}>
                                                 {(g,) => (
@@ -527,9 +585,13 @@ const ShopCheckoutInner: Component = () => {
                                                                 fallback={
                                                                     <div class="shop-checkout__total-row">
                                                                         <span>
-                                                                            Shipping{g.shippingEstimated ? ' (estimate)' : ''}
+                                                                            Shipping{g.shippingEstimated ?
+                                                                                ' (estimate)' :
+                                                                                ''}
                                                                         </span>
-                                                                        <span>{money(g.shippingCents, t().currency,)}</span>
+                                                                        <span>
+                                                                            {money(g.shippingCents, t().currency,)}
+                                                                        </span>
                                                                     </div>
                                                                 }
                                                             >
@@ -539,19 +601,27 @@ const ShopCheckoutInner: Component = () => {
                                                                             <input
                                                                                 type="radio"
                                                                                 name={`shipping-${g.key}`}
-                                                                                checked={groupMethod()[g.key] === opt.id
-                                                                                    || (!groupMethod()[g.key] && g.shippingMethod === opt.id)}
-                                                                                onChange={() => selectGroupMethod(g.key, opt.id,)}
+                                                                                checked={groupMethod()[g.key] ===
+                                                                                        opt.id ||
+                                                                                    (!groupMethod()[g.key] &&
+                                                                                        g.shippingMethod === opt.id)}
+                                                                                onChange={() =>
+                                                                                    selectGroupMethod(g.key, opt.id,)}
                                                                             />
-                                                                            <span class="shop-checkout__shipping-method-name">{opt.label}</span>
-                                                                            <span class="shop-checkout__shipping-method-price">{money(opt.cents, t().currency,)}</span>
+                                                                            <span class="shop-checkout__shipping-method-name">
+                                                                                {opt.label}
+                                                                            </span>
+                                                                            <span class="shop-checkout__shipping-method-price">
+                                                                                {money(opt.cents, t().currency,)}
+                                                                            </span>
                                                                         </label>
                                                                     )}
                                                                 </For>
                                                             </Show>
                                                             <Show when={g.shippingQuoteFailed}>
                                                                 <p class="shop-checkout__shipping-note">
-                                                                    Live rates unavailable — a flat rate has been applied.
+                                                                    Live rates unavailable — a flat rate has been
+                                                                    applied.
                                                                 </p>
                                                             </Show>
                                                         </div>
@@ -566,11 +636,11 @@ const ShopCheckoutInner: Component = () => {
                                                 <Show when={!showGroups(t(),)}>
                                                     <div class="shop-checkout__total-row">
                                                         <span>
-                                                            Shipping{t().shippingEstimated
-                                                                ? ' (estimate)'
-                                                                : t().shippingMethodLabel
-                                                                ? ` (${t().shippingMethodLabel})`
-                                                                : ''}
+                                                            Shipping{t().shippingEstimated ?
+                                                                ' (estimate)' :
+                                                                t().shippingMethodLabel ?
+                                                                ` (${t().shippingMethodLabel})` :
+                                                                ''}
                                                         </span>
                                                         <span>{money(t().shippingCents, t().currency,)}</span>
                                                     </div>
@@ -584,11 +654,24 @@ const ShopCheckoutInner: Component = () => {
                                                             <>
                                                                 <div class="shop-checkout__total-row shop-checkout__total-sub">
                                                                     <span>First item shipping</span>
-                                                                    <span>1 × {money(bd().firstItemCents, t().currency,)} = {money(bd().firstItemCents, t().currency,)}</span>
+                                                                    <span>
+                                                                        1 × {money(bd().firstItemCents, t().currency,)}
+                                                                        {' '}
+                                                                        = {money(bd().firstItemCents, t().currency,)}
+                                                                    </span>
                                                                 </div>
                                                                 <div class="shop-checkout__total-row shop-checkout__total-sub">
                                                                     <span>Additional items shipping</span>
-                                                                    <span>{bd().additionalUnits} × {money(bd().additionalItemCents, t().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, t().currency,)}</span>
+                                                                    <span>
+                                                                        {bd().additionalUnits} ×{' '}
+                                                                        {money(bd().additionalItemCents, t().currency,)}
+                                                                        {' '}
+                                                                        = {money(
+                                                                            bd().additionalItemCents *
+                                                                                bd().additionalUnits,
+                                                                            t().currency,
+                                                                        )}
+                                                                    </span>
                                                                 </div>
                                                             </>
                                                         )}
@@ -607,8 +690,12 @@ const ShopCheckoutInner: Component = () => {
                                                                 checked={shippingMethod() === opt.id}
                                                                 onChange={() => selectShippingMethod(opt.id,)}
                                                             />
-                                                            <span class="shop-checkout__shipping-method-name">{opt.label}</span>
-                                                            <span class="shop-checkout__shipping-method-price">{money(opt.cents, t().currency,)}</span>
+                                                            <span class="shop-checkout__shipping-method-name">
+                                                                {opt.label}
+                                                            </span>
+                                                            <span class="shop-checkout__shipping-method-price">
+                                                                {money(opt.cents, t().currency,)}
+                                                            </span>
                                                         </label>
                                                     )}
                                                 </For>
@@ -616,7 +703,8 @@ const ShopCheckoutInner: Component = () => {
                                         </Show>
                                         <Show when={t().shippingQuoteFailed}>
                                             <p class="shop-checkout__shipping-note">
-                                                Live shipping rates are unavailable right now — a standard flat rate has been applied.
+                                                Live shipping rates are unavailable right now — a standard flat rate has
+                                                been applied.
                                             </p>
                                         </Show>
                                         <div class="shop-checkout__total-row">
@@ -682,12 +770,15 @@ const ShopifyCheckoutInner: Component = () => {
     const [error, setError,] = createSignal('',);
 
     const startCheckout = async () => {
-        if (cartItems().length === 0) { setError('Your cart is empty.',); return; }
+        if (cartItems().length === 0) {
+            setError('Your cart is empty.',);
+            return;
+        }
         setError('',);
         setPlacing(true,);
         try {
             const res = await shopifySource.cartCreate(
-                cartItems().map((l,) => ({ merchandiseId: l.variantId, quantity: l.qty, }),),
+                cartItems().map((l,) => ({ merchandiseId: l.variantId, quantity: l.qty, })),
             );
             if (!res?.ok || !res.cart?.checkoutUrl) {
                 setError(res?.error || 'Could not start checkout. Please try again.',);

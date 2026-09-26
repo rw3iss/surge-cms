@@ -44,6 +44,12 @@ vi.mock('./settings', () => ({
     }),
 }),);
 
+// Ticket lines are priced by the events module, never from the client.
+const resolveTicketLinesMock = vi.fn();
+vi.mock('../events/tickets', () => ({
+    resolveTicketLines: (...a: unknown[]) => resolveTicketLinesMock(...a),
+}),);
+
 import * as checkout from './checkout';
 
 const ctx = { userId: 'u1', ipAddress: '', userAgent: '', };
@@ -106,5 +112,60 @@ describe('shop checkout service', () => {
         expect(piArg.amountCents,).toBe(2500,);
         expect(result.clientSecret,).toBe('cs_123',);
         expect(result.orderNumber,).toBe('SS-TEST',);
+    },);
+
+    describe('event ticket lines', () => {
+        const TICKET = {
+            variantId: 'event:e1:2026-10-01:t1',
+            qty: 2,
+            kind: 'event_ticket' as const,
+            eventId: 'e1',
+            occurrenceDate: '2026-10-01',
+            tierId: 't1',
+            attendee: { email: 'guest@b.com', name: 'Guest', },
+        };
+        beforeEach(() => {
+            resolveTicketLinesMock.mockReset();
+            resolveTicketLinesMock.mockResolvedValue({
+                lines: [{
+                    eventId: 'e1', eventTitle: 'Gala', occurrenceDate: '2026-10-01', tierId: 't1',
+                    tierName: 'VIP', priceCents: 1500, currency: 'USD', quantity: 2, remaining: 10,
+                },],
+                totalCents: 3000,
+            },);
+        },);
+
+        it('prices a ticket line from the event tier, not the variant table', async () => {
+            const totals = await checkout.previewCheckout({ items: [TICKET,], },);
+            expect(totals.subtotalCents,).toBe(3000,);
+            expect(totals.shippingCents,).toBe(0,);
+            expect(queryMock,).not.toHaveBeenCalledWith(expect.stringContaining('shop_variants',), expect.anything(),);
+        },);
+
+        it('records the ticket on the order item with no product/variant id', async () => {
+            await checkout.createCheckout({ items: [TICKET,], customerEmail: 'a@b.com', }, ctx,);
+            const items = createOrderItemsMock.mock.calls[0][2] as Array<Record<string, unknown>>;
+            expect(items[0],).toMatchObject({
+                productId: null,
+                variantId: null,
+                quantity: 2,
+                unitPriceCents: 1500,
+                fulfillmentGroup: 'event_tickets',
+                metadata: {
+                    kind: 'event_ticket', eventId: 'e1', occurrenceDate: '2026-10-01', tierId: 't1',
+                    attendee: { email: 'guest@b.com', name: 'Guest', },
+                },
+            },);
+            const piArg = createPaymentIntentMock.mock.calls[0][0] as { amountCents: number; };
+            expect(piArg.amountCents,).toBe(3000,);
+        },);
+
+        it('drops a sold-out ticket from the preview but refuses it at checkout', async () => {
+            resolveTicketLinesMock.mockRejectedValue(new Error('Only 1 left',),);
+            const totals = await checkout.previewCheckout({ items: [TICKET,], },);
+            expect(totals.unavailableVariantIds,).toEqual([TICKET.variantId,],);
+            await expect(checkout.createCheckout({ items: [TICKET,], customerEmail: 'a@b.com', }, ctx,),)
+                .rejects.toThrow('Only 1 left',);
+        },);
     },);
 },);

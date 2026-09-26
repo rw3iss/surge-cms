@@ -13,12 +13,7 @@ import type { PoolClient, } from 'pg';
 import { query, } from '../../db';
 import { mapRow, mapRows, } from '../../utils/mapRow';
 import { uuidOrNull, } from '../../utils/uuid';
-import {
-    findByIdOrThrow,
-    paginatedQuery,
-    PaginatedResult,
-    PaginationOptions,
-} from '../base.repo';
+import { findByIdOrThrow, paginatedQuery, PaginatedResult, PaginationOptions, } from '../base.repo';
 
 // ─── Create (within the checkout txn) ─────────────────────────────
 
@@ -85,6 +80,8 @@ export interface OrderItemInput {
     fulfillmentGroup?: string | null;
     externalProductId?: string | null;
     externalVariantId?: string | null;
+    /** Line metadata — an event-ticket line's event/date/tier/attendee. */
+    metadata?: Record<string, unknown> | null;
 }
 
 /** Bulk-insert the order line-item snapshots inside the checkout txn. */
@@ -99,8 +96,9 @@ export async function createOrderItems(
             `INSERT INTO shop_order_items (order_id, product_id, variant_id, title, variant_title,
                                            sku, unit_price_cents, quantity, subtotal_cents, is_digital,
                                            download_token,
-                                           fulfillment_group, external_product_id, external_variant_id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                           fulfillment_group, external_product_id, external_variant_id,
+                                           metadata)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                  RETURNING *`,
             [
                 orderId,
@@ -120,6 +118,7 @@ export async function createOrderItems(
                 item.fulfillmentGroup ?? 'native',
                 item.externalProductId ?? null,
                 item.externalVariantId ?? null,
+                item.metadata ? JSON.stringify(item.metadata,) : null,
             ],
         );
         out.push(mapRow<ShopOrderItem>(result.rows[0],),);
@@ -270,6 +269,8 @@ export interface FulfillmentItem {
     variantId: string | null;
     quantity: number;
     isDigital: boolean;
+    unitPriceCents: number;
+    metadata: Record<string, unknown> | null;
 }
 
 /** Load an order's items with the fields needed for inventory decrement +
@@ -279,7 +280,8 @@ export async function findOrderItemsForFulfillment(
     orderId: string,
 ): Promise<FulfillmentItem[]> {
     const result = await client.query(
-        `SELECT id, variant_id, quantity, is_digital FROM shop_order_items WHERE order_id = $1`,
+        `SELECT id, variant_id, quantity, is_digital, unit_price_cents, metadata
+           FROM shop_order_items WHERE order_id = $1`,
         [orderId,],
     );
     return result.rows.map((r,) => ({
@@ -287,6 +289,8 @@ export async function findOrderItemsForFulfillment(
         variantId: (r.variant_id as string | null) ?? null,
         quantity: r.quantity as number,
         isDigital: r.is_digital as boolean,
+        unitPriceCents: Number(r.unit_price_cents,),
+        metadata: (r.metadata as Record<string, unknown> | null) ?? null,
     }));
 }
 

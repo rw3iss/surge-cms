@@ -12,25 +12,42 @@
 import type { ShopAddress, ShopSettings, ShopShippingOption, } from '@sitesurge/types';
 import Stripe from 'stripe';
 import { config, } from '../../config';
-import { query, transaction, } from '../../db';
 import { ConflictError, ValidationError, } from '../../core/errors';
-import { logAudit, } from '../audit';
+import { query, transaction, } from '../../db';
+import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
 import { logger, } from '../../utils/logger';
+import { logAudit, } from '../audit';
+import { resolveTicketLines, } from '../events/tickets';
 import { getPaymentProvider, } from '../payment';
 import { getPrintifyShippingOptions, type PrintifyShippingQuote, } from '../printify/fulfillment';
-import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
-import { toStripeAddress, } from './address';
-import { generateOrderNumber, } from './orderNumber';
-import { getShopSettings, } from './settings';
 import type { AuditContext, } from '../types';
+import { toStripeAddress, } from './address';
 import { buildGroups, groupKeyForLine, NATIVE_GROUP, } from './groups';
 import { buildGroupShipping, } from './groupShipping';
+import { generateOrderNumber, } from './orderNumber';
+import { getShopSettings, } from './settings';
 
 const paymentProvider = getPaymentProvider();
 
 export interface CheckoutLineInput {
+    /** A product variant id — or, for a ticket line, its synthetic cart key. */
     variantId: string;
     qty: number;
+    /** `event_ticket` marks a virtual ticket line (no catalogue product). */
+    kind?: 'product' | 'event_ticket';
+    eventId?: string;
+    occurrenceDate?: string;
+    tierId?: string;
+    /** Who the tickets are for; defaults to the order's customer at payment. */
+    attendee?: TicketAttendee;
+}
+
+/** Attendee details carried on a ticket line into the order. */
+export interface TicketAttendee {
+    email?: string;
+    name?: string;
+    phone?: string;
+    fields?: Record<string, unknown>;
 }
 
 export interface CheckoutPreviewInput {
@@ -126,6 +143,10 @@ export interface ResolvedLine {
     /** Provider product id + variant id (for Printify shipping calc / order). */
     externalProductId: string | null;
     externalVariantId: string | null;
+    /** Set for a virtual event-ticket line; drives its fulfilment group and
+     *  what the order records for issuing tickets after payment. */
+    kind?: 'product' | 'event_ticket';
+    ticket?: { eventId: string; occurrenceDate: string; tierId: string; attendee?: TicketAttendee; };
 }
 
 // Shop settings (shipping + tax + currency) come from the shop settings
@@ -133,6 +154,56 @@ export interface ResolvedLine {
 // site_settings row merged with the registry-seeded defaults.
 
 // ─── Validation + total computation ───────────────────────────────
+
+/**
+ * A ticket line, priced from the event's tier rather than the client.
+ *
+ * `resolveTicketLines` is the events module's own validator: it rejects an
+ * unpublished event, a non-ticketing one, a tier from another event and a
+ * quantity above what is left for that date — and returns the authoritative
+ * price. Tickets are never shipped, so they add nothing to shipping.
+ */
+async function resolveTicketLine(line: CheckoutLineInput,): Promise<ResolvedLine> {
+    if (!line.eventId || !line.occurrenceDate || !line.tierId || !Number.isInteger(line.qty,) || line.qty < 1) {
+        throw new ValidationError('A ticket line needs an event, a date, a ticket type and a quantity',);
+    }
+    const { lines, } = await resolveTicketLines([{
+        kind: 'event_ticket',
+        eventId: line.eventId,
+        occurrenceDate: line.occurrenceDate,
+        tierId: line.tierId,
+        quantity: line.qty,
+        name: '',
+        priceCents: 0,
+        currency: '',
+    },],);
+    const t = lines[0];
+    return {
+        variantId: line.variantId,
+        productId: '',
+        qty: line.qty,
+        unitPriceCents: t.priceCents,
+        subtotalCents: t.priceCents * line.qty,
+        title: t.eventTitle,
+        variantTitle: `${t.tierName} · ${t.occurrenceDate}`,
+        sku: null,
+        isDigital: false,
+        requiresShipping: false,
+        shippingType: 'flat',
+        useDefaultShipping: false,
+        variantShippingCents: 0,
+        externalProvider: null,
+        externalProductId: null,
+        externalVariantId: null,
+        kind: 'event_ticket',
+        ticket: {
+            eventId: t.eventId,
+            occurrenceDate: t.occurrenceDate,
+            tierId: t.tierId,
+            attendee: line.attendee,
+        },
+    };
+}
 
 /**
  * Load + validate each cart line against the DB. Rejects bad qty and
@@ -155,6 +226,17 @@ async function resolveLines(
     const insufficient: { variantId: string; requested: number; available: number; }[] = [];
 
     for (const line of items) {
+        if (line.kind === 'event_ticket') {
+            try {
+                resolved.push(await resolveTicketLine(line,),);
+            } catch (err) {
+                // Sold out / unpublished since it was added: the preview drops
+                // it like a stale variant; the real checkout refuses.
+                if (!opts.lenient) throw err;
+                unavailable.push(line.variantId,);
+            }
+            continue;
+        }
         if (!line.variantId || !Number.isInteger(line.qty,) || line.qty < 1) {
             throw new ValidationError('Each cart line needs a variantId and qty >= 1',);
         }
@@ -170,12 +252,18 @@ async function resolveLines(
             [line.variantId,],
         );
         if (result.rows.length === 0) {
-            if (opts.lenient) { unavailable.push(line.variantId,); continue; }
+            if (opts.lenient) {
+                unavailable.push(line.variantId,);
+                continue;
+            }
             throw new ValidationError(`Variant ${line.variantId} not found`,);
         }
         const row = result.rows[0];
         if (row.status !== 'active') {
-            if (opts.lenient) { unavailable.push(line.variantId,); continue; }
+            if (opts.lenient) {
+                unavailable.push(line.variantId,);
+                continue;
+            }
             throw new ValidationError(`Product for variant ${line.variantId} is not available`,);
         }
         if ((row.inventory_qty as number) < line.qty) {
@@ -189,7 +277,7 @@ async function resolveLines(
 
         const unitPriceCents = row.price_cents as number;
         const variantTitle = [row.option1, row.option2, row.option3,]
-            .filter((o,) => o !== null && o !== undefined && o !== '',)
+            .filter((o,) => o !== null && o !== undefined && o !== '')
             .join(' / ',) || null;
         resolved.push({
             variantId: line.variantId,
@@ -222,16 +310,16 @@ async function resolveLines(
 /** Flat / free-threshold shipping from shop_settings. Zero when nothing in
  *  the cart requires shipping (all-digital orders). */
 function computeShipping(lines: ResolvedLine[], subtotalCents: number, settings: ShopSettings,): number {
-    const anyPhysical = lines.some((l,) => l.requiresShipping,);
+    const anyPhysical = lines.some((l,) => l.requiresShipping);
     if (!anyPhysical) return 0;
 
     const shipping = settings.shipping ?? {};
     // Free-shipping threshold overrides everything (only when a positive
     // threshold is configured).
     if (
-        shipping.freeThresholdCents !== undefined
-        && shipping.freeThresholdCents > 0
-        && subtotalCents >= shipping.freeThresholdCents
+        shipping.freeThresholdCents !== undefined &&
+        shipping.freeThresholdCents > 0 &&
+        subtotalCents >= shipping.freeThresholdCents
     ) {
         return 0;
     }
@@ -284,7 +372,7 @@ async function computeTax(
                 amount: l.subtotalCents,
                 reference: `line-${i}`,
                 quantity: l.qty,
-            }),),
+            })),
             customer_details: {
                 address: toStripeAddress(shippingAddress,),
                 address_source: 'shipping',
@@ -320,10 +408,17 @@ function buildShipping(
     settings: ShopSettings,
     quote: PrintifyShippingQuote,
     requestedMethod?: string,
-): { shippingCents: number; method?: string; methodLabel?: string; options: ShopShippingOption[]; quoteFailed: boolean; estimated: boolean; } {
+): {
+    shippingCents: number;
+    method?: string;
+    methodLabel?: string;
+    options: ShopShippingOption[];
+    quoteFailed: boolean;
+    estimated: boolean;
+} {
     const nativeShipping = computeShipping(lines, subtotalCents, settings,);
-    const anyPhysical = lines.some((l,) => l.requiresShipping,);
-    const hasPrintify = lines.some((l,) => l.externalProvider === 'printify' && l.requiresShipping,);
+    const anyPhysical = lines.some((l,) => l.requiresShipping);
+    const hasPrintify = lines.some((l,) => l.externalProvider === 'printify' && l.requiresShipping);
     const options: ShopShippingOption[] = [];
     let quoteFailed = false;
     let estimated = false;
@@ -353,8 +448,8 @@ function buildShipping(
     // else: all-digital cart → no shipping options, shipping stays 0.
 
     let chosen: ShopShippingOption | undefined;
-    if (requestedMethod) chosen = options.find((o,) => o.id === requestedMethod,);
-    if (!chosen) chosen = options.find((o,) => o.id === 'standard',) ?? options[0];
+    if (requestedMethod) chosen = options.find((o,) => o.id === requestedMethod);
+    if (!chosen) chosen = options.find((o,) => o.id === 'standard') ?? options[0];
 
     return {
         shippingCents: chosen ? chosen.cents : 0,
@@ -379,13 +474,14 @@ async function computeTotals(
     // suppliers is two parcels, so the cart's shipping is the SUM of the
     // per-group choices — not one figure with a supplier surcharge bolted on.
     const groups = buildGroups(lines, settings.businessName,);
-    const nativeGroup = groups.find((g,) => g.key === NATIVE_GROUP,);
-    const nativeShippingCents = nativeGroup
-        ? computeShipping(nativeGroup.lines, nativeGroup.subtotalCents, settings,)
-        : 0;
+    const nativeGroup = groups.find((g,) => g.key === NATIVE_GROUP);
+    const nativeShippingCents = nativeGroup ?
+        computeShipping(nativeGroup.lines, nativeGroup.subtotalCents, settings,) :
+        0;
 
     const shipped = await buildGroupShipping({
-        groups, settings,
+        groups,
+        settings,
         shippingAddress: input.shippingAddress ?? null,
         requestedMethod: input.shippingMethod,
         nativeShippingCents,
@@ -425,7 +521,7 @@ async function computeTotals(
                 shippingQuoteFailed: g.shippingQuoteFailed,
                 shippingEstimated: g.shippingEstimated,
                 variantIds: g.lines.map((l,) => l.variantId),
-            }),),
+            })),
         },
     };
 }
@@ -480,8 +576,10 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): 
             client,
             created.id,
             lines.map((l,) => ({
-                productId: l.productId,
-                variantId: l.variantId,
+                // A ticket line has no catalogue row; its key is not a uuid.
+                productId: l.kind === 'event_ticket' ? null : l.productId,
+                variantId: l.kind === 'event_ticket' ? null : l.variantId,
+                metadata: l.ticket ? { kind: 'event_ticket', ...l.ticket, } : null,
                 title: l.title,
                 variantTitle: l.variantTitle,
                 sku: l.sku,
@@ -494,7 +592,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): 
                 fulfillmentGroup: groupKeyForLine(l,),
                 externalProductId: l.externalProductId,
                 externalVariantId: l.externalVariantId,
-            }),),
+            })),
         );
 
         const paymentIntent = await paymentProvider.createPaymentIntent({

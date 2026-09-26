@@ -26,7 +26,7 @@ const EventDetailPage: Component = () => {
         }
     },);
 
-    const [tiers,] = createResource(
+    const [tiers, { refetch: refetchTiers, },] = createResource(
         () => event()?.id,
         async (id,) => {
             const e = event();
@@ -118,7 +118,7 @@ const EventDetailPage: Component = () => {
 
                             <aside class="event-detail__aside">
                                 {/* Tickets OR registration — see EventSignup. */}
-                                <EventSignup event={ev()} tiers={tiers() ?? []} />
+                                <EventSignup event={ev()} tiers={tiers() ?? []} onClaimed={() => void refetchTiers()} />
                             </aside>
                         </>
                     )}

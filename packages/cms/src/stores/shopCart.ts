@@ -42,11 +42,15 @@ export interface CartItem {
     eventId?: string;
     occurrenceDate?: string;
     tierId?: string;
+    /** Who a ticket line is for — issued to this person once paid. */
+    attendee?: { email?: string; name?: string; phone?: string; fields?: Record<string, unknown>; };
 }
 
 /** Stable cart key for an event-ticket line. */
 export function ticketLineKey(
-    eventId: string, occurrenceDate: string, tierId: string,
+    eventId: string,
+    occurrenceDate: string,
+    tierId: string,
 ): string {
     return `event:${eventId}:${occurrenceDate}:${tierId}`;
 }
@@ -58,9 +62,7 @@ function hydrate(): CartItem[] {
         if (!raw) return [];
         const parsed = JSON.parse(raw,);
         if (!Array.isArray(parsed,)) return [];
-        return parsed.filter((i,): i is CartItem =>
-            i && typeof i.variantId === 'string' && typeof i.qty === 'number',
-        );
+        return parsed.filter((i,): i is CartItem => i && typeof i.variantId === 'string' && typeof i.qty === 'number');
     } catch {
         return [];
     }
@@ -84,12 +86,10 @@ export { cartItems, };
 export function addToCart(item: CartItem,) {
     const qty = Math.max(1, Math.floor(item.qty,) || 1,);
     setCartItems((prev,) => {
-        const existing = prev.find((l,) => l.variantId === item.variantId,);
+        const existing = prev.find((l,) => l.variantId === item.variantId);
         let next: CartItem[];
         if (existing) {
-            next = prev.map((l,) =>
-                l.variantId === item.variantId ? { ...l, ...item, qty: l.qty + qty, } : l,
-            );
+            next = prev.map((l,) => l.variantId === item.variantId ? { ...l, ...item, qty: l.qty + qty, } : l);
         } else {
             next = [...prev, { ...item, qty, },];
         }
@@ -102,9 +102,9 @@ export function addToCart(item: CartItem,) {
 export function updateQty(variantId: string, qty: number,) {
     const q = Math.floor(qty,);
     setCartItems((prev,) => {
-        const next = q <= 0
-            ? prev.filter((l,) => l.variantId !== variantId,)
-            : prev.map((l,) => l.variantId === variantId ? { ...l, qty: q, } : l,);
+        const next = q <= 0 ?
+            prev.filter((l,) => l.variantId !== variantId) :
+            prev.map((l,) => l.variantId === variantId ? { ...l, qty: q, } : l);
         persist(next,);
         return next;
     },);
@@ -113,7 +113,7 @@ export function updateQty(variantId: string, qty: number,) {
 /** Remove a line entirely. */
 export function removeFromCart(variantId: string,) {
     setCartItems((prev,) => {
-        const next = prev.filter((l,) => l.variantId !== variantId,);
+        const next = prev.filter((l,) => l.variantId !== variantId);
         persist(next,);
         return next;
     },);

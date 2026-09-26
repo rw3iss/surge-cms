@@ -2,8 +2,8 @@ import { A, useNavigate, } from '@solidjs/router';
 import { Component, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cartItems, cartSubtotal, removeFromCart, updateQty, } from '../../stores/shopCart';
-import ShopStoreGuard from './ShopStoreGuard';
 import { money, } from './shopFormat';
+import ShopStoreGuard from './ShopStoreGuard';
 import './shop.scss';
 
 const ShopCartInner: Component = () => {
@@ -38,7 +38,14 @@ const ShopCartInner: Component = () => {
                                     </Show>
                                 </div>
                                 <div class="shop-cart__line-info">
-                                    <A href={`/shop/${line.slug}`} class="shop-cart__line-title">{line.title}</A>
+                                    <A
+                                        href={line.kind === 'event_ticket' ?
+                                            `/events/${line.slug}` :
+                                            `/shop/${line.slug}`}
+                                        class="shop-cart__line-title"
+                                    >
+                                        {line.title}
+                                    </A>
                                     <Show when={line.variantTitle}>
                                         <span class="shop-cart__line-variant">{line.variantTitle}</span>
                                     </Show>
@@ -56,7 +63,8 @@ const ShopCartInner: Component = () => {
                                         type="number"
                                         min="1"
                                         value={line.qty}
-                                        onChange={(e,) => updateQty(line.variantId, parseInt(e.currentTarget.value, 10,) || 1,)}
+                                        onChange={(e,) =>
+                                            updateQty(line.variantId, parseInt(e.currentTarget.value, 10,) || 1,)}
                                     />
                                     <button
                                         type="button"

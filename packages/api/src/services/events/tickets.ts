@@ -8,10 +8,10 @@
  * variants — a tampered cart must not be able to change what someone pays.
  */
 import type { EventTicketCartLine, } from '@sitesurge/types';
-import { query, } from '../../db';
 import { ValidationError, } from '../../core/errors';
-import { logger, } from '../../utils/logger';
+import { transaction, } from '../../db';
 import * as repo from '../../repositories/events.repo';
+import { logger, } from '../../utils/logger';
 
 export interface ResolvedTicketLine {
     eventId: string;
@@ -60,15 +60,15 @@ export async function resolveTicketLines(
         // Inventory is per OCCURRENCE: week 3 of a series has its own capacity.
         const sold = await repo.countSoldByTier(event.id, line.occurrenceDate,);
         const used = sold[tier.id] ?? 0;
-        const remaining = tier.quantityAvailable === null
-            ? null
-            : Math.max(0, tier.quantityAvailable - used,);
+        const remaining = tier.quantityAvailable === null ?
+            null :
+            Math.max(0, tier.quantityAvailable - used,);
 
         if (remaining !== null && line.quantity > remaining) {
             throw new ValidationError(
-                remaining === 0
-                    ? `"${tier.name}" for ${event.title} is sold out.`
-                    : `Only ${remaining} "${tier.name}" ticket(s) left for ${event.title}.`,
+                remaining === 0 ?
+                    `"${tier.name}" for ${event.title} is sold out.` :
+                    `Only ${remaining} "${tier.name}" ticket(s) left for ${event.title}.`,
             );
         }
 
@@ -78,7 +78,7 @@ export async function resolveTicketLines(
             occurrenceDate: line.occurrenceDate,
             tierId: tier.id,
             tierName: tier.name,
-            priceCents: tier.priceCents,   // authoritative
+            priceCents: tier.priceCents, // authoritative
             currency: tier.currency,
             quantity: line.quantity,
             remaining,
@@ -112,54 +112,66 @@ export async function issueTickets(
     registrationId: string,
     lines: ResolvedTicketLine[],
 ): Promise<Array<{ code: string; tierName: string; priceCents: number; currency: string; }>> {
-    const issued: Array<{ code: string; tierName: string; priceCents: number; currency: string; }> = [];
+    // ONE transaction: the tier row lock below is only held until the
+    // transaction ends. Run as separate pool queries it was released the
+    // moment the SELECT returned, so two buyers could both read "one seat
+    // left" and both be issued it.
+    const issued = await transaction(async (client,) => {
+        const out: Array<{ code: string; tierName: string; priceCents: number; currency: string; }> = [];
 
-    for (const line of lines) {
-        // Lock the tier row so a concurrent purchase can't read the same
-        // remaining count and oversell.
-        const tierRes = await query<{ quantity_available: number | null; }>(
-            `SELECT quantity_available FROM event_ticket_tiers WHERE id = $1 FOR UPDATE`,
-            [line.tierId,],
-        );
-        const cap = tierRes.rows[0]?.quantity_available ?? null;
+        for (const line of lines) {
+            // Lock the tier row so a concurrent purchase can't read the same
+            // remaining count and oversell.
+            const tierRes = await client.query<{ quantity_available: number | null; }>(
+                `SELECT quantity_available FROM event_ticket_tiers WHERE id = $1 FOR UPDATE`,
+                [line.tierId,],
+            );
+            const cap = tierRes.rows[0]?.quantity_available ?? null;
 
-        if (cap !== null) {
-            const soldRes = await query<{ count: number; }>(
-                `SELECT COUNT(*)::int AS count FROM event_tickets
+            if (cap !== null) {
+                const soldRes = await client.query<{ count: number; }>(
+                    `SELECT COUNT(*)::int AS count FROM event_tickets
                   WHERE tier_id = $1 AND occurrence_date = $2
                     AND status IN ('valid', 'checked_in')`,
-                [line.tierId, line.occurrenceDate,],
-            );
-            const already = Number(soldRes.rows[0]?.count ?? 0,);
-            if (already + line.quantity > cap) {
-                throw new ValidationError(
-                    `"${line.tierName}" sold out while you were checking out.`,
+                    [line.tierId, line.occurrenceDate,],
                 );
+                const already = Number(soldRes.rows[0]?.count ?? 0,);
+                if (already + line.quantity > cap) {
+                    throw new ValidationError(
+                        `"${line.tierName}" sold out while you were checking out.`,
+                    );
+                }
             }
-        }
 
-        for (let i = 0; i < line.quantity; i += 1) {
-            // price_cents_paid is captured now: a later tier price change must
-            // not rewrite history on an issued ticket.
-            const res = await query<{ code: string; }>(
-                `INSERT INTO event_tickets
+            for (let i = 0; i < line.quantity; i += 1) {
+                // price_cents_paid is captured now: a later tier price change must
+                // not rewrite history on an issued ticket.
+                const res = await client.query<{ code: string; }>(
+                    `INSERT INTO event_tickets
                     (registration_id, tier_id, event_id, occurrence_date, code,
                      price_cents_paid, currency)
                  VALUES ($1,$2,$3,$4,$5,$6,$7)
                  RETURNING code`,
-                [
-                    registrationId, line.tierId, line.eventId, line.occurrenceDate,
-                    ticketCode(), line.priceCents, line.currency,
-                ],
-            );
-            issued.push({
-                code: res.rows[0].code,
-                tierName: line.tierName,
-                priceCents: line.priceCents,
-                currency: line.currency,
-            },);
+                    [
+                        registrationId,
+                        line.tierId,
+                        line.eventId,
+                        line.occurrenceDate,
+                        ticketCode(),
+                        line.priceCents,
+                        line.currency,
+                    ],
+                );
+                out.push({
+                    code: res.rows[0].code,
+                    tierName: line.tierName,
+                    priceCents: line.priceCents,
+                    currency: line.currency,
+                },);
+            }
         }
-    }
+        return out;
+    },);
 
     logger.info('event tickets issued', { registrationId, count: issued.length, },);
     return issued;

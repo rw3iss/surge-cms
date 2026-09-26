@@ -25,10 +25,10 @@ import type {
     ShopProduct,
     ShopProductDetail,
     ShopProductType,
-    ShopShippingType,
     ShopPublicSettings,
     ShopReview,
     ShopSettings,
+    ShopShippingType,
 } from '../../types/shop';
 import type { BulkActionResult, } from './_shared';
 
@@ -379,8 +379,24 @@ export interface ShopReviewDeleteResponse {
 
 /** One cart line as sent to checkout: a variant + quantity. */
 export interface ShopCheckoutLine {
+    /** Variant id — or a ticket line's cart key (`event:<id>:<date>:<tier>`). */
     variantId: string;
     qty: number;
+    /** `event_ticket` = a virtual ticket line, priced from the event's tier. */
+    kind?: 'product' | 'event_ticket';
+    eventId?: string;
+    occurrenceDate?: string;
+    tierId?: string;
+    /** Who the tickets are for; defaults to the order's customer. */
+    attendee?: ShopTicketAttendee;
+}
+
+/** Attendee details carried on a ticket line into the order. */
+export interface ShopTicketAttendee {
+    email?: string;
+    name?: string;
+    phone?: string;
+    fields?: Record<string, unknown>;
 }
 
 /** Body for POST /shop/checkout/preview — validate + price WITHOUT

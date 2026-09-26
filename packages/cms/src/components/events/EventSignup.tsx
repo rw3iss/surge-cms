@@ -13,14 +13,23 @@
  * client sends. A signed-out visitor gets inputs and a "Log in" link that
  * opens the login modal in place; signing in there turns the inputs into
  * labels without leaving the page.
+ *
+ * Tickets that cost money go into the SHOP CART — one line per tier — and are
+ * paid at the ordinary checkout; they are issued when that payment succeeds.
+ * An all-free selection skips the cart entirely and is claimed straight
+ * through `cms.events.purchaseTickets`, which registers the attendee and
+ * issues the codes (reducing what is left) in one call.
  */
 import type { CalendarEvent, EventRegistrationField, EventTicketTier, } from '@sitesurge/types';
 import { formatCurrency, } from '@sitesurge/types';
+import { A, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
+import { addToCart, ticketLineKey, } from '../../stores/shopCart';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import LoginModal from '../auth/LoginModal';
+import { useToast, } from '../common/toast/Toast';
 import './EventSignup.scss';
 
 /** Minor units → display; zero reads as "Free". */
@@ -41,10 +50,13 @@ const FIELD_ORDER: EventRegistrationField[] = ['name', 'email', 'phone', 'organi
 export interface EventSignupProps {
     event: CalendarEvent;
     tiers: EventTicketTier[];
+    /** Tickets were issued — the host re-reads what is left. */
+    onClaimed?: () => void;
 }
 
 const EventSignup: Component<EventSignupProps> = (props,) => {
     const auth = useAuth();
+    const toast = useToast();
 
     /** Tickets win when both are on and any tier exists. */
     const mode = (): 'tickets' | 'register' | null => {
@@ -106,7 +118,8 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
     // ── Submission ──
     const [done, setDone,] = createSignal(false,);
     const [ticketCodes, setTicketCodes,] = createSignal<Array<{ code: string; tierName: string; }>>([],);
-    const [payDue, setPayDue,] = createSignal<{ totalCents: number; currency: string; } | null>(null,);
+    /** Tickets just put in the cart (count), shown in place of the form. */
+    const [inCart, setInCart,] = createSignal(0,);
     const [error, setError,] = createSignal('',);
     const [submitting, setSubmitting,] = createSignal(false,);
     const [loginOpen, setLoginOpen,] = createSignal(false,);
@@ -137,7 +150,9 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         }
         setSubmitting(true,);
         try {
-            if (mode() === 'tickets') {
+            if (mode() === 'tickets' && totalCents() > 0) {
+                addTicketsToCart();
+            } else if (mode() === 'tickets') {
                 const res = await cms.events.purchaseTickets({
                     ...identity(),
                     lines: selected().map(([tierId, quantity,],) => ({
@@ -150,8 +165,11 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 if (res.status === 'confirmed') {
                     setTicketCodes(res.tickets ?? [],);
                     setDone(true,);
+                    props.onClaimed?.();
                 } else {
-                    setPayDue({ totalCents: res.totalCents, currency: res.currency, },);
+                    // The server priced it above zero (a tier changed since
+                    // the page loaded) — take the paid route instead.
+                    addTicketsToCart();
                 }
             } else {
                 await cms.events.register(props.event.id, { ...identity(), occurrenceDate: occurrenceDate(), },);
@@ -170,9 +188,45 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         }
     };
 
+    /**
+     * Put the selection in the shop cart, one line per tier. Price and
+     * availability are only a snapshot here: checkout re-prices every line
+     * from the event and refuses one that has sold out since.
+     */
+    const addTicketsToCart = () => {
+        if (!isFeatureEnabled('shop',)) {
+            throw new Error('Paid tickets are not available on this site yet.',);
+        }
+        const who = identity();
+        let count = 0;
+        for (const [tierId, quantity,] of selected()) {
+            const tier = props.tiers.find((t,) => t.id === tierId);
+            if (!tier) continue;
+            addToCart({
+                kind: 'event_ticket',
+                variantId: ticketLineKey(props.event.id, occurrenceDate(), tierId,),
+                productId: '',
+                slug: props.event.slug,
+                title: props.event.title,
+                variantTitle: `${tier.name} · ${occurrenceDate()}`,
+                priceCents: tier.priceCents,
+                image: props.event.featuredImage ?? null,
+                qty: quantity,
+                eventId: props.event.id,
+                occurrenceDate: occurrenceDate(),
+                tierId,
+                attendee: { email: who.email, name: who.name, phone: who.phone, fields: who.fields, },
+            },);
+            count += quantity;
+        }
+        setQty({},);
+        setInCart(count,);
+        toast.success(`${count} ${count === 1 ? 'ticket' : 'tickets'} added to your cart`,);
+    };
+
     const buttonText = () => {
         if (submitting()) return mode() === 'tickets' ? 'Working…' : 'Registering…';
-        if (mode() === 'tickets') return totalCents() > 0 ? 'Get tickets' : 'Claim free tickets';
+        if (mode() === 'tickets') return totalCents() > 0 ? 'Add tickets to cart' : 'Claim free tickets';
         return 'Register';
     };
 
@@ -222,27 +276,45 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                     </Show>
                 </Show>
 
-                <Show
-                    when={!done()}
-                    fallback={
-                        <div class="event-detail__ok">
-                            <Show
-                                when={mode() === 'tickets'}
-                                fallback={<p>You're registered. We've sent the details to your email.</p>}
-                            >
-                                <p>Your tickets are confirmed.</p>
-                                <ul class="event-detail__codes">
-                                    <For each={ticketCodes()}>
-                                        {(t,) => (
-                                            <li>
-                                                <strong>{t.tierName}</strong> <code>{t.code}</code>
-                                            </li>
-                                        )}
-                                    </For>
-                                </ul>
-                                <p>We've emailed these to you.</p>
-                            </Show>
+                <Show when={inCart() > 0 && !done()}>
+                    <div class="event-detail__ok event-signup__cart">
+                        <p>
+                            {inCart()} {inCart() === 1 ? 'ticket was' : 'tickets were'}{' '}
+                            added to your cart. Complete checkout to confirm them — they are issued and emailed once
+                            payment goes through.
+                        </p>
+                        <div class="event-signup__cart-actions">
+                            <A href="/shop/cart" class="btn btn--primary">Go to cart</A>
+                            <button type="button" class="event-signup__login-link" onClick={() => setInCart(0,)}>
+                                Add more tickets
+                            </button>
                         </div>
+                    </div>
+                </Show>
+
+                <Show
+                    when={!done() && inCart() === 0}
+                    fallback={
+                        <Show when={done()}>
+                            <div class="event-detail__ok">
+                                <Show
+                                    when={mode() === 'tickets'}
+                                    fallback={<p>You're registered. We've sent the details to your email.</p>}
+                                >
+                                    <p>Your tickets are confirmed.</p>
+                                    <ul class="event-detail__codes">
+                                        <For each={ticketCodes()}>
+                                            {(t,) => (
+                                                <li>
+                                                    <strong>{t.tierName}</strong> <code>{t.code}</code>
+                                                </li>
+                                            )}
+                                        </For>
+                                    </ul>
+                                    <p>We've emailed these to you.</p>
+                                </Show>
+                            </div>
+                        </Show>
                     }
                 >
                     <form onSubmit={submit} class="event-detail__form">
@@ -296,13 +368,6 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                             )}
                         </For>
 
-                        <Show when={payDue()}>
-                            <p class="event-detail__paynote">
-                                {money(payDue()!.totalCents, payDue()!.currency,)}{' '}
-                                due. Card payment is handled at checkout — this build confirms the order and reserves
-                                nothing until payment completes.
-                            </p>
-                        </Show>
                         <Show when={error()}>
                             <p class="event-detail__error">{error()}</p>
                         </Show>

@@ -8,11 +8,11 @@
  * changes run in one transaction; the receipt email is sent AFTER commit
  * and its failure never throws (the payment is already captured).
  */
-import type Stripe from 'stripe';
-import { transaction, query, } from '../../db';
-import { logger, } from '../../utils/logger';
 import { randomBytes, } from 'crypto';
+import type Stripe from 'stripe';
+import { query, transaction, } from '../../db';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
+import { logger, } from '../../utils/logger';
 import { sendOrderPlacedEmails, } from './orderEmails';
 
 /**
@@ -30,16 +30,16 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
         return;
     }
 
-    const chargeId = typeof paymentIntent.latest_charge === 'string'
-        ? paymentIntent.latest_charge
-        : paymentIntent.latest_charge?.id ?? null;
+    const chargeId = typeof paymentIntent.latest_charge === 'string' ?
+        paymentIntent.latest_charge :
+        paymentIntent.latest_charge?.id ?? null;
 
     const outcome = await transaction(async (client,) => {
         const { updated, } = await ordersRepo.markOrderPaid(client, orderId, { stripeChargeId: chargeId, },);
         if (!updated) {
             // Already paid/beyond (webhook retry, or a prior fulfillment) →
             // idempotent no-op.
-            return { fulfilled: false, };
+            return { fulfilled: false, ticketItems: [], buyer: null, };
         }
 
         const items = await ordersRepo.findOrderItemsForFulfillment(client, orderId,);
@@ -48,7 +48,9 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
                 const { ok, } = await ordersRepo.decrementInventory(client, item.variantId, item.quantity,);
                 if (!ok) {
                     logger.warn('Oversell on fulfillment — variant clamped to 0', {
-                        orderId, variantId: item.variantId, requested: item.quantity,
+                        orderId,
+                        variantId: item.variantId,
+                        requested: item.quantity,
                     },);
                 }
             }
@@ -62,7 +64,8 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
         // insert; transactions has no shop-order FK so the order ref lives
         // in metadata).
         const orderRow = await client.query(
-            `SELECT user_id, total_cents, currency, order_number FROM shop_orders WHERE id = $1`,
+            `SELECT user_id, total_cents, currency, order_number, customer_email, customer_name
+               FROM shop_orders WHERE id = $1`,
             [orderId,],
         );
         if (orderRow.rows.length > 0) {
@@ -84,7 +87,18 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
             );
         }
 
-        return { fulfilled: true, };
+        const o = orderRow.rows[0];
+        return {
+            fulfilled: true,
+            ticketItems: items.filter((i,) => i.metadata?.kind === 'event_ticket'),
+            buyer: o ?
+                {
+                    userId: (o.user_id as string | null) ?? null,
+                    email: o.customer_email as string,
+                    name: o.customer_name as string | null,
+                } :
+                null,
+        };
     },);
 
     if (!outcome.fulfilled) {
@@ -93,6 +107,15 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
     }
 
     logger.info('Shop order fulfilled via webhook', { orderId, paymentIntentId: paymentIntent.id, },);
+
+    // Event tickets bought through the cart: register the attendee and issue
+    // the codes now that the money is in. Post-commit and best-effort, like
+    // the supplier step — the charge stands either way, and a failure here is
+    // logged loudly for the operator to resolve (refund or issue by hand).
+    if (outcome.ticketItems.length && outcome.buyer) {
+        const { issueOrderTickets, } = await import('./ticketFulfillment.js');
+        await issueOrderTickets(orderId, outcome.ticketItems, outcome.buyer,);
+    }
 
     // Order-paid emails (buyer confirmation + seller notification) — after
     // commit; the send helper never throws (payment already captured).
@@ -119,8 +142,8 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
         const res = await submitOrderToProviders(orderId,);
         if (res.failed.length) {
             logger.error(
-                `Supplier submission partially failed for ${orderId} (payment captured; will retry): `
-                    + res.failed.map((f,) => `${f.provider}: ${f.error}`,).join('; ',),
+                `Supplier submission partially failed for ${orderId} (payment captured; will retry): ` +
+                    res.failed.map((f,) => `${f.provider}: ${f.error}`).join('; ',),
             );
         }
     } catch (err) {
