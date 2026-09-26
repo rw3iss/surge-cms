@@ -178,6 +178,13 @@ const MailPreviewModal: Component<Props> = (p,) => {
                 class="mail-preview-modal__frame"
                 srcdoc={html()}
                 title="Email preview"
+                ref={(el,) => {
+                    // A direct listener, not `onLoad`: the frame reloads on
+                    // every srcdoc change and each one must re-measure.
+                    if (!p.inline) return;
+                    el.setAttribute('scrolling', 'no',);
+                    el.addEventListener('load', () => fitFrame(el,),);
+                }}
             />
 
             <footer class="mail-preview-modal__footer">
