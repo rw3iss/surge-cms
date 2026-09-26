@@ -526,6 +526,16 @@
 // Mirrored by the email renderer as a two-cell table (no flexbox in Outlook),
 // so the two surfaces lay out the same.
 .social-embed__meta {
+    // Above the loading shimmer. `.social-embed__content::before` is
+    // positioned and fills the whole content box, and a positioned layer
+    // paints over non-positioned siblings — so the title was drawn UNDER the
+    // placeholder: present in the DOM, invisible on screen, leaving an empty
+    // strip beneath the video. The iframe and card were lifted the same way.
+    position: relative;
+    z-index: 1;
+    // The card's own colour, so the title reads on a solid ground instead of
+    // the animated gradient the shimmer keeps painting beneath it.
+    background: $background;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
