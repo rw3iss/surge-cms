@@ -127,14 +127,20 @@
     flex-direction: column;
     overflow: hidden;
 
-    // In-page on the send wizard's confirm step: fills the section, tall
-    // enough to read the email without scrolling the frame for every block.
+    // In-page on the send wizard's confirm step: the frame is sized to the
+    // email's full height (see fitFrame), so the PAGE scrolls, not a box.
     &--inline {
         width: 100%;
         max-width: none;
-        height: 80vh;
-        min-height: 480px;
+        height: auto;
+        overflow: visible;
         border: 1px solid $border-color;
+
+        .mail-preview-modal__frame {
+            flex: none;
+            min-height: 200px;
+            overflow: hidden;
+        }
     }
 
     &__header {

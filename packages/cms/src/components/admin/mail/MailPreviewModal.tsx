@@ -7,7 +7,7 @@
  * Re-renders on a 250ms debounce whenever variables change.
  */
 import type { MailCssWarning, MailTemplatePreviewResponse, } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, on, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, on, onCleanup, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import { cms, } from '../../../services/cmsClient';
 import VariableForm from './VariableForm';
@@ -82,6 +82,28 @@ const MailPreviewModal: Component<Props> = (p,) => {
     ),);
 
     const close = () => p.onClose?.();
+
+    /*
+     * Inline mode sizes the frame to its CONTENT, so the page scrolls rather
+     * than a box inside it. A srcdoc iframe is same-origin, so its document is
+     * measurable; a ResizeObserver catches images that load after `load` and
+     * would otherwise leave the last blocks cut off.
+     */
+    let observer: ResizeObserver | undefined;
+    const fitFrame = (frame: HTMLIFrameElement,) => {
+        if (!p.inline) return;
+        const doc = frame.contentDocument;
+        if (!doc?.documentElement) return;
+        const measure = () => {
+            frame.style.height = `${doc.documentElement.scrollHeight}px`;
+        };
+        measure();
+        observer?.disconnect();
+        observer = new ResizeObserver(measure,);
+        observer.observe(doc.documentElement,);
+        if (doc.body) observer.observe(doc.body,);
+    };
+    onCleanup(() => observer?.disconnect());
 
     const body = () => (
         <div
