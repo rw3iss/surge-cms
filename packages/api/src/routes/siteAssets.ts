@@ -56,6 +56,32 @@ export const siteAssetRoutes = [
         summary: 'The Site Branding logo as PNG, on the site origin.',
         handler: ({ req, res, },) => serve('logo', req, res,),
     },),
+    ...([
+        ['/apple-touch-icon.png', 180,],
+        ['/icons/icon-192x192.png', 192,],
+        ['/icons/icon-512x512.png', 512,],
+    ] as Array<[string, SquareIconSize,]>).map(([path, size,],) =>
+        defineRoute({
+            method: 'get',
+            path,
+            auth: 'public',
+            raw: true,
+            summary: `Square ${size}px icon generated from Site Branding.`,
+            handler: async ({ req, res, },) => send(await getSquareIcon(size,), req, res,),
+        },)
+    ),
+    defineRoute({
+        method: 'get',
+        path: '/manifest.webmanifest',
+        auth: 'public',
+        raw: true,
+        summary: 'Web app manifest built from Site Settings.',
+        handler: async ({ res, },) => {
+            res.set('Content-Type', 'application/manifest+json; charset=utf-8',);
+            res.set('Cache-Control', CACHE_CONTROL,);
+            res.send(JSON.stringify(await buildWebManifest(),),);
+        },
+    },),
     defineRoute({
         method: 'get',
         path: '/favicon.ico',
