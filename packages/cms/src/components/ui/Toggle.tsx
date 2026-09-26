@@ -32,6 +32,9 @@ export interface ToggleProps {
     onChange: (next: boolean,) => void;
     /** Optional inline label rendered after the switch. */
     label?: string | JSX.Element;
+    /** Optional help text under the label — the switch stays alone on the
+     *  left, with the label and this stacked beside it. */
+    hint?: string | JSX.Element;
     disabled?: boolean;
     /** Visual size hint. Defaults to `md`. */
     size?: 'sm' | 'md';
@@ -73,17 +76,22 @@ export const Toggle: Component<ToggleProps> = (p,) => {
 
     return (
         <span
-            class={`toggle-control ${p.size === 'sm' ? 'toggle-control--sm' : ''} ${
-                p.emphasis ? 'toggle-control--emphasis' : ''
-            } ${p.class ?? ''}`}
+            class={`toggle-control ${p.hint ? 'toggle-control--with-hint' : ''} ${
+                p.size === 'sm' ? 'toggle-control--sm' : ''
+            } ${p.emphasis ? 'toggle-control--emphasis' : ''} ${p.class ?? ''}`}
         >
             <Show when={p.label}>
-                <span
-                    class="toggle-control__label"
-                    id={labelId}
-                    onClick={onLabelClick}
-                >
-                    {p.label}
+                <span class="toggle-control__text">
+                    <span
+                        class="toggle-control__label"
+                        id={labelId}
+                        onClick={onLabelClick}
+                    >
+                        {p.label}
+                    </span>
+                    <Show when={p.hint}>
+                        <span class="toggle-control__hint">{p.hint}</span>
+                    </Show>
                 </span>
             </Show>
             <button

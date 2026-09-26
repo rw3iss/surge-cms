@@ -1,0 +1,27 @@
+@use '../../../styles/variables' as *;
+
+// Event Settings page layout. Scoped to the page root so the shared
+// .admin-section rules elsewhere are untouched.
+.admin-event-settings {
+    .admin-section {
+        display: flex;
+        flex-direction: column;
+        // A small, even gap between every field and switch in a section.
+        gap: $spacing-md;
+        margin-top: $spacing-xl;
+    }
+
+    .admin-section__header {
+        margin-bottom: $spacing-xs;
+
+        h2 { margin: 0; }
+    }
+
+    // Fields sit in a flex column now; their own bottom margins would double
+    // the gap.
+    .admin-form-field { margin-bottom: 0; }
+
+    &__number {
+        max-width: 100px;
+    }
+}

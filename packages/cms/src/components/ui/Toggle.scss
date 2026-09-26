@@ -13,6 +13,28 @@
     flex-direction: row-reverse;
     justify-content: flex-end;
 
+    // Label + optional hint, stacked, beside the switch.
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 0;
+    }
+
+    &__hint {
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    // With a hint the text block is taller than the switch; pin the switch to
+    // the label's line rather than centring it on the whole block.
+    &--with-hint {
+        align-items: flex-start;
+
+        .toggle-control__switch { margin-top: 1px; }
+    }
+
     &__label {
         font-size: 0.875rem;
         color: var(--admin-text, #{$text-color});

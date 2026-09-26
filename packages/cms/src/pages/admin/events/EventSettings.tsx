@@ -4,13 +4,14 @@
  * Ticketing implies registration, and the server enforces that rather than
  * trusting the form; the UI mirrors it so the two can't disagree on screen.
  */
+import type { EventsSettings, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
-import { Component, Show, createResource, createSignal, } from 'solid-js';
-import type { EventsSettings, } from '@sitesurge/types';
-import { FormField, } from '../../../components/admin/forms';
+import { Component, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../../components/admin/common/Toggle';
+import { FormField, } from '../../../components/admin/forms';
 import { cms, } from '../../../services/cmsClient';
+import './EventSettings.scss';
 import { useToast, } from '../../../components/common/toast';
 
 const AdminEventSettings: Component = () => {
@@ -24,7 +25,7 @@ const AdminEventSettings: Component = () => {
     const [allowRegistration, setAllowRegistration,] = createSignal(true,);
     const [allowTicketing, setAllowTicketing,] = createSignal(false,);
 
-    const [loaded] = createResource(async () => {
+    const [loaded,] = createResource(async () => {
         try {
             const s = await cms.events.settings() as EventsSettings;
             setNotifyOnPublish(s.notifyOnPublish,);
@@ -39,7 +40,8 @@ const AdminEventSettings: Component = () => {
     },);
 
     const save = async () => {
-        setSaving(true,); setError('',);
+        setSaving(true,);
+        setError('',);
         try {
             await cms.events.updateSettings({
                 notifyOnPublish: notifyOnPublish(),
@@ -71,17 +73,24 @@ const AdminEventSettings: Component = () => {
                 </div>
             </div>
 
-            <Show when={error()}><div class="alert alert--error">{error()}</div></Show>
-            <Show when={loaded.loading}><p>Loading…</p></Show>
+            <Show when={error()}>
+                <div class="alert alert--error">{error()}</div>
+            </Show>
+            <Show when={loaded.loading}>
+                <p>Loading…</p>
+            </Show>
 
             <section class="admin-section">
-                <header class="admin-section__header"><h2>Public page</h2></header>
+                <header class="admin-section__header">
+                    <h2>Public page</h2>
+                </header>
                 <FormField
                     label="Event Page URL"
                     hint="Where the public calendar lives. Must be a single path segment and must not collide with an existing page."
                 >
                     <input
-                        type="text" value={eventsUrl()}
+                        type="text"
+                        value={eventsUrl()}
                         onInput={(e,) => setEventsUrl(e.currentTarget.value,)}
                         placeholder="/events"
                     />
@@ -89,44 +98,49 @@ const AdminEventSettings: Component = () => {
             </section>
 
             <section class="admin-section">
-                <header class="admin-section__header"><h2>Notifications</h2></header>
-                <FormField label="Email subscribers when an event is published" inline>
-                    <Toggle checked={notifyOnPublish()} onChange={setNotifyOnPublish} ariaLabel="Notify on publish" />
-                </FormField>
+                <header class="admin-section__header">
+                    <h2>Notifications</h2>
+                </header>
+                <Toggle
+                    checked={notifyOnPublish()}
+                    onChange={setNotifyOnPublish}
+                    label="Email subscribers when an event is published"
+                />
                 <FormField
                     label="Reminder (hours before)"
                     hint="0 disables reminders. Each reminder is sent once per subscriber."
                 >
                     <input
-                        type="number" min="0" max="720" value={reminderHours()}
+                        type="number"
+                        min="0"
+                        max="720"
+                        value={reminderHours()}
+                        class="admin-event-settings__number"
                         onInput={(e,) => setReminderHours(Number(e.currentTarget.value,) || 0,)}
                     />
                 </FormField>
             </section>
 
             <section class="admin-section">
-                <header class="admin-section__header"><h2>Registration &amp; ticketing</h2></header>
-                <FormField
-                    label="Allow attendees to register for events" inline
+                <header class="admin-section__header">
+                    <h2>Registration &amp; ticketing</h2>
+                </header>
+                <Toggle
+                    checked={allowRegistration()}
+                    // Registration can't be withdrawn while ticketing needs it.
+                    onChange={(v,) => setAllowRegistration(allowTicketing() ? true : v,)}
+                    label="Allow attendees to register for events"
                     hint="Turns the per-event registration option on in the event editor."
-                >
-                    <Toggle
-                        checked={allowRegistration()}
-                        // Registration can't be withdrawn while ticketing needs it.
-                        onChange={(v,) => setAllowRegistration(allowTicketing() ? true : v,)}
-                        ariaLabel="Allow registration"
-                    />
-                </FormField>
-                <FormField
-                    label="Allow charging for events" inline
+                />
+                <Toggle
+                    checked={allowTicketing()}
+                    onChange={(v,) => {
+                        setAllowTicketing(v,);
+                        if (v) setAllowRegistration(true,);
+                    }}
+                    label="Allow charging for events"
                     hint="Requires the Shop feature — tickets are checked out through it. Forces registration on."
-                >
-                    <Toggle
-                        checked={allowTicketing()}
-                        onChange={(v,) => { setAllowTicketing(v,); if (v) setAllowRegistration(true,); }}
-                        ariaLabel="Allow ticketing"
-                    />
-                </FormField>
+                />
             </section>
         </div>
     );
