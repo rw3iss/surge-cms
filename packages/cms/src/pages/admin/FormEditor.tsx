@@ -1,6 +1,3 @@
-import { Title, } from '@solidjs/meta';
-import { A, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import {
     deriveFieldKeys,
     type Form,
@@ -8,19 +5,23 @@ import {
     type FormCreateBody,
     parseEmailList,
 } from '@sitesurge/types';
+import { Title, } from '@solidjs/meta';
+import { A, useNavigate, useParams, } from '@solidjs/router';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
-import RichTextEditor from '../../components/admin/editors/RichTextEditor';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
+import RichTextEditor from '../../components/admin/editors/RichTextEditor';
 import { FormField, } from '../../components/admin/forms';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
-import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { invalidateFormsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 
 type QuestionKind = 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'number' | 'email' | 'date';
 
@@ -41,14 +42,13 @@ interface FormQuestion {
 }
 
 /** Free-text inputs that support a placeholder (and, for textarea, sizing). */
-const isTextInputType = (t: string,): boolean =>
-    t === 'text' || t === 'textarea' || t === 'email' || t === 'number';
+const isTextInputType = (t: string,): boolean => t === 'text' || t === 'textarea' || t === 'email' || t === 'number';
 
 const FormEditor: Component = () => {
-    const params = useParams<{ id: string, }>();
+    const params = useParams<{ id: string; }>();
     const navigate = useNavigate();
     const isNew = () => !params.id || params.id === 'new';
-    const { markDirty, markClean, } = useUnsavedChanges();
+    const { markDirty, markClean, ...leaveGuard } = useUnsavedChanges();
     const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
 
     // Form metadata
@@ -85,7 +85,8 @@ const FormEditor: Component = () => {
         async () => {
             try {
                 const res = await cms.mailingLists.list() as unknown as
-                    { data?: Array<{ id: string; name: string; }>; } | Array<{ id: string; name: string; }>;
+                    | { data?: Array<{ id: string; name: string; }>; }
+                    | Array<{ id: string; name: string; }>;
                 return Array.isArray(res,) ? res : (res.data ?? []);
             } catch {
                 return [];
@@ -127,9 +128,9 @@ const FormEditor: Component = () => {
         const { invalid, } = parseEmailList(literals.join(',',),);
         if (invalid.length) {
             setEmailToError(
-                invalid.length === 1
-                    ? `"${invalid[0]}" is not a valid email address.`
-                    : `Not valid email addresses: ${invalid.map((e,) => `"${e}"`).join(', ',)}.`,
+                invalid.length === 1 ?
+                    `"${invalid[0]}" is not a valid email address.` :
+                    `Not valid email addresses: ${invalid.map((e,) => `"${e}"`).join(', ',)}.`,
             );
             return false;
         }
@@ -148,7 +149,7 @@ const FormEditor: Component = () => {
             .map((q,) => ({ token: keys[q.id!], label: q.question || '(untitled)', }));
         return [
             ...perField,
-            { token: 'form_title', label: 'This form\'s title', },
+            { token: 'form_title', label: "This form's title", },
             { token: 'submitted_at', label: 'Submission date/time', },
         ];
     },);
@@ -361,9 +362,9 @@ const FormEditor: Component = () => {
                     emailSubject: emailSubject() || undefined,
                     emailBody: emailBody() || undefined,
                     // Only meaningful for subscribe/email; submit always saves.
-                    saveSubmission: (action() === 'subscribe' || action() === 'email')
-                        ? saveSubmission()
-                        : undefined,
+                    saveSubmission: (action() === 'subscribe' || action() === 'email') ?
+                        saveSubmission() :
+                        undefined,
                     // Applies to EVERY action, including plain submit.
                     addContact: addContact(),
                 },
@@ -377,9 +378,9 @@ const FormEditor: Component = () => {
                     order: index,
                     width: q.width || 'full',
                     questionAsPlaceholder: isTextInputType(q.type,) ? (q.questionAsPlaceholder ?? false) : undefined,
-                    placeholder: isTextInputType(q.type,) && !q.questionAsPlaceholder
-                        ? (q.placeholder || undefined)
-                        : undefined,
+                    placeholder: isTextInputType(q.type,) && !q.questionAsPlaceholder ?
+                        (q.placeholder || undefined) :
+                        undefined,
                     rows: q.type === 'textarea' ? (q.rows ?? 4) : undefined,
                     allowResize: q.type === 'textarea' ? (q.allowResize ?? true) : undefined,
                     maxHeight: q.type === 'textarea' && q.allowResize ? (q.maxHeight || undefined) : undefined,
@@ -438,12 +439,31 @@ const FormEditor: Component = () => {
         <div class="admin-editor form-editor">
             <Title>{isNew() ? 'New Form' : 'Edit Form'} - Admin - RW</Title>
 
+            {
+                /* Leaving with unsaved edits — the admin's own modal, the same one
+                every other editor uses. This was a native confirm box until the
+                guard was shared. */
+            }
+            <ConfirmModal
+                open={leaveGuard.pending()}
+                title="Unsaved changes"
+                message={'This form has changes that have not been saved. Leaving now discards them.'}
+                confirmLabel="Discard and leave"
+                cancelLabel="Stay on this page"
+                danger
+                onConfirm={leaveGuard.confirmLeave}
+                onCancel={leaveGuard.cancelLeave}
+            />
+
             <div class="admin-header">
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
                     <Show when={!isNew() && (form()?.submissionCount ?? 0) > 0}>
-                        <A href={`/admin/forms/${params.id}/submissions`} class="ui-button ui-button--secondary ui-button--sm">
+                        <A
+                            href={`/admin/forms/${params.id}/submissions`}
+                            class="ui-button ui-button--secondary ui-button--sm"
+                        >
                             View Responses ({form()?.submissionCount})
                         </A>
                     </Show>
@@ -534,7 +554,10 @@ const FormEditor: Component = () => {
                                         type="number"
                                         min="0"
                                         value={maxSubmissions()}
-                                        onInput={(e,) => { setMaxSubmissions(e.currentTarget.value,); markDirty(); }}
+                                        onInput={(e,) => {
+                                            setMaxSubmissions(e.currentTarget.value,);
+                                            markDirty();
+                                        }}
                                         placeholder="Unlimited"
                                         style={{ 'max-width': '200px', }}
                                     />
@@ -545,19 +568,28 @@ const FormEditor: Component = () => {
                                     <Toggle
                                         class="toggle-control--switch-first"
                                         checked={showResults()}
-                                        onChange={(next,) => { setShowResults(next,); markDirty(); }}
+                                        onChange={(next,) => {
+                                            setShowResults(next,);
+                                            markDirty();
+                                        }}
                                         label="Show results to respondents after submission"
                                     />
                                     <Toggle
                                         class="toggle-control--switch-first"
                                         checked={allowMultiple()}
-                                        onChange={(next,) => { setAllowMultiple(next,); markDirty(); }}
+                                        onChange={(next,) => {
+                                            setAllowMultiple(next,);
+                                            markDirty();
+                                        }}
                                         label="Allow multiple submissions per user"
                                     />
                                     <Toggle
                                         class="toggle-control--switch-first"
                                         checked={requiresAuth()}
-                                        onChange={(next,) => { setRequiresAuth(next,); markDirty(); }}
+                                        onChange={(next,) => {
+                                            setRequiresAuth(next,);
+                                            markDirty();
+                                        }}
                                         label="Require sign-in to submit"
                                     />
                                 </div>
@@ -602,7 +634,10 @@ const FormEditor: Component = () => {
                             >
                                 <select
                                     value={action()}
-                                    onChange={(e,) => { setAction(e.currentTarget.value as FormActionType,); markDirty(); }}
+                                    onChange={(e,) => {
+                                        setAction(e.currentTarget.value as FormActionType,);
+                                        markDirty();
+                                    }}
                                     style={{ 'max-width': '320px', }}
                                 >
                                     <option value="submit">Save submission (default)</option>
@@ -613,10 +648,15 @@ const FormEditor: Component = () => {
                                 <Show when={action() === 'subscribe' || action() === 'email'}>
                                     <Toggle
                                         checked={saveSubmission()}
-                                        onChange={(next,) => { setSaveSubmission(next,); markDirty(); }}
+                                        onChange={(next,) => {
+                                            setSaveSubmission(next,);
+                                            markDirty();
+                                        }}
                                         size="sm"
                                         label={
-                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                            <span
+                                                style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}
+                                            >
                                                 Save submission
                                                 <Tooltip
                                                     header="Save submission"
@@ -627,15 +667,22 @@ const FormEditor: Component = () => {
                                     />
                                 </Show>
 
-                                {/* Independent of the action above: a save-only
-                                    form should still be able to feed the CRM. */}
+                                {
+                                    /* Independent of the action above: a save-only
+                                    form should still be able to feed the CRM. */
+                                }
                                 <Show when={contactsEnabled()}>
                                     <Toggle
                                         checked={addContact()}
-                                        onChange={(next,) => { setAddContact(next,); markDirty(); }}
+                                        onChange={(next,) => {
+                                            setAddContact(next,);
+                                            markDirty();
+                                        }}
                                         size="sm"
                                         label={
-                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                            <span
+                                                style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}
+                                            >
                                                 Add submitter as a Contact
                                                 <Tooltip
                                                     header="Add submitter as a Contact"
@@ -655,7 +702,10 @@ const FormEditor: Component = () => {
                                     <select
                                         ref={mailingListSelect}
                                         value={mailingListId()}
-                                        onChange={(e,) => { setMailingListId(e.currentTarget.value,); markDirty(); }}
+                                        onChange={(e,) => {
+                                            setMailingListId(e.currentTarget.value,);
+                                            markDirty();
+                                        }}
                                         style={{ 'max-width': '320px', }}
                                     >
                                         <option value="">— Select a list —</option>
@@ -666,13 +716,14 @@ const FormEditor: Component = () => {
                                     <Show when={(mailingLists() || []).length === 0}>
                                         <small class="form-help">
                                             No mailing lists found. Create one under{' '}
-                                            <A href="/admin/mailing-lists">Mailing Lists</A> (requires the Mailing
-                                            Lists feature).
+                                            <A href="/admin/mailing-lists">Mailing Lists</A>{' '}
+                                            (requires the Mailing Lists feature).
                                         </small>
                                     </Show>
                                     <small class="form-help">
-                                        The submitter is added to this list using their <strong>Email</strong> field
-                                        (add an Email question below). The list's double opt-in setting is respected.
+                                        The submitter is added to this list using their <strong>Email</strong>{' '}
+                                        field (add an Email question below). The list's double opt-in setting is
+                                        respected.
                                     </small>
                                 </FormField>
                             </div>
@@ -703,14 +754,20 @@ const FormEditor: Component = () => {
                                     <input
                                         type="text"
                                         value={emailSubject()}
-                                        onInput={(e,) => { setEmailSubject(e.currentTarget.value,); markDirty(); }}
+                                        onInput={(e,) => {
+                                            setEmailSubject(e.currentTarget.value,);
+                                            markDirty();
+                                        }}
                                         placeholder="New submission for {{form_title}}"
                                     />
                                 </FormField>
                                 <FormField label="Email body">
                                     <RichTextEditor
                                         value={emailBody()}
-                                        onChange={(html,) => { setEmailBody(html,); markDirty(); }}
+                                        onChange={(html,) => {
+                                            setEmailBody(html,);
+                                            markDirty();
+                                        }}
                                         placeholder="Compose the email. Insert form values with {{ variables }} — see the reference below."
                                     />
                                 </FormField>
@@ -744,15 +801,15 @@ const FormEditor: Component = () => {
                                             </ul>
                                             <Show when={emailVars().length <= 2}>
                                                 <small class="form-help">
-                                                    Add questions below to get more variables (save the form to
-                                                    finalize their names).
+                                                    Add questions below to get more variables (save the form to finalize
+                                                    their names).
                                                 </small>
                                             </Show>
                                             <p class="form-help" style={{ 'margin-top': '8px', }}>
                                                 You can also run values through functions, e.g.{' '}
                                                 <code>{'{{upper(email)}}'}</code>,{' '}
                                                 <code>{'{{formatDate(submitted_at)}}'}</code>, or{' '}
-                                                <code>{'{{default(name, \'there\')}}'}</code>.
+                                                <code>{"{{default(name, 'there')}}"}</code>.
                                             </p>
                                         </div>
                                     </Show>
@@ -875,7 +932,13 @@ const FormEditor: Component = () => {
                                                             updateQuestion(index(), { questionAsPlaceholder: next, },)}
                                                         size="sm"
                                                         label={
-                                                            <span style={{ display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                                            <span
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    'align-items': 'center',
+                                                                    gap: '4px',
+                                                                }}
+                                                            >
                                                                 Use Question Text as placeholder
                                                                 <Tooltip
                                                                     header="Use Question Text as placeholder"
@@ -913,7 +976,10 @@ const FormEditor: Component = () => {
                                                                 updateQuestion(index(), {
                                                                     rows: Math.max(
                                                                         1,
-                                                                        parseInt((e.target as HTMLInputElement).value, 10,) || 4,
+                                                                        parseInt(
+                                                                            (e.target as HTMLInputElement).value,
+                                                                            10,
+                                                                        ) || 4,
                                                                     ),
                                                                 },)}
                                                         />

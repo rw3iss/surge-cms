@@ -2,24 +2,29 @@ import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import Toggle from '../../components/admin/common/Toggle';
 import { FormField, } from '../../components/admin/forms';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
+import { usePluginEnabled, } from '../../hooks/usePluginGate';
 import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateCampaignsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
-import { usePluginEnabled, } from '../../hooks/usePluginGate';
 import CampaignDonations from './CampaignDonations';
 
-interface GbCampaign { id: number; code: string; title: string; }
+interface GbCampaign {
+    id: number;
+    code: string;
+    title: string;
+}
 
 const CampaignEditor: Component = () => {
-    const params = useParams<{ id: string, }>();
+    const params = useParams<{ id: string; }>();
     const navigate = useNavigate();
     const isNew = () => !params.id || params.id === 'new';
-    const { markDirty, markClean, } = useUnsavedChanges();
+    const { markDirty, markClean, ...leaveGuard } = useUnsavedChanges();
 
     const { error, saving, beginSave, endSave, showError, } = useEditorState();
 
@@ -48,13 +53,18 @@ const CampaignEditor: Component = () => {
     const [gbStatus, setGbStatus,] = createSignal('',);
 
     const loadGbCampaigns = async () => {
-        setGbLoadingList(true,); setGbStatus('Loading GiveButter campaigns…',);
+        setGbLoadingList(true,);
+        setGbStatus('Loading GiveButter campaigns…',);
         try {
             const r = await cms.plugins.action<{ ok: boolean; campaigns?: GbCampaign[]; error?: string; }>(
-                'givebutter', 'listCampaigns', {},
+                'givebutter',
+                'listCampaigns',
+                {},
             );
-            if (r?.ok && r.campaigns) { setGbList(r.campaigns,); setGbStatus(`${r.campaigns.length} campaign(s) loaded`,); }
-            else { setGbStatus(r?.error || 'Failed to load campaigns',); }
+            if (r?.ok && r.campaigns) {
+                setGbList(r.campaigns,);
+                setGbStatus(`${r.campaigns.length} campaign(s) loaded`,);
+            } else setGbStatus(r?.error || 'Failed to load campaigns',);
         } catch (err) {
             setGbStatus(err instanceof Error ? err.message : 'Failed to load campaigns',);
         } finally {
@@ -151,8 +161,12 @@ const CampaignEditor: Component = () => {
             let gbId = gbCampaignId();
             let gbCode = gbCampaignCode();
             if (gbAvailable() && donationProvider() === 'givebutter' && gbMode() === 'create' && !gbId) {
-                const res = await cms.plugins.action<{ ok: boolean; error?: string; campaign?: { id: number; code: string; }; }>(
-                    'givebutter', 'createCampaign', {
+                const res = await cms.plugins.action<
+                    { ok: boolean; error?: string; campaign?: { id: number; code: string; }; }
+                >(
+                    'givebutter',
+                    'createCampaign',
+                    {
                         title: title(),
                         description: shortDescription() || description(),
                         goal: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : undefined,
@@ -183,13 +197,13 @@ const CampaignEditor: Component = () => {
                 startDate: startDate() ? new Date(startDate(),).toISOString() : null,
                 endDate: endDate() ? new Date(endDate(),).toISOString() : null,
                 featuredImage: featuredImage() || null,
-                ...(gbAvailable()
-                    ? {
+                ...(gbAvailable() ?
+                    {
                         donationProvider: donationProvider(),
                         givebutterCampaignId: donationProvider() === 'givebutter' ? gbId : null,
                         givebutterCampaignCode: donationProvider() === 'givebutter' ? (gbCode || null) : null,
-                    }
-                    : {}),
+                    } :
+                    {}),
             };
 
             if (isNew()) {
@@ -231,6 +245,22 @@ const CampaignEditor: Component = () => {
         <div class="admin-editor">
             <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - RW</Title>
 
+            {
+                /* Leaving with unsaved edits — the admin's own modal, the same one
+                every other editor uses. This was a native confirm box until the
+                guard was shared. */
+            }
+            <ConfirmModal
+                open={leaveGuard.pending()}
+                title="Unsaved changes"
+                message={'This campaign has changes that have not been saved. Leaving now discards them.'}
+                confirmLabel="Discard and leave"
+                cancelLabel="Stay on this page"
+                danger
+                onConfirm={leaveGuard.confirmLeave}
+                onCancel={leaveGuard.cancelLeave}
+            />
+
             <div class="admin-header">
                 <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>
                 <div class="admin-header__actions">
@@ -253,11 +283,15 @@ const CampaignEditor: Component = () => {
                                     GiveButter is managing donations for this campaign.
                                 </div>
                             </Show>
-                            <FormField label="Donation provider" hint="Choose which platform collects donations for this campaign." class="form-field--block">
+                            <FormField
+                                label="Donation provider"
+                                hint="Choose which platform collects donations for this campaign."
+                                class="form-field--block"
+                            >
                                 <select
                                     value={donationProvider()}
                                     onChange={(e,) => {
-                                        setDonationProvider((e.currentTarget.value as 'internal' | 'givebutter'),);
+                                        setDonationProvider(e.currentTarget.value as 'internal' | 'givebutter',);
                                         markDirty();
                                     }}
                                 >
@@ -271,7 +305,7 @@ const CampaignEditor: Component = () => {
                                     <select
                                         value={gbMode()}
                                         onChange={(e,) => {
-                                            setGbMode((e.currentTarget.value as 'link' | 'create'),);
+                                            setGbMode(e.currentTarget.value as 'link' | 'create',);
                                             markDirty();
                                         }}
                                     >
@@ -295,22 +329,36 @@ const CampaignEditor: Component = () => {
                                                 class="gb-panel__list"
                                                 value={gbCampaignId() != null ? String(gbCampaignId(),) : ''}
                                                 onChange={(e,) => {
-                                                    const picked = gbList().find((c,) => String(c.id,) === e.currentTarget.value);
-                                                    if (picked) { setGbCampaignId(picked.id,); setGbCampaignCode(picked.code,); markDirty(); }
+                                                    const picked = gbList().find((c,) =>
+                                                        String(c.id,) === e.currentTarget.value
+                                                    );
+                                                    if (picked) {
+                                                        setGbCampaignId(picked.id,);
+                                                        setGbCampaignCode(picked.code,);
+                                                        markDirty();
+                                                    }
                                                 }}
                                             >
                                                 <option value="">— select a campaign —</option>
                                                 <For each={gbList()}>
-                                                    {(c,) => <option value={String(c.id,)}>{c.code} — {c.title}</option>}
+                                                    {(c,) => <option value={String(c.id,)}>{c.code} — {c.title}
+                                                    </option>}
                                                 </For>
                                             </select>
                                         </Show>
                                     </div>
-                                    <FormField label="…or enter a campaign code" hint="The 6-character code near the campaign title in your GiveButter dashboard." class="form-field--block">
+                                    <FormField
+                                        label="…or enter a campaign code"
+                                        hint="The 6-character code near the campaign title in your GiveButter dashboard."
+                                        class="form-field--block"
+                                    >
                                         <input
                                             type="text"
                                             value={gbCampaignCode()}
-                                            onInput={(e,) => { setGbCampaignCode((e.target as HTMLInputElement).value,); markDirty(); }}
+                                            onInput={(e,) => {
+                                                setGbCampaignCode((e.target as HTMLInputElement).value,);
+                                                markDirty();
+                                            }}
                                             placeholder="6-character GiveButter code"
                                             maxLength={16}
                                         />
@@ -319,15 +367,15 @@ const CampaignEditor: Component = () => {
 
                                 <Show when={gbMode() === 'create'}>
                                     <small class="form-help">
-                                        A GiveButter campaign will be created from this campaign's title, goal,
-                                        and description when you save.
+                                        A GiveButter campaign will be created from this campaign's title, goal, and
+                                        description when you save.
                                     </small>
                                 </Show>
 
                                 <Show when={!gbCampaignCode()}>
                                     <div class="alert alert--warning gb-panel__warning">
-                                        ⚠ No GiveButter campaign is linked yet — donations can't render on the
-                                        public site until you link or create one.
+                                        ⚠ No GiveButter campaign is linked yet — donations can't render on the public
+                                        site until you link or create one.
                                     </div>
                                 </Show>
 
@@ -338,8 +386,10 @@ const CampaignEditor: Component = () => {
                         </div>
                     </Show>
 
-                    {/* Single two-column layout: content + fundraising goal on
-                        the left, publishing controls + schedule on the right */}
+                    {
+                        /* Single two-column layout: content + fundraising goal on
+                        the left, publishing controls + schedule on the right */
+                    }
                     <div class="form-section form-columns">
                         <div class="form-columns__main">
                             <FormField label="Title *" class="form-field--block">
@@ -408,7 +458,10 @@ const CampaignEditor: Component = () => {
                                 <Toggle
                                     class="toggle-control--switch-first"
                                     checked={hasGoal()}
-                                    onChange={(next,) => { setHasGoal(next,); markDirty(); }}
+                                    onChange={(next,) => {
+                                        setHasGoal(next,);
+                                        markDirty();
+                                    }}
                                     label="Set a fundraising goal"
                                 />
                             </div>
@@ -417,12 +470,15 @@ const CampaignEditor: Component = () => {
                                 <Toggle
                                     class="toggle-control--switch-first"
                                     checked={showRaisedAmount()}
-                                    onChange={(next,) => { setShowRaisedAmount(next,); markDirty(); }}
+                                    onChange={(next,) => {
+                                        setShowRaisedAmount(next,);
+                                        markDirty();
+                                    }}
                                     label="Show raised amount"
                                 />
                                 <small class="form-help">
-                                    When off, the public campaign shows no monetary information
-                                    at all — no amount raised, goal, or progress bar.
+                                    When off, the public campaign shows no monetary information at all — no amount
+                                    raised, goal, or progress bar.
                                 </small>
                             </div>
 
@@ -448,7 +504,10 @@ const CampaignEditor: Component = () => {
                                 <Toggle
                                     class="toggle-control--switch-first"
                                     checked={isPublished()}
-                                    onChange={(next,) => { setIsPublished(next,); markDirty(); }}
+                                    onChange={(next,) => {
+                                        setIsPublished(next,);
+                                        markDirty();
+                                    }}
                                     label="Published (visible to the public)"
                                 />
                             </div>
@@ -468,7 +527,10 @@ const CampaignEditor: Component = () => {
                                 </select>
                             </FormField>
 
-                            <FormField label="Start Date" hint="When the campaign starts accepting donations (optional)">
+                            <FormField
+                                label="Start Date"
+                                hint="When the campaign starts accepting donations (optional)"
+                            >
                                 <input
                                     type="datetime-local"
                                     value={startDate()}
@@ -495,7 +557,11 @@ const CampaignEditor: Component = () => {
                         <button type="submit" class="ui-button ui-button--primary" disabled={saving()}>
                             {saving() ? 'Saving...' : 'Save Campaign'}
                         </button>
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => navigate('/admin/campaigns',)}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary"
+                            onClick={() => navigate('/admin/campaigns',)}
+                        >
                             Cancel
                         </button>
                         <Show when={!isNew()}>

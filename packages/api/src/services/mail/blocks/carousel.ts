@@ -1,4 +1,4 @@
-import { escapeHtml, mediaRadius, } from './_util';
+import { escapeHtml, mediaRadiusCss, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 interface Slide {
@@ -18,8 +18,7 @@ export const renderCarousel: BlockEmailRenderer = (node, ctx,) => {
     if (slides.length === 0) return '';
 
     const first = slides[0];
-    const radius = mediaRadius(node,);
-    const radiusCss = radius ? `;border-radius:${radius}` : '';
+    const radiusCss = mediaRadiusCss(node,);
     const img = first.imageUrl ?
         `<img src="${escapeHtml(first.imageUrl,)}" alt="${
             escapeHtml(first.title ?? '',)

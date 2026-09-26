@@ -1,4 +1,4 @@
-import { escapeHtml, mediaRadius, } from './_util';
+import { escapeHtml, mediaRadiusCss, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 interface ImageEntry {
@@ -40,7 +40,7 @@ export const renderImage: BlockEmailRenderer = (node,) => {
     // The block's radius belongs on the <img>: the cell has no background to
     // round, and email ignores `overflow`, so a radius on the cell is invisible
     // behind a square picture.
-    const radiusCss = mediaRadius(node,) ? `;border-radius:${mediaRadius(node,)}` : '';
+    const radiusCss = mediaRadiusCss(node,);
     const imgStyle = maxW ?
         `display:block;width:100%;max-width:${maxW};height:auto;border:0${marginCss}${radiusCss}` :
         `display:block;max-width:100%;height:auto;border:0${radiusCss}`;

@@ -20,7 +20,35 @@
  */
 import { createSignal, } from 'solid-js';
 
-const [previewVariables, setPreviewVariables,] = createSignal<Record<string, unknown> | undefined>(undefined,);
+/**
+ * Same CONTENT means no change, even though it is a new object.
+ *
+ * The publishers rebuild the whole bag inside a `createEffect` that also tracks
+ * the editor's name/subject/preheader signals, so every keystroke produced a
+ * fresh object. `TemplatedContent` keys a `createResource` on this signal, so a
+ * new reference re-ran `renderTemplate` for EVERY templated block in the
+ * editor — once per character, getting slower as the template grew.
+ *
+ * Compared by serialization rather than a structural walk: the bag is plain
+ * JSON-shaped data built deterministically from one catalog, so key order is
+ * stable, and this is far cheaper than the N template renders it prevents. A
+ * false "changed" would only cost a re-render, never correctness.
+ */
+function sameBag(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined,): boolean {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    try {
+        return JSON.stringify(a,) === JSON.stringify(b,);
+    } catch {
+        // Circular or non-serializable — treat as changed and let it re-render.
+        return false;
+    }
+}
+
+const [previewVariables, setPreviewVariables,] = createSignal<Record<string, unknown> | undefined>(
+    undefined,
+    { equals: sameBag, },
+);
 
 export { previewVariables, setPreviewVariables, };
 
@@ -83,16 +111,26 @@ export function buildMailPreviewVariables(
 
 /** The subset of a mailing list the `{{list.*}}` bag is built from. */
 export interface MailListLike {
-    id?: string; name?: string; slug?: string; description?: string;
-    subscriberCount?: number; doubleOptIn?: boolean;
-    registeredUsersOnly?: boolean; isEnabled?: boolean;
+    id?: string;
+    name?: string;
+    slug?: string;
+    description?: string;
+    subscriberCount?: number;
+    doubleOptIn?: boolean;
+    registeredUsersOnly?: boolean;
+    isEnabled?: boolean;
 }
 
 /** The subset of a template/send draft the `{{template.*}}` bag is built from. */
 export interface MailTemplateLike {
-    id?: string | null; name?: string | null; subject?: string | null;
-    preheader?: string | null; fromName?: string | null;
-    fromEmail?: string | null; replyTo?: string | null; wasModified?: boolean;
+    id?: string | null;
+    name?: string | null;
+    subject?: string | null;
+    preheader?: string | null;
+    fromName?: string | null;
+    fromEmail?: string | null;
+    replyTo?: string | null;
+    wasModified?: boolean;
 }
 
 /**

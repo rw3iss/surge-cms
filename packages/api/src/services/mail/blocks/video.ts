@@ -1,4 +1,4 @@
-import { escapeHtml, mediaRadius, } from './_util';
+import { escapeHtml, mediaRadiusCss, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 /**
@@ -13,8 +13,7 @@ export const renderVideo: BlockEmailRenderer = (node, ctx,) => {
 
     // Both arms take the block's radius — the poster and the no-poster
     // placeholder are equally "the block's visible box".
-    const radius = mediaRadius(node,);
-    const radiusCss = radius ? `;border-radius:${radius}` : '';
+    const radiusCss = mediaRadiusCss(node,);
     const inner = poster ?
         `<img src="${escapeHtml(poster,)}" alt="${
             escapeHtml(title,)

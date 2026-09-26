@@ -1,16 +1,22 @@
-import type { SiteFooterColumn, SiteFooterRow, SiteFooterSettings, SiteLayoutItem, SiteLayoutItemType, } from '@sitesurge/types';
+import type {
+    SiteFooterColumn,
+    SiteFooterRow,
+    SiteFooterSettings,
+    SiteLayoutItem,
+    SiteLayoutItemType,
+} from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, onMount, Show, untrack, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
-import ColorPicker from '../appearance/ColorPicker';
-import FontSelect from '../common/FontSelect';
-import ImageLinkPicker from '../media/ImageLinkPicker';
-import Toggle from '../common/Toggle';
-import ConfirmModal from '../common/ConfirmModal';
 import { resolveImageSrc, } from '../../../utils/imageSrc';
-import Tooltip from '../common/Tooltip';
 import { useToast, } from '../../common/toast';
+import ColorPicker from '../appearance/ColorPicker';
+import ConfirmModal from '../common/ConfirmModal';
+import FontSelect from '../common/FontSelect';
+import Toggle from '../common/Toggle';
+import Tooltip from '../common/Tooltip';
+import ImageLinkPicker from '../media/ImageLinkPicker';
 import './SiteFooterEditor.scss';
 
 /**
@@ -143,10 +149,9 @@ const SiteFooterEditor: Component = () => {
      * thing Revert is supposed to restore — and Revert would appear to do
      * nothing.
      */
-    const clone = (v: SiteFooterSettings,): SiteFooterSettings =>
-        (typeof structuredClone === 'function'
-            ? structuredClone(v,)
-            : JSON.parse(JSON.stringify(v,),) as SiteFooterSettings);
+    const clone = (v: SiteFooterSettings,): SiteFooterSettings => (typeof structuredClone === 'function' ?
+        structuredClone(v,) :
+        JSON.parse(JSON.stringify(v,),) as SiteFooterSettings);
 
     onMount(async () => {
         try {
@@ -173,25 +178,31 @@ const SiteFooterEditor: Component = () => {
     },);
 
     const update = (mutator: (s: SiteFooterSettings,) => SiteFooterSettings,) => {
-        setSettings((current,) => mutator(structuredClone(current,),),);
+        setSettings((current,) => mutator(structuredClone(current,),));
     };
 
     // ── Row mutations ─────────────────────────────────────────────
 
     const addRow = () => {
         const row = newRow();
-        update((s,) => { s.rows.push(row,); return s; },);
+        update((s,) => {
+            s.rows.push(row,);
+            return s;
+        },);
         setSelection({ kind: 'row', rowId: row.id, },);
     };
 
     const removeRow = (rowId: string,) => {
-        update((s,) => { s.rows = s.rows.filter((r,) => r.id !== rowId,); return s; },);
+        update((s,) => {
+            s.rows = s.rows.filter((r,) => r.id !== rowId);
+            return s;
+        },);
         setSelection({ kind: 'none', },);
     };
 
     const moveRow = (rowId: string, dir: -1 | 1,) => {
         update((s,) => {
-            const idx = s.rows.findIndex((r,) => r.id === rowId,);
+            const idx = s.rows.findIndex((r,) => r.id === rowId);
             if (idx < 0) return s;
             const target = idx + dir;
             if (target < 0 || target >= s.rows.length) return s;
@@ -202,7 +213,7 @@ const SiteFooterEditor: Component = () => {
 
     const updateRow = (rowId: string, patch: Partial<SiteFooterRow>,) => {
         update((s,) => {
-            const r = s.rows.find((x,) => x.id === rowId,);
+            const r = s.rows.find((x,) => x.id === rowId);
             if (r) Object.assign(r, patch,);
             return s;
         },);
@@ -213,7 +224,7 @@ const SiteFooterEditor: Component = () => {
     const addColumn = (rowId: string,) => {
         const col = newColumn();
         update((s,) => {
-            const r = s.rows.find((x,) => x.id === rowId,);
+            const r = s.rows.find((x,) => x.id === rowId);
             if (r) r.columns.push(col,);
             return s;
         },);
@@ -222,8 +233,8 @@ const SiteFooterEditor: Component = () => {
 
     const removeColumn = (rowId: string, columnId: string,) => {
         update((s,) => {
-            const r = s.rows.find((x,) => x.id === rowId,);
-            if (r) r.columns = r.columns.filter((c,) => c.id !== columnId,);
+            const r = s.rows.find((x,) => x.id === rowId);
+            if (r) r.columns = r.columns.filter((c,) => c.id !== columnId);
             return s;
         },);
         setSelection({ kind: 'row', rowId, },);
@@ -231,9 +242,9 @@ const SiteFooterEditor: Component = () => {
 
     const moveColumn = (rowId: string, columnId: string, dir: -1 | 1,) => {
         update((s,) => {
-            const r = s.rows.find((x,) => x.id === rowId,);
+            const r = s.rows.find((x,) => x.id === rowId);
             if (!r) return s;
-            const idx = r.columns.findIndex((c,) => c.id === columnId,);
+            const idx = r.columns.findIndex((c,) => c.id === columnId);
             if (idx < 0) return s;
             const target = idx + dir;
             if (target < 0 || target >= r.columns.length) return s;
@@ -244,7 +255,7 @@ const SiteFooterEditor: Component = () => {
 
     const updateColumn = (rowId: string, columnId: string, patch: Partial<SiteFooterColumn>,) => {
         update((s,) => {
-            const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
+            const c = s.rows.find((x,) => x.id === rowId)?.columns.find((y,) => y.id === columnId);
             if (c) Object.assign(c, patch,);
             return s;
         },);
@@ -255,7 +266,7 @@ const SiteFooterEditor: Component = () => {
     const addItem = (rowId: string, columnId: string,) => {
         const item = newItem();
         update((s,) => {
-            const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
+            const c = s.rows.find((x,) => x.id === rowId)?.columns.find((y,) => y.id === columnId);
             if (!c) return s;
             item.order = c.items.length;
             c.items.push(item,);
@@ -266,8 +277,8 @@ const SiteFooterEditor: Component = () => {
 
     const removeItem = (rowId: string, columnId: string, itemId: string,) => {
         update((s,) => {
-            const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
-            if (c) c.items = c.items.filter((i,) => i.id !== itemId,);
+            const c = s.rows.find((x,) => x.id === rowId)?.columns.find((y,) => y.id === columnId);
+            if (c) c.items = c.items.filter((i,) => i.id !== itemId);
             return s;
         },);
         setSelection({ kind: 'column', rowId, columnId, },);
@@ -275,15 +286,17 @@ const SiteFooterEditor: Component = () => {
 
     const moveItem = (rowId: string, columnId: string, itemId: string, dir: -1 | 1,) => {
         update((s,) => {
-            const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
+            const c = s.rows.find((x,) => x.id === rowId)?.columns.find((y,) => y.id === columnId);
             if (!c) return s;
-            const idx = c.items.findIndex((i,) => i.id === itemId,);
+            const idx = c.items.findIndex((i,) => i.id === itemId);
             if (idx < 0) return s;
             const target = idx + dir;
             if (target < 0 || target >= c.items.length) return s;
             [c.items[idx], c.items[target],] = [c.items[target], c.items[idx],];
             // Re-stamp order so the renderer's sort is stable.
-            c.items.forEach((item, i,) => { item.order = i; },);
+            c.items.forEach((item, i,) => {
+                item.order = i;
+            },);
             return s;
         },);
     };
@@ -301,7 +314,7 @@ const SiteFooterEditor: Component = () => {
      *  Array.splice. */
     const moveRowTo = (rowId: string, targetIndex: number,) => {
         update((s,) => {
-            const idx = s.rows.findIndex((r,) => r.id === rowId,);
+            const idx = s.rows.findIndex((r,) => r.id === rowId);
             if (idx < 0) return s;
             const [row,] = s.rows.splice(idx, 1,);
             const clamped = Math.max(0, Math.min(targetIndex, s.rows.length,),);
@@ -321,12 +334,12 @@ const SiteFooterEditor: Component = () => {
         targetIndex: number,
     ) => {
         update((s,) => {
-            const srcRow = s.rows.find((r,) => r.id === sourceRowId,);
+            const srcRow = s.rows.find((r,) => r.id === sourceRowId);
             if (!srcRow) return s;
-            const idx = srcRow.columns.findIndex((c,) => c.id === columnId,);
+            const idx = srcRow.columns.findIndex((c,) => c.id === columnId);
             if (idx < 0) return s;
             const [col,] = srcRow.columns.splice(idx, 1,);
-            const destRow = s.rows.find((r,) => r.id === destRowId,);
+            const destRow = s.rows.find((r,) => r.id === destRowId);
             if (!destRow) {
                 // Source-row delete already happened; bail by putting it back.
                 srcRow.columns.splice(idx, 0, col,);
@@ -451,7 +464,7 @@ const SiteFooterEditor: Component = () => {
         // Splice math: removing from idx then inserting at targetIndex
         // is what `moveRowTo` already does. Skip the no-op move where
         // dragging a row over its own slot.
-        const currentIdx = settings().rows.findIndex((r,) => r.id === ds.sourceRowId,);
+        const currentIdx = settings().rows.findIndex((r,) => r.id === ds.sourceRowId);
         if (currentIdx >= 0 && currentIdx !== targetIndex && currentIdx + 1 !== targetIndex) {
             // Adjust target when dragging downward — the index shifts
             // by one after the source is removed.
@@ -468,12 +481,12 @@ const SiteFooterEditor: Component = () => {
         e.preventDefault();
         const targetIndex = computeColumnDropIndex(e.clientY, colsEl,);
         const sameRow = ds.sourceRowId === rowId;
-        const srcRow = settings().rows.find((r,) => r.id === ds.sourceRowId,);
-        const currentIdx = srcRow?.columns.findIndex((c,) => c.id === ds.sourceColumnId,) ?? -1;
+        const srcRow = settings().rows.find((r,) => r.id === ds.sourceRowId);
+        const currentIdx = srcRow?.columns.findIndex((c,) => c.id === ds.sourceColumnId) ?? -1;
         if (
-            sameRow
-            && currentIdx >= 0
-            && (currentIdx === targetIndex || currentIdx + 1 === targetIndex)
+            sameRow &&
+            currentIdx >= 0 &&
+            (currentIdx === targetIndex || currentIdx + 1 === targetIndex)
         ) {
             // No-op drop on its own slot.
             setDragState({ kind: 'none', },);
@@ -493,9 +506,9 @@ const SiteFooterEditor: Component = () => {
 
     const updateItem = (rowId: string, columnId: string, itemId: string, patch: Partial<SiteLayoutItem>,) => {
         update((s,) => {
-            const c = s.rows.find((x,) => x.id === rowId,)?.columns.find((y,) => y.id === columnId,);
+            const c = s.rows.find((x,) => x.id === rowId)?.columns.find((y,) => y.id === columnId);
             if (!c) return s;
-            const it = c.items.find((i,) => i.id === itemId,);
+            const it = c.items.find((i,) => i.id === itemId);
             if (it) Object.assign(it, patch,);
             return s;
         },);
@@ -528,7 +541,7 @@ const SiteFooterEditor: Component = () => {
             setSelection({ kind: 'none', },);
             // The dirty effect fires on the setSettings above and would mark
             // this restore as a change, so clear after it has run.
-            queueMicrotask(() => setDirty(false,),);
+            queueMicrotask(() => setDirty(false,));
         }
         setConfirmRevert(false,);
         toast.success('Reverted to the last saved footer.',);
@@ -539,17 +552,17 @@ const SiteFooterEditor: Component = () => {
     const selectedRow = (): SiteFooterRow | null => {
         const sel = selection();
         if (sel.kind === 'none') return null;
-        return settings().rows.find((r,) => r.id === sel.rowId,) ?? null;
+        return settings().rows.find((r,) => r.id === sel.rowId) ?? null;
     };
     const selectedColumn = (): SiteFooterColumn | null => {
         const sel = selection();
         if (sel.kind !== 'column' && sel.kind !== 'item') return null;
-        return selectedRow()?.columns.find((c,) => c.id === sel.columnId,) ?? null;
+        return selectedRow()?.columns.find((c,) => c.id === sel.columnId) ?? null;
     };
     const selectedItem = (): SiteLayoutItem | null => {
         const sel = selection();
         if (sel.kind !== 'item') return null;
-        return selectedColumn()?.items.find((i,) => i.id === sel.itemId,) ?? null;
+        return selectedColumn()?.items.find((i,) => i.id === sel.itemId) ?? null;
     };
 
     // ── Render ────────────────────────────────────────────────────
@@ -562,7 +575,11 @@ const SiteFooterEditor: Component = () => {
                     <div class="footer-editor__enable">
                         <Toggle
                             checked={settings().enabled}
-                            onChange={(next,) => update((s,) => { s.enabled = next; return s; },)}
+                            onChange={(next,) =>
+                                update((s,) => {
+                                    s.enabled = next;
+                                    return s;
+                                },)}
                             label={<span class="footer-editor__enable-label">Enable site footer</span>}
                         />
                     </div>
@@ -578,8 +595,10 @@ const SiteFooterEditor: Component = () => {
                     >
                         {saving() ? 'Saving…' : 'Save footer'}
                     </button>
-                    {/* Last in the bar, and only when there is something to
-                        undo. */}
+                    {
+                        /* Last in the bar, and only when there is something to
+                        undo. */
+                    }
                     <Show when={dirty()}>
                         <button
                             type="button"
@@ -593,10 +612,12 @@ const SiteFooterEditor: Component = () => {
                     </Show>
                 </div>
 
-                {/* General footer settings — collapsed disclosure. Background,
+                {
+                    /* General footer settings — collapsed disclosure. Background,
                     padding, and margin live here rather than at the row level
                     because they apply to the entire footer wrapper. Mirrors
-                    the SiteHeaderEditor's "Settings" disclosure. */}
+                    the SiteHeaderEditor's "Settings" disclosure. */
+                }
                 <Show when={settings().enabled}>
                     <div class="footer-editor__general-settings-row">
                         <button
@@ -618,24 +639,46 @@ const SiteFooterEditor: Component = () => {
                             defaultFont={settings().defaultFont ?? ''}
                             padding={settings().padding ?? ''}
                             margin={settings().margin ?? ''}
-                            onBackgroundChange={(v,) => update((s,) => { s.backgroundColor = v || undefined; return s; },)}
-                            onTextColorChange={(v,) => update((s,) => { s.textColor = v || undefined; return s; },)}
-                            onDefaultFontChange={(v,) => update((s,) => { s.defaultFont = v || undefined; return s; },)}
-                            onPaddingChange={(v,) => update((s,) => { s.padding = v || undefined; return s; },)}
-                            onMarginChange={(v,) => update((s,) => { s.margin = v || undefined; return s; },)}
+                            onBackgroundChange={(v,) =>
+                                update((s,) => {
+                                    s.backgroundColor = v || undefined;
+                                    return s;
+                                },)}
+                            onTextColorChange={(v,) =>
+                                update((s,) => {
+                                    s.textColor = v || undefined;
+                                    return s;
+                                },)}
+                            onDefaultFontChange={(v,) =>
+                                update((s,) => {
+                                    s.defaultFont = v || undefined;
+                                    return s;
+                                },)}
+                            onPaddingChange={(v,) =>
+                                update((s,) => {
+                                    s.padding = v || undefined;
+                                    return s;
+                                },)}
+                            onMarginChange={(v,) =>
+                                update((s,) => {
+                                    s.margin = v || undefined;
+                                    return s;
+                                },)}
                         />
                     </Show>
                 </Show>
 
-                {/* The whole editor body is gated on the enable toggle —
+                {
+                    /* The whole editor body is gated on the enable toggle —
                     when disabled, the operator sees just the toggle and
-                    a one-line explanation, not 800 pixels of disabled UI. */}
+                    a one-line explanation, not 800 pixels of disabled UI. */
+                }
                 <Show
                     when={settings().enabled}
                     fallback={
                         <p class="footer-editor__disabled-note">
-                            The site footer is disabled. Enable it above to start designing it. Until then,
-                            no footer is rendered on the public site.
+                            The site footer is disabled. Enable it above to start designing it. Until then, no footer is
+                            rendered on the public site.
                         </p>
                     }
                 >
@@ -652,7 +695,9 @@ const SiteFooterEditor: Component = () => {
                             return (
                                 <aside
                                     class="footer-editor__tree"
-                                    ref={(el,) => { treeRef = el; }}
+                                    ref={(el,) => {
+                                        treeRef = el;
+                                    }}
                                     onDragOver={(e,) => treeRef && onTreeDragOver(e, treeRef,)}
                                     onDrop={(e,) => treeRef && onTreeDrop(e, treeRef,)}
                                     onDragLeave={(e,) => {
@@ -667,7 +712,9 @@ const SiteFooterEditor: Component = () => {
                                         <button type="button" onClick={addRow}>+ Add row</button>
                                     </div>
                                     <Show when={settings().rows.length === 0}>
-                                        <p class="empty-state empty-state--plain">No rows yet. Click "Add row" to begin.</p>
+                                        <p class="empty-state empty-state--plain">
+                                            No rows yet. Click "Add row" to begin.
+                                        </p>
                                     </Show>
                                     <For each={settings().rows}>
                                         {(row, rowIdx,) => (
@@ -682,12 +729,15 @@ const SiteFooterEditor: Component = () => {
                                                 onAddItem={(columnId,) => addItem(row.id, columnId,)}
                                                 onMoveRow={(dir,) => moveRow(row.id, dir,)}
                                                 onMoveColumn={(columnId, dir,) => moveColumn(row.id, columnId, dir,)}
-                                                onMoveItem={(columnId, itemId, dir,) => moveItem(row.id, columnId, itemId, dir,)}
+                                                onMoveItem={(columnId, itemId, dir,) =>
+                                                    moveItem(row.id, columnId, itemId, dir,)}
                                                 onRemoveRow={() => removeRow(row.id,)}
                                                 onRemoveColumn={(columnId,) => removeColumn(row.id, columnId,)}
-                                                onRemoveItem={(columnId, itemId,) => removeItem(row.id, columnId, itemId,)}
+                                                onRemoveItem={(columnId, itemId,) =>
+                                                    removeItem(row.id, columnId, itemId,)}
                                                 onRowDragStart={(e, el,) => onRowDragStart(e, row.id, el,)}
-                                                onColDragStart={(e, columnId, el,) => onColumnDragStart(e, row.id, columnId, el,)}
+                                                onColDragStart={(e, columnId, el,) =>
+                                                    onColumnDragStart(e, row.id, columnId, el,)}
                                                 onColsDragOver={(e, el,) => onColsDragOver(e, row.id, el,)}
                                                 onColsDrop={(e, el,) => onColsDrop(e, row.id, el,)}
                                                 onDragEnd={onDragEnd}
@@ -708,25 +758,35 @@ const SiteFooterEditor: Component = () => {
                             </Show>
 
                             <Show when={selectedItem()}>
-                                {(item) => (
+                                {(item,) => (
                                     <ItemPanel
                                         item={item()}
-                                        onChange={(patch) => {
+                                        onChange={(patch,) => {
                                             const sel = selection();
-                                            if (sel.kind === 'item') updateItem(sel.rowId, sel.columnId, sel.itemId, patch,);
+                                            if (sel.kind === 'item') {
+                                                updateItem(sel.rowId, sel.columnId, sel.itemId, patch,);
+                                            }
                                         }}
                                     />
                                 )}
                             </Show>
 
                             <Show when={!selectedItem() && selectedColumn()}>
-                                {(column) => (
+                                {(column,) => (
                                     <ColumnPanel
                                         column={column()}
-                                        onChange={(patch) => {
+                                        onChange={(patch,) => {
                                             const sel = selection();
-                                            const rowId = sel.kind === 'column' ? sel.rowId : sel.kind === 'item' ? sel.rowId : '';
-                                            const columnId = sel.kind === 'column' ? sel.columnId : sel.kind === 'item' ? sel.columnId : '';
+                                            const rowId = sel.kind === 'column' ?
+                                                sel.rowId :
+                                                sel.kind === 'item' ?
+                                                sel.rowId :
+                                                '';
+                                            const columnId = sel.kind === 'column' ?
+                                                sel.columnId :
+                                                sel.kind === 'item' ?
+                                                sel.columnId :
+                                                '';
                                             if (rowId && columnId) updateColumn(rowId, columnId, patch,);
                                         }}
                                     />
@@ -734,10 +794,10 @@ const SiteFooterEditor: Component = () => {
                             </Show>
 
                             <Show when={!selectedColumn() && selectedRow()}>
-                                {(row) => (
+                                {(row,) => (
                                     <RowPanel
                                         row={row()}
-                                        onChange={(patch) => {
+                                        onChange={(patch,) => {
                                             const sel = selection();
                                             if (sel.kind === 'row') updateRow(sel.rowId, patch,);
                                         }}
@@ -836,8 +896,7 @@ function EditableRow(props: {
     onSelect: (s: Selection,) => void;
 },) {
     const r = () => props.row;
-    const isSelected = () =>
-        props.selection.kind !== 'none' && props.selection.rowId === r().id;
+    const isSelected = () => props.selection.kind !== 'none' && props.selection.rowId === r().id;
 
     const outerStyle = () => {
         const s: Record<string, string> = {};
@@ -869,7 +928,10 @@ function EditableRow(props: {
         <div
             class={`footer-editor__pv-row ${isSelected() ? 'is-selected' : ''}`}
             style={outerStyle()}
-            onClick={(e,) => { e.stopPropagation(); props.onSelect({ kind: 'row', rowId: r().id, },); }}
+            onClick={(e,) => {
+                e.stopPropagation();
+                props.onSelect({ kind: 'row', rowId: r().id, },);
+            }}
         >
             <div class="footer-editor__pv-row-inner" style={innerStyle()}>
                 <For each={r().columns}>
@@ -897,9 +959,9 @@ function EditableColumn(props: {
 },) {
     const c = () => props.column;
     const isSelected = () =>
-        (props.selection.kind === 'column' || props.selection.kind === 'item')
-        && props.selection.rowId === props.row.id
-        && props.selection.columnId === c().id;
+        (props.selection.kind === 'column' || props.selection.kind === 'item') &&
+        props.selection.rowId === props.row.id &&
+        props.selection.columnId === c().id;
 
     const direction = () => c().direction === 'row' ? 'row' : 'column';
     const justify = () => {
@@ -933,7 +995,10 @@ function EditableColumn(props: {
         <div
             class={`footer-editor__pv-col ${isSelected() ? 'is-selected' : ''}`}
             style={style()}
-            onClick={(e,) => { e.stopPropagation(); props.onSelect({ kind: 'column', rowId: props.row.id, columnId: c().id, },); }}
+            onClick={(e,) => {
+                e.stopPropagation();
+                props.onSelect({ kind: 'column', rowId: props.row.id, columnId: c().id, },);
+            }}
         >
             <Show when={items().length === 0}>
                 <span class="footer-editor__pv-col-empty">(empty column)</span>
@@ -967,11 +1032,11 @@ function EditableItem(props: {
 },) {
     const it = () => props.item;
     const isSelected = () =>
-        !props.nested
-        && props.selection.kind === 'item'
-        && props.selection.rowId === props.row.id
-        && props.selection.columnId === props.column.id
-        && props.selection.itemId === it().id;
+        !props.nested &&
+        props.selection.kind === 'item' &&
+        props.selection.rowId === props.row.id &&
+        props.selection.columnId === props.column.id &&
+        props.selection.itemId === it().id;
 
     const baseStyle = () => {
         const s: Record<string, string> = {};
@@ -989,9 +1054,9 @@ function EditableItem(props: {
     };
 
     const buttonTextColor = () =>
-        colorCssValue(it().textColor, '',)
-        || colorCssValue(props.footerTextColor, '',)
-        || '#fff';
+        colorCssValue(it().textColor, '',) ||
+        colorCssValue(props.footerTextColor, '',) ||
+        '#fff';
 
     // Render the actual item content. We use real anchors / images / text
     // so it visually matches the public output, but with `pointer-events:
@@ -999,7 +1064,14 @@ function EditableItem(props: {
     const renderContent = () => {
         switch (it().type) {
             case 'image':
-                return <img src={resolveImageSrc(it().imageUrl, it().mediaUrl,)} alt={it().altText || ''} style={baseStyle()} class="footer__item-img" />;
+                return (
+                    <img
+                        src={resolveImageSrc(it().imageUrl, it().mediaUrl,)}
+                        alt={it().altText || ''}
+                        style={baseStyle()}
+                        class="footer__item-img"
+                    />
+                );
             case 'image_link':
                 return (
                     <span style={baseStyle()} class="footer__item-img-link">
@@ -1069,9 +1141,12 @@ function EditableItem(props: {
     return (
         <span
             class={`footer-editor__pv-item ${isSelected() ? 'is-selected' : ''}`}
-            onClick={props.nested
-                ? undefined
-                : (e,) => { e.stopPropagation(); props.onSelect({ kind: 'item', rowId: props.row.id, columnId: props.column.id, itemId: it().id, },); }}
+            onClick={props.nested ?
+                undefined :
+                (e,) => {
+                    e.stopPropagation();
+                    props.onSelect({ kind: 'item', rowId: props.row.id, columnId: props.column.id, itemId: it().id, },);
+                }}
         >
             {renderContent()}
         </span>
@@ -1101,8 +1176,7 @@ function RowTreeItem(props: {
     onColsDrop: (e: DragEvent, colsEl: HTMLElement,) => void;
     onDragEnd: () => void;
 },) {
-    const rowSelected = () =>
-        props.selection.kind !== 'none' && props.selection.rowId === props.row.id;
+    const rowSelected = () => props.selection.kind !== 'none' && props.selection.rowId === props.row.id;
 
     /** Drop indicators rendered relative to this row's index. The
      *  outer tree maintains the indicator state; we just render the
@@ -1114,9 +1188,9 @@ function RowTreeItem(props: {
     };
     const isDropAfter = () => {
         const h = props.dropHint;
-        return h?.kind === 'row'
-            && h.targetIndex === props.rowCount
-            && props.rowIndex === props.rowCount - 1;
+        return h?.kind === 'row' &&
+            h.targetIndex === props.rowCount &&
+            props.rowIndex === props.rowCount - 1;
     };
 
     /** True when an active column-drop is targeting this row AND
@@ -1125,9 +1199,9 @@ function RowTreeItem(props: {
      *  container itself as a "drop here" zone. */
     const isDropIntoEmpty = () => {
         const h = props.dropHint;
-        return h?.kind === 'column'
-            && h.rowId === props.row.id
-            && props.row.columns.length === 0;
+        return h?.kind === 'column' &&
+            h.rowId === props.row.id &&
+            props.row.columns.length === 0;
     };
 
     let rowEl: HTMLDivElement | undefined;
@@ -1138,13 +1212,17 @@ function RowTreeItem(props: {
             class={`footer-editor__tree-row ${rowSelected() ? 'is-selected' : ''} ${
                 isDropBefore() ? 'is-drop-before' : ''
             } ${isDropAfter() ? 'is-drop-after' : ''}`}
-            ref={(el,) => { rowEl = el; }}
+            ref={(el,) => {
+                rowEl = el;
+            }}
             data-row-id={props.row.id}
         >
             <div class="footer-editor__tree-row-head">
-                {/* Drag handle — only this element initiates a row
+                {
+                    /* Drag handle — only this element initiates a row
                     drag, so clicking the label or action buttons
-                    doesn't accidentally start one. */}
+                    doesn't accidentally start one. */
+                }
                 <span
                     class="footer-editor__tree-handle"
                     draggable={true}
@@ -1170,16 +1248,32 @@ function RowTreeItem(props: {
                     Row {props.rowIndex + 1}
                 </button>
                 <span class="footer-editor__tree-actions">
-                    <button type="button" disabled={props.rowIndex === 0} onClick={() => props.onMoveRow(-1,)} title="Move up">↑</button>
-                    <button type="button" disabled={props.rowIndex >= props.rowCount - 1} onClick={() => props.onMoveRow(1,)} title="Move down">↓</button>
+                    <button
+                        type="button"
+                        disabled={props.rowIndex === 0}
+                        onClick={() => props.onMoveRow(-1,)}
+                        title="Move up"
+                    >
+                        ↑
+                    </button>
+                    <button
+                        type="button"
+                        disabled={props.rowIndex >= props.rowCount - 1}
+                        onClick={() => props.onMoveRow(1,)}
+                        title="Move down"
+                    >
+                        ↓
+                    </button>
                     <button type="button" onClick={props.onRemoveRow} title="Delete row" class="is-danger">×</button>
                 </span>
             </div>
             <div
-                class={`footer-editor__tree-cols ${
-                    props.row.columns.length === 0 ? 'is-empty' : ''
-                } ${isDropIntoEmpty() ? 'is-drop-into' : ''}`}
-                ref={(el,) => { colsEl = el; }}
+                class={`footer-editor__tree-cols ${props.row.columns.length === 0 ? 'is-empty' : ''} ${
+                    isDropIntoEmpty() ? 'is-drop-into' : ''
+                }`}
+                ref={(el,) => {
+                    colsEl = el;
+                }}
                 onDragOver={(e,) => colsEl && props.onColsDragOver(e, colsEl,)}
                 onDrop={(e,) => colsEl && props.onColsDrop(e, colsEl,)}
             >
@@ -1228,22 +1322,22 @@ function ColumnTreeItem(props: {
     onDragEnd: () => void;
 },) {
     const colSelected = () =>
-        (props.selection.kind === 'column' || props.selection.kind === 'item')
-        && props.selection.rowId === props.row.id
-        && props.selection.columnId === props.column.id;
+        (props.selection.kind === 'column' || props.selection.kind === 'item') &&
+        props.selection.rowId === props.row.id &&
+        props.selection.columnId === props.column.id;
 
     const isDropBefore = () => {
         const h = props.dropHint;
-        return h?.kind === 'column'
-            && h.rowId === props.row.id
-            && h.targetIndex === props.colIndex;
+        return h?.kind === 'column' &&
+            h.rowId === props.row.id &&
+            h.targetIndex === props.colIndex;
     };
     const isDropAfter = () => {
         const h = props.dropHint;
-        return h?.kind === 'column'
-            && h.rowId === props.row.id
-            && h.targetIndex === props.colCount
-            && props.colIndex === props.colCount - 1;
+        return h?.kind === 'column' &&
+            h.rowId === props.row.id &&
+            h.targetIndex === props.colCount &&
+            props.colIndex === props.colCount - 1;
     };
 
     let colEl: HTMLDivElement | undefined;
@@ -1253,7 +1347,9 @@ function ColumnTreeItem(props: {
             class={`footer-editor__tree-col ${colSelected() ? 'is-selected' : ''} ${
                 isDropBefore() ? 'is-drop-before' : ''
             } ${isDropAfter() ? 'is-drop-after' : ''}`}
-            ref={(el,) => { colEl = el; }}
+            ref={(el,) => {
+                colEl = el;
+            }}
             data-col-id={props.column.id}
         >
             <div class="footer-editor__tree-col-head">
@@ -1279,12 +1375,29 @@ function ColumnTreeItem(props: {
                     class="footer-editor__tree-label"
                     onClick={() => props.onSelect({ kind: 'column', rowId: props.row.id, columnId: props.column.id, },)}
                 >
-                    Column {props.colIndex + 1} <span class="footer-editor__tree-meta">flex: {props.column.flex ?? 1}</span>
+                    Column {props.colIndex + 1}{' '}
+                    <span class="footer-editor__tree-meta">flex: {props.column.flex ?? 1}</span>
                 </button>
                 <span class="footer-editor__tree-actions">
-                    <button type="button" disabled={props.colIndex === 0} onClick={() => props.onMoveColumn(-1,)} title="Move left">←</button>
-                    <button type="button" disabled={props.colIndex >= props.colCount - 1} onClick={() => props.onMoveColumn(1,)} title="Move right">→</button>
-                    <button type="button" onClick={props.onRemoveColumn} title="Delete column" class="is-danger">×</button>
+                    <button
+                        type="button"
+                        disabled={props.colIndex === 0}
+                        onClick={() => props.onMoveColumn(-1,)}
+                        title="Move left"
+                    >
+                        ←
+                    </button>
+                    <button
+                        type="button"
+                        disabled={props.colIndex >= props.colCount - 1}
+                        onClick={() => props.onMoveColumn(1,)}
+                        title="Move right"
+                    >
+                        →
+                    </button>
+                    <button type="button" onClick={props.onRemoveColumn} title="Delete column" class="is-danger">
+                        ×
+                    </button>
                 </span>
             </div>
             <div class="footer-editor__tree-items">
@@ -1323,10 +1436,10 @@ function ItemTreeItem(props: {
     onRemove: () => void;
 },) {
     const itemSelected = () =>
-        props.selection.kind === 'item'
-        && props.selection.rowId === props.row.id
-        && props.selection.columnId === props.column.id
-        && props.selection.itemId === props.item.id;
+        props.selection.kind === 'item' &&
+        props.selection.rowId === props.row.id &&
+        props.selection.columnId === props.column.id &&
+        props.selection.itemId === props.item.id;
 
     const label = () => {
         const t = props.item.type;
@@ -1339,13 +1452,33 @@ function ItemTreeItem(props: {
             <button
                 type="button"
                 class="footer-editor__tree-label"
-                onClick={() => props.onSelect({ kind: 'item', rowId: props.row.id, columnId: props.column.id, itemId: props.item.id, },)}
+                onClick={() =>
+                    props.onSelect({
+                        kind: 'item',
+                        rowId: props.row.id,
+                        columnId: props.column.id,
+                        itemId: props.item.id,
+                    },)}
             >
                 <span class="footer-editor__tree-meta">{props.item.type}</span> {label()}
             </button>
             <span class="footer-editor__tree-actions">
-                <button type="button" disabled={props.itemIndex === 0} onClick={() => props.onMove(-1,)} title="Move up">↑</button>
-                <button type="button" disabled={props.itemIndex >= props.itemCount - 1} onClick={() => props.onMove(1,)} title="Move down">↓</button>
+                <button
+                    type="button"
+                    disabled={props.itemIndex === 0}
+                    onClick={() => props.onMove(-1,)}
+                    title="Move up"
+                >
+                    ↑
+                </button>
+                <button
+                    type="button"
+                    disabled={props.itemIndex >= props.itemCount - 1}
+                    onClick={() => props.onMove(1,)}
+                    title="Move down"
+                >
+                    ↓
+                </button>
                 <button type="button" onClick={props.onRemove} title="Delete item" class="is-danger">×</button>
             </span>
         </div>
@@ -1508,7 +1641,9 @@ function ColumnPanel(props: { column: SiteFooterColumn; onChange: (p: Partial<Si
     // focus or truncating the value. Re-syncs when a different column is selected
     // (or flex changes externally).
     const [flexDraft, setFlexDraft,] = createSignal(String(props.column.flex ?? 1,),);
-    createEffect(() => { setFlexDraft(String(props.column.flex ?? 1,),); },);
+    createEffect(() => {
+        setFlexDraft(String(props.column.flex ?? 1,),);
+    },);
     const commitFlex = (raw: string,) => {
         const n = parseFloat(raw,);
         props.onChange({ flex: (isNaN(n,) || n < 0) ? 1 : n, },);
@@ -1542,7 +1677,8 @@ function ColumnPanel(props: { column: SiteFooterColumn; onChange: (p: Partial<Si
                 <span>Item alignment (main axis)</span>
                 <select
                     value={props.column.alignment ?? 'start'}
-                    onChange={(e,) => props.onChange({ alignment: e.currentTarget.value as SiteFooterColumn['alignment'], },)}
+                    onChange={(e,) =>
+                        props.onChange({ alignment: e.currentTarget.value as SiteFooterColumn['alignment'], },)}
                 >
                     <For each={ALIGN_OPTIONS}>{(opt,) => <option value={opt.value}>{opt.label}</option>}</For>
                 </select>
@@ -1551,7 +1687,10 @@ function ColumnPanel(props: { column: SiteFooterColumn; onChange: (p: Partial<Si
                 <span>Item alignment (cross axis)</span>
                 <select
                     value={props.column.verticalAlignment ?? 'stretch'}
-                    onChange={(e,) => props.onChange({ verticalAlignment: e.currentTarget.value as SiteFooterColumn['verticalAlignment'], },)}
+                    onChange={(e,) =>
+                        props.onChange({
+                            verticalAlignment: e.currentTarget.value as SiteFooterColumn['verticalAlignment'],
+                        },)}
                 >
                     <For each={VALIGN_OPTIONS}>{(opt,) => <option value={opt.value}>{opt.label}</option>}</For>
                 </select>
@@ -1600,7 +1739,7 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
     // is local to this panel (the main tree/preview selects the group as a unit).
     const [selChild, setSelChild,] = createSignal<string | null>(null,);
     const children = () => props.item.items ?? [];
-    const childLabel = (c: SiteLayoutItem,) => ITEM_TYPES.find((o,) => o.value === c.type,)?.label ?? c.type;
+    const childLabel = (c: SiteLayoutItem,) => ITEM_TYPES.find((o,) => o.value === c.type)?.label ?? c.type;
     // Preview text shown next to each child's type in the list. Image items show
     // their Alt Text (their leftover `text` would be a stale "New link"); text
     // items show their text; structural/blank types show nothing.
@@ -1616,16 +1755,18 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
         setSelChild(it.id,);
     };
     const removeChild = (id: string,) => {
-        props.onChange({ items: children().filter((c,) => c.id !== id,), },);
+        props.onChange({ items: children().filter((c,) => c.id !== id), },);
         if (selChild() === id) setSelChild(null,);
     };
     const moveChild = (id: string, dir: -1 | 1,) => {
         const arr = [...children(),];
-        const idx = arr.findIndex((c,) => c.id === id,);
+        const idx = arr.findIndex((c,) => c.id === id);
         const target = idx + dir;
         if (idx < 0 || target < 0 || target >= arr.length) return;
         [arr[idx], arr[target],] = [arr[target], arr[idx],];
-        arr.forEach((c, i,) => { c.order = i; },);
+        arr.forEach((c, i,) => {
+            c.order = i;
+        },);
         props.onChange({ items: arr, },);
     };
     const patchChild = (id: string, patch: Partial<SiteLayoutItem>,) => {
@@ -1686,19 +1827,25 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                     </select>
                 </label>
 
-                {/* Maintainable, selectable list of the group's items. Selecting
-                    one opens its edit form (this same ItemPanel, recursively). */}
+                {
+                    /* Maintainable, selectable list of the group's items. Selecting
+                    one opens its edit form (this same ItemPanel, recursively). */
+                }
                 <div class="footer-editor__group-items">
                     <div class="footer-editor__group-items-head">
                         <span>Group items</span>
-                        <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addChild}>+ Add item</button>
+                        <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addChild}>
+                            + Add item
+                        </button>
                     </div>
                     <Show when={children().length === 0}>
                         <p class="footer-editor__hint">No items in this group yet — add one.</p>
                     </Show>
                     <For each={children()}>
                         {(child,) => (
-                            <div class={`footer-editor__group-item-row ${selChild() === child.id ? 'is-selected' : ''}`}>
+                            <div
+                                class={`footer-editor__group-item-row ${selChild() === child.id ? 'is-selected' : ''}`}
+                            >
                                 <button
                                     type="button"
                                     class="footer-editor__group-item-label"
@@ -1710,16 +1857,22 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                                     </Show>
                                 </button>
                                 <span class="footer-editor__group-item-actions">
-                                    <button type="button" onClick={() => moveChild(child.id, -1,)} title="Move up">↑</button>
-                                    <button type="button" onClick={() => moveChild(child.id, 1,)} title="Move down">↓</button>
-                                    <button type="button" onClick={() => removeChild(child.id,)} title="Remove">✕</button>
+                                    <button type="button" onClick={() => moveChild(child.id, -1,)} title="Move up">
+                                        ↑
+                                    </button>
+                                    <button type="button" onClick={() => moveChild(child.id, 1,)} title="Move down">
+                                        ↓
+                                    </button>
+                                    <button type="button" onClick={() => removeChild(child.id,)} title="Remove">
+                                        ✕
+                                    </button>
                                 </span>
                             </div>
                         )}
                     </For>
                     <Show when={selChild()}>
                         {(id,) => (
-                            <Show when={children().find((c,) => c.id === id(),)}>
+                            <Show when={children().find((c,) => c.id === id())}>
                                 {(child,) => (
                                     <div class="footer-editor__group-child-panel">
                                         <ItemPanel item={child()} onChange={(patch,) => patchChild(id(), patch,)} />
@@ -1848,7 +2001,11 @@ function ItemPanel(props: { item: SiteLayoutItem; onChange: (p: Partial<SiteLayo
                         // --site-button-radius chain stays in charge — not
                         // "square corners".
                         placeholder="Site default (Appearance → Miscellaneous)"
-                        onInput={(e,) => props.onChange({ borderRadius: e.currentTarget.value, },)}
+                        // Commits on BLUR, not per keystroke: lifting state to
+                        // the parent rebuilds the item list, and `<For>` keys by
+                        // reference, so the edited row — the focused one —
+                        // remounts. The sibling fields here predate that rule.
+                        onChange={(e,) => props.onChange({ borderRadius: e.currentTarget.value, },)}
                     />
                 </label>
             </Show>

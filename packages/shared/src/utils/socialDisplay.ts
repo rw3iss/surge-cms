@@ -234,6 +234,13 @@ export function resolveSocialNavPadding(
  * rounded corners and square videos inside it is an ordinary design, and
  * inheriting would make it unexpressible.
  */
+/**
+ * CONVENIENCE ALIAS for `resolveSocialItemBox(settings).borderRadius`.
+ *
+ * Not a second source of truth — it delegates, and every renderer reads the
+ * whole box instead. Kept because it is exported from a published package and
+ * removing it would break consumers; do not add logic here.
+ */
 export function resolveSocialItemRadius(
     settings: { itemBorderRadius?: unknown; } | null | undefined,
 ): string | undefined {

@@ -67,3 +67,17 @@ export interface BlockStyleReference {
     templateId?: string; // Reference to saved block_styles.id
     custom?: BlockStyle; // Inline style overrides (no id/name)
 }
+
+/**
+ * Maximum length of one block's Custom CSS, in characters.
+ *
+ * Lives here, not beside the zod schema that enforces it, so the EDITOR can
+ * show the operator where the limit is. A cap the server knows and the UI does
+ * not means the first sign of it is a save failing, by which time the block
+ * panel that owns the field is closed.
+ *
+ * Per BLOCK, so far tighter than the page-level 64 KB: a page holds one
+ * page-level sheet and can hold dozens of blocks, and an override past 16 KB
+ * is a stylesheet that belongs in Settings → Appearance.
+ */
+export const BLOCK_CUSTOM_CSS_MAX = 16384;

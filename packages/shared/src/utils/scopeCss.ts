@@ -110,8 +110,15 @@ function splitRules(css: string,): Array<Block | { raw: string; }> {
     return out;
 }
 
-/** Index just past the closing quote of the string starting at `start`. */
-function findStringEnd(css: string, start: number,): number {
+/**
+ * Index just past the closing quote of the string starting at `start`.
+ *
+ * Exported because every CSS scanner in the codebase needs it and there is only
+ * one right answer: a `}` or `;` inside `content: "…"` is not structure. The
+ * email renderer's declaration parser had its own byte-identical copy, which is
+ * two chances to get escape handling subtly different.
+ */
+export function findStringEnd(css: string, start: number,): number {
     const quote = css[start];
     let i = start + 1;
     while (i < css.length) {
@@ -123,6 +130,61 @@ function findStringEnd(css: string, start: number,): number {
         i += 1;
     }
     return css.length;
+}
+
+/**
+ * Split a declaration block into `{ prop: value }`.
+ *
+ * Tracks quotes and parentheses so a `;` inside `url(a;b)` or `content: ";"`
+ * does not cut a declaration in half.
+ *
+ * A trailing `!important` is dropped: the callers re-serialize this record into
+ * a context that has already won (an inline attribute), or only read the
+ * property NAMES. Keeping it would put the keyword back into markup where it
+ * means nothing.
+ *
+ * Lives here rather than beside the email inliner that first needed it, so the
+ * lint pass can read an operator's declarations WITHOUT importing the renderer.
+ */
+export function parseDeclarations(body: string,): Record<string, string> {
+    const out: Record<string, string> = {};
+    let depth = 0;
+    let cur = '';
+    let i = 0;
+    const flush = () => {
+        const idx = cur.indexOf(':',);
+        if (idx > 0) {
+            const prop = cur.slice(0, idx,).trim().toLowerCase();
+            const value = cur.slice(idx + 1,).trim();
+            if (prop && value) out[prop] = value.replace(/\s*!important\s*$/i, '',);
+        }
+        cur = '';
+    };
+    while (i < body.length) {
+        const ch = body[i];
+        if (ch === '"' || ch === "'") {
+            const end = findStringEnd(body, i,);
+            cur += body.slice(i, end,);
+            i = end;
+            continue;
+        }
+        if (ch === '/' && body[i + 1] === '*') {
+            const end = body.indexOf('*/', i + 2,);
+            i = end === -1 ? body.length : end + 2;
+            continue;
+        }
+        if (ch === '(') depth += 1;
+        else if (ch === ')') depth -= 1;
+        if (ch === ';' && depth === 0) {
+            flush();
+            i += 1;
+            continue;
+        }
+        cur += ch;
+        i += 1;
+    }
+    flush();
+    return out;
 }
 
 /** Index of the `}` matching the `{` at `start`. */

@@ -152,3 +152,21 @@ export function mediaRadius(
     const own = (node.style as { borderRadius?: unknown; } | undefined)?.borderRadius;
     return typeof own === 'string' && own.trim() ? own.trim() : fallback;
 }
+
+/**
+ * `mediaRadius` as a style FRAGMENT, ready to append to a style string.
+ *
+ * Every media renderer needs the same conditional — a radius or nothing — and
+ * each had written its own `radius ? ';border-radius:' + radius : ''`. Four
+ * copies of a string concatenation is four chances to drop or double a `;`,
+ * and an image block was calling `mediaRadius` twice in one expression to
+ * avoid a local. Returns the LEADING separator, so callers append it to an
+ * existing declaration list without thinking about punctuation.
+ */
+export function mediaRadiusCss(
+    node: EmailBlockNode,
+    fallback?: string,
+): string {
+    const r = mediaRadius(node, fallback,);
+    return r ? `;border-radius:${r}` : '';
+}

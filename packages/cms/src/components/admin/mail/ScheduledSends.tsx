@@ -11,15 +11,15 @@
  * daylight-saving change. New schedules default to the site's authoring
  * timezone (Settings → defaults), falling back to America/New_York.
  */
+import type { MailingList, MailSchedule, MailScheduleFrequency, MailTemplate, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
-import type { MailingList, MailSchedule, MailScheduleFrequency, MailTemplate, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
 import ModalShell from '../common/ModalShell';
-import { FormField, } from '../forms';
 import Toggle from '../common/Toggle';
+import { FormField, } from '../forms';
 
 const FREQUENCIES: { value: MailScheduleFrequency; label: string; }[] = [
     { value: 'once', label: 'Once', },
@@ -32,7 +32,9 @@ const FREQUENCIES: { value: MailScheduleFrequency; label: string; }[] = [
 /** Local YYYY-MM-DD for the date input's default. */
 function todayISO(): string {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0',)}-${String(d.getDate()).padStart(2, '0',)}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1,).padStart(2, '0',)}-${
+        String(d.getDate(),).padStart(2, '0',)
+    }`;
 }
 
 /** `HH:MM:SS` from the server → `HH:MM` for `<input type="time">`. */
@@ -46,7 +48,9 @@ function formatNextRun(s: MailSchedule,): string {
         // "09:00 New York", and showing them 06:00 because they are in
         // California would look like the schedule is wrong.
         return new Intl.DateTimeFormat(undefined, {
-            dateStyle: 'medium', timeStyle: 'short', timeZone: s.timezone,
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: s.timezone,
         },).format(new Date(s.nextRunAt,),);
     } catch {
         return new Date(s.nextRunAt,).toLocaleString();
@@ -74,7 +78,7 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
             return [] as MailSchedule[];
         }
     },);
-    const [siteTz] = createResource(async () => {
+    const [siteTz,] = createResource(async () => {
         try {
             return (await cms.mailingLists.scheduleTimezone()).timezone;
         } catch {
@@ -92,9 +96,15 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
     // rebuilding the object on every keystroke would remount the inputs and
     // steal focus (see ADMIN_STYLES.md).
     const [draft, setDraft,] = createStore<Draft>({
-        name: '', listId: '', templateId: '', subject: '',
-        frequency: 'weekly', timeOfDay: '09:00', timezone: 'America/New_York',
-        startDate: todayISO(), enabled: true,
+        name: '',
+        listId: '',
+        templateId: '',
+        subject: '',
+        frequency: 'weekly',
+        timeOfDay: '09:00',
+        timezone: 'America/New_York',
+        startDate: todayISO(),
+        enabled: true,
     },);
 
     const openNew = (): void => {
@@ -185,8 +195,7 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
         }
     };
 
-    const canSave = (): boolean =>
-        draft.name.trim().length > 0 && Boolean(draft.listId,) && Boolean(draft.templateId,);
+    const canSave = (): boolean => draft.name.trim().length > 0 && Boolean(draft.listId,) && Boolean(draft.templateId,);
 
     return (
         <section class="admin-section admin-section--wide">
@@ -198,16 +207,23 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
                         class="ui-button ui-button--primary ui-button--sm"
                         onClick={openNew}
                         disabled={props.lists.length === 0 || props.templates.length === 0}
-                        title={props.lists.length === 0 || props.templates.length === 0
-                            ? 'Create a list and a template first'
-                            : undefined}
+                        title={props.lists.length === 0 || props.templates.length === 0 ?
+                            'Create a list and a template first' :
+                            undefined}
                     >
                         Schedule a new message
                     </button>
                 </div>
             </header>
 
-            <Show when={!schedules.loading} fallback={<p>Loading…</p>}>
+            {
+                /* Gate on "has the list EVER arrived", not on `loading` — Solid
+                sets that during a REFETCH too, and pause/resume/delete/save all
+                refetch. Gating on it replaced the whole table with "Loading…"
+                after every action, so the row the operator just acted on
+                jumped. */
+            }
+            <Show when={schedules() !== undefined} fallback={<p>Loading…</p>}>
                 <Show
                     when={(schedules() ?? []).length > 0}
                     fallback={
@@ -241,12 +257,14 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
                                             </td>
                                             <td>{s.listName ?? <em class="form-help-muted">(deleted)</em>}</td>
                                             <td>
-                                                {s.templateName
-                                                    ?? <em class="form-help-muted">(template removed)</em>}
+                                                {s.templateName ??
+                                                    <em class="form-help-muted">(template removed)</em>}
                                             </td>
                                             <td>
-                                                {FREQUENCIES.find((f,) => f.value === s.frequency)?.label ?? s.frequency}
-                                                {' at '}{toInputTime(s.timeOfDay,)}
+                                                {FREQUENCIES.find((f,) => f.value === s.frequency)?.label ??
+                                                    s.frequency}
+                                                {' at '}
+                                                {toInputTime(s.timeOfDay,)}
                                                 <div class="form-help-muted">{s.timezone}</div>
                                             </td>
                                             <td>{formatNextRun(s,)}</td>
@@ -255,21 +273,26 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
                                                     when={s.lastRunAt}
                                                     fallback={<em class="form-help-muted">Never</em>}
                                                 >
-                                                    <span class={`badge ${
-                                                        s.lastStatus === 'sent'
-                                                            ? 'badge--success'
-                                                            : s.lastStatus === 'failed'
-                                                            ? 'badge--error'
-                                                            : 'badge--muted'
-                                                    }`}
+                                                    <span
+                                                        class={`badge ${
+                                                            s.lastStatus === 'sent' ?
+                                                                'badge--success' :
+                                                                s.lastStatus === 'failed' ?
+                                                                'badge--error' :
+                                                                'badge--muted'
+                                                        }`}
                                                     >
                                                         {s.lastStatus ?? 'ran'}
                                                     </span>
-                                                    {/* The error is shown inline rather than only logged —
+                                                    {
+                                                        /* The error is shown inline rather than only logged —
                                                         a schedule that silently stopped working is the
-                                                        failure an operator finds out about from a reader. */}
+                                                        failure an operator finds out about from a reader. */
+                                                    }
                                                     <Show when={s.lastStatus !== 'sent' && s.lastError}>
-                                                        <div class="form-help-muted schedule-row__error">{s.lastError}</div>
+                                                        <div class="form-help-muted schedule-row__error">
+                                                            {s.lastError}
+                                                        </div>
                                                     </Show>
                                                 </Show>
                                             </td>
@@ -337,7 +360,10 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
                         label="Template"
                         hint="Resolved when the send fires, so edits to the template apply to future sends."
                     >
-                        <select value={draft.templateId} onChange={(e,) => setDraft('templateId', e.currentTarget.value,)}>
+                        <select
+                            value={draft.templateId}
+                            onChange={(e,) => setDraft('templateId', e.currentTarget.value,)}
+                        >
                             <For each={props.templates}>
                                 {(t,) => <option value={t.id}>{t.name}</option>}
                             </For>
@@ -360,7 +386,8 @@ const ScheduledSends: Component<{ lists: MailingList[]; templates: MailTemplate[
                         <FormField label="Repeats">
                             <select
                                 value={draft.frequency}
-                                onChange={(e,) => setDraft('frequency', e.currentTarget.value as MailScheduleFrequency,)}
+                                onChange={(e,) =>
+                                    setDraft('frequency', e.currentTarget.value as MailScheduleFrequency,)}
                             >
                                 <For each={FREQUENCIES}>
                                     {(f,) => <option value={f.value}>{f.label}</option>}

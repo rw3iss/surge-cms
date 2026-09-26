@@ -62,7 +62,25 @@ export function canonicalRedirect(
     const pathname = qIndex === -1 ? originalUrl : originalUrl.slice(0, qIndex,);
     const suffix = qIndex === -1 ? '' : originalUrl.slice(qIndex,);
 
-    if (SKIP_PREFIXES.some(p => pathname.startsWith(p,),)) return null;
+    /*
+     * Same-origin paths only — this is an OPEN REDIRECT guard, not tidiness.
+     *
+     * `//evil.com/` is a valid request path, and trimming its trailing slash
+     * yields `//evil.com`. Handed to `res.redirect`, that is a protocol-relative
+     * URL: the browser reads it as a network-path reference and leaves the site.
+     * `/\evil.com` is the same trick — browsers normalise the backslash.
+     *
+     * A **301** makes it worse than the usual open redirect: browsers and CDNs
+     * cache it, so a phishing link on this domain keeps working long after the
+     * request that created it.
+     *
+     * This module exists so Docker and npm consumers get canonical URLs without
+     * nginx, which is exactly the deployment with nothing else normalising `//`.
+     */
+    if (!pathname.startsWith('/',)) return null;
+    if (pathname.startsWith('//',) || pathname.startsWith('/\\',)) return null;
+
+    if (SKIP_PREFIXES.some(p => pathname.startsWith(p,))) return null;
 
     const next = canonicalPath(pathname,);
     if (next === pathname) return null;

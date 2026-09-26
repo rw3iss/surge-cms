@@ -12,10 +12,14 @@
  * per-block override that runs past 16 KB is a stylesheet that belongs in
  * Settings → Appearance, not in one block.
  */
+import { BLOCK_CUSTOM_CSS_MAX, } from '@sitesurge/types';
 import { z, } from 'zod';
 
-/** Maximum length of one block's Custom CSS, in characters. */
-export const BLOCK_CUSTOM_CSS_MAX = 16384;
+/*
+ * Re-exported from `@sitesurge/types`, where it lives so the block style editor
+ * can show the operator the limit rather than letting a save fail at it.
+ */
+export { BLOCK_CUSTOM_CSS_MAX, };
 
 const overLimit = (v: unknown,) => typeof v === 'string' && v.length > BLOCK_CUSTOM_CSS_MAX;
 

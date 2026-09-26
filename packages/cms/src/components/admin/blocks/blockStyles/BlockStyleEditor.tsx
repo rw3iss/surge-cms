@@ -1,4 +1,4 @@
-import type { SiteBreakpoint, } from '@sitesurge/types';
+import { BLOCK_CUSTOM_CSS_MAX, type SiteBreakpoint, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { BLOCK_STYLE_DEFAULTS, BlockStyleData, } from '../../../../services/blockStyles';
 import { siteSettings, } from '../../../../stores/siteSettings';
@@ -70,6 +70,9 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
     const [showBgUpload, setShowBgUpload,] = createSignal(false,);
     const [showCss, setShowCss,] = createSignal(false,);
     let lastStyleId = props.style.id;
+
+    /** Past the server's cap — the save will be rejected. */
+    const cssOverLimit = () => sv('customCss',).length > BLOCK_CUSTOM_CSS_MAX;
 
     /** What Tab inserts in the CSS field (Settings → Appearance → Code tab width). */
     const codeTabWidth = () => siteSettings()?.appearance?.codeTabWidth ?? '4';
@@ -758,6 +761,20 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                                 content="Free-form CSS applied to THIS block only — every selector is automatically scoped to it, so `p { … }` means the paragraphs inside this block and cannot affect the rest of the page. Use `&` for the block itself (`&:hover`, `& > p`). Emitted after the controls above, so these rules win. Set per breakpoint: the Default sheet applies everywhere and a breakpoint's sheet overrides it inside that breakpoint's media query. In emails the rules are inlined onto the block's markup, since mail clients cannot be relied on for a stylesheet."
                             />
                             <span class="block-style-editor__template-spacer" />
+                            {
+                                /* The server rejects anything past the cap. Without
+                                a counter the first sign of it is the PAGE save
+                                failing, long after this panel has closed. */
+                            }
+                            <Show when={sv('customCss',).length > BLOCK_CUSTOM_CSS_MAX * 0.8}>
+                                <span
+                                    class={`block-style-editor__css-count${
+                                        cssOverLimit() ? ' block-style-editor__css-count--over' : ''
+                                    }`}
+                                >
+                                    {sv('customCss',).length.toLocaleString()} / {BLOCK_CUSTOM_CSS_MAX.toLocaleString()}
+                                </span>
+                            </Show>
                             <Show when={sv('customCss',).trim()}>
                                 <button
                                     type="button"

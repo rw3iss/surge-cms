@@ -13,11 +13,12 @@ import {
     resolveSocialNavPadding,
     SOCIAL_NAVIGATION_LABELS,
     SOCIAL_NAVIGATIONS,
-} from '@sitesurge/types';
+} from './socialDisplay';
 
 describe('resolveSocialNavigation', () => {
     it.each(['dots', 'bottom-arrows', 'side-arrows', 'none',],)(
-        'returns %j for a row layout', (nav,) => {
+        'returns %j for a row layout',
+        (nav,) => {
             expect(resolveSocialNavigation({ layout: 'row', navigation: nav, },),).toBe(nav,);
         },
     );
@@ -25,10 +26,11 @@ describe('resolveSocialNavigation', () => {
     it('defaults to none when unset', () => {
         // Existing row blocks must be unchanged by this feature.
         expect(resolveSocialNavigation({ layout: 'row', },),).toBe('none',);
-    },);
+    });
 
     it.each(['grid', '1-col', undefined,],)(
-        'is none for the non-scrolling layout %j, whatever is stored', (layout,) => {
+        'is none for the non-scrolling layout %j, whatever is stored',
+        (layout,) => {
             expect(resolveSocialNavigation({ layout, navigation: 'side-arrows', },),).toBe('none',);
         },
     );
@@ -36,7 +38,7 @@ describe('resolveSocialNavigation', () => {
     it('rejects an unrecognised value rather than passing it through', () => {
         // A stray value would reach the DOM as a class name.
         expect(resolveSocialNavigation({ layout: 'row', navigation: 'carousel', },),).toBe('none',);
-    },);
+    });
 
     it.each([null, undefined, {},],)('survives %j', (s,) => {
         expect(resolveSocialNavigation(s as never,),).toBe('none',);
@@ -47,17 +49,17 @@ describe('resolveSocialNavigation', () => {
             expect(SOCIAL_NAVIGATION_LABELS[n],).toBeTruthy();
         }
         expect(Object.keys(SOCIAL_NAVIGATION_LABELS,).length,).toBe(SOCIAL_NAVIGATIONS.length,);
-    },);
-},);
+    });
+});
 
 describe('resolveSocialNavPadding', () => {
     it('returns the configured value', () => {
         expect(resolveSocialNavPadding({ navPadding: '12px', },),).toBe('12px',);
-    },);
+    });
 
     it('trims', () => {
         expect(resolveSocialNavPadding({ navPadding: '  8px 4px  ', },),).toBe('8px 4px',);
-    },);
+    });
 
     it.each(['', '   ', undefined, null,],)('returns undefined for %j', (v,) => {
         // undefined, not '', so a caller can omit the property entirely rather
@@ -67,5 +69,5 @@ describe('resolveSocialNavPadding', () => {
 
     it('survives no settings at all', () => {
         expect(resolveSocialNavPadding(undefined,),).toBeUndefined();
-    },);
-},);
+    });
+});

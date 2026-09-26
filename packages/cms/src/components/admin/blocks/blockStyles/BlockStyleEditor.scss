@@ -193,4 +193,17 @@
         gap: 4px;
         margin-bottom: 4px;
     }
+
+    // Appears only as the sheet approaches the server's cap, so it is a
+    // warning rather than permanent chrome.
+    &__css-count {
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: $text-light;
+
+        &--over {
+            color: $primary-color;
+            font-weight: 700;
+        }
+    }
 }

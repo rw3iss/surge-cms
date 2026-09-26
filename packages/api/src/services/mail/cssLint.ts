@@ -21,8 +21,7 @@
  * constructs cannot survive lets them choose an email-safe equivalent, which
  * is a decision about design, not a transformation a renderer can make.
  */
-import { parseCssRules, } from '@sitesurge/types';
-import { parseDeclarations, } from './blocks/customCss';
+import { parseCssRules, parseDeclarations, } from '@sitesurge/types';
 
 /** One thing about this HTML that email clients will not render faithfully. */
 export interface EmailCssWarning {
