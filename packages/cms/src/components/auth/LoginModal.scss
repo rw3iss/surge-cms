@@ -1,0 +1,33 @@
+/* Overlay around the shared login card (`.login__container` supplies the card). */
+.login-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.login-modal {
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+
+    &__close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
+        border: none;
+        background: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        color: var(--site-text-muted, #6b7280);
+        cursor: pointer;
+
+        &:hover { color: var(--site-text, #1a1a1a); }
+        &:focus-visible { outline: 2px solid var(--site-primary, #e63946); outline-offset: 2px; }
+    }
+}

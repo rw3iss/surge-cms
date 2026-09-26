@@ -92,6 +92,8 @@ export class EventsModule extends ModuleBase {
      *  are re-resolved server-side, so the cart's figures are display-only. */
     purchaseTickets(body: {
         email: string; name?: string; phone?: string;
+        /** The event's other requested details (organization, notes). */
+        fields?: Record<string, unknown>;
         lines: Array<{
             eventId: string; occurrenceDate: string; tierId: string; quantity: number;
         }>;

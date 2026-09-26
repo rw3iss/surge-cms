@@ -7,13 +7,9 @@
  * full admin. Subscribe/unsubscribe are public so a visitor can follow an event
  * without an account.
  */
-import { z, } from 'zod';
-import type {
-    EventsCreateBody,
-    EventsSubscribeBody,
-    EventsUnsubscribeBody,
-} from '@sitesurge/types';
+import type { EventsCreateBody, EventsSubscribeBody, EventsUnsubscribeBody, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
+import { z, } from 'zod';
 import { defineRoute, } from '../api/defineRoute';
 import { reply, } from '../api/types';
 import * as events from '../services/events';
@@ -68,16 +64,19 @@ const pushBody = z.object({
 },);
 
 export const eventsRoutes = [
-
     // ─── Settings (declared BEFORE /:idOrSlug so it isn't swallowed) ───
     defineRoute({
-        method: 'get', path: '/settings', auth: 'public',
+        method: 'get',
+        path: '/settings',
+        auth: 'public',
         summary: 'Public events settings (notification toggles + VAPID public key).',
         handler: () => events.getPublicSettings(),
     },),
 
     defineRoute({
-        method: 'put', path: '/settings', auth: 'admin',
+        method: 'put',
+        path: '/settings',
+        auth: 'admin',
         summary: 'Update the events module settings.',
         input: {
             body: z.object({
@@ -94,7 +93,9 @@ export const eventsRoutes = [
 
     // ─── Subscriptions ───
     defineRoute({
-        method: 'post', path: '/subscribe', auth: 'optional',
+        method: 'post',
+        path: '/subscribe',
+        auth: 'optional',
         summary: 'Subscribe to one event, or to all events when eventId is omitted.',
         input: { body: subscribeBody, },
         handler: async ({ body, user, },) => ({
@@ -103,14 +104,18 @@ export const eventsRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/unsubscribe', auth: 'public',
+        method: 'post',
+        path: '/unsubscribe',
+        auth: 'public',
         summary: 'Unsubscribe using the token from a notification email.',
         input: { body: z.object({ token: z.string().min(1,), },) satisfies z.ZodType<EventsUnsubscribeBody>, },
         handler: async ({ body, },) => ({ unsubscribed: await events.unsubscribe(body.token,), }),
     },),
 
     defineRoute({
-        method: 'post', path: '/push/subscribe', auth: 'optional',
+        method: 'post',
+        path: '/push/subscribe',
+        auth: 'optional',
         summary: 'Register a browser Web Push endpoint for desktop notifications.',
         input: { body: pushBody, },
         handler: ({ body, user, req, },) =>
@@ -124,11 +129,12 @@ export const eventsRoutes = [
             },),
     },),
 
-
     // ─── Calendar (occurrence-expanded) ───
     // Declared before /:idOrSlug so the literal path isn't swallowed by it.
     defineRoute({
-        method: 'get', path: '/calendar', auth: 'optional',
+        method: 'get',
+        path: '/calendar',
+        auth: 'optional',
         summary: 'Occurrences in a date window, with recurring series expanded.',
         input: {
             query: z.object({
@@ -145,7 +151,9 @@ export const eventsRoutes = [
 
     // ─── Ticket tiers ───
     defineRoute({
-        method: 'get', path: '/:id/tiers', auth: 'optional',
+        method: 'get',
+        path: '/:id/tiers',
+        auth: 'optional',
         summary: 'Ticket tiers for an occurrence, with sold/remaining counts.',
         input: {
             params: z.object({ id: z.string().uuid(), },),
@@ -155,8 +163,10 @@ export const eventsRoutes = [
     },),
 
     defineRoute({
-        method: 'put', path: '/:id/tiers', auth: 'staff',
-        summary: 'Replace an event\'s ticket tiers.',
+        method: 'put',
+        path: '/:id/tiers',
+        auth: 'staff',
+        summary: "Replace an event's ticket tiers.",
         input: {
             params: z.object({ id: z.string().uuid(), },),
             body: z.object({
@@ -171,13 +181,14 @@ export const eventsRoutes = [
                 },),),
             },),
         },
-        handler: ({ params, body, audit, },) =>
-            events.replaceTiers(params.id, body.tiers, audit(),),
+        handler: ({ params, body, audit, },) => events.replaceTiers(params.id, body.tiers, audit(),),
     },),
 
     // ─── Per-date exceptions ───
     defineRoute({
-        method: 'put', path: '/:id/occurrences/:date', auth: 'staff',
+        method: 'put',
+        path: '/:id/occurrences/:date',
+        auth: 'staff',
         summary: 'Cancel or restore one date of a recurring series.',
         input: {
             params: z.object({
@@ -194,7 +205,9 @@ export const eventsRoutes = [
 
     // ─── Attendee registration ───
     defineRoute({
-        method: 'post', path: '/:id/register', auth: 'optional',
+        method: 'post',
+        path: '/:id/register',
+        auth: 'optional',
         summary: 'Register an attendee for an occurrence of this event.',
         input: {
             params: z.object({ id: z.string().min(1,), },),
@@ -208,13 +221,21 @@ export const eventsRoutes = [
         },
         handler: async ({ params, body, user, },) => ({
             registration: await events.register({
-                eventId: params.id, ...body, userId: user?.id,
+                eventId: params.id,
+                ...body,
+                // A signed-in attendee registers as THEMSELVES. The form shows
+                // their account email as a label, and the server does not take
+                // the client's word for it.
+                email: user?.email || body.email,
+                userId: user?.id,
             },),
         }),
     },),
 
     defineRoute({
-        method: 'get', path: '/:id/registrations', auth: 'staff',
+        method: 'get',
+        path: '/:id/registrations',
+        auth: 'staff',
         summary: 'Paged attendee list for an occurrence.',
         input: {
             params: z.object({ id: z.string().uuid(), },),
@@ -226,7 +247,9 @@ export const eventsRoutes = [
         },
         handler: async ({ params, query, },) => {
             const { data, total, } = await events.listRegistrations(
-                params.id, query.occurrenceDate, query,
+                params.id,
+                query.occurrenceDate,
+                query,
             );
             return reply(data, {
                 meta: {
@@ -241,13 +264,18 @@ export const eventsRoutes = [
 
     // ─── Ticket purchase ───
     defineRoute({
-        method: 'post', path: '/tickets/purchase', auth: 'optional',
+        method: 'post',
+        path: '/tickets/purchase',
+        auth: 'optional',
         summary: 'Buy tickets. Free orders confirm immediately; paid ones return a total for payment.',
         input: {
             body: z.object({
                 email: z.string().email(),
                 name: z.string().max(255,).optional(),
                 phone: z.string().max(255,).optional(),
+                // The event's other requested details (organization, notes) —
+                // a ticket buyer is an attendee and is asked the same things.
+                fields: z.record(z.string(), z.unknown(),).optional(),
                 lines: z.array(z.object({
                     kind: z.literal('event_ticket',).optional(),
                     eventId: z.string().uuid(),
@@ -261,18 +289,22 @@ export const eventsRoutes = [
                 },),).min(1,),
             },),
         },
-        handler: ({ body, user, },) => events.purchaseTickets({
-            lines: body.lines as never,
-            email: body.email,
-            name: body.name,
-            phone: body.phone,
-            userId: user?.id,
-        },),
+        handler: ({ body, user, },) =>
+            events.purchaseTickets({
+                lines: body.lines as never,
+                email: user?.email || body.email,
+                name: body.name,
+                phone: body.phone,
+                fields: body.fields,
+                userId: user?.id,
+            },),
     },),
 
     // ─── Reads ───
     defineRoute({
-        method: 'get', path: '/', auth: 'optional',
+        method: 'get',
+        path: '/',
+        auth: 'optional',
         summary: 'List events in a date range. Anonymous callers see published only.',
         input: { query: listQuery, },
         handler: async ({ query, user, },) => {
@@ -283,31 +315,37 @@ export const eventsRoutes = [
     },),
 
     defineRoute({
-        method: 'get', path: '/:idOrSlug', auth: 'optional',
+        method: 'get',
+        path: '/:idOrSlug',
+        auth: 'optional',
         summary: 'A single event by id or slug.',
         input: { params: z.object({ idOrSlug: z.string().min(1,), },), },
-        handler: ({ params, user, },) =>
-            events.getByIdOrSlug(params.idOrSlug, { admin: isStaffRole(user?.role,), },),
+        handler: ({ params, user, },) => events.getByIdOrSlug(params.idOrSlug, { admin: isStaffRole(user?.role,), },),
     },),
 
     // ─── Writes (staff) ───
     defineRoute({
-        method: 'post', path: '/', auth: 'staff',
+        method: 'post',
+        path: '/',
+        auth: 'staff',
         summary: 'Create an event.',
         input: { body: eventBody, },
-        handler: async ({ body, audit, },) =>
-            reply(await events.create(body, audit(),), { status: 201, },),
+        handler: async ({ body, audit, },) => reply(await events.create(body, audit(),), { status: 201, },),
     },),
 
     defineRoute({
-        method: 'put', path: '/:id', auth: 'staff',
+        method: 'put',
+        path: '/:id',
+        auth: 'staff',
         summary: 'Update an event.',
         input: { params: z.object({ id: z.string().uuid(), },), body: eventBody.partial(), },
         handler: ({ params, body, audit, },) => events.update(params.id, body, audit(),),
     },),
 
     defineRoute({
-        method: 'delete', path: '/:id', auth: 'staff',
+        method: 'delete',
+        path: '/:id',
+        auth: 'staff',
         summary: 'Delete an event.',
         input: { params: z.object({ id: z.string().uuid(), },), },
         handler: async ({ params, audit, },) => {

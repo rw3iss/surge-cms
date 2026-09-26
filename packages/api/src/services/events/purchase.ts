@@ -12,8 +12,8 @@ import { isValidEmail, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { ValidationError, } from '../../core/errors';
 import * as repo from '../../repositories/events.repo';
-import { sendEmail, } from '../email';
 import { logger, } from '../../utils/logger';
+import { sendEmail, } from '../email';
 import { register, } from './registration';
 import { getSettings, } from './settings';
 import { issueTickets, resolveTicketLines, } from './tickets';
@@ -31,6 +31,7 @@ export async function purchaseTickets(input: {
     email: string;
     name?: string;
     phone?: string;
+    fields?: Record<string, unknown>;
     userId?: string;
 },): Promise<PurchaseResult> {
     const settings = await getSettings();
@@ -65,6 +66,7 @@ export async function purchaseTickets(input: {
         email,
         name: input.name,
         phone: input.phone,
+        fields: input.fields,
         userId: input.userId,
     },);
     const tickets = await issueTickets(registration.id, lines,);
@@ -75,7 +77,7 @@ export async function purchaseTickets(input: {
         totalCents,
         currency,
         registrationId: registration.id,
-        tickets: tickets.map((t,) => ({ code: t.code, tierName: t.tierName, }),),
+        tickets: tickets.map((t,) => ({ code: t.code, tierName: t.tierName, })),
     };
 }
 
@@ -92,11 +94,13 @@ export async function sendTicketConfirmation(
         const event = await repo.findById(eventId,);
         if (!event) return;
         const when = new Date(event.startsAt,).toLocaleString('en-US', {
-            dateStyle: 'full', timeStyle: 'short',
+            dateStyle: 'full',
+            timeStyle: 'short',
         },);
         const rows = tickets.map((t,) =>
-            `<tr><td style="padding:4px 10px 4px 0">${t.tierName}</td>`
-            + `<td style="padding:4px 0"><code>${t.code}</code></td></tr>`).join('',);
+            `<tr><td style="padding:4px 10px 4px 0">${t.tierName}</td>` +
+            `<td style="padding:4px 0"><code>${t.code}</code></td></tr>`
+        ).join('',);
 
         await sendEmail({
             to: email,
@@ -115,7 +119,8 @@ export async function sendTicketConfirmation(
         },);
     } catch (e) {
         logger.warn('event ticket confirmation email failed', {
-            eventId, error: (e as Error).message,
+            eventId,
+            error: (e as Error).message,
         },);
     }
 }

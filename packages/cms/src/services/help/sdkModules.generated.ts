@@ -568,7 +568,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "purchaseTickets",
-                "signature": "purchaseTickets(body: { email: string; name?: string; phone?: string; lines: Array<{ eventId: string; occurrenceDate: string; tierId: string; quantity: number; }>; }): Promise<{ status: 'confirmed' | 'payment_required'; totalCents: number; currency: string; registrationId?: string; tickets?: Array<{ code: string; tierName: string; }>; }>",
+                "signature": "purchaseTickets(body: { email: string; name?: string; phone?: string; /** The event's other requested details (organization, notes). */ fields?: Record<string, unknown>; lines: Array<{ eventId: string; occurrenceDate: string; tierId: string; quantity: number; }>; }): Promise<{ status: 'confirmed' | 'payment_required'; totalCents: number; currency: string; registrationId?: string; tickets?: Array<{ code: string; tierName: string; }>; }>",
                 "summary": "POST /events/tickets/purchase — free orders confirm immediately; paid ones come back with a total for the payment step. Price and inventory are re-resolved server-side, so the cart's figures are display-only."
             },
             {

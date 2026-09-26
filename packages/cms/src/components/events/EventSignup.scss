@@ -1,0 +1,54 @@
+// Sign-up card specifics. The card, form, tier list and states come from
+// EventDetail.scss (`.event-detail__*`), so both render identically.
+.event-signup {
+    &__as {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    // A detail the site already knows: shown, not asked for.
+    &__known {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 6px);
+        background: color-mix(in srgb, var(--site-text, #1a1a1a) 3%, transparent);
+    }
+
+    &__known-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__known-value {
+        color: var(--site-text, #1a1a1a);
+        overflow-wrap: anywhere;
+    }
+
+    &__login {
+        margin: 0.75rem 0 0;
+        font-size: 0.875rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__login-link {
+        padding: 0;
+        border: none;
+        background: none;
+        font: inherit;
+        color: var(--site-link, var(--site-primary, #e63946));
+        text-decoration: underline;
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 2px solid var(--site-primary, #e63946);
+            outline-offset: 2px;
+        }
+    }
+}
