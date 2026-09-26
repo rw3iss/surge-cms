@@ -8,9 +8,10 @@
  * SocialPostSelectModal for advanced search / pagination.
  */
 import { cms, } from '@/services/cmsClient';
-import { resolveSocialCount, } from '@sitesurge/types';
+import { resolveSocialCount, resolveSocialTitleAlign, } from '@sitesurge/types';
 import { SOCIAL_NAVIGATION_LABELS, SOCIAL_NAVIGATIONS, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, Index, on, onCleanup, onMount, Show, } from 'solid-js';
+import AlignButtons from '../../common/AlignButtons';
 import AnchoredDropdown from '../../common/AnchoredDropdown';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
@@ -330,11 +331,22 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                         </select>
                     </FormField>
 
-                    <div class="form-group">
+                    {
+                        /* Title alignment sits beside the toggle it depends on, and
+                        is disabled — not hidden — while titles are off, so the
+                        control does not jump in and out of the panel. */
+                    }
+                    <div class="form-group social-block-edit__title-row">
                         <Toggle
                             checked={props.data.showTitle !== false}
                             onChange={(next,) => update({ showTitle: next, },)}
                             label="Show title"
+                        />
+                        <AlignButtons
+                            label="Title alignment"
+                            value={resolveSocialTitleAlign(props.data as never,)}
+                            onChange={(v,) => update({ titleAlign: v, },)}
+                            disabled={props.data.showTitle === false}
                         />
                     </div>
 

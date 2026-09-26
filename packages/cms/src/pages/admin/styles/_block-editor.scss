@@ -1658,3 +1658,12 @@
   gap: $spacing-md;
   width: 100%;
 }
+
+// "Show title" toggle with its alignment bar beside it.
+.social-block-edit__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}

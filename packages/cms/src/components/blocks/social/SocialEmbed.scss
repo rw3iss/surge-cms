@@ -552,6 +552,11 @@
 // exist.
 .social-embed__title {
     margin: 0;
+    // The block's "Title alignment" (centre by default). `flex: 1` so the
+    // heading spans the row — text-align has no room to act on a
+    // shrink-wrapped flex item — while the date keeps its own width.
+    flex: 1 1 auto;
+    text-align: var(--social-title-align, center);
     // Slightly larger than the surrounding meta, and a block-level font size
     // wins when one is set.
     font-size: var(--block-font-size, 1.0625rem);

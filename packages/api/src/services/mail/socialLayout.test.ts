@@ -261,3 +261,39 @@ describe('renderSocial — alignment of a post narrower than the block', () => {
         expect(img({ horizontalAlign: 'space-between', },),).toContain('margin:0 auto',);
     });
 });
+
+describe('renderSocial — title alignment and width', () => {
+    const html = (settings: Record<string, unknown>, style: Record<string, unknown> = {},) => {
+        const n = node({ showTitle: true, itemWidth: '300px', ...settings, },) as unknown as Record<string, unknown>;
+        n.style = style;
+        return renderSocial(n as never, ctx,) as string;
+    };
+    const metaTable = (h: string,) => /<table role="presentation" align="[a-z]+"[^>]*>/.exec(h,)![0];
+    const titleCell = (h: string,) => /<td align="[a-z]+" style="color:[^"]*font-weight:600[^"]*"/.exec(h,)![0];
+
+    it('centres the title by default', () => {
+        expect(titleCell(html({},),),).toContain('text-align:center',);
+        expect(titleCell(html({},),),).toContain('align="center"',);
+    });
+
+    it('follows the Title alignment setting', () => {
+        expect(titleCell(html({ titleAlign: 'left', },),),).toContain('text-align:left',);
+        expect(titleCell(html({ titleAlign: 'right', },),),).toContain('text-align:right',);
+    });
+
+    it('holds the title to the item width, like the picture', () => {
+        expect(metaTable(html({},),),).toContain('max-width:300px',);
+    });
+
+    it('positions the title block with the picture (centred by default)', () => {
+        expect(metaTable(html({},),),).toContain('margin:10px auto 0',);
+        expect(metaTable(html({}, { horizontalAlign: 'start', },),),).toContain('margin:10px 0 0"',);
+        expect(metaTable(html({}, { horizontalAlign: 'end', },),),).toContain('margin:10px 0 0 auto',);
+    });
+
+    it('keeps title alignment independent of where the post sits', () => {
+        const h = html({ titleAlign: 'left', }, { horizontalAlign: 'center', },);
+        expect(metaTable(h,),).toContain('margin:10px auto 0',);
+        expect(titleCell(h,),).toContain('text-align:left',);
+    });
+});

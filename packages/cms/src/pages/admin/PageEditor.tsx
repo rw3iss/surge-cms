@@ -1,23 +1,24 @@
-import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { NotFoundError, } from '@sitesurge/client';
-import { useToast, } from '../../components/common/toast';
-import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
-import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
-import Toggle from '../../components/admin/common/Toggle';
-import Tooltip from '../../components/admin/common/Tooltip';
-import ColorPicker from '../../components/admin/appearance/ColorPicker';
-import CssEditor from '../../components/admin/common/CssEditor';
-import { FormField, } from '../../components/admin/forms';
-import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
-import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
-import { Layout, } from '../../components/layout/Layout';
-import { blockDataToRenderBlock, } from '../../utils/blockData';
-import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityEditor';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { useNavigate, } from '@solidjs/router';
-import { cms, } from '../../services/cmsClient';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import ColorPicker from '../../components/admin/appearance/ColorPicker';
+import type { BlockData, } from '../../components/admin/blocks/BlockEditor';
+import AlignButtons, { type HAlign, } from '../../components/admin/common/AlignButtons';
+import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
+import CssEditor from '../../components/admin/common/CssEditor';
+import Toggle from '../../components/admin/common/Toggle';
+import Tooltip from '../../components/admin/common/Tooltip';
+import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
+import { FormField, } from '../../components/admin/forms';
+import { BlockRenderer, } from '../../components/blocks/BlockRenderer';
+import { useToast, } from '../../components/common/toast';
+import { Layout, } from '../../components/layout/Layout';
+import { type EntitySaveContext, useEntityEditor, } from '../../hooks/useEntityEditor';
 import { planBlockSync, } from '../../services/blockSyncPlan';
+import { cms, } from '../../services/cmsClient';
 import { contentPaddingStyle, pageBackgroundStyle, } from '../../utils/appearanceStyle';
+import { blockDataToRenderBlock, } from '../../utils/blockData';
 
 // Uses DEFAULT_BLOCK_TYPES from BlockEditor (unified list for all editors).
 // Block IDs are real UUIDs from creation (see utils/blockId) so a group child
@@ -26,7 +27,9 @@ import { contentPaddingStyle, pageBackgroundStyle, } from '../../utils/appearanc
 // StyleRef / style logic lives in the shared kernel so the page,
 // post, and mail converters can't drift apart.
 import {
-    deriveStyleRefFromStyle, resolveActiveStyleRef, styleRefToPersistedStyle,
+    deriveStyleRefFromStyle,
+    resolveActiveStyleRef,
+    styleRefToPersistedStyle,
 } from '../../services/blockStyleRef';
 
 function pageBlockToBlockData(block: any,): BlockData {
@@ -69,12 +72,6 @@ function blockDataToPageBlock(block: BlockData, order: number,) {
         style,
     };
 }
-
-const ALIGNMENTS = [
-    { value: 'left', icon: '≡', title: 'Left', },
-    { value: 'center', icon: '≡', title: 'Center', },
-    { value: 'right', icon: '≡', title: 'Right', },
-];
 
 const AdminPageEditor: Component = () => {
     // ─── Page property signals (still owned here) ───
@@ -328,59 +325,49 @@ const AdminPageEditor: Component = () => {
                             <input
                                 type="text"
                                 value={title()}
-                                onInput={(e,) => { setTitle(e.currentTarget.value,); editor.markDirty(); }}
+                                onInput={(e,) => {
+                                    setTitle(e.currentTarget.value,);
+                                    editor.markDirty();
+                                }}
                                 placeholder="Page title"
                                 style={{ flex: '1', }}
                             />
-                            <div class="page-editor__align-buttons">
-                                <For each={ALIGNMENTS}>
-                                    {(a,) => (
-                                        <button
-                                            class={`page-editor__align-btn ${titleAlignment() === a.value ? 'page-editor__align-btn--active' : ''}`}
-                                            onClick={() => { setTitleAlignment(a.value,); editor.markDirty(); }}
-                                            title={a.title}
-                                        >
-                                            <svg viewBox="0 0 16 16" width="14" height="14">
-                                                <Show when={a.value === 'left'}>
-                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                    <rect x="1" y="7" width="10" height="2" fill="currentColor" />
-                                                    <rect x="1" y="12" width="12" height="2" fill="currentColor" />
-                                                </Show>
-                                                <Show when={a.value === 'center'}>
-                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                    <rect x="3" y="7" width="10" height="2" fill="currentColor" />
-                                                    <rect x="2" y="12" width="12" height="2" fill="currentColor" />
-                                                </Show>
-                                                <Show when={a.value === 'right'}>
-                                                    <rect x="1" y="2" width="14" height="2" fill="currentColor" />
-                                                    <rect x="5" y="7" width="10" height="2" fill="currentColor" />
-                                                    <rect x="3" y="12" width="12" height="2" fill="currentColor" />
-                                                </Show>
-                                            </svg>
-                                        </button>
-                                    )}
-                                </For>
-                            </div>
+                            <AlignButtons
+                                label="Title alignment"
+                                value={(titleAlignment() || 'left') as HAlign}
+                                onChange={(v,) => {
+                                    setTitleAlignment(v,);
+                                    editor.markDirty();
+                                }}
+                            />
                         </div>
                     </FormField>
                     <FormField label="Slug">
                         <input
                             type="text"
                             value={slug()}
-                            onInput={(e,) => { setSlug(e.currentTarget.value,); editor.markDirty(); }}
+                            onInput={(e,) => {
+                                setSlug(e.currentTarget.value,);
+                                editor.markDirty();
+                            }}
                             placeholder="page-slug"
                         />
                         <small class="form-help">URL: /{slug()}</small>
                     </FormField>
-                    {/* "Show title on page" toggle — sits in the
+                    {
+                        /* "Show title on page" toggle — sits in the
                         same single-line layout as the homepage
                         toggle in the sidebar; reuses those classes
-                        so spacing / typography stay consistent. */}
+                        so spacing / typography stay consistent. */
+                    }
                     <div class="form-group page-editor__homepage-section">
                         <div class="page-editor__homepage-toggle">
                             <Toggle
                                 checked={showTitle()}
-                                onChange={(next,) => { setShowTitle(next,); editor.markDirty(); }}
+                                onChange={(next,) => {
+                                    setShowTitle(next,);
+                                    editor.markDirty();
+                                }}
                                 label="Show title on page"
                             />
                             <Tooltip
@@ -391,7 +378,10 @@ const AdminPageEditor: Component = () => {
                         <div class="page-editor__homepage-toggle">
                             <Toggle
                                 checked={applyPagePadding()}
-                                onChange={(next,) => { setApplyPagePadding(next,); editor.markDirty(); }}
+                                onChange={(next,) => {
+                                    setApplyPagePadding(next,);
+                                    editor.markDirty();
+                                }}
                                 label="Apply Page Padding"
                             />
                             <Tooltip
@@ -402,7 +392,10 @@ const AdminPageEditor: Component = () => {
                         <div class="page-editor__homepage-toggle">
                             <Toggle
                                 checked={applySiteGutter()}
-                                onChange={(next,) => { setApplySiteGutter(next,); editor.markDirty(); }}
+                                onChange={(next,) => {
+                                    setApplySiteGutter(next,);
+                                    editor.markDirty();
+                                }}
                                 label="Apply Site Gutter"
                             />
                             <Tooltip
@@ -416,7 +409,10 @@ const AdminPageEditor: Component = () => {
                                 <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
                                     <select
                                         value={headerStyle()}
-                                        onChange={(e,) => { setHeaderStyle(e.currentTarget.value,); editor.markDirty(); }}
+                                        onChange={(e,) => {
+                                            setHeaderStyle(e.currentTarget.value,);
+                                            editor.markDirty();
+                                        }}
                                     >
                                         <option value="">- (use site default)</option>
                                         <option value="default">Default</option>
@@ -433,7 +429,10 @@ const AdminPageEditor: Component = () => {
                                 <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
                                     <select
                                         value={headerPosition()}
-                                        onChange={(e,) => { setHeaderPosition(e.currentTarget.value,); editor.markDirty(); }}
+                                        onChange={(e,) => {
+                                            setHeaderPosition(e.currentTarget.value,);
+                                            editor.markDirty();
+                                        }}
                                     >
                                         <option value="">- (use site default)</option>
                                         <option value="static">Static</option>
@@ -448,15 +447,23 @@ const AdminPageEditor: Component = () => {
                             <div class="form-group">
                                 <label>Page Background Color</label>
                                 <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
-                                    {/* Same picker as Settings → Appearance → Colors, so a
+                                    {
+                                        /* Same picker as Settings → Appearance → Colors, so a
                                         swatch chosen here stays linked: editing the swatch
                                         later reflows into every page using it. Clearing
-                                        returns the page to the site background. */}
+                                        returns the page to the site background. */
+                                    }
                                     <ColorPicker
                                         value={backgroundColor()}
-                                        onChange={(hex,) => { setBackgroundColor(hex,); editor.markDirty(); }}
+                                        onChange={(hex,) => {
+                                            setBackgroundColor(hex,);
+                                            editor.markDirty();
+                                        }}
                                         clearable
-                                        onClear={() => { setBackgroundColor('',); editor.markDirty(); }}
+                                        onClear={() => {
+                                            setBackgroundColor('',);
+                                            editor.markDirty();
+                                        }}
                                     />
                                     <Tooltip
                                         header="Page Background Color"
@@ -466,11 +473,13 @@ const AdminPageEditor: Component = () => {
                             </div>
                         </div>
 
-                        {/* Full-width row beneath the property columns: a code
+                        {
+                            /* Full-width row beneath the property columns: a code
                             editor is unusable squeezed into a half column.
                             Collapsed until asked for, since most pages never
                             need one — but auto-open when the page already has
-                            CSS, so it is never silently hidden. */}
+                            CSS, so it is never silently hidden. */
+                        }
                         <div class="editor-properties__css">
                             <Show
                                 when={showCss() || customCss().trim()}
@@ -496,15 +505,22 @@ const AdminPageEditor: Component = () => {
                                             type="button"
                                             class="ui-button ui-button--ghost ui-button--sm"
                                             onClick={() => {
-                                                if (!confirm('Remove this page\'s custom CSS?',)) return;
-                                                setCustomCss('',); setShowCss(false,); editor.markDirty();
+                                                if (!confirm("Remove this page's custom CSS?",)) return;
+                                                setCustomCss('',);
+                                                setShowCss(false,);
+                                                editor.markDirty();
                                             }}
-                                        >Clear</button>
+                                        >
+                                            Clear
+                                        </button>
                                     </Show>
                                 </div>
                                 <CssEditor
                                     value={customCss()}
-                                    onChange={(next,) => { setCustomCss(next,); editor.markDirty(); }}
+                                    onChange={(next,) => {
+                                        setCustomCss(next,);
+                                        editor.markDirty();
+                                    }}
                                     tabWidth={codeTabWidth()}
                                     height="280px"
                                 />
@@ -516,7 +532,10 @@ const AdminPageEditor: Component = () => {
                     <FormField label="Status">
                         <select
                             value={status()}
-                            onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
+                            onChange={(e,) => {
+                                setStatus(e.currentTarget.value,);
+                                editor.markDirty();
+                            }}
                         >
                             <option value="draft">Draft</option>
                             <option value="published">Published</option>
@@ -526,7 +545,10 @@ const AdminPageEditor: Component = () => {
                     <FormField label="Access">
                         <select
                             value={accessLevel()}
-                            onChange={(e,) => { setAccessLevel(e.currentTarget.value,); editor.markDirty(); }}
+                            onChange={(e,) => {
+                                setAccessLevel(e.currentTarget.value,);
+                                editor.markDirty();
+                            }}
                         >
                             <option value="public">Public</option>
                             <option value="member">Members Only</option>
@@ -536,12 +558,16 @@ const AdminPageEditor: Component = () => {
                     <div class="form-group page-editor__homepage-section">
                         <Toggle
                             checked={isHomepage()}
-                            onChange={(next,) => { setIsHomepage(next,); editor.markDirty(); }}
+                            onChange={(next,) => {
+                                setIsHomepage(next,);
+                                editor.markDirty();
+                            }}
                             label="Use as homepage"
                         />
                         <small class="form-help page-editor__homepage-help">
-                            Show this page at <code>/</code>. The page is still reachable at <code>/{slug() || 'slug'}</code>.
-                            Must be <strong>published</strong> to appear on the public site. Only one page can be the homepage at a time.
+                            Show this page at <code>/</code>. The page is still reachable at{' '}
+                            <code>/{slug() || 'slug'}</code>. Must be <strong>published</strong>{' '}
+                            to appear on the public site. Only one page can be the homepage at a time.
                         </small>
                     </div>
                 </div>
@@ -554,15 +580,20 @@ const AdminPageEditor: Component = () => {
         // configured site header, footer, navigation, appearance vars,
         // swatches, and fonts — the same chrome a real visitor sees.
         <Layout>
-            {/* Wrap in the same `.dynamic-page page-wrapper` div the
+            {
+                /* Wrap in the same `.dynamic-page page-wrapper` div the
                 public DynamicPage uses, so styles scoped to that
                 selector apply identically in preview — INCLUDING the
                 padding override. `.page-wrapper` carries a hard-coded
                 gutter + top/bottom padding; the public page cancels it
                 per the page's own toggles, and the preview skipping that
                 is why it showed padding on a page configured to have
-                none. */}
-            <div class="dynamic-page page-wrapper" style={contentPaddingStyle('--site-page-padding', applyPagePadding(), applySiteGutter(),)}>
+                none. */
+            }
+            <div
+                class="dynamic-page page-wrapper"
+                style={contentPaddingStyle('--site-page-padding', applyPagePadding(), applySiteGutter(),)}
+            >
                 <Show when={title() && showTitle()}>
                     <h1
                         class="dynamic-page__title"
@@ -571,7 +602,7 @@ const AdminPageEditor: Component = () => {
                         {title()}
                     </h1>
                 </Show>
-                <For each={buildBlockTree(editor.blocks().map((b,) => blockDataToRenderBlock(b, editor.params.id,),),)}>
+                <For each={buildBlockTree(editor.blocks().map((b,) => blockDataToRenderBlock(b, editor.params.id,)),)}>
                     {(block,) => <BlockRenderer block={block} />}
                 </For>
                 <Show when={!editor.blocks().length}>

@@ -7,7 +7,7 @@
  * (rounded panel, square videos, or the reverse) impossible to state.
  */
 import { describe, expect, it, } from 'vitest';
-import { resolveSocialItemBox, resolveSocialItemRadius, } from './socialDisplay';
+import { resolveSocialItemBox, resolveSocialItemRadius, resolveSocialTitleAlign, } from './socialDisplay';
 
 describe('resolveSocialItemRadius', () => {
     it('returns the stored value', () => {
@@ -85,5 +85,19 @@ describe('resolveSocialItemBox', () => {
     it('backs resolveSocialItemRadius, so the two cannot disagree', () => {
         const s = { itemBorderRadius: '8px', };
         expect(resolveSocialItemRadius(s,),).toBe(resolveSocialItemBox(s,).borderRadius,);
+    });
+});
+
+describe('resolveSocialTitleAlign', () => {
+    it('defaults to centre, including for every block saved before the setting', () => {
+        for (const v of [undefined, null, {}, { titleAlign: '', }, { titleAlign: 'bogus', },]) {
+            expect(resolveSocialTitleAlign(v as never,),).toBe('center',);
+        }
+    });
+
+    it('honours left / center / right', () => {
+        expect(resolveSocialTitleAlign({ titleAlign: 'left', },),).toBe('left',);
+        expect(resolveSocialTitleAlign({ titleAlign: 'center', },),).toBe('center',);
+        expect(resolveSocialTitleAlign({ titleAlign: 'right', },),).toBe('right',);
     });
 });

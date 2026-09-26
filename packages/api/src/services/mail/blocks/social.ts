@@ -1,4 +1,9 @@
-import { resolveSocialDisplay, resolveSocialItemBox, SOCIAL_THUMB_WIDTH, } from '@sitesurge/types';
+import {
+    resolveSocialDisplay,
+    resolveSocialItemBox,
+    resolveSocialTitleAlign,
+    SOCIAL_THUMB_WIDTH,
+} from '@sitesurge/types';
 import { escapeHtml, mediaRadius, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
@@ -126,6 +131,16 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
         'center';
     const imgMargin = side === 'center' ? 'margin:0 auto' : side === 'right' ? 'margin:0 0 0 auto' : 'margin:0';
 
+    /*
+     * The title block is held to the SAME width and position as the picture,
+     * so it reads as that post's caption rather than spanning the whole column
+     * beside it. The text inside it follows the block's own Title alignment
+     * (centre by default) — independent of where the post sits.
+     */
+    const titleAlign = resolveSocialTitleAlign(node.settings as never,);
+    const metaMargin = side === 'center' ? '10px auto 0' : side === 'right' ? '10px 0 0 auto' : '10px 0 0';
+    const metaBox = `width:100%;max-width:${maxWidth};margin:${metaMargin}`;
+
     const rows = valid.map((i,) => {
         const url = escapeHtml(i.postUrl ?? '#',);
         const title = escapeHtml(String(i.content ?? '',).trim(),);
@@ -153,9 +168,9 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
             `<a href="${url}" style="color:${ctx.textColor};text-decoration:none">${title}</a>` :
             '';
         const metaRow = (titleCell || date) ?
-            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:10px 0 0">
+            `<table role="presentation" align="${side}" width="100%" cellpadding="0" cellspacing="0" style="${metaBox}">
                    <tr>
-                     <td style="color:${ctx.textColor};font-size:17px;line-height:1.35;font-weight:600;vertical-align:top">${titleCell}</td>
+                     <td align="${titleAlign}" style="color:${ctx.textColor};font-size:17px;line-height:1.35;font-weight:600;text-align:${titleAlign};vertical-align:top">${titleCell}</td>
                      ${
                 date ?
                     `<td style="color:${ctx.textColor};opacity:0.6;font-size:13px;line-height:1.4;text-align:right;white-space:nowrap;padding-left:12px;vertical-align:top">${date}</td>` :
@@ -166,9 +181,12 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
             '';
 
         const author = showAuthor && i.authorName ?
-            `<div style="color:${ctx.textColor};opacity:0.7;font-size:13px;padding:6px 0 0">${
-                escapeHtml(i.authorName,)
-            }</div>` :
+            `<div style="color:${ctx.textColor};opacity:0.7;font-size:13px;padding:6px 0 0;${
+                metaBox.replace(
+                    /margin:[^;]*/,
+                    side === 'center' ? 'margin:0 auto' : side === 'right' ? 'margin:0 0 0 auto' : 'margin:0',
+                )
+            };text-align:${titleAlign}">${escapeHtml(i.authorName,)}</div>` :
             '';
 
         return `<tr><td align="${side}" style="padding:0 0 ${gap}">${thumb}${metaRow}${author}</td></tr>`;

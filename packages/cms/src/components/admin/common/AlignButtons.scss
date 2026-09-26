@@ -1,0 +1,47 @@
+@use '../../../styles/variables' as *;
+
+.align-buttons {
+    display: inline-flex;
+    flex-shrink: 0;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    overflow: hidden;
+
+    &--disabled {
+        opacity: 0.45;
+    }
+
+    &__btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 26px;
+        background: $background;
+        border: none;
+        border-right: 1px solid $border-color;
+        color: $text-light;
+        cursor: pointer;
+        transition: all $transition-fast;
+
+        &:last-child { border-right: none; }
+
+        &:hover:not(:disabled) {
+            background: $background-dark;
+            color: var(--admin-page-text, #{$text-color});
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--site-primary, #{$primary-color});
+            outline-offset: -2px;
+        }
+
+        &:disabled { cursor: not-allowed; }
+
+        &--active,
+        &--active:hover:not(:disabled) {
+            background: var(--site-primary, #{$primary-color});
+            color: $background;
+        }
+    }
+}

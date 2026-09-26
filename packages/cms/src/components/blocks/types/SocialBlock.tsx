@@ -10,6 +10,7 @@ import {
     resolveSocialItemBox,
     resolveSocialNavigation,
     resolveSocialNavPadding,
+    resolveSocialTitleAlign,
 } from '@sitesurge/types';
 import type { Block, SocialPlatform, SocialPost, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
@@ -249,6 +250,8 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                         // `overflow: hidden`, so the iframe inside it is
                         // clipped to the rounding.
                         ...(itemRadius() ? { '--social-item-radius': itemRadius(), } : {}),
+                        // Title alignment, inherited by every `.social-embed__title`.
+                        '--social-title-align': resolveSocialTitleAlign(settings() as never,),
                         // An embedded player keeps its natural aspect ratio UNLESS a
                         // height was configured, in which case the height must win or
                         // the card grows and the video sits in it with dead space

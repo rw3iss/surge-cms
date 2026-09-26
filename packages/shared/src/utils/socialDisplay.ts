@@ -290,3 +290,18 @@ export function resolveSocialItemBox(
         borderRadius: val(raw.itemBorderRadius,),
     };
 }
+
+/** Horizontal alignment of a post's title. */
+export type SocialTitleAlign = 'left' | 'center' | 'right';
+
+/**
+ * The block's "Title alignment" setting. Unset — every block saved before the
+ * setting existed — is CENTRE, matching the default placement of the post
+ * itself, so a title sits under the picture it belongs to.
+ */
+export function resolveSocialTitleAlign(
+    settings: { titleAlign?: unknown; } | null | undefined,
+): SocialTitleAlign {
+    const v = settings?.titleAlign;
+    return v === 'left' || v === 'right' ? v : 'center';
+}
