@@ -15,6 +15,8 @@
  * authenticated by an API key (synthetic `api-key:<name>` actor) lands a
  * NULL FK rather than violating the users(id) reference.
  */
+// Circular with siteAssets (it reads getPublicSettings); safe, both are only
+// called at request time, never during module evaluation.
 import type { SiteSettings, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
@@ -24,6 +26,7 @@ import { uuidOrNull, } from '../utils/uuid';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { stripeCredentials, } from './payment/credentials';
+import { purgeSiteAssetsFromEdge, } from './siteAssets';
 import type { AuditContext, } from './types';
 
 /** Read a single settings row. Returns `null` when the key isn't
@@ -547,7 +550,13 @@ export const setSiteHeader = (value: unknown, ctx: AuditContext,) => setKeyed(SI
 export const getSiteFooter = () => getKeyed(SITE_FOOTER,);
 export const setSiteFooter = (value: unknown, ctx: AuditContext,) => setKeyed(SITE_FOOTER, value, ctx,);
 export const getSiteBranding = () => getKeyed(SITE_BRANDING,);
-export const setSiteBranding = (value: unknown, ctx: AuditContext,) => setKeyed(SITE_BRANDING, value, ctx,);
+/** Also refreshes `/logo.png` + `/favicon.ico` — see services/siteAssets. */
+export async function setSiteBranding(value: unknown, ctx: AuditContext,): Promise<unknown> {
+    const saved = await setKeyed(SITE_BRANDING, value, ctx,);
+    // Fire-and-forget: a failed purge must never fail the save.
+    void purgeSiteAssetsFromEdge();
+    return saved;
+}
 export const getAppearance = () => getKeyed(SITE_APPEARANCE,);
 export const setAppearance = (value: unknown, ctx: AuditContext,) => setKeyed(SITE_APPEARANCE, value, ctx,);
 

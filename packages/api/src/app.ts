@@ -1,28 +1,29 @@
+import { adminDistPath, } from '@sitesurge/admin';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Express, json, raw, urlencoded, } from 'express';
 import rateLimit from 'express-rate-limit';
-import { RedisRateLimitStore, } from './middleware/rateLimitStore';
+import { existsSync, } from 'fs';
 import helmet from 'helmet';
 import path from 'path';
-import { existsSync, } from 'fs';
-import { adminDistPath, } from '@sitesurge/admin';
+import { registerModule, } from './api/registry';
 import { config, } from './config';
 import { canonicalUrlMiddleware, } from './middleware/canonicalUrl';
 import { pluginAwareCsp, } from './middleware/csp';
 import { csrfProtection, csrfToken, } from './middleware/csrf';
 import { errorHandler, notFoundHandler, } from './middleware/error';
+import { RedisRateLimitStore, } from './middleware/rateLimitStore';
 import { setupGate, } from './middleware/setupGate';
 import { createSsrMiddleware, } from './middleware/ssr';
-import { applyPublicHtmlCacheHeaders, isCacheablePublicHtml, } from './utils/cachePolicy';
-import { registerModule, } from './api/registry';
 import routes from './routes';
-import { setupRoutes, } from './routes/setup';
-import { sitemapRoutes, } from './routes/sitemap';
-import { robotsRoutes, } from './routes/robots';
 import { feedRoutes, } from './routes/feed';
+import { robotsRoutes, } from './routes/robots';
+import { setupRoutes, } from './routes/setup';
+import { siteAssetRoutes, } from './routes/siteAssets';
+import { sitemapRoutes, } from './routes/sitemap';
 import { unsubscribeRoutes, } from './routes/unsubscribe';
+import { applyPublicHtmlCacheHeaders, isCacheablePublicHtml, } from './utils/cachePolicy';
 import { logger, } from './utils/logger';
 
 /**
@@ -124,10 +125,10 @@ export function createApp(mode: AppMode = 'running',): Express {
             // of files (the PWA precaches ~130) — counting those would exhaust
             // the window on the first visit. Behind a proxy every client also
             // shares a small set of upstream IPs, so keep the ceiling generous.
-            return config.isDevelopment
-                || !req.path.startsWith('/api/',)
-                || req.path.startsWith('/api/v1/health',)
-                || req.path.startsWith('/api/v1/setup',);
+            return config.isDevelopment ||
+                !req.path.startsWith('/api/',) ||
+                req.path.startsWith('/api/v1/health',) ||
+                req.path.startsWith('/api/v1/setup',);
         },
     },);
     app.use(limiter,);
@@ -186,6 +187,9 @@ export function createApp(mode: AppMode = 'running',): Express {
         // takes precedence over any stale public/robots.txt on disk.
         const robotsRouter = registerModule('robots', robotsRoutes, { mountPath: '', },);
         app.use(robotsRouter,);
+        // /logo.png + /favicon.ico from Site Branding — likewise ahead of the
+        // static files and the SPA fallback, which answered both with HTML.
+        app.use(registerModule('siteAssets', siteAssetRoutes, { mountPath: '', },),);
         // The feed router has one '/' route; mounting it at '/feed.xml'
         // (and the /api/v1 alias) preserves the canonical external URLs.
         // registerModule once records the canonical mountPath in the
@@ -205,7 +209,10 @@ export function createApp(mode: AppMode = 'running',): Express {
     // Setup routes are always mounted — in setup mode they're the only
     // thing that responds; in running mode they self-reject via
     // ensureSetupAllowed().
-    app.use(`/api/${config.apiVersion}/setup`, registerModule('setup', setupRoutes, { mountPath: `/api/${config.apiVersion}/setup`, },),);
+    app.use(
+        `/api/${config.apiVersion}/setup`,
+        registerModule('setup', setupRoutes, { mountPath: `/api/${config.apiVersion}/setup`, },),
+    );
 
     // SSR + frontend serving. Same in both modes; the SPA handles its
     // own redirect to /setup based on the status endpoint.
@@ -215,12 +222,15 @@ export function createApp(mode: AppMode = 'running',): Express {
     // Set-Cookie) so a CDN can cache them indefinitely. Mounted BEFORE SSR so
     // asset requests never touch the renderer; `fallthrough: false` makes a
     // missing asset 404 rather than fall through to the SPA shell.
-    app.use('/assets', express.static(path.join(distDir, 'assets',), {
-        immutable: true,
-        maxAge: '365d',
-        index: false,
-        fallthrough: false,
-    },),);
+    app.use(
+        '/assets',
+        express.static(path.join(distDir, 'assets',), {
+            immutable: true,
+            maxAge: '365d',
+            index: false,
+            fallthrough: false,
+        },),
+    );
     // Collapse duplicate addresses (/index.html, trailing slashes) onto one
     // canonical URL BEFORE anything can serve them. It has to sit after the
     // /assets mount (those paths are legitimately served as-is) and before

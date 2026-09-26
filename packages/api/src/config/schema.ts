@@ -51,7 +51,7 @@ export const envSchema = z.object({
     // A per-template "From email" still overrides this.
     MAIL_LIST_FROM: z.string().optional(),
 
-    MAIL_PROVIDER: z.enum(['smtp', 'mailgun', 'sendgrid', 'postmark',]).default('smtp',),
+    MAIL_PROVIDER: z.enum(['smtp', 'mailgun', 'sendgrid', 'postmark',],).default('smtp',),
     MAIL_SEND_CONCURRENCY: z.string().transform(Number,).prefault('10',),
     MAIL_SEND_DELAY_MS: z.string().transform(Number,).prefault('50',),
     MAIL_UNSUBSCRIBE_SECRET: z.string().optional(),
@@ -98,6 +98,12 @@ export const envSchema = z.object({
     PLUGINS_DIR: z.string().default('./plugins',),
     UPLOAD_MAX_SIZE_MB: z.string().transform(Number,).prefault('500',),
     UPLOAD_DIR: z.string().default('./uploads',),
+    // Optional: lets a Site Branding change purge /logo.png + /favicon.ico from
+    // the Cloudflare edge at once. The token needs the Zone → Cache Purge
+    // permission. Without both, those files still refresh within their 5-minute
+    // edge TTL.
+    CLOUDFLARE_ZONE_ID: z.string().optional(),
+    CLOUDFLARE_PURGE_TOKEN: z.string().optional(),
     STORAGE_PROVIDER: z.enum(['local', 's3',],).default('local',),
     ALLOWED_FILE_TYPES: z.string().transform((s,) => s.split(',',)).prefault(
         'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip',
@@ -141,7 +147,7 @@ export const envSchema = z.object({
     LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug',],).default('info',),
     LOG_FORMAT: z.string().default('combined',),
 
-    ADMIN_EMAILS: z.string().transform((s,) => s.split(',',).filter(Boolean,),).prefault('',),
+    ADMIN_EMAILS: z.string().transform((s,) => s.split(',',).filter(Boolean,)).prefault('',),
     AUTOLOGIN_ADMIN_LOCALHOST: z.string().transform((s,) => s === 'true').prefault('false',),
 },);
 

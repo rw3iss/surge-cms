@@ -99,6 +99,9 @@ export interface Config {
     dataDir: string;
     pluginsDir: string;
 
+    /** Optional Cloudflare cache purge for the site-root branding files. */
+    cloudflare: { zoneId?: string; purgeToken?: string; };
+
     upload: {
         maxSizeMb: number;
         dir: string;
@@ -251,6 +254,8 @@ function build(parsed: EnvVars,): Config {
         dataDir: parsed.DATA_DIR,
         pluginsDir: parsed.PLUGINS_DIR,
 
+        cloudflare: { zoneId: parsed.CLOUDFLARE_ZONE_ID, purgeToken: parsed.CLOUDFLARE_PURGE_TOKEN, },
+
         upload: {
             maxSizeMb: parsed.UPLOAD_MAX_SIZE_MB,
             dir: parsed.UPLOAD_DIR,
@@ -352,5 +357,5 @@ export function configParseFailed(): boolean {
  * env-stage setup is needed. */
 export function hasMinimalRunningConfig(): boolean {
     const c = getConfig();
-    return Boolean(c.database.url) && Boolean(c.jwt.secret) && (c.jwt.secret?.length ?? 0) >= 32;
+    return Boolean(c.database.url,) && Boolean(c.jwt.secret,) && (c.jwt.secret?.length ?? 0) >= 32;
 }
