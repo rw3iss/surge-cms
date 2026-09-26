@@ -21,7 +21,8 @@
     // the gap.
     .admin-form-field { margin-bottom: 0; }
 
-    &__number {
+    // Two classes, so it outranks the admin shell's single-class default cap.
+    & &__number {
         max-width: 100px;
     }
 }

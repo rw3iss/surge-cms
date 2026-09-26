@@ -335,9 +335,11 @@
     // stretching the whole column. Narrow containers (columns, table cells,
     // inline fields) are already under the cap, so this only reins in wide
     // single-column forms.
-    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-    select,
-    textarea {
+    //
+    // In `:where()` so it is a DEFAULT: its `:not()` chain used to carry
+    // three attribute selectors of specificity and beat any page's own
+    // width rule — a 100px number field stayed 736px wide.
+    :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
       max-width: $admin-form-max-width;
     }
   }
