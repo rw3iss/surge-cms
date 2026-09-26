@@ -6,9 +6,9 @@
  *
  * Re-renders on a 250ms debounce whenever variables change.
  */
+import type { MailCssWarning, MailTemplatePreviewResponse, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
-import type { MailCssWarning, MailTemplatePreviewResponse, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import VariableForm from './VariableForm';
 
@@ -20,7 +20,11 @@ interface Props {
      *  rather than the catalog's placeholder. The other `template.*` paths keep
      *  their samples: they are only decided when the send job is created. */
     templateName?: string;
-    onClose: () => void;
+    /** Render in the page flow (no overlay, no close controls) — the send
+     *  wizard's confirm step shows the preview directly instead of behind a
+     *  button. Same renderer either way, so the two cannot disagree. */
+    inline?: boolean;
+    onClose?: () => void;
 }
 
 const DEBOUNCE_MS = 250;
@@ -71,86 +75,105 @@ const MailPreviewModal: Component<Props> = (p,) => {
         () => [vars(), p.blocks, p.subject, p.preheader,],
         () => {
             if (debounceHandle) clearTimeout(debounceHandle,);
-            debounceHandle = setTimeout(() => { void fetchPreview(); }, DEBOUNCE_MS,);
+            debounceHandle = setTimeout(() => {
+                void fetchPreview();
+            }, DEBOUNCE_MS,);
         },
     ),);
 
-    return (
-        <Portal>
-            <div class="confirm-modal-overlay" onClick={p.onClose}>
-                <div class="mail-preview-modal" onClick={(e,) => e.stopPropagation()}>
-                    <header class="mail-preview-modal__header">
-                        <div class="mail-preview-modal__subject">
-                            <span class="mail-preview-modal__label">Subject:</span>
-                            <strong>{renderedSubject() || '(no subject)'}</strong>
-                        </div>
-                        <button type="button" class="modal-close" onClick={p.onClose} aria-label="Close">×</button>
-                    </header>
+    const close = () => p.onClose?.();
 
-                    <div class="mail-preview-modal__vars">
-                        <button
-                            type="button"
-                            class="mail-preview-modal__vars-toggle"
-                            onClick={() => setVarsOpen(!varsOpen(),)}
-                        >
-                            {varsOpen() ? '▼' : '▶'} Variables ({detected().length})
-                        </button>
-                        <Show when={varsOpen()}>
-                            <Show
-                                when={detected().length > 0}
-                                fallback={<p class="form-help-muted">No variables detected in this template yet.</p>}
-                            >
-                                <VariableForm paths={detected()} values={vars()} onChange={setVars} />
-                            </Show>
-                        </Show>
-                    </div>
+    const body = () => (
+        <div
+            class={`mail-preview-modal${p.inline ? ' mail-preview-modal--inline' : ''}`}
+            onClick={(e,) => e.stopPropagation()}
+        >
+            <header class="mail-preview-modal__header">
+                <div class="mail-preview-modal__subject">
+                    <span class="mail-preview-modal__label">Subject:</span>
+                    <strong>{renderedSubject() || '(no subject)'}</strong>
+                </div>
+                <Show when={!p.inline}>
+                    <button type="button" class="modal-close" onClick={close} aria-label="Close">×</button>
+                </Show>
+            </header>
 
-                    <Show when={error()}>
-                        <div class="alert alert--error">{error()}</div>
+            <div class="mail-preview-modal__vars">
+                <button
+                    type="button"
+                    class="mail-preview-modal__vars-toggle"
+                    onClick={() => setVarsOpen(!varsOpen(),)}
+                >
+                    {varsOpen() ? '▼' : '▶'} Variables ({detected().length})
+                </button>
+                <Show when={varsOpen()}>
+                    <Show
+                        when={detected().length > 0}
+                        fallback={<p class="form-help-muted">No variables detected in this template yet.</p>}
+                    >
+                        <VariableForm paths={detected()} values={vars()} onChange={setVars} />
                     </Show>
+                </Show>
+            </div>
 
+            <Show when={error()}>
+                <div class="alert alert--error">{error()}</div>
+            </Show>
 
-                    {/* What the preview CANNOT show you. This modal renders in a
+            {
+                /* What the preview CANNOT show you. This modal renders in a
                         browser with a full CSS engine; an inbox has far less of
                         one, so a Custom HTML block can look right here and arrive
                         wrong. Placed ABOVE the frame because the whole point is
-                        that the frame below is the flattering version. */}
-                    <Show when={cssWarnings().length > 0}>
-                        <div class="alert alert--warning mail-preview-modal__warnings">
-                            <button
-                                type="button"
-                                class="mail-preview-modal__vars-toggle"
-                                onClick={() => setWarnOpen(!warnOpen(),)}
-                            >
-                                {warnOpen() ? '▼' : '▶'} {cssWarnings().length} style
-                                {cssWarnings().length === 1 ? '' : 's'} may not survive in email
-                            </button>
-                            <Show when={warnOpen()}>
-                                <ul class="mail-preview-modal__warning-list">
-                                    <For each={cssWarnings()}>{(w,) => (
-                                        <li>
-                                            <strong>{w.message}</strong>
-                                            <div class="form-help-muted">{w.fix}</div>
-                                        </li>
-                                    )}</For>
-                                </ul>
-                            </Show>
-                        </div>
+                        that the frame below is the flattering version. */
+            }
+            <Show when={cssWarnings().length > 0}>
+                <div class="alert alert--warning mail-preview-modal__warnings">
+                    <button
+                        type="button"
+                        class="mail-preview-modal__vars-toggle"
+                        onClick={() => setWarnOpen(!warnOpen(),)}
+                    >
+                        {warnOpen() ? '▼' : '▶'} {cssWarnings().length} style
+                        {cssWarnings().length === 1 ? '' : 's'} may not survive in email
+                    </button>
+                    <Show when={warnOpen()}>
+                        <ul class="mail-preview-modal__warning-list">
+                            <For each={cssWarnings()}>
+                                {(w,) => (
+                                    <li>
+                                        <strong>{w.message}</strong>
+                                        <div class="form-help-muted">{w.fix}</div>
+                                    </li>
+                                )}
+                            </For>
+                        </ul>
                     </Show>
-
-                    <iframe
-                        class="mail-preview-modal__frame"
-                        srcdoc={html()}
-                        title="Email preview"
-                    />
-
-                    <footer class="mail-preview-modal__footer">
-                        <Show when={loading()}>
-                            <span class="mail-preview-modal__loading">Rendering…</span>
-                        </Show>
-                        <button type="button" class="ui-button ui-button--secondary" onClick={p.onClose}>Close</button>
-                    </footer>
                 </div>
+            </Show>
+
+            <iframe
+                class="mail-preview-modal__frame"
+                srcdoc={html()}
+                title="Email preview"
+            />
+
+            <footer class="mail-preview-modal__footer">
+                <Show when={loading()}>
+                    <span class="mail-preview-modal__loading">Rendering…</span>
+                </Show>
+                <Show when={!p.inline}>
+                    <button type="button" class="ui-button ui-button--secondary" onClick={close}>Close</button>
+                </Show>
+            </footer>
+        </div>
+    );
+
+    if (p.inline) return body();
+    return (
+        <Portal>
+            <div class="confirm-modal-overlay" onClick={close}>
+                {body()}
             </div>
         </Portal>
     );

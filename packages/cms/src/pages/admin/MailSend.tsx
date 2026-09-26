@@ -7,23 +7,17 @@
  * State lives in createStore so navigating between steps via the
  * query param preserves the draft.
  */
+import type { MailingList, MailingListsSettings, MailTemplate, VariableDescriptor, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
-import {
-    Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show,
-} from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
-import type {
-    MailingList, MailingListsSettings, MailTemplate, VariableDescriptor,
-} from '@sitesurge/types';
 import BlockEditor, { BlockData, } from '../../components/admin/blocks/BlockEditor';
 import { FormField, } from '../../components/admin/forms';
+import { BackendBlock, backendToEditor, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
-import { backendToEditor, BackendBlock, editorToBackend, } from '../../components/admin/mail/blockConverters';
 import { cms, } from '../../services/cmsClient';
-import {
-    buildMailPreviewVariables, mailVariableOverrides, setPreviewVariables,
-} from '../../stores/previewVariables';
+import { buildMailPreviewVariables, mailVariableOverrides, setPreviewVariables, } from '../../stores/previewVariables';
 
 interface DraftStore {
     listId: string;
@@ -64,11 +58,16 @@ const MailSend: Component = () => {
     // loaded into the draft. Used to compute `templateWasModified` at
     // send time so the job detail page can show "(custom)" when the
     // operator edited blocks / meta after picking a template.
-    const [loadedTemplateSnapshot, setLoadedTemplateSnapshot,] = createSignal<{
-        subject: string; preheader: string;
-        fromName: string; fromEmail: string; replyTo: string;
-        blocksJson: string;
-    } | null>(null,);
+    const [loadedTemplateSnapshot, setLoadedTemplateSnapshot,] = createSignal<
+        {
+            subject: string;
+            preheader: string;
+            fromName: string;
+            fromEmail: string;
+            replyTo: string;
+            blocksJson: string;
+        } | null
+    >(null,);
 
     /** Sender defaults (Settings → Mailing Lists), shown as placeholders so a
      *  blank field visibly states what it will send as. The send worker applies
@@ -82,7 +81,7 @@ const MailSend: Component = () => {
             // recipient, the unsubscribe URL — both per-recipient).
             cms.mailTemplates.variables()
                 .then((v,) => setVariableCatalog(v as VariableDescriptor[],))
-                .catch(() => { /* samples are a nicety; real values still resolve */ });
+                .catch(() => {/* samples are a nicety; real values still resolve */},);
             setLists(lr as MailingList[],);
             setTemplates(tr as MailTemplate[],);
         } catch {
@@ -93,8 +92,8 @@ const MailSend: Component = () => {
         } catch { /* non-fatal — placeholders fall back to generic text */ }
     },);
 
-    const selectedList = createMemo(() => lists().find((l,) => l.id === draft.listId,) ?? null,);
-    const selectedTemplate = createMemo(() => templates().find((t,) => t.id === draft.templateId,) ?? null,);
+    const selectedList = createMemo(() => lists().find((l,) => l.id === draft.listId) ?? null);
+    const selectedTemplate = createMemo(() => templates().find((t,) => t.id === draft.templateId) ?? null);
 
     /*
      * Publish the `{{ }}` bag for the Content area's block previews.
@@ -131,7 +130,7 @@ const MailSend: Component = () => {
 
     const loadTemplate = async (id: string,): Promise<void> => {
         if (id === '' || id === '__new__') {
-            setDraft({ templateId: null, blocks: [], });
+            setDraft({ templateId: null, blocks: [], },);
             setLoadedTemplateSnapshot(null,);
             return;
         }
@@ -151,7 +150,7 @@ const MailSend: Component = () => {
                 fromEmail: d.fromEmail ?? '',
                 replyTo: d.replyTo ?? '',
                 blocks,
-            });
+            },);
             setLoadedTemplateSnapshot({
                 subject: d.subject ?? '',
                 preheader: d.preheader ?? '',
@@ -171,16 +170,17 @@ const MailSend: Component = () => {
     const isModifiedFromTemplate = (): boolean => {
         const snap = loadedTemplateSnapshot();
         if (!snap || !draft.templateId) return false;
-        return draft.subject !== snap.subject
-            || draft.preheader !== snap.preheader
-            || draft.fromName !== snap.fromName
-            || draft.fromEmail !== snap.fromEmail
-            || draft.replyTo !== snap.replyTo
-            || JSON.stringify(draft.blocks,) !== snap.blocksJson;
+        return draft.subject !== snap.subject ||
+            draft.preheader !== snap.preheader ||
+            draft.fromName !== snap.fromName ||
+            draft.fromEmail !== snap.fromEmail ||
+            draft.replyTo !== snap.replyTo ||
+            JSON.stringify(draft.blocks,) !== snap.blocksJson;
     };
 
-    const canConfirm = (): boolean => Boolean(draft.listId,) && draft.subject.trim().length > 0
-        && (draft.templateId !== null || draft.blocks.length > 0);
+    const canConfirm = (): boolean =>
+        Boolean(draft.listId,) && draft.subject.trim().length > 0 &&
+        (draft.templateId !== null || draft.blocks.length > 0);
 
     const handleSend = async (): Promise<void> => {
         setSending(true,);
@@ -200,7 +200,9 @@ const MailSend: Component = () => {
             navigate(`/admin/mail/jobs/${(r as { jobId: string; }).jobId}`,);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Send failed.',);
-        } finally { setSending(false,); }
+        } finally {
+            setSending(false,);
+        }
     };
 
     return (
@@ -210,6 +212,25 @@ const MailSend: Component = () => {
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>
                 <h1>Send a Message — Step {step()} of 2</h1>
+                <Show when={step() === '2'}>
+                    <div class="admin-header__actions">
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary"
+                            onClick={() => setSearchParams({ step: '1', },)}
+                        >
+                            ← Back
+                        </button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--primary"
+                            onClick={handleSend}
+                            disabled={sending()}
+                        >
+                            {sending() ? 'Scheduling…' : `Send to ${selectedList()?.subscriberCount ?? 0} recipients`}
+                        </button>
+                    </div>
+                </Show>
             </div>
 
             <Show when={error()}>
@@ -218,15 +239,19 @@ const MailSend: Component = () => {
 
             <Show when={step() === '1'}>
                 <section class="admin-section">
-                    <header class="admin-section__header"><h2>Choose list + template</h2></header>
+                    <header class="admin-section__header">
+                        <h2>Choose list + template</h2>
+                    </header>
                     <div class="form-grid">
                         <FormField label="Mailing list">
-                            {/* The <select>'s value attr is set when
+                            {
+                                /* The <select>'s value attr is set when
                                 the element first renders, but the <For>
                                 options arrive async from onMount — so
                                 pre-selection via ?list=<id> needs to
                                 drive the `selected` attr on the right
-                                option once it exists. */}
+                                option once it exists. */
+                            }
                             <select
                                 onChange={(e,) => setDraft('listId', e.currentTarget.value,)}
                             >
@@ -234,7 +259,8 @@ const MailSend: Component = () => {
                                 <For each={lists()}>
                                     {(l,) => (
                                         <option value={l.id} disabled={!l.isEnabled} selected={l.id === draft.listId}>
-                                            {l.name} — {l.subscriberCount ?? 0} subscribers{!l.isEnabled ? ' (disabled)' : ''}
+                                            {l.name} — {l.subscriberCount ?? 0}{' '}
+                                            subscribers{!l.isEnabled ? ' (disabled)' : ''}
                                         </option>
                                     )}
                                 </For>
@@ -242,11 +268,16 @@ const MailSend: Component = () => {
                         </FormField>
                         <FormField label="Template">
                             <select
-                                onChange={(e,) => { void loadTemplate(e.currentTarget.value,); }}
+                                onChange={(e,) => {
+                                    void loadTemplate(e.currentTarget.value,);
+                                }}
                             >
-                                <option value="__new__" selected={draft.templateId === null}>New blank template…</option>
-                                <For each={templates().filter((t,) => t.isEnabled,)}>
-                                    {(t,) => <option value={t.id} selected={t.id === draft.templateId}>{t.name}</option>}
+                                <option value="__new__" selected={draft.templateId === null}>
+                                    New blank template…
+                                </option>
+                                <For each={templates().filter((t,) => t.isEnabled)}>
+                                    {(t,) => <option value={t.id} selected={t.id === draft.templateId}>{t.name}
+                                    </option>}
                                 </For>
                             </select>
                         </FormField>
@@ -255,10 +286,12 @@ const MailSend: Component = () => {
 
                 <Show when={draft.listId}>
                     <section class="admin-section">
-                        <header class="admin-section__header"><h2>Message details</h2></header>
+                        <header class="admin-section__header">
+                            <h2>Message details</h2>
+                        </header>
                         <p class="form-help-muted" style={{ margin: '0 0 12px', }}>
-                            <span class="admin-form-field__required" aria-hidden="true">*</span> Required.
-                            From name / email and reply-to fall back to the site's configured defaults.
+                            <span class="admin-form-field__required" aria-hidden="true">*</span>{' '}
+                            Required. From name / email and reply-to fall back to the site's configured defaults.
                         </p>
                         <div class="form-grid">
                             <FormField
@@ -267,19 +300,53 @@ const MailSend: Component = () => {
                                 required
                                 class="form-group--full"
                             >
-                                <input type="text" value={draft.subject} onInput={(e,) => setDraft('subject', e.currentTarget.value,)} />
+                                <input
+                                    type="text"
+                                    value={draft.subject}
+                                    onInput={(e,) => setDraft('subject', e.currentTarget.value,)}
+                                />
                             </FormField>
-                            <FormField label="Preheader" class="form-group--full" hint="Inbox preview text shown after the subject. Optional.">
-                                <input type="text" value={draft.preheader} onInput={(e,) => setDraft('preheader', e.currentTarget.value,)} />
+                            <FormField
+                                label="Preheader"
+                                class="form-group--full"
+                                hint="Inbox preview text shown after the subject. Optional."
+                            >
+                                <input
+                                    type="text"
+                                    value={draft.preheader}
+                                    onInput={(e,) => setDraft('preheader', e.currentTarget.value,)}
+                                />
                             </FormField>
                             <FormField label="From name" hint="Optional — defaults to the site name.">
-                                <input type="text" value={draft.fromName} placeholder={listDefaults().defaultFromName || 'Site name'} onInput={(e,) => setDraft('fromName', e.currentTarget.value,)} />
+                                <input
+                                    type="text"
+                                    value={draft.fromName}
+                                    placeholder={listDefaults().defaultFromName || 'Site name'}
+                                    onInput={(e,) => setDraft('fromName', e.currentTarget.value,)}
+                                />
                             </FormField>
-                            <FormField label="From email" hint="Optional — defaults to the site's configured sender address.">
-                                <input type="email" value={draft.fromEmail} placeholder={listDefaults().defaultFromEmail || 'Configured sender address'} onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)} />
+                            <FormField
+                                label="From email"
+                                hint="Optional — defaults to the site's configured sender address."
+                            >
+                                <input
+                                    type="email"
+                                    value={draft.fromEmail}
+                                    placeholder={listDefaults().defaultFromEmail || 'Configured sender address'}
+                                    onInput={(e,) => setDraft('fromEmail', e.currentTarget.value,)}
+                                />
                             </FormField>
-                            <FormField label="Reply-to" class="form-group--full" hint="Optional — replies go here; defaults to the From email if blank.">
-                                <input type="email" value={draft.replyTo} placeholder={listDefaults().defaultReplyTo || 'From email'} onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)} />
+                            <FormField
+                                label="Reply-to"
+                                class="form-group--full"
+                                hint="Optional — replies go here; defaults to the From email if blank."
+                            >
+                                <input
+                                    type="email"
+                                    value={draft.replyTo}
+                                    placeholder={listDefaults().defaultReplyTo || 'From email'}
+                                    onInput={(e,) => setDraft('replyTo', e.currentTarget.value,)}
+                                />
                             </FormField>
                         </div>
                     </section>
@@ -291,7 +358,12 @@ const MailSend: Component = () => {
                     />
 
                     <div class="form-actions">
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)} disabled={draft.blocks.length === 0}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary"
+                            onClick={() => setShowPreview(true,)}
+                            disabled={draft.blocks.length === 0}
+                        >
                             Preview
                         </button>
                         <button
@@ -308,37 +380,69 @@ const MailSend: Component = () => {
 
             <Show when={step() === '2'}>
                 <section class="admin-section">
-                    <header class="admin-section__header"><h2>Confirm + send</h2></header>
+                    <header class="admin-section__header">
+                        <h2>Confirm + send</h2>
+                    </header>
                     <Show when={selectedList()}>
                         {(l,) => (
                             <div class="send-confirm-summary">
-                                <div><strong>List:</strong> {l().name}</div>
-                                <div><strong>Recipients:</strong> {l().subscriberCount ?? 0}</div>
-                                <Show when={l().registeredUsersOnly}><div><small>Registered users only</small></div></Show>
-                                <Show when={l().doubleOptIn}><div><small>Double opt-in</small></div></Show>
+                                <div>
+                                    <strong>List:</strong> {l().name}
+                                </div>
+                                <div>
+                                    <strong>Recipients:</strong> {l().subscriberCount ?? 0}
+                                </div>
+                                <Show when={l().registeredUsersOnly}>
+                                    <div>
+                                        <small>Registered users only</small>
+                                    </div>
+                                </Show>
+                                <Show when={l().doubleOptIn}>
+                                    <div>
+                                        <small>Double opt-in</small>
+                                    </div>
+                                </Show>
                             </div>
                         )}
                     </Show>
 
+                    {
+                        /* The whole email, in the page — the last look before it
+                        goes to every recipient should not be behind a button. */
+                    }
                     <div class="send-confirm-preview">
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setShowPreview(true,)}>
-                            Open preview…
-                        </button>
+                        <MailPreviewModal
+                            inline
+                            blocks={editorToBackend(draft.blocks,)}
+                            subject={draft.subject}
+                            preheader={draft.preheader || undefined}
+                        />
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" class="ui-button ui-button--secondary" onClick={() => setSearchParams({ step: '1', },)}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary"
+                            onClick={() => setSearchParams({ step: '1', },)}
+                        >
                             ← Back
                         </button>
-                        <button type="button" class="ui-button ui-button--primary" onClick={handleSend} disabled={sending()}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--primary"
+                            onClick={handleSend}
+                            disabled={sending()}
+                        >
                             {sending() ? 'Scheduling…' : `Send to ${selectedList()?.subscriberCount ?? 0} recipients`}
                         </button>
                     </div>
                 </section>
             </Show>
 
-            {/* Preview modal mount lives at the top level so the
-                Preview button on either step opens it. */}
+            {
+                /* Preview modal mount lives at the top level so the
+                Preview button on either step opens it. */
+            }
             <Show when={showPreview()}>
                 <MailPreviewModal
                     blocks={editorToBackend(draft.blocks,)}
