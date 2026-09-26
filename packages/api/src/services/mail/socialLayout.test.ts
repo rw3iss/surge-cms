@@ -161,7 +161,7 @@ describe('renderSocial — the other Item properties reach email', () => {
     const imgOf = (settings: Record<string, unknown>,) => /<img[^>]*>/.exec(render(settings,),)?.[0] ?? '';
     /** The `<td>` wrapping one post (not the meta table's cells). */
     const rowCellOf = (settings: Record<string, unknown>,) =>
-        /<td style="padding:[^"]*"/.exec(render(settings,),)?.[0] ?? '';
+        /<td align="[a-z]*" style="padding:[^"]*"/.exec(render(settings,),)?.[0] ?? '';
 
     it('item width caps the thumbnail', () => {
         expect(imgOf({ itemWidth: '300px', },),).toContain('max-width:300px',);
@@ -229,5 +229,35 @@ describe('renderSocial — the other Item properties reach email', () => {
         // No empty declarations left behind by the interpolation.
         expect(out,).not.toMatch(/;\s*;/,);
         expect(out,).not.toMatch(/:\s*;/,);
+    });
+});
+
+describe('renderSocial — alignment of a post narrower than the block', () => {
+    const out = (style: Record<string, unknown>,) => {
+        const n = node({ itemWidth: '300px', },) as unknown as Record<string, unknown>;
+        n.style = style;
+        return renderSocial(n as never, ctx,) as string;
+    };
+    const img = (style: Record<string, unknown>,) => /<img[^>]*>/.exec(out(style,),)![0];
+
+    it('centres by default', () => {
+        // Left-aligned was the old default and read as a layout bug.
+        expect(img({},),).toContain('margin:0 auto',);
+        expect(out({},),).toContain('<td align="center"',);
+    });
+
+    it('follows Horizontal Alignment: center', () => {
+        expect(img({ horizontalAlign: 'center', },),).toContain('margin:0 auto',);
+    });
+
+    it('follows Horizontal Alignment: start / end', () => {
+        expect(img({ horizontalAlign: 'start', },),).toContain('margin:0;',);
+        expect(out({ horizontalAlign: 'start', },),).toContain('<td align="left"',);
+        expect(img({ horizontalAlign: 'end', },),).toContain('margin:0 0 0 auto',);
+        expect(out({ horizontalAlign: 'end', },),).toContain('<td align="right"',);
+    });
+
+    it('treats spacing values as centre — one post per row has nothing to space', () => {
+        expect(img({ horizontalAlign: 'space-between', },),).toContain('margin:0 auto',);
     });
 });

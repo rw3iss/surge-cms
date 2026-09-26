@@ -108,6 +108,24 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
      */
     const gap = box.gap ?? '16px';
 
+    /*
+     * Where a post narrower than the block sits.
+     *
+     * Follows the block's Horizontal Alignment (the same setting that spaces
+     * the posts on the web); unset — or a spacing value like `space-between`,
+     * which means nothing for one post per row — CENTRES, since an item-width
+     * clamp left-aligned by default looked like a layout bug. Emitted twice:
+     * `margin` for clients that honour it, and the cell's `align` attribute for
+     * Outlook, which ignores auto margins on an image.
+     */
+    const hAlign = String((node.style as { horizontalAlign?: unknown; } | undefined)?.horizontalAlign ?? '',);
+    const side: 'left' | 'center' | 'right' = hAlign === 'start' || hAlign === 'left' ?
+        'left' :
+        hAlign === 'end' || hAlign === 'right' ?
+        'right' :
+        'center';
+    const imgMargin = side === 'center' ? 'margin:0 auto' : side === 'right' ? 'margin:0 0 0 auto' : 'margin:0';
+
     const rows = valid.map((i,) => {
         const url = escapeHtml(i.postUrl ?? '#',);
         const title = escapeHtml(String(i.content ?? '',).trim(),);
@@ -122,7 +140,7 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
         const thumb = i.thumbnailUrl ?
             `<a href="${url}" style="display:block;text-decoration:none">
                    <img src="${escapeHtml(i.thumbnailUrl,)}" alt="${title}" width="${width}"
-                        style="display:block;width:100%;max-width:${maxWidth};${heightCss};border:0;border-radius:${radius}" />
+                        style="display:block;width:100%;max-width:${maxWidth};${heightCss};${imgMargin};border:0;border-radius:${radius}" />
                </a>` :
             '';
 
@@ -153,7 +171,7 @@ export const renderSocial: BlockEmailRenderer = (node, ctx,) => {
             }</div>` :
             '';
 
-        return `<tr><td style="padding:0 0 ${gap}">${thumb}${metaRow}${author}</td></tr>`;
+        return `<tr><td align="${side}" style="padding:0 0 ${gap}">${thumb}${metaRow}${author}</td></tr>`;
     },).join('\n',);
 
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;
