@@ -18,12 +18,12 @@
 import type { SiteSettings, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
+import { FEATURE_REGISTRY, FeatureKey, featureSettingKey, } from '../features/registry';
 import { ValidationError, } from '../middleware/error';
+import { uuidOrNull, } from '../utils/uuid';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { stripeCredentials, } from './payment/credentials';
-import { FEATURE_REGISTRY, FeatureKey, featureSettingKey, } from '../features/registry';
-import { uuidOrNull, } from '../utils/uuid';
 import type { AuditContext, } from './types';
 
 /** Read a single settings row. Returns `null` when the key isn't
@@ -173,9 +173,9 @@ export async function computePublicFeatures(
         // Rows have been written as a bare boolean and, historically, as
         // `{ value: true }`; accept both rather than silently reading an old
         // row as `false`.
-        return row === true
-            || row === 'true'
-            || (typeof row === 'object' && (row as { value?: unknown; }).value === true);
+        return row === true ||
+            row === 'true' ||
+            (typeof row === 'object' && (row as { value?: unknown; }).value === true);
     };
 
     const patreonAdminEnabled = settings.patreon_enabled === true;
@@ -325,7 +325,7 @@ export async function getAllSettings(): Promise<Record<string, AdminSettingRow>>
 
 // ─── Admin: settings update (incl. feature cascade) ───────────────────
 
-export { uninstallFeature, UninstallError, } from './featureUninstall';
+export { UninstallError, uninstallFeature, } from './featureUninstall';
 
 // Feature dependency-cascade orchestration lives in ./features/cascade.
 // Re-exported here so existing importers keep resolving unchanged:
@@ -485,6 +485,35 @@ async function getKeyed(def: KeyedSetting,): Promise<unknown> {
 
 /** Upsert one keyed JSON setting; busts its cache + the global settings
  *  cache and audit-logs. */
+/**
+ * Field names whose VALUE must never reach the audit log.
+ *
+ * The audit log records who changed what. For a credential, "what" is the fact
+ * that it changed — the value itself turns a change record into a second copy
+ * of the secret, in a table that is read by anyone with database access and is
+ * included in every backup. `services/payment/credentials.ts` already logs
+ * `'set' | 'cleared' | 'unchanged'` for exactly this reason; the keyed-settings
+ * path did not, so writing an S3 backup destination put its secret access key
+ * into `audit_log.new_values` in plaintext.
+ */
+const SECRET_FIELD = /secret|password|token|credential|privatekey|apikey/i;
+
+/** Replace secret-looking leaf values with a marker, recursively. */
+function redactSecrets(value: unknown,): unknown {
+    if (Array.isArray(value,)) return value.map(redactSecrets,);
+    if (!value || typeof value !== 'object') return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v,] of Object.entries(value as Record<string, unknown>,)) {
+        if (SECRET_FIELD.test(k,)) {
+            // The CHANGE is the audit-worthy fact, not the value.
+            out[k] = typeof v === 'string' && v ? '[redacted]' : '[empty]';
+        } else {
+            out[k] = redactSecrets(v,);
+        }
+    }
+    return out;
+}
+
 async function setKeyed(def: KeyedSetting, value: unknown, ctx: AuditContext,): Promise<unknown> {
     await query(
         `INSERT INTO site_settings (key, value, updated_by)
@@ -503,7 +532,7 @@ async function setKeyed(def: KeyedSetting, value: unknown, ctx: AuditContext,): 
         action: 'update',
         entityType: 'settings',
         entityId: def.entityId,
-        newValues: value as Record<string, unknown>,
+        newValues: redactSecrets(value,) as Record<string, unknown>,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
@@ -551,7 +580,8 @@ export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed
  */
 export async function getMailingListsSettings(): Promise<import('@sitesurge/types').MailingListsSettings> {
     const raw = await getKeyed(MAILING_LISTS_SETTINGS,) as
-        Partial<import('@sitesurge/types').MailingListsSettings> | null;
+        | Partial<import('@sitesurge/types').MailingListsSettings>
+        | null;
     const clean = (v: string | undefined,) => {
         const t = (v ?? '').trim();
         return t.length > 0 ? t : undefined;
@@ -579,14 +609,13 @@ const DEFAULT_BACKUP_DIR = '/var/backups/sitesurge';
  * `BACKUP_S3_*` in `.env` keeps a copy outside the blast radius.
  */
 export async function getBackupSettings(): Promise<import('@sitesurge/types').BackupSettings> {
-    const raw = await getKeyed(BACKUP_SETTINGS,) as
-        Partial<import('@sitesurge/types').BackupSettings> | null;
+    const raw = await getKeyed(BACKUP_SETTINGS,) as Partial<import('@sitesurge/types').BackupSettings> | null;
     const env = process.env;
 
     const envBucket = env.BACKUP_S3_BUCKET;
-    const destination = (env.BACKUP_DESTINATION as never)
-        ?? raw?.destination
-        ?? (envBucket ? 's3' : 'download');
+    const destination = (env.BACKUP_DESTINATION as never) ??
+        raw?.destination ??
+        (envBucket ? 's3' : 'download');
 
     return {
         destination,
@@ -603,9 +632,10 @@ export async function getBackupSettings(): Promise<import('@sitesurge/types').Ba
         },
         // Clamped to a year. 0 means keep everything, which is a deliberate
         // choice rather than "unset" — hence the ?? chain rather than `||`.
-        retentionDays: Math.min(365, Math.max(0,
-            Number(env.BACKUP_RETENTION_DAYS ?? raw?.retentionDays ?? 30,) || 0,
-        ),),
+        retentionDays: Math.min(
+            365,
+            Math.max(0, Number(env.BACKUP_RETENTION_DAYS ?? raw?.retentionDays ?? 30,) || 0,),
+        ),
         schedule: {
             // OFF by default: a schedule that silently started writing to an
             // unconfigured destination would be worse than no schedule.
@@ -623,8 +653,7 @@ export async function getBackupSettings(): Promise<import('@sitesurge/types').Ba
     };
 }
 
-export const setBackupSettings = (value: unknown, ctx: AuditContext,) =>
-    setKeyed(BACKUP_SETTINGS, value, ctx,);
+export const setBackupSettings = (value: unknown, ctx: AuditContext,) => setKeyed(BACKUP_SETTINGS, value, ctx,);
 
 /**
  * Media storage settings.
@@ -635,8 +664,7 @@ export const setBackupSettings = (value: unknown, ctx: AuditContext,) =>
  * credentials out of the database.
  */
 export async function getMediaStorageSettings(): Promise<import('@sitesurge/types').MediaStorageSettings> {
-    const raw = await getKeyed(MEDIA_STORAGE,) as
-        Partial<import('@sitesurge/types').MediaStorageSettings> | null;
+    const raw = await getKeyed(MEDIA_STORAGE,) as Partial<import('@sitesurge/types').MediaStorageSettings> | null;
     const env = process.env;
 
     return {
@@ -653,8 +681,7 @@ export async function getMediaStorageSettings(): Promise<import('@sitesurge/type
     };
 }
 
-export const setMediaStorageSettings = (value: unknown, ctx: AuditContext,) =>
-    setKeyed(MEDIA_STORAGE, value, ctx,);
+export const setMediaStorageSettings = (value: unknown, ctx: AuditContext,) => setKeyed(MEDIA_STORAGE, value, ctx,);
 
 /** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
  *  subject, blocks, autoSend }. An absent key means "registry defaults", so a
@@ -736,3 +763,6 @@ export async function deleteRawKey(key: string,): Promise<{ message: string; }> 
     await cache.invalidateSettingsCache();
     return { message: 'Setting deleted', };
 }
+
+/** Exposed for tests only — the redaction is not part of the public surface. */
+export const __testing = { redactSecrets, };
