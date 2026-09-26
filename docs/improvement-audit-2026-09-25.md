@@ -11,7 +11,7 @@
   draft/revert/navigation-guard, media-storage and backup-destination settings,
   the admin presence channel, and the `{{site.*}}` / `{{list.*}}` / `{{template.*}}`
   template variables.
-- **Total findings: 18** (UI: 2, testing: 4, architecture: 6, second pass: 6)
+- **Total findings: 21** (UI: 2, testing: 4, architecture: 6, second pass: 6, **security: 3**)
 
 **Rule compliance across the new code is good.** Mechanical sweeps of every
 changed file found **zero** occurrences of `!important`, zero raw
@@ -394,6 +394,68 @@ one was materially overstated (see S1).
   import it. A consistency fix, not a security fix — and worth stating plainly,
   because shipping it as a "security fix" would misrepresent the risk.
 - **Risk:** low. **Phase B/C** — deferred, not urgent.
+
+### SEC1 — Open redirect on every page URL *(LIVE on production; FIXED + DEPLOYED)*
+
+- **Location:** `packages/api/src/middleware/canonicalUrl.ts:61`
+- **Problem:** `canonicalRedirect` trimmed the trailing slash off ANY path.
+  `//evil.com/` became `//evil.com`, which `res.redirect(301, …)` emits as a
+  protocol-relative `Location` — a different ORIGIN. `/\evil.com` is the same
+  trick; browsers normalise the backslash.
+- **Verified before fixing:**
+  `GET https://surgemedia.us//example.com/` → `301 Location: //example.com`,
+  both through Cloudflare and direct to node on the box.
+- **Why it matters:** a **301** is cached by browsers and CDNs, so a phishing
+  link on the domain keeps working long after the request that created it. The
+  module's own doc says it lives in the app so Docker/npm consumers get it —
+  precisely the deployments with no nginx normalising `//`.
+- **Fix:** refuse any path that is not same-origin. 16 tests; the middleware had
+  **none** (`canonicalUrl.test.ts` next door tests canonical *tags*).
+- **Verified after:** all three vectors now 404; `/posts/` → `301 /posts`.
+- **Risk:** low. Applied and deployed.
+
+### SEC2 — A write-scoped API key could exfiltrate the whole database *(FIXED + DEPLOYED)*
+
+- **Location:** `packages/api/src/routes/settings.ts` — nine routes under
+  `/media-storage` and `/backup-destination`
+- **Problem:** `/backup` and `/backup/restore` call `rejectKeyAuth` +
+  `requirePermission`, with a comment saying *"a machine key must not be able to
+  do either."* The nine destination/media routes added in this window did
+  neither, and `auth: 'admin'` **accepts a scoped `ssk_` key**. So a
+  write-scoped key could `PUT /settings/backup-destination` (attacker's S3
+  bucket + credentials) then `POST /backup-destination/run` — a full `pg_dump`
+  uploaded there, bypassing `settings.backup:download` entirely.
+- **Why it matters:** that permission exists to protect every password and
+  API-key hash on the site, and it is listed in Settings → Permissions, so an
+  operator would reasonably believe it was enforced.
+- **Fix:** one `requireBackupAccess(user, apiKey, key)` helper guarding all
+  nine, so a tenth route cannot skip it. 24 tests assert no route in the family
+  reaches its body unguarded.
+- **Also fixed:** `/backup-destination/restore` passed `req as never` where a
+  `{id, role}` subject is expected, so it resolved anonymous and failed
+  **closed** — denying everyone including sysadmins. Broken, not dangerous.
+- **Risk:** medium (changes who may call nine routes). Applied and deployed.
+
+### SEC3 — Credentials written to the audit log in plaintext *(FIXED + DEPLOYED; needs an operator decision)*
+
+- **Location:** `packages/api/src/services/settings.ts:506` (`setKeyed`)
+- **Problem:** `newValues: value` logged the whole settings object. The backup
+  destination and media-storage settings both carry `s3.secretAccessKey`.
+- **Measured on production:** **10 `audit_log` rows carry a non-empty, unmasked
+  S3 secret access key.** (Counted; values deliberately not read.)
+- **Why it matters:** the audit log is readable by anyone with database access
+  and is included in every backup — so the secret is duplicated into the exact
+  artefact it protects. `services/payment/credentials.ts` already logged
+  `'set' | 'cleared' | 'unchanged'` for this reason; the generic keyed path did
+  not.
+- **Fix:** `redactSecrets()` masks any field matching
+  `secret|password|token|credential|privatekey|apikey`, distinguishing
+  `[redacted]` from `[empty]` so clearing a credential stays a distinct event.
+  Non-secret fields (bucket, region, provider) are kept — they are what a
+  reviewer needs.
+- **NOT done, deliberately — operator's call:** the 10 existing rows were left
+  alone, and nothing was rotated. Both are outward-facing decisions.
+- **Risk:** low. Applied and deployed.
 
 ### Remaining sub-audit findings, not yet triaged
 
