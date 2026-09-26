@@ -358,9 +358,16 @@ const EventModal: Component<EventModalProps> = (props,) => {
                     />
                 </FormField>
 
-                {/* ── When ── */}
-                <div class="event-modal__row">
-                    <FormField label={multiDay() ? 'Start date' : 'Date'} required>
+                {
+                    /* ── When ── one row: date(s) take half, the two times a quarter each.
+                    A multi-day event splits the date half into start and end. */
+                }
+                <div class="event-modal__when">
+                    <FormField
+                        label={multiDay() ? 'Start date' : 'Date'}
+                        required
+                        class={multiDay() ? '' : 'event-modal__when-date'}
+                    >
                         <input
                             type="date"
                             value={startDate()}
@@ -377,9 +384,6 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             />
                         </FormField>
                     </Show>
-                </div>
-
-                <div class="event-modal__row">
                     <FormField
                         label="Start time"
                         hint={allDay() ? 'Disabled for an all-day event.' : undefined}
@@ -421,17 +425,17 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             ariaLabel="Multi-day event"
                         />
                     </FormField>
+                    {/* Timezone shares the switches' row and takes the space left over. */}
+                    <FormField label="Timezone" class="event-modal__timezone">
+                        <select value={timezone()} onChange={(e,) => setTimezone(e.currentTarget.value,)}>
+                            <option value="">Site default</option>
+                            <Show when={timezone() && !isKnownTimeZone(timezone(),)}>
+                                <option value={timezone()}>{timezone()}</option>
+                            </Show>
+                            <For each={TIMEZONES}>{(tz,) => <option value={tz.value}>{tz.label}</option>}</For>
+                        </select>
+                    </FormField>
                 </div>
-
-                <FormField label="Timezone">
-                    <select value={timezone()} onChange={(e,) => setTimezone(e.currentTarget.value,)}>
-                        <option value="">Site default</option>
-                        <Show when={timezone() && !isKnownTimeZone(timezone(),)}>
-                            <option value={timezone()}>{timezone()}</option>
-                        </Show>
-                        <For each={TIMEZONES}>{(tz,) => <option value={tz.value}>{tz.label}</option>}</For>
-                    </select>
-                </FormField>
 
                 {/* ── Repeat ── */}
                 <div class="event-modal__row">
@@ -582,7 +586,11 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 </Show>
 
                 <FormField label="Status">
-                    <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as never,)}>
+                    <select
+                        class="event-modal__status"
+                        value={status()}
+                        onChange={(e,) => setStatus(e.currentTarget.value as never,)}
+                    >
                         <option value="published">Published</option>
                         <option value="draft">Draft</option>
                         <option value="cancelled">Cancelled</option>

@@ -79,6 +79,10 @@
     > input[type='number'],
     > input[type='password'],
     > input[type='date'],
+    // `time` / `datetime-local` were missing, so every time field in the
+    // admin rendered as a bare browser control beside themed ones.
+    > input[type='time'],
+    > input[type='datetime-local'],
     > input[type='search'],
     > input[type='tel'],
     > textarea,

@@ -31,11 +31,43 @@
         @media (max-width: 560px) { grid-template-columns: 1fr; }
     }
 
+    // Date(s) + start time + end time on ONE row: the date half, each time a
+    // quarter. A multi-day event's start and end dates share the date half.
+    &__when {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+
+        @media (max-width: 560px) { grid-template-columns: 1fr 1fr; }
+    }
+
+    &__when-date { grid-column: span 2; }
+
+    // The switches, then the timezone filling what is left of the row.
     &__toggles {
         display: flex;
-        gap: 24px;
+        gap: 12px 24px;
         flex-wrap: wrap;
+        align-items: center;
     }
+
+    &__timezone {
+        flex: 1 1 220px;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    // Inputs nested one level inside a field (the slug row, the ticket tiers)
+    // are not direct children of .admin-form-field__control, so the canonical
+    // admin input style never reached them.
+    &__slug input,
+    &__tier input {
+        @include admin-input;
+        width: 100%;
+    }
+
+    &__status { max-width: 150px; }
 
     &__slug {
         display: flex;
