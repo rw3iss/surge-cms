@@ -172,10 +172,10 @@ const AdminEvents: Component = () => {
                 // cursor so this page can drive them without owning the state.
                 toolbar={(c,) => (
                     <>
-                        <select value={c.month} onChange={(e,) => c.setMonth(Number(e.currentTarget.value,),)}>
+                        <select class="events-toolbar__month" value={c.month} onChange={(e,) => c.setMonth(Number(e.currentTarget.value,),)}>
                             <For each={MONTHS}>{(m, i,) => <option value={i() + 1}>{m}</option>}</For>
                         </select>
-                        <select value={c.year} onChange={(e,) => c.setYear(Number(e.currentTarget.value,),)}>
+                        <select class="events-toolbar__year" value={c.year} onChange={(e,) => c.setYear(Number(e.currentTarget.value,),)}>
                             <For each={yearOptions()}>{(y,) => <option value={y}>{y}</option>}</For>
                         </select>
                     </>

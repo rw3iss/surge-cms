@@ -7,3 +7,16 @@
         border-color: var(--admin-border, #e5e7eb);
     }
 }
+
+// Month/year dropdowns: auto-sized to their text, which left the admin select
+// arrow (16px in from the right) sitting on top of the label. 50px wider than
+// their natural width, and the arrow 5px further right.
+.admin-events .calendar-page__toolbar {
+    .events-toolbar__month { min-width: 141px; }
+    .events-toolbar__year { min-width: 105px; }
+
+    .events-toolbar__month,
+    .events-toolbar__year {
+        background-position: calc(100% - 11px) 50%;
+    }
+}
