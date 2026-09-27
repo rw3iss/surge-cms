@@ -37,13 +37,29 @@ export async function updateSettings(
     }
     if (patch.allowTicketing && !(await isFeatureEnabledServer('shop',))) {
         throw new ValidationError(
-            'Paid tickets are checked out through the Shop. Enable the Shop feature '
-            + '(and configure payments) before turning on event ticketing.',
+            'Paid tickets are checked out through the Shop. Enable the Shop feature ' +
+                '(and configure payments) before turning on event ticketing.',
         );
     }
     // settingsService.set() already audit-logs and busts the settings cache.
     await settingsService.set(SETTINGS_KEY, next, ctx,);
     return next;
+}
+
+/**
+ * Sender for events emails. Empty fields are left undefined so `sendEmail`
+ * falls through to the site default sender, then EMAIL_FROM.
+ */
+export async function eventSender(): Promise<{ fromName?: string; fromEmail?: string; }> {
+    try {
+        const s = await getSettings();
+        return {
+            fromName: s.fromName?.trim() || undefined,
+            fromEmail: s.fromAddress?.trim() || undefined,
+        };
+    } catch {
+        return {};
+    }
 }
 
 /** The public subset — never leak the VAPID PRIVATE key. */
@@ -77,8 +93,9 @@ async function validateEventsUrl(raw: string,): Promise<string> {
     }
     const slug = url.slice(1,);
     const clash = await query<{ id: string; }>(
-        `SELECT id FROM pages WHERE slug = $1 AND status <> 'deleted' LIMIT 1`, [slug,],
-    ).catch(() => null,);
+        `SELECT id FROM pages WHERE slug = $1 AND status <> 'deleted' LIMIT 1`,
+        [slug,],
+    ).catch(() => null);
     if (clash?.rowCount) {
         throw new ValidationError(`A page already exists at ${url}. Choose another path.`,);
     }

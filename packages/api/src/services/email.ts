@@ -9,6 +9,7 @@ import { config, } from '../config';
 import { logger, } from '../utils/logger';
 import { getProvider, } from './mail/providers/factory';
 import { finalizeEmail, } from './mail/postProcess';
+import { resolveSender, } from './mail/sender';
 
 interface EmailOptions {
     to: string;
@@ -34,10 +35,12 @@ export async function sendEmail(options: EmailOptions,): Promise<void> {
         // forwarded to the provider, so even callers that supplied one sent
         // HTML-only.
         const finalized = finalizeEmail(options.html, config.frontendUrl ?? '',);
+        // The caller's sender wins, then the site default, then EMAIL_FROM.
+        const sender = await resolveSender({ fromName: options.fromName, fromEmail: options.fromEmail, },);
         await provider.send({
             to: options.to,
-            fromName: options.fromName,
-            fromEmail: options.fromEmail ?? config.email.from ?? 'no-reply@example.com',
+            fromName: sender.fromName,
+            fromEmail: sender.fromEmail,
             replyTo: options.replyTo,
             subject: options.subject,
             html: finalized.html,

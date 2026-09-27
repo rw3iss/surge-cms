@@ -111,6 +111,7 @@ function ticketCode(): string {
 export async function issueTickets(
     registrationId: string,
     lines: ResolvedTicketLine[],
+    opts: { orderId?: string; } = {},
 ): Promise<Array<{ code: string; tierName: string; priceCents: number; currency: string; }>> {
     // ONE transaction: the tier row lock below is only held until the
     // transaction ends. Run as separate pool queries it was released the
@@ -149,8 +150,8 @@ export async function issueTickets(
                 const res = await client.query<{ code: string; }>(
                     `INSERT INTO event_tickets
                     (registration_id, tier_id, event_id, occurrence_date, code,
-                     price_cents_paid, currency)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7)
+                     price_cents_paid, currency, order_id)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                  RETURNING code`,
                     [
                         registrationId,
@@ -160,6 +161,7 @@ export async function issueTickets(
                         ticketCode(),
                         line.priceCents,
                         line.currency,
+                        opts.orderId ?? null,
                     ],
                 );
                 out.push({

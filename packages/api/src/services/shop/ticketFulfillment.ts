@@ -72,7 +72,7 @@ export async function issueOrderTickets(
                 fields: attendee.fields,
                 userId: buyer.userId ?? undefined,
             },);
-            const tickets = await issueTickets(registration.id, lines,);
+            const tickets = await issueTickets(registration.id, lines, { orderId, },);
             await sendTicketConfirmation(meta.eventId, email, tickets,);
             logger.info('Event tickets issued for paid shop order', {
                 orderId,

@@ -3,8 +3,8 @@
  * registration is on. Paged because a popular event's list is unbounded, and
  * loading it whole would stall the modal it lives in.
  */
-import { Component, For, Show, createResource, createSignal, } from 'solid-js';
 import type { EventRegistration, } from '@sitesurge/types';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 
 export interface RegistrantsTableProps {
@@ -18,12 +18,14 @@ const PAGE_SIZE = 25;
 const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
     const [page, setPage,] = createSignal(1,);
 
-    const [result] = createResource(
+    const [result,] = createResource(
         () => ({ id: props.eventId, date: props.occurrenceDate, page: page(), }),
         async (k,) => {
             try {
                 return await cms.events.registrations(k.id, {
-                    occurrenceDate: k.date, page: k.page, limit: PAGE_SIZE,
+                    occurrenceDate: k.date,
+                    page: k.page,
+                    limit: PAGE_SIZE,
                 },) as { data: EventRegistration[]; meta: { total: number; totalPages: number; }; };
             } catch {
                 return { data: [], meta: { total: 0, totalPages: 0, }, };
@@ -44,7 +46,9 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                 </span>
             </div>
 
-            <Show when={result.loading}><p>Loading…</p></Show>
+            <Show when={result.loading}>
+                <p>Loading…</p>
+            </Show>
 
             <Show
                 when={!result.loading && rows().length > 0}
@@ -56,7 +60,14 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
             >
                 <table class="admin-table">
                     <thead>
-                        <tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Registered</th></tr>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Tickets</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <For each={rows()}>
@@ -65,6 +76,28 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                                     <td>{r.name || <em class="form-help-muted">—</em>}</td>
                                     <td>{r.email}</td>
                                     <td>{r.phone || <em class="form-help-muted">—</em>}</td>
+                                    <td>
+                                        <Show
+                                            when={r.tickets?.length}
+                                            fallback={<em class="form-help-muted">—</em>}
+                                        >
+                                            {/* Each code opens its public ticket page. */}
+                                            <div class="event-registrants__tickets">
+                                                <For each={r.tickets}>
+                                                    {(t,) => (
+                                                        <a
+                                                            href={`/tickets/${t.code}`}
+                                                            target="_blank"
+                                                            rel="noopener"
+                                                            title={t.tierName}
+                                                        >
+                                                            <code>{t.code}</code>
+                                                        </a>
+                                                    )}
+                                                </For>
+                                            </div>
+                                        </Show>
+                                    </td>
                                     <td>
                                         <span class={`badge ${r.status === 'registered' ? 'badge--success' : ''}`}>
                                             {r.status}
@@ -80,14 +113,22 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                 <Show when={totalPages() > 1}>
                     <div class="event-registrants__pager">
                         <button
-                            type="button" class="ui-button ui-button--sm ui-button--secondary"
-                            disabled={page() <= 1} onClick={() => setPage((p,) => p - 1)}
-                        >Previous</button>
+                            type="button"
+                            class="ui-button ui-button--sm ui-button--secondary"
+                            disabled={page() <= 1}
+                            onClick={() => setPage((p,) => p - 1)}
+                        >
+                            Previous
+                        </button>
                         <span>Page {page()} of {totalPages()}</span>
                         <button
-                            type="button" class="ui-button ui-button--sm ui-button--secondary"
-                            disabled={page() >= totalPages()} onClick={() => setPage((p,) => p + 1)}
-                        >Next</button>
+                            type="button"
+                            class="ui-button ui-button--sm ui-button--secondary"
+                            disabled={page() >= totalPages()}
+                            onClick={() => setPage((p,) => p + 1)}
+                        >
+                            Next
+                        </button>
                     </div>
                 </Show>
             </Show>

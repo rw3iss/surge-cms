@@ -306,7 +306,8 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                                         <For each={ticketCodes()}>
                                             {(t,) => (
                                                 <li>
-                                                    <strong>{t.tierName}</strong> <code>{t.code}</code>
+                                                    <strong>{t.tierName}</strong>{' '}
+                                                <A href={`/tickets/${t.code}`} class="event-signup__code"><code>{t.code}</code></A>
                                                 </li>
                                             )}
                                         </For>

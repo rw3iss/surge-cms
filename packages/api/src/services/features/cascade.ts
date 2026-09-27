@@ -31,6 +31,7 @@ export interface UpdateSettingsInput {
     theme?: { primaryColor?: string; secondaryColor?: string; accentColor?: string; };
     adminChannel?: { activeTimeoutSeconds?: number; };
     revisions?: { historyDays?: number; };
+    emailDefaults?: import('@sitesurge/types').EmailDefaults;
     notifications?: import('@sitesurge/types').NotificationSettings;
     features?: Record<string, boolean>;
     enableDependencies?: boolean;
@@ -74,6 +75,7 @@ export async function updateSettings(data: UpdateSettingsInput, ctx: AuditContex
         theme: data.theme,
         admin_channel: data.adminChannel,
         revisions: data.revisions,
+        email_defaults: data.emailDefaults,
         notifications: data.notifications,
     };
 

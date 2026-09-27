@@ -1,4 +1,5 @@
 import type {
+    EventTicketView,
     CalendarEvent, CalendarEventInput, EventOccurrence,
     EventsSettings, EventTicketTier,
 } from '@sitesurge/types';
@@ -48,6 +49,15 @@ export class EventsModule extends ModuleBase {
     remove(id: string,): Promise<{ deleted: boolean; }> {
         return this.mutate<{ deleted: boolean; }>('DELETE', '/events/:id', {
             params: { id, }, invalidates: ['events',],
+        },);
+    }
+
+    /** GET /events/tickets/:code — one ticket and its registration (the code
+     *  is the credential; contact details are masked unless you are the
+     *  attendee or staff). */
+    ticket(code: string,): Promise<EventTicketView> {
+        return this.get<EventTicketView>('/events/tickets/:code', {
+            params: { code, }, options: { cache: false, },
         },);
     }
 

@@ -1568,6 +1568,8 @@ const AdminSettings: Component = () => {
     const [siteDescription, setSiteDescription,] = createSignal('',);
     const [contactEmail, setContactEmail,] = createSignal('',);
     const [analyticsId, setAnalyticsId,] = createSignal('',);
+    const [emailFromName, setEmailFromName,] = createSignal('',);
+    const [emailFromAddress, setEmailFromAddress,] = createSignal('',);
     // Site-wide authoring defaults. Pre-fill authoring forms (e.g. a new
     // event's timezone) rather than each form guessing.
     const [defaultTimezone, setDefaultTimezone,] = createSignal('',);
@@ -1604,6 +1606,11 @@ const AdminSettings: Component = () => {
         const analytics = getValue(s, 'analytics', null,);
         if (analytics && typeof analytics === 'object') {
             setAnalyticsId((analytics as any).googleAnalyticsId || '',);
+        }
+        const emailDefaults = getValue(s, 'email_defaults', null,);
+        if (emailDefaults && typeof emailDefaults === 'object') {
+            setEmailFromName((emailDefaults as any).fromName || '',);
+            setEmailFromAddress((emailDefaults as any).fromAddress || '',);
         }
         const defaults = getValue(s, 'defaults', null,);
         if (defaults && typeof defaults === 'object') {
@@ -1666,6 +1673,8 @@ const AdminSettings: Component = () => {
         // Always send analytics (even empty) so CLEARING the field removes the
         // tag — sending it only when non-empty made a cleared id un-clearable.
         data.analytics = { googleAnalyticsId: analyticsId().trim(), };
+        // Always sent, so clearing a field falls back to EMAIL_FROM.
+        data.emailDefaults = { fromName: emailFromName().trim(), fromAddress: emailFromAddress().trim(), };
         data.defaults = {
             timezone: defaultTimezone() || undefined,
             currency: defaultCurrency() || 'USD',
@@ -1744,13 +1753,6 @@ const AdminSettings: Component = () => {
                                         type="text"
                                         value={siteDescription()}
                                         onInput={(e,) => setSiteDescription(e.currentTarget.value,)}
-                                    />
-                                </FormField>
-                                <FormField label="Contact Email">
-                                    <input
-                                        type="email"
-                                        value={contactEmail()}
-                                        onInput={(e,) => setContactEmail(e.currentTarget.value,)}
                                     />
                                 </FormField>
                             </section>
@@ -1837,6 +1839,7 @@ const AdminSettings: Component = () => {
                                 </For>
                             </section>
 
+                            <div class="settings-grid__col">
                             <section class="settings-card">
                                 <h3 class="settings-card__title">Integrations</h3>
                                 <p class="settings-card__lede">
@@ -1874,6 +1877,41 @@ const AdminSettings: Component = () => {
                                     />
                                 </FormField>
                             </section>
+
+                            <section class="settings-card">
+                                <h3 class="settings-card__title">E-mail and Contact</h3>
+                                <p class="settings-card__lede">
+                                    The sender used for site emails (shop orders, event tickets, notifications) unless a
+                                    feature sets its own. Mailing-list sends keep their own sender.
+                                </p>
+                                <FormField label="Contact Email">
+                                    <input
+                                        type="email"
+                                        value={contactEmail()}
+                                        onInput={(e,) => setContactEmail(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                                <FormField label="Default From Name" hint="Shown as the sender's name.">
+                                    <input
+                                        type="text"
+                                        placeholder="Surge Media"
+                                        value={emailFromName()}
+                                        onInput={(e,) => setEmailFromName(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Default From Address"
+                                    hint="Must be an address your mail provider is allowed to send from. Leave empty to use the server's EMAIL_FROM."
+                                >
+                                    <input
+                                        type="email"
+                                        placeholder="noreply@surgemedia.us"
+                                        value={emailFromAddress()}
+                                        onInput={(e,) => setEmailFromAddress(e.currentTarget.value,)}
+                                    />
+                                </FormField>
+                            </section>
+                            </div>
 
                             <section class="settings-card">
                                 <h3 class="settings-card__title">Defaults</h3>

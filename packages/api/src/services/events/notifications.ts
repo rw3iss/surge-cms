@@ -18,7 +18,7 @@ import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
 import { escapeHtml, eventUrl, formatWhen, } from './format';
-import { getSettings, } from './settings';
+import { getSettings, eventSender, } from './settings';
 
 export type NotifyKind = 'published' | 'reminder';
 
@@ -59,7 +59,7 @@ export async function notifyForEvent(event: CalendarEvent, kind: NotifyKind,): P
         for (const r of recipients.filter((x,) => x.notifyEmail)) {
             if (!(await repo.claimNotification(event.id, kind, 'email', r.email,))) continue;
             try {
-                await sendEmail({ to: r.email, subject, html, },);
+                await sendEmail({ ...(await eventSender()), to: r.email, subject, html, },);
             } catch (e) {
                 logger.warn('event notification: email failed', {
                     event: event.id, to: r.email, error: (e as Error).message,

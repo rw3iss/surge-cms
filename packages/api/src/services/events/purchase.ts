@@ -15,7 +15,7 @@ import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
 import { register, } from './registration';
-import { getSettings, } from './settings';
+import { eventSender, getSettings, } from './settings';
 import { issueTickets, resolveTicketLines, } from './tickets';
 
 export interface PurchaseResult {
@@ -97,12 +97,17 @@ export async function sendTicketConfirmation(
             dateStyle: 'full',
             timeStyle: 'short',
         },);
+        const base = config.frontendUrl.replace(/\/+$/, '',);
+        // Each code links to its ticket page — the proof of registration.
         const rows = tickets.map((t,) =>
             `<tr><td style="padding:4px 10px 4px 0">${t.tierName}</td>` +
-            `<td style="padding:4px 0"><code>${t.code}</code></td></tr>`
+            `<td style="padding:4px 0"><a href="${base}/tickets/${
+                encodeURIComponent(t.code,)
+            }"><code>${t.code}</code></a></td></tr>`
         ).join('',);
 
         await sendEmail({
+            ...(await eventSender()),
             to: email,
             subject: `Your tickets: ${event.title}`,
             html: `<h2>You're going to ${event.title}</h2>

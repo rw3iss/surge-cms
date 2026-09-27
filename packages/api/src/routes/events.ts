@@ -8,7 +8,7 @@
  * without an account.
  */
 import type { EventsCreateBody, EventsSubscribeBody, EventsUnsubscribeBody, } from '@sitesurge/types';
-import { isStaffRole, } from '@sitesurge/types';
+import { isAdminRole, isStaffRole, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, } from '../api/defineRoute';
 import { reply, } from '../api/types';
@@ -68,9 +68,14 @@ export const eventsRoutes = [
     defineRoute({
         method: 'get',
         path: '/settings',
-        auth: 'public',
-        summary: 'Public events settings (notification toggles + VAPID public key).',
-        handler: () => events.getPublicSettings(),
+        auth: 'optional',
+        summary: 'Events settings (notification toggles + VAPID public key; admins also get the email sender).',
+        handler: async ({ user, },) => {
+            const pub = await events.getPublicSettings();
+            if (!user || !isAdminRole(user.role,)) return pub;
+            const full = await events.getSettings();
+            return { ...pub, fromName: full.fromName ?? '', fromAddress: full.fromAddress ?? '', };
+        },
     },),
 
     defineRoute({
@@ -86,6 +91,8 @@ export const eventsRoutes = [
                 eventsUrl: z.string().max(64,).optional(),
                 allowRegistration: z.boolean().optional(),
                 allowTicketing: z.boolean().optional(),
+                fromName: z.string().trim().max(200,).optional(),
+                fromAddress: z.union([z.string().trim().email(), z.literal('',),],).optional(),
             },),
         },
         handler: ({ body, audit, },) => events.updateSettings(body, audit(),),
@@ -260,6 +267,17 @@ export const eventsRoutes = [
                 },
             },);
         },
+    },),
+
+    // ─── Ticket view ───
+    defineRoute({
+        method: 'get',
+        path: '/tickets/:code',
+        auth: 'optional',
+        summary:
+            'One ticket and the registration it belongs to. The code is the credential; contact details are masked for anyone but the attendee or staff.',
+        input: { params: z.object({ code: z.string().min(4,).max(32,), },), },
+        handler: ({ params, user, },) => events.getTicketView(params.code, user,),
     },),
 
     // ─── Ticket purchase ───

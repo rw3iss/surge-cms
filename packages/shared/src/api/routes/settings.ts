@@ -131,6 +131,8 @@ export interface SettingsUpdateBody {
     /** Admin Channel presence: idle timeout (seconds) before a user shows idle. */
     adminChannel?: { activeTimeoutSeconds?: number; };
     revisions?: { historyDays?: number; };
+    /** Default sender for every email that has no sender of its own. */
+    emailDefaults?: EmailDefaults;
     /** Per-type notification channel config (email/sms/push enable + addresses). */
     notifications?: NotificationSettings;
     /** Feature toggles. Keys must exist in the registry; unknown keys 400. */
@@ -433,3 +435,13 @@ export interface SettingsUpdateCmsResponse {
 // Re-export the computed feature projection for consumers wiring the
 // public settings shape (it already lives on SiteSettings.features).
 export type { SiteFeatures, };
+
+/**
+ * Site-wide default sender (`email_defaults` setting). Used by every email
+ * whose feature does not set its own sender; empty falls back to the
+ * server's `EMAIL_FROM`.
+ */
+export interface EmailDefaults {
+    fromName?: string;
+    fromAddress?: string;
+}

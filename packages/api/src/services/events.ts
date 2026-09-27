@@ -51,6 +51,7 @@ export {
 } from './events/subscriptions';
 
 export { notifyForEvent, runReminderSweep, } from './events/notifications';
+export { getTicketView, } from './events/ticketView';
 export type { NotifyKind, } from './events/notifications';
 
 export {

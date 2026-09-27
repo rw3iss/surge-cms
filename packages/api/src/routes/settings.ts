@@ -49,6 +49,11 @@ const settingsSchema = z.object({
     revisions: z.object({
         historyDays: z.coerce.number().int().min(0,).max(3650,).optional(),
     },).optional(),
+    /** Default sender for emails with no sender of their own. Empty = EMAIL_FROM. */
+    emailDefaults: z.object({
+        fromName: z.string().trim().max(200,).optional(),
+        fromAddress: z.union([z.string().trim().email(), z.literal('',),],).optional(),
+    },).optional(),
     /**
      * Per-type notification channel config. Each type key maps to enable +
      * recipient addresses per channel (email/sms/push). Sent by the

@@ -607,6 +607,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "ticket",
+                "signature": "ticket(code: string): Promise<EventTicketView>",
+                "summary": "GET /events/tickets/:code — one ticket and its registration (the code is the credential; contact details are masked unless you are the attendee or staff)."
+            },
+            {
                 "name": "tiers",
                 "signature": "tiers(id: string, occurrenceDate: string): Promise<EventTicketTier[]>",
                 "summary": "GET /events/:id/tiers — with live sold/remaining for that occurrence."
@@ -2229,4 +2234,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 387;
+export const SDK_METHOD_COUNT = 388;

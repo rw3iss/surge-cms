@@ -24,6 +24,8 @@ const AdminEventSettings: Component = () => {
     const [eventsUrl, setEventsUrl,] = createSignal('/events',);
     const [allowRegistration, setAllowRegistration,] = createSignal(true,);
     const [allowTicketing, setAllowTicketing,] = createSignal(false,);
+    const [fromName, setFromName,] = createSignal('',);
+    const [fromAddress, setFromAddress,] = createSignal('',);
 
     const [loaded,] = createResource(async () => {
         try {
@@ -33,6 +35,8 @@ const AdminEventSettings: Component = () => {
             setEventsUrl(s.eventsUrl || '/events',);
             setAllowRegistration(s.allowRegistration,);
             setAllowTicketing(s.allowTicketing,);
+            setFromName(s.fromName || '',);
+            setFromAddress(s.fromAddress || '',);
             return s;
         } catch {
             return null;
@@ -49,6 +53,8 @@ const AdminEventSettings: Component = () => {
                 eventsUrl: eventsUrl(),
                 allowRegistration: allowRegistration(),
                 allowTicketing: allowTicketing(),
+                fromName: fromName().trim(),
+                fromAddress: fromAddress().trim(),
             },);
             toast.success('Event settings saved',);
         } catch (e) {
@@ -117,6 +123,32 @@ const AdminEventSettings: Component = () => {
                         value={reminderHours()}
                         class="admin-event-settings__number"
                         onInput={(e,) => setReminderHours(Number(e.currentTarget.value,) || 0,)}
+                    />
+                </FormField>
+            </section>
+
+            <section class="admin-section">
+                <header class="admin-section__header">
+                    <h2>Email sender</h2>
+                </header>
+                <FormField
+                    label="From name"
+                    hint="Used for registration, ticket and reminder emails. Leave empty to use the site default sender (Settings → General → E-mail and Contact)."
+                >
+                    <input
+                        type="text"
+                        value={fromName()}
+                        onInput={(e,) => setFromName(e.currentTarget.value,)}
+                    />
+                </FormField>
+                <FormField
+                    label="From address"
+                    hint="Used for registration, ticket and reminder emails. Leave empty to use the site default sender (Settings → General → E-mail and Contact)."
+                >
+                    <input
+                        type="email"
+                        value={fromAddress()}
+                        onInput={(e,) => setFromAddress(e.currentTarget.value,)}
                     />
                 </FormField>
             </section>

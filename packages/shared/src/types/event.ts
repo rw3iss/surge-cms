@@ -110,6 +110,13 @@ export interface EventsSettings {
      * it on rather than letting the two contradict.
      */
     allowTicketing: boolean;
+    /**
+     * Sender for every events email (registration, tickets, announcements,
+     * reminders). Empty falls back to the site default sender (Settings →
+     * General → E-mail and Contact), then the server's EMAIL_FROM.
+     */
+    fromName?: string;
+    fromAddress?: string;
 }
 
 export const DEFAULT_EVENTS_SETTINGS: EventsSettings = {
@@ -190,6 +197,47 @@ export interface EventTicket {
     priceCentsPaid: number;
     currency: string;
     createdAt: string;
+}
+
+/**
+ * Public view of one ticket — `GET /events/tickets/:code`. The code is the
+ * credential: whoever holds it sees the whole registration it belongs to,
+ * with the attendee's email masked unless the viewer is that attendee or
+ * staff.
+ */
+export interface EventTicketView {
+    code: string;
+    status: EventTicket['status'];
+    tierName: string;
+    priceCents: number;
+    currency: string;
+    occurrenceDate: string;
+    event: {
+        id: string;
+        title: string;
+        slug: string;
+        startsAt: string;
+        endsAt: string | null;
+        allDay: boolean;
+        location: string | null;
+        timezone: string | null;
+        featuredImage: string | null;
+    };
+    attendee: { name: string | null; email: string; phone: string | null; };
+    registeredAt: string;
+    /** Every ticket on the registration, this one included, oldest first. */
+    tickets: Array<{
+        code: string;
+        tierName: string;
+        priceCents: number;
+        currency: string;
+        status: EventTicket['status'];
+        /** Shop order that paid for it; absent for a free ticket. */
+        orderNumber?: string;
+    }>;
+    totalCents: number;
+    /** True when the viewer is the attendee or staff (unmasked details). */
+    isOwner: boolean;
 }
 
 /** Which fields an attendee must supply. */

@@ -8,12 +8,13 @@
 import type { EventRegistration, } from '@sitesurge/types';
 import { isValidEmail, } from '@sitesurge/types';
 import { ValidationError, } from '../../core/errors';
+import { query, } from '../../db';
 import * as repo from '../../repositories/events.repo';
-import { sendEmail, } from '../email';
 import { logger, } from '../../utils/logger';
+import { sendEmail, } from '../email';
 import { getByIdOrSlug, } from './crud';
 import { eventUrl, } from './format';
-import { getSettings, } from './settings';
+import { eventSender, getSettings, } from './settings';
 
 /**
  * The occurrence a registration lands on when the caller didn't name one.
@@ -65,9 +66,11 @@ export async function register(input: {
     // Confirmation is best-effort: a mail failure must not lose the registration.
     try {
         const when = new Date(event.startsAt,).toLocaleString('en-US', {
-            dateStyle: 'full', timeStyle: 'short',
+            dateStyle: 'full',
+            timeStyle: 'short',
         },);
         await sendEmail({
+            ...(await eventSender()),
             to: email,
             subject: `You're registered: ${event.title}`,
             html: `<h2>You're registered</h2>
@@ -78,7 +81,8 @@ export async function register(input: {
         },);
     } catch (e) {
         logger.warn('event registration: confirmation email failed', {
-            event: event.id, error: (e as Error).message,
+            event: event.id,
+            error: (e as Error).message,
         },);
     }
     return registration;
@@ -97,5 +101,41 @@ export async function listRegistrations(
     occurrenceDate: string,
     pagination: { page?: number; limit?: number; } = {},
 ) {
-    return repo.findRegistrations(eventId, occurrenceDate, pagination,);
+    const page = await repo.findRegistrations(eventId, occurrenceDate, pagination,);
+    // Attach each attendee's tickets so the admin can open a ticket page.
+    const ids = page.data.map((r,) => r.id);
+    if (ids.length) {
+        const t = await query<
+            {
+                registration_id: string;
+                code: string;
+                status: string;
+                tier_name: string | null;
+                price_cents_paid: number;
+                currency: string;
+            }
+        >(
+            `SELECT t.registration_id, t.code, t.status, tr.name AS tier_name, t.price_cents_paid, t.currency
+               FROM event_tickets t LEFT JOIN event_ticket_tiers tr ON tr.id = t.tier_id
+              WHERE t.registration_id = ANY($1::uuid[])
+              ORDER BY t.created_at, t.code`,
+            [ids,],
+        );
+        for (const r of page.data) {
+            r.tickets = t.rows.filter((x,) => x.registration_id === r.id).map((x,) => ({
+                id: x.code,
+                registrationId: r.id,
+                tierId: null,
+                tierName: x.tier_name ?? 'Ticket',
+                eventId,
+                occurrenceDate,
+                code: x.code,
+                status: x.status as never,
+                priceCentsPaid: Number(x.price_cents_paid,),
+                currency: x.currency,
+                createdAt: '',
+            }));
+        }
+    }
+    return page;
 }
