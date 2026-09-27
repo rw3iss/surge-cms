@@ -1667,3 +1667,10 @@
     gap: 0.75rem;
     flex-wrap: wrap;
 }
+
+// Entity block: "Edit template" under the Template select — a compact button,
+// not a full-width row in the panel's column flow.
+.entity-block-edit__template-link {
+    align-self: flex-start;
+    margin: -4px 0 8px;
+}

@@ -4,6 +4,7 @@
  * several entities / a query). Reuses the shared EntitySearchSelectModal.
  */
 import type { EntityBinding, EntityQuery, EntityRecord, } from '@sitesurge/types';
+import { A, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntityBindingSummary from '../../entities/EntityBindingSummary';
@@ -98,6 +99,18 @@ const EntityBlockEdit: Component<{
                         <small class="form-help-muted">No templates yet — create one in Entities → {cfg().entityType} → Templates.</small>
                     </Show>
                 </label>
+                {/* Outside the <label> so a click follows the link rather than
+                    focusing the select. New tab, like the Component block's
+                    "Edit Component", so the page being edited stays open. */}
+                <Show when={cfg().templateId}>
+                    <A
+                        href={`/admin/entities/${encodeURIComponent(cfg().entityType,)}/templates/${cfg().templateId}`}
+                        class="ui-button ui-button--sm ui-button--secondary entity-block-edit__template-link"
+                        target="_blank"
+                    >
+                        Edit template
+                    </A>
+                </Show>
             </Show>
 
             <Show when={cfg().templateId}>
