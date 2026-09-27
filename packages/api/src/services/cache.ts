@@ -221,6 +221,12 @@ export async function invalidateCampaignCache(campaignId?: string,): Promise<voi
         await del(`campaign:${campaignId}`,);
     }
     await delPattern('campaigns:*',);
+    // The public by-slug copy (`campaign:slug:<slug>`, campaigns.getPublicBySlugCached).
+    // It was never cleared, so a saved setting or a new donation showed on
+    // slug-addressed views (the campaign page, {{campaignStatus('slug')}})
+    // only after its 5-minute TTL ran out. All slugs: a slug rename leaves no
+    // way to know the old one here, and campaigns are few.
+    await delPattern('campaign:slug:*',);
     await delPattern('donations:*',);
     await invalidateMirroredEntityCache('campaign',);
     await delPattern(CACHE_KEYS.ssrAll,);
