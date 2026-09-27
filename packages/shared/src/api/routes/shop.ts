@@ -491,6 +491,8 @@ export interface ShopCheckoutResponse {
 /** Query accepted by GET /shop/orders. */
 export interface ShopOrderListQuery {
     status?: string;
+    /** Only the caller's own orders, even for an admin. */
+    mine?: boolean;
     page?: number;
     limit?: number;
 }

@@ -217,6 +217,8 @@ const checkoutSchema = z.object({
 
 const orderListQuery = z.object({
     status: z.string().optional(),
+    /** Only the caller's own orders, even for an admin (the profile page). */
+    mine: z.enum(['true', 'false',],).transform((v,) => v === 'true').optional(),
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(20,),
 },);
@@ -777,10 +779,13 @@ export const shopRoutes = [
         method: 'get',
         path: '/orders',
         auth: 'user',
-        summary: 'List orders. Regular users see their own (by user_id/email); admins see all. Paginated.',
+        summary:
+            'List orders. Regular users see their own (by user_id/email); admins see all unless mine=true. Paginated.',
         input: { query: orderListQuery, },
         handler: async ({ query, user, apiKey, },) => {
-            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            // `mine` drops the admin view: an admin's profile must list the
+            // admin's OWN purchases, not every customer's.
+            const isAdmin = !query.mine && (isAdminRole(user?.role,) || Boolean(apiKey,));
             const result = await orders.list(
                 { status: query.status, },
                 { isAdmin, userId: user?.id, email: user?.email, },

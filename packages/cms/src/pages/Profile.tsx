@@ -224,7 +224,8 @@ const Profile: Component = () => {
         () => (tab() === 'orders' && auth.isAuthenticated ? 'load' : null),
         async () => {
             try {
-                const res = await cms.shop.orders.list({ limit: 50, },);
+                // `mine`: staff would otherwise get every customer's orders here.
+                const res = await cms.shop.orders.list({ limit: 50, mine: true, },);
                 return res.data as ShopOrder[];
             } catch {
                 return [] as ShopOrder[];
