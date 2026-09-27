@@ -3,7 +3,7 @@
  * registration is on. Paged because a popular event's list is unbounded, and
  * loading it whole would stall the modal it lives in.
  */
-import type { EventRegistration, } from '@sitesurge/types';
+import type { EventRegistration, EventTicketTier, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 
@@ -33,6 +33,29 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
         },
     );
 
+    /*
+     * Ticket types for this date, numbered by their position (#1, #2, …). The
+     * number is what the Tickets column cites after each code, so a code's
+     * type reads at a glance without repeating the tier name on every row.
+     * All tiers are listed (including unsold ones) so a label never shifts
+     * when a new type makes its first sale.
+     */
+    const [tiers,] = createResource(
+        () => ({ id: props.eventId, date: props.occurrenceDate, }),
+        async (k,) => {
+            try {
+                return [...await cms.events.tiers(k.id, k.date,),].sort((a, b,) => a.position - b.position);
+            } catch {
+                return [] as EventTicketTier[];
+            }
+        },
+    );
+    const tierLabel = (tierId: string | null,) => {
+        const i = (tiers() ?? []).findIndex((t,) => t.id === tierId);
+        return i >= 0 ? `#${i + 1}` : '';
+    };
+    const totalSold = () => (tiers() ?? []).reduce((n, t,) => n + (t.sold ?? 0), 0,);
+
     const rows = () => result()?.data ?? [];
     const total = () => result()?.meta?.total ?? 0;
     const totalPages = () => result()?.meta?.totalPages ?? 0;
@@ -45,6 +68,22 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                     {total()} {total() === 1 ? 'person' : 'people'} for {props.occurrenceDate}
                 </span>
             </div>
+
+            <Show when={totalSold() > 0}>
+                <div class="event-registrants__sales">
+                    <h4>Ticket sales</h4>
+                    <ol class="event-registrants__tiers">
+                        <For each={tiers()}>
+                            {(t, i,) => (
+                                <li>
+                                    <span class="event-registrants__tier-num">#{i() + 1})</span> {t.name} —{' '}
+                                    {t.sold ?? 0} {(t.sold ?? 0) === 1 ? 'ticket' : 'tickets'}
+                                </li>
+                            )}
+                        </For>
+                    </ol>
+                </div>
+            </Show>
 
             <Show when={result.loading}>
                 <p>Loading…</p>
@@ -85,14 +124,19 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                                             <div class="event-registrants__tickets">
                                                 <For each={r.tickets}>
                                                     {(t,) => (
-                                                        <a
-                                                            href={`/tickets/${t.code}`}
-                                                            target="_blank"
-                                                            rel="noopener"
-                                                            title={t.tierName}
-                                                        >
-                                                            <code>{t.code}</code>
-                                                        </a>
+                                                        <span class="event-registrants__ticket">
+                                                            <a
+                                                                href={`/tickets/${t.code}`}
+                                                                target="_blank"
+                                                                rel="noopener"
+                                                                title={t.tierName}
+                                                            >
+                                                                <code>{t.code}</code>
+                                                            </a>
+                                                            <Show when={tierLabel(t.tierId,)}>
+                                                                {' '}({tierLabel(t.tierId,)})
+                                                            </Show>
+                                                        </span>
                                                     )}
                                                 </For>
                                             </div>

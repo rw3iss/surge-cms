@@ -144,8 +144,27 @@
 }
 
 .event-registrants__tickets {
+    // One code per line: each now carries its (#n) type label.
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    max-width: 260px;
+    flex-direction: column;
+    gap: 2px;
 }
+
+.event-registrants__sales {
+    margin: 0 0 12px;
+
+    h4 { margin: 0 0 6px; font-size: 0.85rem; }
+}
+
+.event-registrants__tiers {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.875rem;
+
+    li + li { margin-top: 2px; }
+}
+
+.event-registrants__tier-num { font-weight: 600; }
+
+.event-registrants__ticket { white-space: nowrap; }

@@ -116,6 +116,7 @@ export async function listRegistrations(
         const t = await query<
             {
                 registration_id: string;
+                tier_id: string | null;
                 code: string;
                 status: string;
                 tier_name: string | null;
@@ -123,7 +124,7 @@ export async function listRegistrations(
                 currency: string;
             }
         >(
-            `SELECT t.registration_id, t.code, t.status, tr.name AS tier_name, t.price_cents_paid, t.currency
+            `SELECT t.registration_id, t.tier_id, t.code, t.status, tr.name AS tier_name, t.price_cents_paid, t.currency
                FROM event_tickets t LEFT JOIN event_ticket_tiers tr ON tr.id = t.tier_id
               WHERE t.registration_id = ANY($1::uuid[])
               ORDER BY t.created_at, t.code`,
@@ -133,7 +134,7 @@ export async function listRegistrations(
             r.tickets = t.rows.filter((x,) => x.registration_id === r.id).map((x,) => ({
                 id: x.code,
                 registrationId: r.id,
-                tierId: null,
+                tierId: x.tier_id,
                 tierName: x.tier_name ?? 'Ticket',
                 eventId,
                 occurrenceDate,
