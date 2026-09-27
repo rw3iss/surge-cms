@@ -218,6 +218,9 @@
     &__list {
         max-height: 320px;
         overflow-y: auto;
+        // Rows read as a table; a centred host (the /donate page) must not
+        // centre the names.
+        text-align: left;
 
         ul { list-style: none; margin: 0; padding: 0; }
     }
