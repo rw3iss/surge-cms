@@ -143,6 +143,7 @@ export interface PostCreateBody {
     bannerLayout?: 'hero' | 'hero-full' | 'standalone' | 'thumbnail';
     bannerImagePosition?: 'start' | 'center' | 'end' | 'custom';
     bannerImagePositionCustom?: string | null;
+    bannerHeight?: string | null;
     contentBlocks?: PostCreateContentBlock[];
 }
 

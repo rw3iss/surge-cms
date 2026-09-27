@@ -168,6 +168,8 @@ export interface Post {
     bannerImagePosition?: 'start' | 'center' | 'end' | 'custom';
     /** CSS background-position used when `bannerImagePosition` is `custom`. */
     bannerImagePositionCustom?: string | null;
+    /** Banner height for every image layout (any CSS height); empty = layout default. */
+    bannerHeight?: string | null;
     createdAt: Date;
     updatedAt: Date;
 }

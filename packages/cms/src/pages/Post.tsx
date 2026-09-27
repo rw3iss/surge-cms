@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, resolveBannerPosition, type ContentAccessLevel, type Post, } from '@sitesurge/types';
+import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type ContentAccessLevel, type Post, } from '@sitesurge/types';
 import { ContentLockedError, } from '@sitesurge/client';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
@@ -169,6 +169,13 @@ const PostPage: Component = () => {
                         // Applied as background-position (hero) / object-position (img).
                         const bannerPos = () =>
                             resolveBannerPosition(postData().bannerImagePosition, postData().bannerImagePositionCustom,);
+                        // Per-post banner height, handed to every layout as a CSS
+                        // variable; each layout's stylesheet falls back to its own
+                        // default when it is unset (see Post.scss).
+                        const bannerHeightVar = () => {
+                            const h = resolveBannerHeight(postData().bannerHeight,);
+                            return h ? { '--post-banner-height': h, } : {};
+                        };
                         // Expose the current post to `{{post.*}}` in its blocks.
                         const postCtx = () => ({
                             post: { kind: 'post', data: postData() as unknown as Record<string, unknown>, id: postData().id },
@@ -218,6 +225,7 @@ const PostPage: Component = () => {
                                             style={{
                                                 'background-image': `url("${postData().featuredImage}")`,
                                                 'background-position': bannerPos(),
+                                                ...bannerHeightVar(),
                                             }}
                                         >
                                             <div class="post-page__hero-overlay">
@@ -234,6 +242,7 @@ const PostPage: Component = () => {
                                             style={{
                                                 'background-image': `url("${postData().featuredImage}")`,
                                                 'background-position': bannerPos(),
+                                                ...bannerHeightVar(),
                                             }}
                                         >
                                             <div class="post-page__hero-overlay post-page__hero-overlay--full">
@@ -248,7 +257,7 @@ const PostPage: Component = () => {
                                                 src={postData().featuredImage}
                                                 alt={postData().title}
                                                 class="post-page__thumb"
-                                                style={{ 'object-position': bannerPos(), }}
+                                                style={{ 'object-position': bannerPos(), ...bannerHeightVar(), }}
                                             />
                                             <div class="post-page__header-text">
                                                 {heading()}
@@ -265,7 +274,7 @@ const PostPage: Component = () => {
                                                 src={postData().featuredImage}
                                                 alt={postData().title}
                                                 class="post-page__image"
-                                                style={{ 'object-position': bannerPos(), }}
+                                                style={{ 'object-position': bannerPos(), ...bannerHeightVar(), }}
                                             />
                                         </Show>
                                     </Match>

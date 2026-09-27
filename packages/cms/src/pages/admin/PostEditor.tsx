@@ -1,5 +1,6 @@
 import {
-    BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerPositionCustom, resolveBannerPosition,
+    BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerHeight,
+    isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition,
 } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { contentPaddingStyle, } from '../../utils/appearanceStyle';
@@ -40,6 +41,8 @@ const AdminPostEditor: Component = () => {
     const [bannerImagePosition, setBannerImagePosition,] = createSignal<BannerImagePosition>('center',);
     /** CSS position used when Vertical Position is Custom. */
     const [bannerImagePositionCustom, setBannerImagePositionCustom,] = createSignal('',);
+    /** Banner height for every image layout (any CSS height); '' = layout default. */
+    const [bannerHeight, setBannerHeight,] = createSignal('',);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [authorId, setAuthorId,] = createSignal('',);
     /** Whether the post renderer applies the site's Post Padding (top/bottom)
@@ -75,6 +78,7 @@ const AdminPostEditor: Component = () => {
             bannerLayout: bannerLayout(),
             bannerImagePosition: bannerImagePosition(),
             bannerImagePositionCustom: bannerImagePositionCustom(),
+            bannerHeight: bannerHeight(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -102,6 +106,7 @@ const AdminPostEditor: Component = () => {
                 // Only meaningful in Custom mode; cleared otherwise so a stale value
                 // can't resurface when Custom is picked again later.
                 bannerImagePositionCustom: bannerImagePosition() === 'custom' ? bannerImagePositionCustom().trim() || null : null,
+                bannerHeight: bannerHeight().trim() || null,
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -196,6 +201,7 @@ const AdminPostEditor: Component = () => {
             setBannerLayout(d.bannerLayout || 'standalone',);
             setBannerImagePosition((d.bannerImagePosition as BannerImagePosition) || 'center',);
             setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
+            setBannerHeight(d.bannerHeight || '',);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -220,6 +226,7 @@ const AdminPostEditor: Component = () => {
         setBannerLayout(((p as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail') || 'standalone',);
         setBannerImagePosition(((p as any).bannerImagePosition as BannerImagePosition) || 'center',);
         setBannerImagePositionCustom((p as any).bannerImagePositionCustom || '',);
+        setBannerHeight((p as any).bannerHeight || '',);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
@@ -380,6 +387,35 @@ const AdminPostEditor: Component = () => {
                                                 </Show>
                                             </div>
                                         </Show>
+                                        <div class="post-banner-field__layout-row">
+                                            <label>Height</label>
+                                            {/* Commits on blur / Enter (admin input rule). */}
+                                            <input
+                                                type="text"
+                                                placeholder="default"
+                                                maxLength={BANNER_HEIGHT_MAX}
+                                                value={bannerHeight()}
+                                                onBlur={(e,) => {
+                                                    const v = e.currentTarget.value.trim();
+                                                    if (v === bannerHeight()) return;
+                                                    setBannerHeight(v,);
+                                                    editor.markDirty();
+                                                }}
+                                                onKeyDown={(e,) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        e.currentTarget.blur();
+                                                    }
+                                                }}
+                                            />
+                                            <Tooltip
+                                                header="Banner Height"
+                                                content="Height of the banner image in every layout — Hero and Hero Full (overrides Appearance → Post header banner height), Standalone (the image is cropped to it) and Thumbnail. Any CSS height: 420px, 50vh, clamp(240px, 40vw, 520px). Leave empty for each layout's default."
+                                            />
+                                            <Show when={bannerHeight() && !isValidBannerHeight(bannerHeight(),)}>
+                                                <small class="form-help-muted">Not a valid CSS height — the default is used.</small>
+                                            </Show>
+                                        </div>
                                     </div>
                                 </Show>
                             </div>
@@ -528,6 +564,10 @@ const AdminPostEditor: Component = () => {
 
     // Vertical anchor of the banner image (mirrors Post.tsx). start=top, end=bottom.
     const previewBannerPos = () => resolveBannerPosition(bannerImagePosition(), bannerImagePositionCustom(),);
+    const previewBannerHeightVar = () => {
+        const h = resolveBannerHeight(bannerHeight(),);
+        return h ? { '--post-banner-height': h, } : {};
+    };
     // Shared post header content (back link + title + a status/excerpt meta line)
     // used inside every banner layout in the preview.
     const previewHeading = () => (
@@ -561,6 +601,7 @@ const AdminPostEditor: Component = () => {
                                 style={{
                                     'background-image': `url("${featuredImage()}")`,
                                     'background-position': previewBannerPos(),
+                                    ...previewBannerHeightVar(),
                                 }}
                             >
                                 <div class="post-page__hero-overlay">{previewHeading()}</div>
@@ -572,6 +613,7 @@ const AdminPostEditor: Component = () => {
                                 style={{
                                     'background-image': `url("${featuredImage()}")`,
                                     'background-position': previewBannerPos(),
+                                    ...previewBannerHeightVar(),
                                 }}
                             >
                                 <div class="post-page__hero-overlay post-page__hero-overlay--full">{previewHeading()}</div>

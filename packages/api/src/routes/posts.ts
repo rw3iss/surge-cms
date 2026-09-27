@@ -1,4 +1,4 @@
-import { BANNER_POSITION_CUSTOM_MAX, isValidBannerPositionCustom, } from '@sitesurge/types';
+import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isValidBannerPositionCustom, } from '@sitesurge/types';
 import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
@@ -53,6 +53,9 @@ const postSchema = z.object({
     // could escape a style value (see isValidBannerPositionCustom).
     bannerImagePositionCustom: z.string().trim().max(BANNER_POSITION_CUSTOM_MAX,)
         .refine((v,) => v === '' || isValidBannerPositionCustom(v,), 'Not a valid background position',)
+        .nullish(),
+    bannerHeight: z.string().trim().max(BANNER_HEIGHT_MAX,)
+        .refine((v,) => v === '' || isValidBannerHeight(v,), 'Not a valid CSS height',)
         .nullish(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
 },);

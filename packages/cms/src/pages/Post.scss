@@ -88,6 +88,10 @@
 
   &__image {
     width: 100%;
+    // Per-post banner height (`--post-banner-height`, set inline by the post):
+    // unset keeps the image's natural height; set, the image is cropped to it.
+    height: var(--post-banner-height, auto);
+    object-fit: cover;
     border-radius: $border-radius-lg;
     margin-bottom: $spacing-xl;
   }
@@ -104,8 +108,9 @@
     // bottom-anchored title up so it reads more centered. Unset → the var is
     // invalid, so `height` falls back to auto and the fluid 340px min-height
     // stands (unchanged default).
-    height: var(--site-post-header-banner-height);
-    min-height: var(--site-post-header-banner-height, 340px);
+    // A post's own banner height wins over the site-wide one.
+    height: var(--post-banner-height, var(--site-post-header-banner-height));
+    min-height: var(--post-banner-height, var(--site-post-header-banner-height, 340px));
     display: flex;
     align-items: flex-end;
     background-size: cover;
@@ -188,7 +193,7 @@
 
   &__thumb {
     width: 120px;
-    height: 120px;
+    height: var(--post-banner-height, 120px);
     object-fit: cover;
     border-radius: $border-radius-md;
     flex-shrink: 0;

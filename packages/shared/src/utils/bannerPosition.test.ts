@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { isValidBannerPositionCustom, resolveBannerPosition, } from './bannerPosition';
+import { isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition, } from './bannerPosition';
 
 describe('resolveBannerPosition', () => {
     it('maps the presets', () => {
@@ -17,3 +17,15 @@ describe('resolveBannerPosition', () => {
         expect(isValidBannerPositionCustom('url("x")',),).toBe(false,);
     });
 });
+
+describe('resolveBannerHeight', () => {
+    it('accepts CSS heights', () => {
+        expect(resolveBannerHeight('420px',),).toBe('420px',);
+        expect(resolveBannerHeight(' clamp(240px, 40vw, 520px) ',),).toBe('clamp(240px, 40vw, 520px)',);
+    },);
+    it('ignores empty, keyword-only or unsafe values', () => {
+        expect(resolveBannerHeight('',),).toBeUndefined();
+        expect(resolveBannerHeight('auto',),).toBeUndefined();
+        expect(resolveBannerHeight('10px; color:red',),).toBeUndefined();
+    },);
+},);
