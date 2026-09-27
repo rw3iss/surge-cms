@@ -221,6 +221,8 @@
         // Rows read as a table; a centred host (the /donate page) must not
         // centre the names.
         text-align: left;
+        // Room for the scrollbar so it never sits over the date column.
+        padding-right: 14px;
 
         ul { list-style: none; margin: 0; padding: 0; }
     }
