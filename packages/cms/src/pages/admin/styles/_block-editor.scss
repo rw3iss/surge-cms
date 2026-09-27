@@ -1671,6 +1671,8 @@
 // Entity block: "Edit template" under the Template select — a compact button,
 // not a full-width row in the panel's column flow.
 .entity-block-edit__template-link {
-    align-self: flex-start;
+    display: inline-flex;
+    width: auto;
+    justify-content: center;
     margin: -4px 0 8px;
 }
