@@ -68,6 +68,7 @@ export async function purchaseTickets(input: {
         phone: input.phone,
         fields: input.fields,
         userId: input.userId,
+        sendConfirmation: false,
     },);
     const tickets = await issueTickets(registration.id, lines,);
     await sendTicketConfirmation(lines[0].eventId, email, tickets,);

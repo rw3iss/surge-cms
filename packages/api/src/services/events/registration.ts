@@ -39,6 +39,12 @@ export async function register(input: {
     phone?: string;
     fields?: Record<string, unknown>;
     userId?: string;
+    /**
+     * Send the "You're registered" email (default true). The ticket paths
+     * turn it off: their ticket email already confirms the registration, and
+     * two messages for one sign-up read as a mistake.
+     */
+    sendConfirmation?: boolean;
 },): Promise<EventRegistration> {
     const event = await getByIdOrSlug(input.eventId,);
     if (!event.registrationEnabled) {
@@ -62,6 +68,8 @@ export async function register(input: {
         phone: input.phone ?? null,
         fields: input.fields ?? {},
     },);
+
+    if (input.sendConfirmation === false) return registration;
 
     // Confirmation is best-effort: a mail failure must not lose the registration.
     try {

@@ -71,6 +71,7 @@ export async function issueOrderTickets(
                 phone: attendee.phone,
                 fields: attendee.fields,
                 userId: buyer.userId ?? undefined,
+                sendConfirmation: false,
             },);
             const tickets = await issueTickets(registration.id, lines, { orderId, },);
             await sendTicketConfirmation(meta.eventId, email, tickets,);

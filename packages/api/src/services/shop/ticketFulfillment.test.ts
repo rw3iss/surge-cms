@@ -40,7 +40,7 @@ describe('issueOrderTickets', () => {
     it('registers the attendee and issues tickets at the paid price', async () => {
         await issueOrderTickets('o1', [item({ attendee: { email: 'guest@b.test', name: 'Guest', }, },),], BUYER,);
         expect(register.mock.calls[0][0],).toMatchObject({
-            eventId: 'e1', occurrenceDate: '2026-10-01', email: 'guest@b.test', name: 'Guest', userId: 'u1',
+            eventId: 'e1', occurrenceDate: '2026-10-01', email: 'guest@b.test', name: 'Guest', userId: 'u1', sendConfirmation: false,
         },);
         const lines = issueTickets.mock.calls[0][1];
         expect(lines[0],).toMatchObject({ tierId: 't1', quantity: 2, priceCents: 1500, },);

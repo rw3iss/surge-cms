@@ -44,6 +44,8 @@ describe('purchaseTickets — attendee details', () => {
             name: 'Ann',
             fields: { organization: 'Acme', notes: 'Aisle seat', },
             userId: 'user-1',
+            // The ticket email is the only confirmation.
+            sendConfirmation: false,
         },);
     });
 
