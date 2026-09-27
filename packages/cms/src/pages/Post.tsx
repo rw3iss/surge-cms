@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, type ContentAccessLevel, type Post, } from '@sitesurge/types';
+import { isAdminRole, resolveBannerPosition, type ContentAccessLevel, type Post, } from '@sitesurge/types';
 import { ContentLockedError, } from '@sitesurge/client';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
@@ -167,10 +167,8 @@ const PostPage: Component = () => {
                         const hasBanner = () => !!postData().featuredImage;
                         // Vertical anchor of the banner image (start=top, end=bottom).
                         // Applied as background-position (hero) / object-position (img).
-                        const bannerPos = () => {
-                            const p = (postData() as any).bannerImagePosition as 'start' | 'center' | 'end' | undefined;
-                            return p === 'start' ? 'center top' : p === 'end' ? 'center bottom' : 'center center';
-                        };
+                        const bannerPos = () =>
+                            resolveBannerPosition(postData().bannerImagePosition, postData().bannerImagePositionCustom,);
                         // Expose the current post to `{{post.*}}` in its blocks.
                         const postCtx = () => ({
                             post: { kind: 'post', data: postData() as unknown as Record<string, unknown>, id: postData().id },

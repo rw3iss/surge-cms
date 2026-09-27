@@ -1,3 +1,6 @@
+import {
+    BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerPositionCustom, resolveBannerPosition,
+} from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
@@ -34,7 +37,9 @@ const AdminPostEditor: Component = () => {
      *  hero (image full-width with title/meta over it), or thumbnail (small
      *  image beside the title/meta). Only meaningful when a banner is set. */
     const [bannerLayout, setBannerLayout,] = createSignal<'hero' | 'hero-full' | 'standalone' | 'thumbnail'>('standalone',);
-    const [bannerImagePosition, setBannerImagePosition,] = createSignal<'start' | 'center' | 'end'>('center',);
+    const [bannerImagePosition, setBannerImagePosition,] = createSignal<BannerImagePosition>('center',);
+    /** CSS position used when Vertical Position is Custom. */
+    const [bannerImagePositionCustom, setBannerImagePositionCustom,] = createSignal('',);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [authorId, setAuthorId,] = createSignal('',);
     /** Whether the post renderer applies the site's Post Padding (top/bottom)
@@ -69,6 +74,7 @@ const AdminPostEditor: Component = () => {
             featuredImage: featuredImage(),
             bannerLayout: bannerLayout(),
             bannerImagePosition: bannerImagePosition(),
+            bannerImagePositionCustom: bannerImagePositionCustom(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -93,6 +99,9 @@ const AdminPostEditor: Component = () => {
                 featuredImage: featuredImage() || null,
                 bannerLayout: bannerLayout(),
                 bannerImagePosition: bannerImagePosition(),
+                // Only meaningful in Custom mode; cleared otherwise so a stale value
+                // can't resurface when Custom is picked again later.
+                bannerImagePositionCustom: bannerImagePosition() === 'custom' ? bannerImagePositionCustom().trim() || null : null,
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -185,7 +194,8 @@ const AdminPostEditor: Component = () => {
             setTags(d.tags || '',);
             setFeaturedImage(d.featuredImage || '',);
             setBannerLayout(d.bannerLayout || 'standalone',);
-            setBannerImagePosition((d.bannerImagePosition as 'start' | 'center' | 'end') || 'center',);
+            setBannerImagePosition((d.bannerImagePosition as BannerImagePosition) || 'center',);
+            setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -208,7 +218,8 @@ const AdminPostEditor: Component = () => {
         setTags((p.tags || []).join(', ',),);
         setFeaturedImage(p.featuredImage || '',);
         setBannerLayout(((p as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail') || 'standalone',);
-        setBannerImagePosition(((p as any).bannerImagePosition as 'start' | 'center' | 'end') || 'center',);
+        setBannerImagePosition(((p as any).bannerImagePosition as BannerImagePosition) || 'center',);
+        setBannerImagePositionCustom((p as any).bannerImagePositionCustom || '',);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
@@ -328,19 +339,47 @@ const AdminPostEditor: Component = () => {
                                             <select
                                                 value={bannerImagePosition()}
                                                 onChange={(e,) => {
-                                                    setBannerImagePosition(e.currentTarget.value as 'start' | 'center' | 'end',);
+                                                    setBannerImagePosition(e.currentTarget.value as BannerImagePosition,);
                                                     editor.markDirty();
                                                 }}
                                             >
                                                 <option value="start">Start (top)</option>
                                                 <option value="center">Center</option>
                                                 <option value="end">End (bottom)</option>
+                                                <option value="custom">Custom</option>
                                             </select>
                                             <Tooltip
                                                 header="Vertical Position"
-                                                content="Where a large banner image is anchored when it's cropped. Start shows the TOP of the image, End shows the BOTTOM, Center (default) shows the middle. Useful when centering cuts off the top of the subject."
+                                                content="Where a large banner image is anchored when it's cropped. Start shows the TOP of the image, End shows the BOTTOM, Center (default) shows the middle. Custom takes any CSS background-position (e.g. center 30%, left 20px bottom). Useful when centering cuts off the top of the subject."
                                             />
                                         </div>
+                                        <Show when={bannerImagePosition() === 'custom'}>
+                                            <div class="post-banner-field__layout-row">
+                                                <label>Custom Position</label>
+                                                {/* Commits on blur / Enter (admin input rule). */}
+                                                <input
+                                                    type="text"
+                                                    placeholder="center 30%"
+                                                    maxLength={BANNER_POSITION_CUSTOM_MAX}
+                                                    value={bannerImagePositionCustom()}
+                                                    onBlur={(e,) => {
+                                                        const v = e.currentTarget.value.trim();
+                                                        if (v === bannerImagePositionCustom()) return;
+                                                        setBannerImagePositionCustom(v,);
+                                                        editor.markDirty();
+                                                    }}
+                                                    onKeyDown={(e,) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            e.currentTarget.blur();
+                                                        }
+                                                    }}
+                                                />
+                                                <Show when={bannerImagePositionCustom() && !isValidBannerPositionCustom(bannerImagePositionCustom(),)}>
+                                                    <small class="form-help-muted">Not a valid position — the banner stays centred.</small>
+                                                </Show>
+                                            </div>
+                                        </Show>
                                     </div>
                                 </Show>
                             </div>
@@ -488,10 +527,7 @@ const AdminPostEditor: Component = () => {
     );
 
     // Vertical anchor of the banner image (mirrors Post.tsx). start=top, end=bottom.
-    const previewBannerPos = () =>
-        bannerImagePosition() === 'start' ? 'center top'
-            : bannerImagePosition() === 'end' ? 'center bottom'
-            : 'center center';
+    const previewBannerPos = () => resolveBannerPosition(bannerImagePosition(), bannerImagePositionCustom(),);
     // Shared post header content (back link + title + a status/excerpt meta line)
     // used inside every banner layout in the preview.
     const previewHeading = () => (

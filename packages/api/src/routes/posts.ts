@@ -1,3 +1,4 @@
+import { BANNER_POSITION_CUSTOM_MAX, isValidBannerPositionCustom, } from '@sitesurge/types';
 import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
@@ -47,7 +48,12 @@ const postSchema = z.object({
     headerStyle: z.enum(['default', 'alt',],).optional(),
     headerPosition: z.enum(['static', 'float',],).optional(),
     bannerLayout: z.enum(['hero', 'hero-full', 'standalone', 'thumbnail',],).optional(),
-    bannerImagePosition: z.enum(['start', 'center', 'end',],).optional(),
+    bannerImagePosition: z.enum(['start', 'center', 'end', 'custom',],).optional(),
+    // Any CSS position, used when bannerImagePosition = 'custom'. Refused if it
+    // could escape a style value (see isValidBannerPositionCustom).
+    bannerImagePositionCustom: z.string().trim().max(BANNER_POSITION_CUSTOM_MAX,)
+        .refine((v,) => v === '' || isValidBannerPositionCustom(v,), 'Not a valid background position',)
+        .nullish(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
 },);
 

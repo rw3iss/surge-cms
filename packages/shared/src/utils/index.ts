@@ -8,6 +8,7 @@ export * from './countries';
 export * from './currencies';
 export * from './format';
 export * from './names';
+export * from './bannerPosition';
 export * from './formFields';
 export * from './markdown';
 export * from './pageTitle';

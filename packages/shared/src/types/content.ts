@@ -165,7 +165,9 @@ export interface Post {
     bannerLayout?: 'hero' | 'hero-full' | 'standalone' | 'thumbnail';
     /** Vertical anchor of the banner image (background-position / object-position):
      *  `start` (top), `center` (default), or `end` (bottom). */
-    bannerImagePosition?: 'start' | 'center' | 'end';
+    bannerImagePosition?: 'start' | 'center' | 'end' | 'custom';
+    /** CSS background-position used when `bannerImagePosition` is `custom`. */
+    bannerImagePositionCustom?: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
