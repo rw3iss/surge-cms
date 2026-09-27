@@ -244,7 +244,10 @@
     &__date { color: $text-light; font-size: $font-size-xs; }
 
     // The donor's own words, on a full line under name / amount / date.
-    &__message {
+    // `& &__message` (0,2,0) so it beats the site's `.rich-text p` paragraph
+    // margin (0,1,1) when the status panel sits inside a rich-text block,
+    // as it does on /donate.
+    & &__message {
         grid-column: 1 / -1;
         margin: 0;
         font-style: italic;
