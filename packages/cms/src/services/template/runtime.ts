@@ -159,11 +159,15 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             // ── campaign teaser/link ── renders the campaign card (link to the
             // page) instead of the whole campaign. Accepts id OR slug, same as
             // campaign(). Shares the campaign fetch cache.
-            case 'campaignLink': {
+            // campaignStatus / campaignForm — the two halves of campaign(),
+            // rendered on their own. Same fetch cache.
+            case 'campaignLink':
+            case 'campaignStatus':
+            case 'campaignForm': {
                 const ref = s(args[0]).trim();
-                if (!ref) return entityRef('campaignLink', null);
+                if (!ref) return entityRef(name, null);
                 const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref));
-                return entityRef('campaignLink', data, ref);
+                return entityRef(name, data, ref);
             }
 
             // ── collections (arrays of EntityRefs) ──

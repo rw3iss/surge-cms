@@ -4,6 +4,8 @@ import { Component, For, Match, Show, Switch, } from 'solid-js';
 import FormRenderer from '../forms/FormRenderer';
 import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
+import CampaignForm, { type CampaignFormOptions, } from './CampaignForm';
+import CampaignStatus, { type CampaignStatusOptions, } from './CampaignStatus';
 
 /** Default renderer for a whole entity of a CUSTOM type (no bespoke component):
  *  a title + its scalar string fields. Used when a `{{recipe('id')}}`-style
@@ -57,6 +59,20 @@ const TemplateEntity: Component<{
                 <CampaignDetail
                     campaign={props.data as unknown as Campaign}
                     options={props.options as CampaignDetailOptions | undefined}
+                />
+            </Match>
+            {/* The campaign's status panel alone: raised/goal + Recent Donors. */}
+            <Match when={props.kind === 'campaignStatus'}>
+                <CampaignStatus
+                    campaign={props.data as unknown as Campaign}
+                    options={props.options as CampaignStatusOptions | undefined}
+                />
+            </Match>
+            {/* The donation form alone (text fields opt-in). */}
+            <Match when={props.kind === 'campaignForm'}>
+                <CampaignForm
+                    campaign={props.data as unknown as Campaign}
+                    options={props.options as CampaignFormOptions | undefined}
                 />
             </Match>
             {/* Campaign teaser/link — the same card the `campaign` content block shows. */}

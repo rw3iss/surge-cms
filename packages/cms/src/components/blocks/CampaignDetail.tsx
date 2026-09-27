@@ -1,9 +1,8 @@
 import type { Campaign, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
-import DonationForm from '../forms/donations/DonationForm';
-import GiveButterWidget from './GiveButterWidget';
+import CampaignForm from './CampaignForm';
+import CampaignStatus from './CampaignStatus';
 import TemplatedContent from './TemplatedContent';
-import { usePluginEnabled, } from '../../hooks/usePluginGate';
 import '../../pages/Campaign.scss';
 
 /**
@@ -17,6 +16,10 @@ import '../../pages/Campaign.scss';
  * fields each take a **boolean** (show/hide the campaign's own value) OR a
  * **string** (override the value AND show it). Everything defaults on so a bare
  * `{{campaign('x')}}` renders the whole campaign.
+ *
+ * Composed from the two pieces the template engine also exposes on their
+ * own: `CampaignStatus` (`{{campaignStatus()}}` — raised/goal + Recent Donors)
+ * and `CampaignForm` (`{{campaignForm()}}` — the donation form).
  */
 export interface CampaignDetailOptions {
     /** Title (h1). omitted/true → campaign title · false → hide · string → override. */
@@ -33,14 +36,13 @@ export interface CampaignDetailOptions {
     image?: boolean;
     /** Raised/goal tracker + stats. Default = the campaign's `showRaisedAmount`. */
     raised?: boolean;
+    /** Recent Donors list. Default = the campaign's `showDonorListing`. */
+    donors?: boolean;
     /** Donation form. Default true. */
     form?: boolean;
 }
 
 const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOptions; }> = (props,) => {
-    const gbEnabled = usePluginEnabled('givebutter',);
-    const useGiveButter = () => gbEnabled() && props.campaign.donationProvider === 'givebutter';
-
     /** Boolean option → show/hide (undefined → the supplied default). */
     const on = (v: boolean | undefined, dflt: boolean,): boolean => (v === undefined ? dflt : v !== false);
     /** Field option → the string to render (or null to hide): `false` hides, a
@@ -64,18 +66,7 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
     const shortDescription = () => field(props.options?.shortDescription, c().shortDescription,);
     const fullDescription = () => field(props.options?.fullDescription, c().description,);
     const showImage = () => on(props.options?.image, true,);
-    const showRaised = () => on(props.options?.raised, c().showRaisedAmount !== false,);
     const showForm = () => on(props.options?.form, true,);
-
-    const progress = () => {
-        const cc = c();
-        if (!cc.goalAmountCents) return 0;
-        return Math.min((cc.currentAmountCents / cc.goalAmountCents) * 100, 100,);
-    };
-    const formatCurrency = (cents: number,) =>
-        `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, },)}`;
-    const formatDate = (d: string | Date | undefined,) =>
-        d ? new Date(d,).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', },) : null;
 
     return (
         <div class="campaign-detail">
@@ -91,58 +82,17 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
                 </Show>
 
                 <Show when={slug()}>
-                    <div class="campaign-detail__slug" style={{ color: 'var(--site-text-muted, #6b7280)', 'font-size': '0.85rem', 'margin': '0 0 0.5rem', }}>
-                        {slug()}
-                    </div>
+                    <div class="campaign-detail__slug">{slug()}</div>
                 </Show>
 
                 <Show when={shortDescription()}>
                     <p class="campaign-page__subtitle">{shortDescription()}</p>
                 </Show>
 
-                <Show when={showRaised()}>
-                    <div class="campaign-page__tracker">
-                        <div class="campaign-page__tracker-header">
-                            <span class="campaign-page__tracker-raised">{formatCurrency(c().currentAmountCents,)}</span>
-                            <Show
-                                when={c().goalAmountCents}
-                                fallback={<span class="campaign-page__tracker-goal">raised</span>}
-                            >
-                                <span class="campaign-page__tracker-goal">
-                                    raised of {formatCurrency(c().goalAmountCents,)} goal
-                                </span>
-                            </Show>
-                        </div>
-
-                        <Show when={c().goalAmountCents}>
-                            <div class="campaign-page__progress">
-                                <div class="campaign-page__progress-fill" style={{ width: `${progress()}%`, }} />
-                            </div>
-                            <div class="campaign-page__tracker-percent">{Math.round(progress(),)}% funded</div>
-                        </Show>
-
-                        <div class="campaign-page__tracker-stats">
-                            <div class="campaign-page__stat">
-                                <span class="campaign-page__stat-value">{c().donorCount || 0}</span>
-                                <span class="campaign-page__stat-label">
-                                    {c().donorCount === 1 ? 'donor' : 'donors'}
-                                </span>
-                            </div>
-                            <Show when={(c() as any).startDate}>
-                                <div class="campaign-page__stat">
-                                    <span class="campaign-page__stat-value">{formatDate((c() as any).startDate,)}</span>
-                                    <span class="campaign-page__stat-label">started</span>
-                                </div>
-                            </Show>
-                            <Show when={(c() as any).endDate}>
-                                <div class="campaign-page__stat">
-                                    <span class="campaign-page__stat-value">{formatDate((c() as any).endDate,)}</span>
-                                    <span class="campaign-page__stat-label">ends</span>
-                                </div>
-                            </Show>
-                        </div>
-                    </div>
-                </Show>
+                <CampaignStatus
+                    campaign={c()}
+                    options={{ raised: props.options?.raised, donors: props.options?.donors, }}
+                />
 
                 <Show when={fullDescription()}>
                     <TemplatedContent
@@ -152,15 +102,9 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
                     />
                 </Show>
 
+                {/* The text fields are already shown above, so the form renders bare. */}
                 <Show when={showForm()}>
-                    <div class="campaign-page__donate">
-                        <Show
-                            when={useGiveButter()}
-                            fallback={<DonationForm campaignId={c().id} />}
-                        >
-                            <GiveButterWidget code={c().givebutterCampaignCode} type="giving-form" />
-                        </Show>
-                    </div>
+                    <CampaignForm campaign={c()} />
                 </Show>
             </div>
         </div>

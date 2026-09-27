@@ -10,6 +10,9 @@ export interface Campaign {
     goalAmountCents: number;
     /** When false, public renderings hide all monetary info (raised + goal). */
     showRaisedAmount: boolean;
+    /** Show a Recent Donors list (most recent first) under the raised amount.
+     *  Each donation's visibility applies: anonymous → "Anonymous", hidden → omitted. */
+    showDonorListing?: boolean;
     currentAmountCents: number;
     status: CampaignStatus;
     startDate?: Date;

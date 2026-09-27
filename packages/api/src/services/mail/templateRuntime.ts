@@ -52,6 +52,15 @@ function entityToMailHtml(kind: string, data: Rec | null,): string {
     switch (kind) {
         case 'post':
             return `<strong>${g('title',)}</strong>` + (data.excerpt ? ` — ${g('excerpt',)}` : '');
+        case 'campaignStatus': {
+            if (data.showRaisedAmount === false) return '';
+            const raised = (Number(data.currentAmountCents ?? 0,) / 100).toFixed(2,);
+            const goal = Number(data.goalAmountCents ?? 0,);
+            return `<strong>$${raised} raised</strong>` + (goal ? ` of $${(goal / 100).toFixed(2,)} goal` : '');
+        }
+        case 'campaignForm':
+            // No form in an inbox — link to the campaign page instead.
+            return `<a href="/campaigns/${g('slug',)}">Donate to ${g('title',)}</a>`;
         case 'campaign':
         case 'campaignLink':
             return `<strong>${g('title',)}</strong>` + (data.shortDescription ? ` — ${g('shortDescription',)}` : '');

@@ -153,11 +153,13 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
             return entityRef(name, data, ref,);
         }
 
-        if (name === 'campaignLink') {
+        // Campaign views that share the campaign fetch: the teaser card, and
+        // the two halves of a whole campaign (status panel, donation form).
+        if (name === 'campaignLink' || name === 'campaignStatus' || name === 'campaignForm') {
             const ref = s(args[0],).trim();
-            if (!ref) return entityRef('campaignLink', null,);
+            if (!ref) return entityRef(name, null,);
             const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref, opts.singleKinds,),);
-            return entityRef('campaignLink', data, ref,);
+            return entityRef(name, data, ref,);
         }
 
         return opts.resolveExtra ? await opts.resolveExtra(name, args, memo,) : undefined;

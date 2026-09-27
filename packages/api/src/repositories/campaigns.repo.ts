@@ -102,8 +102,9 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
     const result = await query(
         `INSERT INTO campaigns (title, slug, description, short_description, featured_image,
                             goal_amount_cents, show_raised_amount, status, start_date, end_date, is_published,
-                            donation_provider, givebutter_campaign_id, givebutter_campaign_code, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                            donation_provider, givebutter_campaign_id, givebutter_campaign_code, created_by,
+                            show_donor_listing)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING *`,
         [
             data.title,
@@ -123,6 +124,7 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
             // created_by is a UUID FK; synthetic actors (api-key:<name>,
             // system) become NULL.
             uuidOrNull(userId,),
+            data.showDonorListing ?? false,
         ],
     );
     return mapRow<Campaign>(result.rows[0],);

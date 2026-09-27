@@ -36,6 +36,7 @@ const CampaignEditor: Component = () => {
     const [goalAmount, setGoalAmount,] = createSignal<string>('',);
     const [hasGoal, setHasGoal,] = createSignal(true,);
     const [showRaisedAmount, setShowRaisedAmount,] = createSignal(true,);
+    const [showDonorListing, setShowDonorListing,] = createSignal(false,);
     const [status, setStatus,] = createSignal('draft',);
     const [isPublished, setIsPublished,] = createSignal(false,);
     const [startDate, setStartDate,] = createSignal('',);
@@ -95,6 +96,7 @@ const CampaignEditor: Component = () => {
                     setHasGoal(false,);
                 }
                 setShowRaisedAmount(data.showRaisedAmount ?? true,);
+                setShowDonorListing(data.showDonorListing ?? false,);
                 setStatus(data.status || 'draft',);
                 setIsPublished(data.isPublished ?? false,);
                 if (data.startDate) {
@@ -142,6 +144,7 @@ const CampaignEditor: Component = () => {
             goalAmount: goalAmount(),
             hasGoal: hasGoal(),
             showRaisedAmount: showRaisedAmount(),
+            showDonorListing: showDonorListing(),
             status: status(),
             isPublished: isPublished(),
             startDate: startDate(),
@@ -192,6 +195,7 @@ const CampaignEditor: Component = () => {
                 shortDescription: shortDescription(),
                 goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : null,
                 showRaisedAmount: showRaisedAmount(),
+                showDonorListing: showDonorListing(),
                 status: status(),
                 isPublished: isPublished(),
                 startDate: startDate() ? new Date(startDate(),).toISOString() : null,
@@ -479,6 +483,24 @@ const CampaignEditor: Component = () => {
                                 <small class="form-help">
                                     When off, the public campaign shows no monetary information at all — no amount
                                     raised, goal, or progress bar.
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <Toggle
+                                    class="toggle-control--switch-first"
+                                    checked={showDonorListing()}
+                                    onChange={(next,) => {
+                                        setShowDonorListing(next,);
+                                        markDirty();
+                                    }}
+                                    label="Show donors listing"
+                                />
+                                <small class="form-help">
+                                    Renders a "Recent Donors" list of every donor, most recent first, under the raised
+                                    amount — on the campaign page, in {'{{campaignStatus()}}'}, and in {'{{campaign()}}'}.
+                                    Donors who chose anonymous show as "Anonymous"; hidden donations are left out (but
+                                    still count toward the total). Amounts are hidden when "Show raised amount" is off.
                                 </small>
                             </div>
 

@@ -71,6 +71,17 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
                 + (g('startsAt',) ? `<p class="ssr-entity__when">${g('startsAt',)}</p>` : '')
                 + (g('location',) ? `<p class="ssr-entity__where">${g('location',)}</p>` : '')
                 + `</a>`;
+        case 'campaignStatus': {
+            // Indexable figures only when the campaign shows them publicly.
+            if (data.showRaisedAmount === false) return '';
+            const raised = (Number(data.currentAmountCents ?? 0,) / 100).toFixed(2,);
+            const goal = Number(data.goalAmountCents ?? 0,);
+            return `<p class="ssr-entity ssr-entity--campaign-status">$${raised} raised`
+                + (goal ? ` of $${(goal / 100).toFixed(2,)} goal` : '') + '</p>';
+        }
+        case 'campaignForm':
+            // Interactive; the form renders client-side on mount.
+            return '';
         case 'campaign':
         case 'campaignLink':
             return `<a class="ssr-entity ssr-entity--campaign" href="/campaigns/${g('slug',)}"><h3>${g('title',)}</h3>`

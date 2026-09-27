@@ -173,3 +173,65 @@
         }
     }
 }
+
+// ─── Slug line (opt-in via the template's slug= option) ───
+.campaign-detail__slug {
+    color: var(--site-text-muted, #6b7280);
+    font-size: 0.85rem;
+    margin: 0 0 0.5rem;
+}
+
+.campaign-form__title { margin: 0 0 0.5rem; }
+
+// ─── Recent Donors (CampaignStatus, when "Show donors listing" is on) ───
+.campaign-donors {
+    // Sits under the raised stats inside the tracker panel; standalone (raised
+    // hidden) it is the panel's only content.
+    .campaign-page__tracker-stats + & {
+        margin-top: $spacing-md;
+        padding-top: $spacing-md;
+        border-top: 1px solid $border-color;
+    }
+
+    &__title {
+        margin: 0 0 $spacing-sm;
+        font-size: $font-size-sm;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: $text-light;
+    }
+
+    &__empty { margin: 0; font-size: $font-size-sm; color: $text-light; }
+
+    &__list {
+        max-height: 320px;
+        overflow-y: auto;
+
+        ul { list-style: none; margin: 0; padding: 0; }
+    }
+
+    &__item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: $spacing-sm $spacing-md;
+        align-items: baseline;
+        padding: 8px 0;
+        border-bottom: 1px solid $border-color;
+        font-size: $font-size-sm;
+
+        &:last-child { border-bottom: 0; }
+    }
+
+    &__name { font-weight: 600; color: $text-color; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__amount { font-weight: 600; color: var(--site-primary, #{$primary-color}); }
+    &__date { color: $text-light; font-size: $font-size-xs; }
+
+    &__more {
+        padding: 8px 0 2px;
+        text-align: center;
+        font-size: $font-size-xs;
+        color: $text-light;
+        min-height: 1px; // keeps the scroll sentinel observable when empty
+    }
+}
