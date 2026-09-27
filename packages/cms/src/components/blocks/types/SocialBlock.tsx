@@ -79,21 +79,47 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
     const [page, setPage,] = createSignal(0,);
     const [pageCount, setPageCount,] = createSignal(1,);
 
+    /**
+     * One page = the posts that are FULLY visible, in whole-post steps.
+     *
+     * Paging by the row's full `clientWidth` overshot: the width is rarely a
+     * whole number of posts (7.2 posts on a wide screen), so every page began
+     * a fraction into a post and the post that should have led the next page
+     * was cut off — reading as "skipped one". Stepping by whole posts (measured
+     * from the first two posts, so the gap is included) makes each page start
+     * exactly on the first post not yet fully seen.
+     */
+    const pageStep = (el: HTMLElement,): number => {
+        const kids = el.children;
+        if (kids.length < 2) return Math.max(1, el.clientWidth,);
+        const stride = (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft;
+        if (stride <= 0) return Math.max(1, el.clientWidth,);
+        const cs = getComputedStyle(el,);
+        const inner = el.clientWidth - (parseFloat(cs.paddingLeft,) || 0) - (parseFloat(cs.paddingRight,) || 0);
+        const gap = parseFloat(cs.columnGap,) || 0;
+        const perPage = Math.max(1, Math.floor((inner + gap) / stride,),);
+        return perPage * stride;
+    };
+
     const measure = (): void => {
         const el = scroller;
         if (!el) return;
-        // `clientWidth` is one page. Round rather than ceil on the position so a
-        // half-scrolled row reports the page it is mostly showing.
-        const pages = el.clientWidth > 0 ? Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth,),) : 1;
+        const step = pageStep(el,);
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth,);
+        // Round rather than ceil on the position so a half-scrolled row reports
+        // the page it is mostly showing; the last page is wherever the end is.
+        const pages = maxScroll > 1 ? Math.ceil(maxScroll / step - 0.01,) + 1 : 1;
         setPageCount(pages,);
-        setPage(Math.min(pages - 1, Math.round(el.scrollLeft / Math.max(1, el.clientWidth,),),),);
+        const at = el.scrollLeft >= maxScroll - 1 ? pages - 1 : Math.round(el.scrollLeft / step,);
+        setPage(Math.min(pages - 1, at,),);
     };
 
     const goTo = (p: number,): void => {
         const el = scroller;
         if (!el) return;
         const target = Math.max(0, Math.min(pageCount() - 1, p,),);
-        el.scrollTo({ left: target * el.clientWidth, behavior: 'smooth', },);
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth,);
+        el.scrollTo({ left: Math.min(maxScroll, target * pageStep(el,),), behavior: 'smooth', },);
         setPage(target,);
     };
 
