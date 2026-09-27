@@ -2,8 +2,7 @@ import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import {
     COUNTRIES, formatCurrency, isKnownCountry, isKnownTimeZone, isKnownUsState,
-    normalizeCountry, normalizeUsState, TIMEZONES, US_STATES,
-} from '@sitesurge/types';
+    normalizeCountry, normalizeUsState, TIMEZONES, US_STATES, splitFullName, } from '@sitesurge/types';
 import type { ContactMessage, PaymentsDonationsResponse, ShopOrder, } from '@sitesurge/types';
 
 type UserDonation = PaymentsDonationsResponse[number];
@@ -107,8 +106,11 @@ const Profile: Component = () => {
     createEffect(() => {
         const u = auth.user;
         if (u && !initialized()) {
-            setFirstName(u.firstName ?? '',);
-            setLastName(u.lastName ?? '',);
+            // An account created with a single name has only a display name;
+            // split it so the fields show the name printed above them.
+            const fallback = !u.firstName && !u.lastName ? splitFullName(u.displayName,) : null;
+            setFirstName(u.firstName || fallback?.firstName || '',);
+            setLastName(u.lastName || fallback?.lastName || '',);
             setBio(u.bio ?? '',);
             setCity(u.locationCity ?? '',);
             // 'Pennsylvania' → 'PA' so the dropdown selects it; unknown kept raw.
@@ -139,7 +141,9 @@ const Profile: Component = () => {
                 setCountry(normalizeCountry(rawCountry,) ?? rawCountry,);
                 setTimeZone(contact.timeZone ?? '',);
                 setDateOfBirth(contact.dateOfBirth ?? '',);
-                // Fill city/state from the contact only if the profile left them blank.
+                // Fill name/city/state from the contact only where the profile left them blank.
+                if (!firstName().trim() && contact.firstName) setFirstName(contact.firstName,);
+                if (!lastName().trim() && contact.lastName) setLastName(contact.lastName,);
                 if (!city().trim() && contact.city) setCity(contact.city,);
                 if (!stateRegion().trim() && contact.state) setStateRegion(contact.state,);
                 setStateRegion((prev,) => normalizeUsState(prev,) ?? prev);

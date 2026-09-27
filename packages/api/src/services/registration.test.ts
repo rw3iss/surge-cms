@@ -55,7 +55,7 @@ describe('registerMember', () => {
         expect((insertCall![0] as string).includes('\'member\'',),).toBe(true,);
         expect((insertCall![0] as string).includes('\'email\'',),).toBe(true,);
         // email normalized to lowercase, name trimmed, email_verified=true, no token.
-        expect(insertCall![1],).toEqual(['new@example.com', 'HASHED', 'New User', true, null,],);
+        expect(insertCall![1],).toEqual(['new@example.com', 'HASHED', 'New User', true, null, 'New', 'User',],);
         expect(sendVerificationEmailMock,).not.toHaveBeenCalled();
         expect(logAuditMock,).toHaveBeenCalledTimes(1,);
     },);
@@ -78,7 +78,7 @@ describe('registerMember', () => {
             (c,) => typeof c[0] === 'string' && (c[0] as string).includes('INSERT INTO users',),
         );
         // email_verified=false, token stored.
-        expect(insertCall![1],).toEqual(['v@example.com', 'HASHED', 'Verify Me', false, 'TOK',],);
+        expect(insertCall![1],).toEqual(['v@example.com', 'HASHED', 'Verify Me', false, 'TOK', 'Verify', 'Me',],);
         expect(sendVerificationEmailMock,).toHaveBeenCalledTimes(1,);
         expect(sendVerificationEmailMock,).toHaveBeenCalledWith(
             { email: 'v@example.com', name: 'Verify Me', }, 'TOK',

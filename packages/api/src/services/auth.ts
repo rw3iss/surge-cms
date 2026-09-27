@@ -1,3 +1,4 @@
+import { splitFullName, } from '@sitesurge/types';
 import type { AuthResponse, User, UserRole, } from '@sitesurge/types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -185,8 +186,9 @@ export async function authenticateWithPatreon(
     // Upsert user
     const userResult = await transaction(async (client,) => {
         const result = await client.query(
-            `INSERT INTO users (email, display_name, avatar_url, role, auth_provider, patreon_id, patreon_tier, last_login_at)
-       VALUES ($1, $2, $3, $4, 'patreon', $5, $6, NOW())
+            `INSERT INTO users (email, display_name, avatar_url, role, auth_provider, patreon_id, patreon_tier, last_login_at,
+                                first_name, last_name)
+       VALUES ($1, $2, $3, $4, 'patreon', $5, $6, NOW(), $7, $8)
        ON CONFLICT (patreon_id) DO UPDATE SET
          email = EXCLUDED.email,
          display_name = EXCLUDED.display_name,
@@ -197,7 +199,8 @@ export async function authenticateWithPatreon(
        RETURNING id, email, display_name, avatar_url, role, auth_provider,
                  patreon_id, patreon_tier, is_active, is_banned,
                  last_login_at, created_at, updated_at`,
-            [email, displayName, avatarUrl, role, patreonId, patreonTier,],
+            [email, displayName, avatarUrl, role, patreonId, patreonTier,
+             splitFullName(displayName,).firstName || null, splitFullName(displayName,).lastName || null,],
         );
 
         return result.rows[0] as Record<string, unknown>;
@@ -389,10 +392,15 @@ export async function registerMember(
     const passwordHash = await bcrypt.hash(input.password, 12,);
 
     const result = await query(
-        `INSERT INTO users (email, password_hash, display_name, role, auth_provider, email_verified, verification_token)
-     VALUES ($1, $2, $3, 'member', 'email', $4, $5)
+        `INSERT INTO users (email, password_hash, display_name, role, auth_provider, email_verified, verification_token,
+                            first_name, last_name)
+     VALUES ($1, $2, $3, 'member', 'email', $4, $5, $6, $7)
      RETURNING id, email`,
-        [email, passwordHash, name, !requireEmailVerification, token,],
+        [
+            email, passwordHash, name, !requireEmailVerification, token,
+            // Split so the profile's First/Last name fields open filled.
+            splitFullName(name,).firstName || null, splitFullName(name,).lastName || null,
+        ],
     );
 
     const row = result.rows[0] as { id: string; email: string; };

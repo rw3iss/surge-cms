@@ -1,3 +1,4 @@
+import { splitFullName, } from '@sitesurge/types';
 import type { PatreonMembership, User, } from '@sitesurge/types';
 import bcrypt from 'bcryptjs';
 import { query, transaction, } from '../db';
@@ -129,12 +130,14 @@ export async function createUser(data: {
     role?: string;
 },): Promise<User> {
     const passwordHash = await bcrypt.hash(data.password, 12,);
+    const name = splitFullName(data.displayName,);
 
     const result = await query(
-        `INSERT INTO users (email, password_hash, display_name, role, auth_provider)
-     VALUES ($1, $2, $3, $4, 'email')
+        `INSERT INTO users (email, password_hash, display_name, role, auth_provider, first_name, last_name)
+     VALUES ($1, $2, $3, $4, 'email', $5, $6)
      RETURNING *`,
-        [data.email, passwordHash, data.displayName, data.role || 'member',],
+        // First/last are split from the single name, so the profile opens filled.
+        [data.email, passwordHash, data.displayName, data.role || 'member', name.firstName || null, name.lastName || null,],
     );
 
     return mapRow<User>(result.rows[0],);
