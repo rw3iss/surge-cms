@@ -156,7 +156,9 @@ export async function findCampaignDonations(
     const result = await query(
         `SELECT d.*,
             CASE WHEN d.visibility = 'anonymous' THEN 'Anonymous' ELSE d.donor_name END as donor_name,
-            CASE WHEN d.visibility = 'hidden' THEN NULL ELSE d.message END as message
+            -- A message is shown only for a PUBLIC donation: an anonymous donor's
+            -- words can identify them as surely as their name.
+            CASE WHEN d.visibility = 'public' THEN d.message ELSE NULL END as message
      FROM donations d
      WHERE d.campaign_id = $1 AND d.status = 'completed' AND d.visibility != 'hidden'
      ORDER BY d.created_at DESC
@@ -168,7 +170,7 @@ export async function findCampaignDonations(
         id: row.id,
         donorName: row.visibility === 'anonymous' ? 'Anonymous' : row.donor_name,
         amountCents: row.amount_cents,
-        message: row.visibility === 'hidden' ? null : row.message,
+        message: row.visibility === 'public' ? row.message : null,
         createdAt: row.created_at,
     }));
 

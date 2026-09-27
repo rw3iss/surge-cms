@@ -6,6 +6,13 @@ import './DonationForm.scss';
 
 interface DonationFormProps {
     campaignId?: string;
+    /**
+     * Show the Visibility choice (default true). Off when the campaign does not
+     * list its donors: nobody's name is ever shown then, and asking "show my
+     * name?" would suggest otherwise. The donation still records `public`, so
+     * turning the listing on later shows it under its default.
+     */
+    showVisibility?: boolean;
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2500, 5000, 10000,];
@@ -203,17 +210,19 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                                 />
                             </div>
 
-                            <div class="donation-form__field">
-                                <label>Visibility</label>
-                                <select
-                                    value={visibility()}
-                                    onChange={(e,) => setVisibility(e.currentTarget.value as any,)}
-                                >
-                                    <option value="public">Public (show name and message)</option>
-                                    <option value="anonymous">Anonymous (hide name)</option>
-                                    <option value="hidden">Hidden (don't show donation)</option>
-                                </select>
-                            </div>
+                            <Show when={props.showVisibility !== false}>
+                                <div class="donation-form__field">
+                                    <label>Visibility</label>
+                                    <select
+                                        value={visibility()}
+                                        onChange={(e,) => setVisibility(e.currentTarget.value as any,)}
+                                    >
+                                        <option value="public">Public (show name and message)</option>
+                                        <option value="anonymous">Anonymous (hide name)</option>
+                                        <option value="hidden">Hidden (don't show donation)</option>
+                                    </select>
+                                </div>
+                            </Show>
 
                             <div class="donation-form__field">
                                 <label>Card Details</label>

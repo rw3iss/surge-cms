@@ -84,6 +84,10 @@ const CampaignDonors: Component<{ campaignId: string; showAmounts?: boolean; }> 
                                         <span class="campaign-donors__amount">{money(d.amountCents,)}</span>
                                     </Show>
                                     <span class="campaign-donors__date">{date(d.createdAt,)}</span>
+                                    {/* Server sends a message only for a public donation. */}
+                                    <Show when={d.message?.trim()}>
+                                        <p class="campaign-donors__message">{d.message}</p>
+                                    </Show>
                                 </li>
                             )}
                         </For>

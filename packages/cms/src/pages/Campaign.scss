@@ -243,6 +243,17 @@
     &__amount { font-weight: 600; color: var(--site-primary, #{$primary-color}); }
     &__date { color: $text-light; font-size: $font-size-xs; }
 
+    // The donor's own words, on a full line under name / amount / date.
+    &__message {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-style: italic;
+        font-size: $font-size-sm;
+        color: $text-light;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
     &__more {
         padding: 8px 0 2px;
         text-align: center;
