@@ -648,15 +648,18 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--block-text-color, #{$text-color});
-  opacity: 0.25;
+  // Brand colour (Settings → Appearance → Primary): the current page solid,
+  // the others at 40% — visible on any background, unlike the old faint
+  // text-colour dots.
+  background: var(--site-primary, #{$primary-color});
+  opacity: 0.4;
   cursor: pointer;
   transition: opacity 0.15s ease, transform 0.15s ease;
 
-  &:hover { opacity: 0.55; }
+  &:hover { opacity: 0.7; }
 
   &--active {
-    opacity: 0.9;
+    opacity: 1;
     transform: scale(1.15);
   }
 }
@@ -671,16 +674,19 @@
   height: 32px;
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  color: $text-color;
+  // Brand button: Primary background, "Button Text" glyph — the same pair the
+  // site's buttons use, so the control reads as clickable on any card.
+  background: var(--site-primary, #{$primary-color});
+  color: var(--site-button-text, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition: filter 0.15s ease, opacity 0.15s ease;
 
-  &:hover:not(:disabled) { background: #fff; }
+  &:hover:not(:disabled) { filter: brightness(0.9); }
 
   // Kept in the layout rather than hidden at the ends: a control that
   // disappears when you reach the last page makes the row jump under the
