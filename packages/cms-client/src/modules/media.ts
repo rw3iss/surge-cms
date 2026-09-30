@@ -44,9 +44,10 @@ export class MediaModule extends ModuleBase {
         return this.getPaged<MediaListResponse[number]>('/media', { query: query as Record<string, unknown>, },);
     }
 
-    /** GET /media/:id — the media row. */
-    getById(id: string,): Promise<MediaByIdResponse> {
-        return this.get<MediaByIdResponse>('/media/:id', { params: { id, }, },);
+    /** GET /media/:id — the media row. `{ cache: false }` reads fresh
+     *  (an editor must not start from a stale copy). */
+    getById(id: string, options?: { cache?: boolean; },): Promise<MediaByIdResponse> {
+        return this.get<MediaByIdResponse>('/media/:id', { params: { id, }, options, },);
     }
 
     update(id: string, body: MediaUpdateBody,): Promise<MediaUpdateResponse> {

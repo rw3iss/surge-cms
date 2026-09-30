@@ -1,4 +1,4 @@
-import { createSignal, Show, } from 'solid-js';
+import { createSignal, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import { FormField, } from '../forms';
@@ -48,6 +48,31 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
     const [deleting, setDeleting,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
     const [copied, setCopied,] = createSignal(false,);
+    /**
+     * The values the fields were filled from. Save sends only what differs, so
+     * an untouched field can never overwrite a newer value — the grid's list is
+     * a cached copy, and filling the form from a stale one then saving all
+     * three fields used to write old blanks back (credits vanished).
+     */
+    const [orig, setOrig,] = createSignal({
+        title: props.media.title || '',
+        caption: props.media.caption || '',
+        credits: props.media.credits || '',
+    },);
+
+    // Start from the server's current record, not the grid's cached row.
+    onMount(async () => {
+        try {
+            const fresh = await cms.media.getById(props.media.id, { cache: false, },) as any;
+            if (!fresh) return;
+            const next = { title: fresh.title || '', caption: fresh.caption || '', credits: fresh.credits || '', };
+            // Only replace fields the user hasn't started editing.
+            if (title() === orig().title) setTitle(next.title,);
+            if (description() === orig().caption) setDescription(next.caption,);
+            if (credits() === orig().credits) setCredits(next.credits,);
+            setOrig(next,);
+        } catch { /* keep the grid's values */ }
+    },);
 
     const busy = () => saving() || deleting();
 
@@ -63,11 +88,15 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
         setSaving(true,);
         setError('',);
         try {
-            const updated = await cms.media.update(props.media.id, {
-                title: title(),
-                caption: description(),
-                credits: credits(),
-            } as any,);
+            const patch: Record<string, string> = {};
+            if (title() !== orig().title) patch.title = title();
+            if (description() !== orig().caption) patch.caption = description();
+            if (credits() !== orig().credits) patch.credits = credits();
+            if (Object.keys(patch,).length === 0) {
+                props.onClose();
+                return;
+            }
+            const updated = await cms.media.update(props.media.id, patch as any,);
             props.onSaved({ ...props.media, ...(updated as any || {}) } as MediaEditItem,);
         } catch (err: any) {
             setError(err?.message || 'Save failed',);

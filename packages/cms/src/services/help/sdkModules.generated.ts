@@ -994,8 +994,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "getById",
-                "signature": "getById(id: string): Promise<MediaByIdResponse>",
-                "summary": "GET /media/:id — the media row."
+                "signature": "getById(id: string, options?: { cache?: boolean; }): Promise<MediaByIdResponse>",
+                "summary": "GET /media/:id — the media row. `{ cache: false }` reads fresh (an editor must not start from a stale copy)."
             },
             {
                 "name": "list",
