@@ -515,3 +515,29 @@
         cursor: not-allowed;
     }
 }
+
+// ─── Campaign editor: "Options" group ───
+.campaign-options__title {
+  margin: $spacing-xl 0 $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid $border-color;
+  font-size: $font-size-base;
+  font-weight: 700;
+}
+
+// Status panel switches (left) + Status position (right, only when either is on).
+.campaign-options__status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $spacing-md $spacing-lg;
+  align-items: start;
+  margin-bottom: $spacing-md;
+
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+
+.campaign-options__col {
+  min-width: 0;
+
+  > .form-group:last-child { margin-bottom: 0; }
+}

@@ -494,70 +494,64 @@ const CampaignEditor: Component = () => {
                                 />
                             </FormField>
 
-                            <div class="form-group">
-                                <Toggle
-                                    class="toggle-control--switch-first"
-                                    checked={hasGoal()}
-                                    onChange={(next,) => {
-                                        setHasGoal(next,);
-                                        markDirty();
-                                    }}
-                                    label="Set a fundraising goal"
-                                />
-                            </div>
+                            <h3 class="campaign-options__title">Options</h3>
 
-                            <div class="form-group">
-                                <Toggle
-                                    class="toggle-control--switch-first"
-                                    checked={showRaisedAmount()}
-                                    onChange={(next,) => {
-                                        setShowRaisedAmount(next,);
-                                        markDirty();
-                                    }}
-                                    label="Show raised amount"
-                                />
-                                <small class="form-help">
-                                    When off, the public campaign shows no monetary information at all — no amount
-                                    raised, goal, or progress bar.
-                                </small>
-                            </div>
-
-                            <div class="form-group">
-                                <Toggle
-                                    class="toggle-control--switch-first"
-                                    checked={showDonorListing()}
-                                    onChange={(next,) => {
-                                        setShowDonorListing(next,);
-                                        markDirty();
-                                    }}
-                                    label="Show donors listing"
-                                />
-                                <small class="form-help">
-                                    Renders a "Recent Donors" list of every donor, most recent first, under the raised
-                                    amount — on the campaign page, in {'{{campaignStatus()}}'}, and in {'{{campaign()}}'}.
-                                    Donors who chose anonymous show as "Anonymous"; hidden donations are left out (but
-                                    still count toward the total). Amounts are hidden when "Show raised amount" is off.
-                                </small>
-                            </div>
-
-                            {/* Only meaningful when there is a status panel to place. */}
-                            <Show when={showRaisedAmount() || showDonorListing()}>
-                                <FormField
-                                    label="Status position"
-                                    hint="Where the raised amount / donors panel appears on the campaign page and in {{campaign()}}, relative to the donation form."
-                                >
-                                    <select
-                                        value={statusPosition()}
-                                        onChange={(e,) => {
-                                            setStatusPosition(e.currentTarget.value === 'below' ? 'below' : 'above',);
+                            {/* Status panel options: the switches on the left; where the panel
+                                goes on the right, only while there is a panel to place. */}
+                            <div class="campaign-options__status">
+                                <div class="campaign-options__col">
+                                <div class="form-group">
+                                    <Toggle
+                                        class="toggle-control--switch-first"
+                                        checked={showRaisedAmount()}
+                                        onChange={(next,) => {
+                                            setShowRaisedAmount(next,);
                                             markDirty();
                                         }}
+                                        label="Show raised amount"
+                                    />
+                                    <small class="form-help">
+                                        When off, the public campaign shows no monetary information at all — no amount
+                                        raised, goal, or progress bar.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <Toggle
+                                        class="toggle-control--switch-first"
+                                        checked={showDonorListing()}
+                                        onChange={(next,) => {
+                                            setShowDonorListing(next,);
+                                            markDirty();
+                                        }}
+                                        label="Show donors listing"
+                                    />
+                                    <small class="form-help">
+                                        Shows a list of recent donors — with their messages — for donations marked public or
+                                        anonymous.
+                                    </small>
+                                </div>
+                                </div>
+                                <Show when={showRaisedAmount() || showDonorListing()}>
+                                    <div class="campaign-options__col">
+                                    <FormField
+                                        label="Status position"
+                                        hint="Where the raised amount / donors panel appears on the campaign page and in {{campaign()}}, relative to the donation form."
                                     >
-                                        <option value="above">Above form</option>
-                                        <option value="below">Below form</option>
-                                    </select>
-                                </FormField>
-                            </Show>
+                                        <select
+                                            value={statusPosition()}
+                                            onChange={(e,) => {
+                                                setStatusPosition(e.currentTarget.value === 'below' ? 'below' : 'above',);
+                                                markDirty();
+                                            }}
+                                        >
+                                            <option value="above">Above form</option>
+                                            <option value="below">Below form</option>
+                                        </select>
+                                    </FormField>
+                                    </div>
+                                </Show>
+                            </div>
 
                             <div class="form-group">
                                 <Toggle
@@ -575,6 +569,18 @@ const CampaignEditor: Component = () => {
                                     card each period and every payment is recorded as a donation. Built-in Stripe form only
                                     (not GiveButter).
                                 </small>
+                            </div>
+
+                            <div class="form-group">
+                                <Toggle
+                                    class="toggle-control--switch-first"
+                                    checked={hasGoal()}
+                                    onChange={(next,) => {
+                                        setHasGoal(next,);
+                                        markDirty();
+                                    }}
+                                    label="Set a fundraising goal"
+                                />
                             </div>
 
                             <Show when={hasGoal()}>
