@@ -159,6 +159,7 @@ export interface CampaignCreateBody {
     goalAmountCents?: number | null;
     showRaisedAmount?: boolean;
     showDonorListing?: boolean;
+    allowRecurringDonations?: boolean;
     status?: CampaignStatus;
     /** ISO date-time */
     startDate?: string | null;

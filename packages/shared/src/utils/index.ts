@@ -10,6 +10,7 @@ export * from './format';
 export * from './names';
 export * from './bannerPosition';
 export * from './featuredMedia';
+export * from './donationIntervals';
 export * from './formFields';
 export * from './markdown';
 export * from './pageTitle';

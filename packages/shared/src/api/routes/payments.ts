@@ -34,13 +34,21 @@ export interface PaymentsDonateBody {
     donorEmail: string;
     message?: string;
     visibility?: 'public' | 'anonymous' | 'hidden';
+    /** Make it repeat. Only accepted when the campaign allows recurring donations. */
+    recurringInterval?: import('../../utils/donationIntervals').DonationInterval;
 }
 
 /** POST /payments/donate — the PaymentIntent client secret + id for
  *  Stripe Elements to confirm. */
 export interface PaymentsDonateResponse {
+    /** Confirm with Stripe Elements (`confirmCardPayment`) — the first charge
+     *  of a recurring donation confirms exactly like a one-time one. */
     clientSecret: string;
+    /** The PaymentIntent id; '' for a recurring donation (Stripe creates the
+     *  first invoice's payment itself). */
     paymentIntentId: string;
+    /** Set for a recurring donation: the Stripe Subscription billing it. */
+    subscriptionId?: string;
 }
 
 // ─── POST /payments/subscribe ─────────────────────────────────────────

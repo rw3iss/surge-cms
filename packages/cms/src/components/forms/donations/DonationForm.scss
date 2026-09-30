@@ -17,6 +17,25 @@
     margin-bottom: 1.25rem;
   }
 
+  // "Make this a recurring donation" + the frequency, under the amounts.
+  &__recurring {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: -0.5rem 0 1.25rem;
+  }
+
+  &__interval {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 6px);
+    font: inherit;
+    background: var(--site-bg, #fff);
+    color: inherit;
+  }
+
   &__amount-btn {
     padding: 0.5rem 1rem;
     border: 2px solid #e2e8f0;

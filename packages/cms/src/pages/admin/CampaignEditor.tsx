@@ -37,6 +37,7 @@ const CampaignEditor: Component = () => {
     const [hasGoal, setHasGoal,] = createSignal(true,);
     const [showRaisedAmount, setShowRaisedAmount,] = createSignal(true,);
     const [showDonorListing, setShowDonorListing,] = createSignal(false,);
+    const [allowRecurringDonations, setAllowRecurringDonations,] = createSignal(false,);
     const [status, setStatus,] = createSignal('draft',);
     const [isPublished, setIsPublished,] = createSignal(false,);
     const [startDate, setStartDate,] = createSignal('',);
@@ -97,6 +98,7 @@ const CampaignEditor: Component = () => {
                 }
                 setShowRaisedAmount(data.showRaisedAmount ?? true,);
                 setShowDonorListing(data.showDonorListing ?? false,);
+                setAllowRecurringDonations(data.allowRecurringDonations ?? false,);
                 setStatus(data.status || 'draft',);
                 setIsPublished(data.isPublished ?? false,);
                 if (data.startDate) {
@@ -145,6 +147,7 @@ const CampaignEditor: Component = () => {
             hasGoal: hasGoal(),
             showRaisedAmount: showRaisedAmount(),
             showDonorListing: showDonorListing(),
+            allowRecurringDonations: allowRecurringDonations(),
             status: status(),
             isPublished: isPublished(),
             startDate: startDate(),
@@ -196,6 +199,7 @@ const CampaignEditor: Component = () => {
                 goalAmountCents: hasGoal() && goalAmount() ? Math.round(parseFloat(goalAmount(),) * 100,) : null,
                 showRaisedAmount: showRaisedAmount(),
                 showDonorListing: showDonorListing(),
+                allowRecurringDonations: allowRecurringDonations(),
                 status: status(),
                 isPublished: isPublished(),
                 startDate: startDate() ? new Date(startDate(),).toISOString() : null,
@@ -501,6 +505,24 @@ const CampaignEditor: Component = () => {
                                     amount — on the campaign page, in {'{{campaignStatus()}}'}, and in {'{{campaign()}}'}.
                                     Donors who chose anonymous show as "Anonymous"; hidden donations are left out (but
                                     still count toward the total). Amounts are hidden when "Show raised amount" is off.
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <Toggle
+                                    class="toggle-control--switch-first"
+                                    checked={allowRecurringDonations()}
+                                    onChange={(next,) => {
+                                        setAllowRecurringDonations(next,);
+                                        markDirty();
+                                    }}
+                                    label="Allow recurring donations"
+                                />
+                                <small class="form-help">
+                                    Adds "Make this a recurring donation" to the donation form, with a frequency (weekly,
+                                    monthly, every 3 or 6 months, yearly; monthly by default). Stripe charges the donor's
+                                    card each period and every payment is recorded as a donation. Built-in Stripe form only
+                                    (not GiveButter).
                                 </small>
                             </div>
 

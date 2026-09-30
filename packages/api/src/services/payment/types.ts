@@ -15,6 +15,9 @@ export interface PaymentProvider {
     cancelSubscription(subscriptionId: string,): Promise<void>;
     getSubscription(subscriptionId: string,): Promise<SubscriptionResult>;
 
+    // Recurring donations (a Stripe Subscription with an inline price)
+    createRecurringDonation(params: CreateRecurringDonationParams,): Promise<RecurringDonationResult>;
+
     // Webhook
     verifyWebhookSignature(payload: string | Buffer, signature: string,): any;
 }
@@ -26,6 +29,27 @@ export interface CreatePaymentIntentParams {
     metadata?: Record<string, string>;
     /** Which Stripe key set to charge against. Defaults to 'default'. */
     context?: PaymentContext;
+}
+
+export interface CreateRecurringDonationParams {
+    amountCents: number;
+    currency?: string;
+    interval: 'week' | 'month' | 'year';
+    intervalCount: number;
+    donorEmail: string;
+    donorName?: string;
+    /** Existing Stripe Product for the campaign; created when absent/stale. */
+    productId?: string | null;
+    productName: string;
+    /** Copied onto the Subscription — every invoice's donation row reads it. */
+    metadata: Record<string, string>;
+}
+
+export interface RecurringDonationResult {
+    subscriptionId: string;
+    clientSecret: string;
+    /** The product actually used — persist it if it was just created. */
+    productId: string;
 }
 
 export interface PaymentIntentResult {

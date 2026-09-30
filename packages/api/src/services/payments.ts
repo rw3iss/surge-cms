@@ -7,6 +7,7 @@
  * layer in `routes/payments.ts` is a thin shell; the webhook route stays
  * raw (Buffer body) and calls `handleWebhook` here.
  */
+import { donationInterval, type DonationInterval, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
@@ -54,18 +55,22 @@ export interface DonateInput {
     donorEmail: string;
     message?: string;
     visibility?: 'public' | 'anonymous' | 'hidden';
+    recurringInterval?: DonationInterval;
 }
 
 /** Create a donation payment intent + pending donation row. Anonymous
  *  donations are allowed (actorUserId undefined). */
 export async function donate(input: DonateInput, actorUserId: string | undefined,) {
     // Verify campaign exists if provided.
+    let campaignRow: { id: string; title: string; allow_recurring_donations: boolean; stripe_product_id: string | null; } | null = null;
     if (input.campaignId) {
         const campaign = await query(
-            `SELECT id FROM campaigns WHERE id = $1 AND is_published = true AND status = 'active'`,
+            `SELECT id, title, allow_recurring_donations, stripe_product_id
+               FROM campaigns WHERE id = $1 AND is_published = true AND status = 'active'`,
             [input.campaignId,],
         );
         if (campaign.rows.length === 0) throw new NotFoundError('Campaign',);
+        campaignRow = campaign.rows[0] as NonNullable<typeof campaignRow>;
     }
 
     const metadata: Record<string, string> = {
@@ -78,6 +83,10 @@ export async function donate(input: DonateInput, actorUserId: string | undefined
         // sentinel for anonymous donors.
         userId: actorUserId || '',
     };
+
+    if (input.recurringInterval) {
+        return donateRecurring(input, campaignRow, metadata,);
+    }
 
     const paymentIntent = await paymentProvider.createPaymentIntent({
         amountCents: input.amountCents,
@@ -103,6 +112,50 @@ export async function donate(input: DonateInput, actorUserId: string | undefined
         clientSecret: paymentIntent.clientSecret,
         paymentIntentId: paymentIntent.id,
     };
+}
+
+/**
+ * A recurring donation: Stripe bills it on a schedule as a Subscription (see
+ * `StripePaymentProvider.createRecurringDonation`). Like a one-time donation,
+ * NOTHING is persisted here — every paid invoice, the first included, becomes
+ * a `donations` row in the `invoice.payment_succeeded` webhook, from the
+ * metadata set below. Only campaigns that allow it accept one.
+ */
+async function donateRecurring(
+    input: DonateInput,
+    campaign: { id: string; title: string; allow_recurring_donations: boolean; stripe_product_id: string | null; } | null,
+    metadata: Record<string, string>,
+) {
+    if (!campaign || !campaign.allow_recurring_donations) {
+        throw new ValidationError('This campaign does not accept recurring donations.',);
+    }
+    const interval = donationInterval(input.recurringInterval,);
+    if (!interval) throw new ValidationError('Unknown donation frequency.',);
+
+    const result = await paymentProvider.createRecurringDonation({
+        amountCents: input.amountCents,
+        interval: interval.stripe.interval,
+        intervalCount: interval.stripe.intervalCount,
+        donorEmail: input.donorEmail,
+        donorName: input.donorName,
+        productId: campaign.stripe_product_id,
+        productName: `Donation — ${campaign.title}`,
+        metadata: { ...metadata, type: 'recurring_donation', recurringInterval: interval.value, },
+    },);
+
+    if (result.productId !== campaign.stripe_product_id) {
+        await query(`UPDATE campaigns SET stripe_product_id = $1 WHERE id = $2`, [result.productId, campaign.id,],);
+    }
+
+    logger.info('Recurring donation created', {
+        subscriptionId: result.subscriptionId,
+        campaignId: campaign.id,
+        amountCents: input.amountCents,
+        interval: interval.value,
+        donorEmail: input.donorEmail,
+    },);
+
+    return { clientSecret: result.clientSecret, paymentIntentId: '', subscriptionId: result.subscriptionId, };
 }
 
 export async function subscribe(userId: string, planId: string,) {

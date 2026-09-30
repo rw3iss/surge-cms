@@ -46,6 +46,7 @@ const donateSchema = z.object({
     donorEmail: z.string().email(),
     message: z.string().max(500,).optional(),
     visibility: z.enum(['public', 'anonymous', 'hidden',],).optional(),
+    recurringInterval: z.enum(['weekly', 'monthly', 'quarterly', 'semiannual', 'yearly',],).optional(),
 },) satisfies z.ZodType<PaymentsDonateBody>;
 
 const subscribeSchema = z.object({

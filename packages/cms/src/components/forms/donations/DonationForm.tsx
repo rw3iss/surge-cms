@@ -1,6 +1,8 @@
 import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
+import { DEFAULT_DONATION_INTERVAL, DONATION_INTERVALS, type DonationInterval, donationInterval, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
+import Toggle from '../../ui/Toggle';
 import { useAuth, } from '../../../stores/auth';
 import './DonationForm.scss';
 
@@ -13,6 +15,9 @@ interface DonationFormProps {
      * turning the listing on later shows it under its default.
      */
     showVisibility?: boolean;
+    /** The campaign accepts recurring donations → offer "Make this a
+     *  recurring donation" + a frequency. Stripe bills each period. */
+    allowRecurring?: boolean;
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2500, 5000, 10000,];
@@ -29,6 +34,11 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
     const [donorName, setDonorName,] = createSignal(auth.user?.displayName || '',);
     const [donorEmail, setDonorEmail,] = createSignal(auth.user?.email || '',);
     const [message, setMessage,] = createSignal('',);
+    const [recurring, setRecurring,] = createSignal(false,);
+    const [interval, setInterval_,] = createSignal<DonationInterval>(DEFAULT_DONATION_INTERVAL,);
+    /** "monthly", "every 3 months"… — for the button and the thank-you line. */
+    const periodText = () => (donationInterval(interval(),)?.label ?? 'Monthly').toLowerCase();
+    const isRecurring = () => props.allowRecurring === true && recurring();
     const [visibility, setVisibility,] = createSignal<'public' | 'anonymous' | 'hidden'>('public',);
     const [loading, setLoading,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
@@ -118,6 +128,7 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                 donorEmail: donorEmail(),
                 message: message() || undefined,
                 visibility: visibility(),
+                ...(isRecurring() ? { recurringInterval: interval(), } : {}),
             },);
 
             const result = await stripeInstance.confirmCardPayment(clientSecret, {
@@ -175,6 +186,26 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                                 />
                             </div>
                         </div>
+
+                        <Show when={props.allowRecurring}>
+                            <div class="donation-form__recurring">
+                                <Toggle
+                                    checked={recurring()}
+                                    onChange={setRecurring}
+                                    label="Make this a recurring donation"
+                                />
+                                <Show when={recurring()}>
+                                    <select
+                                        class="donation-form__interval"
+                                        aria-label="How often"
+                                        value={interval()}
+                                        onChange={(e,) => setInterval_(e.currentTarget.value as DonationInterval,)}
+                                    >
+                                        {DONATION_INTERVALS.map((i,) => <option value={i.value}>{i.label}</option>)}
+                                    </select>
+                                </Show>
+                            </div>
+                        </Show>
 
                         <div class="donation-form__fields">
                             <div class="donation-form__row">
@@ -239,14 +270,24 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                             class="btn btn--primary donation-form__submit"
                             disabled={loading() || !cardReady()}
                         >
-                            {loading() ? 'Processing...' : `Donate $${(getAmountCents() / 100).toFixed(2,)}`}
+                            {loading() ?
+                                'Processing...' :
+                                `Donate $${(getAmountCents() / 100).toFixed(2,)}${isRecurring() ? ` ${periodText()}` : ''}`}
                         </button>
                     </form>
                 }
             >
                 <div class="donation-form__success">
                     <h3>Thank you!</h3>
-                    <p>Your donation of ${(getAmountCents() / 100).toFixed(2,)} has been processed successfully.</p>
+                    <Show
+                        when={isRecurring()}
+                        fallback={<p>Your donation of ${(getAmountCents() / 100).toFixed(2,)} has been processed successfully.</p>}
+                    >
+                        <p>
+                            Your {periodText()} donation of ${(getAmountCents() / 100).toFixed(2,)} is set up. The first
+                            payment went through, and it will repeat {periodText()} until cancelled.
+                        </p>
+                    </Show>
                 </div>
             </Show>
         </div>

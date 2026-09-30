@@ -4,11 +4,13 @@ import { allWebhookSecrets, stripeCredentials, } from './credentials';
 import {
     CreateCustomerParams,
     CreatePaymentIntentParams,
+    CreateRecurringDonationParams,
     CreateSubscriptionParams,
     CustomerResult,
     PaymentContext,
     PaymentIntentResult,
     PaymentProvider,
+    RecurringDonationResult,
     SubscriptionResult,
 } from './types';
 import { invoiceClientSecret, subscriptionPeriod, } from './stripeCompat';
@@ -121,6 +123,70 @@ export class StripePaymentProvider implements PaymentProvider {
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             clientSecret: invoice ? invoiceClientSecret(invoice,) : undefined,
         };
+    }
+
+    /**
+     * A recurring donation is a Stripe Subscription on the DONATIONS account.
+     * The amount is the donor's own, so the price is inline (`price_data`) —
+     * no Price object per amount. Stripe requires a Product for that, so each
+     * campaign keeps one; a stale id (keys switched to another account) is
+     * replaced. The first invoice is left `default_incomplete` and its client
+     * secret returned, so the browser confirms the card exactly like a
+     * one-time donation; Stripe bills every later period on its own.
+     */
+    async createRecurringDonation(params: CreateRecurringDonationParams,): Promise<RecurringDonationResult> {
+        try {
+            const client = stripeClient('donations',);
+
+            let productId = params.productId || '';
+            if (productId) {
+                try {
+                    const p = await client.products.retrieve(productId,);
+                    if (!p || (p as { deleted?: boolean; }).deleted) productId = '';
+                } catch {
+                    productId = '';
+                }
+            }
+            if (!productId) {
+                const product = await client.products.create({
+                    name: params.productName,
+                    metadata: { campaignId: params.metadata.campaignId ?? '', },
+                },);
+                productId = product.id;
+            }
+
+            // Reuse the donor's customer on this account so repeat donors don't
+            // pile up duplicate customers.
+            const existing = await client.customers.list({ email: params.donorEmail, limit: 1, },);
+            const customer = existing.data[0] ?? await client.customers.create({
+                email: params.donorEmail,
+                name: params.donorName,
+                metadata: { source: 'donation', },
+            },);
+
+            const subscription = await client.subscriptions.create({
+                customer: customer.id,
+                items: [{
+                    price_data: {
+                        currency: params.currency || 'usd',
+                        product: productId,
+                        unit_amount: params.amountCents,
+                        recurring: { interval: params.interval, interval_count: params.intervalCount, },
+                    },
+                },],
+                payment_behavior: 'default_incomplete',
+                payment_settings: { save_default_payment_method: 'on_subscription', },
+                expand: ['latest_invoice.confirmation_secret',],
+                metadata: params.metadata,
+            },);
+
+            const invoice = subscription.latest_invoice as Stripe.Invoice | null;
+            const clientSecret = invoice ? invoiceClientSecret(invoice,) : undefined;
+            if (!clientSecret) throw new Error('Stripe returned no payment to confirm for the first donation',);
+            return { subscriptionId: subscription.id, clientSecret, productId, };
+        } catch (err) {
+            rethrowStripeError(err,);
+        }
     }
 
     async cancelSubscription(subscriptionId: string,): Promise<void> {

@@ -61,7 +61,11 @@ const CampaignForm: Component<{ campaign: Campaign; options?: CampaignFormOption
                 />
             </Show>
             <div class="campaign-page__donate">
-                <Show when={useGiveButter()} fallback={<DonationForm campaignId={c().id} showVisibility={c().showDonorListing === true} />}>
+                <Show when={useGiveButter()} fallback={<DonationForm
+                            campaignId={c().id}
+                            showVisibility={c().showDonorListing === true}
+                            allowRecurring={c().allowRecurringDonations === true}
+                        />}>
                     <GiveButterWidget code={c().givebutterCampaignCode} type="giving-form" />
                 </Show>
             </div>

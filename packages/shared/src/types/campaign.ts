@@ -15,6 +15,8 @@ export interface Campaign {
     /** Show a Recent Donors list (most recent first) under the raised amount.
      *  Each donation's visibility applies: anonymous → "Anonymous", hidden → omitted. */
     showDonorListing?: boolean;
+    /** Donors may make their donation repeat (weekly … yearly), billed by Stripe. */
+    allowRecurringDonations?: boolean;
     currentAmountCents: number;
     status: CampaignStatus;
     startDate?: Date;

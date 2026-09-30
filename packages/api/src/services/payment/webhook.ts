@@ -11,6 +11,7 @@ import { query, } from '../../db';
 import { cache, } from '../cache';
 import { allWebhookSecrets, } from './credentials';
 import { getPaymentProvider, } from './index';
+import { getStripeClient, } from './stripe';
 import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } from './stripeCompat';
 import { logger, } from '../../utils/logger';
 import { uuidOrNull, } from '../../utils/uuid';
@@ -70,6 +71,78 @@ export async function handleWebhook(
     return { status: 200, body: { received: true, }, };
 }
 
+/**
+ * Record one paid invoice of a recurring donation. Returns false when the
+ * subscription is not a recurring donation (a membership), so the caller's
+ * membership handling runs instead.
+ *
+ * The donor details come from the subscription's metadata — on the invoice
+ * itself in current Stripe API versions (`parent.subscription_details`), else
+ * fetched from the donations account. Idempotent on the payment reference
+ * (UNIQUE `stripe_payment_intent_id`): the invoice's PaymentIntent id, or
+ * `inv:<invoice id>` when Stripe exposes none.
+ */
+async function recordRecurringDonation(invoice: Stripe.Invoice, subscriptionId: string,): Promise<boolean> {
+    const inv = invoice as unknown as { parent?: { subscription_details?: { metadata?: Record<string, string> | null; } | null; } | null; };
+    let md: Record<string, string> | null = inv.parent?.subscription_details?.metadata ?? null;
+    const client = getStripeClient('donations',);
+    if (!md?.type && client) {
+        try {
+            md = (await client.subscriptions.retrieve(subscriptionId,)).metadata ?? null;
+        } catch (err) {
+            logger.warn('Could not read subscription for invoice', { subscriptionId, error: (err as Error).message, },);
+        }
+    }
+    if (md?.type !== 'recurring_donation') return false;
+
+    const piId = invoicePaymentIntentId(invoice,);
+    let chargeId: string | null = null;
+    if (piId && client) {
+        try {
+            const pi = await client.paymentIntents.retrieve(piId,);
+            chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null;
+        } catch { /* refunds then match on nothing — the donation is still recorded */ }
+    }
+    const campaignId = md.campaignId && md.campaignId !== 'general' ? md.campaignId : null;
+    const res = await query(
+        `INSERT INTO donations
+            (campaign_id, user_id, donor_name, donor_email, amount_cents, message,
+             visibility, stripe_payment_intent_id, stripe_charge_id, status,
+             recurring_interval, stripe_subscription_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'completed', $10, $11)
+         ON CONFLICT (stripe_payment_intent_id) DO NOTHING
+         RETURNING id, campaign_id, user_id, amount_cents`,
+        [
+            campaignId,
+            uuidOrNull(md.userId,),
+            md.donorName || null,
+            md.donorEmail || invoice.customer_email || '',
+            invoice.amount_paid,
+            md.message || null,
+            md.visibility || 'public',
+            piId ?? `inv:${invoice.id}`,
+            chargeId,
+            md.recurringInterval || null,
+            subscriptionId,
+        ],
+    );
+    if (res.rows.length > 0) {
+        const d = res.rows[0];
+        await query(
+            `INSERT INTO transactions (user_id, type, amount_cents, status, stripe_payment_intent_id,
+                                       stripe_charge_id, campaign_id, donation_id, description)
+             VALUES ($1, 'donation', $2, 'completed', $3, $4, $5, $6, $7)
+             ON CONFLICT DO NOTHING`,
+            [d.user_id, d.amount_cents, piId, chargeId, d.campaign_id, d.id, `Recurring donation (${md.recurringInterval || 'recurring'})`,],
+        );
+        logger.info('Recurring donation payment recorded', { invoiceId: invoice.id, subscriptionId, donationId: d.id, },);
+    } else {
+        logger.info('Recurring donation invoice already recorded', { invoiceId: invoice.id, },);
+    }
+    await cache.invalidateCampaignCache();
+    return true;
+}
+
 async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
     logger.info('Processing webhook event', { type: event.type, id: event.id, },);
 
@@ -90,6 +163,15 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
             // so abandoned/failed attempts never create a row. Idempotent:
             // stripe_payment_intent_id is UNIQUE, so a webhook retry is a no-op.
             const md = paymentIntent.metadata ?? {};
+            // Only ONE-TIME donations are recorded here — `payments.donate`
+            // always sets `donorEmail`. A subscription invoice's payment
+            // (a recurring donation, or a membership) carries no metadata and
+            // used to be recorded as a blank "general" donation; recurring
+            // donations are recorded from `invoice.payment_succeeded` instead.
+            if (!md.donorEmail || md.type === 'recurring_donation') {
+                logger.info('payment_intent.succeeded not a one-time donation — skipped', { paymentIntentId: paymentIntent.id, },);
+                break;
+            }
             const campaignId = md.campaignId && md.campaignId !== 'general' ? md.campaignId : null;
             const donationResult = await query(
                 `INSERT INTO donations
@@ -179,6 +261,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
 
         case 'customer.subscription.created': {
             const subscription = event.data.object as Stripe.Subscription;
+            if (subscription.metadata?.type === 'recurring_donation') break; // not a membership
 
             const result = await query(
                 `UPDATE subscriptions SET
@@ -211,6 +294,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
 
         case 'customer.subscription.updated': {
             const subscription = event.data.object as Stripe.Subscription;
+            if (subscription.metadata?.type === 'recurring_donation') break; // not a membership
 
             let localStatus = subscription.status;
             if (subscription.status === 'active') localStatus = 'active';
@@ -253,6 +337,14 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
 
         case 'customer.subscription.deleted': {
             const subscription = event.data.object as Stripe.Subscription;
+            if (subscription.metadata?.type === 'recurring_donation') {
+                logger.info('Recurring donation ended', {
+                    subscriptionId: subscription.id,
+                    campaignId: subscription.metadata.campaignId,
+                    donorEmail: subscription.metadata.donorEmail,
+                },);
+                break;
+            }
 
             await query(
                 `UPDATE subscriptions SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
@@ -273,6 +365,10 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
         case 'invoice.payment_succeeded': {
             const invoice = event.data.object as Stripe.Invoice;
             const subscriptionId = invoiceSubscriptionId(invoice,);
+
+            // A recurring donation: every paid invoice (the first included) is
+            // one donation row, built from the subscription's metadata.
+            if (subscriptionId && await recordRecurringDonation(invoice, subscriptionId,)) break;
 
             if (subscriptionId) {
                 const subResult = await query(
