@@ -88,6 +88,15 @@ const AdminMedia: Component = () => {
         refetch();
     };
 
+    /** URL just copied from the view modal — flips its button to "Copied" briefly. */
+    const [copiedUrl, setCopiedUrl,] = createSignal<string | null>(null,);
+    const copyUrl = (url: string,) => {
+        void navigator.clipboard.writeText(url,).then(() => {
+            setCopiedUrl(url,);
+            setTimeout(() => setCopiedUrl((u,) => (u === url ? null : u)), 1500,);
+        },).catch(() => window.prompt('Copy this URL:', url,));
+    };
+
     const handleDownload = (m: any, e: Event,) => {
         e.stopPropagation();
         downloadFile(m.url, m.originalName,);
@@ -340,9 +349,14 @@ const AdminMedia: Component = () => {
                                         {new Date(m().createdAt,).toLocaleDateString()}
                                     </span>
                                 </div>
-                                <button class="ui-button ui-button--primary" onClick={(e,) => handleDownload(m(), e,)}>
-                                    Download
-                                </button>
+                                <div class="media-modal__actions">
+                                    <button class="ui-button ui-button--secondary" onClick={() => copyUrl(m().url,)}>
+                                        {copiedUrl() === m().url ? 'Copied' : 'Copy URL'}
+                                    </button>
+                                    <button class="ui-button ui-button--primary" onClick={(e,) => handleDownload(m(), e,)}>
+                                        Download
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

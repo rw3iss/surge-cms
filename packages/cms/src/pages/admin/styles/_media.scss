@@ -239,6 +239,13 @@
     gap: $spacing-md;
   }
 
+  // Copy URL + Download, side by side on the right.
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    flex-shrink: 0;
+  }
+
   &__meta {
     flex: 1;
     text-align: center;
