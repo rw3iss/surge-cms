@@ -325,8 +325,8 @@ export async function createPost(data: Record<string, unknown>, authorId: string
                         status, is_private, access_level, tags, categories, meta_title,
                         meta_description, published_at, publish_at,
                         apply_post_padding, apply_site_gutter, header_style, header_position, banner_layout,
-                        banner_image_position, banner_image_position_custom, banner_height)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+                        banner_image_position, banner_image_position_custom, banner_height, show_photo_credits)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
      RETURNING *`,
         [
             data.slug,
@@ -370,6 +370,7 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             (data.bannerImagePosition as string) || 'center',
             (data.bannerImagePositionCustom as string) || null,
             (data.bannerHeight as string) || null,
+            data.showPhotoCredits === true,
         ],
     );
 
@@ -394,7 +395,7 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
         'slug', 'title', 'excerpt', 'content', 'featuredImage', 'authorId',
         'status', 'isPrivate', 'accessLevel', 'tags', 'categories', 'metaTitle',
         'metaDescription', 'publishAt', 'applyPostPadding', 'applySiteGutter',
-        'headerStyle', 'headerPosition', 'bannerLayout', 'bannerImagePosition', 'bannerImagePositionCustom', 'bannerHeight',
+        'headerStyle', 'headerPosition', 'bannerLayout', 'bannerImagePosition', 'bannerImagePositionCustom', 'bannerHeight', 'showPhotoCredits',
     ] as const;
 
     const patch: Record<string, unknown> = {};

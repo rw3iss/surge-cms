@@ -144,6 +144,7 @@ export interface PostCreateBody {
     bannerImagePosition?: 'start' | 'center' | 'end' | 'custom';
     bannerImagePositionCustom?: string | null;
     bannerHeight?: string | null;
+    showPhotoCredits?: boolean;
     contentBlocks?: PostCreateContentBlock[];
 }
 

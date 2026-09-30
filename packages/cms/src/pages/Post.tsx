@@ -192,6 +192,14 @@ const PostPage: Component = () => {
                                     <Show when={postData().publishedAt}>
                                         <span>{new Date(postData().publishedAt!,).toLocaleDateString()}</span>
                                     </Show>
+                                    {/* Photo credit, pushed to the right end of the row. Only
+                                        when the post opts in AND its banner's media item has
+                                        credits (Admin → Media). */}
+                                    <Show when={postData().showPhotoCredits && postData().featuredMedia?.credits?.trim()}>
+                                        <span class="post-page__credits">
+                                            Captured by {postData().featuredMedia!.credits}
+                                        </span>
+                                    </Show>
                                 </div>
                             </>
                         );

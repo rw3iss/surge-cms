@@ -172,6 +172,8 @@ export interface Post {
     bannerImagePositionCustom?: string | null;
     /** Banner height for every image layout (any CSS height); empty = layout default. */
     bannerHeight?: string | null;
+    /** Show "Captured by <credits>" in the header meta row when the banner media has credits. */
+    showPhotoCredits?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

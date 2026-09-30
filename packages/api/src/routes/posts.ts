@@ -54,6 +54,7 @@ const postSchema = z.object({
     bannerImagePositionCustom: z.string().trim().max(BANNER_POSITION_CUSTOM_MAX,)
         .refine((v,) => v === '' || isValidBannerPositionCustom(v,), 'Not a valid background position',)
         .nullish(),
+    showPhotoCredits: z.boolean().optional(),
     bannerHeight: z.string().trim().max(BANNER_HEIGHT_MAX,)
         .refine((v,) => v === '' || isValidBannerHeight(v,), 'Not a valid CSS height',)
         .nullish(),

@@ -520,6 +520,21 @@
     flex: 0 0 auto;
   }
 
+  // The preview with its "Show photo credits" switch underneath.
+  &__preview-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+
+  &__credits-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+  }
+
   // Stacked Image Layout / Vertical Position controls next to the preview.
   &__layout {
     display: flex;

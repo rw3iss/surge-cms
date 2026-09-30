@@ -81,9 +81,16 @@
 
   &__meta {
     display: flex;
+    flex-wrap: wrap;
     gap: $spacing-md;
     color: $text-light;
     font-size: $font-size-sm;
+  }
+
+  // "Captured by …" — the same row as author/date, against the right edge.
+  &__credits {
+    margin-left: auto;
+    font-style: italic;
   }
 
   &__image {

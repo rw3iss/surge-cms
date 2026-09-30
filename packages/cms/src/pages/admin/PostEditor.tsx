@@ -43,6 +43,9 @@ const AdminPostEditor: Component = () => {
     const [bannerImagePositionCustom, setBannerImagePositionCustom,] = createSignal('',);
     /** Banner height for every image layout (any CSS height); '' = layout default. */
     const [bannerHeight, setBannerHeight,] = createSignal('',);
+    const [showPhotoCredits, setShowPhotoCredits,] = createSignal(false,);
+    /** The saved banner's media item — for the preview's credit line. */
+    const [loadedMedia, setLoadedMedia,] = createSignal<{ path?: string; credits?: string | null; } | null>(null,);
     const [publishAt, setPublishAt,] = createSignal('',);
     const [authorId, setAuthorId,] = createSignal('',);
     /** Whether the post renderer applies the site's Post Padding (top/bottom)
@@ -79,6 +82,7 @@ const AdminPostEditor: Component = () => {
             bannerImagePosition: bannerImagePosition(),
             bannerImagePositionCustom: bannerImagePositionCustom(),
             bannerHeight: bannerHeight(),
+            showPhotoCredits: showPhotoCredits(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -107,6 +111,7 @@ const AdminPostEditor: Component = () => {
                 // can't resurface when Custom is picked again later.
                 bannerImagePositionCustom: bannerImagePosition() === 'custom' ? bannerImagePositionCustom().trim() || null : null,
                 bannerHeight: bannerHeight().trim() || null,
+                showPhotoCredits: showPhotoCredits(),
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -202,6 +207,7 @@ const AdminPostEditor: Component = () => {
             setBannerImagePosition((d.bannerImagePosition as BannerImagePosition) || 'center',);
             setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
             setBannerHeight(d.bannerHeight || '',);
+            setShowPhotoCredits(d.showPhotoCredits === true,);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -227,6 +233,8 @@ const AdminPostEditor: Component = () => {
         setBannerImagePosition(((p as any).bannerImagePosition as BannerImagePosition) || 'center',);
         setBannerImagePositionCustom((p as any).bannerImagePositionCustom || '',);
         setBannerHeight((p as any).bannerHeight || '',);
+        setShowPhotoCredits((p as any).showPhotoCredits === true,);
+        setLoadedMedia((p as any).featuredMedia ?? null,);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
         setApplySiteGutter((p as any).applySiteGutter !== false,);
@@ -314,11 +322,27 @@ const AdminPostEditor: Component = () => {
                                 directly next to the image. */}
                             <div class="post-banner-field__row">
                                 <Show when={featuredImage()}>
-                                    <img
-                                        class="post-banner-field__preview"
-                                        src={featuredImage()}
-                                        alt="Banner preview"
-                                    />
+                                    <div class="post-banner-field__preview-col">
+                                        <img
+                                            class="post-banner-field__preview"
+                                            src={featuredImage()}
+                                            alt="Banner preview"
+                                        />
+                                        <div class="post-banner-field__credits-toggle">
+                                        <Toggle
+                                            checked={showPhotoCredits()}
+                                            onChange={(next,) => {
+                                                setShowPhotoCredits(next,);
+                                                editor.markDirty();
+                                            }}
+                                            label="Show photo credits"
+                                        />
+                                        <Tooltip
+                                            header="Show photo credits"
+                                            content={`Adds "Captured by …" at the right end of the post's author/date row, using the banner image's Credits (Admin → Media → Edit). Nothing shows if the image has no credits.`}
+                                        />
+                                        </div>
+                                    </div>
                                 </Show>
                                 <Show when={featuredImage()}>
                                     <div class="post-banner-field__layout">
@@ -576,6 +600,11 @@ const AdminPostEditor: Component = () => {
             <h1 class="post-page__title">{title() || 'Untitled Post'}</h1>
             <div class="post-page__meta">
                 <span>{status() === 'draft' ? 'Draft' : 'Preview'}{excerpt() ? ` — ${excerpt()}` : ''}</span>
+                {/* Credits are known for the SAVED banner only (the server attaches
+                    them); a newly picked image shows its credits after saving. */}
+                <Show when={showPhotoCredits() && loadedMedia()?.credits && loadedMedia()?.path === featuredImage()}>
+                    <span class="post-page__credits">Captured by {loadedMedia()!.credits}</span>
+                </Show>
             </div>
         </>
     );
