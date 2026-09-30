@@ -538,6 +538,14 @@
 
 .campaign-options__col {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
 
-  > .form-group:last-child { margin-bottom: 0; }
+  > .form-group { margin-bottom: 0; }
+}
+
+// The remaining option switches (recurring, fundraising goal) get the same rhythm.
+.campaign-options__status ~ .form-group {
+  margin-bottom: $spacing-md;
 }
