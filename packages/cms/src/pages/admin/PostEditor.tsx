@@ -339,7 +339,7 @@ const AdminPostEditor: Component = () => {
                                         />
                                         <Tooltip
                                             header="Show photo credits"
-                                            content={`Adds "Captured by …" at the right end of the post's author/date row, using the banner image's Credits (Admin → Media → Edit). Nothing shows if the image has no credits.`}
+                                            content={`Shows the banner image's Credits at the right end of the post's author/date row (edit them in Admin → Media → Edit). Nothing shows if the image has no credits.`}
                                         />
                                         </div>
                                     </div>
@@ -603,7 +603,7 @@ const AdminPostEditor: Component = () => {
                 {/* Credits are known for the SAVED banner only (the server attaches
                     them); a newly picked image shows its credits after saving. */}
                 <Show when={showPhotoCredits() && loadedMedia()?.credits && loadedMedia()?.path === featuredImage()}>
-                    <span class="post-page__credits">Captured by {loadedMedia()!.credits}</span>
+                    <span class="post-page__credits">{loadedMedia()!.credits}</span>
                 </Show>
             </div>
         </>

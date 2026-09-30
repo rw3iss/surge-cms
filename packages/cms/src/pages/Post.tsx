@@ -197,7 +197,7 @@ const PostPage: Component = () => {
                                         credits (Admin → Media). */}
                                     <Show when={postData().showPhotoCredits && postData().featuredMedia?.credits?.trim()}>
                                         <span class="post-page__credits">
-                                            Captured by {postData().featuredMedia!.credits}
+                                            {postData().featuredMedia!.credits}
                                         </span>
                                     </Show>
                                 </div>
