@@ -275,8 +275,36 @@ const CampaignEditor: Component = () => {
 
             <div class="admin-header">
                 <h1>{isNew() ? 'New Campaign' : 'Edit Campaign'}</h1>
+                {/* Actions live in the sticky header (like the page/post editors).
+                    Save submits the form below through the `form` attribute, so the
+                    browser's required-field checks still run. */}
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
+                    <Show when={!isNew() && campaign()?.slug}>
+                        <a
+                            href={`/campaigns/${campaign()!.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="ui-button ui-button--ghost"
+                        >
+                            View Campaign
+                        </a>
+                    </Show>
+                    <Show when={!isNew()}>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
+                            Delete
+                        </button>
+                    </Show>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--secondary"
+                        onClick={() => navigate('/admin/campaigns',)}
+                    >
+                        Cancel
+                    </button>
+                    <button type="submit" form="campaign-edit-form" class="ui-button ui-button--primary" disabled={saving()}>
+                        {saving() ? 'Saving...' : 'Save Campaign'}
+                    </button>
                 </div>
             </div>
 
@@ -285,7 +313,7 @@ const CampaignEditor: Component = () => {
             </Show>
 
             <Show when={isNew() || campaign()} fallback={<div>Loading...</div>}>
-                <form onSubmit={handleSubmit} class="admin-form">
+                <form id="campaign-edit-form" onSubmit={handleSubmit} class="admin-form">
                     {/* GiveButter donation-provider panel (only when the plugin is enabled). */}
                     <Show when={gbAvailable()}>
                         <div class="form-section gb-panel">
@@ -620,23 +648,6 @@ const CampaignEditor: Component = () => {
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="ui-button ui-button--primary" disabled={saving()}>
-                            {saving() ? 'Saving...' : 'Save Campaign'}
-                        </button>
-                        <button
-                            type="button"
-                            class="ui-button ui-button--secondary"
-                            onClick={() => navigate('/admin/campaigns',)}
-                        >
-                            Cancel
-                        </button>
-                        <Show when={!isNew()}>
-                            <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
-                                Delete
-                            </button>
-                        </Show>
-                    </div>
                 </form>
 
                 {/* Donations table — existing campaigns only. */}

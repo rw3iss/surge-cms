@@ -185,6 +185,13 @@
     &:only-child { margin: 0 auto; }
 }
 
+// ─── Status panel placed BELOW the form (Status position = Below form) ───
+// The panel carries only a bottom margin (it normally sits above the form),
+// so without this the form's card and the panel touched.
+.campaign-form + .campaign-status {
+    margin-top: $spacing-xl;
+}
+
 // ─── Slug line (opt-in via the template's slug= option) ───
 .campaign-detail__slug {
     color: var(--site-text-muted, #6b7280);
@@ -193,6 +200,18 @@
 }
 
 .campaign-form__title { margin: 0 0 0.5rem; }
+
+// Campaign page: the status tout and the form get the same space above
+// and below, so they sit apart whichever order "Status position" puts
+// them in. The tracker's own rule only had a bottom margin and the form
+// none, so status-below-form rendered flush against the form.
+.campaign-detail .campaign-page__content {
+    > .campaign-page__tracker,
+    > .campaign-form {
+        margin-top: $spacing-lg;
+        margin-bottom: $spacing-lg;
+    }
+}
 
 // ─── Recent Donors (CampaignStatus, when "Show donors listing" is on) ───
 .campaign-donors {
