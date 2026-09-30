@@ -39,6 +39,9 @@ export interface CampaignDetailOptions {
     raised?: boolean;
     /** Recent Donors list. Default = the campaign's `showDonorListing`. */
     donors?: boolean;
+    /** Status panel above or below the donation form. Default = the campaign's
+     *  `statusPosition` (Admin → campaign → "Status position"), else 'above'. */
+    statusPosition?: 'above' | 'below';
     /** Donation form. Default true. */
     form?: boolean;
 }
@@ -68,6 +71,14 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
     const fullDescription = () => field(props.options?.fullDescription, c().description,);
     const showImage = () => on(props.options?.image, true,);
     const showForm = () => on(props.options?.form, true,);
+    /** Explicit option wins, then the campaign's setting. */
+    const statusBelow = () => (props.options?.statusPosition ?? c().statusPosition) === 'below';
+    const status = () => (
+        <CampaignStatus
+            campaign={c()}
+            options={{ raised: props.options?.raised, donors: props.options?.donors, }}
+        />
+    );
 
     return (
         <div class="campaign-detail">
@@ -90,10 +101,7 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
                     <p class="campaign-page__subtitle">{shortDescription()}</p>
                 </Show>
 
-                <CampaignStatus
-                    campaign={c()}
-                    options={{ raised: props.options?.raised, donors: props.options?.donors, }}
-                />
+                <Show when={!statusBelow()}>{status()}</Show>
 
                 <Show when={fullDescription()}>
                     <TemplatedContent
@@ -107,6 +115,8 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
                 <Show when={showForm()}>
                     <CampaignForm campaign={c()} />
                 </Show>
+
+                <Show when={statusBelow()}>{status()}</Show>
             </div>
         </div>
     );

@@ -17,6 +17,8 @@ export interface Campaign {
     showDonorListing?: boolean;
     /** Donors may make their donation repeat (weekly … yearly), billed by Stripe. */
     allowRecurringDonations?: boolean;
+    /** Status panel (raised/goal + donors) above or below the donation form. Default 'above'. */
+    statusPosition?: 'above' | 'below';
     currentAmountCents: number;
     status: CampaignStatus;
     startDate?: Date;

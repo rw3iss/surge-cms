@@ -103,8 +103,8 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
         `INSERT INTO campaigns (title, slug, description, short_description, featured_image,
                             goal_amount_cents, show_raised_amount, status, start_date, end_date, is_published,
                             donation_provider, givebutter_campaign_id, givebutter_campaign_code, created_by,
-                            show_donor_listing, allow_recurring_donations)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                            show_donor_listing, allow_recurring_donations, status_position)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      RETURNING *`,
         [
             data.title,
@@ -126,6 +126,7 @@ export async function createCampaign(data: Record<string, unknown>, userId: stri
             uuidOrNull(userId,),
             data.showDonorListing ?? false,
             data.allowRecurringDonations ?? false,
+            data.statusPosition === 'below' ? 'below' : 'above',
         ],
     );
     return mapRow<Campaign>(result.rows[0],);

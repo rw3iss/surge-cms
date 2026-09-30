@@ -38,6 +38,7 @@ const CampaignEditor: Component = () => {
     const [showRaisedAmount, setShowRaisedAmount,] = createSignal(true,);
     const [showDonorListing, setShowDonorListing,] = createSignal(false,);
     const [allowRecurringDonations, setAllowRecurringDonations,] = createSignal(false,);
+    const [statusPosition, setStatusPosition,] = createSignal<'above' | 'below'>('above',);
     const [status, setStatus,] = createSignal('draft',);
     const [isPublished, setIsPublished,] = createSignal(false,);
     const [startDate, setStartDate,] = createSignal('',);
@@ -99,6 +100,7 @@ const CampaignEditor: Component = () => {
                 setShowRaisedAmount(data.showRaisedAmount ?? true,);
                 setShowDonorListing(data.showDonorListing ?? false,);
                 setAllowRecurringDonations(data.allowRecurringDonations ?? false,);
+                setStatusPosition(data.statusPosition === 'below' ? 'below' : 'above',);
                 setStatus(data.status || 'draft',);
                 setIsPublished(data.isPublished ?? false,);
                 if (data.startDate) {
@@ -148,6 +150,7 @@ const CampaignEditor: Component = () => {
             showRaisedAmount: showRaisedAmount(),
             showDonorListing: showDonorListing(),
             allowRecurringDonations: allowRecurringDonations(),
+            statusPosition: statusPosition(),
             status: status(),
             isPublished: isPublished(),
             startDate: startDate(),
@@ -200,6 +203,7 @@ const CampaignEditor: Component = () => {
                 showRaisedAmount: showRaisedAmount(),
                 showDonorListing: showDonorListing(),
                 allowRecurringDonations: allowRecurringDonations(),
+                statusPosition: statusPosition(),
                 status: status(),
                 isPublished: isPublished(),
                 startDate: startDate() ? new Date(startDate(),).toISOString() : null,
@@ -507,6 +511,25 @@ const CampaignEditor: Component = () => {
                                     still count toward the total). Amounts are hidden when "Show raised amount" is off.
                                 </small>
                             </div>
+
+                            {/* Only meaningful when there is a status panel to place. */}
+                            <Show when={showRaisedAmount() || showDonorListing()}>
+                                <FormField
+                                    label="Status position"
+                                    hint="Where the raised amount / donors panel appears on the campaign page and in {{campaign()}}, relative to the donation form."
+                                >
+                                    <select
+                                        value={statusPosition()}
+                                        onChange={(e,) => {
+                                            setStatusPosition(e.currentTarget.value === 'below' ? 'below' : 'above',);
+                                            markDirty();
+                                        }}
+                                    >
+                                        <option value="above">Above form</option>
+                                        <option value="below">Below form</option>
+                                    </select>
+                                </FormField>
+                            </Show>
 
                             <div class="form-group">
                                 <Toggle

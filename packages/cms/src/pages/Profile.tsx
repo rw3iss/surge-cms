@@ -654,7 +654,7 @@ const Profile: Component = () => {
                                                 <div class="profile__order-main">
                                                     <span class="profile__order-number">
                                                         <Show when={r.campaignSlug} fallback={r.campaignTitle || 'General donation'}>
-                                                            <A href={`/donate/${r.campaignSlug}`}>{r.campaignTitle}</A>
+                                                            <A href={`/campaigns/${r.campaignSlug}`}>{r.campaignTitle}</A>
                                                         </Show>
                                                     </span>
                                                     <span class="profile__order-date">
@@ -722,7 +722,7 @@ const Profile: Component = () => {
                                                     </div>
                                                     <div class="profile__order-meta">
                                                         <Show when={d.campaignSlug}>
-                                                            <A href={`/donate/${d.campaignSlug}`} class="profile__donation-link">
+                                                            <A href={`/campaigns/${d.campaignSlug}`} class="profile__donation-link">
                                                                 View campaign
                                                             </A>
                                                         </Show>

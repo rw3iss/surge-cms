@@ -28,6 +28,7 @@ const campaignSchema = z.object({
     showRaisedAmount: z.boolean().optional(),
     showDonorListing: z.boolean().optional(),
     allowRecurringDonations: z.boolean().optional(),
+    statusPosition: z.enum(['above', 'below',],).optional(),
     status: z.enum(['draft', 'active', 'completed', 'cancelled',],).optional(),
     startDate: z.string().datetime().nullish(),
     endDate: z.string().datetime().nullish(),
