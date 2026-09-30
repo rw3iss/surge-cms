@@ -6,11 +6,15 @@ import type {
     CampaignAdminDonationsQuery,
     CampaignDonationsQuery,
     CampaignListQuery,
+    CampaignDonationReplyBody,
+    CampaignDonationReplyPreviewBody,
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
 import * as campaigns from '../services/campaigns';
+import * as donationReply from '../services/donationReply';
+import * as permissions from '../services/permissions';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -67,6 +71,7 @@ const adminDonationsQuery = z.object({
 },) satisfies z.ZodType<CampaignAdminDonationsQuery>;
 
 const idParams = z.object({ id: z.string(), },);
+const replyParams = z.object({ id: z.string().uuid(), donationId: z.string().uuid(), },);
 
 // Query schemas coerce (string → number), so assert z.infer compatibility.
 type _AssertCampaignListQuery = AssertCompatible<z.infer<typeof listQuery>, CampaignListQuery>;
@@ -149,6 +154,47 @@ export const campaignsRoutes = [
                 { page: query.page, limit: query.limit, },
             );
             return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    // ─── Donor replies ───
+    defineRoute({
+        method: 'get', path: '/donations/reply-sender', auth: 'staff',
+        summary: 'The default sender for donor replies (site default sender, else EMAIL_FROM).',
+        handler: async ({ user, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'campaigns.donations:reply',);
+            return donationReply.defaultSender();
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/donations/:donationId/reply/preview', auth: 'staff',
+        summary: 'Render a donor reply exactly as it would be sent (no email is sent).',
+        input: {
+            params: replyParams,
+            body: z.object({ message: z.string().max(20_000,), },) satisfies z.ZodType<CampaignDonationReplyPreviewBody>,
+        },
+        handler: async ({ params, body, user, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'campaigns.donations:reply',);
+            return donationReply.preview(params.id, params.donationId, body,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/donations/:donationId/reply', auth: 'staff',
+        summary: "Email a reply to the donation's donor (recipient = the donation's email).",
+        input: {
+            params: replyParams,
+            body: z.object({
+                subject: z.string().trim().min(1,).max(300,),
+                message: z.string().trim().min(1,).max(20_000,),
+                fromName: z.string().trim().max(200,).optional(),
+                fromEmail: z.union([z.string().trim().email(), z.literal('',),],).optional(),
+            },) satisfies z.ZodType<CampaignDonationReplyBody>,
+        },
+        handler: async ({ params, body, user, audit, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'campaigns.donations:reply',);
+            return donationReply.send(params.id, params.donationId, body, audit(),);
         },
     },),
 

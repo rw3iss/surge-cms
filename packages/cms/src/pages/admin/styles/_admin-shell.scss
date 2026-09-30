@@ -946,3 +946,10 @@
 // Components list (/admin/components): the Name column at twice its
 // content-sized width, so longer component names don't wrap.
 .admin-table th.components-list__name { width: 300px; }
+
+// Reply button column at the end of each donation row.
+.campaign-donations__actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}

@@ -7,7 +7,9 @@
 import { formatCurrency, formatDate, } from '@sitesurge/types';
 import type { CampaignAdminDonationsResponse, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
+import DonationReplyModal from '../../components/admin/campaigns/DonationReplyModal';
 import Pagination from '../../components/admin/common/Pagination';
+import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
 
 type Row = CampaignAdminDonationsResponse[number];
@@ -21,7 +23,10 @@ const COLUMNS: { key: SortBy; label: string; }[] = [
     { key: 'date', label: 'Date', },
 ];
 
-const CampaignDonations: Component<{ campaignId: string; }> = (props,) => {
+const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string; }> = (props,) => {
+    const toast = useToast();
+    /** The donation being replied to (opens the reply modal). */
+    const [replying, setReplying,] = createSignal<Row | null>(null,);
     const [searchInput, setSearchInput,] = createSignal('',);
     const [search, setSearch,] = createSignal('',); // debounced value that drives the query
     const [page, setPage,] = createSignal(1,);
@@ -121,6 +126,7 @@ const CampaignDonations: Component<{ campaignId: string; }> = (props,) => {
                                             </th>
                                         )}
                                     </For>
+                                    <th class="campaign-donations__actions-th" aria-label="Actions" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -134,6 +140,17 @@ const CampaignDonations: Component<{ campaignId: string; }> = (props,) => {
                                                 <span class={`badge badge--donation-${d.status}`}>{d.status}</span>
                                             </td>
                                             <td>{formatDate(d.createdAt,)}</td>
+                                            <td class="campaign-donations__actions">
+                                                <Show when={d.donorEmail}>
+                                                    <button
+                                                        type="button"
+                                                        class="ui-button ui-button--sm ui-button--secondary"
+                                                        onClick={() => setReplying(d,)}
+                                                    >
+                                                        Reply
+                                                    </button>
+                                                </Show>
+                                            </td>
                                         </tr>
                                     )}
                                 </For>
@@ -151,6 +168,15 @@ const CampaignDonations: Component<{ campaignId: string; }> = (props,) => {
                         />
                     </Show>
                 </Show>
+            </Show>
+            <Show when={replying()}>
+                <DonationReplyModal
+                    campaignId={props.campaignId}
+                    campaignTitle={props.campaignTitle}
+                    donation={replying()!}
+                    onClose={() => setReplying(null,)}
+                    onSent={(to,) => toast.success(`Reply sent to ${to}.`,)}
+                />
             </Show>
         </div>
     );

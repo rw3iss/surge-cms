@@ -188,3 +188,38 @@ export type CampaignUpdateResponse = Campaign;
 export interface CampaignDeleteResponse {
     message: string;
 }
+
+// ─── Donor replies (admin donations table) ────────────────────────────
+
+/** Body for POST /campaigns/:id/donations/:donationId/reply. The recipient is
+ *  always the donation's own email — it is not part of the body. */
+export interface CampaignDonationReplyBody {
+    subject: string;
+    message: string;
+    /** Empty → the site default sender (Settings → General → E-mail and Contact). */
+    fromName?: string;
+    fromEmail?: string;
+}
+
+/** Body for POST …/reply/preview — only the message affects the rendering. */
+export interface CampaignDonationReplyPreviewBody {
+    message: string;
+}
+
+/** POST …/reply/preview → the exact HTML that would be sent. */
+export interface CampaignDonationReplyPreviewResponse {
+    to: string;
+    html: string;
+}
+
+/** POST …/reply → confirmation. */
+export interface CampaignDonationReplyResponse {
+    sent: true;
+    to: string;
+}
+
+/** GET /campaigns/donations/reply-sender — the sender the reply form starts with. */
+export interface CampaignReplySenderResponse {
+    fromName: string;
+    fromEmail: string;
+}

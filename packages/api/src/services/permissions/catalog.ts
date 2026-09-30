@@ -178,6 +178,14 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         { key: 'campaigns:read', feature: 'campaigns', label: 'View campaigns', action: 'read', defaultRoles: STAFF, },
         { key: 'campaigns:write', feature: 'campaigns', label: 'Create and edit campaigns', action: 'write', defaultRoles: STAFF, },
         {
+            key: 'campaigns.donations:reply',
+            feature: 'campaigns',
+            label: 'Email donors',
+            description: 'Send a donor an email reply from the campaign donations table.',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
+        {
             key: 'campaigns.donations:manage_own',
             feature: 'campaigns',
             label: 'Manage own recurring donations',

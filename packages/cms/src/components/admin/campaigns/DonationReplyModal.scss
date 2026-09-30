@@ -1,0 +1,78 @@
+.donation-reply {
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xl;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-md;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+    flex-shrink: 0;
+
+    h2 { margin: 0; font-size: 1.1rem; }
+  }
+
+  &__tabs {
+    display: flex;
+    gap: 4px;
+
+    button {
+      padding: 6px 12px;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-md;
+      background: $background;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+
+      &.is-active {
+        border-color: var(--admin-text, #{$text-color});
+        font-weight: 600;
+      }
+    }
+  }
+
+  &__body {
+    padding: $spacing-lg;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
+  }
+
+  &__preview {
+    width: 100%;
+    height: 60vh;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: #fff;
+  }
+
+  &__error { margin: 0; }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $border-color;
+    flex-shrink: 0;
+  }
+}

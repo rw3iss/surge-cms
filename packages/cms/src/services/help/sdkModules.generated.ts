@@ -264,9 +264,24 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /campaigns — public bare array of published campaigns."
             },
             {
+                "name": "previewDonationReply",
+                "signature": "previewDonationReply(id: string, donationId: string, body: CampaignDonationReplyPreviewBody): Promise<CampaignDonationReplyPreviewResponse>",
+                "summary": "POST /campaigns/:id/donations/:donationId/reply/preview — the exact HTML the reply would send (nothing is sent)."
+            },
+            {
                 "name": "remove",
                 "signature": "remove(id: string): Promise<CampaignDeleteResponse>",
                 "summary": ""
+            },
+            {
+                "name": "replySender",
+                "signature": "replySender(): Promise<CampaignReplySenderResponse>",
+                "summary": "GET /campaigns/donations/reply-sender — the sender a donor reply starts with."
+            },
+            {
+                "name": "replyToDonation",
+                "signature": "replyToDonation(id: string, donationId: string, body: CampaignDonationReplyBody): Promise<CampaignDonationReplyResponse>",
+                "summary": "POST /campaigns/:id/donations/:donationId/reply — email the donor (always the donation's own address)."
             },
             {
                 "name": "update",
@@ -2249,4 +2264,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 391;
+export const SDK_METHOD_COUNT = 394;

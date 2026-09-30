@@ -618,7 +618,7 @@ const CampaignEditor: Component = () => {
 
                 {/* Donations table — existing campaigns only. */}
                 <Show when={!isNew()}>
-                    <CampaignDonations campaignId={params.id} />
+                    <CampaignDonations campaignId={params.id} campaignTitle={title()} />
                 </Show>
             </Show>
         </div>

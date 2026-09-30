@@ -5,6 +5,11 @@ import type {
     CampaignDonationSummaryResponse, CampaignAllDonationsQuery, CampaignAllDonationsResponse,
     CampaignByIdResponse, CampaignCreateBody, CampaignCreateResponse, CampaignUpdateBody,
     CampaignUpdateResponse, CampaignDeleteResponse, CampaignBulkBody, CampaignBulkResponse,
+    CampaignDonationReplyBody,
+    CampaignDonationReplyPreviewBody,
+    CampaignDonationReplyPreviewResponse,
+    CampaignDonationReplyResponse,
+    CampaignReplySenderResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -31,6 +36,23 @@ export class CampaignsModule extends ModuleBase {
     /** GET /campaigns/:id/donations — masked public donations, paginated. */
     donations(id: string, query?: CampaignDonationsQuery,): Promise<Paginated<CampaignDonationsResponse[number]>> {
         return this.getPaged<CampaignDonationsResponse[number]>('/campaigns/:id/donations', { params: { id, }, query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /campaigns/donations/reply-sender — the sender a donor reply starts with. */
+    replySender(): Promise<CampaignReplySenderResponse> {
+        return this.get<CampaignReplySenderResponse>('/campaigns/donations/reply-sender', { options: { cache: false, }, },);
+    }
+
+    /** POST /campaigns/:id/donations/:donationId/reply/preview — the exact HTML
+     *  the reply would send (nothing is sent). */
+    previewDonationReply(id: string, donationId: string, body: CampaignDonationReplyPreviewBody,): Promise<CampaignDonationReplyPreviewResponse> {
+        return this.mutate<CampaignDonationReplyPreviewResponse>('POST', '/campaigns/:id/donations/:donationId/reply/preview', { params: { id, donationId, }, body, },);
+    }
+
+    /** POST /campaigns/:id/donations/:donationId/reply — email the donor
+     *  (always the donation's own address). */
+    replyToDonation(id: string, donationId: string, body: CampaignDonationReplyBody,): Promise<CampaignDonationReplyResponse> {
+        return this.mutate<CampaignDonationReplyResponse>('POST', '/campaigns/:id/donations/:donationId/reply', { params: { id, donationId, }, body, },);
     }
 
     /** GET /campaigns/:id/donations/admin — full donor rows, searchable + sortable. */
