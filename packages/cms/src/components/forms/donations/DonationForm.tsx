@@ -1,3 +1,4 @@
+import { A, } from '@solidjs/router';
 import { loadStripe, Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import { DEFAULT_DONATION_INTERVAL, DONATION_INTERVALS, type DonationInterval, donationInterval, } from '@sitesurge/types';
@@ -286,6 +287,21 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                         <p>
                             Your {periodText()} donation of ${(getAmountCents() / 100).toFixed(2,)} is set up. The first
                             payment went through, and it will repeat {periodText()} until cancelled.
+                        </p>
+                        {/* Managed on the profile's Donations tab (amount, frequency, cancel). */}
+                        <p class="donation-form__manage">
+                            <Show
+                                when={auth.user}
+                                fallback={
+                                    <>
+                                        To change or cancel it later, <A href="/join">create an account</A> or{' '}
+                                        <A href="/login?redirect=profile">sign in</A> with {donorEmail()} and open{' '}
+                                        <A href="/profile?tab=donations">My donations</A>.
+                                    </>
+                                }
+                            >
+                                <A href="/profile?tab=donations">Manage my recurring donation</A>
+                            </Show>
                         </p>
                     </Show>
                 </div>

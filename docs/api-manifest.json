@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-20T19:47:46.559Z",
-  "totalModules": 41,
-  "totalRoutes": 382,
+  "generatedAt": "2026-09-30T08:17:27.228Z",
+  "totalModules": 42,
+  "totalRoutes": 402,
   "modules": [
     {
       "module": "admin-channel",
@@ -636,8 +636,8 @@
           "method": "GET",
           "path": "/settings",
           "absolutePath": "/api/v1/events/settings",
-          "auth": "public",
-          "summary": "Public events settings (notification toggles + VAPID public key)."
+          "auth": "optional",
+          "summary": "Events settings (notification toggles + VAPID public key; admins also get the email sender)."
         },
         {
           "method": "PUT",
@@ -708,6 +708,13 @@
           "absolutePath": "/api/v1/events/:id/registrations",
           "auth": "staff",
           "summary": "Paged attendee list for an occurrence."
+        },
+        {
+          "method": "GET",
+          "path": "/tickets/:code",
+          "absolutePath": "/api/v1/events/tickets/:code",
+          "auth": "optional",
+          "summary": "One ticket and the registration it belongs to. The code is the credential; contact details are masked for anyone but the attendee or staff."
         },
         {
           "method": "POST",
@@ -1264,7 +1271,7 @@
           "path": "/:id",
           "absolutePath": "/api/v1/media/:id",
           "auth": "staff",
-          "summary": "Update media metadata (title/alt/caption)."
+          "summary": "Update media metadata (title/alt/caption/credits)."
         },
         {
           "method": "DELETE",
@@ -1514,6 +1521,27 @@
           "absolutePath": "/api/v1/payments/transactions",
           "auth": "user",
           "summary": "List the logged-in user's transaction history."
+        },
+        {
+          "method": "GET",
+          "path": "/recurring-donations",
+          "absolutePath": "/api/v1/payments/recurring-donations",
+          "auth": "user",
+          "summary": "The signed-in donor's recurring donations, read live from Stripe."
+        },
+        {
+          "method": "PUT",
+          "path": "/recurring-donations/:id",
+          "absolutePath": "/api/v1/payments/recurring-donations/:id",
+          "auth": "user",
+          "summary": "Change the amount and/or frequency of your recurring donation (from the next charge)."
+        },
+        {
+          "method": "POST",
+          "path": "/recurring-donations/:id/cancel",
+          "absolutePath": "/api/v1/payments/recurring-donations/:id/cancel",
+          "auth": "user",
+          "summary": "Cancel your recurring donation now (no further charges)."
         },
         {
           "method": "GET",
@@ -2057,6 +2085,69 @@
         },
         {
           "method": "GET",
+          "path": "/media-storage",
+          "absolutePath": "/api/v1/settings/media-storage",
+          "auth": "admin",
+          "summary": "Media storage settings (secret masked)."
+        },
+        {
+          "method": "PUT",
+          "path": "/media-storage",
+          "absolutePath": "/api/v1/settings/media-storage",
+          "auth": "admin",
+          "summary": "Update media storage settings."
+        },
+        {
+          "method": "POST",
+          "path": "/media-storage/test",
+          "absolutePath": "/api/v1/settings/media-storage/test",
+          "auth": "admin",
+          "summary": "Verify the configured media storage is writable."
+        },
+        {
+          "method": "GET",
+          "path": "/backup-destination",
+          "absolutePath": "/api/v1/settings/backup-destination",
+          "auth": "admin",
+          "summary": "Backup destination settings (secret masked)."
+        },
+        {
+          "method": "PUT",
+          "path": "/backup-destination",
+          "absolutePath": "/api/v1/settings/backup-destination",
+          "auth": "admin",
+          "summary": "Update backup destination settings."
+        },
+        {
+          "method": "GET",
+          "path": "/backup-destination/list",
+          "absolutePath": "/api/v1/settings/backup-destination/list",
+          "auth": "admin",
+          "summary": "List backups stored at the configured destination."
+        },
+        {
+          "method": "POST",
+          "path": "/backup-destination/restore",
+          "absolutePath": "/api/v1/settings/backup-destination/restore",
+          "auth": "admin",
+          "summary": "Restore the database from a backup at the configured destination."
+        },
+        {
+          "method": "POST",
+          "path": "/backup-destination/test",
+          "absolutePath": "/api/v1/settings/backup-destination/test",
+          "auth": "admin",
+          "summary": "Verify the configured backup destination is writable."
+        },
+        {
+          "method": "POST",
+          "path": "/backup-destination/run",
+          "absolutePath": "/api/v1/settings/backup-destination/run",
+          "auth": "admin",
+          "summary": "Run a backup and store it at the configured destination."
+        },
+        {
+          "method": "GET",
           "path": "/mailing-lists",
           "absolutePath": "/api/v1/settings/mailing-lists",
           "auth": "admin",
@@ -2436,7 +2527,7 @@
           "path": "/orders",
           "absolutePath": "/api/v1/shop/orders",
           "auth": "user",
-          "summary": "List orders. Regular users see their own (by user_id/email); admins see all. Paginated."
+          "summary": "List orders. Regular users see their own (by user_id/email); admins see all unless mine=true. Paginated."
         },
         {
           "method": "GET",
@@ -2622,6 +2713,54 @@
       ]
     },
     {
+      "module": "siteAssets",
+      "mountPath": "",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/logo.png",
+          "absolutePath": "/logo.png",
+          "auth": "public",
+          "summary": "The Site Branding logo as PNG, on the site origin."
+        },
+        {
+          "method": "GET",
+          "path": "/apple-touch-icon.png",
+          "absolutePath": "/apple-touch-icon.png",
+          "auth": "public",
+          "summary": "Square 180px icon generated from Site Branding."
+        },
+        {
+          "method": "GET",
+          "path": "/icons/icon-192x192.png",
+          "absolutePath": "/icons/icon-192x192.png",
+          "auth": "public",
+          "summary": "Square 192px icon generated from Site Branding."
+        },
+        {
+          "method": "GET",
+          "path": "/icons/icon-512x512.png",
+          "absolutePath": "/icons/icon-512x512.png",
+          "auth": "public",
+          "summary": "Square 512px icon generated from Site Branding."
+        },
+        {
+          "method": "GET",
+          "path": "/manifest.webmanifest",
+          "absolutePath": "/manifest.webmanifest",
+          "auth": "public",
+          "summary": "Web app manifest built from Site Settings."
+        },
+        {
+          "method": "GET",
+          "path": "/favicon.ico",
+          "absolutePath": "/favicon.ico",
+          "auth": "public",
+          "summary": "The Site Branding favicon, on the site origin."
+        }
+      ]
+    },
+    {
       "module": "sitemap",
       "mountPath": "",
       "routes": [
@@ -2741,6 +2880,13 @@
           "absolutePath": "/u/:token",
           "auth": "public",
           "summary": "Unsubscribe from a mailing list (raw HTML page)."
+        },
+        {
+          "method": "POST",
+          "path": "/u/:token",
+          "absolutePath": "/u/:token",
+          "auth": "public",
+          "summary": "One-click unsubscribe (RFC 8058) — called by mailbox providers."
         },
         {
           "method": "GET",

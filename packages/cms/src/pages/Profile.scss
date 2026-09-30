@@ -415,3 +415,24 @@
         }
     }
 }
+
+// ─── Donations tab: recurring donations + frequency badges ───
+.profile__recurring { margin-bottom: 1rem; }
+
+.profile__section-title {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+.profile__badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--site-border, #e5e7eb);
+    color: var(--site-text, #1a1a1a);
+
+    &--warn { background: #fef3c7; color: #92400e; }
+    &--ended { background: #f3f4f6; color: var(--site-text-muted, #6b7280); }
+}

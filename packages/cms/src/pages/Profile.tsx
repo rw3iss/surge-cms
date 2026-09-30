@@ -3,10 +3,12 @@ import { Component, createEffect, createMemo, createResource, createSignal, For,
 import {
     COUNTRIES, formatCurrency, isKnownCountry, isKnownTimeZone, isKnownUsState,
     normalizeCountry, normalizeUsState, TIMEZONES, US_STATES, splitFullName, } from '@sitesurge/types';
-import type { ContactMessage, PaymentsDonationsResponse, ShopOrder, } from '@sitesurge/types';
+import type { ContactMessage, PaymentsDonationsResponse, RecurringDonation, ShopOrder, } from '@sitesurge/types';
+import { donationInterval, } from '@sitesurge/types';
 
 type UserDonation = PaymentsDonationsResponse[number];
 import SeoHead from '../components/common/seo/SeoHead';
+import RecurringDonationModal from '../components/profile/RecurringDonationModal';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { isFeatureEnabled, siteSettings, } from '../stores/siteSettings';
@@ -68,8 +70,10 @@ const Profile: Component = () => {
 
     const showOrders = () => isFeatureEnabled('shop',);
     const showMessages = () => isFeatureEnabled('messages',);
-    // Donations tab is shown only when the user actually has donations.
-    const showDonations = () => (donations() ?? []).length > 0;
+    // Donations tab: whenever the Campaigns feature is on — it is also where a
+    // donor manages a recurring donation, which they reach from the link in
+    // the donation form's thank-you message.
+    const showDonations = () => isFeatureEnabled('campaigns',);
 
     const TABS = (): { key: Tab; label: string; }[] => [
         { key: 'profile', label: 'Profile', },
@@ -236,6 +240,21 @@ const Profile: Component = () => {
             }
         },
     );
+
+    // ── Recurring donations (live from Stripe; only when the tab is open) ──
+    const [recurringList, { mutate: setRecurringList, },] = createResource(
+        () => (tab() === 'donations' && auth.isAuthenticated ? 'load' : null),
+        async () => {
+            try {
+                return await cms.payments.recurringDonations();
+            } catch {
+                return [] as RecurringDonation[];
+            }
+        },
+    );
+    const [managing, setManaging,] = createSignal<RecurringDonation | null>(null,);
+    const intervalLabel = (v: string | null | undefined,) => donationInterval(v,)?.label ?? 'Recurring';
+    const recurringActive = (r: RecurringDonation,) => ['active', 'trialing', 'past_due',].includes(r.status,);
 
     // ── Donations ── Loaded eagerly once authenticated so the tab can be shown
     // only when the user actually has donations (by their id OR account email —
@@ -625,6 +644,52 @@ const Profile: Component = () => {
 
                     {/* ── Donations tab ── */}
                     <Show when={tab() === 'donations'}>
+                        <Show when={(recurringList() ?? []).length}>
+                            <div class="profile__card profile__recurring">
+                                <h3 class="profile__section-title">Recurring donations</h3>
+                                <ul class="profile__orders">
+                                    <For each={recurringList()}>
+                                        {(r,) => (
+                                            <li class="profile__order profile__order--static">
+                                                <div class="profile__order-main">
+                                                    <span class="profile__order-number">
+                                                        <Show when={r.campaignSlug} fallback={r.campaignTitle || 'General donation'}>
+                                                            <A href={`/donate/${r.campaignSlug}`}>{r.campaignTitle}</A>
+                                                        </Show>
+                                                    </span>
+                                                    <span class="profile__order-date">
+                                                        <Show
+                                                            when={recurringActive(r,)}
+                                                            fallback={<span class="profile__badge profile__badge--ended">Ended</span>}
+                                                        >
+                                                            <Show when={r.status === 'past_due'}>
+                                                                <span class="profile__badge profile__badge--warn">Payment failed</span>{' '}
+                                                            </Show>
+                                                            Next payment {r.nextPaymentAt ? fmtDate(r.nextPaymentAt,) : '—'}
+                                                        </Show>
+                                                    </span>
+                                                </div>
+                                                <div class="profile__order-meta">
+                                                    <span class="profile__order-total">
+                                                        {formatCurrency(r.amountCents, r.currency,)} · {intervalLabel(r.interval,)}
+                                                    </span>
+                                                    <Show when={recurringActive(r,)}>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn--small btn--outline"
+                                                            onClick={() => setManaging(r,)}
+                                                        >
+                                                            Manage
+                                                        </button>
+                                                    </Show>
+                                                </div>
+                                            </li>
+                                        )}
+                                    </For>
+                                </ul>
+                            </div>
+                        </Show>
+
                         <div class="profile__card">
                             <Show
                                 when={!donations.loading}
@@ -648,7 +713,12 @@ const Profile: Component = () => {
                                                         <span class="profile__order-number">
                                                             {d.campaignTitle || 'General donation'}
                                                         </span>
-                                                        <span class="profile__order-date">{fmtDate(d.createdAt,)}</span>
+                                                        <span class="profile__order-date">
+                                                            {fmtDate(d.createdAt,)}
+                                                            <Show when={d.recurringInterval}>
+                                                                {' '}<span class="profile__badge">{intervalLabel(d.recurringInterval,)}</span>
+                                                            </Show>
+                                                        </span>
                                                     </div>
                                                     <div class="profile__order-meta">
                                                         <Show when={d.campaignSlug}>
@@ -667,6 +737,15 @@ const Profile: Component = () => {
                                 </Show>
                             </Show>
                         </div>
+                    </Show>
+
+                    <Show when={managing()}>
+                        <RecurringDonationModal
+                            donation={managing()!}
+                            onClose={() => setManaging(null,)}
+                            onChanged={(next,) =>
+                                setRecurringList((list,) => (list ?? []).map((x,) => (x.id === next.id ? next : x)))}
+                        />
                     </Show>
 
                     {/* ── Messages tab ── */}

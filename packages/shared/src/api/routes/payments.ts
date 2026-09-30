@@ -145,8 +145,40 @@ export interface UserDonation {
     campaignId: string | null;
     campaignTitle: string | null;
     campaignSlug: string | null;
+    /** Set when this payment came from a recurring donation. */
+    recurringInterval?: import('../../utils/donationIntervals').DonationInterval | null;
+    /** The Stripe subscription behind a recurring payment. */
+    subscriptionId?: string | null;
     /** ISO date-time */
     createdAt: string;
+}
+
+/**
+ * One of the signed-in donor's recurring donations, read live from Stripe
+ * (GET /payments/recurring-donations). Stripe is the source of truth for the
+ * schedule; the CMS only records the payments.
+ */
+export interface RecurringDonation {
+    /** Stripe subscription id. */
+    id: string;
+    campaignId: string | null;
+    campaignTitle: string | null;
+    campaignSlug: string | null;
+    amountCents: number;
+    currency: string;
+    interval: import('../../utils/donationIntervals').DonationInterval | null;
+    /** Stripe status: `active`, `trialing` (a change waiting for the next date), `past_due`, `canceled`, … */
+    status: string;
+    /** When the next charge happens (ISO), if scheduled. */
+    nextPaymentAt: string | null;
+    /** ISO date-time the schedule started. */
+    createdAt: string;
+}
+
+/** PUT /payments/recurring-donations/:id — change amount and/or frequency. */
+export interface RecurringDonationUpdateBody {
+    amountCents?: number;
+    interval?: import('../../utils/donationIntervals').DonationInterval;
 }
 
 /** GET /payments/donations — the current user's donations. Page meta on the

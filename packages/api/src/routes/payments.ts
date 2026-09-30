@@ -23,7 +23,11 @@
  * and echoes back the status/body the service returns (200 fast, 400 on
  * bad signature) to honour Stripe's contract exactly.
  */
+import type { RecurringDonationUpdateBody, } from '@sitesurge/types';
 import { z, } from 'zod';
+import * as permissions from '../services/permissions';
+import * as recurring from '../services/recurringDonations';
+import { requireFeature, } from '../api/requireFeature';
 import type {
     AssertCompatible,
     PaymentsDonateBody,
@@ -112,6 +116,39 @@ export const paymentsRoutes = [
         handler: async ({ userId, query, },) => {
             const result = await payments.listUserTransactions(userId!, query.page, query.limit,);
             return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    // ─── Recurring donations (the donor's own; Stripe does the billing) ───
+    defineRoute({
+        method: 'get', path: '/recurring-donations', auth: 'user', pre: [requireFeature('campaigns',),],
+        summary: "The signed-in donor's recurring donations, read live from Stripe.",
+        handler: ({ user, },) => recurring.listForDonor({ id: user!.id, email: user!.email, },),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/recurring-donations/:id', auth: 'user', pre: [requireFeature('campaigns',),],
+        summary: 'Change the amount and/or frequency of your recurring donation (from the next charge).',
+        input: {
+            params: z.object({ id: z.string().regex(/^sub_[A-Za-z0-9]+$/,), },),
+            body: z.object({
+                amountCents: z.number().int().min(100,).max(10_000_000,).optional(),
+                interval: z.enum(['weekly', 'monthly', 'quarterly', 'semiannual', 'yearly',],).optional(),
+            },) satisfies z.ZodType<RecurringDonationUpdateBody>,
+        },
+        handler: async ({ user, params, body, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'campaigns.donations:manage_own',);
+            return recurring.update({ id: user!.id, email: user!.email, }, params.id, body,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/recurring-donations/:id/cancel', auth: 'user', pre: [requireFeature('campaigns',),],
+        summary: 'Cancel your recurring donation now (no further charges).',
+        input: { params: z.object({ id: z.string().regex(/^sub_[A-Za-z0-9]+$/,), },), },
+        handler: async ({ user, params, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'campaigns.donations:manage_own',);
+            return recurring.cancel({ id: user!.id, email: user!.email, }, params.id,);
         },
     },),
 

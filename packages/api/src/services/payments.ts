@@ -335,7 +335,8 @@ export async function listMyDonations(
 
     const result = await query(
         `SELECT d.id, d.amount_cents, d.message, d.visibility, d.status, d.created_at,
-                d.campaign_id, c.title AS campaign_title, c.slug AS campaign_slug
+                d.campaign_id, c.title AS campaign_title, c.slug AS campaign_slug,
+                d.recurring_interval, d.stripe_subscription_id
              FROM donations d
              LEFT JOIN campaigns c ON c.id = d.campaign_id
              ${where}
@@ -353,6 +354,8 @@ export async function listMyDonations(
         campaignId: row.campaign_id,
         campaignTitle: row.campaign_title,
         campaignSlug: row.campaign_slug,
+        recurringInterval: row.recurring_interval ?? null,
+        subscriptionId: row.stripe_subscription_id ?? null,
         createdAt: row.created_at,
     }));
 

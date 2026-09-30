@@ -247,6 +247,10 @@ export const ROUTE_COVERAGE: string[] = [
     // ── payments ──
     'POST /api/v1/payments/create-customer',
     'POST /api/v1/payments/donate',
+    'GET /api/v1/payments/donations',
+    'GET /api/v1/payments/recurring-donations',
+    'PUT /api/v1/payments/recurring-donations/:id',
+    'POST /api/v1/payments/recurring-donations/:id/cancel',
     'POST /api/v1/payments/subscribe',
     'POST /api/v1/payments/unsubscribe',
     'GET /api/v1/payments/subscriptions',

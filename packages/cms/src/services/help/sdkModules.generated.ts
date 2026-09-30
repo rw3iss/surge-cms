@@ -1189,6 +1189,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/admin/user/:userId/transactions — one user's transactions (admin)."
             },
             {
+                "name": "cancelRecurringDonation",
+                "signature": "cancelRecurringDonation(id: string): Promise<RecurringDonation>",
+                "summary": "POST /payments/recurring-donations/:id/cancel — stop it now."
+            },
+            {
                 "name": "createCustomer",
                 "signature": "createCustomer(): Promise<PaymentsCreateCustomerResponse>",
                 "summary": "POST /payments/create-customer — create/retrieve the Stripe customer."
@@ -1219,6 +1224,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/publishable-key?context= — the resolved Stripe publishable key for a context (public), so the checkout / donation forms load the right Stripe account."
             },
             {
+                "name": "recurringDonations",
+                "signature": "recurringDonations(): Promise<RecurringDonation[]>",
+                "summary": "GET /payments/recurring-donations — the signed-in donor's recurring donations, read live from Stripe."
+            },
+            {
                 "name": "subscribe",
                 "signature": "subscribe(body: PaymentsSubscribeBody): Promise<PaymentsSubscribeResponse>",
                 "summary": "POST /payments/subscribe — may return a clientSecret for confirmation."
@@ -1242,6 +1252,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "updatePlan",
                 "signature": "updatePlan(id: string, body: PaymentsPlanUpdateBody): Promise<PaymentsPlanUpdateResponse>",
                 "summary": "PUT /payments/admin/plans/:id — update a plan (admin). Response is a union: `{ message: 'No changes' }` or the updated `AdminPlan`."
+            },
+            {
+                "name": "updateRecurringDonation",
+                "signature": "updateRecurringDonation(id: string, body: RecurringDonationUpdateBody): Promise<RecurringDonation>",
+                "summary": "PUT /payments/recurring-donations/:id — change amount and/or frequency (takes effect from the next charge)."
             }
         ]
     },
@@ -2234,4 +2249,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 388;
+export const SDK_METHOD_COUNT = 391;

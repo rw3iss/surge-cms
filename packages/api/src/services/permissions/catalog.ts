@@ -177,6 +177,15 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
     campaigns: [
         { key: 'campaigns:read', feature: 'campaigns', label: 'View campaigns', action: 'read', defaultRoles: STAFF, },
         { key: 'campaigns:write', feature: 'campaigns', label: 'Create and edit campaigns', action: 'write', defaultRoles: STAFF, },
+        {
+            key: 'campaigns.donations:manage_own',
+            feature: 'campaigns',
+            label: 'Manage own recurring donations',
+            description: 'Change the amount or frequency of, or cancel, recurring donations the user made. Always limited to their own.',
+            action: 'write',
+            // Every signed-in role — donors are members.
+            defaultRoles: ['member', 'editor', 'admin', 'sysadmin',],
+        },
     ],
     shop: [
         { key: 'shop:read', feature: 'shop', label: 'View the shop', action: 'read', defaultRoles: STAFF, },

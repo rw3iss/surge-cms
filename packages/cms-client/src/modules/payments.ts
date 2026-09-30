@@ -8,8 +8,7 @@ import type {
     PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
     PaymentsAdminTransactionsQuery, PaymentsAdminTransactionsResponse,
     PaymentsAdminUserTransactionsResponse,
-    PaymentContext, PaymentPublishableKeyResponse,
-} from '@sitesurge/types';
+    PaymentContext, PaymentPublishableKeyResponse, RecurringDonation, RecurringDonationUpdateBody, } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -63,6 +62,23 @@ export class PaymentsModule extends ModuleBase {
      *  own id OR email; server-enforced). */
     donations(query?: PaymentsDonationsQuery,): Promise<Paginated<PaymentsDonationsResponse[number]>> {
         return this.getPaged<PaymentsDonationsResponse[number]>('/payments/donations', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /payments/recurring-donations — the signed-in donor's recurring
+     *  donations, read live from Stripe. */
+    recurringDonations(): Promise<RecurringDonation[]> {
+        return this.get<RecurringDonation[]>('/payments/recurring-donations', { options: { cache: false, }, },);
+    }
+
+    /** PUT /payments/recurring-donations/:id — change amount and/or frequency
+     *  (takes effect from the next charge). */
+    updateRecurringDonation(id: string, body: RecurringDonationUpdateBody,): Promise<RecurringDonation> {
+        return this.mutate<RecurringDonation>('PUT', '/payments/recurring-donations/:id', { params: { id, }, body, invalidates: ['payments',], },);
+    }
+
+    /** POST /payments/recurring-donations/:id/cancel — stop it now. */
+    cancelRecurringDonation(id: string,): Promise<RecurringDonation> {
+        return this.mutate<RecurringDonation>('POST', '/payments/recurring-donations/:id/cancel', { params: { id, }, invalidates: ['payments',], },);
     }
 
     /** GET /payments/plans — active plans for the public subscribe page. */
