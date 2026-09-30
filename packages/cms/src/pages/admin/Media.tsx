@@ -2,6 +2,7 @@ import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import VideoPlayer from '../../components/blocks/media/VideoPlayer';
+import MediaEditModal from '../../components/admin/media/MediaEditModal';
 import { cms, } from '../../services/cmsClient';
 
 function formatSize(bytes: number,): string {
@@ -32,10 +33,7 @@ const AdminMedia: Component = () => {
     const [searchInput, setSearchInput,] = createSignal('',);
     const [searchQuery, setSearchQuery,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('date_desc',);
-    const [editingId, setEditingId,] = createSignal<string | null>(null,);
-    const [editTitle, setEditTitle,] = createSignal('',);
-    const [editDescription, setEditDescription,] = createSignal('',);
-    const [saving, setSaving,] = createSignal(false,);
+    const [editingMedia, setEditingMedia,] = createSignal<any>(null,);
     const [viewingMedia, setViewingMedia,] = createSignal<any>(null,);
 
     const mediaQuery = () => {
@@ -66,30 +64,20 @@ const AdminMedia: Component = () => {
 
     const startEdit = (item: any, e: Event,) => {
         e.stopPropagation();
-        setEditingId(item.id,);
-        setEditTitle(item.title || '',);
-        setEditDescription(item.caption || '',);
+        setEditingMedia(item,);
     };
 
-    const cancelEdit = () => {
-        setEditingId(null,);
-        setEditTitle('',);
-        setEditDescription('',);
+    const closeEditModal = () => {
+        setEditingMedia(null,);
     };
 
-    const saveEdit = async () => {
-        const id = editingId();
-        if (!id) return;
-        setSaving(true,);
-        try {
-            await cms.media.update(id, {
-                title: editTitle(),
-                caption: editDescription(),
-            } as any,);
-        } finally {
-            setSaving(false,);
-        }
-        setEditingId(null,);
+    const handleMediaSaved = (_updated: any,) => {
+        setEditingMedia(null,);
+        refetch();
+    };
+
+    const handleMediaDeleted = (_id: string,) => {
+        setEditingMedia(null,);
         refetch();
     };
 
@@ -106,7 +94,6 @@ const AdminMedia: Component = () => {
     };
 
     const openModal = (m: any,) => {
-        if (editingId()) return;
         setViewingMedia(m,);
     };
 
@@ -252,79 +239,59 @@ const AdminMedia: Component = () => {
                                     </Show>
                                 </div>
 
-                                <Show
-                                    when={editingId() === m.id}
-                                    fallback={
-                                        <div class="media-grid__info">
-                                            <div class="media-grid__name" title={m.title || m.originalName}>
-                                                {m.title || m.originalName}
-                                            </div>
-                                            <Show when={m.title}>
-                                                <div class="media-grid__filename">{m.originalName}</div>
-                                            </Show>
-                                            <Show when={m.caption}>
-                                                <div class="media-grid__description">{m.caption}</div>
-                                            </Show>
-                                            <div class="media-grid__meta">
-                                                <span>{getTypeLabel(m.mimeType,)}</span>
-                                                <span>{formatSize(m.size,)}</span>
-                                                <span>{new Date(m.createdAt,).toLocaleDateString()}</span>
-                                            </div>
-                                            <div class="media-grid__actions">
-                                                <button
-                                                    class="ui-button ui-button--sm ui-button--secondary"
-                                                    onClick={(e,) => startEdit(m, e,)}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    class="ui-button ui-button--sm ui-button--secondary"
-                                                    onClick={(e,) => handleDownload(m, e,)}
-                                                    title="Download"
-                                                >
-                                                    &#8595;
-                                                </button>
-                                                <button
-                                                    class="ui-button ui-button--sm ui-button--danger"
-                                                    onClick={(e,) => handleDelete(m.id, e,)}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </div>
-                                    }
-                                >
-                                    <div class="media-grid__edit" onClick={(e,) => e.stopPropagation()}>
-                                        <input
-                                            type="text"
-                                            placeholder="Title"
-                                            value={editTitle()}
-                                            onInput={(e,) => setEditTitle(e.currentTarget.value,)}
-                                        />
-                                        <textarea
-                                            placeholder="Description"
-                                            value={editDescription()}
-                                            onInput={(e,) => setEditDescription(e.currentTarget.value,)}
-                                            rows={2}
-                                        />
-                                        <div class="media-grid__edit-actions">
-                                            <button
-                                                class="ui-button ui-button--sm ui-button--primary"
-                                                onClick={saveEdit}
-                                                disabled={saving()}
-                                            >
-                                                {saving() ? 'Saving...' : 'Save'}
-                                            </button>
-                                            <button class="ui-button ui-button--sm ui-button--secondary" onClick={cancelEdit}>
-                                                Cancel
-                                            </button>
-                                        </div>
+                                <div class="media-grid__info">
+                                    <div class="media-grid__name" title={m.title || m.originalName}>
+                                        {m.title || m.originalName}
                                     </div>
-                                </Show>
+                                    <Show when={m.title}>
+                                        <div class="media-grid__filename">{m.originalName}</div>
+                                    </Show>
+                                    <Show when={m.caption}>
+                                        <div class="media-grid__description">{m.caption}</div>
+                                    </Show>
+                                    <div class="media-grid__meta">
+                                        <span>{getTypeLabel(m.mimeType,)}</span>
+                                        <span>{formatSize(m.size,)}</span>
+                                        <span>{new Date(m.createdAt,).toLocaleDateString()}</span>
+                                    </div>
+                                    <div class="media-grid__actions">
+                                        <button
+                                            class="ui-button ui-button--sm ui-button--secondary"
+                                            onClick={(e,) => startEdit(m, e,)}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            class="ui-button ui-button--sm ui-button--secondary"
+                                            onClick={(e,) => handleDownload(m, e,)}
+                                            title="Download"
+                                        >
+                                            &#8595;
+                                        </button>
+                                        <button
+                                            class="ui-button ui-button--sm ui-button--danger"
+                                            onClick={(e,) => handleDelete(m.id, e,)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </For>
                 </div>
+            </Show>
+
+            {/* Media Edit Modal */}
+            <Show when={editingMedia()}>
+                {(m,) => (
+                    <MediaEditModal
+                        media={m()}
+                        onClose={closeEditModal}
+                        onSaved={handleMediaSaved}
+                        onDeleted={handleMediaDeleted}
+                    />
+                )}
             </Show>
 
             {/* Media View Modal */}

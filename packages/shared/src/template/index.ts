@@ -17,7 +17,8 @@ import { TemplateParseError } from './types';
 // Public API surface (internal AST types `Node`/`Expr` are intentionally NOT
 // re-exported, to keep the @sitesurge/types barrel free of generic names).
 export type { OutputNode, TemplateRuntime, EntityRef } from './types';
-export { entityRef, isEntityRef, TemplateParseError } from './types';
+export { entityRef, isEntityRef, isMediaValue, MEDIA_FIELDS, mediaValue, TemplateParseError } from './types';
+export type { MediaValue } from './types';
 export { hasTemplateSyntax } from './tokenizer';
 /** Parse a template into its AST (rarely needed directly; `renderTemplate`
  *  parses + evaluates). Exported for tooling/tests. */

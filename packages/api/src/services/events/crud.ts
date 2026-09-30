@@ -5,6 +5,7 @@
  * in `notifications.ts` — this module decides *when* the world should hear about
  * an event, not *how* it is told.
  */
+import { withFeaturedMedia, } from '../mediaRefs';
 import type { CalendarEvent, CalendarEventInput, EventStatus, } from '@sitesurge/types';
 import { generateSlug, } from '@sitesurge/types';
 import crypto from 'crypto';
@@ -42,7 +43,7 @@ export async function getByIdOrSlug(
     const found = isUuid ? await repo.findById(idOrSlug,) : await repo.findBySlug(idOrSlug,);
     if (!found) throw new NotFoundError('Event',);
     if (!opts.admin && found.status !== 'published') throw new NotFoundError('Event',);
-    return found;
+    return withFeaturedMedia(found,);
 }
 
 // ─── Validation ───────────────────────────────────────────────────

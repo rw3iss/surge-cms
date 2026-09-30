@@ -7,6 +7,8 @@ export interface Campaign {
     description: string;
     shortDescription?: string;
     featuredImage?: string;
+    /** The media item behind `featuredImage` (title, description, credits…). */
+    featuredMedia?: import('./content').MediaRef | null;
     goalAmountCents: number;
     /** When false, public renderings hide all monetary info (raised + goal). */
     showRaisedAmount: boolean;

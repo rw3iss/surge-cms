@@ -126,6 +126,8 @@ export interface Post {
     excerpt?: string;
     content: string;
     featuredImage?: string;
+    /** The media item behind `featuredImage` (title, description, credits…). */
+    featuredMedia?: MediaRef | null;
     author: string;
     authorId: string;
     status: PostStatus;
@@ -228,8 +230,29 @@ export interface Media {
     thumbnailUrl?: string;
     alt?: string;
     caption?: string;
+    /** Photographer / source / licence line. */
+    credits?: string | null;
     uploadedBy: string;
     createdAt: Date;
+}
+
+/**
+ * A media item as seen by content that USES it — a post banner, a campaign
+ * image. `path` is the URL to render (the same value as `url`; `path` is the
+ * name templates use: `{{post.featuredImage.path}}`). When the URL is not in
+ * the media library (pasted from elsewhere) only `path`/`url` are set.
+ */
+export interface MediaRef {
+    id: string | null;
+    path: string;
+    url: string;
+    thumbnailUrl: string | null;
+    title: string | null;
+    /** The library's description (stored as `caption`). */
+    description: string | null;
+    credits: string | null;
+    alt: string | null;
+    mimeType: string | null;
 }
 
 export interface NavigationItem {

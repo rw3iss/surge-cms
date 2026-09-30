@@ -20,6 +20,7 @@ import { query, } from '../db';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import { getStorageProvider, } from './storage';
 import { logAudit, } from './audit';
+import { cache, } from './cache';
 import type { AuditContext, } from './types';
 import { logger, } from '../utils/logger';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -256,6 +257,7 @@ export interface MediaMetaPatch {
     title?: string;
     alt?: string;
     caption?: string;
+    credits?: string;
 }
 
 /** Update metadata (title/alt/caption). Only supplied fields change. */
@@ -274,6 +276,10 @@ export async function updateMeta(id: string, patch: MediaMetaPatch, ctx: AuditCo
     if (patch.caption !== undefined) {
         values.push(patch.caption,);
         updates.push(`caption = $${values.length}`,);
+    }
+    if (patch.credits !== undefined) {
+        values.push(patch.credits.trim() || null,);
+        updates.push(`credits = $${values.length}`,);
     }
 
     if (updates.length === 0) throw new ValidationError('No fields to update',);
@@ -294,6 +300,7 @@ export async function updateMeta(id: string, patch: MediaMetaPatch, ctx: AuditCo
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
+    await cache.invalidateMediaConsumersCache();
     return item;
 }
 
@@ -320,4 +327,5 @@ export async function remove(id: string, ctx: AuditContext,): Promise<void> {
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
+    await cache.invalidateMediaConsumersCache();
 }

@@ -99,6 +99,7 @@ export interface MediaUpdateBody {
     title?: string;
     alt?: string;
     caption?: string;
+    credits?: string;
 }
 
 /** PUT /media/:id — the updated media row. */

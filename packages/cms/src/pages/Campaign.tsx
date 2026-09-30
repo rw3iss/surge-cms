@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 import { A, useParams, } from '@solidjs/router';
 import type { Campaign, } from '@sitesurge/types';
 import { Component, createResource, Show, } from 'solid-js';
@@ -31,7 +32,7 @@ const CampaignPage: Component = () => {
                                 `Support ${siteName()} — donate to ${c().title}.`}
                             canonical={canonicalUrl()}
                             type="website"
-                            image={c().featuredImage}
+                            image={featuredImagePath(c())}
                             imageAlt={c().title}
                             aeoSummary={c().shortDescription ||
                                 `${c().title} is a fundraising campaign from ${siteName()}.`}
@@ -41,7 +42,7 @@ const CampaignPage: Component = () => {
                                     name: c().title,
                                     description: c().shortDescription,
                                     url: canonicalUrl(),
-                                    image: c().featuredImage,
+                                    image: featuredImagePath(c()),
                                     goalAmount: c().goalAmountCents,
                                     raisedAmount: c().currentAmountCents,
                                     publisherName: siteName(),

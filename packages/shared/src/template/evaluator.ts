@@ -13,7 +13,7 @@
  *  sanitized from the API — so escaping would wrongly show tags for rich fields.
  */
 import type { Expr, Node, OutputNode, TemplateRuntime } from './types';
-import { isEntityRef } from './types';
+import { isEntityRef, isMediaValue, MEDIA_FIELDS, mediaValue } from './types';
 
 interface Scope {
     vars: Record<string, unknown>;
@@ -33,9 +33,19 @@ function lookup(scope: Scope, name: string): { found: boolean; value: unknown } 
  *  `.data`; a numeric part indexes an array/object). */
 function getProp(value: unknown, prop: string | number): unknown {
     if (value == null) return undefined;
-    if (isEntityRef(value)) return value.data ? (value.data as Record<string | number, unknown>)[prop] : undefined;
-    if (typeof value === 'object') return (value as Record<string | number, unknown>)[prop];
-    return undefined;
+    const bag = isEntityRef(value)
+        ? (value.data as Record<string | number, unknown> | null)
+        : typeof value === 'object' ? (value as Record<string | number, unknown>) : null;
+    if (!bag) return undefined;
+    const raw = bag[prop];
+    // A media URL field reads as a media value (path + title/description/credits…).
+    const refKey = typeof prop === 'string' ? MEDIA_FIELDS[prop] : undefined;
+    if (refKey && !isMediaValue(raw)) {
+        const ref = bag[refKey] as Record<string, unknown> | null | undefined;
+        if (typeof raw === 'string' && raw.trim()) return mediaValue(ref, raw);
+        if (ref && typeof ref === 'object' && typeof ref.path === 'string') return mediaValue(ref, ref.path);
+    }
+    return raw;
 }
 
 async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<unknown> {
@@ -128,6 +138,7 @@ export function truthy(v: unknown): boolean {
  *  caller (emitted as component nodes), so they never reach here. */
 function stringify(v: unknown): string {
     if (v == null) return '';
+    if (isMediaValue(v)) return v.path;
     if (v instanceof Date) return v.toLocaleDateString();
     if (Array.isArray(v)) return v.map((x) => (x == null ? '' : String(x))).join(', ');
     if (typeof v === 'object') return '';

@@ -25,7 +25,7 @@ import type {
     HeroPostMeta,
     HeroPostsConfig,
 } from '@sitesurge/types';
-import { buildBlockTree, } from '@sitesurge/types';
+import { buildBlockTree, featuredImagePath, } from '@sitesurge/types';
 import { Component, createMemo, createResource, type JSX, } from 'solid-js';
 import { mapTemplateBlocks, resolveRecords, type TplEntities, } from '../../services/entityBinding';
 import { fetchPostList, type PostWithBlocks, } from '../../services/postsService';
@@ -116,7 +116,7 @@ function buildPostMeta(cfg: HeroPostsConfig, post: PostWithBlocks,): HeroPostMet
 
 /** Map a resolved post to a media-style hero slide. */
 function postToSlide(cfg: HeroPostsConfig, post: PostWithBlocks, order: number, carouselItemId: string,): HeroItem {
-    const hasImage = !!post.featuredImage;
+    const hasImage = !!featuredImagePath(post);
     return {
         id: `${carouselItemId}:${(post as any).id}`,
         type: 'media',
@@ -124,8 +124,8 @@ function postToSlide(cfg: HeroPostsConfig, post: PostWithBlocks, order: number, 
         // renders no <img> (avoids an empty-src request); the title
         // overlay still shows on the slide background.
         mediaType: hasImage ? 'image' : undefined,
-        mediaUrl: hasImage ? post.featuredImage! : undefined,
-        mediaThumbnailUrl: hasImage ? post.featuredImage! : undefined,
+        mediaUrl: hasImage ? featuredImagePath(post) : undefined,
+        mediaThumbnailUrl: hasImage ? featuredImagePath(post) : undefined,
         objectFit: 'cover',
         header: { text: post.title, size: 'h2', color: '#ffffff', },
         postMeta: buildPostMeta(cfg, post,),

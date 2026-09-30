@@ -14,6 +14,7 @@
  *     gate plus optional date / id / search filters. Returns
  *     `PostWithBlocks` when `withContentBlocks: true` is requested.
  */
+import { attachFeaturedMedia, withFeaturedMedia, } from './mediaRefs';
 import type { Post, User, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
@@ -40,6 +41,7 @@ export async function list(
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
     const result = await repo.findAllPosts(filters, { page, limit, },);
+    await attachFeaturedMedia(result.data,);
     return {
         data: result.data,
         meta: {
@@ -58,6 +60,7 @@ export async function listPublic(
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 10;
     const result = await repo.findPublicPosts(filters, { page, limit, },);
+    await attachFeaturedMedia(result.data,);
     return {
         data: result.data,
         meta: {
@@ -103,6 +106,7 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
         { ...filters, includeNonPublishedForIds: isAdmin, },
         { page, limit, },
     );
+    await attachFeaturedMedia(result.data,);
 
     const out: ListResult<Post> = {
         data: result.data,
@@ -115,19 +119,19 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
 
 export async function getById(id: string,): Promise<repo.PostWithBlocks | null> {
     try {
-        return await repo.findPostById(id,);
+        return await withFeaturedMedia(await repo.findPostById(id,),);
     } catch {
         return null;
     }
 }
 
 export async function getBySlug(slug: string,): Promise<repo.PostWithBlocks | null> {
-    return repo.findPostBySlug(slug,);
+    return withFeaturedMedia(await repo.findPostBySlug(slug,),);
 }
 
 /** Slug lookup that ignores `status` so admin previews can see drafts. */
 export async function getBySlugAnyStatus(slug: string,): Promise<repo.PostWithBlocks | null> {
-    return repo.findPostBySlugAnyStatus(slug,);
+    return withFeaturedMedia(await repo.findPostBySlugAnyStatus(slug,),);
 }
 
 /**
@@ -154,6 +158,7 @@ export async function getPublicBySlug(
         await repo.findPostBySlugAnyStatus(slug,) :
         await repo.findPostBySlug(slug,);
     if (!post) throw new NotFoundError('Post',);
+    await withFeaturedMedia(post,);
 
     if (post.isPrivate && !user) throw new UnauthorizedError('Authentication required',);
 

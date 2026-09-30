@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, For, Match, Show, Switch, } from 'solid-js';
@@ -84,8 +85,8 @@ const TemplateEntity: Component<{
                     const p = props.data as unknown as Post;
                     return (
                         <A href={`/posts/${p.slug}`} class="template-entity template-entity--post">
-                            <Show when={p.featuredImage}>
-                                <img src={p.featuredImage!} alt={p.title} class="template-entity__img" />
+                            <Show when={featuredImagePath(p)}>
+                                <img src={featuredImagePath(p)} alt={p.title} class="template-entity__img" />
                             </Show>
                             <h3 class="template-entity__title">{p.title}</h3>
                             <Show when={p.excerpt}>

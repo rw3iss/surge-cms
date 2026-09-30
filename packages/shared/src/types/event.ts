@@ -22,6 +22,8 @@ export interface CalendarEvent {
     /** External link (tickets, venue page, …). */
     url: string | null;
     featuredImage: string | null;
+    /** The media item behind `featuredImage` (title, description, credits…). */
+    featuredMedia?: import('./content').MediaRef | null;
     status: EventStatus;
     /** IANA zone the event's wall-clock time is expressed in. */
     timezone: string | null;

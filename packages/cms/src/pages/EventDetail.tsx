@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 /**
  * Public event detail — /events/:slugOrId.
  *
@@ -70,7 +71,7 @@ const EventDetailPage: Component = () => {
                                 // syntax in a search result reads as noise.
                                 description={stripMarkdown(ev().description,) ||
                                     `${ev().title} — ${when()}`}
-                                image={ev().featuredImage ?? undefined}
+                                image={featuredImagePath(ev()) ?? undefined}
                             />
 
                             <A href="/events" class="event-detail__back">← All events</A>
@@ -92,8 +93,8 @@ const EventDetailPage: Component = () => {
                                     </Show>
                                 </header>
 
-                                <Show when={ev().featuredImage}>
-                                    <img class="event-detail__image" src={ev().featuredImage!} alt={ev().title} />
+                                <Show when={featuredImagePath(ev())}>
+                                    <img class="event-detail__image" src={featuredImagePath(ev())} alt={ev().title} />
                                 </Show>
 
                                 <Show when={ev().description}>

@@ -65,6 +65,54 @@ export function entityRef(kind: string, data: Record<string, unknown> | null, id
     return { __entity: true, kind, data, id };
 }
 
+// ── Media values ────────────────────────────────────────────────────────────────
+/**
+ * Fields that hold a media URL, mapped to the sibling key carrying the full
+ * media record (`MediaRef`, attached by the server). Reading one of these in a
+ * template yields a MEDIA VALUE instead of the bare string, so
+ * `{{post.featuredImage.credits}}` works — while `{{post.featuredImage}}` on its
+ * own still prints the path, keeping every existing `<img src="{{…}}">` intact.
+ */
+export const MEDIA_FIELDS: Readonly<Record<string, string>> = { featuredImage: 'featuredMedia' };
+
+export interface MediaValue {
+    __media: true;
+    id: string | null;
+    path: string;
+    url: string;
+    thumbnailUrl: string | null;
+    title: string | null;
+    description: string | null;
+    credits: string | null;
+    alt: string | null;
+    mimeType: string | null;
+}
+
+export function isMediaValue(v: unknown): v is MediaValue {
+    return typeof v === 'object' && v !== null && (v as MediaValue).__media === true;
+}
+
+/** Build a media value from a server `MediaRef` (or just a URL). */
+export function mediaValue(ref: Record<string, unknown> | null | undefined, url: string): MediaValue {
+    const str = (k: string) => (typeof ref?.[k] === 'string' && ref[k] ? String(ref[k]) : null);
+    const path = str('path') ?? str('url') ?? url;
+    const v: MediaValue = {
+        __media: true,
+        id: str('id'),
+        path,
+        url: path,
+        thumbnailUrl: str('thumbnailUrl'),
+        title: str('title'),
+        description: str('description'),
+        credits: str('credits'),
+        alt: str('alt'),
+        mimeType: str('mimeType'),
+    };
+    // String contexts (value functions, attribute concatenation) see the path.
+    Object.defineProperty(v, 'toString', { value: () => path, enumerable: false });
+    return v;
+}
+
 // ── Output ──────────────────────────────────────────────────────────────────────
 /** Ordered render output: coalesced HTML strings interleaved with whole-entity
  *  segments (rendered as components by `<TemplatedContent>`). */

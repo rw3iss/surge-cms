@@ -63,6 +63,7 @@ const updateMetaSchema = z.object({
     title: z.string().optional(),
     alt: z.string().optional(),
     caption: z.string().optional(),
+    credits: z.string().max(1000,).optional(),
 },) satisfies z.ZodType<MediaUpdateBody>;
 
 // Query coerces (string → number), so assert z.infer compatibility.
@@ -144,7 +145,7 @@ export const mediaRoutes = [
 
     defineRoute({
         method: 'put', path: '/:id', auth: 'staff',
-        summary: 'Update media metadata (title/alt/caption).',
+        summary: 'Update media metadata (title/alt/caption/credits).',
         input: { params: idParams, body: updateMetaSchema, },
         handler: ({ params, body, audit, },) => media.updateMeta(params.id, body, audit(),),
     },),

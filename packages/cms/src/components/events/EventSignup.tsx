@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 /**
  * An event's sign-up card: tickets OR registration, never both.
  *
@@ -210,7 +211,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 title: props.event.title,
                 variantTitle: `${tier.name} · ${occurrenceDate()}`,
                 priceCents: tier.priceCents,
-                image: props.event.featuredImage ?? null,
+                image: featuredImagePath(props.event) ?? null,
                 qty: quantity,
                 eventId: props.event.id,
                 occurrenceDate: occurrenceDate(),

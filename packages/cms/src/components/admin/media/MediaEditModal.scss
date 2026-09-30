@@ -1,0 +1,163 @@
+.media-edit-modal {
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xl;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+    flex-shrink: 0;
+
+    h2 { margin: 0; font-size: 1.1rem; }
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: $text-light;
+    padding: 0;
+    line-height: 1;
+
+    &:hover:not(:disabled) { color: var(--admin-page-text, #{$text-color}); }
+    &:disabled { opacity: 0.5; cursor: default; }
+  }
+
+  &__body {
+    padding: $spacing-lg;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  // Media preview area: ~50% of the modal's usable height, checkered/neutral
+  // backdrop so a transparent-PNG or letterboxed video reads clearly.
+  &__preview {
+    height: 50vh;
+    max-height: 380px;
+    min-height: 180px;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    margin-bottom: $spacing-lg;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: $background-dark;
+    background-image:
+      linear-gradient(45deg, $border-color 25%, transparent 25%),
+      linear-gradient(-45deg, $border-color 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, $border-color 75%),
+      linear-gradient(-45deg, transparent 75%, $border-color 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  }
+
+  &__preview-img,
+  &__preview-video {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+
+  &__preview-file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-md;
+    padding: $spacing-xl;
+    text-align: center;
+  }
+
+  &__preview-file-icon {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $text-light;
+    background: $background;
+    padding: $spacing-md $spacing-lg;
+    border-radius: $border-radius-md;
+    border: 1px solid $border-color;
+  }
+
+  &__preview-file-name {
+    font-size: $font-size-sm;
+    color: var(--admin-page-text, #{$text-color});
+    word-break: break-all;
+  }
+
+  &__info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+    color: $text-light;
+    margin-bottom: $spacing-sm;
+
+    span:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: $spacing-sm;
+    }
+  }
+
+  &__url {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-lg;
+    padding: $spacing-xs $spacing-sm;
+    background: $background-dark;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+
+    code {
+      flex: 1;
+      min-width: 0;
+      font-size: $font-size-xs;
+      color: $text-light;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__fields {
+    .admin-form-field:not(:last-child) {
+      margin-bottom: $spacing-md;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $border-color;
+    flex-shrink: 0;
+  }
+
+  &__footer-right {
+    display: flex;
+    gap: $spacing-sm;
+  }
+
+  @include mobile-only {
+    max-width: 100%;
+
+    &__preview {
+      height: 40vh;
+      max-height: none;
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@sitesurge/types';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
@@ -96,9 +97,9 @@ const PostsPage: Component = () => {
                         <For each={posts()}>
                             {(post,) => (
                                 <A href={`/posts/${post.slug}`} class="post-card">
-                                    <Show when={post.featuredImage}>
+                                    <Show when={featuredImagePath(post)}>
                                         <div class="post-card__image">
-                                            <img src={post.featuredImage} alt={post.title} loading="lazy" />
+                                            <img src={featuredImagePath(post)} alt={post.title} loading="lazy" />
                                         </div>
                                     </Show>
                                     <div class="post-card__body">

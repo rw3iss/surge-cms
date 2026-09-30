@@ -31,7 +31,7 @@ export const ENTITIES: EntityDoc[] = [
         fields: [
             { name: 'id', type: 'string', }, { name: 'slug', type: 'string', }, { name: 'title', type: 'string', },
             { name: 'excerpt', type: 'string?', }, { name: 'content', type: 'string', note: 'HTML body', },
-            { name: 'featuredImage', type: 'string?', }, { name: 'author', type: 'string', }, { name: 'authorId', type: 'string', },
+            { name: 'featuredImage', type: 'Media?', note: 'the media item: .path (URL), .title, .description, .credits, .alt, .thumbnailUrl; alone it prints the path', }, { name: 'author', type: 'string', }, { name: 'authorId', type: 'string', },
             { name: 'status', type: "'draft'|'published'|'archived'", }, { name: 'tags', type: 'string[]', },
             { name: 'categories', type: 'string[]', }, { name: 'metaTitle', type: 'string?', }, { name: 'metaDescription', type: 'string?', },
             { name: 'publishedAt', type: 'date?', }, { name: 'bannerLayout', type: "'hero'|'standalone'|'thumbnail'", },
@@ -43,7 +43,7 @@ export const ENTITIES: EntityDoc[] = [
         fields: [
             { name: 'id', type: 'string', }, { name: 'title', type: 'string', }, { name: 'slug', type: 'string', },
             { name: 'description', type: 'string', note: 'HTML body', }, { name: 'shortDescription', type: 'string?', },
-            { name: 'featuredImage', type: 'string?', }, { name: 'goalAmountCents', type: 'number', },
+            { name: 'featuredImage', type: 'Media?', note: 'the media item: .path (URL), .title, .description, .credits, .alt, .thumbnailUrl; alone it prints the path', }, { name: 'goalAmountCents', type: 'number', },
             { name: 'currentAmountCents', type: 'number', }, { name: 'showRaisedAmount', type: 'boolean', },
             { name: 'status', type: "'draft'|'active'|'completed'|'cancelled'", }, { name: 'donorCount', type: 'number', },
             { name: 'startDate', type: 'date?', }, { name: 'endDate', type: 'date?', }, { name: 'isPublished', type: 'boolean', },
@@ -69,12 +69,15 @@ export const ENTITIES: EntityDoc[] = [
         ],
     },
     {
-        name: 'Media', kind: 'media', desc: 'An uploaded media asset (image/video/document).',
+        name: 'Media', kind: 'media', desc: 'An uploaded media asset (image/video/document). A post/campaign/event `featuredImage` IS one of these: {{post.featuredImage.credits}}, {{post.featuredImage.path}}.',
         fields: [
-            { name: 'id', type: 'string', }, { name: 'filename', type: 'string', }, { name: 'originalName', type: 'string', },
-            { name: 'mimeType', type: 'string', }, { name: 'size', type: 'number', }, { name: 'url', type: 'string', },
-            { name: 'thumbnailUrl', type: 'string?', }, { name: 'alt', type: 'string?', }, { name: 'caption', type: 'string?', },
-            { name: 'createdAt', type: 'date', },
+            { name: 'id', type: 'string', }, { name: 'path', type: 'string', note: 'the URL to show (same as url); what a media value prints on its own', },
+            { name: 'url', type: 'string', }, { name: 'title', type: 'string?', }, { name: 'description', type: 'string?', note: 'the library description', },
+            { name: 'credits', type: 'string?', note: 'photographer / source line', }, { name: 'alt', type: 'string?', },
+            { name: 'thumbnailUrl', type: 'string?', }, { name: 'mimeType', type: 'string', },
+            { name: 'filename', type: 'string', note: 'media(id) only', }, { name: 'originalName', type: 'string', note: 'media(id) only', },
+            { name: 'size', type: 'number', note: 'media(id) only', }, { name: 'caption', type: 'string?', note: 'media(id) only; = description', },
+            { name: 'createdAt', type: 'date', note: 'media(id) only', },
         ],
     },
     {

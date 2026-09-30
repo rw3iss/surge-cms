@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
@@ -39,8 +40,8 @@ const DonatePage: Component = () => {
                         <For each={activeCampaigns()}>
                             {(campaign,) => (
                                 <A href={`/campaigns/${campaign.slug}`} class="donate-page__card">
-                                    <Show when={campaign.featuredImage}>
-                                        <img src={campaign.featuredImage} alt={campaign.title} />
+                                    <Show when={featuredImagePath(campaign)}>
+                                        <img src={featuredImagePath(campaign)} alt={campaign.title} />
                                     </Show>
                                     <div class="donate-page__card-content">
                                         <h3>{campaign.title}</h3>

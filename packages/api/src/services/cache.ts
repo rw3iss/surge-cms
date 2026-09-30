@@ -208,8 +208,12 @@ export async function invalidatePageCache(pageId?: string,): Promise<void> {
 export async function invalidatePostCache(postId?: string,): Promise<void> {
     if (postId) {
         await del(`post:${postId}`,);
-        await del(`post:slug:*`,);
     }
+    // By-slug copies (posts.getPublicBySlug). This was `del('post:slug:*')` —
+    // `del` removes ONE exact key, so the pattern never matched and a saved
+    // post kept serving its old copy by slug until the 5-minute TTL. Cleared
+    // on every post write (a rename leaves no old slug to target).
+    await delPattern('post:slug:*',);
     await delPattern('posts:*',);
     await invalidateMirroredEntityCache('post',);
     await delPattern(CACHE_KEYS.ssrAll,);
@@ -231,6 +235,18 @@ export async function invalidateCampaignCache(campaignId?: string,): Promise<voi
     await invalidateMirroredEntityCache('campaign',);
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
+}
+
+/**
+ * A media item's metadata is copied into the content that shows it
+ * (`featuredMedia` on posts, campaigns, events, and entity records), so
+ * editing or deleting media must drop those cached copies too — otherwise new
+ * credits appear only after each cache's TTL.
+ */
+export async function invalidateMediaConsumersCache(): Promise<void> {
+    await invalidatePostCache();
+    await invalidateCampaignCache();
+    await delPattern('entity:*',);
 }
 
 export async function invalidateFormCache(formId?: string,): Promise<void> {
@@ -443,6 +459,7 @@ export const cache = {
     invalidatePageCache,
     invalidatePostCache,
     invalidateCampaignCache,
+    invalidateMediaConsumersCache,
     invalidateFormCache,
     invalidateUserCache,
     invalidateMailingListsCache,

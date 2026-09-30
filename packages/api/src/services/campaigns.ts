@@ -13,6 +13,7 @@
  * to populate for anonymous readers unconditionally — an admin cannot
  * poison them with draft data the way the posts module could.
  */
+import { attachFeaturedMedia, withFeaturedMedia, } from './mediaRefs';
 import type { Campaign, Donation, DonationSummary, } from '@sitesurge/types';
 import * as repo from '../repositories/campaigns.repo';
 import { performBulkAction, } from '../utils/bulkActions';
@@ -32,6 +33,7 @@ export async function list(
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
     const result = await repo.findAllCampaigns(filters, { page, limit, },);
+    await attachFeaturedMedia(result.data,);
     return {
         data: result.data,
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
@@ -40,7 +42,7 @@ export async function list(
 
 export async function getById(id: string,): Promise<Campaign | null> {
     try {
-        return await repo.findCampaignById(id,);
+        return await withFeaturedMedia(await repo.findCampaignById(id,),);
     } catch {
         return null;
     }
@@ -49,7 +51,7 @@ export async function getById(id: string,): Promise<Campaign | null> {
 // ─── Public reads (published-only — cache freely for anonymous) ──────
 
 export async function listPublic(options: repo.PublicCampaignOptions = {},): Promise<Campaign[]> {
-    return repo.findPublicCampaigns(options,);
+    return attachFeaturedMedia(await repo.findPublicCampaigns(options,),);
 }
 
 /** Public campaign list with anonymous caching. Published-only query →
@@ -61,13 +63,13 @@ export async function listPublicCached(options: repo.PublicCampaignOptions = {},
     const cached = await cache.get<Campaign[]>(cacheKey,);
     if (cached) return cached;
 
-    const campaigns = await repo.findPublicCampaigns({ includePast, activeOnly, sortBy, sortOrder, },);
+    const campaigns = await attachFeaturedMedia(await repo.findPublicCampaigns({ includePast, activeOnly, sortBy, sortOrder, },),);
     await cache.set(cacheKey, campaigns, 300,);
     return campaigns;
 }
 
 export async function getBySlug(slug: string,): Promise<Campaign | null> {
-    return repo.findCampaignBySlug(slug,);
+    return withFeaturedMedia(await repo.findCampaignBySlug(slug,),);
 }
 
 /** Public slug fetch with anonymous caching. Published-only → safe. */
@@ -78,6 +80,7 @@ export async function getPublicBySlugCached(slug: string,): Promise<Campaign | n
 
     const campaign = await repo.findCampaignBySlug(slug,);
     if (!campaign) return null;
+    await withFeaturedMedia(campaign,);
 
     await cache.set(cacheKey, campaign, 300,);
     return campaign;

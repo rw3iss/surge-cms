@@ -6,6 +6,7 @@
 import { createHash, } from 'crypto';
 import { type EntityFieldOption, type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
 import * as repo from '../repositories/genericEntity.repo';
+import { attachFeaturedMedia, withFeaturedMedia, } from './mediaRefs';
 import * as entityManager from '../entities/entityManager';
 import { getEntityDataProvider, } from '../entities/dataProviders';
 import { columnFor, validateRecord, } from '../entities/columnMap';
@@ -78,6 +79,9 @@ export async function list(
     }
     const provider = getEntityDataProvider(typeKey,);
     const res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, q,);
+    // Any record with a `featuredImage` URL gets its media item (title,
+    // description, credits) — what `{{post.featuredImage.credits}}` reads.
+    await attachFeaturedMedia(res.items,);
     if (cacheable) await cache.set(key, res, t.caching.indexTtlSeconds,);
     return res;
 }
@@ -99,6 +103,7 @@ export async function get(typeKey: string, idOrSlug: string, opts: { admin?: boo
         ? (await getFirst.getById?.(idOrSlug,)) ?? (await getFirst.getBySlug?.(idOrSlug,).catch(() => null))
         : (await getFirst.getBySlug?.(idOrSlug,)) ?? (await getFirst.getById?.(idOrSlug,).catch(() => null));
     if (!rec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
+    await withFeaturedMedia(rec,);
     if (cacheable) await cache.set(key, rec, t.caching.recordTtlSeconds,);
     return rec;
 }

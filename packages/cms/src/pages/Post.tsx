@@ -1,5 +1,5 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type ContentAccessLevel, type Post, } from '@sitesurge/types';
+import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type ContentAccessLevel, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
 import { ContentLockedError, } from '@sitesurge/client';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
@@ -140,7 +140,7 @@ const PostPage: Component = () => {
                                 headline: postData().title,
                                 description: description(),
                                 url: canonicalUrl(),
-                                image: postData().featuredImage,
+                                image: featuredImagePath(postData()),
                                 datePublished: postData().publishedAt || undefined,
                                 dateModified: postData().updatedAt || undefined,
                                 authorName: postData().author,
@@ -164,7 +164,7 @@ const PostPage: Component = () => {
                         const bannerLayout = () =>
                             ((postData() as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail')
                             || 'standalone';
-                        const hasBanner = () => !!postData().featuredImage;
+                        const hasBanner = () => !!featuredImagePath(postData());
                         // Vertical anchor of the banner image (start=top, end=bottom).
                         // Applied as background-position (hero) / object-position (img).
                         const bannerPos = () =>
@@ -203,7 +203,7 @@ const PostPage: Component = () => {
                                 description={description()}
                                 canonical={canonicalUrl()}
                                 type="article"
-                                image={postData().featuredImage}
+                                image={featuredImagePath(postData())}
                                 imageAlt={postData().title}
                                 publishedAt={postData().publishedAt || undefined}
                                 modifiedAt={postData().updatedAt || undefined}
@@ -223,7 +223,7 @@ const PostPage: Component = () => {
                                         <header
                                             class="post-page__hero"
                                             style={{
-                                                'background-image': `url("${postData().featuredImage}")`,
+                                                'background-image': `url("${featuredImagePath(postData())}")`,
                                                 'background-position': bannerPos(),
                                                 ...bannerHeightVar(),
                                             }}
@@ -240,7 +240,7 @@ const PostPage: Component = () => {
                                         <header
                                             class="post-page__hero post-page__hero--full"
                                             style={{
-                                                'background-image': `url("${postData().featuredImage}")`,
+                                                'background-image': `url("${featuredImagePath(postData())}")`,
                                                 'background-position': bannerPos(),
                                                 ...bannerHeightVar(),
                                             }}
@@ -254,8 +254,8 @@ const PostPage: Component = () => {
                                     <Match when={hasBanner() && bannerLayout() === 'thumbnail'}>
                                         <header class="page-header post-page__header--thumb">
                                             <img
-                                                src={postData().featuredImage}
-                                                alt={postData().title}
+                                                src={featuredImagePath(postData())}
+                                                alt={featuredImageAlt(postData(), postData().title,)}
                                                 class="post-page__thumb"
                                                 style={{ 'object-position': bannerPos(), ...bannerHeightVar(), }}
                                             />
@@ -271,8 +271,8 @@ const PostPage: Component = () => {
                                         </header>
                                         <Show when={hasBanner()}>
                                             <img
-                                                src={postData().featuredImage}
-                                                alt={postData().title}
+                                                src={featuredImagePath(postData())}
+                                                alt={featuredImageAlt(postData(), postData().title,)}
                                                 class="post-page__image"
                                                 style={{ 'object-position': bannerPos(), ...bannerHeightVar(), }}
                                             />

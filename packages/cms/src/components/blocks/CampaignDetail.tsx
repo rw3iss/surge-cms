@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 import type { Campaign, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 import CampaignForm from './CampaignForm';
@@ -70,9 +71,9 @@ const CampaignDetail: Component<{ campaign: Campaign; options?: CampaignDetailOp
 
     return (
         <div class="campaign-detail">
-            <Show when={showImage() && c().featuredImage}>
+            <Show when={showImage() && featuredImagePath(c())}>
                 <div class="campaign-page__hero">
-                    <img src={c().featuredImage!} alt={c().title} />
+                    <img src={featuredImagePath(c())} alt={c().title} />
                 </div>
             </Show>
 

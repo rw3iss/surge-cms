@@ -1,3 +1,4 @@
+import { featuredImagePath, } from '@sitesurge/types';
 /**
  * Single embedded post.
  *
@@ -31,8 +32,8 @@ export const PostBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) =>
     return (
         <Show when={post()}>
             <article class="post-block">
-                <Show when={post()!.featuredImage}>
-                    <img src={post()!.featuredImage} alt={post()!.title} class="post-block__image" />
+                <Show when={featuredImagePath(post()!)}>
+                    <img src={featuredImagePath(post()!)} alt={post()!.title} class="post-block__image" />
                 </Show>
                 <h2 class="post-block__title">{post()!.title}</h2>
                 <TemplatedContent class="rich-text" html={post()!.content} entities={ctx()} />
