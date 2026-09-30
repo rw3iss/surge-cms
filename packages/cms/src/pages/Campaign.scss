@@ -163,9 +163,9 @@
 
     // ─── Donation Form ───
 
+    // No built-in top padding: the form's spacing is set per page with the
+    // block's own padding (Default + breakpoint styles), e.g. on /donate.
     &__donate {
-        padding-top: $spacing-xl;
-
         h2 {
             font-size: $font-size-xl;
             font-weight: 600;
