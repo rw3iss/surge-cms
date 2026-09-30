@@ -248,8 +248,9 @@ const PostPage: Component = () => {
                                         <header
                                             class="post-page__hero post-page__hero--full"
                                             style={{
-                                                'background-image': `url("${featuredImagePath(postData())}")`,
-                                                'background-position': bannerPos(),
+                                                // Painted by the full-bleed ::after (see Post.scss).
+                                                '--hero-image': `url("${featuredImagePath(postData())}")`,
+                                                '--hero-position': bannerPos(),
                                                 ...bannerHeightVar(),
                                             }}
                                         >

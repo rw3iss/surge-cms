@@ -135,27 +135,52 @@
   }
 
   // ─── Banner layout: Hero Full ───
-  // Same overlaid title/meta as Hero, but the banner background spans the
-  // ENTIRE page width (edge-to-edge, breaking out of the content column and
-  // the wrapper gutter) while the text stays in the centered content column.
+  // Same overlaid title/meta as Hero, but the banner IMAGE spans the entire
+  // page width while the text stays in the article's own column.
+  //
+  // The header itself stays IN the column (so its text starts exactly where
+  // the post body does, whatever "Apply post padding" / "Apply site gutter"
+  // are set to), and only the picture + gradient break out to the viewport
+  // edges as pseudo-elements. Previously the whole header broke out and the
+  // overlay re-created the column with max-width + a gutter padding, which
+  // double-counted the gutter the page wrapper had already applied — the
+  // title sat one gutter to the right of the body text.
+  //
+  // The image arrives as `--hero-image` / `--hero-position` (set inline by the
+  // post) because it is painted by `::after`, not by the header.
   &__hero--full {
-    width: 100vw;
-    // Full-bleed: pull the element out to the viewport edges regardless of the
-    // parent's max-width / gutter padding. Centered on the page (the content
-    // column is centered), so this lands flush with the page's left/right.
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
     border-radius: 0;
+    overflow: visible;
+    background: none;
+
+    // Full-bleed image layer.
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(50% - 50vw);
+      width: 100vw;
+      z-index: 0;
+      background-image: var(--hero-image, none);
+      background-size: cover;
+      background-position: var(--hero-position, center);
+    }
+
+    // The legibility gradient spans the same full width, above the image.
+    &::before {
+      left: calc(50% - 50vw);
+      right: auto;
+      width: 100vw;
+      z-index: 1;
+    }
   }
 
-  // Keep the text within the site's content column + gutter so it lines up
-  // with the post body, while the background above spans full width. Compound
-  // selector out-specifies the base overlay's `padding` shorthand so the
-  // horizontal padding becomes the gutter (vertical padding is kept).
+  // The text column is the header's own box: no max-width re-centering and no
+  // inline padding, so it lines up with the body. Vertical padding is kept.
   &__hero--full &__hero-overlay {
-    max-width: var(--site-max-width, 800px);
-    margin-inline: auto;
-    padding-inline: var(--site-gutter, 16px);
+    z-index: 2;
+    padding-inline: 0;
   }
 
   &__hero-overlay {

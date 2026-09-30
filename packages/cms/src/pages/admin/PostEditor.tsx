@@ -640,8 +640,8 @@ const AdminPostEditor: Component = () => {
                             <header
                                 class="post-page__hero post-page__hero--full"
                                 style={{
-                                    'background-image': `url("${featuredImage()}")`,
-                                    'background-position': previewBannerPos(),
+                                    '--hero-image': `url("${featuredImage()}")`,
+                                    '--hero-position': previewBannerPos(),
                                     ...previewBannerHeightVar(),
                                 }}
                             >
