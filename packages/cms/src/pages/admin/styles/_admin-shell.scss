@@ -942,3 +942,7 @@
     display: none;
   }
 }
+
+// Components list (/admin/components): the Name column at twice its
+// content-sized width, so longer component names don't wrap.
+.admin-table th.components-list__name { width: 300px; }

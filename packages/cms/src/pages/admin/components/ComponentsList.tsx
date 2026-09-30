@@ -72,7 +72,7 @@ const ComponentsList: Component = () => {
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
+                                <th class="components-list__name">Name</th>
                                 <th>Description</th>
                                 <th>Mode</th>
                                 <th>Updated</th>

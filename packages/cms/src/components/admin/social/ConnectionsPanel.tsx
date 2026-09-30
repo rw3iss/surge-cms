@@ -56,6 +56,13 @@ function SecretField(props: {
  * Social hub's Configuration tab. Owns per-provider credential setup, OAuth,
  * enable/auto-publish settings, and the X free/api mode utility.
  */
+/** `frank` → `@frank`; `@frank` stays `@frank` (YouTube handles already carry
+ *  the @, so blindly prefixing showed `@@frank`). */
+function atHandle(name: string | null | undefined,): string {
+    const n = (name ?? '').trim();
+    return n.startsWith('@',) ? n : `@${n}`;
+}
+
 const PROVIDERS = [
     { id: 'instagram', name: 'Instagram', icon: 'IG', oauth: true, },
     { id: 'facebook', name: 'Facebook', icon: 'FB', oauth: false, },
@@ -275,7 +282,7 @@ const ConnectionsPanel: Component = () => {
                                         >
                                             <span class="badge badge--success">Connected</span>
                                             <Show when={conn()?.displayName}>
-                                                <span class="connection-card__account">@{conn()?.displayName}</span>
+                                                <span class="connection-card__account">{atHandle(conn()?.displayName,)}</span>
                                             </Show>
                                             <Show when={conn()?.credentials?.tokenExpiresAt}>
                                                 <span class="connection-card__expiry">
@@ -474,7 +481,7 @@ const ConnectionsPanel: Component = () => {
                                         </FormField>
                                         <Show when={isConnected()}>
                                             <div class="alert alert--success" style={{ 'margin-bottom': '1rem', }}>
-                                                Connected as @{conn()?.displayName}.
+                                                Connected as {atHandle(conn()?.displayName,)}.
                                                 Token auto-refreshes every 7 days.
                                                 <Show when={conn()?.credentials?.tokenExpiresAt}>
                                                     {' '}{formatExpiry(conn()?.credentials?.tokenExpiresAt,)}.

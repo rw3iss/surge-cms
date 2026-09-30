@@ -266,6 +266,22 @@
 
   .question-body {
     padding: $spacing-md;
+
+    // Every field is label-on-top. The labels are inline-flex, so on a wide
+    // screen a width-capped input (or the Resize switch) fitted beside its
+    // label on the same line.
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+
+      > input,
+      > select,
+      > textarea {
+        width: 100%;
+      }
+    }
   }
 }
 

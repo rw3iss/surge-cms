@@ -44,7 +44,13 @@
     font-size: $font-size-sm;
     font-weight: 600;
 
-    select { @include admin-input; }
+    select {
+      @include admin-input;
+      // Room for "X/Twitter" beside the arrow (was ~99px, content-sized), and
+      // the arrow tucked closer to the edge.
+      min-width: 140px;
+      background-position: calc(100% - 10px) 50%;
+    }
   }
 
   &__add {

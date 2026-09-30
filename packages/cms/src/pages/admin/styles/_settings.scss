@@ -647,3 +647,12 @@
     flex-wrap: wrap;
   }
 }
+
+// Field rows inside a settings card (Site identity, Integrations, E-mail and
+// Contact, Defaults…): FormField carries no bottom margin of its own, so
+// consecutive fields sat flush against each other.
+.settings-card > .admin-form-field + .admin-form-field,
+.settings-card > .admin-form-field + .form-group,
+.settings-card > .form-group + .admin-form-field {
+    margin-top: 12px;
+}
