@@ -28,6 +28,11 @@ const TOPICS: HelpTopic[] = [
         desc: 'Give a Component a client script: the mount(el, ctx) contract, what the CMS SDK exposes to it, and why inline JS is blocked.',
     },
     {
+        path: '/admin/help/releases',
+        title: 'Releases & updates',
+        desc: 'How a new CMS version is published (pnpm release) and how an installation updates to it (Check for update → Update & restart).',
+    },
+    {
         path: '/admin/help/variables-and-functions',
         title: 'Variables & Functions',
         desc: 'The {{ … }} template syntax for content blocks — variables, entity lookups, if/for logic, and every function + entity schema.',

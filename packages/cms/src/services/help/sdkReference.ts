@@ -546,4 +546,87 @@ export const COMPONENT_JS_DOC: SdkDoc = {
     ],
 };
 
+export const RELEASES_DOC: SdkDoc = {
+    id: 'releases',
+    path: '/admin/help/releases',
+    title: 'Releases & updates',
+    lead:
+        'A CMS version is published once, from the source repository, with one command. Every '
+        + 'installation then sees it under Settings → Admin → CMS Version and updates with two clicks.',
+    sections: [
+        {
+            heading: 'Where versions live',
+            blocks: [
+                {
+                    table: [
+                        ['Place', 'What it holds', 'Who reads it',],
+                        ['npm — @sitesurge/server "latest"', 'The installable packages', 'Check for update + Update & restart',],
+                        ['GitHub Release vX.Y.Z', 'Release notes + package tarballs', 'The CMS Version panel ("What\'s new"); people',],
+                        ['releases.json + CHANGELOG.md (repo)', 'The version index and history', 'People and tooling',],
+                        ['ghcr.io/rw3iss/sitesurge-server:X.Y.Z', 'The Docker image (built on the tag)', 'Docker installs',],
+                    ],
+                },
+                {
+                    p:
+                        'Every package — server, admin, cli, types, client, mcp and create-sitesurge — carries '
+                        + 'the same version, so "the CMS version" is one number.',
+                },
+            ],
+        },
+        {
+            heading: 'Publishing a new version',
+            blocks: [
+                { p: 'From a clean checkout of main in the source repository, signed in to npm and GitHub:', },
+                {
+                    code: `npm login                  # once per machine / when the session expires
+gh auth login              # once per machine
+
+pnpm release 1.2.0 --dry-run   # rehearse: builds, tests, previews notes, publishes nothing
+pnpm release 1.2.0             # or: pnpm release patch | minor | major`,
+                },
+                {
+                    list: [
+                        'Preflight — on main, clean tree, signed in, the version is new.',
+                        'Sets every package to the version, builds everything and runs the tests.',
+                        'Writes CHANGELOG.md and releases.json, commits "release: vX.Y.Z" and tags vX.Y.Z.',
+                        'Publishes all packages to npm, pushes main and the tag (the tag builds the Docker image).',
+                        'Creates the GitHub Release with the change list and the package tarballs.',
+                    ],
+                },
+                {
+                    note:
+                        'If a run stops after the tag (npm 2FA timed out, a network blip), run the same command '
+                        + 'again — it resumes from the publish step and skips anything already published.',
+                },
+            ],
+        },
+        {
+            heading: 'Updating an installation',
+            blocks: [
+                {
+                    list: [
+                        'Settings → Admin → CMS Version → Check for update. It compares the installed version with '
+                        + 'npm and shows the new release\'s notes.',
+                        'Update & restart installs the new packages and restarts the server (about 30–60 seconds '
+                        + 'of downtime). Database migrations run automatically on start; the page reloads by itself.',
+                    ],
+                },
+                {
+                    table: [
+                        ['Installation', 'How it updates',],
+                        ['npm (npm create sitesurge / @sitesurge/server as a dependency)', 'The Update & restart button',],
+                        ['Docker image', 'Pull the new image tag and recreate the container',],
+                        ['Source checkout of the repository', 'git fetch --tags && git checkout vX.Y.Z, rebuild, restart (or run the deploy script) — the button is disabled here',],
+                    ],
+                },
+                {
+                    note:
+                        'One-click updates need a process supervisor (systemd, pm2, Docker restart policy) to start '
+                        + 'the server again after it exits. Back up the database first (Settings → Admin → Backup & Restore).',
+                },
+            ],
+        },
+    ],
+};
+
 export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

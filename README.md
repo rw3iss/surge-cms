@@ -113,6 +113,20 @@ git clone https://github.com/rw3iss/surge-cms && cd surge-cms
 pnpm install && pnpm dev      # api :3001 + admin :3000, wizard at /setup
 ```
 
+#### Publishing a new CMS version
+
+One command, from a clean `main`, signed in to npm (`npm login`) and GitHub (`gh auth login`):
+
+```bash
+pnpm release 1.2.0 --dry-run   # rehearse: build + tests + notes preview, publishes nothing
+pnpm release 1.2.0             # or: pnpm release patch | minor | major
+```
+
+It sets **every** package to that version, builds and tests, writes `CHANGELOG.md` and the
+`releases.json` version index, commits + tags `v1.2.0`, publishes all packages to npm, pushes,
+and creates the GitHub Release (notes + tarballs). The tag also builds the Docker image.
+Re-running the same command resumes a release that stopped part-way.
+
 > Distribution + release details: **[docs/PUBLISHING.md](docs/PUBLISHING.md)**.
 > Architecture of the package split: `docs/superpowers/specs/2026-07-11-packaging-and-init-design.md`.
 
@@ -268,6 +282,23 @@ Site name, tagline, contact email, analytics ID, maintenance mode, branding, hea
 </details>
 
 <details>
+<summary><strong>Updating the CMS</strong></summary>
+
+**Settings → Admin → CMS Version** shows the installed version and the latest published one
+(read from npm, with the release notes from the GitHub Release).
+
+1. **Check for update** — compares the two and shows what's new.
+2. **Update & restart** — installs the new packages and restarts the server (about 30–60 s of
+   downtime). Database migrations run on start; the page reloads by itself.
+
+Needs an **npm install** (`npm create sitesurge`, or `@sitesurge/server` as a dependency) under a
+process supervisor (systemd, pm2, Docker restart policy). A **Docker** install pulls the new image
+tag instead. A **source checkout** updates with `git fetch --tags && git checkout vX.Y.Z`, then a
+rebuild/restart — the button is disabled there. Back up the database first (Settings → Admin →
+Backup & Restore). In-admin guide: `/admin/help/releases`.
+</details>
+
+<details>
 <summary><strong>Developer tools (admin)</strong></summary>
 
 `/admin/developer` shows registered background jobs (cron), last run, next run, and lets you trigger them manually. Token-refresh schedules live here.
@@ -301,7 +332,7 @@ Seven pnpm-workspace packages under `packages/*`, all published to npm under the
 | `packages/cli` | `@sitesurge/cli` | `sitesurge` ops CLI — `setup / migrate / seed / doctor / status / start`. |
 | `packages/create-sitesurge` | `create-sitesurge` | `npm create sitesurge` scaffolder (Docker, `--node` thin-server repo, `--headless`). |
 
-Versioning: `server` + `admin` + `cli` are a Changesets **fixed group** (lockstep); `types`, `client`, `mcp`, `create-sitesurge` version independently. The server also ships as `ghcr.io/rw3iss/sitesurge-server`.
+Versioning: **all seven packages share one version — the CMS version** (released together by `pnpm release`; a Changesets fixed group). The server also ships as `ghcr.io/rw3iss/sitesurge-server`. Releases: GitHub Releases + `CHANGELOG.md` + the `releases.json` index.
 
 ```
 packages/

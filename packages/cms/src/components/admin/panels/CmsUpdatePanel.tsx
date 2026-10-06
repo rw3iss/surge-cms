@@ -8,6 +8,7 @@
  * action is guarded by a confirmation modal; after the server restarts the
  * panel polls until it's healthy again and reloads to pick up the new admin.
  */
+import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, Match, Show, Switch, } from 'solid-js';
 import type { SettingsCmsVersionResponse, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
@@ -106,7 +107,8 @@ const CmsUpdatePanel: Component = () => {
                 Update the CMS to the latest published release. Installing runs
                 a package update on the server and <strong>restarts it</strong>,
                 so the site will be briefly unavailable ({RESTART_ESTIMATE}) while
-                it comes back. New database migrations apply automatically on restart.
+                it comes back. New database migrations apply automatically on restart.{' '}
+                <A href="/admin/help/releases">How releases and updates work →</A>
             </p>
 
             <Switch>
