@@ -46,7 +46,11 @@ const flag = (f,) => args.includes(f,);
 const DRY = flag('--dry-run',);
 const SKIP_TESTS = flag('--skip-tests',);
 const YES = flag('--yes',) || flag('-y',);
-const requested = args.find((a,) => !a.startsWith('-',),);
+// npm 2FA: --otp=123456 / --otp 123456 / NPM_OTP. A code lives ~30s, so pass
+// it on the RESUME run (tag already on HEAD), which goes straight to publish.
+const otpIdx = args.findIndex((a,) => a === '--otp' || a.startsWith('--otp=',),);
+const OTP = otpIdx < 0 ? process.env.NPM_OTP || '' : args[otpIdx].includes('=',) ? args[otpIdx].split('=',)[1] : args[otpIdx + 1] || '';
+const requested = args.find((a, i,) => !a.startsWith('-',) && !(otpIdx >= 0 && i === otpIdx + 1 && args[otpIdx] === '--otp'),);
 
 const c = { b: (s,) => `\x1b[1m${s}\x1b[0m`, g: (s,) => `\x1b[32m${s}\x1b[0m`, y: (s,) => `\x1b[33m${s}\x1b[0m`, r: (s,) => `\x1b[31m${s}\x1b[0m`, d: (s,) => `\x1b[2m${s}\x1b[0m`, };
 const step = (n, s,) => console.log(`\n${c.b(`▶ ${n}.`,)} ${s}`,);
@@ -56,7 +60,7 @@ const fail = (msg,) => {
 };
 
 if (!requested || flag('--help',) || flag('-h',)) {
-    console.log(`Usage: pnpm release <version|patch|minor|major> [--dry-run] [--skip-tests] [--yes]\n\nSee docs/PUBLISHING.md.`,);
+    console.log(`Usage: pnpm release <version|patch|minor|major> [--dry-run] [--skip-tests] [--yes] [--otp <code>]\n\nSee docs/PUBLISHING.md.`,);
     process.exit(requested ? 0 : 1,);
 }
 
@@ -71,7 +75,9 @@ const tryShell = (cmd, a,) => {
 };
 const run = (cmd, a, opts = {},) => {
     console.log(c.d(`$ ${cmd} ${a.join(' ',)}`,),);
-    const r = spawnSync(cmd, a, { cwd: ROOT, stdio: 'inherit', ...opts, },);
+    const { onFail, ...spawnOpts } = opts;
+    const r = spawnSync(cmd, a, { cwd: ROOT, stdio: 'inherit', ...spawnOpts, },);
+    if (r.status !== 0) onFail?.();
     if (r.status !== 0) fail(`\`${cmd} ${a.join(' ',)}\` failed (exit ${r.status}).`,);
 };
 const readJson = (f,) => JSON.parse(readFileSync(f, 'utf8',),);
@@ -238,7 +244,10 @@ if (!resuming) {
 
 // ── 6. npm ──
 step(6, DRY ? 'npm publish (dry run)' : 'Publish to npm',);
-run('pnpm', ['-r', 'publish', '--access', 'public', '--no-git-checks', ...(DRY ? ['--dry-run',] : []),],);
+run('pnpm', ['-r', 'publish', '--access', 'public', '--no-git-checks', ...(DRY ? ['--dry-run',] : []), ...(OTP ? [`--otp=${OTP}`,] : []),], {
+    // Without a code, an EOTP failure is expected on a 2FA account: say how to resume.
+    onFail: OTP || DRY ? undefined : () => console.error(c.y(`\n  npm wants a 2FA code? Re-run with a fresh one — it resumes here:\n  pnpm release ${version} --yes --otp=<code>`,),),
+},);
 
 // tarballs for the GitHub Release
 const packDir = path.join(ROOT, '.release', TAG,);

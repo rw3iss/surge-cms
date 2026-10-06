@@ -51,7 +51,9 @@ pnpm release 1.2.0             # or: pnpm release patch | minor | major
 
 **If it stops part-way** (npm 2FA timed out, a network error): run the **same command** again. It sees the tag on `HEAD` and resumes from step 6; npm skips what is already published, and the push and the GitHub Release are idempotent.
 
-Options: `--dry-run`, `--skip-tests`, `--yes`. The repository can be overridden with `CMS_RELEASES_REPO=owner/repo`.
+Options: `--dry-run`, `--skip-tests`, `--yes`, `--otp <code>` (or `NPM_OTP`).
+
+**npm two-factor auth.** If your npm account uses 2FA, the first run stops at the publish step with `EOTP` — everything before it (bump, build, tests, commit, tag) is done and kept locally. Run the same command again with a fresh code from your authenticator: `pnpm release X.Y.Z --yes --otp=123456`. It sees the tag on HEAD, skips build and tests, and publishes at once, so the ~30-second code is still valid. If the code expires part-way, run it again with a new code — packages already on npm are skipped. The repository can be overridden with `CMS_RELEASES_REPO=owner/repo`.
 
 ## Updating an installation
 

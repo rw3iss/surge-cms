@@ -595,8 +595,10 @@ pnpm release 1.2.0             # or: pnpm release patch | minor | major`,
                 },
                 {
                     note:
-                        'If a run stops after the tag (npm 2FA timed out, a network blip), run the same command '
-                        + 'again — it resumes from the publish step and skips anything already published.',
+                        'npm two-factor auth: the first run stops at the publish step asking for a code. Run it again '
+                        + 'with a fresh code — pnpm release 1.2.0 --yes --otp=123456 — it sees the tag, skips build and '
+                        + 'tests, and publishes at once while the code is valid. Any other stop after the tag resumes the '
+                        + 'same way; packages already on npm are skipped.',
                 },
             ],
         },
