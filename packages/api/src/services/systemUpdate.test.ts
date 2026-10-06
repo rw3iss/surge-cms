@@ -46,7 +46,7 @@ describe('getVersionInfo', () => {
             release: { tag_name: 'v99.0.0', html_url: 'https://github.com/x/y/releases/tag/v99.0.0', body: '- a change', published_at: '2026-10-06T00:00:00Z', },
         },);
         const v = await sys.getVersionInfo();
-        expect(v,).toMatchObject({ latest: '99.0.0', latestSource: 'npm', updateAvailable: true, installKind: 'npm', },);
+        expect(v,).toMatchObject({ latest: '99.0.0', latestSource: 'npm', updateAvailable: true, },);
         expect(v.release,).toMatchObject({ tag: 'v99.0.0', notes: '- a change', },);
         expect((fetch as unknown as { mock: { calls: string[][]; }; }).mock.calls.some(([u,],) => u.endsWith('/releases/tags/v99.0.0',)),).toBe(true,);
     },);
@@ -69,6 +69,20 @@ describe('getVersionInfo', () => {
         vi.spyOn(process, 'cwd',).mockReturnValue(REPO_ROOT,);
         stubFetch({ npm: '99.0.0', },);
         expect((await sys.getVersionInfo()).installKind,).toBe('source',);
+    },);
+},);
+
+describe('detectSourceCheckout', () => {
+    const MODULE_DIR = path.join(API_ROOT, 'dist', 'services',);
+    it('is a checkout when run from the repo root', () => {
+        expect(sys.detectSourceCheckout(REPO_ROOT, MODULE_DIR,),).toBe(true,);
+    },);
+    it('is a checkout when the cwd is packages/api (how the service runs)', () => {
+        expect(sys.detectSourceCheckout(API_ROOT, MODULE_DIR,),).toBe(true,);
+    },);
+    it('is an npm install when the server lives under node_modules', () => {
+        const npmDir = path.join(REPO_ROOT, 'node_modules', '@sitesurge', 'server', 'dist', 'services',);
+        expect(sys.detectSourceCheckout('/srv/site', npmDir,),).toBe(false,);
     },);
 },);
 

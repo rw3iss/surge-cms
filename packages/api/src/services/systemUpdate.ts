@@ -244,10 +244,31 @@ let updateInProgress = false;
  * hand off to a supervisor; in a dev checkout there's usually no supervisor, so
  * exiting would just kill the server with no relaunch. We refuse to exit there.
  */
+/**
+ * Is this server running from a source checkout (the monorepo) rather than an
+ * npm install? Decided from where THIS module lives, not only the cwd: a
+ * checkout's service usually runs with its cwd at `packages/api`, which has no
+ * `pnpm-workspace.yaml` of its own — checking the cwd alone called production
+ * an npm install and offered it an `npm install` that would break it.
+ */
+export function detectSourceCheckout(cwd: string, moduleDir: string,): boolean {
+    // An installed package always sits under node_modules.
+    if (moduleDir.split(path.sep,).includes('node_modules',)) return false;
+    if (existsSync(path.join(cwd, 'packages', 'api', 'src',),)) return true;
+    for (const start of [cwd, moduleDir,]) {
+        let dir = start;
+        for (let i = 0; i < 6; i++) {
+            if (existsSync(path.join(dir, 'pnpm-workspace.yaml',),)) return true;
+            const up = path.dirname(dir,);
+            if (up === dir) break;
+            dir = up;
+        }
+    }
+    return false;
+}
+
 function looksLikeDevCheckout(): boolean {
-    const root = installRoot();
-    return existsSync(path.join(root, 'pnpm-workspace.yaml',),)
-        || existsSync(path.join(root, 'packages', 'api', 'src',),);
+    return detectSourceCheckout(installRoot(), __dirname,);
 }
 
 export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
