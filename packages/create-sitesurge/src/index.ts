@@ -117,7 +117,7 @@ Config lives in \`.env\` — **keep \`JWT_SECRET\` secret**.
 ## Prefer native (no Docker)?
 
 Run the server on any host with Node + Postgres — see the SiteSurge
-\`docs/DEPLOYMENT.md\` (systemd + \`node dist\`), and \`sitesurge setup\`.
+\`docs/how-it-works/DEPLOYMENT.md\` (systemd + \`node dist\`), and \`sitesurge setup\`.
 ${headless
         ? `
 ## Headless frontend

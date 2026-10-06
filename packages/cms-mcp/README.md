@@ -37,6 +37,6 @@ write/admin scope to author, read scope for read-only), `CMS_MCP_READONLY`
 
 ## Full reference
 
-See [`../../docs/MCP.md`](../../docs/MCP.md) for the complete tool reference, the
+See [`../../docs/how-it-works/MCP.md`](../../docs/how-it-works/MCP.md) for the complete tool reference, the
 content-authoring guide (pages vs posts, group nesting, block styles, wiring),
 behavior/gotchas, and verification.

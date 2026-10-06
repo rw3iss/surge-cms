@@ -14,7 +14,7 @@
  *   const branding = await cms.settings.get<SiteBranding>('site_branding');
  *
  * Conventions documented in
- * `docs/superpowers/specs/2026-04-28-cms-sdk-design.md`. Capability
+ * `docs/plans/superpowers/specs/2026-04-28-cms-sdk-design.md`. Capability
  * modules satisfy the `Service<T>` contract from `./types` where
  * applicable, and consistently take an `AuditContext` for writes
  * so audit logging works the same regardless of caller (HTTP, script,

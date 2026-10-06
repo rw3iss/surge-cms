@@ -60,7 +60,7 @@ const fail = (msg,) => {
 };
 
 if (!requested || flag('--help',) || flag('-h',)) {
-    console.log(`Usage: pnpm release <version|patch|minor|major> [--dry-run] [--skip-tests] [--yes] [--otp <code>]\n\nSee docs/PUBLISHING.md.`,);
+    console.log(`Usage: pnpm release <version|patch|minor|major> [--dry-run] [--skip-tests] [--yes] [--otp <code>]\n\nSee docs/how-it-works/PUBLISHING.md.`,);
     process.exit(requested ? 0 : 1,);
 }
 
@@ -173,7 +173,7 @@ function releaseNotes() {
         body: [
             `SiteSurge CMS ${version}.`,
             '',
-            '**Update an installation:** Settings → Admin → CMS Version → **Check for update**, then **Update & restart** (npm installs). From source: pull this tag and rebuild. See docs/PUBLISHING.md.',
+            '**Update an installation:** Settings → Admin → CMS Version → **Check for update**, then **Update & restart** (npm installs). From source: pull this tag and rebuild. See docs/how-it-works/PUBLISHING.md.',
             '',
             `### Changes${prev ? ` since ${prev}` : ''} (${subjects.length})`,
             '',

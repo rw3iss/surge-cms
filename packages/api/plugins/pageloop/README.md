@@ -31,4 +31,4 @@ Admin → **Plugins → PageLoop**: set the **endpoint** (your PageLoop server) 
 **admins-only visibility** as needed, then Enable.
 
 > Deficiencies found while building this against PageLoop's current API are
-> tracked in [`docs/pageloop-plugin-deficiencies.md`](../../../../docs/pageloop-plugin-deficiencies.md).
+> tracked in [`docs/plans/completed/pageloop-plugin-deficiencies.md`](../../../../docs/plans/completed/pageloop-plugin-deficiencies.md).

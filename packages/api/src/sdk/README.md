@@ -1,6 +1,6 @@
 # CMS SDK
 
-> **Note (2026-06):** migration to `backend/src/services/<module>.ts` is **complete** (headless API Phase 3 sweep). All 25 route modules now use the manifest framework; all capability modules live in `services/`. Files under `sdk/` permanently re-export from `services/` — the `cms.*` aggregate remains the supported in-process surface. See `docs/superpowers/specs/2026-06-04-headless-api-design.md`.
+> **Note (2026-06):** migration to `backend/src/services/<module>.ts` is **complete** (headless API Phase 3 sweep). All 25 route modules now use the manifest framework; all capability modules live in `services/`. Files under `sdk/` permanently re-export from `services/` — the `cms.*` aggregate remains the supported in-process surface. See `docs/plans/superpowers/specs/2026-06-04-headless-api-design.md`.
 
 Single import surface for every capability in the CMS. Routes, scripts, tests, and plugins all import the same `cms` object — business logic, cache invalidation, and audit logging live in one place.
 
@@ -8,7 +8,7 @@ Single import surface for every capability in the CMS. Routes, scripts, tests, a
 import { cms, auditFromRequest } from './sdk';
 ```
 
-Conventions live in `docs/superpowers/specs/2026-04-28-cms-sdk-design.md`. The short version: **routes are HTTP shims, the SDK owns domain logic + side effects, repos are just SQL.**
+Conventions live in `docs/plans/superpowers/specs/2026-04-28-cms-sdk-design.md`. The short version: **routes are HTTP shims, the SDK owns domain logic + side effects, repos are just SQL.**
 
 ---
 
@@ -270,7 +270,7 @@ Both happen automatically inside the SDK on every write. Plugins don't need to i
 
 ## What's NOT in the SDK yet
 
-Tracked in the [design doc](../../../docs/superpowers/specs/2026-04-28-cms-sdk-design.md):
+Tracked in the [design doc](../../../docs/plans/superpowers/specs/2026-04-28-cms-sdk-design.md):
 
 - `cms.media` — file upload pipeline (multer + sharp thumbnails) is large; bigger refactor needed.
 - `cms.search` — currently a thin route wrapper around full-text repos.

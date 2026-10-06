@@ -10,7 +10,7 @@ Syncs your Printify print-on-demand catalog into the built-in Shop.
 - Printify products are read-only in the admin (edit them in Printify); reviews,
   categories, collections, search and checkout all work natively.
 - Checkout uses your Stripe integration; paid orders are submitted to Printify
-  for fulfillment (see `docs/PRINTIFY.md`).
+  for fulfillment (see `docs/how-it-works/PRINTIFY.md`).
 
 ## How payment & fulfillment work
 

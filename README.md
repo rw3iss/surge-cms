@@ -20,7 +20,7 @@ SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, customizable content platform
 - **Users & roles** — email/password + Patreon SSO, member tiers, gated content, IP/user bans.
 - **Mailing Lists** — opt-in feature module (requires Users). Per-list subscribers (registered or email-only), token-based one-click `/u/:token` unsubscribe + RFC 8058 `List-Unsubscribe` headers, optional double opt-in. Mail templates reuse the block editor with an email-render mode that inlines styles, bakes `swatch:{id}` refs to literal hex, and adapts every block type for email-client compatibility. Send wizard creates tracked jobs with per-recipient delivery status, live progress polling, retry/resume/cancel, and a boot-time resumer that recovers from crashed sends. SMTP provider abstraction works with any relay (Brevo, Postmark, SendGrid, Mailgun, AWS SES, etc.).
 - **Feature module system** — declarative `FEATURE_REGISTRY` with prerequisites + lazy-install migrations. Toggling a feature on runs its tagged migrations atomically inside an advisory-locked transaction; disable is non-destructive (tables persist for re-enable).
-- **Plugins** — opt-in feature module. Admin-installable extensions in a backend `plugins/` directory (install / enable / disable / **update** / uninstall, upload-a-zip, stubbed marketplace). Framework-agnostic client bundles (`mountWidget`/`mountConfig`) served same-origin, each with a custom config page and an optional public-site widget (with an admins-only visibility gate). Wired into the SDK (`cms.plugins.*`) and MCP. Reference plugin: **PageLoop** commenting. See [docs/PLUGINS.md](docs/PLUGINS.md).
+- **Plugins** — opt-in feature module. Admin-installable extensions in a backend `plugins/` directory (install / enable / disable / **update** / uninstall, upload-a-zip, stubbed marketplace). Framework-agnostic client bundles (`mountWidget`/`mountConfig`) served same-origin, each with a custom config page and an optional public-site widget (with an admins-only visibility gate). Wired into the SDK (`cms.plugins.*`) and MCP. Reference plugin: **PageLoop** commenting. See [docs/how-it-works/PLUGINS.md](docs/how-it-works/PLUGINS.md).
 - **Media library** — upload, crop, thumbnails (sharp), local FS or S3.
 - **Social connections** — pull-based sync from YouTube, Instagram, X/Twitter, Facebook, TikTok, Patreon. The Social block holds either an auto-feed for a connected provider or hand-picked posts via per-slot search + advanced selection modal.
 - **Custom header & footer editors** — drag-and-drop rows + columns, fully styled per site.
@@ -69,7 +69,7 @@ npm start           # API + public site + admin at http://localhost:3001
 The generated `src/index.js` is a one-line `startServer()` you can extend with
 your own routes via `createApp()`. The **`sitesurge` CLI** (`@sitesurge/cli`)
 provides `setup/migrate/seed/doctor/status/start`. See
-**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for a systemd + nginx production setup.
+**[docs/how-it-works/DEPLOYMENT.md](docs/how-it-works/DEPLOYMENT.md)** for a systemd + nginx production setup.
 
 ### C. Headless — your frontend, our content API
 
@@ -104,7 +104,7 @@ app.listen(3001);        // or: await startServer();
 ```bash
 CMS_BASE_URL=http://localhost:3001 CMS_API_KEY=ssk_… npx @sitesurge/mcp
 ```
-See [`docs/MCP.md`](docs/MCP.md).
+See [`docs/how-it-works/MCP.md`](docs/how-it-works/MCP.md).
 
 ### Contributing to SiteSurge itself
 
@@ -127,8 +127,8 @@ It sets **every** package to that version, builds and tests, writes `CHANGELOG.m
 and creates the GitHub Release (notes + tarballs). The tag also builds the Docker image.
 Re-running the same command resumes a release that stopped part-way.
 
-> Distribution + release details: **[docs/PUBLISHING.md](docs/PUBLISHING.md)**.
-> Architecture of the package split: `docs/superpowers/specs/2026-07-11-packaging-and-init-design.md`.
+> Distribution + release details: **[docs/how-it-works/PUBLISHING.md](docs/how-it-works/PUBLISHING.md)**.
+> Architecture of the package split: `docs/plans/superpowers/specs/2026-07-11-packaging-and-init-design.md`.
 
 ---
 
@@ -353,7 +353,7 @@ packages/
   cli/            @sitesurge/cli — sitesurge ops CLI
   create-sitesurge/  create-sitesurge — npm create scaffolder
 config/   all build/tool config (see below)
-docs/     API.md, api-manifest.json, PUBLISHING.md, plans/specs
+docs/     API.md, api-manifest.json, how-it-works/ (guides), sdk/, plans/ — see docs/README.md
 ```
 
 Routes are thin manifest handlers; `services/` own domain logic, cache invalidation, and audit logging; `sdk/` re-exports `services/` as the `cms.*` surface for scripts and future plugins — see `packages/api/src/sdk/README.md`.
@@ -639,7 +639,7 @@ and structured errors.
 }
 ```
 
-Full tool reference, setup, and the authoring guide: [`docs/MCP.md`](docs/MCP.md).
+Full tool reference, setup, and the authoring guide: [`docs/how-it-works/MCP.md`](docs/how-it-works/MCP.md).
 Set `CMS_MCP_READONLY=true` for a safe read-only server.
 
 ---

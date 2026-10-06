@@ -12,7 +12,7 @@
  *
  * Surfaced through Settings → Admin → Admin Operations (admin-only).
  *
- * Where versions come from (see docs/PUBLISHING.md):
+ * Where versions come from (see docs/how-it-works/PUBLISHING.md):
  *   - npm is the source of truth — `@sitesurge/server`'s `latest` dist-tag is
  *     exactly what `npm install …@latest` installs.
  *   - the GitHub Release for that version (`pnpm release` creates one per
@@ -276,7 +276,7 @@ export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
 
     // A source checkout is not updated by npm: installing @sitesurge/* into the
     // monorepo would shadow its own workspace packages. It updates by pulling
-    // the release tag and rebuilding (docs/PUBLISHING.md).
+    // the release tag and rebuilding (docs/how-it-works/PUBLISHING.md).
     if (looksLikeDevCheckout()) {
         return {
             ok: false,

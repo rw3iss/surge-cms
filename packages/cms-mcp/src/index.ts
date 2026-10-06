@@ -2,7 +2,7 @@
  * @sitesurge/mcp — MCP server exposing the SiteSurge CMS authoring surface.
  *
  * Run (stdio): CMS_BASE_URL=… CMS_API_KEY=ssk_… cms-mcp
- * See docs/MCP.md for the full tool reference.
+ * See docs/how-it-works/MCP.md for the full tool reference.
  */
 import { StdioServerTransport, } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createContext, readEnvConfig, } from './client';

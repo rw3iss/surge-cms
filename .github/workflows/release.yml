@@ -10,13 +10,13 @@ name: Release
 #     Workflow:    release.yml
 # Trusted publishing can only be configured AFTER a package's first version
 # exists, so the very first publish of each package is done manually (see
-# docs/PUBLISHING.md). After that, CI publishes token-free.
+# docs/how-it-works/PUBLISHING.md). After that, CI publishes token-free.
 #
 # Flow: merge PRs containing a changeset → this opens a "Version Packages" PR →
 # merging that PR builds + publishes (with provenance).
 
 # MANUAL ONLY. Releases are cut locally with `pnpm release <version>`
-# (scripts/release.mjs — see docs/PUBLISHING.md), which publishes to npm, tags
+# (scripts/release.mjs — see docs/how-it-works/PUBLISHING.md), which publishes to npm, tags
 # vX.Y.Z and creates the GitHub Release. This workflow is kept as an optional
 # CI path (OIDC trusted publishing) and no longer runs on every push, where it
 # retried a failing publish and would race the local release.

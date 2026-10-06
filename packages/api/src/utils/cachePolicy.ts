@@ -1,7 +1,7 @@
 import type { Request, Response, } from 'express';
 
 /**
- * Edge-cache policy for public HTML documents (see docs/deploy cache rules).
+ * Edge-cache policy for public HTML documents (see docs/how-it-works/interserver-cloudflare-setup.md cache rules).
  *
  * A short micro-cache of anonymous public pages lets a CDN (Cloudflare) absorb
  * traffic spikes so the origin only renders each hot page ~once per TTL. Two

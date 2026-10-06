@@ -7,7 +7,7 @@ read-only dashboard over Shopify data with links to the Shopify admin. The
 internal shop (products/orders/Stripe checkout) is untouched and returns the
 moment the plugin is disabled.
 
-Plugin dir: `packages/api/plugins/shopify/`. Full guide: `docs/SHOPIFY.md`.
+Plugin dir: `packages/api/plugins/shopify/`. Full guide: `docs/how-it-works/SHOPIFY.md`.
 
 ## How it works
 

@@ -85,6 +85,6 @@ allowlisted in `src/modules/coverage.ts`).
 ## References
 
 - **Full client reference:** [docs/Overview.md](docs/Overview.md)
-- **Charter & design decisions:** [docs/client-sdk-plan.md](../../docs/client-sdk-plan.md)
+- **Charter & design decisions:** [docs/plans/completed/client-sdk-plan.md](../../docs/plans/completed/client-sdk-plan.md)
 - **Machine-readable manifest:** [docs/api-manifest.json](../../docs/api-manifest.json)
 - **Shared types & DTOs:** `@sitesurge/types` ([packages/shared](../shared))

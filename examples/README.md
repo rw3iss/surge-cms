@@ -9,4 +9,4 @@ one with `npm create sitesurge@latest my-site`, or use `config/docker-compose.ym
 at the repo root (`pnpm docker:up`).
 
 > These reference `@sitesurge/*` from npm. Until the first publish they won't
-> `npm install` from the registry — see `docs/PUBLISHING.md`.
+> `npm install` from the registry — see `docs/how-it-works/PUBLISHING.md`.

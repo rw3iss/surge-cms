@@ -1,7 +1,7 @@
 /**
  * Plugin system types. Plugins are admin-installable extensions living in a
  * host `plugins/` directory — modeled on the Features module system but over an
- * open, data-driven set. See docs/superpowers/specs/2026-07-13-plugin-system-design.md.
+ * open, data-driven set. See docs/plans/superpowers/specs/2026-07-13-plugin-system-design.md.
  */
 
 export type PluginCapability = 'public-widget' | 'admin-widget' | 'config-page' | 'api-routes';
