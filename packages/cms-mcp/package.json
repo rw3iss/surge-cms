@@ -1,49 +1,49 @@
 {
-    "name": "@sitesurge/mcp",
-    "version": "0.1.5",
-    "type": "module",
-    "bin": {
-        "sitesurge-mcp": "dist/index.js"
-    },
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "files": [
-        "dist"
-    ],
-    "scripts": {
-        "build": "tsup --config ../../config/cms-mcp/tsup.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
-        "start": "node dist/index.js",
-        "dev": "tsx src/index.ts",
-        "typecheck": "tsc --noEmit",
-        "test": "vitest --config ../../config/cms-mcp/vitest.config.ts run --passWithNoTests"
-    },
-    "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.29.0",
-        "@sitesurge/client": "workspace:*",
-        "@sitesurge/types": "workspace:*",
-        "zod": "^4.4.3"
-    },
-    "devDependencies": {
-        "@types/node": "^26.1.1",
-        "tsup": "^8.5.1",
-        "tsx": "^4.23.0",
-        "typescript": "^7.0.2",
-        "vitest": "^4.1.10"
-    },
-    "sideEffects": false,
-    "description": "Model Context Protocol server for authoring a SiteSurge CMS site with an AI agent.",
-    "license": "GPL-2.0-only",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/rw3iss/surge-cms.git",
-        "directory": "packages/cms-mcp"
-    },
-    "homepage": "https://github.com/rw3iss/surge-cms#readme",
-    "bugs": "https://github.com/rw3iss/surge-cms/issues",
-    "engines": {
-        "node": ">=20"
-    },
-    "publishConfig": {
-        "access": "public"
-    }
+  "name": "@sitesurge/mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "sitesurge-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup --config ../../config/cms-mcp/tsup.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --config ../../config/cms-mcp/vitest.config.ts run --passWithNoTests"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@sitesurge/client": "workspace:*",
+    "@sitesurge/types": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "sideEffects": false,
+  "description": "Model Context Protocol server for authoring a SiteSurge CMS site with an AI agent.",
+  "license": "GPL-2.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rw3iss/surge-cms.git",
+    "directory": "packages/cms-mcp"
+  },
+  "homepage": "https://github.com/rw3iss/surge-cms#readme",
+  "bugs": "https://github.com/rw3iss/surge-cms/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -1,65 +1,65 @@
 {
-    "name": "@sitesurge/client",
-    "version": "0.2.5",
-    "type": "module",
-    "sideEffects": false,
-    "main": "dist/index.cjs",
-    "module": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.cjs"
-        },
-        "./solid": {
-            "types": "./dist/adapters/solid.d.ts",
-            "import": "./dist/solid.js",
-            "require": "./dist/solid.cjs"
-        }
+  "name": "@sitesurge/client",
+  "version": "1.0.0",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
-    "files": [
-        "dist"
-    ],
-    "scripts": {
-        "build": "tsup --config ../../config/cms-client/tsup.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
-        "typecheck": "tsc --noEmit",
-        "test": "vitest --config ../../config/cms-client/vitest.config.ts run --passWithNoTests",
-        "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts",
-        "test:integration": "vitest --config ../../config/cms-client/vitest.integration.config.ts run",
-        "check:drift": "tsx scripts/check-drift.ts"
-    },
-    "dependencies": {
-        "@sitesurge/types": "workspace:*"
-    },
-    "peerDependencies": {
-        "solid-js": ">=1.8.0"
-    },
-    "peerDependenciesMeta": {
-        "solid-js": {
-            "optional": true
-        }
-    },
-    "devDependencies": {
-        "fake-indexeddb": "^6.2.5",
-        "solid-js": "^1.8.0",
-        "tsup": "^8.5.1",
-        "typescript": "^7.0.2",
-        "vitest": "^4.1.10"
-    },
-    "description": "Typed headless HTTP client (SDK) for the SiteSurge CMS API.",
-    "license": "GPL-2.0-only",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/rw3iss/surge-cms.git",
-        "directory": "packages/cms-client"
-    },
-    "homepage": "https://github.com/rw3iss/surge-cms#readme",
-    "bugs": "https://github.com/rw3iss/surge-cms/issues",
-    "engines": {
-        "node": ">=20"
-    },
-    "publishConfig": {
-        "access": "public"
+    "./solid": {
+      "types": "./dist/adapters/solid.d.ts",
+      "import": "./dist/solid.js",
+      "require": "./dist/solid.cjs"
     }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup --config ../../config/cms-client/tsup.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --config ../../config/cms-client/vitest.config.ts run --passWithNoTests",
+    "test:watch": "vitest --config ../../config/cms-client/vitest.config.ts",
+    "test:integration": "vitest --config ../../config/cms-client/vitest.integration.config.ts run",
+    "check:drift": "tsx scripts/check-drift.ts"
+  },
+  "dependencies": {
+    "@sitesurge/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "solid-js": ">=1.8.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "solid-js": "^1.8.0",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "description": "Typed headless HTTP client (SDK) for the SiteSurge CMS API.",
+  "license": "GPL-2.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rw3iss/surge-cms.git",
+    "directory": "packages/cms-client"
+  },
+  "homepage": "https://github.com/rw3iss/surge-cms#readme",
+  "bugs": "https://github.com/rw3iss/surge-cms/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -1,0 +1,24 @@
+{
+  "releases": [
+    {
+      "version": "1.0.0",
+      "tag": "v1.0.0",
+      "date": "2026-10-06",
+      "changes": 616,
+      "notes": "https://github.com/rw3iss/surge-cms/releases/tag/v1.0.0",
+      "packages": [
+        "@sitesurge/server",
+        "@sitesurge/cli",
+        "@sitesurge/admin",
+        "@sitesurge/client",
+        "@sitesurge/mcp",
+        "create-sitesurge",
+        "@sitesurge/types"
+      ]
+    }
+  ],
+  "$comment": "SiteSurge CMS version index — written by `pnpm release`. npm (@sitesurge/server \"latest\") is what installs update from; this file and the GitHub Releases are the record.",
+  "repository": "https://github.com/rw3iss/surge-cms",
+  "npm": "@sitesurge/server",
+  "latest": "1.0.0"
+}

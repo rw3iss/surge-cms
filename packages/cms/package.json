@@ -1,8 +1,8 @@
 {
   "name": "@sitesurge/admin",
-  "version": "0.1.13",
+  "version": "1.0.0",
   "type": "module",
-  "description": "SiteSurge CMS admin + public SPA \u2014 built static assets, served by @sitesurge/server.",
+  "description": "SiteSurge CMS admin + public SPA — built static assets, served by @sitesurge/server.",
   "license": "GPL-2.0-only",
   "main": "./asset-entry/index.cjs",
   "types": "./asset-entry/index.d.cts",

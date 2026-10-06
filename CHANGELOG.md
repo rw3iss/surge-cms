@@ -1,0 +1,623 @@
+# Changelog
+
+## 1.0.0 — 2026-10-06
+
+### Changes since @sitesurge/server@0.1.13 (616)
+
+- Release: --otp for npm 2FA (resume run publishes immediately)
+- CLAUDE.md: source-checkout detection note
+- CMS updater: detect source checkouts from the module path, not just cwd
+- Docs: releases & updates (README, PUBLISHING.md, CLAUDE.md, /admin/help/releases)
+- Release tooling: one-command CMS publish; updater reads GitHub release notes
+- Campaign form: drop the built-in top padding (set per page via block padding)
+- Campaign editor options: spacing between option rows
+- Campaign editor: "Options" group, status options in two columns, goal toggle above Goal Amount
+- Post Hero Full: header text aligns with the post body
+- Post photo credits: show the credits text alone (no "Captured by" prefix)
+- Campaign status/form gap; campaign editor actions in the sticky header
+- Help reference: escape quotes in the campaign() statusPosition note (broke the admin build)
+- Campaigns: status panel above/below the form; profile campaign links
+- Campaign donations: Reply to donor by email (preview + send)
+- Admin polish: components Name column, form question fields, settings spacing, social filter, @ handle
+- Donors manage recurring donations from their profile
+- Campaigns: recurring donations via Stripe subscriptions
+- Media edit modal: load fresh, save only changed fields
+- Posts: "Show photo credits" option for the banner
+- Media view modal: Copy URL button beside Download
+- Media credits + edit modal; content images expose their full media item
+- Post banner: per-post Height for every image layout
+- Post banner: Custom vertical position
+- Entity block: drop ineffective Edit template width override (panel buttons are full-width by design)
+- Entity block: Edit template button sizes to its label
+- Entity block panel: Edit template link under the Template select
+- Social row arrows: page by whole posts, not the row width
+- Social row nav: brand-coloured dots and arrows
+- Donation form: centre the amount buttons
+- Recent Donors: message line has no paragraph margin inside rich-text hosts
+- Donations: hide Visibility when donors aren't listed; show public messages
+- Recent Donors: right padding so the scrollbar clears the dates
+- Recent Donors: left-align rows inside centred hosts
+- Campaigns: clear the by-slug cache on change; centre the donor count
+- Campaigns: campaignStatus/campaignForm functions; Recent Donors listing
+- Admin events toolbar: wider month/year selects, arrow 5px right
+- Admin event registrations: ticket sales by type, (#n) labels on codes
+- Profile: first/last name fields open filled
+- Profile orders: show only the signed-in user's orders, even for staff
+- Events: one confirmation email per sign-up
+- Default email sender setting; public ticket page with order breakdown
+- Events: paid tickets go through the shop cart; issued on payment
+- Events: one sign-up card with signed-in details; reusable login modal
+- Site assets: actually register icon + manifest routes; route coverage test
+- Link previews: logo from Site Branding; manifest + icons generated from settings
+- Event modal: date + times on one row, timezone beside switches, themed inputs
+- Admin events: new-event modal opens on the clicked/selected day
+- Admin: input width cap is a :where() default; event reminder input 100px
+- Event settings: switch-first toggles with hints, section spacing, narrow number input
+- CORS: serve foreign-origin GET/HEAD without CORS headers instead of 500
+- docs: site-root branding routes
+- Serve Site Branding logo/favicon at /logo.png and /favicon.ico
+- Remove debug screenshots committed by mistake
+- Social: title strip no longer hidden under the loading shimmer
+- Social: title alignment setting; email title held to item width
+- Mail social: centre narrow posts; follow Horizontal Alignment
+- Mail send: wire inline preview frame auto-height
+- Mail send: inline preview grows to full email height; page scrolls
+- Mail send: inline preview on confirm step; Back/Send in header
+- docs: record the three security findings in the audit
+- fix(security): redact credentials from the settings audit log
+- fix(security): open redirect in canonical URLs; API keys could exfiltrate backups
+- feat(mail): warn when a block's Custom CSS shadows one of its settings
+- feat(mail): social posts honour every Item property, not just the radius
+- feat(social): per-post "Item border radius"
+- fix(mail): block radius reaches the media; inliner handles combinators
+- feat(blocks): border radius + per-block custom CSS, web and email
+- fix(mail): send composer resolves {{ }} in its Content previews
+- fix(mail): preview bag must not override the real {{site.*}}
+- fix(mail): list/template variables now resolve in admin block previews
+- feat(mail): {{list.*}} and {{template.*}} variables, documented
+- feat(template): formatDate takes a format string
+- feat(template): formatDate() with no argument returns today
+- docs(help): document the format*() parameters with worked examples
+- fix(mail-templates): draft state, save notification, revert, page-style header
+- fix(rich-text): the font picker did nothing — no selection was tracked
+- fix(social): navigation padding must not deform the arrows
+- feat(rich-text): font picker in the editor toolbar
+- feat(social): row navigation (dots / bottom / side arrows) + panel cleanup
+- fix(blocks): media blocks honour Text Align instead of always centring
+- fix(social): titles render, honour block styles, default near-black
+- docs: DNS record audit — what exists, what is missing, what is blocked
+- docs(mail): rich-text base size + admin-chrome paste rule
+- fix(mail): one base font size for rich text; keep admin chrome out of content
+- fix(mail): flag CSS that email drops; make the tout template email-safe
+- docs(entities): entity-read freshness model + template gotcha
+- fix(cache): entity blocks served stale query results indefinitely
+- seo: one h1 per page; audit resolution
+- seo: SSR site nav + canonical URL collapse
+- docs: record media storage config + the absolute-URL migration gotcha
+- feat(media): configurable media storage + /admin/media/settings
+- feat(backup): scheduled automatic backups + restore from destination
+- docs: record backup destinations + the pg_dump ownership gotcha
+- chore: regenerate SDK module reference for the backup destination methods
+- feat(backup): configurable backup destination (local / S3-compatible)
+- docs: SES setup runbook for the new AWS account
+- feat(social): author/date options; drop the Watch button
+- fix(mail): resolve auto-feed social blocks for email
+- fix(blocks): social post count was unsettable; entity block with no bound record
+- fix(mail): absolutise links in the preview too
+- fix(mail): one-click unsubscribe, text part, absolute links; social media size
+- docs: diagnose newsletter spam placement
+- fix(mail): preview the REAL site bag, not catalog samples
+- feat(templates): {{site.logo}} + one shared site variable bag
+- fix(mail,blocks): render entity/template blocks in email; live style preview
+- docs: mark the SEO audit's P0 items fixed and verified
+- feat(mail): mailing-list sender defaults; fix add-block menu placement
+- fix(posts): author default reaches the editor's dropdown
+- fix(seo): one title for SSR + client, SSR article bodies, real 404s, post authors
+- docs: SEO audit of surgemedia.us
+- chore(deploy): mount the fraud docs at /docs as well as /fraud/docs
+- fix(entities): discard superseded picker fetches; level the sort toggle
+- fix(entities): humanise field keys in the picker's dropdowns
+- feat(entities): sort control in the entity picker; normalised sort SQL
+- feat(appearance): button border radius setting + per-item override
+- fix(mail): a link no longer renders at a different size from its sentence
+- feat(appearance): rich-text defaults reach the editor; paragraph font size
+- feat(appearance): rich-text heading/paragraph rhythm as a setting
+- feat(mail): scheduled sends for mailing lists
+- feat(admin): header preview follows the draft; Revert on header + footer
+- fix(admin): clicking a toggle's label flips it
+- feat(admin): expand control for the component JS editor; switches over checkboxes
+- fix(server): the cluster primary must not listen; retry deploy health check
+- feat(server): multi-process mode + Redis-shared limiter and presence
+- feat(tools): browsing load generator
+- feat(tools): publish-component.mjs — push a component to a running site
+- feat(components): newsletter signup modal + per-caller subscription check
+- feat(asot): real logos for OAN and Newsmax 2
+- feat(pages): Clone button in the page editor
+- feat(config): CRON_ENABLED, so a warm standby can serve without acting
+- fix(asot): tighter row spacing on mobile (6px -> 4px)
+- fix(components): script mounted before its blocks were in the DOM
+- fix(asot): tighter mobile labels, per-row fade start
+- fix(social): a percentage item height must not disable the video ratio
+- feat(asot): Publications row + split-row layout
+- fix(blocks): block__inner shrank to content inside a flex parent
+- fix(social): block padding was charged twice, shrinking the item box
+- fix(pages): block order now survives a paste, and a save repairs it
+- feat(social): only one social post plays at a time, page-wide
+- fix(social): Item Width/Height now apply to embedded players
+- feat(social): duration + content-type filter in the post pickers
+- docs(components): check in the Merch Notification Tout + record its fix
+- fix(shop): merchandise tout vanished on a stale settings read
+- nginx: give /fraud to the app, move the docs to /fraud/docs/
+- Move the /fraud publisher out of this repo
+- Serve password-protected static docs at surgemedia.us/fraud
+- Page/post preview: honour the padding toggles, and sit above the edit panel
+- Ticker: relayout on width changes only, so a hiding browser bar can't reset it
+- Mobile: page height uses svh + safe area; ticker stays reachable with reduced motion
+- Ticker: header-style labels, configurable scroll/justify, throttled resize
+- docs: preview breakpoints now use container queries
+- Breakpoint styles reach the editor's device preview, including nested blocks
+- Ticker: never wrap, in any state; don't re-mount on every editor keystroke
+- Ticker: close the gap the scrolling text showed through beside the labels
+- Ticker: real logos for the entries that have freely-licensed marks
+- Run a component's client script in its own editor preview
+- Ticker: one row by default, correct width, fix the mode misdetection
+- Block-panel dropdowns escape the scroll box; YouTube channel resolves on save
+- docs: block CSS now scopes to .block[data-block-id]
+- Keep block styles off the admin editor's chrome
+- Fix "remember me": refresh on any 401, not only on "Token expired"
+- Keep the cart in the mobile header when the menu is open
+- Mobile header: 5px more space between the cart and the Shop button
+- Cart icon in the mobile header, left of the Shop button
+- Merch announcements: use the operator's email template when there is one
+- Bulk select in the merch announce modal; fix SDK-reference generator
+- fix(shop): make the announce action reachable with nothing pending
+- feat(shop): batched, exactly-once new-merchandise announcements
+- fix(components): render the Component in the block preview; clear dirty on save
+- refactor(blocks): split BlockRenderer per block type (phase C)
+- refactor: improvement pass over today's features (phases A+B)
+- feat(help): generated SDK module reference on the Component JS page
+- docs(admin): Component JavaScript help page + link from the editor
+- feat(shop): gate the storefront on the 'Store enabled' setting
+- fix(layout): page background applies when navigating INTO a route
+- fix(layout): page background no longer bleeds onto the next route
+- docs: component JavaScript + Save as Component in CLAUDE.md
+- fix(components): mount the script against the container wrapping the blocks
+- feat(components): optional client JS, served as a same-origin module
+- feat(components): 'Save as Component' in the block options menu
+- refactor(shared): move block-style emitters to @sitesurge/types (phase 6.1)
+- feat(blocks): 'template' block type + instance style cascade (phases 4-5)
+- feat(components): admin section reusing TemplateEditor (phase 3)
+- feat(components): global block templates (phase 2)
+- feat(blocks): block styles as layered CSS, no !important (phase 1)
+- docs: plan uses cascade layers — no !important in the first pass
+- docs: plan for stylesheet block styles + Components (global block templates)
+- chore(deploy): idempotent Cloudflare mail-DNS fixer
+- fix(shop): entity queries return products in catalogue order
+- fix(blocks): breakpoint overrides target the element their default is on
+- feat(shop): 'Unsaved changes' marker in the product editor header
+- chore: npm run deploy targets deploy/deploy.sh (server script is deploy:onserver)
+- fix(shop): variant-aware product page; default variant; keep filter inputs focused
+- feat(admin): compound entity queries, binding summary, editor header actions
+- feat(shop): per-colour media attribution + product list thumbnails
+- fix(shop): don't match optionless variants on the all-NULL triple
+- fix(shop): 409 when saving a product that has option values
+- style(login): forgot-password link moves below Sign In, centred
+- fix(shop): mobile filter sticks below the site header, not under it
+- feat(shop): mobile filter dropdown replaces the sidebar
+- fix(shop): merchandise tout — auth check and spacing below the masthead
+- style(shop): masthead puts the heading and signup tout on one column grid
+- style(shop): merchandise tout as a full-width band under the heading
+- feat: shared audience intake, signup phone, merchandise signup tout
+- fix(mail): lazy-load renderers in sendPurposeMail; extend order email test mocks
+- feat(shop,forms): Emails tab, Settings buttons, purpose-backed sends
+- feat(admin): shared email-template panel; Users settings sections
+- feat(auth): forgot/reset password + mail-purpose registry foundation
+- feat(shop): featured products + smarter entity query filters
+- fix(admin/shop): drop the empty settings card on the Providers tab
+- style(admin/shop): providers card header — actions across from the title
+- feat(admin/shop): back link on every shop sub-page header
+- fix(admin/shop): modal sizing, back links, product pagination controls
+- chore: lock @codemirror/lang-css
+- feat(pages): per-page background colour + custom CSS; code tab width setting
+- fix(pages): paint the page background on the outermost shell
+- feat(pages): per-page background colour; overridden routes inherit their page
+- feat(shop): show the selected colour's image on the product page
+- fix(shop): bind a colourway image deterministically, not to a random size
+- fix(shop): keep every colourway's media and link images to their variant
+- feat(shop): capture colour always; merge Apliiq colourways into one product
+- fix(shop): re-publishing a product updates it instead of skipping
+- feat(shop): Source column + provider filter on the admin product list
+- fix(shop): invalidate shop caches after provider ingestion
+- fix(shop): accept Apliiq's actual nested add-to-store payload
+- fix(shop): log the rejected payload's shape
+- fix(shop): capture the true raw webhook body; log unusable payloads
+- fix(shop): Printify shipping quote passed the wrong line shape
+- docs: multi-cart, per-provider fulfilment, cart display options
+- feat(shop): grouped cart/checkout display, per-group shipping selection
+- feat(shop): Providers admin tab, display settings, grouped emails
+- feat(shop): fulfilment groups, per-group shipping, per-provider orders
+- docs: Shop Providers, Apliiq push model, provider webhooks
+- feat(shop): Apliiq add-to-store ingestion
+- feat(shop): provider registry, settings and inbound webhooks
+- feat(shop): provider interface with store-add hook + webhook events
+- docs: correct the Apliiq model — it pushes to us, and add generic webhooks
+- docs: sharpen the shop-providers plan with audit findings
+- docs: plan for Shop Providers + multi-cart refactor
+- docs: quote slug args in {{ }} calls
+- fix(client): don't leak unhandled rejections from SWR background refresh
+- fix(admin): mobile responsiveness of the Settings page
+- fix(features): public projection reads defaults from FEATURE_REGISTRY
+- Refresh the revision list when a save completes
+- Add whole-database Backup & Restore to Settings > Admin
+- Revisions store full block trees; add editor Revert button
+- feat(wiki): two-column properties + header delete; sidebar tree on page views
+- feat(wiki): wiki feature module; dashboard features derive from the catalog
+- docs(sdk): headless + module-authoring + permissions guides, in repo and admin
+- feat(permissions): granular permission layer over the role ladder
+- fix(social block): row layout no longer forces the site block padding
+- fix(social block): centered horizontal row no longer hides its first items
+- feat(social block): Item gap; render Shorts as 9:16 players
+- feat(social block): opt-in pinned posts; item height + kind reach the render
+- fix(social): Shorts threshold is 3 minutes, not 60 seconds
+- feat(social): accept a YouTube handle, not just a UC channel id
+- feat(social): make YouTube work — API-key connections, DB creds, kind filter
+- fix(shop): order emails link to the receipt PDF, not the dead download route
+- fix(forms): pad the submission view modal interior
+- feat(forms): collapsible summary + per-submission read view
+- fix(shop+admin): drop the per-item Download button; show the bound form in the block panel
+- chore(deploy): don't ship local test screenshots to the server
+- refactor(contact): serve /contact from the CMS page + Forms entity
+- feat(shop): order receipt PDF, header download button, live status polling
+- feat(events): slug de-duplication with UI feedback, markdown descriptions
+- refactor(events): split service into modules, enforce email field, add seam tests
+- feat(events): admin registrants table
+- feat(events): event content block + {{event()}} template function
+- feat(events): ticket purchase — server-priced, oversell-safe
+- fix(events): repo returns ISO strings, matching the declared type
+- feat(events): real attendee registration
+- feat(events): event settings page + public calendar and detail pages
+- feat(events): admin calendar page, event modal, site defaults
+- feat(events): sidebar, shared calendar components, SDK
+- fix(events): accept the recurrence/registration fields on the write schema
+- feat(events): calendar, tier and occurrence-override APIs
+- feat(events): schema + occurrence expansion
+- feat(events): implementation plan + recurrence engine
+- fix(settings): include events in the public features projection
+- feat(events): surface the module in Settings and expose its routes
+- fix(features): register the feature-gated migrations that were missing
+- chore(deploy): add deploy-demo.sh for surgecms.ryanweiss.net
+- fix(config): always allow the site's own origin in CORS
+- feat(events): data + service foundation for the events/calendar module
+- fix(deploy): health-check the host we actually deploy to
+- feat(forms): email action supports a comma-separated recipient list
+- fix(cache): state max-age=0 explicitly on the service worker
+- fix(cache): never cache the service worker entry points
+- fix(seo): publish an opt-in business email in schema, not the operator inbox
+- feat(seo): index the homepage body, brand-suffix titles, editable SEO copy
+- fix(seo): duplicate title, wrong robots sitemap, missing author + sameAs
+- fix(security): never serialise password hashes to API responses
+- feat(profile): country + state dropdowns, portrait avatar
+- fix(admin): load .ui-button globally; profile DOB field + CDN avatars
+- fix(entities): keep focus in schema field editor inputs
+- feat(mail-templates): clone a template (meta + block tree)
+- fix(mail): resolve {{site.url}} + admin subscriber status control
+- feat(mail-send): Subject on its own row + required markers + optional-field hints
+- fix(mail): image renderer honors settings.itemMaxWidth (Image block width control)
+- fix(mail): preview/send parity — disabled blocks, image max-width, breakpoints, real site vars
+- feat(profile): timezone dropdown from a static IANA list
+- feat(entities): case-insensitive field filter + always-on top/bottom pager
+- docs(contacts): document the Contacts (CRM) feature in CLAUDE.md
+- feat(contacts): CRM feature — contact entity, match/link on signup, PDF import
+- feat(carousel): "Show navigation dots" toggle + configurable dot color
+- feat(shop): default product shipping to 'calculated'; drop "(coming soon)"
+- chore: remove stray verification screenshot
+- fix(ui): base .ui-button gets md padding so bare (swept) buttons match .btn
+- refactor(phase-c): admin ui-button kit + DataTable + backend registries
+- refactor: /improve pass — DRY/SOLID + token/UI consolidation (Phase A+B)
+- feat(shop): label shipping "(estimate)" until an address calculates it
+- feat(shop): caption the shipping estimate until an address is entered
+- feat(shop): two-step checkout + summary items; fix variant-churn on resync
+- feat(shop): dynamic Printify shipping (all methods + fallback) + Notifications system
+- feat(admin-channel): per-page labels + sidebar-matched theme
+- feat(admin): Admin Channel — live staff presence over WebSocket
+- fix(entities): copy — clone nested blocks via null-parent + relink pass
+- feat(entities): deep-copy records (base + related blocks) with unique-safe clone
+- feat(entities): URL-routed Schema/Data tabs + Data-tab query-modal parity
+- feat(analytics): inject Google tag (gtag.js) when an Analytics ID is set
+- fix(cache): public HTML is no-cache — never serve a stale app shell
+- feat(carousel): padding option accepts full CSS value (dots get bottom space)
+- feat(entity-picker): filter clause in all modes + status/slug columns
+- fix(carousel): force entity card to fill slide (override inline height/max-height)
+- fix(carousel): entity slide never scrolls; complete height chain for flex cards
+- feat(templates): enriched-vars reference + major-unit formatCurrency
+- fix(editor+shop): html preview resolves sample entity; product variants in templates
+- feat(entities): template editor loads a sample entity for preview
+- feat(block-style): add Max Height property
+- fix(carousel+editor): entity slides fill slide box; block overflow + full-width template page
+- fix(carousel): breakpoint padding/margin on content carousels + entity item UX
+- feat(carousel): 'render as list on mobile' toggle
+- fix(carousel): make the partial final page reachable
+- feat(entities): filter on standard columns (status/slug) + restyle query modal
+- fix(carousel): keep arrow background on narrow carousels (visible over light content)
+- feat(carousel): mobile overrides (items/page, scroll-by, side padding, item gap)
+- fix(carousel): clip track at content box (items don't peek into arrow gutters)
+- fix(group): a height-set group passes height to its flex container
+- feat(carousel): side-padding (arrow gutter) + item gap options
+- fix(carousel): force wrapper height:100% in a stretched group slot
+- fix(carousel): fill a stretched group slot's height
+- feat(carousel): items-per-page + scroll-by paging, min-height fill; template index access
+- fix(templates): stop unknown-entity {{ }} refs from 404-spamming + collapsing the page
+- fix(block-editor): robust scroll hold for late async preview reflow
+- feat(entities): filterable fields + enum type with filter dropdowns
+- feat(entities): templates UI — All-Entities breadcrumb, separated rows, collapsible vars
+- fix(carousel): entity item type select + no scroll jump (reconcile store)
+- feat(carousel): generic entity items via content-block templates
+- fix(block-editor): stop scroll jump on block edits (height pin + anchor)
+- fix(block-editor): anchor scroll to the edited block (handles preview collapse)
+- fix(block-editor): never reset scroll on a block edit
+- style(admin): standardized uppercase-bold field labels + sticky page headers
+- fix(entities): map camelCase field keys to snake_case columns (core entity data tabs)
+- feat(entities): product media via external_url; entity block carousel layout (plan 6)
+- feat(entities): product as a core entity type via a Shop data provider
+- docs: generic entities + content-block templates (CLAUDE.md capability, plan status) (plan 9.1)
+- fix(entities): template read routes are public (optional auth) so entity blocks render on the public site
+- feat(entities): content-block template editor UI (plan 4.3)
+- feat(entities): entity block renderer + edit panel + client template unification (plan 2.6, 5.2-5.4)
+- feat(entities): admin Entities section — list, schema/data tabs, record editor, search modal (plan 3.x)
+- feat(mcp): generic entity tools (plan 9.4)
+- feat(entities): register entity block type (shared+api) + SDK docs (plan 5.1, 9.3)
+- feat(entities): generic-entity fallback in SSR + mail template runtimes (plan 2.6 server-side)
+- feat(entities): content-block templates backend (plan 4.1-4.2)
+- feat(sdk): cms.entities / cms.entityTypes / cms.contentBlockTemplates (plan 2.5)
+- feat(entities): generic entity service + schema-CRUD + routes (plan 2.2-2.4)
+- feat(entities): generic entity repository (plan 2.1)
+- feat(entities): Phase 1 — entity storage engine (migrations, table generator, EntityManager, core descriptors)
+- refactor(template): promote entity reference catalog to @sitesurge/types (plan 0.5)
+- feat(ssr): walk block tree so nested blocks are indexable (plan 0.4)
+- fix(blocks): thread templateContext through group recursion (plan 0.3)
+- feat(entities): shared generic-entity contracts (plan 0.2)
+- refactor(blocks): dedupe BlockType union to @sitesurge/types (plan 0.1)
+- docs: generic entities + content-block-templates spec & implementation plan
+- feat(block-style): Width accepts any CSS value; full = 100%
+- fix(group): correct slot sizing + full-bleed split + mobile stack
+- fix(donations): only persist confirmed payments, not abandoned attempts
+- fix(html-block): Preview tab resolves {{ }} variable syntax (via TemplatedContent)
+- feat(admin): campaign donations table (search/sort) + dismissible pending-donations alert
+- style(settings/payments): margin below Stripe status card + styled key labels
+- feat(profile): Donations tab — user's own donations (by id OR email)
+- style(donate): fit all amount options on one row on mobile
+- feat(shop): sortable categories (drag-reorder + Position field) + modal cleanup
+- feat(post): add '<- Back to Posts' button left of 'Back to top' in footer row
+- fix(header/mobile): surface Shop as the header button, not Donate
+- feat(shop): drag-reorder works with any filter (server-side merge)
+- style(admin): logo img height 28px->40px, sidebar logo padding ->10px
+- style(footer/mobile): top-align the 3 shared columns (headings line up)
+- style(footer/mobile): center all content (rows, columns, copyright)
+- fix(image-link): preview shows selected media, greyed when a URL overrides
+- docs: regenerate API manifest (shop products reorder route)
+- fix(footer/header): image-link media select now sticks; carousel slides fill min-height
+- feat(shop): manual product sort order (position) + drag-reorder + editor dropdown
+- fix(header/mobile): donate hugs hamburger (no shift), uniform rows, caret nudge
+- feat(header/mobile): collapsible menu accordions + dedicated Donate button
+- feat(header/footer): shared image-link media picker (library select + URL)
+- style(api-keys): add gap between Scopes toggle items
+- fix(footer): image-link Width field, group-list alt-text label, flex-on-blur, mobile layout
+- fix(donate): stop Stripe form resetting on tab focus (templated entity remount)
+- fix(footer): image alt text field + group defaults to row layout
+- feat(footer): Group element type (inner row/column) + single-row mobile
+- style(shop): swap Collections above Categories; header spacing + left-align
+- feat(shop): single-item Printify resync + media merge (fixes blank media)
+- fix(shop): round-trip external media so removals persist; sidebar spacing
+- feat(admin/shop): show total product count after the status filter
+- fix(shop): stop admin edits + Printify resync from wiping synced product data
+- feat(shop): storefront sidebar Categories + Collections with product counts
+- fix(ssr): serve current shell after a deploy (stale template + rendered-HTML cache)
+- fix(pwa): auto-recover from stale lazy-chunk 404s after deploy
+- fix(carousel): height from block style.height + breakpoint, not a 50vh default
+- fix(pwa): scope image-cache to same-origin so R2/CDN images don't ERR_FAILED
+- docs: archive old improvement audits + stale planning docs
+- feat(printify): auto-ack stuck 'publishing' products on sync
+- feat(posts): back-to-posts + back-to-top buttons; configurable hero banner height
+- fix(carousel): full-width slide content on narrow carousel (drop 90% cap)
+- revert(carousel): remove meta/excerpt arrow-clearance spacer
+- fix(carousel): mobile arrows back to full size, 5px pad, closer to edges
+- fix(carousel): mobile arrows shrink to edges, no background; smaller gap
+- fix(carousel): breakpoint styles in admin preview + arrow-clearance spacer
+- fix(carousel): per-breakpoint style overrides target .hero-carousel__content (inner slide), matching default padding routing
+- fix(appearance): breakpoint inputs commit on blur (onChange) so typing doesn't lose focus
+- fix(pages): createBlock upserts by client id (stop 409 when re-saving an existing block)
+- fix(appearance): fixed 620px left column so the breakpoint layout editor gets room (not squished outside)
+- fix(appearance): breakpoint layout editor is its own column (grid: 1 col idle, 2 when editing)
+- style(appearance): breakpoint layout editor sits right of the table (table sizes to content)
+- style(appearance): widen breakpoint bound inputs to 65px + 5px padding
+- docs: per-breakpoint layout overrides + global appearance CSS
+- feat(appearance): per-breakpoint site LAYOUT overrides + global appearance CSS
+- feat(campaign): make {{campaign()}} slug opt-in (hidden unless slug=true)
+- style(campaign): drop margin below .campaign-page__description + above .donation-form
+- fix(campaign+csp): per-field {{campaign()}} args, dedup donate heading, unblock Stripe.js
+- feat(templates): full-campaign render for {{campaign()}} + new {{campaignLink()}}
+- feat(blocks): ship a default "Mobile" breakpoint out of the box
+- feat(blocks): custom responsive breakpoints for the Content Block system
+- feat(email): signup verification, full mail template engine, bulk-send reliability
+- feat(shop): thumbnail per product in the collection editor picker
+- fix(shop): collection/category product thumbnails for Printify products
+- fix(color-picker): swatch popup right-aligns under the button, expands left
+- feat(forms): delete submissions (individual + bulk) + paginate the table
+- fix(forms): mailing-list dropdown keeps selection after refresh
+- feat(pageloop): ship widget bundle 0.7.4 (PageLoop went closed-source)
+- fix(cache): drop Vary:Origin on cacheable public HTML so the CDN caches it
+- perf(cache): micro-cache anonymous public HTML at the edge
+- perf(cache): make static assets CDN-cacheable (no CSRF cookie + immutable)
+- docs(deploy): InterServer+Cloudflare setup guide + R2 backup script; S3 custom endpoint
+- fix(dashboard): clear stale unread-message banner after read/archive
+- feat(payments): site-wide default Stripe keys + per-context overrides
+- feat(shop): admin-editable Stripe keys (Shop → Settings → Payments)
+- fix(image-block): never render style.backgroundImage on image blocks
+- feat(printify): 'needs attention' alert on admin shop for stranded orders
+- fix(printify): self-heal stranded paid orders; document billing model
+- docs(commerce): multi-provider payments/fulfillment analysis (Printify/Shopify/Squarespace)
+- fix(pages): tolerate 404 on block delete during save; restore newer draft
+- feat(blocks): copy/paste in the block Options menu
+- style(header): account menu dropdown wider + 14px base font
+- feat(printify): sync bar on Shop Dashboard; show when plugin enabled
+- fix(plugins): custom config mountConfig never fired (ref inside Show undefined)
+- feat(printify): commerce — Stripe checkout → Printify fulfillment + tracking
+- feat(printify): sync Printify catalog into the Shop (plugin + core engine)
+- fix(header): free-text header Text Size; preview reflects per-item font-size
+- fix(admin): balanced SVG X for mobile sidebar close
+- fix(admin): sidebar logo-only when logo set; mobile close beside logo
+- feat(header): per-item Font Size is a free-text CSS input
+- fix(header): mobile logo/close/height parity + image_link Min Width
+- style(header): tighten mobile flyout item spacing
+- style(global): prevent horizontal page scroll (overflow-x: clip + body max-width)
+- feat(social): Row Padding for the horizontal-scroll container
+- fix(embeds): Referrer-Policy strict-origin-when-cross-origin (YouTube Error 153)
+- fix(csp): allow YouTube/Vimeo iframe embeds (frame-src)
+- refactor: /improve phase-C — Toggle unify, repo single-source, a11y, cleanup
+- chore(improve): RTE a11y, self-update safety, token cleanup, audit doc
+- fix(blocks): persist block-style fontFamily; unify BlockStyle type; fix Reset
+- refactor(blocks): single blockStyleLayoutCss helper for both render paths
+- feat(rte): 'New window' toggle in link dialog (target=_blank)
+- fix(blocks): default width 100% no longer drops the content column
+- fix(blocks): contained blocks use --site-max-width, not hardcoded 1200px
+- fix(rte): link applies to selected text; replaces existing link
+- feat(blocks): background-position for block-style background image
+- feat(settings): one-click CMS self-update in Admin Operations
+- fix(blocks): HTML Preview vertical align + drop 1200px cap on full-width blocks
+- fix(header): floating header honors sticky (fixed vs absolute)
+- fix(blocks): HTML block Preview applies block style (background image, etc.)
+- feat(shop): review 'Helpful' is a once-per-actor toggle (user id OR IP)
+- feat(shop): admin reviews link to the product (title, first line)
+- fix(shop): rating average is a number (Postgres NUMERIC → float)
+- feat(profile): tabbed /profile — Profile / Membership / Orders / Messages
+- fix(shop): order confirmation — address left, totals right on one row (PageLoop)
+- feat(shop): additional-item shipping rate + checkout/order breakdown; settings styling
+- feat(shop): per-product flat shipping + free-ship banner
+- fix(admin): shop product meta fields + order detail styling (PageLoop)
+- fix(shop): serve Stripe publishable key via API + compact checkout layout
+- fix(shop): map Stripe auth errors to a clean 503 (not opaque 500)
+- feat(appearance): site-wide public buttons + Button Text color setting
+- feat(shop): collections filter sidebar, product breadcrumb, public button styles
+- feat(shop): product-count column on collections admin list
+- fix(admin): shop editor + collections modal + post property layout (PageLoop review)
+- fix(shop): refresh enabled-plugins store so Shopify banner updates without reload
+- feat(shop): Shopify overrides only when configured; go-live checklist
+- docs(social): reframe X as paid-only for posting; free = paste-by-URL
+- fix(social): friendly X API error messages (402 credits, 401/403/429)
+- fix(social): read local /uploads media from disk for X upload
+- fix(social): mark manual connections connected + tighten switch/actions spacing
+- fix(social): reorder X OAuth fields into pairs, API Key read view, field gaps, feed-mode hint
+- feat(social): saved-secret read view + tighter switch group
+- feat(social): X config help tooltips, OAuth secret fields, global switch-first toggles
+- feat(social): X media publishing — photos + video
+- feat(social): M5 gate paid X read-sync behind twitterMode + docs
+- feat(social): M4 compose & cross-post (POSSE) via free X write API
+- feat(social): persist connection settings + OAuth returns to Social hub
+- feat(social): M2+M3 Social admin hub + feature + relocate Connections
+- feat(social): M1 capture-first X feed — manual add + server-side hydration
+- fix(admin): Edit Post/Page top properties use clean campaign label + sublabel styles
+- fix(admin): GiveButter donations panel matches campaign field styling
+- fix(admin): redesign Form/Campaign details into 3/4+1/4 columns
+- fix(social): row layout respects horizontal alignment
+- fix(social): horizontal alignment via flex for fixed-width items
+- feat(block-style): horizontal alignment + min-height
+- fix(social): center item-width grid at any wrap/count
+- fix(blocks): drop default 16px gutter on .block__inner--contained
+- fix(group): apply slot sizing to the group_item flex item (public)
+- feat(header): logout icon + mobile menu fixes
+- fix(group): stop default block padding cascading through groups
+- fix(social): item width sizes cards to exact width
+- feat(post): banner image vertical position + wider property fields
+- feat(social): even post sizing + item width/height
+- feat(template): form(gap=…) keyword arg
+- fix(block-style): max-width as plain custom input; tooltips on labels
+- feat(block-style): max-width + editor panel refinements
+- fix(group): admin preview slot sizing (justify parity)
+- fix(profile): load profile fields via /auth/me
+- fix(group): honor space-* main-axis justify
+- feat(profile): self-service user profile page
+- fix(admin): make Server Logs textarea full-width
+- feat(forms): 'Use Question Text as placeholder' for text fields
+- feat(admin): Server Logs panel in Settings > Admin
+- feat(forms): optional 'Save submission' for subscribe/email actions
+- fix(group): force N columns via grid instead of flex
+- feat(block-style): line-height property + full-width bg image
+- fix(rte): keep text alignment through HTML sanitize
+- feat(forms): field placeholder + textarea rows/resize/max-height
+- perf(pages): only save changed/new/moved blocks
+- feat(forms): customizable submit button text + alignment
+- fix(forms): include field width in save payload
+- fix(forms): question inputs commit on blur (no focus loss)
+- fix(blocks): group slot rendering + nested selection
+- feat(forms): per-field width (full/half)
+- fix(forms): bust per-slug form cache on save
+- feat(template): keyword args for {{ }} functions; form title + columns options
+- fix(admin): unify all input styling under one shared mixin
+- refactor(admin): migrate ~71 raw .form-group fields to shared FormField across 15 editors
+- improve(forms): Phase C — transactional syncQuestions + finish FormEditor FormField adoption
+- improve(forms): Phase B — question-persistence fix, per-field errors, typed editor, shared helpers
+- refactor(template): shared value-function resolver; forms gain template functions + validation
+- feat(forms): subscribe action maps common name/phone field keys (first_name, etc.)
+- feat(forms): per-form on-submit actions (submit/subscribe/email) + anti-double-submit
+- feat(image-block): Alignment option (cross-axis align-items)
+- fix(editor): Save takes over from draft autosave immediately
+- fix(blocks): add-block menu position/size; image preview + refined image props + gap
+- fix(post): hide byline when no author; fluid post title (cqi clamp)
+- fix(blocks): style + remaining block property inputs commit on blur only
+- fix(blocks): block-editor inputs commit on blur, not per keystroke
+- feat(post): 'Hero Full' banner layout + match header field layout to Page editor
+- feat(carousel): apply block-style background color to slides (image overlay / container)
+- feat(editor): Edit Page/Post are full-width in admin by default
+- feat(blocks): custom-value block bg (gradients) + image/color overlay; cap header fields
+- feat(swatches): alpha channel support (opacity slider + #rrggbbaa)
+- fix(editor): one-click save flushes focused block; pin edit flyout below sticky header
+- fix(editor): HTML code-fold gutter no longer deselects block; silence preview content clicks
+- feat(header): allow gradient/rgba/any CSS value for Background + Background alt
+- feat(rte): alignment toolbar buttons + apply resolved block style to admin RTE preview
+- fix(editor): rich-text block flushes to store on blur, not per keystroke (fixes focus loss)
+- fix(forms): raise submissions limit cap to 500 (admin table requested 200)
+- fix(template): render whole-entity refs in place (Portal into a placeholder)
+- feat(ssr): server-side {{ … }} template resolution for SEO
+- feat(blocks): {{ … }} content templating engine + admin reference/help
+- refactor(improve): Phase B-A5 (ctx.httpJson + host.ui.form) + Phase C dead-code removal
+- refactor(improve): Phase B — DRY plugin-gate + guard, createSafeResource, updatePost buildUpdateSet, move gb-panel
+- refactor(improve): Phase A — fix Plugins-admin unstyled classes, GiveButter widget CSS, tokenize shopify banner + warning border, dedup shop formatters, strip redundant inline styles
+- feat(posts): banner Image Layout (hero/standalone/thumbnail) + hero white meta
+- fix(html-block): stop focus loss — flush editor content on blur/preview/format/Ctrl+S, not per keystroke
+- fix(plugins/csp): add ws(s) twin of each plugin url origin to connect-src (PageLoop WebSocket)
+- feat(campaign-block): hide campaign-page link when GiveButter renders the form inline
+- fix(givebutter): widen plugin CSP for the widget (Stripe.js + givebutter.com + Stripe frames); bump 0.1.1
+- feat(plugins): Shopify Storefront plugin — overrides the Shop feature
+- feat(plugins): GiveButter donations plugin + generic plugin action-RPC
+- fix(editor): show both (Collapsed) and (Disabled) block badges (real spans, not clobbering ::after)
+- fix(social): mirror IG/FB CDN media to storage at sync (signed URLs expire); surface Graph API errors
+- chore(pageloop): pin widget bundle to 0.7.3, bump plugin to 0.1.2
+- feat(editor): header style/position row, wider props sidebar, flyout below sticky header, roomier block toolbar, auto-collapse disabled blocks
+- feat(editor): mirror block Disable toggle in the edit panel
+- feat(editor): media upload-in-modal, title truncate, block disable/collapse
+- fix(plugins): cache-bust plugin asset URLs by version (PageLoop widget)
+- feat(plugins): always-available Re-sync/Update button; bump PageLoop 0.1.1
+- style(settings): Typography+Layout two-column; drop redundant header box
+- refactor(admin): replace native checkboxes with the Toggle switch
+- feat(header): Header Position (static/float) + Site Header reorg + swatch cols
+- fix(header): homepage applies its Header Style; add '-' inherit option
+- feat(header): Default Page Header Style for routes without their own
+- fix(post): article max-width follows Max Content Width setting
+- fix(header): item font size inherits header Text Size; panel stable ref
+- feat(block-style): background image option for content block styles
+- feat(blocks): 'Insert Block Before' option + auto-close options menu
+- feat(header): alt (dark) header color style, per-page/post selectable
+- feat(layout): per-page/post Page Padding + Post Padding + gutter toggles
+- feat(admin-settings): header text-size + layout fixes from review
+- feat(fonts): reusable FontSelect + assign fonts across editors
+- feat(site-header): item-spacing on right-side container + gate cart on cart count
+- fix(blocks): style edits apply only on Save (no auto-update)
+- fix(blocks): debounce live custom-style persist (stop focus/scroll loss)
+- fix(blocks): edit-panel reactivity, live custom-style preview, carousel padding
+- chore(deploy): hotpatch also mirrors local surge-media
+- chore(deploy): hotpatch-surge.sh — rsync dist to surge without npm publish
+- fix(site-header): float-right nav actually pulls out of flow
+- fix(site-header): bump custom nav gap md→lg (more cart/gear spacing)
+- fix(site-header): float-right alignment, spacing, labels, option order
+- feat(site-header): float options, cart/account controls, favicon fix
+
