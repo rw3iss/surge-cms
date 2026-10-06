@@ -16,6 +16,10 @@ its own repo, move `deploy/` there.
 | Web        | nginx → proxies `:3001`, TLS via Let's Encrypt (webroot, auto-renews) |
 | DNS        | `surge.ryanweiss.net` → Cloudflare (proxied) → origin |
 
+**Also on this box: Scale** — the SiteSurge demo/marketing install at
+`https://scale.surgemedia.us` (npm install in `/var/www/scale`, `scale.service`
+on :3010, DB `scale`). See [`scale/README.md`](scale/README.md).
+
 The backend serves BOTH the API and the SPA (SSR + static from `packages/cms/dist`),
 so nginx just reverse-proxies everything to `:3001`.
 

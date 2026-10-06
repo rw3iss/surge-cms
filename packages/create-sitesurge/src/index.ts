@@ -13,9 +13,14 @@
  *   npm create sitesurge@latest my-site -- --node --headless
  */
 import { randomBytes, } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, writeFileSync, } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, } from 'node:fs';
 import { createInterface, } from 'node:readline';
 import path from 'node:path';
+
+// Every @sitesurge/* package shares ONE version (the CMS version), so a
+// scaffold depends on the release it came from. Hardcoded ranges went stale:
+// `^0.1.0` can never resolve to 1.x, so new sites installed the old CMS.
+const CMS_RANGE = `^${(JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json',), 'utf8',),) as { version: string; }).version}`;
 
 const args = process.argv.slice(2,);
 const headless = args.includes('--headless',);
@@ -135,7 +140,7 @@ const HEADLESS_PKG = `{
   "private": true,
   "type": "module",
   "scripts": { "start": "node --experimental-strip-types src/index.ts" },
-  "dependencies": { "@sitesurge/client": "^0.2.1", "@sitesurge/types": "^0.1.1" }
+  "dependencies": { "@sitesurge/client": "${CMS_RANGE}", "@sitesurge/types": "${CMS_RANGE}" }
 }
 `;
 
@@ -151,8 +156,8 @@ const NODE_PKG = `{
     "start": "node src/index.js"
   },
   "dependencies": {
-    "@sitesurge/server": "^0.1.0",
-    "@sitesurge/cli": "^0.1.0"
+    "@sitesurge/server": "${CMS_RANGE}",
+    "@sitesurge/cli": "${CMS_RANGE}"
   }
 }
 `;
