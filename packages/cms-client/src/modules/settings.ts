@@ -319,7 +319,8 @@ export class SettingsModule extends ModuleBase {
 
     /** GET /settings/cms-version (admin) — installed vs latest CMS version. */
     getCmsVersion(): Promise<SettingsCmsVersionResponse> {
-        return this.get<SettingsCmsVersionResponse>('/settings/cms-version',);
+        // Never cached: "Check for updates" must ask the server every time.
+        return this.get<SettingsCmsVersionResponse>('/settings/cms-version', { options: { cache: false, }, },);
     }
 
     /**

@@ -15,9 +15,13 @@ name: Release
 # Flow: merge PRs containing a changeset → this opens a "Version Packages" PR →
 # merging that PR builds + publishes (with provenance).
 
+# MANUAL ONLY. Releases are cut locally with `pnpm release <version>`
+# (scripts/release.mjs — see docs/PUBLISHING.md), which publishes to npm, tags
+# vX.Y.Z and creates the GitHub Release. This workflow is kept as an optional
+# CI path (OIDC trusted publishing) and no longer runs on every push, where it
+# retried a failing publish and would race the local release.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -51,7 +55,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm run version-packages
-          publish: pnpm run release
+          publish: pnpm run release:changesets
           commit: "chore: version packages"
           title: "chore: version packages"
         env:

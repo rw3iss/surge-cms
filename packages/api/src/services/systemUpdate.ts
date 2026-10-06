@@ -11,6 +11,13 @@
  * migrations on startup.
  *
  * Surfaced through Settings → Admin → Admin Operations (admin-only).
+ *
+ * Where versions come from (see docs/PUBLISHING.md):
+ *   - npm is the source of truth — `@sitesurge/server`'s `latest` dist-tag is
+ *     exactly what `npm install …@latest` installs.
+ *   - the GitHub Release for that version (`pnpm release` creates one per
+ *     version) supplies the release notes shown in the panel, and stands in
+ *     for `latest` only when npm cannot be reached.
  */
 import { spawn, } from 'child_process';
 import { existsSync, promises as fs, } from 'fs';
@@ -25,6 +32,55 @@ const PRIMARY_PACKAGE = '@sitesurge/server';
 const CMS_PACKAGES = ['@sitesurge/server', '@sitesurge/admin', '@sitesurge/cli',];
 
 const NPM_REGISTRY = 'https://registry.npmjs.org';
+
+/** GitHub repository whose Releases carry the notes for each CMS version. */
+const RELEASES_REPO = process.env.CMS_RELEASES_REPO || 'rw3iss/surge-cms';
+
+export interface ReleaseInfo {
+    tag: string;
+    url: string;
+    notes: string;
+    publishedAt: string | null;
+    version: string;
+}
+
+/** GitHub's unauthenticated API allows 60 requests/hour per IP — cache. */
+const RELEASE_TTL_MS = 10 * 60_000;
+const releaseCache = new Map<string, { at: number; value: ReleaseInfo | null; }>();
+
+/** The GitHub Release for a tag (`v1.2.0`), or the latest one (`'latest'`). */
+async function fetchRelease(which: string,): Promise<ReleaseInfo | null> {
+    const hit = releaseCache.get(which,);
+    if (hit && Date.now() - hit.at < RELEASE_TTL_MS) return hit.value;
+    let value: ReleaseInfo | null = null;
+    try {
+        const url = which === 'latest'
+            ? `https://api.github.com/repos/${RELEASES_REPO}/releases/latest`
+            : `https://api.github.com/repos/${RELEASES_REPO}/releases/tags/${encodeURIComponent(which,)}`;
+        const res = await fetch(url, {
+            headers: { accept: 'application/vnd.github+json', 'user-agent': 'sitesurge-cms-updater', },
+            signal: AbortSignal.timeout(5000,),
+        },);
+        if (res.ok) {
+            const j = await res.json() as { tag_name?: string; html_url?: string; body?: string; published_at?: string; };
+            if (j.tag_name) {
+                const notes = (j.body ?? '').trim();
+                value = {
+                    tag: j.tag_name,
+                    url: j.html_url ?? `https://github.com/${RELEASES_REPO}/releases/tag/${j.tag_name}`,
+                    // The full change list can run long; the panel links out for the rest.
+                    notes: notes.length > 6000 ? `${notes.slice(0, 6000,)}\n…` : notes,
+                    publishedAt: j.published_at ?? null,
+                    version: j.tag_name.replace(/^v/, '',),
+                };
+            }
+        }
+    } catch (err) {
+        logger.warn(`systemUpdate: GitHub release lookup failed (${which}): ${(err as Error).message}`,);
+    }
+    releaseCache.set(which, { at: Date.now(), value, },);
+    return value;
+}
 
 /** Where `node_modules` lives — the process working directory for a normal
  *  npm-dependency install (and the monorepo root in dev). */
@@ -95,23 +151,33 @@ export interface CmsVersionInfo {
     current: string | null;
     latest: string | null;
     updateAvailable: boolean;
-    /** True when the npm registry couldn't be reached (latest is unknown). */
+    /** True when neither npm nor GitHub could be reached (latest is unknown). */
     latestUnavailable: boolean;
+    latestSource: 'npm' | 'github' | null;
+    installKind: 'npm' | 'source';
+    release: { tag: string; url: string; notes: string; publishedAt: string | null; } | null;
     /** ISO timestamp of this check. */
     checkedAt: string;
 }
 
 export async function getVersionInfo(): Promise<CmsVersionInfo> {
-    const [current, latest,] = await Promise.all([
+    const [current, npmLatest,] = await Promise.all([
         readInstalledVersion(PRIMARY_PACKAGE,),
         fetchLatestVersion(PRIMARY_PACKAGE,),
     ],);
+    // Notes for the npm version; with npm unreachable, the latest GitHub
+    // Release stands in so the panel can still say what's out there.
+    const release = await fetchRelease(npmLatest ? `v${npmLatest}` : 'latest',);
+    const latest = npmLatest ?? release?.version ?? null;
     return {
         name: PRIMARY_PACKAGE,
         current,
         latest,
         updateAvailable: Boolean(current && latest && semverGt(latest, current,)),
         latestUnavailable: latest === null,
+        latestSource: npmLatest ? 'npm' : release ? 'github' : null,
+        installKind: looksLikeDevCheckout() ? 'source' : 'npm',
+        release: release ? { tag: release.tag, url: release.url, notes: release.notes, publishedAt: release.publishedAt, } : null,
         checkedAt: new Date().toISOString(),
     };
 }
@@ -187,6 +253,22 @@ function looksLikeDevCheckout(): boolean {
 export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
     const fromVersion = await readInstalledVersion(PRIMARY_PACKAGE,);
 
+    // A source checkout is not updated by npm: installing @sitesurge/* into the
+    // monorepo would shadow its own workspace packages. It updates by pulling
+    // the release tag and rebuilding (docs/PUBLISHING.md).
+    if (looksLikeDevCheckout()) {
+        return {
+            ok: false,
+            fromVersion,
+            toVersion: fromVersion,
+            updated: [],
+            output: 'This installation runs from a source checkout. Update it by pulling the release tag '
+                + '(git fetch --tags && git checkout vX.Y.Z), then rebuild and restart — or your deploy script. '
+                + 'One-click updates are for npm installs.',
+            restarting: false,
+        };
+    }
+
     // Guard: don't reinstall/restart when already on the latest published
     // version (the panel disables the button, but the endpoint is unguarded).
     // Skip the guard when npm was unreachable (latest unknown → allow).
@@ -246,22 +328,6 @@ export async function runUpdate(ctx: AuditContext,): Promise<UpdateResult> {
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
-
-    // In a dev checkout there's usually no supervisor to relaunch us, so exiting
-    // would just take the server down. Install the packages but skip the restart
-    // and tell the operator to restart manually.
-    if (looksLikeDevCheckout()) {
-        updateInProgress = false;
-        logger.warn('systemUpdate: dev checkout detected — installed update but NOT restarting (no supervisor). Restart manually.',);
-        return {
-            ok: true,
-            fromVersion,
-            toVersion,
-            updated: pkgs,
-            output: `${tail(output,)}\n\nInstalled ${toVersion ?? 'latest'}. Dev checkout — restart the server manually to apply.`,
-            restarting: false,
-        };
-    }
 
     logger.info(`systemUpdate: updated ${fromVersion} → ${toVersion}; exiting in ${RESTART_DELAY_MS}ms for restart`,);
     // Exit shortly after we return so the response flushes; the supervisor

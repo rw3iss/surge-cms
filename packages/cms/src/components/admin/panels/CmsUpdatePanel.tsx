@@ -133,13 +133,28 @@ const CmsUpdatePanel: Component = () => {
                                     </Show>
                                 </span>
                             </div>
+                            <Show when={v().release}>
+                                {(r,) => (
+                                    <div class="cms-update__row">
+                                        <span class="cms-update__label">Release</span>
+                                        <span class="cms-update__value">
+                                            <a href={r().url} target="_blank" rel="noopener noreferrer">{r().tag}</a>
+                                            <Show when={r().publishedAt}>
+                                                <span class="form-help-muted">
+                                                    {' '}· {new Date(r().publishedAt!,).toLocaleDateString()}
+                                                </span>
+                                            </Show>
+                                        </span>
+                                    </div>
+                                )}
+                            </Show>
                             <div class="cms-update__row">
                                 <span class="cms-update__label">Status</span>
                                 <span class="cms-update__value">
                                     <Switch>
                                         <Match when={v().latestUnavailable}>
                                             <span class="cms-update__badge cms-update__badge--muted">
-                                                Couldn't check npm
+                                                Couldn't reach npm or GitHub
                                             </span>
                                         </Match>
                                         <Match when={v().updateAvailable}>
@@ -160,11 +175,29 @@ const CmsUpdatePanel: Component = () => {
                 </Match>
             </Switch>
 
+            {/* What's in the newer release — the GitHub Release notes. */}
+            <Show when={info()?.updateAvailable && info()?.release?.notes}>
+                <details class="cms-update__notes">
+                    <summary>What's new in {info()!.release!.tag}</summary>
+                    <pre>{info()!.release!.notes}</pre>
+                    <a href={info()!.release!.url} target="_blank" rel="noopener noreferrer">Full release notes →</a>
+                </details>
+            </Show>
+
+            {/* A source checkout updates by pulling the tag, not via npm. */}
+            <Show when={info()?.installKind === 'source'}>
+                <p class="form-help-muted cms-update__source">
+                    This installation runs from a <strong>source checkout</strong>, so it doesn't update itself.
+                    To update: <code>git fetch --tags && git checkout {info()?.latest ? `v${info()!.latest}` : 'vX.Y.Z'}</code>,
+                    then rebuild and restart (or run your deploy script). One-click updates are for npm installs.
+                </p>
+            </Show>
+
             <div class="u-flex-row u-flex-wrap" style={{ 'margin-top': '0.75rem', }}>
                 <button
                     class="ui-button ui-button--primary"
                     onClick={() => setConfirmOpen(true,)}
-                    disabled={busy() || !info()?.updateAvailable}
+                    disabled={busy() || !info()?.updateAvailable || info()?.installKind === 'source'}
                 >
                     <Switch fallback={'Update & restart'}>
                         <Match when={phase() === 'updating'}>Installing update…</Match>

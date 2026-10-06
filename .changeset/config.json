@@ -2,7 +2,17 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@sitesurge/server", "@sitesurge/admin", "@sitesurge/cli"]],
+  "fixed": [
+    [
+      "@sitesurge/server",
+      "@sitesurge/admin",
+      "@sitesurge/cli",
+      "@sitesurge/types",
+      "@sitesurge/client",
+      "@sitesurge/mcp",
+      "create-sitesurge"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

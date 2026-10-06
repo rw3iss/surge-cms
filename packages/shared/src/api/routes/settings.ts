@@ -410,8 +410,26 @@ export interface SettingsCmsVersionResponse {
     latest: string | null;
     /** True when `latest` is newer than `current`. */
     updateAvailable: boolean;
-    /** True when the npm registry couldn't be reached. */
+    /** True when neither npm nor GitHub could be reached. */
     latestUnavailable: boolean;
+    /** Where `latest` came from: npm (what an update installs) or the GitHub
+     *  Release, used only when npm could not be reached. */
+    latestSource: 'npm' | 'github' | null;
+    /**
+     * How this installation runs, which decides how it updates:
+     *  - `npm`: the CMS is an npm dependency — "Update & restart" works.
+     *  - `source`: a git checkout of the monorepo (built from source) — update
+     *    by pulling the release tag and rebuilding; the button is disabled.
+     */
+    installKind: 'npm' | 'source';
+    /** The GitHub Release for `latest`, when found. */
+    release: {
+        tag: string;
+        url: string;
+        /** Release notes (markdown), trimmed. */
+        notes: string;
+        publishedAt: string | null;
+    } | null;
     /** ISO timestamp of the check. */
     checkedAt: string;
 }

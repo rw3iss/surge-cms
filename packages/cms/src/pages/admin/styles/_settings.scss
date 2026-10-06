@@ -656,3 +656,65 @@
 .settings-card > .form-group + .admin-form-field {
     margin-top: 12px;
 }
+
+// ─── CMS Version panel (Settings → Admin) ───
+.cms-update__versions { display: grid; gap: 6px; }
+
+.cms-update__row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 0.875rem;
+}
+
+.cms-update__label { color: $text-light; font-weight: 600; }
+
+.cms-update__badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: $background-dark;
+
+    &--available { color: $primary-color; }
+    &--current { color: $text-color; }
+    &--muted { color: $text-light; }
+}
+
+.cms-update__notes {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+
+    summary { cursor: pointer; font-weight: 600; }
+
+    pre {
+        max-height: 260px;
+        overflow: auto;
+        margin: 0.5rem 0;
+        padding: 0.6rem 0.75rem;
+        white-space: pre-wrap;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        background: $background-dark;
+        font-size: 0.8rem;
+    }
+}
+
+.cms-update__source {
+    margin-top: 0.75rem;
+
+    code { font-size: 0.8rem; }
+}
+
+.cms-update__output {
+    max-height: 220px;
+    overflow: auto;
+    margin-top: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    white-space: pre-wrap;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    font-size: 0.8rem;
+}

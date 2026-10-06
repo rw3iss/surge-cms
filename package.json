@@ -1,53 +1,54 @@
 {
-	"name": "surge-cms",
-	"version": "1.0.0",
-	"description": "SiteSurge \u2014 self-hosted, block-based headless CMS (monorepo)",
-	"private": true,
-	"license": "GPL-2.0-only",
-	"packageManager": "pnpm@10.28.0",
-	"scripts": {
-		"dev": "concurrently \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
-		"dev:frontend": "pnpm --filter ./packages/cms run dev",
-		"dev:backend": "pnpm --filter ./packages/api run dev",
-		"build": "pnpm -r run build",
-		"build:frontend": "pnpm --filter ./packages/cms run build",
-		"build:backend": "pnpm --filter ./packages/api run build",
-		"start": "pnpm --filter ./packages/api run start",
-		"db:migrate": "pnpm --filter ./packages/api run db:migrate",
-		"db:migrate:status": "pnpm --filter ./packages/api run db:migrate:status",
-		"migrate": "pnpm --filter ./packages/api run db:migrate",
-		"migrate:status": "pnpm --filter ./packages/api run db:migrate:status",
-		"db:seed": "pnpm --filter ./packages/api run db:seed",
-		"seed": "pnpm --filter ./packages/api run db:seed",
-		"docs:api": "pnpm --filter ./packages/api run docs:api",
-		"format": "npx dprint fmt --config config/dprint.json",
-		"format:check": "npx dprint check --config config/dprint.json",
-		"lint": "oxlint -c config/.oxlintrc.json packages/cms/src packages/api/src packages/shared/src",
-		"lint:fix": "oxlint -c config/.oxlintrc.json --fix packages/cms/src packages/api/src packages/shared/src",
-		"lint:all": "pnpm run lint && pnpm run build",
-		"test": "pnpm -r run test",
-		"changeset": "changeset",
-		"version-packages": "changeset version",
-		"release": "pnpm run build && changeset publish",
-		"docker:up": "docker compose -f config/docker-compose.yml up -d",
-		"docker:down": "docker compose -f config/docker-compose.yml down",
-		"docker:build": "docker compose -f config/docker-compose.yml build",
-		"deploy": "bash deploy/deploy.sh",
-		"deploy:onserver": "bash scripts/deploy.sh",
-		"precheck": "bash scripts/pre-push-check.sh",
-		"prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true",
-		"docs:sdk": "pnpm --filter ./packages/cms run docs:sdk"
-	},
-	"devDependencies": {
-		"@changesets/cli": "^2.31.0",
-		"concurrently": "^10.0.3",
-		"oxlint": "^1.58.0",
-		"typescript": "^7.0.2"
-	},
-	"engines": {
-		"node": ">=20.0.0"
-	},
-	"dependencies": {
-		"solid-js": "^1.9.14"
-	}
+  "name": "surge-cms",
+  "version": "1.0.0",
+  "description": "SiteSurge \u2014 self-hosted, block-based headless CMS (monorepo)",
+  "private": true,
+  "license": "GPL-2.0-only",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "concurrently \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
+    "dev:frontend": "pnpm --filter ./packages/cms run dev",
+    "dev:backend": "pnpm --filter ./packages/api run dev",
+    "build": "pnpm -r run build",
+    "build:frontend": "pnpm --filter ./packages/cms run build",
+    "build:backend": "pnpm --filter ./packages/api run build",
+    "start": "pnpm --filter ./packages/api run start",
+    "db:migrate": "pnpm --filter ./packages/api run db:migrate",
+    "db:migrate:status": "pnpm --filter ./packages/api run db:migrate:status",
+    "migrate": "pnpm --filter ./packages/api run db:migrate",
+    "migrate:status": "pnpm --filter ./packages/api run db:migrate:status",
+    "db:seed": "pnpm --filter ./packages/api run db:seed",
+    "seed": "pnpm --filter ./packages/api run db:seed",
+    "docs:api": "pnpm --filter ./packages/api run docs:api",
+    "format": "npx dprint fmt --config config/dprint.json",
+    "format:check": "npx dprint check --config config/dprint.json",
+    "lint": "oxlint -c config/.oxlintrc.json packages/cms/src packages/api/src packages/shared/src",
+    "lint:fix": "oxlint -c config/.oxlintrc.json --fix packages/cms/src packages/api/src packages/shared/src",
+    "lint:all": "pnpm run lint && pnpm run build",
+    "test": "pnpm -r run test",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "node scripts/release.mjs",
+    "docker:up": "docker compose -f config/docker-compose.yml up -d",
+    "docker:down": "docker compose -f config/docker-compose.yml down",
+    "docker:build": "docker compose -f config/docker-compose.yml build",
+    "deploy": "bash deploy/deploy.sh",
+    "deploy:onserver": "bash scripts/deploy.sh",
+    "precheck": "bash scripts/pre-push-check.sh",
+    "prepare": "[ -d .git ] && ln -sf ../../scripts/pre-push-check.sh .git/hooks/pre-push || true",
+    "docs:sdk": "pnpm --filter ./packages/cms run docs:sdk",
+    "release:changesets": "pnpm run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "concurrently": "^10.0.3",
+    "oxlint": "^1.58.0",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.14"
+  }
 }

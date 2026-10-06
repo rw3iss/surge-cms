@@ -30,3 +30,4 @@ packages/api/data/
 # ...but example templates carry no secrets and should be committed.
 !.env.example
 !*.env.example
+.release/
