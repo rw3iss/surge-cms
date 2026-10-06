@@ -1564,6 +1564,16 @@ const AdminSettings: Component = () => {
         }
     },);
 
+    // Deep links to a section (`/admin/settings?tab=general#features`, e.g. the
+    // reply modal's "enable Mailing Lists" link): the section renders only once
+    // settings have loaded, so scroll when it appears rather than on mount.
+    createEffect(() => {
+        const hash = window.location.hash.slice(1,);
+        if (!hash || settings.loading || !settings()) return;
+        requestAnimationFrame(() => document.getElementById(hash,)?.scrollIntoView({ behavior: 'smooth', block: 'start', },),);
+    },);
+
+
     const [siteName, setSiteName,] = createSignal('',);
     const [siteDescription, setSiteDescription,] = createSignal('',);
     const [contactEmail, setContactEmail,] = createSignal('',);

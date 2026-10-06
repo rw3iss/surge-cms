@@ -236,7 +236,13 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/mail/jobs/:id/retry',
     'PATCH /api/v1/mail/jobs/:id',
 
+    // ── replies ──
+    'GET /api/v1/replies/sender',
+    'POST /api/v1/replies/:source/target',
+    'POST /api/v1/replies/:source/preview',
+    'POST /api/v1/replies/:source/send',
     // ── mail-templates ──
+    'GET /api/v1/mail-templates/options',
     'GET /api/v1/mail-templates/variables',
     'GET /api/v1/mail-templates',
     'POST /api/v1/mail-templates',

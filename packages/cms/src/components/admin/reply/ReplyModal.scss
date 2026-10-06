@@ -1,0 +1,132 @@
+// The generic reply modal (donations, form submissions, …).
+.reply-modal {
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xl;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__header {
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+    flex-shrink: 0;
+
+    h2 { margin: 0; font-size: 1.1rem; }
+  }
+
+  &__to {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: var(--admin-text-muted, #{$text-light});
+
+    strong { color: var(--admin-text, #{$text-color}); font-weight: 600; }
+  }
+
+  &__body {
+    padding: $spacing-lg;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
+  }
+
+  // "Default Template" shown as text when Mailing Lists is off.
+  &__template-static {
+    font-weight: 600;
+  }
+
+  &__template-note {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__vars {
+    font-size: 0.8rem;
+
+    summary {
+      cursor: pointer;
+      color: var(--admin-text-muted, #{$text-light});
+    }
+  }
+
+  &__vars-body {
+    margin-top: $spacing-sm;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__vars-help {
+    margin: 0;
+    line-height: 1.5;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__var-group-title {
+    font-weight: 600;
+    color: var(--admin-text, #{$text-color});
+
+    code { font-weight: 400; }
+  }
+
+  &__var-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  &__var {
+    padding: 2px 6px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: var(--admin-bg-subtle, #{$background});
+    font-family: var(--admin-font-mono, monospace);
+    font-size: 0.75rem;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible { border-color: var(--admin-text, #{$text-color}); }
+  }
+
+  &__preview-subject {
+    margin: 0;
+    font-size: 0.9rem;
+
+    span { color: var(--admin-text-muted, #{$text-light}); }
+  }
+
+  &__preview {
+    width: 100%;
+    height: 60vh;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: #fff;
+  }
+
+  &__error { margin: 0; }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $border-color;
+    flex-shrink: 0;
+  }
+
+  &__footer-spacer { flex: 1; }
+}

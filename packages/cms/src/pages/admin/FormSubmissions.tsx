@@ -6,6 +6,7 @@ import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import SubmissionViewModal from '../../components/admin/forms/SubmissionViewModal';
+import ReplyModal from '../../components/admin/reply/ReplyModal';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
  *  (were four identical inline objects). */
@@ -77,6 +78,8 @@ const FormSubmissions: Component = () => {
     const [deleting, setDeleting,] = createSignal(false,);
     /** The submission open in the read view, with its 1-based list position. */
     const [viewing, setViewing,] = createSignal<{ sub: any; index: number; } | null>(null,);
+    /** The submission being replied to (opens the reply modal). */
+    const [replyingTo, setReplyingTo,] = createSignal<string | null>(null,);
 
     const allSubs = createMemo(() => (submissions() || []) as any[],);
     const totalPages = createMemo(() => Math.max(1, Math.ceil(allSubs().length / PAGE_SIZE,),),);
@@ -324,6 +327,14 @@ const FormSubmissions: Component = () => {
                                                 View
                                             </button>
                                             <button
+                                                class="ui-button ui-button--secondary ui-button--sm"
+                                                title="Reply to this submission by email"
+                                                style={{ 'margin-right': '6px', }}
+                                                onClick={() => setReplyingTo(sub.id,)}
+                                            >
+                                                Reply
+                                            </button>
+                                            <button
                                                 class="ui-button ui-button--danger ui-button--sm"
                                                 title="Delete submission"
                                                 onClick={() => setPending({ type: 'single', id: sub.id, },)}
@@ -355,7 +366,17 @@ const FormSubmissions: Component = () => {
                 index={viewing()?.index}
                 onClose={() => setViewing(null,)}
                 onDelete={(id,) => setPending({ type: 'single', id, },)}
+                onReply={(id,) => setReplyingTo(id,)}
             />
+
+            <Show when={replyingTo()}>
+                <ReplyModal
+                    source="submission"
+                    record={{ formId: params.id ?? '', submissionId: replyingTo()!, }}
+                    onClose={() => setReplyingTo(null,)}
+                    onSent={(to,) => toast.success(`Reply sent to ${to}.`,)}
+                />
+            </Show>
 
             <ConfirmModal
                 open={pending() !== null}

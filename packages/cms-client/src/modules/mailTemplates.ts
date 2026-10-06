@@ -1,5 +1,5 @@
 import type {
-    MailTemplateVariablesResponse, MailTemplateListResponse, MailTemplateGetResponse,
+    MailTemplateVariablesResponse, MailTemplateListResponse, MailTemplateOptionsResponse, MailTemplateGetResponse,
     MailTemplateCreateBody, MailTemplateCreateResponse, MailTemplateUpdateBody, MailTemplateUpdateResponse,
     MailTemplatePreviewBody, MailTemplatePreviewResponse, MailTemplateBlocksReplaceBody,
     MailTemplateBlocksReplaceResponse, MailTemplateDeleteResponse, MailTemplateCopyResponse,
@@ -18,6 +18,12 @@ export class MailTemplatesModule extends ModuleBase {
     /** GET /mail-templates — meta only (no blocks). */
     list(): Promise<MailTemplateListResponse> {
         return this.get<MailTemplateListResponse>('/mail-templates',);
+    }
+
+    /** GET /mail-templates/options — enabled templates by name (staff; needs the
+     *  Mailing Lists feature). The list behind any template picker. */
+    options(): Promise<MailTemplateOptionsResponse> {
+        return this.get<MailTemplateOptionsResponse>('/mail-templates/options',);
     }
 
     /** GET /mail-templates/:id — meta + full block tree. */

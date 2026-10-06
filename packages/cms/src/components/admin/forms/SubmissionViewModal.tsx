@@ -38,6 +38,8 @@ export interface SubmissionViewModalProps {
     index?: number;
     onClose: () => void;
     onDelete?: (id: string,) => void;
+    /** Shows a Reply button that opens the reply modal for this submission. */
+    onReply?: (id: string,) => void;
 }
 
 /** Answers arrive as string | string[] | number | boolean. */
@@ -165,6 +167,15 @@ const SubmissionViewModal: Component<SubmissionViewModalProps> = (props,) => {
                 >
                     Close
                 </button>
+                <Show when={props.onReply && props.submission}>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--primary ui-button--sm"
+                        onClick={() => props.onReply!(props.submission!.id,)}
+                    >
+                        Reply
+                    </button>
+                </Show>
             </footer>
         </ModalShell>
     );

@@ -64,6 +64,15 @@ export type MailTemplateVariablesResponse = VariableDescriptor[];
  *  array (no pagination meta). */
 export type MailTemplateListResponse = MailTemplate[];
 
+/** One pickable template — what a "choose an email template" dropdown needs. */
+export interface MailTemplateOption {
+    id: string;
+    name: string;
+    description?: string;
+}
+/** GET /mail-templates/options — enabled templates by name (staff; needs Mailing Lists). */
+export type MailTemplateOptionsResponse = MailTemplateOption[];
+
 // ─── POST /mail-templates ─────────────────────────────────────────────
 
 /** Body for POST /mail-templates (create). `fromEmail` / `replyTo` accept

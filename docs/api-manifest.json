@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-30T08:17:27.228Z",
-  "totalModules": 42,
-  "totalRoutes": 402,
+  "generatedAt": "2026-10-06T23:49:26.867Z",
+  "totalModules": 43,
+  "totalRoutes": 410,
   "modules": [
     {
       "module": "admin-channel",
@@ -65,7 +65,7 @@
           "path": "/patreon",
           "absolutePath": "/api/v1/auth/patreon",
           "auth": "public",
-          "summary": "Generate a Patreon OAuth authorization URL + state."
+          "summary": "Start Patreon OAuth: a browser is redirected to Patreon; a JSON client gets { authUrl, state }."
         },
         {
           "method": "GET",
@@ -253,6 +253,27 @@
           "absolutePath": "/api/v1/campaigns/:id/donations",
           "auth": "public",
           "summary": "List a campaign's donations."
+        },
+        {
+          "method": "GET",
+          "path": "/donations/reply-sender",
+          "absolutePath": "/api/v1/campaigns/donations/reply-sender",
+          "auth": "staff",
+          "summary": "The default sender for donor replies (site default sender, else EMAIL_FROM)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/donations/:donationId/reply/preview",
+          "absolutePath": "/api/v1/campaigns/:id/donations/:donationId/reply/preview",
+          "auth": "staff",
+          "summary": "Render a donor reply exactly as it would be sent (no email is sent)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/donations/:donationId/reply",
+          "absolutePath": "/api/v1/campaigns/:id/donations/:donationId/reply",
+          "auth": "staff",
+          "summary": "Email a reply to the donation's donor (recipient = the donation's email)."
         },
         {
           "method": "GET",
@@ -1088,6 +1109,13 @@
         },
         {
           "method": "GET",
+          "path": "/options",
+          "absolutePath": "/api/v1/mail-templates/options",
+          "auth": "staff",
+          "summary": "Enabled mail templates by name — for any \"choose an email template\" control (e.g. replies)."
+        },
+        {
+          "method": "GET",
           "path": "/",
           "absolutePath": "/api/v1/mail-templates",
           "auth": "admin",
@@ -1889,6 +1917,40 @@
           "absolutePath": "/api/v1/posts/:id/blocks/reorder",
           "auth": "staff",
           "summary": "Reorder a post's content blocks."
+        }
+      ]
+    },
+    {
+      "module": "replies",
+      "mountPath": "/api/v1/replies",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/sender",
+          "absolutePath": "/api/v1/replies/sender",
+          "auth": "staff",
+          "summary": "The default sender a reply starts with (site default sender, else EMAIL_FROM)."
+        },
+        {
+          "method": "POST",
+          "path": "/:source/target",
+          "absolutePath": "/api/v1/replies/:source/target",
+          "auth": "staff",
+          "summary": "The recipient, default subject/message and available {{ }} variables for a reply."
+        },
+        {
+          "method": "POST",
+          "path": "/:source/preview",
+          "absolutePath": "/api/v1/replies/:source/preview",
+          "auth": "staff",
+          "summary": "Render a reply exactly as it would be sent (no email is sent)."
+        },
+        {
+          "method": "POST",
+          "path": "/:source/send",
+          "absolutePath": "/api/v1/replies/:source/send",
+          "auth": "staff",
+          "summary": "Email the reply. The recipient is the record's own stored address."
         }
       ]
     },

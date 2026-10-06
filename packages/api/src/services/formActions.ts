@@ -77,7 +77,10 @@ function valueByKey(
     key: string,
 ): string | null {
     const keys = deriveFieldKeys(questions,);
-    const q = questions.find((qq,) => keys[qq.id] === key);
+    // "First name (optional)" derives `first_name_optional`; it is still the
+    // first-name field, so the lookup accepts that suffix too.
+    const q = questions.find((qq,) => keys[qq.id] === key)
+        ?? questions.find((qq,) => keys[qq.id] === `${key}_optional`);
     if (!q) return null;
     const ans = answers.find((a,) => a.questionId === q.id);
     const v = formatValue(ans?.value,).trim();
@@ -111,6 +114,19 @@ function extractEmail(questions: FormQuestion[], answers: SubmittedAnswer[],): s
         if (v) return v;
     }
     return valueByKey(questions, answers, 'email',);
+}
+
+/** The submitter's email / name / phone as the form actions read them — shared
+ *  with the reply flow so "who sent this" is decided in one place. */
+export function submitterContact(
+    questions: FormQuestion[],
+    answers: SubmittedAnswer[],
+): { email: string | null; name: string | null; phone: string | null; } {
+    return {
+        email: extractEmail(questions, answers,),
+        name: valueByAnyKey(questions, answers, NAME_KEYS,),
+        phone: valueByAnyKey(questions, answers, PHONE_KEYS,),
+    };
 }
 
 /** Render a `{{ … }}` template against a flat form-value context → string. */

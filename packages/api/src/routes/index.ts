@@ -21,6 +21,7 @@ import { healthRoutes, } from './health';
 import { mailingListsRoutes, listsPublicRoutes, } from './mailingLists';
 import { mailSendRoutes, } from './mailSend';
 import { mailTemplatesRoutes, } from './mailTemplates';
+import { repliesRoutes, } from './replies';
 import { mailSchedulesRoutes, } from './mailSchedules';
 import { mediaRoutes, } from './media';
 import { messagesRoutes, } from './messages';
@@ -71,6 +72,7 @@ router.use('/entities', registerModule('entities', entitiesRoutes, { mountPath: 
 router.use('/fonts', registerModule('fonts', fontsRoutes, { mountPath: '/api/v1/fonts', },),);
 router.use('/mailing-lists', registerModule('mailing-lists', mailingListsRoutes, { mountPath: '/api/v1/mailing-lists', },),);
 router.use('/mail-templates', registerModule('mail-templates', mailTemplatesRoutes, { mountPath: '/api/v1/mail-templates', },),);
+router.use('/replies', registerModule('replies', repliesRoutes, { mountPath: '/api/v1/replies', },),);
 router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1/mail', },),);
 router.use('/mail-schedules', registerModule('mail-schedules', mailSchedulesRoutes, { mountPath: '/api/v1/mail-schedules', feature: 'mailing_lists', },),);
 router.use('/lists', registerModule('lists', listsPublicRoutes, { mountPath: '/api/v1/lists', },),);

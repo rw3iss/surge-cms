@@ -22,6 +22,7 @@ import type {
 import { z, } from 'zod';
 import { blockStyleRecord, } from '../api/blockStyleInput';
 import { defineRoute, reply, } from '../api/defineRoute';
+import { requireFeature, } from '../api/requireFeature';
 import * as mailTemplates from '../services/mailTemplates';
 
 const templateSchema = z.object({
@@ -60,6 +61,16 @@ export const mailTemplatesRoutes = [
         auth: 'admin',
         summary: 'Variable catalog for the template reference UI.',
         handler: () => mailTemplates.variables(),
+    },),
+
+    // Declared before `/:id` so "options" is never read as an id.
+    defineRoute({
+        method: 'get',
+        path: '/options',
+        auth: 'staff',
+        pre: [requireFeature('mailing_lists',),],
+        summary: 'Enabled mail templates by name — for any "choose an email template" control (e.g. replies).',
+        handler: () => mailTemplates.options(),
     },),
 
     defineRoute({

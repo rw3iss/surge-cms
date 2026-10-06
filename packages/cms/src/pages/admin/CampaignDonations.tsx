@@ -7,7 +7,7 @@
 import { formatCurrency, formatDate, } from '@sitesurge/types';
 import type { CampaignAdminDonationsResponse, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
-import DonationReplyModal from '../../components/admin/campaigns/DonationReplyModal';
+import ReplyModal from '../../components/admin/reply/ReplyModal';
 import Pagination from '../../components/admin/common/Pagination';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
@@ -170,10 +170,9 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
                 </Show>
             </Show>
             <Show when={replying()}>
-                <DonationReplyModal
-                    campaignId={props.campaignId}
-                    campaignTitle={props.campaignTitle}
-                    donation={replying()!}
+                <ReplyModal
+                    source="donation"
+                    record={{ campaignId: props.campaignId, donationId: replying()!.id, }}
                     onClose={() => setReplying(null,)}
                     onSent={(to,) => toast.success(`Reply sent to ${to}.`,)}
                 />

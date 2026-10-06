@@ -966,6 +966,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /mail-templates — meta only (no blocks)."
             },
             {
+                "name": "options",
+                "signature": "options(): Promise<MailTemplateOptionsResponse>",
+                "summary": "GET /mail-templates/options — enabled templates by name (staff; needs the Mailing Lists feature). The list behind any template picker."
+            },
+            {
                 "name": "preview",
                 "signature": "preview(body: MailTemplatePreviewBody): Promise<MailTemplatePreviewResponse>",
                 "summary": "POST /mail-templates/preview — render HTML + detect tokens (idempotent)."
@@ -1463,6 +1468,33 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "update",
                 "signature": "update(id: string, body: PostUpdateBody): Promise<PostUpdateResponse>",
                 "summary": ""
+            }
+        ]
+    },
+    {
+        "namespace": "replies",
+        "className": "RepliesModule",
+        "summary": "replies namespace (staff) — the generic \"Reply by email\" procedure for a record someone submitted: a campaign `donation` (`ref: { campaignId, donationId }`) or a form `submission` (`ref: { formId, submissionId }`). The recipient is always the record's stored address.",
+        "methods": [
+            {
+                "name": "preview",
+                "signature": "preview(source: ReplySourceKey, body: ReplyComposeBody): Promise<ReplyPreviewResponse>",
+                "summary": "POST /replies/:source/preview — the exact HTML a send would deliver."
+            },
+            {
+                "name": "send",
+                "signature": "send(source: ReplySourceKey, body: ReplyComposeBody): Promise<ReplySendResponse>",
+                "summary": "POST /replies/:source/send — email the reply."
+            },
+            {
+                "name": "sender",
+                "signature": "sender(): Promise<ReplySenderResponse>",
+                "summary": "GET /replies/sender — the sender a reply starts with."
+            },
+            {
+                "name": "target",
+                "signature": "target(source: ReplySourceKey, ref: ReplyRef): Promise<ReplyTargetResponse>",
+                "summary": "POST /replies/:source/target — recipient, defaults and available `{{ }}` variables."
             }
         ]
     },
@@ -2263,5 +2295,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 39;
-export const SDK_METHOD_COUNT = 394;
+export const SDK_MODULE_COUNT = 40;
+export const SDK_METHOD_COUNT = 399;

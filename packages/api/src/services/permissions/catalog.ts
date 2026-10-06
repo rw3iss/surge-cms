@@ -173,6 +173,14 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             action: 'read',
             defaultRoles: STAFF,
         },
+        {
+            key: 'forms.submissions:reply',
+            feature: 'forms',
+            label: 'Email submitters',
+            description: "Send a form submitter an email reply from the submissions inbox.",
+            action: 'write',
+            defaultRoles: STAFF,
+        },
     ],
     campaigns: [
         { key: 'campaigns:read', feature: 'campaigns', label: 'View campaigns', action: 'read', defaultRoles: STAFF, },

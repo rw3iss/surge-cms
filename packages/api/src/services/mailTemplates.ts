@@ -8,7 +8,7 @@
  * exactly one place; the render orchestration delegates to
  * `services/mail/*`.
  */
-import type { MailTemplate, } from '@sitesurge/types';
+import type { MailTemplate, MailTemplateOption, } from '@sitesurge/types';
 import { NotFoundError, } from '../core/errors';
 import * as templates from '../repositories/mailTemplates.repo';
 import * as templateBlocks from '../repositories/mailTemplateBlocks.repo';
@@ -67,6 +67,16 @@ export function variables() {
 
 export function list(): Promise<MailTemplate[]> {
     return templates.list();
+}
+
+/** Enabled templates as `{ id, name, description }`, by name — the shared list
+ *  behind every template picker (staff-readable; full CRUD stays admin). */
+export async function options(): Promise<MailTemplateOption[]> {
+    const all = await templates.list();
+    return all
+        .filter((t,) => t.isEnabled !== false)
+        .map((t,) => ({ id: t.id, name: t.name, ...(t.description ? { description: t.description, } : {}), }))
+        .sort((a, b,) => a.name.localeCompare(b.name,));
 }
 
 /** Template meta + its block tree. */
@@ -171,14 +181,18 @@ export async function replaceBlocks(id: string, blocks: TemplateBlockInput[],): 
     return { count: blocks.length, };
 }
 
-/** Render an in-progress block set to preview HTML with variables resolved. */
-export async function preview(input: PreviewInput,) {
+/**
+ * The ONE block → email-HTML pass shared by the template preview and every
+ * real render (replies, …): block-style refs inlined, entity/component blocks
+ * expanded, then the mail renderer (table layout, inline styles). `{{ }}` is
+ * NOT resolved here — callers resolve against their own context, then
+ * absolutise links.
+ */
+async function renderBlocksForEmail(rawBlocks: TemplateBlockInput[], subject: string, preheader?: string,) {
     const renderCtx = await loadMailRenderContext();
 
-    // The preview endpoint accepts in-progress blocks that may not have
-    // IDs yet — synthesize a placeholder so the renderer's tree builder
-    // doesn't choke on `undefined` keys.
-    const rawBlocks = input.blocks ?? [];
+    // In-progress blocks may not have IDs yet — synthesize a placeholder so
+    // the renderer's tree builder doesn't choke on `undefined` keys.
     const blocksForRender = rawBlocks.map((b, i,) => ({
         id: b.id ?? `preview-${i}`,
         parentBlockId: b.parentBlockId ?? null,
@@ -196,12 +210,43 @@ export async function preview(input: PreviewInput,) {
     // path so the preview cannot show something different from what ships.
     const expanded = await expandDynamicBlocks(resolved as never,);
 
-    const result = renderMailHtml({
-        blocks: expanded,
-        subject: input.subject ?? '',
-        preheader: input.preheader,
-        ...renderCtx,
-    },);
+    const result = renderMailHtml({ blocks: expanded, subject, preheader, ...renderCtx, },);
+    return { result, expanded, renderCtx, };
+}
+
+/**
+ * Render a SAVED template for one real recipient: its blocks through the
+ * shared email pass, `{{ }}` resolved against `context`, links absolutised.
+ * `subject` overrides the template's own subject (a reply's subject is typed
+ * by the sender). Used by the reply flow (`services/reply`).
+ */
+export async function renderForRecipient(
+    templateId: string,
+    opts: { subject?: string; context: Record<string, unknown>; },
+): Promise<{ subject: string; html: string; source: string; }> {
+    const tpl = await getById(templateId,);
+    const { result, renderCtx, } = await renderBlocksForEmail(
+        tpl.blocks as unknown as TemplateBlockInput[],
+        opts.subject ?? tpl.subject ?? '',
+        tpl.preheader ?? undefined,
+    );
+    const html = await resolveMailTemplate(result.html, opts.context,);
+    return {
+        html: absolutiseUrls(html, renderCtx.siteUrl,),
+        subject: await resolveMailTemplate(result.subject, opts.context,),
+        // The rendered HTML BEFORE `{{ }}` resolution — lets a caller ask
+        // whether the template references a variable at all.
+        source: result.html,
+    };
+}
+
+/** Render an in-progress block set to preview HTML with variables resolved. */
+export async function preview(input: PreviewInput,) {
+    const { result, expanded, renderCtx, } = await renderBlocksForEmail(
+        input.blocks ?? [],
+        input.subject ?? '',
+        input.preheader,
+    );
 
     // Merge sample defaults from the catalog with operator-supplied
     // overrides from the preview form's variable inputs.
