@@ -24,7 +24,8 @@ its Postgres/Valkey servers.
 - Admin account: `rw3iss@gmail.com`. The password was generated at install and
   is in `ADMIN_PASSWORD` in `/var/www/scale/.env` on the server (mode 600).
   **Editing `ADMIN_PASSWORD` in `.env` does NOT change the login** — the installer
-  reads it once. Change the password in the admin (profile), or re-hash the
+  reads it once. **Quote the value** (`ADMIN_PASSWORD='…'`) — an unquoted `#` starts a
+  comment and silently cuts the password short. Change the password in the admin (profile), or re-hash the
   `.env` value into the DB on the server:
   `cd /var/www/scale && node -e 'require("dotenv").config();const b=require("bcryptjs"),{Client}=require("pg");(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();await c.query("update users set password_hash=$1 where lower(email)=lower($2)",[await b.hash(process.env.ADMIN_PASSWORD,12),process.env.ADMIN_EMAIL]);await c.end()})()'`
 - Server: `ssh rw3iss@216.158.233.15`, then `cd /var/www/scale`.
