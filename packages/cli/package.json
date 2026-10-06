@@ -1,7 +1,7 @@
 {
   "name": "@sitesurge/cli",
   "version": "1.0.0",
-  "description": "SiteSurge CLI — interactive/non-interactive setup, migrate, seed, doctor, and start for a SiteSurge instance.",
+  "description": "Surge CMS CLI — interactive/non-interactive setup, migrate, seed, doctor, and start for a Surge CMS instance.",
   "license": "GPL-2.0-only",
   "bin": {
     "sitesurge": "dist/index.js"

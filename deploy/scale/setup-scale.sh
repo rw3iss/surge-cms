@@ -34,7 +34,7 @@ if [ ! -f package.json ]; then
 {
   "name": "scale",
   "private": true,
-  "description": "Scale — SiteSurge CMS demo/marketing install (scale.surgemedia.us)",
+  "description": "Scale — Surge CMS demo/marketing install (scale.surgemedia.us)",
   "scripts": {
     "migrate": "sitesurge migrate",
     "doctor": "sitesurge doctor",
@@ -48,7 +48,7 @@ if [ ! -f package.json ]; then
 JSON
 fi
 [ -f src/index.js ] || cat > src/index.js <<'JS'
-// Scale (scale.surgemedia.us) — SiteSurge CMS booted from npm.
+// Scale (scale.surgemedia.us) — Surge CMS booted from npm.
 const { startServer } = require('@sitesurge/server');
 startServer();
 JS
@@ -67,7 +67,7 @@ if [ ! -f .env ]; then
   [ "$FRESH_DB" = 1 ] || { echo "Role 'scale' exists but .env is missing — set its password by hand." >&2; exit 1; }
   ADMIN_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)
   cat > .env <<ENV
-# Scale (scale.surgemedia.us) — SiteSurge npm install. Keep secrets secret.
+# Scale (scale.surgemedia.us) — Surge CMS npm install. Keep secrets secret.
 NODE_ENV=production
 PORT=$PORT
 DATABASE_URL=postgresql://scale:$DBPASS@localhost:5432/scale
@@ -80,7 +80,7 @@ DATA_DIR=$DIR/data
 PLUGINS_DIR=$DIR/plugins
 # Used once by the installer (sitesurge setup --from-env):
 SITE_NAME=Scale
-SITE_TAGLINE="Build on SiteSurge CMS"
+SITE_TAGLINE="Build on Surge CMS"
 ADMIN_EMAIL=$ADMIN_EMAIL
 ADMIN_NAME=Admin
 ADMIN_PASSWORD=$ADMIN_PASSWORD
@@ -103,7 +103,7 @@ fi
 say "systemd scale.service"
 sudo tee /etc/systemd/system/scale.service >/dev/null <<UNIT
 [Unit]
-Description=Scale (SiteSurge CMS demo) — scale.surgemedia.us
+Description=Scale (Surge CMS demo) — scale.surgemedia.us
 After=network.target postgresql.service valkey.service
 
 [Service]

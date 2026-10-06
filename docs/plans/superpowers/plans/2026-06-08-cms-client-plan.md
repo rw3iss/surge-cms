@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `@sitesurge/client` in full — a typed, zero-runtime-dependency, framework-agnostic headless client exposing every SiteSurge API ability through per-module namespaces, with token lifecycle + auto-load, an SWR client cache over a pluggable adapter, standardized errors with a consumer error bus, an optional SolidJS adapter, full docs, and tests.
+**Goal:** Build `@sitesurge/client` in full — a typed, zero-runtime-dependency, framework-agnostic headless client exposing every Surge CMS API ability through per-module namespaces, with token lifecycle + auto-load, an SWR client cache over a pluggable adapter, standardized errors with a consumer error bus, an optional SolidJS adapter, full docs, and tests.
 
 **Architecture:** Three layers — `core/` (request funnel, auth, cache, errors, events; framework-free), `modules/` (thin typed namespaces over `ModuleBase`), `adapters/solid.ts` (opt-in). DTOs come from `@sitesurge/types`; the method surface is fixed by `docs/plans/superpowers/plans/2026-06-08-cms-client-methodmap.md` and `docs/api-manifest.json`.
 

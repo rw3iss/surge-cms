@@ -117,7 +117,7 @@ describe('buildWebManifest', () => {
         const m = await buildWebManifest();
         expect(m.name,).toBe('Surge Media',);
         expect(m.description,).toBe('Conservative news.',);
-        expect(JSON.stringify(m,),).not.toContain('SiteSurge',);
+        expect(JSON.stringify(m,),).not.toContain('Surge CMS',);
     });
 
     it('uses literal hex colours and ignores a swatch reference', async () => {

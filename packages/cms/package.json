@@ -2,7 +2,7 @@
   "name": "@sitesurge/admin",
   "version": "1.0.0",
   "type": "module",
-  "description": "SiteSurge CMS admin + public SPA — built static assets, served by @sitesurge/server.",
+  "description": "Surge CMS admin + public SPA — built static assets, served by @sitesurge/server.",
   "license": "GPL-2.0-only",
   "main": "./asset-entry/index.cjs",
   "types": "./asset-entry/index.d.cts",

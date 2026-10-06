@@ -4,7 +4,7 @@
   "description": "Sync your Printify print-on-demand catalog into the built-in Shop. Products, variants, images and product types are ingested so the storefront, categories and reviews work natively; checkout uses Stripe and paid orders are sent to Printify for fulfillment.",
   "version": "0.1.0",
   "apiVersion": 1,
-  "author": "SiteSurge",
+  "author": "Surge CMS",
   "homepage": "https://printify.com",
   "server": "server.js",
   "client": "client.js",

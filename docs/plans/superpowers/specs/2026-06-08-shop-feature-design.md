@@ -6,7 +6,7 @@ Implemented: 2026-07-08
 
 ## Goal
 
-Add a toggle-able **`shop`** feature to the SiteSurge CMS: a native ecommerce
+Add a toggle-able **`shop`** feature to the Surge CMS: a native ecommerce
 store (catalog with variants, media, reviews, cart, on-site Stripe checkout,
 orders, and configurable storefront appearance) that replaces the current
 Shopify-iframe `Shop.tsx`. Every capability is exposed through the manifest

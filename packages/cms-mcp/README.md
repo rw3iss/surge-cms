@@ -1,6 +1,6 @@
 # @sitesurge/mcp
 
-A stdio **Model Context Protocol** server that exposes the entire SiteSurge CMS
+A stdio **Model Context Protocol** server that exposes the entire Surge CMS
 authoring surface — pages, posts, every content-block type, block styles,
 appearance (colors/swatches/fonts/layout), the site header + footer, navigation,
 media, and settings/features — as **66 curated tools** an AI agent can call to

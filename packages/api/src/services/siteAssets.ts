@@ -169,7 +169,7 @@ export async function getSquareIcon(size: SquareIconSize,): Promise<SiteAsset | 
 /**
  * The web app manifest, from Site Settings.
  *
- * It was a build-time file naming the product ("SiteSurge") rather than the
+ * It was a build-time file naming the product ("Surge CMS") rather than the
  * site, and some link previews and every "Add to Home Screen" read it.
  */
 export async function buildWebManifest(): Promise<Record<string, unknown>> {

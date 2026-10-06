@@ -2,7 +2,7 @@
   "name": "sitesurge-example-headless-node",
   "private": true,
   "type": "module",
-  "description": "Minimal headless consumer — fetch SiteSurge content with @sitesurge/client.",
+  "description": "Minimal headless consumer — fetch Surge CMS content with @sitesurge/client.",
   "scripts": {
     "start": "node --experimental-strip-types src/index.ts"
   },

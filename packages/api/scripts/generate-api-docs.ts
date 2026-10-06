@@ -77,7 +77,7 @@ function renderApiMarkdown(generatedAt: string, modules: ManifestModule[], total
 > Generated at: ${generatedAt}
 > Modules: ${modules.length} · Routes: ${totalRoutes}
 
-SiteSurge exposes a full REST surface under \`/api/v1\`. External clients
+Surge CMS exposes a full REST surface under \`/api/v1\`. External clients
 (servers, scripts, the bundled SPA) all talk to the same endpoints. This
 document is generated from the live route manifest, so it never drifts
 from the running server.

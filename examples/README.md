@@ -1,4 +1,4 @@
-# SiteSurge examples
+# Surge CMS examples
 
 - **[headless-node](headless-node)** — the smallest possible headless consumer:
   fetch posts with `@sitesurge/client`, typed by `@sitesurge/types`. The same

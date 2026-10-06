@@ -32,7 +32,7 @@ const lookup = promisify(dns.lookup,);
 
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_BYTES = 512 * 1024; // 512KB
-const USER_AGENT = 'SiteSurgeBot/1.0 (+link-preview)';
+const USER_AGENT = 'SurgeCMSBot/1.0 (+link-preview)';
 
 /**
  * True if `ip` is a private, loopback, link-local, or otherwise reserved

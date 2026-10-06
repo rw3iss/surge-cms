@@ -25,7 +25,7 @@ async function pf(ctx, method, path) {
     if (!c.apiToken) return { ok: false, status: 0, error: 'Set your Printify API token first.' };
     return ctx.httpJson(`${c.base}${path}`, {
         method,
-        headers: { Authorization: `Bearer ${c.apiToken}`, 'User-Agent': 'SiteSurge-CMS' },
+        headers: { Authorization: `Bearer ${c.apiToken}`, 'User-Agent': 'Surge CMS-CMS' },
     });
 }
 

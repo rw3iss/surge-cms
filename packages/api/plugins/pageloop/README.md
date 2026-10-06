@@ -1,7 +1,7 @@
 # PageLoop plugin
 
 Integrates [PageLoop](https://pageloop.dev) (commenting / annotation layer) into
-the SiteSurge public site via the Plugin system — the reference plugin.
+the Surge CMS public site via the Plugin system — the reference plugin.
 
 ## How it works
 

@@ -76,7 +76,7 @@ export function expandVariablePaths(flat: Record<string, unknown>,): Record<stri
  * Build the preview bag for a mail template from the variable catalog.
  *
  * `site.*` is deliberately EXCLUDED. The catalog's site entries are
- * placeholders ("SiteSurge", "https://example.com/logo.png"), and this bag
+ * placeholders ("Surge CMS", "https://example.com/logo.png"), and this bag
  * merges LAST in the runtime — so publishing them replaced the real site bag
  * built from live settings, and `{{site.logo}}` previewed as a 404ing
  * example.com URL instead of the actual logo.

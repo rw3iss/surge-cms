@@ -1,6 +1,6 @@
 name: Publish server image
 
-# Builds the SiteSurge server image and pushes it to GHCR so turnkey / compose
+# Builds the Surge CMS server image and pushes it to GHCR so turnkey / compose
 # users can pull a prebuilt image instead of building from source.
 on:
   release:

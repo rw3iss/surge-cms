@@ -2180,7 +2180,7 @@ export function describeVariables(): VariableDescriptor[] {
         { path: 'list.name',  description: 'Mailing list name.', sample: 'Weekly Newsletter' },
         { path: 'list.description', description: 'Mailing list description.', sample: '' },
         { path: 'list.slug',  description: 'Mailing list slug.', sample: 'newsletter' },
-        { path: 'site.name',  description: 'Site name.', sample: 'SiteSurge' },
+        { path: 'site.name',  description: 'Site name.', sample: 'Surge CMS' },
         { path: 'site.url',   description: 'Site URL.', sample: 'https://example.com' },
         { path: 'unsubscribe_url', description: 'One-click unsubscribe URL.', sample: 'https://example.com/u/sample-token' },
         { path: 'view_in_browser_url', description: 'Public archive URL. V1: empty.', sample: '' },

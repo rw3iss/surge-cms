@@ -1,7 +1,7 @@
 # Full npm Distribution — Package Design
 
 **Status:** Design / proposed (2026-07-13)
-**Goal:** Publish the complete SiteSurge package set so any consumer can build and run a site **on their own git repo via npm** (backend + admin + client), without cloning the monorepo — with a Docker image as a parallel turnkey artifact.
+**Goal:** Publish the complete Surge CMS package set so any consumer can build and run a site **on their own git repo via npm** (backend + admin + client), without cloning the monorepo — with a Docker image as a parallel turnkey artifact.
 
 **Supersedes the deferred "server on npm" item in** `2026-07-11-packaging-and-init-design.md`.
 

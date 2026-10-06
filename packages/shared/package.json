@@ -15,7 +15,7 @@
   "files": [
     "dist"
   ],
-  "description": "Shared TypeScript types, API DTOs, and utilities for the SiteSurge CMS.",
+  "description": "Shared TypeScript types, API DTOs, and utilities for the Surge CMS.",
   "license": "GPL-2.0-only",
   "repository": {
     "type": "git",

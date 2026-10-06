@@ -1,7 +1,7 @@
 # Plugin System — Design & Plan
 
 **Status:** Design / proposed (2026-07-13)
-**Goal:** A first-class **Plugins** system for SiteSurge CMS — modeled on the existing **Features** module system, but for open-ended, admin-installable, third-party extensions. Ships as a gated feature, adds an `/admin/plugins` section, supports install / enable / disable / uninstall / **update** lifecycle hooks, per-plugin custom config pages, a public-site widget mount, a (stubbed) marketplace + zip-upload flow, and full SDK + MCP integration. First demo plugin: **PageLoop** (re-integrating the commenting library that's currently hardcoded).
+**Goal:** A first-class **Plugins** system for Surge CMS — modeled on the existing **Features** module system, but for open-ended, admin-installable, third-party extensions. Ships as a gated feature, adds an `/admin/plugins` section, supports install / enable / disable / uninstall / **update** lifecycle hooks, per-plugin custom config pages, a public-site widget mount, a (stubbed) marketplace + zip-upload flow, and full SDK + MCP integration. First demo plugin: **PageLoop** (re-integrating the commenting library that's currently hardcoded).
 
 ---
 
@@ -40,7 +40,7 @@ plugins/
   "label": "PageLoop Comments",
   "description": "Drop-in commenting / annotation layer.",
   "version": "0.1.0",
-  "author": "SiteSurge",
+  "author": "Surge CMS",
   "homepage": "https://pageloop.dev",
   "apiVersion": 1,                            // plugin API contract version (host checks compatibility)
   "server": "server.js",                     // Node entry (optional)

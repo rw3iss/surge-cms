@@ -20,6 +20,26 @@ const STAT_LABEL_STYLE = {
     color: 'var(--admin-text-muted, #6b7280)',
 } as const;
 
+/** Long free-text answers are cut in the table (the full text is in the row's
+ *  View modal and the hover title) — one long answer otherwise became a tall,
+ *  narrow column that pushed every row off screen. */
+const CELL_MAX_CHARS = 150;
+
+function answerText(val: unknown,): string {
+    if (val == null || val === '') return '—';
+    return Array.isArray(val,) ? val.join(', ',) : String(val,);
+}
+
+function truncateCell(text: string,): string {
+    return text.length > CELL_MAX_CHARS ? `${text.slice(0, CELL_MAX_CHARS,).trimEnd()}…` : text;
+}
+
+/** Column header: the question minus a trailing "(Optional)", which only
+ *  widened the column. */
+function columnLabel(question: string,): string {
+    return String(question ?? '',).replace(/\s*\(optional\)\s*$/i, '',);
+}
+
 const FormSubmissions: Component = () => {
     const params = useParams();
 
@@ -261,7 +281,7 @@ const FormSubmissions: Component = () => {
                                 <th>#</th>
                                 <th>Submitted</th>
                                 <For each={form()?.questions || []}>
-                                    {(q: any,) => <th>{q.question}</th>}
+                                    {(q: any,) => <th title={q.question}>{columnLabel(q.question,)}</th>}
                                 </For>
                                 <th style={{ 'text-align': 'right', }}>Actions</th>
                             </tr>
@@ -280,10 +300,13 @@ const FormSubmissions: Component = () => {
                                         <For each={form()?.questions || []}>
                                             {(q: any,) => {
                                                 const answer = (sub.answers || []).find((a: any,) => a.questionId === q.id);
-                                                const val = answer?.value;
+                                                const full = answerText(answer?.value,);
                                                 return (
-                                                    <td style={{ 'font-size': '0.85rem', 'max-width': '200px', overflow: 'hidden', 'text-overflow': 'ellipsis', }}>
-                                                        {Array.isArray(val,) ? val.join(', ',) : String(val ?? '—',)}
+                                                    <td
+                                                        title={full.length > CELL_MAX_CHARS ? full : undefined}
+                                                        style={{ 'font-size': '0.85rem', 'max-width': '320px', 'vertical-align': 'top', }}
+                                                    >
+                                                        {truncateCell(full,)}
                                                     </td>
                                                 );
                                             }}

@@ -1,4 +1,4 @@
-# SiteSurge — Packaging, Distribution & Initialization Design
+# Surge CMS — Packaging, Distribution & Initialization Design
 
 Date: 2026-07-11
 Status: **Approved — implementing** (Phases 1–6 done; only Phase 7 remains)
@@ -31,7 +31,7 @@ Author: architecture pass
 
 ## 1. Goal
 
-Turn the working SiteSurge monorepo — today consumed by cloning the whole repo and
+Turn the working Surge CMS monorepo — today consumed by cloning the whole repo and
 pointing it at a different database (how the "RW" demo and Surge Media both run) —
 into a set of **properly distributable packages** so any web developer can:
 
@@ -58,7 +58,7 @@ better; the recommendation below keeps one repo.)
 | `packages/cms-mcp` | `@sitesurge/mcp` | MCP server (AI authoring) | **Yes** | `bin`, `files:[dist]`. `private:true`. |
 
 All cross-package deps are `file:` workspace links (pnpm). Scope `@rw/cms-*` is
-historical (CLAUDE.md already flags a rename to SiteSurge).
+historical (CLAUDE.md already flags a rename to Surge CMS).
 
 ### 2.2 Consumption model today
 
@@ -345,7 +345,7 @@ working throughout (they track the repo until they move out).
    `/backend`.
 3. **Sites' home**: one `sites/` repo for RW+Surge, or a repo each?
 4. **Turnkey public renderer**: keep shipping the built-in SolidJS public site as a
-   first-class feature (Mode A), or position SiteSurge as **headless-first** with
+   first-class feature (Mode A), or position Surge CMS as **headless-first** with
    the public SPA as an optional example? (Affects how much we invest in the
    built-in renderer vs the SDK/examples.)
 5. **Framework(s) for the scaffolder's headless starter**: Next, Astro, SolidStart?

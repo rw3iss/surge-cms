@@ -1,4 +1,4 @@
-# SiteSurge CMS documentation
+# Surge CMS documentation
 
 | Folder / file | What it holds |
 |---|---|

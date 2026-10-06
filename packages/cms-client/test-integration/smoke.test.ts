@@ -8,7 +8,7 @@
  *
  * Prerequisites (the run is skipped when SMOKE_API_KEY is unset, so CI with
  * no live server stays green):
- *   1. A SiteSurge API listening on http://localhost:3101.
+ *   1. A Surge CMS API listening on http://localhost:3101.
  *   2. An admin-scoped API key seeded in `api_keys`, its plaintext passed via
  *      the SMOKE_API_KEY env var.
  *

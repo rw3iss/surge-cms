@@ -1,4 +1,4 @@
-# Deploying SiteSurge
+# Deploying Surge CMS
 
 The **server** (`@sitesurge/server`, `packages/api`) is one Node process that
 serves the REST API, the SSR/public site, **and** the admin UI (bundled from
@@ -74,7 +74,7 @@ nginx for TLS. Example unit:
 ```ini
 # /etc/systemd/system/sitesurge.service
 [Unit]
-Description=SiteSurge server
+Description=Surge CMS server
 After=network.target postgresql.service
 Wants=postgresql.service
 

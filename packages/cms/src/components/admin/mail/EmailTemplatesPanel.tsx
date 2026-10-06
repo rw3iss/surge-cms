@@ -157,7 +157,7 @@ const EmailTemplatesPanel: Component<EmailTemplatesPanelProps> = (props,) => {
                                         <>
                                             <strong>Using the built-in default body.</strong>{' '}
                                             The editor below is empty, which is not a problem — it means
-                                            this email sends the layout that ships with SiteSurge (and
+                                            this email sends the layout that ships with Surge CMS (and
                                             picks up any later improvements to it). Add a block to write
                                             your own instead.
                                         </>

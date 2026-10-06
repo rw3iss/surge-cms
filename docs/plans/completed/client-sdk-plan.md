@@ -23,7 +23,7 @@ package lives at `packages/cms-client` (`@sitesurge/client`).
 ## Goal
 
 A typed TypeScript client (`@sitesurge/client`, scaffolded at `packages/cms-client`;
-renames with the SiteSurge cut) that mirrors the in-process `cms.*` service
+renames with the Surge CMS cut) that mirrors the in-process `cms.*` service
 shape over HTTP:
 
 ```ts
@@ -172,7 +172,7 @@ The scaffold lives at `packages/cms-client` (`@sitesurge/client`) with this layo
 `config/cms-client/tsconfig.json`:
 
 ```
-packages/cms-client/            # workspace package; separate repo possible after the SiteSurge rename
+packages/cms-client/            # workspace package; separate repo possible after the Surge CMS rename
 ├── src/
 │   ├── core/request.ts        # fetch wrapper: auth, refresh, errors, retries(?)
 │   ├── core/errors.ts         # typed exceptions from ErrorCode
@@ -186,7 +186,7 @@ packages/cms-client/            # workspace package; separate repo possible afte
 
 1. **Publish target:** monorepo workspace (`private: true`), npm-publish-ready
    structure (exports map, `files: ["dist"]`, dual ESM+CJS+.d.ts) — publish when
-   the SiteSurge rename lands.
+   the Surge CMS rename lands.
 2. **Hand-rolled vs codegen:** hand-rolled thin client. One `request()` core +
    26 per-module namespaces written against the DTOs. CI drift guard via
    `npm run check:drift -w packages/cms-client`.

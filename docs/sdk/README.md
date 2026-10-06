@@ -1,6 +1,6 @@
-# SiteSurge Headless SDK
+# Surge CMS Headless SDK
 
-`@sitesurge/client` is the typed HTTP client for the SiteSurge CMS — the single
+`@sitesurge/client` is the typed HTTP client for the Surge CMS — the single
 networking path used by the admin app and the recommended way to drive the CMS
 from any headless/external client.
 

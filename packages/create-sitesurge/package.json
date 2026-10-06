@@ -1,7 +1,7 @@
 {
   "name": "create-sitesurge",
   "version": "1.0.0",
-  "description": "Scaffold a new SiteSurge CMS project — `npm create sitesurge`.",
+  "description": "Scaffold a new Surge CMS project — `npm create sitesurge`.",
   "license": "GPL-2.0-only",
   "bin": {
     "create-sitesurge": "dist/index.js"

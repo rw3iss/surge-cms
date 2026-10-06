@@ -1,6 +1,6 @@
 # SEO Checklist
 
-A complete reference for every controllable SEO surface on a SiteSurge
+A complete reference for every controllable SEO surface on a Surge CMS
 page — meta tags, structured data, semantic HTML, performance, and
 operational concerns. Use it as a checklist to audit a route, a block,
 or the whole site.
@@ -149,7 +149,7 @@ all "Required" rows.
 | `<link rel="preload">` | when targeted | Resource priority | `<link rel="preload" as="image" href="/hero.jpg">` | Use sparingly for the LCP image / hero font. |
 | `<link rel="preconnect">` | when targeted | Open TCP early to a known origin | `<link rel="preconnect" href="https://cdn.example.com">` | One for each cross-origin you load critical assets from. |
 | `<link rel="dns-prefetch">` | optional | Cheaper than preconnect for non-critical | `<link rel="dns-prefetch" href="//analytics.example.com">` | — |
-| `<meta name="generator">` | optional | CMS attribution | `<meta name="generator" content="SiteSurge">` | Harmless; some operators prefer to omit for security obscurity. |
+| `<meta name="generator">` | optional | CMS attribution | `<meta name="generator" content="Surge CMS">` | Harmless; some operators prefer to omit for security obscurity. |
 | Search Console verification | per provider | Ownership proof | `<meta name="google-site-verification" content="...">` | Also available via DNS TXT or HTML file — pick one. |
 
 ---
@@ -168,7 +168,7 @@ all "Required" rows on every page that may be shared.
 | `og:image:alt` | recommended | Alt text for the OG image | `<meta property="og:image:alt" content="...">` | Mirrors `<img alt>` semantics. |
 | `og:url` | ✓ | Canonical URL of the page | absolute https URL | Match `<link rel="canonical">`. |
 | `og:type` | ✓ | Object type | `website`, `article`, `book`, `product`, `profile`, … | `article` for blog posts; `website` for everything else by default. |
-| `og:site_name` | ✓ | Site brand name | `<meta property="og:site_name" content="SiteSurge">` | Same on every page. |
+| `og:site_name` | ✓ | Site brand name | `<meta property="og:site_name" content="Surge CMS">` | Same on every page. |
 | `og:locale` | ✓ | Page locale | `en_US` | Use the format `xx_YY`. |
 | `og:locale:alternate` | when international | Alternate locales | `en_GB` | One per alternate. |
 | `article:published_time` | when `og:type=article` | ISO publish date | `2026-04-30T14:00:00Z` | RFC 3339 / ISO 8601. |
@@ -553,7 +553,7 @@ Rules:
 
 ## Implementation map (where each piece lives)
 
-For SiteSurge specifically — when you go through the checklist
+For Surge CMS specifically — when you go through the checklist
 against a real page, this is where to look.
 
 | Concern | Component / File |

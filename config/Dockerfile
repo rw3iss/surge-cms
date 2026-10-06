@@ -1,4 +1,4 @@
-# SiteSurge server image — API + SSR + bundled admin/public SPA.
+# Surge CMS server image — API + SSR + bundled admin/public SPA.
 # Multi-stage: build the whole workspace, then run the built server on `node`.
 # Build context is the repo root (see config/docker-compose.yml).
 #

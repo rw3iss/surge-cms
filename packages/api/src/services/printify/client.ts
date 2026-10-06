@@ -67,7 +67,7 @@ async function req<T = any>(
                 Authorization: `Bearer ${cfg.apiToken}`,
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-                'User-Agent': 'SiteSurge-CMS',
+                'User-Agent': 'Surge CMS-CMS',
             },
             body: body !== undefined ? JSON.stringify(body,) : undefined,
         },);

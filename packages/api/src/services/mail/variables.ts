@@ -144,7 +144,7 @@ export function describeVariables(): VariableDescriptor[] {
         { path: 'template.fromEmail',  description: 'From address.', sample: 'newsletter@example.com', },
         { path: 'template.replyTo',    description: 'Reply-To address.', sample: 'hello@example.com', },
         { path: 'template.wasModified', description: 'Blocks were edited after picking the template.', sample: false, },
-        { path: 'site.name',           description: 'Site name.', sample: 'SiteSurge', },
+        { path: 'site.name',           description: 'Site name.', sample: 'Surge CMS', },
         { path: 'site.url',            description: 'Site URL.', sample: 'https://example.com', },
         { path: 'site.logo',           description: 'Site logo image URL (Settings → Site Branding).', sample: 'https://example.com/logo.png', },
         { path: 'site.favicon',        description: 'Site favicon URL.', sample: 'https://example.com/favicon.ico', },

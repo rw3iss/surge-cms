@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-- **Project:** SiteSurge CMS (`@sitesurge/*` monorepo)
+- **Project:** Surge CMS (`@sitesurge/*` monorepo)
 - **Working directory:** `/home/rw3iss/Sites/rw/rw-cms`
 - **Scope:** the 98 commits since the last audit (`11901e24`, 2026-09-07) —
   278 files, +22,727/−978. The large features in that window: block border-radius

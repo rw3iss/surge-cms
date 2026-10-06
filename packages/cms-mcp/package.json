@@ -31,7 +31,7 @@
     "vitest": "^4.1.10"
   },
   "sideEffects": false,
-  "description": "Model Context Protocol server for authoring a SiteSurge CMS site with an AI agent.",
+  "description": "Model Context Protocol server for authoring a Surge CMS site with an AI agent.",
   "license": "GPL-2.0-only",
   "repository": {
     "type": "git",

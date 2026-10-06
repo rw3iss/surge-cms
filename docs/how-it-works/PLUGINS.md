@@ -1,6 +1,6 @@
 # Plugins
 
-SiteSurge supports **plugins** — admin-installable extensions that live in a
+Surge CMS supports **plugins** — admin-installable extensions that live in a
 backend `plugins/` directory, modeled on the [Features](../../CLAUDE.md) system but
 over an open, data-driven set. Design spec:
 `docs/plans/superpowers/specs/2026-07-13-plugin-system-design.md`.

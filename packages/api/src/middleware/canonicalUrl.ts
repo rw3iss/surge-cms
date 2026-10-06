@@ -11,7 +11,7 @@
  *
  * **`/index.html`** — `express.static` serves the SPA shell by its real
  * filename, ahead of the SSR renderer. So the homepage had a second crawlable
- * address that returned the UNRENDERED shell: title "SiteSurge", no canonical
+ * address that returned the UNRENDERED shell: title "Surge CMS", no canonical
  * tag, no content. Worse than a plain duplicate, because the copy Google might
  * have kept is the empty one.
  *

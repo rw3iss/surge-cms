@@ -86,7 +86,7 @@ describe('expandVariablePaths', () => {
  */
 
 const CATALOG = [
-    { path: 'site.name', sample: 'SiteSurge', },
+    { path: 'site.name', sample: 'Surge CMS', },
     { path: 'site.logo', sample: 'https://example.com/logo.png', },
     { path: 'site.url', sample: 'https://example.com', },
     { path: 'list.name', sample: 'Weekly Newsletter', },

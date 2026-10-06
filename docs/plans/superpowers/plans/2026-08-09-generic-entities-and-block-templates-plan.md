@@ -4,7 +4,7 @@
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps
 > use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn SiteSurge's bespoke, per-entity architecture into a **generic entity-type
+**Goal:** Turn Surge CMS's bespoke, per-entity architecture into a **generic entity-type
 system** (admin-definable types with per-type generated tables) plus a **content-block
 template layer** that renders any entity — one, many, or mixed — anywhere the block system
 is used (pages, posts, carousels), via the existing `{{ }}` engine.

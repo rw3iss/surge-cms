@@ -1,6 +1,6 @@
-# Publishing & updating SiteSurge
+# Publishing & updating Surge CMS
 
-SiteSurge has **one version — the CMS version** — carried by every published package:
+Surge CMS has **one version — the CMS version** — carried by every published package:
 
 | Package | Directory | What it is |
 |---|---|---|

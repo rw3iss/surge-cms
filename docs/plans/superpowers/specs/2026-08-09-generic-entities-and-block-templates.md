@@ -5,7 +5,7 @@ written from this document. A thorough implementation plan will follow, after th
 user sends further specifications.
 
 **Date:** 2026-08-09
-**Scope:** Understand the current SiteSurge system deeply, then lay out the target
+**Scope:** Understand the current Surge CMS system deeply, then lay out the target
 architecture for (1) a **fully generic entity-type system** with **per-type generated
 tables**, (2) the **core entities rebuilt on top of it** as protected/extensible
 "internal" types, and (3) a **content-block templating layer** bound to entity types

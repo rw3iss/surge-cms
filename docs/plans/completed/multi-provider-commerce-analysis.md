@@ -1,6 +1,6 @@
 # Multi-Provider Commerce — Payments & Fulfillment Analysis
 
-> Scope: can SiteSurge run **Printify + Shopify + Squarespace** simultaneously, pull
+> Scope: can Surge CMS run **Printify + Shopify + Squarespace** simultaneously, pull
 > catalogs from all three, and let a buyer check out and be fulfilled by each?
 > This document answers the payment/fulfillment feasibility question **before** any
 > Squarespace plugin is designed. It does not build the plugin.

@@ -45,7 +45,7 @@ export const HEADLESS_DOC: SdkDoc = {
     path: '/admin/help/sdk',
     title: 'Headless usage',
     lead:
-        'SiteSurge ships an admin UI, but every one of its routes is a plain JSON API. '
+        'Surge CMS ships an admin UI, but every one of its routes is a plain JSON API. '
         + '"Headless" is not a switch you flip — it is what you get when you stop using the '
         + 'bundled SPA and talk to the API yourself.',
     sections: [

@@ -1,6 +1,6 @@
-# Using SiteSurge headlessly
+# Using Surge CMS headlessly
 
-SiteSurge is a normal CMS with an admin UI, but every one of its ~234 routes is
+Surge CMS is a normal CMS with an admin UI, but every one of its ~234 routes is
 a plain JSON API. "Headless mode" is not a switch you flip — it is what you get
 when you stop using the bundled SPA and talk to the API yourself.
 

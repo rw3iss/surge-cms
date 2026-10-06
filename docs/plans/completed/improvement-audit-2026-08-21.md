@@ -5,7 +5,7 @@ today. Reviewed with fresh eyes against the codebase's existing conventions.
 
 ## 1. Summary
 
-- **Project:** SiteSurge CMS (`surge-cms`) — pnpm monorepo, Express + PostgreSQL,
+- **Project:** Surge CMS (`surge-cms`) — pnpm monorepo, Express + PostgreSQL,
   SolidJS + Vite, SCSS with design tokens.
 - **Working directory:** `/home/rw3iss/Sites/rw/rw-cms`
 - **Total findings: 9** (UI: 3, styling: 2, architecture: 4) — one uncovered *during* the pass.

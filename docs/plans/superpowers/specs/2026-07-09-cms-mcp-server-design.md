@@ -1,4 +1,4 @@
-# SiteSurge CMS — MCP Server Design & Implementation Plan
+# Surge CMS — MCP Server Design & Implementation Plan
 
 Date: 2026-07-09
 Status: Approved (design) → In implementation
@@ -6,7 +6,7 @@ Status: Approved (design) → In implementation
 ## Goal
 
 Ship `@sitesurge/mcp` — a Model Context Protocol server that exposes the **entire**
-SiteSurge CMS authoring surface as MCP tools, so an AI agent (Claude) can design
+Surge CMS authoring surface as MCP tools, so an AI agent (Claude) can design
 and build a complete site: pages, posts, every content-block type (and the
 content inside them), block styles + shared style templates, appearance
 (colors/swatches/fonts/layout), the site header, the site footer, navigation,

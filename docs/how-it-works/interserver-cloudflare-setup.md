@@ -1,4 +1,4 @@
-# SiteSurge on a single InterServer VPS + Cloudflare — setup guide
+# Surge CMS on a single InterServer VPS + Cloudflare — setup guide
 
 > Target: one InterServer VPS running the whole stack (Surge CMS + PostgreSQL +
 > Redis + nginx), Cloudflare in front for CDN / edge-cache / TLS / DDoS, and
@@ -161,7 +161,7 @@ Then a systemd unit — `/etc/systemd/system/surge.service`:
 
 ```ini
 [Unit]
-Description=Surge Media (SiteSurge CMS) — API + SPA + admin
+Description=Surge Media (Surge CMS) — API + SPA + admin
 After=network.target postgresql.service redis-server.service
 
 [Service]

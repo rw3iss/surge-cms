@@ -6,7 +6,7 @@ Status: Approved
 ## Goal
 
 Implement `@sitesurge/client` in full: a typed, framework-agnostic, zero-runtime-
-dependency TypeScript client that exposes EVERY API ability of the SiteSurge
+dependency TypeScript client that exposes EVERY API ability of the Surge CMS
 backend through per-module namespaces, with production features — token
 lifecycle with auto-load on refresh, an SWR client-side cache over a pluggable
 storage adapter, standardized request/error handling, and consumer error

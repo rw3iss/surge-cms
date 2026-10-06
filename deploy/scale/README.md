@@ -1,6 +1,6 @@
-# Scale — the SiteSurge CMS demo install (scale.surgemedia.us)
+# Scale — the Surge CMS demo install (scale.surgemedia.us)
 
-**Scale** is the platform/company name for client sites built on SiteSurge CMS.
+**Scale** is the platform/company name for client sites built on Surge CMS.
 `https://scale.surgemedia.us` is its landing page: a working CMS install that
 demos the CMS and markets it as a platform to build on. It runs on the
 surgemedia.us box, **beside** production, sharing nothing but the machine and

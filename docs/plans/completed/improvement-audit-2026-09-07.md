@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-- **Project:** SiteSurge CMS (`@sitesurge/*` monorepo)
+- **Project:** Surge CMS (`@sitesurge/*` monorepo)
 - **Working directory:** `/home/rw3iss/Sites/rw/rw-cms`
 - **Scope:** the 19 commits shipped today — cascade-layer block styles, Components
   (global block templates + `template` block + component JS), Save as Component,

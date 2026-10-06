@@ -1,4 +1,4 @@
-# Turnkey SiteSurge stack — Postgres + Redis + the server (API + admin + public
+# Turnkey Surge CMS stack — Postgres + Redis + the server (API + admin + public
 # SPA). One command:  docker compose -f config/docker-compose.yml up -d
 # Then open http://localhost:3001/setup (first run) to create the admin + schema.
 #

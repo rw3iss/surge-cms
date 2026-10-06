@@ -46,7 +46,7 @@ const AdminHelp: Component = () => (
             <h1>Help &amp; Documentation</h1>
         </div>
         <p class="form-help-muted admin-help__intro">
-            Reference documentation for this SiteSurge CMS site.
+            Reference documentation for this Surge CMS site.
         </p>
         <div class="admin-help__topics">
             <For each={TOPICS}>

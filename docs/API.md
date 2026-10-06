@@ -5,7 +5,7 @@
 > Generated at: 2026-09-30T08:17:27.228Z
 > Modules: 42 · Routes: 402
 
-SiteSurge exposes a full REST surface under `/api/v1`. External clients
+Surge CMS exposes a full REST surface under `/api/v1`. External clients
 (servers, scripts, the bundled SPA) all talk to the same endpoints. This
 document is generated from the live route manifest, so it never drifts
 from the running server.

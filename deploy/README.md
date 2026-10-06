@@ -1,6 +1,6 @@
 # Surge Media — demo deployment
 
-Deploys this project to **https://surge.ryanweiss.net** (a demo of the SiteSurge
+Deploys this project to **https://surge.ryanweiss.net** (a demo of the Surge CMS
 CMS). This tree is currently the same repo as the CMS; when the Surge site gets
 its own repo, move `deploy/` there.
 
@@ -16,7 +16,7 @@ its own repo, move `deploy/` there.
 | Web        | nginx → proxies `:3001`, TLS via Let's Encrypt (webroot, auto-renews) |
 | DNS        | `surge.ryanweiss.net` → Cloudflare (proxied) → origin |
 
-**Also on this box: Scale** — the SiteSurge demo/marketing install at
+**Also on this box: Scale** — the Surge CMS demo/marketing install at
 `https://scale.surgemedia.us` (npm install in `/var/www/scale`, `scale.service`
 on :3010, DB `scale`). See [`scale/README.md`](scale/README.md).
 

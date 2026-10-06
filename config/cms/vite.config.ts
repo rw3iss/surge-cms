@@ -42,9 +42,9 @@ export default defineConfig(({ mode }) => {
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
       manifest: {
-        name: 'SiteSurge',
-        short_name: 'SiteSurge',
-        description: 'A SiteSurge CMS site',
+        name: 'Surge CMS',
+        short_name: 'Surge CMS',
+        description: 'A Surge CMS site',
         theme_color: '#3498cf',
         background_color: '#ffffff',
         display: 'standalone',

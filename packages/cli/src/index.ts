@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `sitesurge` — the SiteSurge CMS operations CLI.
+ * `sitesurge` — the Surge CMS operations CLI.
  *
  * A thin front-end over @sitesurge/server: the same installer the visual `/setup`
  * wizard uses, plus migrate/seed/doctor/start. Interactive by default; fully
@@ -79,7 +79,7 @@ function inputFromEnv(): InstallInput {
 
 // ─── Gather InstallInput interactively ──
 async function inputInteractive(): Promise<InstallInput> {
-    console.log('\nSiteSurge setup — a few questions to initialize your instance.\n',);
+    console.log('\nSurge CMS setup — a few questions to initialize your instance.\n',);
     const onCancel = () => { fail('Cancelled.',); process.exit(1,); };
 
     const g = await prompts([
@@ -125,12 +125,12 @@ async function inputInteractive(): Promise<InstallInput> {
 const program = new Command();
 program
     .name('sitesurge')
-    .description('SiteSurge CMS — setup & operations CLI')
+    .description('Surge CMS — setup & operations CLI')
     .version('0.1.0');
 
 program
     .command('setup')
-    .description('Initialize a SiteSurge instance: connect DB, run migrations, seed, create admin, write .env')
+    .description('Initialize a Surge CMS instance: connect DB, run migrations, seed, create admin, write .env')
     .option('--config <file>', 'JSON file with the full install input (non-interactive)')
     .option('--from-env', 'Build the install input from environment variables (non-interactive)')
     .option('--env-path <path>', 'Where to write the generated .env (default: ./.env)')
@@ -224,7 +224,7 @@ program
 
 program
     .command('start')
-    .description('Start the SiteSurge server (equivalent to `node dist/index.js`)')
+    .description('Start the Surge CMS server (equivalent to `node dist/index.js`)')
     .action(async () => {
         await startServer();
     },);

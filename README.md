@@ -1,8 +1,8 @@
-# SiteSurge
+# Surge CMS
 
 **A simple, feature-rich, block-based CMS for building any kind of website.**
 
-SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, customizable content platform — pages, posts, campaigns, forms, users, media, and a live block-based editor with deep style customization. SolidJS frontend, Express + PostgreSQL backend, fully typed shared SDK.
+Surge CMS is a self-hosted, customizable content platform — pages, posts, campaigns, forms, users, media, and a live block-based editor with deep style customization. SolidJS frontend, Express + PostgreSQL backend, fully typed shared SDK.
 
 > Status: actively developed. First-run setup wizard handles install end-to-end.
 
@@ -33,7 +33,7 @@ SiteSurge (a.k.a. SiteSurge CMS) is a self-hosted, customizable content platform
 
 ## Getting Started
 
-SiteSurge ships as installable packages under the **`@sitesurge`** scope. The
+Surge CMS ships as installable packages under the **`@sitesurge`** scope. The
 **server** (`@sitesurge/server`) serves the REST API, the public site, **and** the
 admin UI in one process; the **client** (`@sitesurge/client`) + **types**
 (`@sitesurge/types`) let any frontend consume it. Pick a path:
@@ -106,7 +106,7 @@ CMS_BASE_URL=http://localhost:3001 CMS_API_KEY=ssk_… npx @sitesurge/mcp
 ```
 See [`docs/how-it-works/MCP.md`](docs/how-it-works/MCP.md).
 
-### Contributing to SiteSurge itself
+### Contributing to Surge CMS itself
 
 ```bash
 git clone https://github.com/rw3iss/surge-cms && cd surge-cms
@@ -253,7 +253,7 @@ Visual editors for the site chrome.
 <summary><strong>Appearance & global styles</strong></summary>
 
 - **Site color swatches** — name your brand colors once; reference them anywhere as `swatch:{id}`. Usage counts shown per swatch.
-- **Custom fonts** — upload `.woff2` / `.ttf`; SiteSurge injects `@font-face` declarations on the public site. Use as `font-family: '<customId>'`.
+- **Custom fonts** — upload `.woff2` / `.ttf`; Surge CMS injects `@font-face` declarations on the public site. Use as `font-family: '<customId>'`.
 - **Block-style templates** — save reusable per-block style presets (padding, colors, typography). Default style auto-applies to new blocks.
 - **Site branding** — logo, tagline, header/footer config, color tokens, JSON-LD.
 </details>
@@ -523,7 +523,7 @@ npm run docker:build      # … build
 
 ## Headless Mode
 
-SiteSurge is API-first. The same REST surface that powers the bundled SPA is
+Surge CMS is API-first. The same REST surface that powers the bundled SPA is
 available to external clients — other servers, scripts, mobile apps, or a
 typed SDK. Every endpoint lives under `/api/v1` and responds in a single
 envelope:

@@ -19,7 +19,7 @@ implementation is the next project); (4) update README/CLAUDE.md.
    `packages/cms` = `@sitesurge/admin` (was frontend), `packages/shared` =
    `@sitesurge/types` (was @rw/shared), `packages/cms-client` =
    `@sitesurge/client` (new). The `@rw` scope persists until the future
-   SiteSurge rename.
+   Surge CMS rename.
 2. **Config layout:** root `./config` with per-package subdirs
    (`config/api/`, `config/cms/`, `config/shared/`, `config/cms-client/`);
    repo-wide configs (docker/nginx/etc, if present) at `./config` root.
@@ -119,7 +119,7 @@ rw-cms/
 ## Out of scope (YAGNI)
 
 - No cms-client implementation (next project).
-- No SiteSurge rename (future cut).
+- No Surge CMS rename (future cut).
 - No splitting packages into separate repos.
 - No new tooling (oxlint etc.) — relocate only what exists.
 

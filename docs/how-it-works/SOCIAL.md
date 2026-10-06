@@ -1,6 +1,6 @@
 # Social feed & publishing
 
-SiteSurge displays your social posts with a **capture-first, render-locally**
+Surge CMS displays your social posts with a **capture-first, render-locally**
 model: post ids enter the local `social_posts` cache, and each post is rendered
 server-side into a native card (no third-party scripts). This avoids scraping
 and the paywalled read-timeline APIs for the default path.

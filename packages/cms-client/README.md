@@ -1,11 +1,11 @@
 # @sitesurge/client
 
-The headless, typed TypeScript client for any SiteSurge CMS backend — one
+The headless, typed TypeScript client for any Surge CMS backend — one
 `cms.*` namespace surface over HTTP, with token lifecycle, an SWR cache, typed
 errors, and optional SolidJS bindings. Zero runtime dependencies; works in
 Node ≥ 18 and modern browsers.
 
-**Doctrine:** all client-side API requests for SiteSurge route through this
+**Doctrine:** all client-side API requests for Surge CMS route through this
 package — `@sitesurge/admin`, external apps, and Node/agent scripts alike.
 
 ## Install

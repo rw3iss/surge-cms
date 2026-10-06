@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-- **Project:** SiteSurge CMS (`@sitesurge/*` monorepo — `shared`/`api`/`cms`/`cms-client`/`cms-mcp`)
+- **Project:** Surge CMS (`@sitesurge/*` monorepo — `shared`/`api`/`cms`/`cms-client`/`cms-mcp`)
 - **Working directory:** `/home/rw3iss/Sites/rw/rw-cms`
 - **Scope of this pass:** DRY / reuse / SOLID + UI consistency + styling-token unification, per the `/improve` directive. Read-only audit → low-risk Phase A auto-applied (build-verified) → Phase B presented for approval → Phase C planned.
 - **Conventions respected** (from `CLAUDE.md` + `ADMIN_STYLES.md`): the `defineRoute`/`registerModule` manifest framework, "services own logic / repositories own SQL", the `CACHE_KEYS` cache-key contract (no raw `cache.del` outside `cache.ts`), DTOs live in `@sitesurge/types`, `mapRow` snake→camel, `FormField` for admin fields, `$*`/`--site-*`/`--admin-*` design tokens, and the known dprint drift caveat (format only touched files).

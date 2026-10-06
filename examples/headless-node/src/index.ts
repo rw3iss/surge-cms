@@ -1,5 +1,5 @@
 /**
- * Minimal headless SiteSurge consumer.
+ * Minimal headless Surge CMS consumer.
  *
  *   CMS_URL=https://cms.example.com CMS_KEY=ssk_… npm start
  *

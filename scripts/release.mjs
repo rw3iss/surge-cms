@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Publish a new SiteSurge CMS version — one command.
+ * Publish a new Surge CMS version — one command.
  *
  *   pnpm release 1.2.0            # or: patch | minor | major
  *   pnpm release 1.2.0 --dry-run  # everything except publish + push
@@ -117,7 +117,7 @@ if (['patch', 'minor', 'major',].includes(requested,)) {
 if (!semver(version,)) fail(`"${requested}" is not a version (x.y.z) or patch|minor|major.`,);
 const TAG = `v${version}`;
 
-console.log(`${c.b('SiteSurge CMS release',)}  ${current} → ${c.g(version,)}  ${DRY ? c.y('(dry run)',) : ''}`,);
+console.log(`${c.b('Surge CMS release',)}  ${current} → ${c.g(version,)}  ${DRY ? c.y('(dry run)',) : ''}`,);
 
 // ── 1. preflight ──
 step(1, 'Preflight',);
@@ -171,7 +171,7 @@ function releaseNotes() {
         prev,
         count: subjects.length,
         body: [
-            `SiteSurge CMS ${version}.`,
+            `Surge CMS ${version}.`,
             '',
             '**Update an installation:** Settings → Admin → CMS Version → **Check for update**, then **Update & restart** (npm installs). From source: pull this tag and rebuild. See docs/how-it-works/PUBLISHING.md.',
             '',
@@ -213,7 +213,7 @@ if (!resuming) {
 
     const indexFile = path.join(ROOT, 'releases.json',);
     const index = existsSync(indexFile,) ? readJson(indexFile,) : { releases: [], };
-    index.$comment = 'SiteSurge CMS version index — written by `pnpm release`. npm (@sitesurge/server "latest") is what installs update from; this file and the GitHub Releases are the record.';
+    index.$comment = 'Surge CMS version index — written by `pnpm release`. npm (@sitesurge/server "latest") is what installs update from; this file and the GitHub Releases are the record.';
     index.repository = `https://github.com/${REPO}`;
     index.npm = PRIMARY;
     index.latest = version;
@@ -238,7 +238,7 @@ if (!resuming) {
     } else {
         run('git', ['add', '-A', 'package.json', 'packages', 'CHANGELOG.md', 'releases.json',],);
         run('git', ['commit', '-m', `release: ${TAG}`, '--no-verify',],);
-        run('git', ['tag', '-a', TAG, '-m', `SiteSurge CMS ${version}`,],);
+        run('git', ['tag', '-a', TAG, '-m', `Surge CMS ${version}`,],);
     }
 }
 
@@ -283,7 +283,7 @@ if (exists.ok) {
     console.log('  release already exists — uploading any missing assets.',);
     run('gh', ['release', 'upload', TAG, '-R', REPO, '--clobber', ...tarballs,],);
 } else {
-    run('gh', ['release', 'create', TAG, '-R', REPO, '--title', `SiteSurge CMS ${version}`, '--notes-file', notesFile, '--latest', ...tarballs,],);
+    run('gh', ['release', 'create', TAG, '-R', REPO, '--title', `Surge CMS ${version}`, '--notes-file', notesFile, '--latest', ...tarballs,],);
 }
 
 console.log(`\n${c.g('✓',)} Released ${c.b(TAG,)}`,);

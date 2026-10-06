@@ -1,6 +1,6 @@
 # Shop (Ecommerce) Feature
 
-The `shop` feature adds a native, self-hosted ecommerce store to SiteSurge:
+The `shop` feature adds a native, self-hosted ecommerce store to Surge CMS:
 a product catalog with variants and media, categories/collections/tags,
 moderated reviews, on-site Stripe checkout (guest or logged-in), orders with
 fulfillment and digital delivery, and a configurable storefront.

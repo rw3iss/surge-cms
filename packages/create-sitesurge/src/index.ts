@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `npm create sitesurge` — scaffold a new SiteSurge CMS project.
+ * `npm create sitesurge` — scaffold a new Surge CMS project.
  *
  * Generates one of:
  *   (default)   turnkey Docker Compose project (Postgres + Redis + server image)
@@ -38,7 +38,7 @@ const write = (dir: string, rel: string, content: string,) => {
     writeFileSync(p, content,);
 };
 
-const COMPOSE = `# Turnkey SiteSurge stack. First run:  docker compose up -d
+const COMPOSE = `# Turnkey Surge CMS stack. First run:  docker compose up -d
 # then open http://localhost:3001/setup  (or: docker compose exec server sitesurge setup --from-env)
 name: __NAME__
 
@@ -81,7 +81,7 @@ services:
 volumes: { postgres_data: {}, redis_data: {}, uploads: {}, data: {} }
 `;
 
-const ENV = `# SiteSurge — turnkey config. CHANGE JWT_SECRET stays secret.
+const ENV = `# Surge CMS — turnkey config. CHANGE JWT_SECRET stays secret.
 NODE_ENV=production
 PORT=3001
 DB_NAME=__NAME__
@@ -101,7 +101,7 @@ const GITIGNORE = `.env\nnode_modules\ndist\n`;
 const README = (name: string,) =>
     `# ${name}
 
-A [SiteSurge CMS](https://github.com/rw3iss/surge-cms) site.
+A [Surge CMS](https://github.com/rw3iss/surge-cms) site.
 
 ## Run (Docker, turnkey)
 
@@ -121,7 +121,7 @@ Config lives in \`.env\` — **keep \`JWT_SECRET\` secret**.
 
 ## Prefer native (no Docker)?
 
-Run the server on any host with Node + Postgres — see the SiteSurge
+Run the server on any host with Node + Postgres — see the Surge CMS
 \`docs/how-it-works/DEPLOYMENT.md\` (systemd + \`node dist\`), and \`sitesurge setup\`.
 ${headless
         ? `
@@ -162,7 +162,7 @@ const NODE_PKG = `{
 }
 `;
 
-const NODE_INDEX = `// Your SiteSurge server (API + public site + admin) — booted from npm.
+const NODE_INDEX = `// Your Surge CMS server (API + public site + admin) — booted from npm.
 //
 // Extend it with your own routes instead of the one-liner below:
 //
@@ -175,7 +175,7 @@ const { startServer } = require('@sitesurge/server');
 startServer();
 `;
 
-const NODE_ENV = `# SiteSurge (native / npm) config. Keep JWT_SECRET secret.
+const NODE_ENV = `# Surge CMS (native / npm) config. Keep JWT_SECRET secret.
 NODE_ENV=production
 PORT=3001
 DATABASE_URL=postgresql://__NAME__:__DBPASS__@localhost:5432/__NAME__
@@ -192,7 +192,7 @@ ADMIN_PASSWORD=__ADMINPASS__
 const NODE_README = (name: string,) =>
     `# ${name}
 
-A [SiteSurge CMS](https://github.com/rw3iss/surge-cms) site — the server runs
+A [Surge CMS](https://github.com/rw3iss/surge-cms) site — the server runs
 from the \`@sitesurge/server\` npm package (no CMS source in this repo).
 
 ## Run
@@ -212,7 +212,7 @@ via \`createApp()\`. Upgrade the CMS by bumping \`@sitesurge/server\` +
 `;
 const HEADLESS_SRC = `import { createClient } from '@sitesurge/client';
 
-// Point at your running SiteSurge server; issue a key in admin → Settings → API Keys.
+// Point at your running Surge CMS server; issue a key in admin → Settings → API Keys.
 const cms = createClient({
   baseUrl: process.env.CMS_URL ?? 'http://localhost:3001',
   auth: process.env.CMS_KEY ? { apiKey: process.env.CMS_KEY } : { mode: 'cookie' },
@@ -223,7 +223,7 @@ for (const p of posts) console.log('-', p.title);
 `;
 
 async function main() {
-    console.log('\\n  create-sitesurge — new SiteSurge project\\n',);
+    console.log('\\n  create-sitesurge — new Surge CMS project\\n',);
     if (!target) target = await ask('Project directory', 'my-sitesurge-site',);
     const dir = path.resolve(process.cwd(), target,);
     const name = path.basename(dir,).toLowerCase().replace(/[^a-z0-9-]/g, '-',) || 'sitesurge';

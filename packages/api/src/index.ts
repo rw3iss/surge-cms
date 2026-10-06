@@ -1,5 +1,5 @@
 /**
- * Runnable entry for the SiteSurge server (`node dist/index.js`).
+ * Runnable entry for the Surge CMS server (`node dist/index.js`).
  *
  * Used by the systemd unit, the Docker image, and `pnpm start`. It's a thin
  * wrapper — all boot logic + the embeddable API live in `./lib`

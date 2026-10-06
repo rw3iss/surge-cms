@@ -1,13 +1,13 @@
 # @sitesurge/types
 
-Shared TypeScript types, API DTOs, and utilities for the [SiteSurge CMS](https://github.com/rw3iss/surge-cms).
+Shared TypeScript types, API DTOs, and utilities for the [Surge CMS](https://github.com/rw3iss/surge-cms).
 
-The single source of truth for the SiteSurge wire contract: entity types
+The single source of truth for the Surge CMS wire contract: entity types
 (`Page`, `Post`, `Block`, `Campaign`, `Form`, `User`, …) and per-module
 request/response DTOs (`packages/shared/src/api/routes/<module>.ts`), plus small
 format/validation helpers. The backend binds its zod schemas to these DTOs, so a
 mismatch is a compile error — which means **you can build a fully-typed custom
-client** against the SiteSurge REST API using only this package.
+client** against the Surge CMS REST API using only this package.
 
 ```bash
 npm i @sitesurge/types

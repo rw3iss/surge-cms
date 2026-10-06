@@ -1,7 +1,7 @@
 /**
  * Public programmatic API for `@sitesurge/server`.
  *
- * Embed the SiteSurge backend in your own Node app:
+ * Embed the Surge CMS backend in your own Node app:
  *
  *   import { createApp, startServer, runMigrations } from '@sitesurge/server';
  *
@@ -203,7 +203,7 @@ async function bootRunningMode(
 }
 
 /**
- * Boot the SiteSurge server: load config, decide setup-vs-running mode, warm up
+ * Boot the Surge CMS server: load config, decide setup-vs-running mode, warm up
  * dependencies, listen, and install graceful-shutdown handlers. Resolves with
  * the underlying `http.Server`. Tolerant by design — a fresh/misconfigured
  * instance still starts (in 'setup' mode) so the wizard is reachable at /setup.

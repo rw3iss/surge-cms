@@ -1,6 +1,6 @@
 # @sitesurge/client — Overview
 
-`@sitesurge/client` is the **headless TypeScript client** for any SiteSurge /
+`@sitesurge/client` is the **headless TypeScript client** for any Surge CMS /
 hosted CMS backend. It mirrors the backend's in-process `cms.*` service
 aggregate over HTTP through per-module namespaces (`cms.posts`, `cms.pages`,
 `cms.settings`, …), typed end-to-end against the DTOs in `@sitesurge/types`.
@@ -10,7 +10,7 @@ aggregate over HTTP through per-module namespaces (`cms.posts`, `cms.pages`,
 - **`@sitesurge/admin`** — our own SolidJS SPA (an optional `./solid` adapter ships
   reactive resources for it). **Used in production by `@sitesurge/admin` (cookie
   mode)** — the SPA routes every backend call through this client.
-- **External apps** — any browser or server app that talks to a SiteSurge
+- **External apps** — any browser or server app that talks to a Surge CMS
   instance gets the same typed surface.
 - **Node / agent scripts** — works in Node ≥ 18 (inject a `fetch` for older).
 
@@ -20,7 +20,7 @@ auto-load on page refresh, an SWR client cache over a pluggable storage
 adapter, a typed error hierarchy with a consumer error bus, GET auto-retry, and
 opt-in SolidJS bindings.
 
-**Doctrine:** all client-side API requests for SiteSurge route through this
+**Doctrine:** all client-side API requests for Surge CMS route through this
 package — do not hand-roll `fetch` against the API.
 
 ---

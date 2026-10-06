@@ -1,7 +1,7 @@
 # PageLoop — deficiencies for a clean plugin-style integration
 
 Found while building the **PageLoop plugin** (`packages/api/plugins/pageloop/`) for
-the SiteSurge plugin system. These are changes to **PageLoop itself** that would
+the Surge CMS plugin system. These are changes to **PageLoop itself** that would
 make a dynamic-install, host-embedded, per-tenant-configured integration coherent
 and enterprise-grade. None block the plugin today (we worked around each), but
 addressing them would remove the workarounds.
