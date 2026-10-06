@@ -32,6 +32,7 @@ import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
 import { initBackupCron, } from './services/backup/cron';
 import { initMailScheduleCron, } from './services/mail/scheduleCron';
+import { initEventReminderCron, } from './services/events/reminderCron';
 import { initSocialCrons, } from './services/socialCrons';
 import { logger, } from './utils/logger';
 import { assertNoCycles, } from './features/registry';
@@ -152,6 +153,8 @@ async function bootRunningMode(
         initBackupCron();
         // Sweeps due mailing-list schedules. No-ops when the feature is off.
         initMailScheduleCron();
+        // Event reminders. No-ops when the events feature is off.
+        initEventReminderCron();
         initPrintifyCron();
         cronRegistry.startAll();
         logger.info(

@@ -403,9 +403,20 @@ export async function invalidateShopSettingsCache(): Promise<void> {
 /** Read-and-delete the transient OAuth CSRF state (get already JSON-parses). */
 export async function consumeOAuthState<T,>(state: string,): Promise<T | null> {
     const key = CACHE_KEYS.oauthState(state,);
-    const payload = await get<T>(key,);
-    await del(key,);
-    return payload;
+    try {
+        // ONE atomic GETDEL: with GET-then-DEL two callbacks racing on the same
+        // state (or two instances) could both read it before either deleted it.
+        const raw = await getRedis().getdel(key,);
+        if (raw == null) return null;
+        try {
+            return JSON.parse(raw,) as T;
+        } catch {
+            return raw as unknown as T;
+        }
+    } catch (error) {
+        logger.error('OAuth state consume failed', { key, error, },);
+        return null;
+    }
 }
 
 export async function flushAll(): Promise<void> {

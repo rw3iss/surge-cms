@@ -49,6 +49,7 @@ import { isFeatureEnabledServer, } from '../services/settings';
 import * as usersService from '../services/users';
 import * as contactsService from '../services/contacts';
 import { avatarUpload, } from './users';
+import * as cache from '../services/cache';
 import { logger, } from '../utils/logger';
 
 // ─── Schemas ──────────────────────────────────────────────────────
@@ -170,14 +171,25 @@ const loginLimiter = rateLimit({
 
 // ─── Routes ───────────────────────────────────────────────────────
 
+/** Marks an OAuth state issued for Patreon LOGIN (social connections share the key space). */
+const PATREON_LOGIN_STATE = 'patreon_login';
+
 export const authRoutes = [
 
     defineRoute({
-        method: 'get', path: '/patreon', auth: 'public',
-        summary: 'Generate a Patreon OAuth authorization URL + state.',
-        handler: () => {
+        method: 'get', path: '/patreon', auth: 'public', raw: true,
+        summary: 'Start Patreon OAuth: a browser is redirected to Patreon; a JSON client gets { authUrl, state }.',
+        handler: async ({ req, res, },) => {
+            // The state is stored server-side (Redis, so any instance can check
+            // it) and the callback refuses one it did not issue — the OAuth CSRF
+            // guard. It was generated before but never verified.
             const state = generateState();
-            return { authUrl: getPatreonAuthUrl(state,), state, };
+            await cache.set(cache.CACHE_KEYS.oauthState(state,), { kind: PATREON_LOGIN_STATE, }, 600,);
+            const authUrl = getPatreonAuthUrl(state,);
+            // The login button navigates here, so a browser must be sent on to
+            // Patreon (it used to get this JSON as a page); the SDK asks for JSON.
+            if (req.accepts(['html', 'json',],) === 'html') return res.redirect(authUrl,);
+            res.json({ success: true, data: { authUrl, state, }, },);
         },
     },),
 
@@ -195,6 +207,14 @@ export const authRoutes = [
 
                 if (!code || typeof code !== 'string') {
                     return res.redirect(`${config.frontendUrl}/login?error=no_code`,);
+                }
+
+                const issued = typeof state === 'string'
+                    ? await cache.consumeOAuthState<{ kind?: string; }>(state,)
+                    : null;
+                if (issued?.kind !== PATREON_LOGIN_STATE) {
+                    logger.warn('Patreon callback with an unknown or expired state',);
+                    return res.redirect(`${config.frontendUrl}/login?error=auth_failed`,);
                 }
 
                 const ipAddress = clientIp(req.headers, req.ip,);
