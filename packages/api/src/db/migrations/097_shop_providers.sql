@@ -77,13 +77,22 @@ CREATE INDEX IF NOT EXISTS idx_shop_products_design
 -- Carry the live Printify credentials across from the plugin system so the
 -- integration keeps working through the deploy. Idempotent: re-running never
 -- overwrites a config the operator has since edited here.
-INSERT INTO shop_providers (key, enabled, config, auto_sync, sync_interval_minutes)
-SELECT
-    'printify',
-    p.enabled,
-    p.config,
-    COALESCE((p.config ->> 'syncIntervalMinutes')::int, 0) > 0,
-    GREATEST(COALESCE((p.config ->> 'syncIntervalMinutes')::int, 60), 1)
-FROM plugins p
-WHERE p.name = 'printify' AND p.installed = true
-ON CONFLICT (key) DO NOTHING;
+--
+-- Guarded: `plugins` exists only when the Plugins feature is enabled. On an
+-- install that never enabled it, an unguarded SELECT failed the whole Shop
+-- enable ("relation \"plugins\" does not exist") and rolled it back.
+DO $$
+BEGIN
+    IF to_regclass('public.plugins') IS NOT NULL THEN
+        INSERT INTO shop_providers (key, enabled, config, auto_sync, sync_interval_minutes)
+        SELECT
+            'printify',
+            p.enabled,
+            p.config,
+            COALESCE((p.config ->> 'syncIntervalMinutes')::int, 0) > 0,
+            GREATEST(COALESCE((p.config ->> 'syncIntervalMinutes')::int, 60), 1)
+        FROM plugins p
+        WHERE p.name = 'printify' AND p.installed = true
+        ON CONFLICT (key) DO NOTHING;
+    END IF;
+END $$;
