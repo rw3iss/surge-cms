@@ -114,7 +114,8 @@ export interface UserCreateBody {
     email: string;
     password: string;
     displayName: string;
-    role?: Extract<UserRole, 'member' | 'editor' | 'admin' | 'sysadmin'>;
+    /** Built-in (not anonymous) or custom role key. */
+    role?: UserRole;
 }
 
 /** POST /users (201) — the created user. */

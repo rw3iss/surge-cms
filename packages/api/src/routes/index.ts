@@ -24,6 +24,7 @@ import { mailTemplatesRoutes, } from './mailTemplates';
 import { repliesRoutes, } from './replies';
 import { mailArchiveRoutes, } from './mailArchive';
 import { exportsRoutes, } from './exports';
+import { rolesRoutes, subscriptionTiersRoutes, } from './subscriptions';
 import { mailSchedulesRoutes, } from './mailSchedules';
 import { mediaRoutes, } from './media';
 import { messagesRoutes, } from './messages';
@@ -75,6 +76,8 @@ router.use('/fonts', registerModule('fonts', fontsRoutes, { mountPath: '/api/v1/
 router.use('/mailing-lists', registerModule('mailing-lists', mailingListsRoutes, { mountPath: '/api/v1/mailing-lists', },),);
 router.use('/mail-templates', registerModule('mail-templates', mailTemplatesRoutes, { mountPath: '/api/v1/mail-templates', },),);
 router.use('/replies', registerModule('replies', repliesRoutes, { mountPath: '/api/v1/replies', },),);
+router.use('/roles', registerModule('roles', rolesRoutes, { mountPath: '/api/v1/roles', },),);
+router.use('/subscription-tiers', registerModule('subscription-tiers', subscriptionTiersRoutes, { mountPath: '/api/v1/subscription-tiers', },),);
 router.use('/exports', registerModule('exports', exportsRoutes, { mountPath: '/api/v1/exports', },),);
 router.use('/mail-archive', registerModule('mail-archive', mailArchiveRoutes, { mountPath: '/api/v1/mail-archive', feature: 'mailing_lists', },),);
 router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1/mail', },),);

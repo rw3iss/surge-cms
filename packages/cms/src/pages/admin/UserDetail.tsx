@@ -1,10 +1,11 @@
 import { A, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, } from '../../utils/badges';
 import './UserDetail.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import UserSubscriptionPanel from '../../components/admin/subscriptions/UserSubscriptionPanel';
 
 const AdminUserDetail: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -21,6 +22,7 @@ const AdminUserDetail: Component = () => {
     // Editable fields
     const [displayName, setDisplayName,] = createSignal('',);
     const [role, setRole,] = createSignal('member',);
+    const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
     const [isActive, setIsActive,] = createSignal(true,);
 
     // Password change
@@ -244,10 +246,8 @@ const AdminUserDetail: Component = () => {
                                     value={role()}
                                     onChange={(e,) => setRole(e.currentTarget.value,)}
                                 >
-                                    <option value="anonymous">Anonymous</option>
-                                    <option value="member">Member</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="sysadmin">System Admin</option>
+                                    {/* Built-in + custom roles (Settings → Permissions → Roles). */}
+                                    <For each={roles() ?? []}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
                                 </select>
                             </div>
                             <div class="settings-field">
@@ -331,6 +331,8 @@ const AdminUserDetail: Component = () => {
                         </Show>
                     </div>
                 </div>
+
+                <UserSubscriptionPanel userId={params.id} onChanged={() => refetch()} />
 
                 {/* ─── Actions Panel ─── */}
                 <div class="user-detail__panel user-detail__panel--actions">

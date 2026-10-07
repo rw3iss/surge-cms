@@ -22,6 +22,9 @@ import { logger, } from '../../utils/logger';
 import { mapRows, } from '../../utils/mapRow';
 import type { AuditContext, } from '../types';
 import { resolveMany, resolvePermission, type PermissionSubject, } from './resolve';
+import { enrich, } from './subjects';
+
+export { invalidatePlan, invalidateRoles, roleChain, activePlanId, ENTITLED_STATUSES, } from './subjects';
 
 export { resolvePermission, resolveMany, } from './resolve';
 export type { PermissionSubject, } from './resolve';
@@ -74,14 +77,23 @@ export async function grantsForKeys(keys: PermissionKey[],): Promise<PermissionG
  * trip.
  */
 async function grantsForSubject(subject: PermissionSubject,): Promise<PermissionGrant[]> {
+    const chain = subject.roleChain?.length ? subject.roleChain : subject.role ? [subject.role,] : [];
     const res = await query(
         `SELECT id, permission_key, subject_type, subject_id, granted, created_at
            FROM permission_grants
           WHERE (subject_type = 'user' AND subject_id = $1)
-             OR (subject_type = 'role' AND subject_id = $2)`,
-        [subject.id ?? '', subject.role ?? '',],
+             OR (subject_type = 'role' AND subject_id = ANY($2))
+             OR (subject_type = 'plan' AND subject_id = $3)`,
+        [subject.id ?? '', chain, subject.planId ?? '',],
     );
     return mapRows<PermissionGrant>(res.rows,);
+}
+
+/** Fill in the role chain + subscription tier unless the caller already did. */
+async function withContext(subject: PermissionSubject,): Promise<PermissionSubject> {
+    if (subject.roleChain && subject.planId !== undefined) return subject;
+    const e = await enrich(subject,);
+    return { ...subject, roleChain: e.roleChain, planId: e.planId, };
 }
 
 // ─── Checking ──────────────────────────────────────────────────────
@@ -98,6 +110,7 @@ export async function check(
 ): Promise<PermissionCheck> {
     try {
         const permission = await getPermission(key,);
+        subject = await withContext(subject,);
         const grants = permission ? await grantsForSubject(subject,) : [];
         return resolvePermission(
             permission,
@@ -118,6 +131,7 @@ export async function check(
 export async function permissionsFor(
     subject: PermissionSubject,
 ): Promise<Record<PermissionKey, boolean>> {
+    subject = await withContext(subject,);
     const [permissions, grants,] = await Promise.all([
         listPermissions(),
         grantsForSubject(subject,),

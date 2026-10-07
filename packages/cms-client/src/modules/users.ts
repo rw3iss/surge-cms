@@ -7,6 +7,7 @@ import type {
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
+import type { UserSubscriptionInfo, } from '@sitesurge/types';
 
 /** /users namespace (all admin) — user CRUD, avatar upload, bans. */
 export class UsersModule extends ModuleBase {
@@ -72,5 +73,15 @@ export class UsersModule extends ModuleBase {
     /** DELETE /users/banned/:banId — remove a ban row. */
     removeBan(banId: string,): Promise<UserBanDeleteResponse> {
         return this.mutate<UserBanDeleteResponse>('DELETE', '/users/banned/:banId', { params: { banId, }, invalidates: ['users', 'entities',], },);
+    }
+
+    /** GET /users/:id/subscription — the user's tier (paid, manual or free). */
+    subscription(id: string,): Promise<UserSubscriptionInfo> {
+        return this.get<UserSubscriptionInfo>('/users/:id/subscription', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** PUT /users/:id/subscription — put the user on a tier by hand (null / free ends a manual one). */
+    assignSubscription(id: string, tierId: string | null,): Promise<UserSubscriptionInfo> {
+        return this.mutate<UserSubscriptionInfo>('PUT', '/users/:id/subscription', { params: { id, }, body: { tierId, }, invalidates: ['users', 'subscriptionTiers',], },);
     }
 }

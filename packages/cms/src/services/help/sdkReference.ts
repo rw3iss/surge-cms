@@ -288,7 +288,7 @@ export const PERMISSIONS_DOC: SdkDoc = {
         {
             heading: 'The rule',
             blocks: [
-                { code: `sysadmin  →  user grant  →  role grant  →  the permission's own default`, },
+                { code: `sysadmin  →  user grant  →  subscription-tier grant  →  role grant (role, then its base roles)  →  the permission's own default`, },
                 {
                     p:
                         'Most specific wins at every step, which is what lets a per-user DENY override '

@@ -21,6 +21,7 @@ import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { getStorageProvider, } from './storage';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
+import { assertRoleExists, } from './subscriptionTiers';
 
 export type { UserFilters, UserWithSubscription, } from '../repositories/users.repo';
 
@@ -108,6 +109,7 @@ export async function create(
     input: { email: string; password: string; displayName: string; role?: string; },
     ctx: AuditContext,
 ): Promise<User> {
+    if (input.role) await assertRoleExists(input.role,);
     const user = await repo.createUser(input,);
     await cache.invalidateUserCache();
     await logAudit({
@@ -127,6 +129,7 @@ export async function update(
     patch: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<User> {
+    if (typeof patch.role === 'string') await assertRoleExists(patch.role,);
     const user = await repo.updateUser(id, patch,);
     await cache.invalidateUserCache(id,);
     await logAudit({

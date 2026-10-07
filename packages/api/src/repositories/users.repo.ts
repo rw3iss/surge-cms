@@ -77,7 +77,7 @@ export async function findUsers(
             sp.name as subscription_plan_name,
             s.current_period_end as subscription_period_end
      FROM users u
-     LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status IN ('active', 'past_due')
+     LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status IN ('active', 'trialing', 'past_due')
      LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
      ${whereClause}
      ORDER BY ${USER_SORT_COLUMNS[filters.sortBy || 'created_at'] || 'u.created_at'} ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}

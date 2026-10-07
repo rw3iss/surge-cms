@@ -18,10 +18,11 @@ import { FormField, } from '../forms';
 import CollapsiblePanel from '../common/CollapsiblePanel';
 import ConfirmModal from '../common/ConfirmModal';
 import './PermissionsPanel.scss';
+import RoleManager from './RoleManager';
 
-/** Roles a grant can target. `anonymous` is included so a permission can be
- *  opened to logged-out visitors without setting it to "everyone". */
-const ROLES = ['anonymous', 'member', 'editor', 'admin', 'sysadmin',];
+/** Fallback role list before the roles API answers. `anonymous` is included
+ *  so a permission can be opened to logged-out visitors without "everyone". */
+const BUILTIN_ROLES = ['anonymous', 'member', 'editor', 'admin', 'sysadmin',];
 
 const ACCESS_LABELS: Record<string, string> = {
     everyone: 'Everyone',
@@ -34,6 +35,10 @@ const PermissionsPanel: Component = () => {
     const [search, setSearch,] = createSignal('',);
     const [pendingDelete, setPendingDelete,] = createSignal<string | null>(null,);
     const [creating, setCreating,] = createSignal(false,);
+
+    // Built-in + custom roles (Roles section above), in their display order.
+    const [roleList, { refetch: refetchRoles, },] = createResource(() => cms.roles.list().catch(() => [],),);
+    const roleKeys = () => (roleList()?.length ? roleList()!.map((r,) => r.key,) : BUILTIN_ROLES);
 
     const [permissions, { refetch, },] = createResource(async () => {
         try {
@@ -106,6 +111,7 @@ const PermissionsPanel: Component = () => {
 
     return (
         <div class="permissions-panel">
+            <RoleManager onChanged={() => { void refetchRoles(); void refetch(); }} />
             <div class="permissions-panel__intro">
                 <p class="form-help-muted">
                     Permissions sit on top of roles. A route still requires its normal
@@ -192,7 +198,7 @@ const PermissionsPanel: Component = () => {
                                                     would imply it still applies. */}
                                                 <Show when={p.defaultAccess === 'roles'}>
                                                     <div class="permission-row__roles">
-                                                        <For each={ROLES}>
+                                                        <For each={roleKeys()}>
                                                             {(role,) => (
                                                                 <button
                                                                     type="button"

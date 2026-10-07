@@ -15,6 +15,10 @@ import type {
 export interface PermissionSubject {
     id?: string | null;
     role?: string | null;
+    /** `[role, base, …]` — set by the manager (`subjects.enrich`). Defaults to `[role]`. */
+    roleChain?: string[];
+    /** The user's subscription tier (paid plan, else the free tier). */
+    planId?: string | null;
 }
 
 /**
@@ -57,9 +61,25 @@ export function resolvePermission(
         }
     }
 
-    if (subject.role) {
+    // The subscription tier's own grants (on top of its role).
+    if (subject.planId) {
+        const planGrant = grants.find(
+            (g,) => g.subjectType === 'plan' && g.subjectId === subject.planId,
+        );
+        if (planGrant) {
+            return {
+                key,
+                allowed: planGrant.granted,
+                reason: planGrant.granted ? 'plan-grant' : 'plan-deny',
+            };
+        }
+    }
+
+    // The role, then the roles it inherits from — most specific wins.
+    const chain = subject.roleChain?.length ? subject.roleChain : subject.role ? [subject.role,] : [];
+    for (const role of chain) {
         const roleGrant = grants.find(
-            (g,) => g.subjectType === 'role' && g.subjectId === subject.role,
+            (g,) => g.subjectType === 'role' && g.subjectId === role,
         );
         if (roleGrant) {
             return {
@@ -74,9 +94,7 @@ export function resolvePermission(
         case 'everyone':
             return { key, allowed: true, reason: 'default-everyone', };
         case 'roles': {
-            const allowed = Boolean(
-                subject.role && permission.defaultRoles.includes(subject.role,),
-            );
+            const allowed = chain.some((r,) => permission.defaultRoles.includes(r,),);
             return { key, allowed, reason: 'default-role', };
         }
         case 'nobody':

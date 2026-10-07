@@ -1,0 +1,119 @@
+.subscriptions-panel__slug {
+  font-size: 0.75rem;
+  color: var(--admin-text-muted, #{$text-light});
+}
+
+.tier-modal {
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  h2 { margin: 0; font-size: 1.15rem; }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
+  }
+
+  &__note {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__perms {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 10px;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    font-size: 0.8rem;
+
+    code { font-size: 0.7rem; color: var(--admin-text-muted, #{$text-light}); }
+
+    button {
+      border: 0;
+      background: none;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 4px;
+    }
+  }
+
+  &__results {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    max-height: 240px;
+    overflow-y: auto;
+
+    button {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: 0;
+      background: none;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      border-radius: $border-radius-sm;
+
+      code { font-size: 0.75rem; }
+      span { margin-left: auto; font-size: 0.75rem; color: var(--admin-text-muted, #{$text-light}); }
+
+      &:hover { background: var(--admin-bg-subtle, rgba(0, 0, 0, 0.04)); }
+    }
+  }
+
+  &__inherited {
+    font-size: 0.8rem;
+
+    summary { cursor: pointer; color: var(--admin-text-muted, #{$text-light}); }
+    ul { margin: 6px 0 0; padding-left: 1.2rem; columns: 2; }
+    code { font-size: 0.7rem; color: var(--admin-text-muted, #{$text-light}); }
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding-top: $spacing-sm;
+    border-top: 1px solid $border-color;
+  }
+}
+
+.role-manager {
+  margin-bottom: $spacing-lg;
+
+  &__form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: $spacing-sm;
+    align-items: end;
+    margin-top: $spacing-md;
+
+    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
+  }
+}

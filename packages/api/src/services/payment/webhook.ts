@@ -16,6 +16,7 @@ import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } fr
 import { logger, } from '../../utils/logger';
 import { uuidOrNull, } from '../../utils/uuid';
 import { notify, } from '../notifications';
+import { syncByStripeSubscription, } from '../subscriptionTiers';
 
 const paymentProvider = getPaymentProvider();
 
@@ -278,6 +279,9 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                 ],
             );
 
+            // The subscriber's role follows their tier.
+            await syncByStripeSubscription(subscription.id,).catch((e,) => logger.warn('role sync failed', { error: (e as Error).message, },),);
+
             logger.info('Subscription created event processed', {
                 subscriptionId: subscription.id,
                 updated: (result.rowCount ?? 0) > 0,
@@ -319,6 +323,8 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                 ],
             );
 
+            await syncByStripeSubscription(subscription.id,).catch((e,) => logger.warn('role sync failed', { error: (e as Error).message, },),);
+
             logger.info('Subscription updated via webhook', {
                 subscriptionId: subscription.id,
                 status: localStatus,
@@ -351,6 +357,9 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                  WHERE stripe_subscription_id = $1`,
                 [subscription.id,],
             );
+
+            // Back to the free tier's role.
+            await syncByStripeSubscription(subscription.id,).catch((e,) => logger.warn('role sync failed', { error: (e as Error).message, },),);
 
             logger.info('Subscription cancelled via webhook', { subscriptionId: subscription.id, },);
 

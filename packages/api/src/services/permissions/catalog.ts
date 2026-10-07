@@ -18,6 +18,22 @@ const ADMIN = ['admin', 'sysadmin',];
 /** Always registered, regardless of which features are on. */
 export const CORE_PERMISSIONS: PermissionRegistration[] = [
     {
+        key: 'roles:manage',
+        feature: 'core',
+        label: 'Manage roles',
+        description: 'Create, edit and delete custom roles (Settings → Permissions → Roles).',
+        action: 'admin',
+        defaultRoles: ADMIN,
+    },
+    {
+        key: 'subscriptions:manage',
+        feature: 'core',
+        label: 'Manage subscriptions',
+        description: "Define subscription tiers (role, extra permissions, Stripe price) and put a user on a tier by hand.",
+        action: 'admin',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'data:export',
         feature: 'core',
         label: 'Export data',

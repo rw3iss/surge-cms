@@ -195,3 +195,30 @@ describe('resolveMany', () => {
         },);
     },);
 },);
+
+describe('subscription tier + role inheritance', () => {
+    const perm = { key: 'videos:members', feature: 'core', label: 'x', defaultAccess: 'roles', defaultRoles: ['member',], isSystem: false, } as never;
+    const g = (subjectType: 'user' | 'role' | 'plan', subjectId: string, granted = true,) =>
+        ({ id: subjectId, permissionKey: 'videos:members', subjectType, subjectId, granted, }) as never;
+
+    it('a custom role inherits its base role default', () => {
+        expect(resolvePermission(perm, { role: 'subscriber', roleChain: ['subscriber', 'member',], },).allowed,).toBe(true,);
+    },);
+
+    it('a grant on the custom role beats its base', () => {
+        const r = resolvePermission(perm, { role: 'subscriber', roleChain: ['subscriber', 'member',], }, [g('role', 'member', false,), g('role', 'subscriber',),],);
+        expect(r,).toMatchObject({ allowed: true, reason: 'role-grant', },);
+    },);
+
+    it('a plan grant wins over the role, a user grant over the plan', () => {
+        const plan = resolvePermission(perm, { id: 'u', role: 'member', planId: 'P', }, [g('role', 'member', false,), g('plan', 'P',),],);
+        expect(plan,).toMatchObject({ allowed: true, reason: 'plan-grant', },);
+        const user = resolvePermission(perm, { id: 'u', role: 'member', planId: 'P', }, [g('plan', 'P',), g('user', 'u', false,),],);
+        expect(user,).toMatchObject({ allowed: false, reason: 'user-deny', },);
+    },);
+
+    it("another plan's grant does not apply", () => {
+        const r = resolvePermission({ ...(perm as object), defaultAccess: 'nobody', } as never, { id: 'u', role: 'member', planId: 'P', }, [g('plan', 'OTHER',),],);
+        expect(r.allowed,).toBe(false,);
+    },);
+},);

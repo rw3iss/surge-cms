@@ -11,6 +11,9 @@ import type {
     UserPasswordBody,
     UserUpdateBody,
 } from '@sitesurge/types';
+import * as tiers from '../services/subscriptionTiers';
+import * as permissions from '../services/permissions';
+import type { UserSubscriptionAssignBody, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, } from '../core/errors';
 import * as users from '../services/users';
@@ -43,7 +46,8 @@ export const avatarUpload = multer({
 
 const updateUserSchema = z.object({
     displayName: z.string().min(1,).max(255,).optional(),
-    role: z.enum(['anonymous', 'member', 'editor', 'admin', 'sysadmin',],).optional(),
+    // Built-in or custom role; checked against the roles table in the service.
+    role: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,).optional(),
     isActive: z.boolean().optional(),
     avatarUrl: z.string().optional().nullable(),
 },) satisfies z.ZodType<UserUpdateBody>;
@@ -52,7 +56,7 @@ const createUserSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8,),
     displayName: z.string().min(1,).max(255,),
-    role: z.enum(['member', 'editor', 'admin', 'sysadmin',],).optional(),
+    role: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,).optional(),
 },) satisfies z.ZodType<UserCreateBody>;
 
 // Shared by POST /ban-ip and POST /:id/ban. As a wire DTO it maps to the
@@ -221,6 +225,24 @@ export const usersRoutes = [
         handler: async ({ params, audit, },) => {
             await users.remove(params.id, audit(),);
             return { message: 'User deleted', };
+        },
+    },),
+
+    // ─── Subscription (tier) ───
+    defineRoute({
+        method: 'get', path: '/:id/subscription', auth: 'admin',
+        summary: "A user's current subscription tier (paid, manual or free).",
+        input: { params: idParams, },
+        handler: ({ params, },) => tiers.userSubscription(params.id,),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/:id/subscription', auth: 'admin',
+        summary: 'Put a user on a subscription tier by hand (not for Stripe subscribers).',
+        input: { params: idParams, body: z.object({ tierId: z.string().uuid().nullable(), },) satisfies z.ZodType<UserSubscriptionAssignBody>, },
+        handler: async ({ params, body, user, audit, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'subscriptions:manage',);
+            return tiers.assignTier(params.id, body.tierId, audit(),);
         },
     },),
 ];

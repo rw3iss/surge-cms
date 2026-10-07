@@ -12,7 +12,7 @@
  * still reads the old location as a fallback so an operator who customised it
  * before this change doesn't silently lose their template.
  */
-import { A, } from '@solidjs/router';
+import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import type { UsersSettings, } from '@sitesurge/types';
 import type { MailingList, } from '@sitesurge/types';
@@ -23,19 +23,24 @@ import Toggle from '../../components/admin/common/Toggle';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import SubscriptionTiersPanel from '../../components/admin/subscriptions/SubscriptionTiersPanel';
 
-type Section = 'general' | 'emails';
+type Section = 'general' | 'emails' | 'subscriptions';
 
 const SECTIONS: { key: Section; label: string; }[] = [
     { key: 'general', label: 'General', },
     { key: 'emails', label: 'Email templates', },
+    { key: 'subscriptions', label: 'Subscriptions', },
 ];
 
 const AdminUsersSettings: Component = () => {
     const toast = useToast();
     const [loaded, setLoaded,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
-    const [section, setSection,] = createSignal<Section>('general',);
+    // Deep-linkable: /admin/users/settings?tab=subscriptions
+    const [params, setParams,] = useSearchParams<{ tab?: string; }>();
+    const section = (): Section => (SECTIONS.some((x,) => x.key === params.tab,) ? params.tab as Section : 'general');
+    const setSection = (key: Section,) => setParams({ tab: key === 'general' ? undefined : key, },);
 
     const [requireVerification, setRequireVerification,] = createSignal(true,);
     const [purposes, setPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
@@ -114,9 +119,12 @@ const AdminUsersSettings: Component = () => {
                 <A href="/admin/users" class="admin-header__back">← Users</A>
                 <h1>Users Settings</h1>
                 <div class="admin-header__actions">
-                    <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || !loaded()}>
-                        {saving() ? 'Saving…' : 'Save'}
-                    </button>
+                    {/* The Subscriptions tab saves each subscription in its own modal. */}
+                    <Show when={section() !== 'subscriptions'}>
+                        <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || !loaded()}>
+                            {saving() ? 'Saving…' : 'Save'}
+                        </button>
+                    </Show>
                 </div>
             </div>
 
@@ -231,6 +239,10 @@ const AdminUsersSettings: Component = () => {
                             />
                         </div>
                     </section>
+                </Show>
+
+                <Show when={section() === 'subscriptions'}>
+                    <SubscriptionTiersPanel />
                 </Show>
             </Show>
         </div>

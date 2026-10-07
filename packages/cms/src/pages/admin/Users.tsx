@@ -1,5 +1,5 @@
 import { A, useNavigate, } from '@solidjs/router';
-import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
 import DataTable from '../../components/admin/common/DataTable';
 import UserPermissionsModal from '../../components/admin/users/UserPermissionsModal';
@@ -23,6 +23,8 @@ const AdminUsers: Component = () => {
         return s;
     };
     const sortOrder = () => currentSort().endsWith('_asc',) ? 'asc' : 'desc';
+
+    const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
 
     const list = usePaginatedList<any>({
         fetch: (p,) => cms.users.list(p,),
@@ -160,10 +162,8 @@ const AdminUsers: Component = () => {
                     onChange={(e,) => setSearchParams({ role: e.currentTarget.value || undefined, },)}
                 >
                     <option value="">All roles</option>
-                    <option value="member">Member</option>
-                    <option value="editor">Editor</option>
-                    <option value="admin">Admin</option>
-                    <option value="sysadmin">Sysadmin</option>
+                    {/* Built-in + custom roles. */}
+                    <For each={(roles() ?? []).filter((r,) => r.key !== 'anonymous',)}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
                 </select>
                 <select
                     class="admin-filter-bar__select"
@@ -208,7 +208,7 @@ const AdminUsers: Component = () => {
                                         {user.subscription.planName}
                                     </span>
                                 )
-                                : '—',
+                                : <span class="badge badge--muted">Free</span>,
                     },
                     { header: 'Status', cell: (user: any,) => { const s = statusBadge(user,); return <span class={`badge ${s.class}`}>{s.label}</span>; }, },
                     { header: 'Joined', sortField: 'created_at', cell: (user: any,) => formatDate(user.createdAt,), },

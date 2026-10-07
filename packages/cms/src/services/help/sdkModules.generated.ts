@@ -1563,6 +1563,33 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "roles",
+        "className": "RolesModule",
+        "summary": "roles namespace (admin) — built-in + custom roles. Writes need `roles:manage`.",
+        "methods": [
+            {
+                "name": "create",
+                "signature": "create(body: RoleCreateBody): Promise<RoleDef>",
+                "summary": "POST /roles — a custom role (inherits a member-level base role)."
+            },
+            {
+                "name": "list",
+                "signature": "list(): Promise<RoleDef[]>",
+                "summary": "GET /roles — every role, with user counts."
+            },
+            {
+                "name": "remove",
+                "signature": "remove(key: string): Promise<{ deleted: boolean; }>",
+                "summary": "DELETE /roles/:key — refused while users or a subscription use it."
+            },
+            {
+                "name": "update",
+                "signature": "update(key: string, body: RoleUpdateBody): Promise<RoleDef>",
+                "summary": "PUT /roles/:key — label / description / base role of a custom role."
+            }
+        ]
+    },
+    {
         "namespace": "search",
         "className": "SearchModule",
         "summary": "/search namespace — grouped full-text search (keyed-map responses).",
@@ -2232,10 +2259,52 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "subscriptionTiers",
+        "className": "SubscriptionTiersModule",
+        "summary": "subscriptionTiers namespace (admin) — what subscribers get. Writes need `subscriptions:manage`.",
+        "methods": [
+            {
+                "name": "create",
+                "signature": "create(body: SubscriptionTierBody): Promise<SubscriptionTier>",
+                "summary": "POST /subscription-tiers"
+            },
+            {
+                "name": "getById",
+                "signature": "getById(id: string): Promise<SubscriptionTier>",
+                "summary": "GET /subscription-tiers/:id"
+            },
+            {
+                "name": "list",
+                "signature": "list(): Promise<SubscriptionTier[]>",
+                "summary": "GET /subscription-tiers"
+            },
+            {
+                "name": "remove",
+                "signature": "remove(id: string): Promise<{ deleted: boolean; }>",
+                "summary": "DELETE /subscription-tiers/:id — only a tier that never had subscribers."
+            },
+            {
+                "name": "stripePrices",
+                "signature": "stripePrices(): Promise<StripeSubscriptionPricesResponse>",
+                "summary": "GET /subscription-tiers/stripe-prices — recurring prices in the connected Stripe account."
+            },
+            {
+                "name": "update",
+                "signature": "update(id: string, body: SubscriptionTierBody): Promise<SubscriptionTier>",
+                "summary": "PUT /subscription-tiers/:id — `permissions` replaces the extra grants."
+            }
+        ]
+    },
+    {
         "namespace": "users",
         "className": "UsersModule",
         "summary": "/users namespace (all admin) — user CRUD, avatar upload, bans.",
         "methods": [
+            {
+                "name": "assignSubscription",
+                "signature": "assignSubscription(id: string, tierId: string | null): Promise<UserSubscriptionInfo>",
+                "summary": "PUT /users/:id/subscription — put the user on a tier by hand (null / free ends a manual one)."
+            },
             {
                 "name": "authors",
                 "signature": "authors(): Promise<UserAuthorsResponse>",
@@ -2285,6 +2354,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "setPassword",
                 "signature": "setPassword(id: string, body: UserPasswordBody): Promise<UserPasswordResponse>",
                 "summary": "POST /users/:id/password — set a new password."
+            },
+            {
+                "name": "subscription",
+                "signature": "subscription(id: string): Promise<UserSubscriptionInfo>",
+                "summary": "GET /users/:id/subscription — the user's tier (paid, manual or free)."
             },
             {
                 "name": "unban",
@@ -2359,5 +2433,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 42;
-export const SDK_METHOD_COUNT = 409;
+export const SDK_MODULE_COUNT = 44;
+export const SDK_METHOD_COUNT = 421;

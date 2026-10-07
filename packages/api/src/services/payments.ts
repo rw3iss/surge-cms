@@ -485,7 +485,11 @@ export async function updatePlan(id: string, patch: Partial<PlanInput>,): Promis
  *  the public list is a single fast query and matches the original. */
 export async function publicPlans() {
     const result = await query(
-        'SELECT * FROM subscription_plans WHERE is_active = true ORDER BY sort_order ASC, created_at ASC',
+        // Only purchasable tiers: the free tier and a tier with no Stripe price
+        // cannot be bought on the subscribe page.
+        `SELECT * FROM subscription_plans
+          WHERE is_active = true AND NOT COALESCE(is_free, false) AND stripe_price_id IS NOT NULL
+          ORDER BY sort_order ASC, created_at ASC`,
     );
     return result.rows.map((row,) => ({
         id: row.id,

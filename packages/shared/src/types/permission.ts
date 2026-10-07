@@ -23,7 +23,7 @@ export type PermissionKey = string;
 export type PermissionDefaultAccess = 'everyone' | 'roles' | 'nobody';
 
 /** What a grant attaches to. */
-export type PermissionSubjectType = 'role' | 'user';
+export type PermissionSubjectType = 'role' | 'user' | 'plan';
 
 export interface PermissionDefinition {
     key: PermissionKey;
@@ -54,7 +54,7 @@ export interface PermissionGrant {
     id: string;
     permissionKey: PermissionKey;
     subjectType: PermissionSubjectType;
-    /** Role name, or user id. */
+    /** Role name, user id, or subscription plan id. */
     subjectId: string;
     /**
      * `false` is an explicit DENY, which is why this is not just "row exists =
@@ -88,6 +88,8 @@ export interface PermissionCheck {
         | 'sysadmin-bypass'
         | 'user-grant'
         | 'user-deny'
+        | 'plan-grant'
+        | 'plan-deny'
         | 'role-grant'
         | 'role-deny'
         | 'default-everyone'
@@ -105,7 +107,8 @@ export interface PermissionCheck {
 export const PERMISSION_PRECEDENCE: readonly string[] = [
     'A sysadmin is always allowed.',
     'A grant on the specific user wins (allow or deny).',
-    'Otherwise a grant on the user\'s role wins (allow or deny).',
+    'Otherwise a grant on the user\'s subscription tier wins (allow or deny).',
+    'Otherwise a grant on the user\'s role wins — then on the role it is based on, and so on.',
     'Otherwise the permission\'s own default applies.',
 ];
 

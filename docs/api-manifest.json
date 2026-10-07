@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T18:31:12.391Z",
-  "totalModules": 45,
-  "totalRoutes": 420,
+  "generatedAt": "2026-10-07T20:12:56.548Z",
+  "totalModules": 47,
+  "totalRoutes": 432,
   "modules": [
     {
       "module": "admin-channel",
@@ -2050,6 +2050,40 @@
       ]
     },
     {
+      "module": "roles",
+      "mountPath": "/api/v1/roles",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/roles",
+          "auth": "admin",
+          "summary": "All roles: built-ins and custom (with user counts)."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/roles",
+          "auth": "admin",
+          "summary": "Create a custom role (inherits a member-level base role)."
+        },
+        {
+          "method": "PUT",
+          "path": "/:key",
+          "absolutePath": "/api/v1/roles/:key",
+          "auth": "admin",
+          "summary": "Update a custom role."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:key",
+          "absolutePath": "/api/v1/roles/:key",
+          "auth": "admin",
+          "summary": "Delete a custom role (refused while users or a subscription use it)."
+        }
+      ]
+    },
+    {
       "module": "search",
       "mountPath": "/api/v1/search",
       "routes": [
@@ -3015,6 +3049,54 @@
       ]
     },
     {
+      "module": "subscription-tiers",
+      "mountPath": "/api/v1/subscription-tiers",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/subscription-tiers",
+          "auth": "admin",
+          "summary": "All subscription tiers (role, extra permissions, Stripe price, subscriber count)."
+        },
+        {
+          "method": "GET",
+          "path": "/stripe-prices",
+          "absolutePath": "/api/v1/subscription-tiers/stripe-prices",
+          "auth": "admin",
+          "summary": "Recurring prices in the connected Stripe account (connected=false when Stripe is not set up)."
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "absolutePath": "/api/v1/subscription-tiers/:id",
+          "auth": "admin",
+          "summary": "One subscription tier."
+        },
+        {
+          "method": "POST",
+          "path": "/",
+          "absolutePath": "/api/v1/subscription-tiers",
+          "auth": "admin",
+          "summary": "Create a subscription tier."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "absolutePath": "/api/v1/subscription-tiers/:id",
+          "auth": "admin",
+          "summary": "Update a tier (a role change re-syncs its subscribers' roles; `permissions` replaces its extra grants)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "absolutePath": "/api/v1/subscription-tiers/:id",
+          "auth": "admin",
+          "summary": "Delete a tier that never had subscribers (otherwise deactivate it)."
+        }
+      ]
+    },
+    {
       "module": "unsubscribe",
       "mountPath": "",
       "routes": [
@@ -3142,6 +3224,20 @@
           "absolutePath": "/api/v1/users/:id",
           "auth": "admin",
           "summary": "Permanently delete a user (orphans authored content, audit-logged)."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/subscription",
+          "absolutePath": "/api/v1/users/:id/subscription",
+          "auth": "admin",
+          "summary": "A user's current subscription tier (paid, manual or free)."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/subscription",
+          "absolutePath": "/api/v1/users/:id/subscription",
+          "auth": "admin",
+          "summary": "Put a user on a subscription tier by hand (not for Stripe subscribers)."
         }
       ]
     },

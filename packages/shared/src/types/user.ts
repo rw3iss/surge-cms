@@ -1,4 +1,8 @@
-export type UserRole = 'anonymous' | 'member' | 'editor' | 'admin' | 'sysadmin';
+/** The roles the code itself knows (route auth tiers compare these). */
+export type BuiltinRole = 'anonymous' | 'member' | 'editor' | 'admin' | 'sysadmin';
+/** A built-in role or an operator-defined one (Settings → Permissions → Roles).
+ *  A custom role is always member-level for the route auth tiers. */
+export type UserRole = BuiltinRole | (string & {});
 
 export type AuthProvider = 'patreon' | 'email';
 

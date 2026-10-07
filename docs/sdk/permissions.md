@@ -8,11 +8,18 @@ would drop the authentication requirement entirely.
 ## The rule
 
 ```
-sysadmin  →  user grant  →  role grant  →  the permission's own default
+sysadmin  →  user grant  →  subscription-tier grant  →  role grant (role, then its base roles)  →  the permission's own default
 ```
 
 Most specific wins at every step, which is what lets a per-user DENY override a
 role that allows.
+
+**Subscription tiers** (`subject_type = 'plan'`): a user's tier is their active paid
+subscription, else the `free` tier. A tier's grants sit between the user's own and
+their role's. **Custom roles** (Settings → Permissions → Roles) inherit a member-level
+base role: a role grant is looked up on the role, then on its base, and so on, and a
+`roles` default matches any role in that chain. Custom roles are always member-level
+for the route auth tiers (`staff`/`admin` compare built-in names).
 
 Two properties are deliberate and load-bearing:
 
