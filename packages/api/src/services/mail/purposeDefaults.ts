@@ -106,6 +106,30 @@ export async function defaultPurposeHtml(
                 + MUTED(`If this wasn't you, reset your password immediately and contact us.`,);
             break;
 
+        case 'user_subscription_changed': {
+            const row = (label: string, prefix: string,) => {
+                const name = pick(ctx, `${prefix}.name`,);
+                const price = pick(ctx, `${prefix}.price`,);
+                const freq = pick(ctx, `${prefix}.frequency`,);
+                const desc = pick(ctx, `${prefix}.description`,);
+                return `<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:110px">${label}</td>`
+                    + `<td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px"><strong>${escapeHtml(name || '—',)}</strong>`
+                    + (price ? ` · ${escapeHtml(price,)}${freq ? ` ${escapeHtml(freq,)}` : ''}` : '')
+                    + (desc ? `<br><span style="color:#6b7280;font-size:13px">${escapeHtml(desc,)}</span>` : '')
+                    + `</td></tr>`;
+            };
+            body = H('Your subscription changed',)
+                + greeting(name,)
+                + P(escapeHtml(pick(ctx, 'subscription.note',) || 'Your subscription was updated.',),)
+                + `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 16px">`
+                + row('Previous', 'subscription.previous',)
+                + row('New', 'subscription.current',)
+                + `</table>`
+                + button(`${site.siteUrl}/profile?tab=membership`, 'Manage your subscription',)
+                + MUTED(`If you didn't make this change, contact us right away.`,);
+            break;
+        }
+
         case 'user_welcome':
             body = H(`Welcome to ${siteName}`,)
                 + greeting(name,)

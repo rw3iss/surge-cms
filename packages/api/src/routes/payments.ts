@@ -38,6 +38,8 @@ import type {
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as payments from '../services/payments';
 import { stripeCredentials, } from '../services/payment/credentials';
+import * as membership from '../services/membership';
+import type { MembershipChangeBody, MembershipConfirmBody, } from '@sitesurge/types';
 
 const publishableKeyQuery = z.object({
     context: z.enum(['default', 'shop', 'donations',],).optional(),
@@ -101,6 +103,36 @@ export const paymentsRoutes = [
         method: 'post', path: '/unsubscribe', auth: 'user',
         summary: 'Cancel the user\'s active subscription at period end.',
         handler: ({ userId, },) => payments.unsubscribe(userId!,),
+    },),
+
+    // ─── Membership (own subscription tier — profile → Membership) ───
+    defineRoute({
+        method: 'get', path: '/membership', auth: 'user',
+        summary: "The user's current tier (incl. free) + the tiers they can switch to.",
+        handler: ({ userId, },) => membership.overview(userId!,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/preview', auth: 'user',
+        summary: 'What a tier change would cost now (Stripe proration preview) and when it takes effect.',
+        input: { body: z.object({ tierId: z.string().uuid(), },) satisfies z.ZodType<MembershipChangeBody>, },
+        handler: ({ body, userId, },) => membership.preview(userId!, body.tierId,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/change', auth: 'user',
+        summary: 'Change tier: free→paid returns a clientSecret to confirm; paid→paid switches now with proration; →free cancels at period end.',
+        input: { body: z.object({ tierId: z.string().uuid(), },) satisfies z.ZodType<MembershipChangeBody>, },
+        handler: ({ body, userId, },) => membership.change(userId!, body.tierId,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/confirm', auth: 'user',
+        summary: "Activate a new subscription after the browser confirmed its first payment.",
+        input: { body: z.object({ subscriptionId: z.string().max(255,), },) satisfies z.ZodType<MembershipConfirmBody>, },
+        handler: ({ body, userId, },) => membership.confirm(userId!, body.subscriptionId,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/resume', auth: 'user',
+        summary: 'Undo a scheduled cancellation.',
+        handler: ({ userId, },) => membership.resume(userId!,),
     },),
 
     defineRoute({

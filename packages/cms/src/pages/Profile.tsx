@@ -9,6 +9,7 @@ import { donationInterval, } from '@sitesurge/types';
 type UserDonation = PaymentsDonationsResponse[number];
 import SeoHead from '../components/common/seo/SeoHead';
 import RecurringDonationModal from '../components/profile/RecurringDonationModal';
+import MembershipPanel from '../components/profile/MembershipPanel';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { isFeatureEnabled, siteSettings, } from '../stores/siteSettings';
@@ -602,12 +603,7 @@ const Profile: Component = () => {
 
                     {/* ── Membership tab ── */}
                     <Show when={tab() === 'membership'}>
-                        <div class="profile__card">
-                            <span class="profile__label">Membership</span>
-                            <p class="profile__membership-note">
-                                You're on the free plan. Paid membership tiers are coming soon.
-                            </p>
-                        </div>
+                        <MembershipPanel />
                     </Show>
 
                     {/* ── Orders tab ── */}

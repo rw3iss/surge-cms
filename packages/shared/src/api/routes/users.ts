@@ -38,6 +38,8 @@ export interface UserListQuery {
     search?: string;
     role?: string;
     status?: string;
+    /** Subscription tier slug (`free` = no paid/assigned tier). */
+    subscription?: string;
     sortBy?: string;
     sortOrder?: string;
     page?: number;

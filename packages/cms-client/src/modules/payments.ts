@@ -11,6 +11,7 @@ import type {
     PaymentContext, PaymentPublishableKeyResponse, RecurringDonation, RecurringDonationUpdateBody, } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
+import type { MembershipChangeResponse, MembershipPreviewResponse, MembershipResponse, } from '@sitesurge/types';
 
 /**
  * payments namespace — Stripe donations, subscriptions, and admin plan
@@ -115,5 +116,32 @@ export class PaymentsModule extends ModuleBase {
      *  union: `{ message: 'No changes' }` or the updated `AdminPlan`. */
     updatePlan(id: string, body: PaymentsPlanUpdateBody,): Promise<PaymentsPlanUpdateResponse> {
         return this.mutate<PaymentsPlanUpdateResponse>('PUT', '/payments/admin/plans/:id', { params: { id, }, body, invalidates: ['payments',], },);
+    }
+
+    // ─── Membership (own tier) ───
+
+    /** GET /payments/membership — current tier (incl. free) + the tiers to switch to. */
+    membership(): Promise<MembershipResponse> {
+        return this.get<MembershipResponse>('/payments/membership', { options: { cache: false, }, },);
+    }
+
+    /** POST /payments/membership/preview — cost now + when a change takes effect. */
+    previewMembership(tierId: string,): Promise<MembershipPreviewResponse> {
+        return this.mutate<MembershipPreviewResponse>('POST', '/payments/membership/preview', { body: { tierId, }, },);
+    }
+
+    /** POST /payments/membership/change — `payment_required` → confirm the card with `clientSecret`, then `confirmMembership`. */
+    changeMembership(tierId: string,): Promise<MembershipChangeResponse> {
+        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/change', { body: { tierId, }, invalidates: ['payments', 'auth',], },);
+    }
+
+    /** POST /payments/membership/confirm — activate after the first payment. */
+    confirmMembership(subscriptionId: string,): Promise<MembershipChangeResponse> {
+        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/confirm', { body: { subscriptionId, }, invalidates: ['payments', 'auth',], },);
+    }
+
+    /** POST /payments/membership/resume — undo a scheduled cancellation. */
+    resumeMembership(): Promise<MembershipChangeResponse> {
+        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/resume', { invalidates: ['payments',], },);
     }
 }

@@ -12,6 +12,8 @@ export interface UserFilters {
     search?: string;
     role?: string;
     status?: string; // 'active' | 'banned' | 'inactive'
+    /** A subscription tier slug; `free` = no active paid/assigned tier. */
+    subscription?: string;
     sortBy?: string;
     sortOrder?: string;
 }
@@ -65,6 +67,18 @@ export async function findUsers(
         whereClause += ` AND u.is_banned = true`;
     } else if (filters.status === 'inactive') {
         whereClause += ` AND u.is_active = false`;
+    }
+    if (filters.subscription) {
+        // Same entitlement rule as the permission resolver (active/trialing/past_due).
+        const entitled = `EXISTS (SELECT 1 FROM subscriptions es JOIN subscription_plans ep ON ep.id = es.plan_id
+                           WHERE es.user_id = u.id AND es.status IN ('active', 'trialing', 'past_due')`;
+        const freeTier = await query(`SELECT 1 FROM subscription_plans WHERE slug = $1 AND is_free`, [filters.subscription,],);
+        if (freeTier.rows.length) {
+            whereClause += ` AND NOT ${entitled})`;
+        } else {
+            params.push(filters.subscription,);
+            whereClause += ` AND ${entitled} AND ep.slug = $${params.length})`;
+        }
     }
 
     const countResult = await query(`SELECT COUNT(*) FROM users u ${whereClause}`, params,);

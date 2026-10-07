@@ -272,7 +272,8 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                     updated_at = NOW()
                  WHERE stripe_subscription_id = $4`,
                 [
-                    subscription.status === 'incomplete' ? 'active' : subscription.status,
+                    // As Stripe reports it — `incomplete` is not paid yet.
+                    subscription.status,
                     new Date(subscriptionPeriod(subscription,).start * 1000,),
                     new Date(subscriptionPeriod(subscription,).end * 1000,),
                     subscription.id,

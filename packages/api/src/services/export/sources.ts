@@ -75,14 +75,14 @@ export async function mailingListSubscribers(
 }
 
 // ─── users ───────────────────────────────────────────────────────────────
-export async function allUsers(q: { search?: string; role?: string; status?: string; sortBy?: string; sortOrder?: string; },): Promise<ExportDataset> {
+export async function allUsers(q: { search?: string; role?: string; status?: string; subscription?: string; sortBy?: string; sortOrder?: string; },): Promise<ExportDataset> {
     const rows = await collectAll(async (page, limit,) => {
-        const r = await users.list({ search: q.search, role: q.role, status: q.status, sortBy: q.sortBy, sortOrder: q.sortOrder, }, { page, limit, },);
+        const r = await users.list({ search: q.search, role: q.role, status: q.status, subscription: q.subscription, sortBy: q.sortBy, sortOrder: q.sortOrder, }, { page, limit, },);
         return { rows: r.data as unknown as Row[], total: r.meta?.total ?? r.data.length, };
     },);
     return {
         title: 'Users',
-        subtitle: describe(q, [q.role ? `role ${q.role}` : '', q.status ? `status ${q.status}` : '',].filter(Boolean,),),
+        subtitle: describe(q, [q.role ? `role ${q.role}` : '', q.status ? `status ${q.status}` : '', q.subscription ? `subscription ${q.subscription}` : '',].filter(Boolean,),),
         columns: deriveColumns(rows, {
             preferred: ['displayName', 'firstName', 'lastName', 'email', 'role', 'isActive', 'emailVerified', 'createdAt', 'lastLoginAt',],
             omit: omitSensitive(rows,),

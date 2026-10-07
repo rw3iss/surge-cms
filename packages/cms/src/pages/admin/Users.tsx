@@ -25,6 +25,7 @@ const AdminUsers: Component = () => {
     const sortOrder = () => currentSort().endsWith('_asc',) ? 'asc' : 'desc';
 
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
+    const [tiers,] = createResource(() => cms.subscriptionTiers.list().catch(() => [],),);
 
     const list = usePaginatedList<any>({
         fetch: (p,) => cms.users.list(p,),
@@ -33,6 +34,7 @@ const AdminUsers: Component = () => {
             search: searchParams.search,
             role: searchParams.role,
             status: searchParams.status,
+            subscription: searchParams.subscription,
             sortBy: sortBy(),
             sortOrder: sortOrder(),
         }),
@@ -42,6 +44,7 @@ const AdminUsers: Component = () => {
         searchParams.search;
         searchParams.role;
         searchParams.status;
+        searchParams.subscription;
         searchParams.sort;
         list.resetPage();
     },);
@@ -156,24 +159,36 @@ const AdminUsers: Component = () => {
                     value={searchInput()}
                     onInput={(e,) => handleSearchInput(e.currentTarget.value,)}
                 />
+                {/* `selected` on each option, not `value` on the select: the role and
+                    subscription options load asynchronously, and a select cannot take a
+                    value before the matching option exists — so a refreshed page with
+                    ?role=… showed "All roles" while still filtering by it. */}
                 <select
                     class="admin-filter-bar__select"
-                    value={searchParams.role || ''}
                     onChange={(e,) => setSearchParams({ role: e.currentTarget.value || undefined, },)}
                 >
-                    <option value="">All roles</option>
-                    {/* Built-in + custom roles. */}
-                    <For each={(roles() ?? []).filter((r,) => r.key !== 'anonymous',)}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
+                    <option value="" selected={!searchParams.role}>All roles</option>
+                    <For each={(roles() ?? []).filter((r,) => r.key !== 'anonymous',)}>
+                        {(r,) => <option value={r.key} selected={searchParams.role === r.key}>{r.label}</option>}
+                    </For>
                 </select>
                 <select
                     class="admin-filter-bar__select"
-                    value={searchParams.status || ''}
                     onChange={(e,) => setSearchParams({ status: e.currentTarget.value || undefined, },)}
                 >
-                    <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="banned">Banned</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="" selected={!searchParams.status}>All statuses</option>
+                    <For each={[['active', 'Active',], ['banned', 'Banned',], ['inactive', 'Inactive',],]}>
+                        {([v, label,],) => <option value={v} selected={searchParams.status === v}>{label}</option>}
+                    </For>
+                </select>
+                <select
+                    class="admin-filter-bar__select"
+                    onChange={(e,) => setSearchParams({ subscription: e.currentTarget.value || undefined, },)}
+                >
+                    <option value="" selected={!searchParams.subscription}>All subscriptions</option>
+                    <For each={tiers() ?? []}>
+                        {(t,) => <option value={t.slug} selected={searchParams.subscription === t.slug}>{t.name}</option>}
+                    </For>
                 </select>
                 {/* Every user matching the current search, filters and sort. */}
                 <div style={{ 'margin-left': 'auto', }}>
@@ -181,6 +196,7 @@ const AdminUsers: Component = () => {
                         url={(format, query,) => cms.exports.usersUrl(format, query,)}
                         query={() => ({
                             search: searchParams.search, role: searchParams.role, status: searchParams.status,
+                            subscription: searchParams.subscription,
                             sortBy: sortBy(), sortOrder: sortOrder(),
                         })}
                     />

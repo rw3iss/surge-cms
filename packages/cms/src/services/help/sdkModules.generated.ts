@@ -1278,6 +1278,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /payments/recurring-donations/:id/cancel — stop it now."
             },
             {
+                "name": "changeMembership",
+                "signature": "changeMembership(tierId: string): Promise<MembershipChangeResponse>",
+                "summary": "POST /payments/membership/change — `payment_required` → confirm the card with `clientSecret`, then `confirmMembership`."
+            },
+            {
+                "name": "confirmMembership",
+                "signature": "confirmMembership(subscriptionId: string): Promise<MembershipChangeResponse>",
+                "summary": "POST /payments/membership/confirm — activate after the first payment."
+            },
+            {
                 "name": "createCustomer",
                 "signature": "createCustomer(): Promise<PaymentsCreateCustomerResponse>",
                 "summary": "POST /payments/create-customer — create/retrieve the Stripe customer."
@@ -1298,9 +1308,19 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/donations — the current user's completed donations (by their own id OR email; server-enforced)."
             },
             {
+                "name": "membership",
+                "signature": "membership(): Promise<MembershipResponse>",
+                "summary": "GET /payments/membership — current tier (incl. free) + the tiers to switch to."
+            },
+            {
                 "name": "plans",
                 "signature": "plans(): Promise<PaymentsPublicPlansResponse>",
                 "summary": "GET /payments/plans — active plans for the public subscribe page."
+            },
+            {
+                "name": "previewMembership",
+                "signature": "previewMembership(tierId: string): Promise<MembershipPreviewResponse>",
+                "summary": "POST /payments/membership/preview — cost now + when a change takes effect."
             },
             {
                 "name": "publishableKey",
@@ -1311,6 +1331,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "recurringDonations",
                 "signature": "recurringDonations(): Promise<RecurringDonation[]>",
                 "summary": "GET /payments/recurring-donations — the signed-in donor's recurring donations, read live from Stripe."
+            },
+            {
+                "name": "resumeMembership",
+                "signature": "resumeMembership(): Promise<MembershipChangeResponse>",
+                "summary": "POST /payments/membership/resume — undo a scheduled cancellation."
             },
             {
                 "name": "subscribe",
@@ -2434,4 +2459,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 421;
+export const SDK_METHOD_COUNT = 426;

@@ -68,9 +68,9 @@ export const exportsRoutes = [
         method: 'get', path: '/users', auth: 'admin', raw: true,
         summary: 'Export users (same search/role/status/sort as the Users table).',
         input: {
-            query: z.object({ ...common, sortOrder: z.string().max(8,).optional(), role: z.string().max(32,).optional(), status: z.string().max(32,).optional(), },),
+            query: z.object({ ...common, sortOrder: z.string().max(8,).optional(), role: z.string().max(32,).optional(), status: z.string().max(32,).optional(), subscription: z.string().max(64,).optional(), },),
         },
-        handler: ({ query, res, user, }: H & { query: { format: 'csv' | 'print'; columns?: 'all' | 'basic'; search?: string; role?: string; status?: string; sortBy?: string; sortOrder?: string; }; },) =>
+        handler: ({ query, res, user, }: H & { query: { format: 'csv' | 'print'; columns?: 'all' | 'basic'; search?: string; role?: string; status?: string; subscription?: string; sortBy?: string; sortOrder?: string; }; },) =>
             deliver(res, user, query, () => exportSources.allUsers(query,),),
     },),
 

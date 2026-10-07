@@ -247,6 +247,12 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/mail-templates/:id/revisions',
     'GET /api/v1/mail-templates/:id/revisions/:version',
     'POST /api/v1/mail-templates/:id/revisions/:version/restore',
+    // ── membership (own tier) ──
+    'GET /api/v1/payments/membership',
+    'POST /api/v1/payments/membership/preview',
+    'POST /api/v1/payments/membership/change',
+    'POST /api/v1/payments/membership/confirm',
+    'POST /api/v1/payments/membership/resume',
     // ── roles + subscription tiers ──
     'GET /api/v1/roles',
     'POST /api/v1/roles',

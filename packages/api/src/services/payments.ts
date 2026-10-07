@@ -213,7 +213,10 @@ export async function subscribe(userId: string, planId: string,) {
             planId,
             subscription.id,
             customerId,
-            subscription.status === 'incomplete' ? 'active' : subscription.status,
+            // Recorded as Stripe reports it: `incomplete` until the first payment
+            // succeeds (the webhook flips it). Marking it `active` here granted the
+            // paid tier — and now its role — before any money moved.
+            subscription.status,
             subscription.currentPeriodStart,
             subscription.currentPeriodEnd,
         ],

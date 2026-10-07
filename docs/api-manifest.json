@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T20:12:56.548Z",
+  "generatedAt": "2026-10-07T21:30:04.821Z",
   "totalModules": 47,
-  "totalRoutes": 432,
+  "totalRoutes": 437,
   "modules": [
     {
       "module": "admin-channel",
@@ -1617,6 +1617,41 @@
           "absolutePath": "/api/v1/payments/unsubscribe",
           "auth": "user",
           "summary": "Cancel the user's active subscription at period end."
+        },
+        {
+          "method": "GET",
+          "path": "/membership",
+          "absolutePath": "/api/v1/payments/membership",
+          "auth": "user",
+          "summary": "The user's current tier (incl. free) + the tiers they can switch to."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/preview",
+          "absolutePath": "/api/v1/payments/membership/preview",
+          "auth": "user",
+          "summary": "What a tier change would cost now (Stripe proration preview) and when it takes effect."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/change",
+          "absolutePath": "/api/v1/payments/membership/change",
+          "auth": "user",
+          "summary": "Change tier: free→paid returns a clientSecret to confirm; paid→paid switches now with proration; →free cancels at period end."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/confirm",
+          "absolutePath": "/api/v1/payments/membership/confirm",
+          "auth": "user",
+          "summary": "Activate a new subscription after the browser confirmed its first payment."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/resume",
+          "absolutePath": "/api/v1/payments/membership/resume",
+          "auth": "user",
+          "summary": "Undo a scheduled cancellation."
         },
         {
           "method": "GET",
