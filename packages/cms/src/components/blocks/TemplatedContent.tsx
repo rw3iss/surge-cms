@@ -93,7 +93,16 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
 
     return (
         <Show
-            when={resolved()}
+            // `.latest`, not `resolved()`: reading a REFETCHING resource under the
+            // app's <Suspense> suspends the whole tree — Solid detaches the admin
+            // layout and re-inserts it, so every focused input blurs and every
+            // iframe reloads. The mail-template editor refetches on each keystroke
+            // in Name/Subject/Preheader (they feed the preview variables), which
+            // made those fields lose focus per character. `.latest` still
+            // suspends on the FIRST load (public pages keep waiting for resolved
+            // content) and afterwards keeps showing the last result while the
+            // next one resolves.
+            when={resolved.latest}
             keyed
             fallback={<div class={props.class} innerHTML={stripTags(props.html ?? '',)} />}
         >
