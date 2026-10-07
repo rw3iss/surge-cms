@@ -104,7 +104,7 @@ const camel = (k: string,) => k.replace(/_([a-z0-9])/g, (_m, c: string,) => c.to
  * everything. Both key spellings are listed (schema snake_case, record camel).
  */
 const PRINT_FIELDS: Record<string, string[]> = {
-    contact: ['firstName', 'lastName', 'email', 'mobilePhone', 'primaryPhone', 'city', 'state',],
+    contact: ['firstName', 'lastName', 'email', 'mobilePhone', 'primaryPhone', 'city', 'state', 'createdAt',],
 };
 const NOT_PRINTABLE = new Set(['relation', 'longtext', 'richtext', 'json', 'blocks',],);
 
