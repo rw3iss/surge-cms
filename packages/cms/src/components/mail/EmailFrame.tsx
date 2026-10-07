@@ -8,7 +8,7 @@
  * links get `target="_blank"` so a click opens a tab instead of navigating the
  * tiny frame.
  */
-import { createEffect, createSignal, type Component, } from 'solid-js';
+import { createEffect, createSignal, onCleanup, onMount, type Component, } from 'solid-js';
 import './EmailFrame.scss';
 
 export interface EmailFrameProps {
@@ -17,11 +17,24 @@ export interface EmailFrameProps {
     /** Fixed height (CSS) instead of fitting the content, e.g. inside a modal. */
     height?: string;
     class?: string;
+    /**
+     * Web-page presentation (the `/mail/:jobId` view): drops the email shell's
+     * outer padding (the gutter a mail client shows around the card) and
+     * centres block images narrower than their column. A preview of the email
+     * AS an email leaves this off.
+     */
+    flush?: boolean;
 }
 
+/** Injected into a `flush` frame. The shell is `body > table > tr > td`
+ *  (padding = the gutter); images are `display:block`, which a mail client
+ *  left-aligns — on a page they read as misaligned. */
+const FLUSH_CSS = '<style>body{margin:0}body>table>tbody>tr>td{padding:0!important}'
+    + 'td>img,td>a>img{margin-left:auto!important;margin-right:auto!important}</style>';
+
 /** Make every link open in a new tab (an email's links point off-site). */
-function withBaseTarget(html: string,): string {
-    const base = '<base target="_blank">';
+function withBaseTarget(html: string, extraHead = '',): string {
+    const base = '<base target="_blank">' + extraHead;
     return /<head[^>]*>/i.test(html,) ? html.replace(/<head([^>]*)>/i, `<head$1>${base}`,) : base + html;
 }
 
@@ -34,6 +47,21 @@ const EmailFrame: Component<EmailFrameProps> = (props,) => {
         if (!doc?.documentElement) return;
         setHeight(Math.max(200, doc.documentElement.scrollHeight,),);
     };
+
+    // Content sized in viewport units (`80vw`) reflows with the window, and so
+    // does its height — re-fit on resize.
+    onMount(() => {
+        let t: ReturnType<typeof setTimeout> | undefined;
+        const onResize = () => {
+            clearTimeout(t,);
+            t = setTimeout(fit, 150,);
+        };
+        window.addEventListener('resize', onResize,);
+        onCleanup(() => {
+            clearTimeout(t,);
+            window.removeEventListener('resize', onResize,);
+        },);
+    },);
 
     // Images load after `load` fires on slow connections; re-measure once more.
     createEffect(() => {
@@ -48,7 +76,7 @@ const EmailFrame: Component<EmailFrameProps> = (props,) => {
             class={`email-frame ${props.class ?? ''}`}
             title={props.title ?? 'Email'}
             sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            srcdoc={withBaseTarget(props.html,)}
+            srcdoc={withBaseTarget(props.html, props.flush ? FLUSH_CSS : '',)}
             style={{ height: props.height ?? `${height()}px`, }}
             onLoad={fit}
         />

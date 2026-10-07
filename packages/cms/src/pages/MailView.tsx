@@ -56,7 +56,7 @@ const MailView: Component = () => {
                         </p>
                     </header>
                     <div class="mail-view__frame">
-                        <EmailFrame html={mail()!.html} title={mail()!.subject} />
+                        <EmailFrame html={mail()!.html} title={mail()!.subject} flush />
                     </div>
                 </Show>
             </Show>
