@@ -30,6 +30,23 @@ type FilterOp = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in';
 const FILTER_OPS: FilterOp[] = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in',];
 
 /** Render an arbitrary field value as a short string for a table cell. */
+/** Standard timestamp columns every entity table shows (sortable server-side). */
+const DATE_KEYS = new Set(['createdAt', 'updatedAt',],);
+
+function formatDate(value: unknown,): string {
+    const d = new Date(String(value,),);
+    return Number.isNaN(d.getTime(),) ? '—' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', },);
+}
+
+/** A readable name for a linked record: first + last name, else a display
+ *  name / name / title, else the email, else the id. Both key spellings,
+ *  since core types adopt snake_case columns. */
+function recordLabel(r: Record<string, unknown>,): string {
+    const g = (...keys: string[]) => keys.map((k,) => r[k],).find((v,) => typeof v === 'string' && v.trim(),) as string | undefined;
+    const full = [g('firstName', 'first_name',), g('lastName', 'last_name',),].filter(Boolean,).join(' ',);
+    return full || g('displayName', 'display_name', 'name', 'title',) || g('email',) || String(r.id ?? '',);
+}
+
 function cell(value: unknown,): string {
     if (value == null) return '—';
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
@@ -97,7 +114,19 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
             if (f.type === 'blocks') continue;
             cols.push({ key: f.key, label: f.label || f.key, },);
         }
+        cols.push({ key: 'createdAt', label: 'Created', }, { key: 'updatedAt', label: 'Updated', },);
         return cols;
+    },);
+
+    /** Visible relation columns → the entity type they point at. */
+    const relationCols = createMemo(() => {
+        const out: Array<{ key: string; type: string; }> = [];
+        for (const col of columns()) {
+            const f = props.type.fields.find((x,) => x.key === col.key,);
+            const rel = (f?.options as { relationType?: string; } | undefined)?.relationType;
+            if (f?.type === 'relation' && rel) out.push({ key: f.key, type: rel, },);
+        }
+        return out;
     },);
 
     const list = usePaginatedList<EntityRecord>({
@@ -121,6 +150,45 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         filterValue();
         list.resetPage();
     },);
+
+    /**
+     * Names for the linked records on this page — ONE request per relation
+     * column (an `id in [...]` filter), not one per row. Keyed `field → id → label`.
+     * A link that can't be resolved (deleted record, no access) keeps its id.
+     */
+    // A signal filled by an effect, NOT a resource: reading an unresolved
+    // resource suspends the app-root <Suspense>, which detaches the whole admin
+    // layout. A stale reply (the page changed meanwhile) is dropped.
+    const [relationLabels, setRelationLabels,] = createSignal<Record<string, Record<string, string>>>({},);
+    let labelSeq = 0;
+    createEffect(() => {
+        const items = list.items();
+        const cols = relationCols();
+        const seq = ++labelSeq;
+        void Promise.all(cols.map(async (c,) => {
+            const ids = [...new Set(items.map((r,) => r[c.key],).filter((v,): v is string => typeof v === 'string' && v !== '',),),];
+            if (!ids.length) return [c.key, {},] as const;
+            try {
+                const res = await cms.entities.list(c.type, { filter: { id: { op: 'in', value: ids, }, }, limit: ids.length, } as EntityQuery,);
+                return [c.key, Object.fromEntries((res.data as Record<string, unknown>[]).map((r,) => [String(r.id,), recordLabel(r,),]),),] as const;
+            } catch {
+                return [c.key, {},] as const; // leave ids as they are
+            }
+        },),).then((pairs,) => {
+            if (seq === labelSeq) setRelationLabels(Object.fromEntries(pairs,),);
+        },);
+    },);
+
+    /** One cell: dates formatted, relation ids shown as the linked record's name. */
+    const display = (rec: EntityRecord, key: string,): string => {
+        const v = (rec as Record<string, unknown>)[key];
+        if (DATE_KEYS.has(key,)) return v ? formatDate(v,) : '—';
+        if (typeof v === 'string' && v) {
+            const label = relationLabels()[key]?.[v];
+            if (label) return label;
+        }
+        return cell(v,);
+    };
 
     const currentSort = () => (sortBy() ? `${sortBy()}_${sortOrder()}` : '');
     const handleSort = (value: string,) => {
@@ -267,7 +335,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                                     {(rec,) => (
                                         <tr>
                                             <For each={columns()}>
-                                                {(col,) => <td>{cell(rec[col.key],)}</td>}
+                                                {(col,) => <td>{display(rec, col.key,)}</td>}
                                             </For>
                                             <td>
                                                 <code class="schema-field__key">{String(rec.id,).slice(0, 8,)}</code>
