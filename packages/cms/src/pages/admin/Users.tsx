@@ -9,6 +9,7 @@ import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import ExportMenu from '../../components/admin/common/ExportMenu';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -174,6 +175,16 @@ const AdminUsers: Component = () => {
                     <option value="banned">Banned</option>
                     <option value="inactive">Inactive</option>
                 </select>
+                {/* Every user matching the current search, filters and sort. */}
+                <div style={{ 'margin-left': 'auto', }}>
+                    <ExportMenu
+                        url={(format, query,) => cms.exports.usersUrl(format, query,)}
+                        query={() => ({
+                            search: searchParams.search, role: searchParams.role, status: searchParams.status,
+                            sortBy: sortBy(), sortOrder: sortOrder(),
+                        })}
+                    />
+                </div>
             </div>
 
             <DataTable

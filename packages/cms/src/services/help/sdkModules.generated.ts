@@ -644,6 +644,33 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "exports",
+        "className": "ExportsModule",
+        "summary": "exports namespace (admin, `data:export`) — URL builders, not fetches. An export is opened by NAVIGATION: `csv` downloads a file, `print` opens a standalone printable page in a new tab; both authenticate with the session cookie. Pass the same query the admin table uses so the export matches it.",
+        "methods": [
+            {
+                "name": "campaignDonationsUrl",
+                "signature": "campaignDonationsUrl(campaignId: string, format: ExportFormat, query?: ExportQuery): string",
+                "summary": "GET /exports/campaigns/:id/donations — `search`, `sortBy`, `sortOrder`."
+            },
+            {
+                "name": "entitiesUrl",
+                "signature": "entitiesUrl(typeKey: string, format: ExportFormat, query?: ExportQuery): string",
+                "summary": "GET /exports/entities/:type — `search`, `status`, `filter` (JSON), `sortBy`, `sortOrder`."
+            },
+            {
+                "name": "mailingListSubscribersUrl",
+                "signature": "mailingListSubscribersUrl(listId: string, format: ExportFormat, query?: ExportQuery): string",
+                "summary": "GET /exports/mailing-lists/:id/subscribers — `search`, `status`."
+            },
+            {
+                "name": "usersUrl",
+                "signature": "usersUrl(format: ExportFormat, query?: ExportQuery): string",
+                "summary": "GET /exports/users — `search`, `role`, `status`, `sortBy`, `sortOrder`."
+            }
+        ]
+    },
+    {
         "namespace": "feed",
         "className": "FeedModule",
         "summary": "/feed namespace — RSS 2.0. RAW route mounted at the site root (`/feed.xml`), OUTSIDE the `/api/v1` JSON surface. The response is an XML string (`application/rss+xml`), not the `ApiResponse<T>` envelope — `rootMounted: true` skips the `/api/v1` prefix.",
@@ -2332,5 +2359,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 41;
-export const SDK_METHOD_COUNT = 405;
+export const SDK_MODULE_COUNT = 42;
+export const SDK_METHOD_COUNT = 409;

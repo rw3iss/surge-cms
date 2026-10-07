@@ -18,6 +18,14 @@ const ADMIN = ['admin', 'sysadmin',];
 /** Always registered, regardless of which features are on. */
 export const CORE_PERMISSIONS: PermissionRegistration[] = [
     {
+        key: 'data:export',
+        feature: 'core',
+        label: 'Export data',
+        description: 'Download admin tables (donations, subscribers, users, entity records) as CSV, or open them as a printable page.',
+        action: 'read',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'components:script',
         feature: 'core',
         label: 'Edit component JavaScript',

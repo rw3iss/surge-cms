@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T18:07:12.904Z",
-  "totalModules": 44,
-  "totalRoutes": 416,
+  "generatedAt": "2026-10-07T18:31:12.391Z",
+  "totalModules": 45,
+  "totalRoutes": 420,
   "modules": [
     {
       "module": "admin-channel",
@@ -778,6 +778,40 @@
           "absolutePath": "/api/v1/events/:id",
           "auth": "staff",
           "summary": "Delete an event."
+        }
+      ]
+    },
+    {
+      "module": "exports",
+      "mountPath": "/api/v1/exports",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/campaigns/:id/donations",
+          "absolutePath": "/api/v1/exports/campaigns/:id/donations",
+          "auth": "admin",
+          "summary": "Export a campaign's donations (same search/sort as its Donations table)."
+        },
+        {
+          "method": "GET",
+          "path": "/mailing-lists/:id/subscribers",
+          "absolutePath": "/api/v1/exports/mailing-lists/:id/subscribers",
+          "auth": "admin",
+          "summary": "Export a mailing list's subscribers (optional search/status, like its Subscribers table)."
+        },
+        {
+          "method": "GET",
+          "path": "/users",
+          "absolutePath": "/api/v1/exports/users",
+          "auth": "admin",
+          "summary": "Export users (same search/role/status/sort as the Users table)."
+        },
+        {
+          "method": "GET",
+          "path": "/entities/:type",
+          "absolutePath": "/api/v1/exports/entities/:type",
+          "auth": "admin",
+          "summary": "Export any entity type's records (same search/status/filter/sort as its Data table; columns from the live schema)."
         }
       ]
     },

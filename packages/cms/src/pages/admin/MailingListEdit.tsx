@@ -15,6 +15,7 @@ import Toggle from '../../components/admin/common/Toggle';
 import SubscriberFormModal from '../../components/admin/mailing-lists/SubscriberFormModal';
 import { cms, } from '../../services/cmsClient';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import ExportMenu from '../../components/admin/common/ExportMenu';
 
 interface SubscriberListResponse { items: MailingListSubscriber[]; total: number; }
 
@@ -239,6 +240,11 @@ const MailingListEdit: Component = () => {
                                     Remove {selectedIds().size}
                                 </button>
                             </Show>
+                            {/* Every subscriber matching the search (no sort/filter here yet). */}
+                            <ExportMenu
+                                url={(format, query,) => cms.exports.mailingListSubscribersUrl(params.id, format, query,)}
+                                query={() => ({ search: search().trim() || undefined, })}
+                            />
                             <button type="button" class="ui-button ui-button--sm ui-button--primary" onClick={() => setShowAdd(true,)}>
                                 + Add Subscriber
                             </button>

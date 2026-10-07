@@ -8,6 +8,7 @@ import { formatCurrency, formatDate, } from '@sitesurge/types';
 import type { CampaignAdminDonationsResponse, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import ReplyModal from '../../components/admin/reply/ReplyModal';
+import ExportMenu from '../../components/admin/common/ExportMenu';
 import Pagination from '../../components/admin/common/Pagination';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
@@ -81,11 +82,18 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
         <div class="campaign-donations">
             <div class="admin-header campaign-donations__header">
                 <h2>Donations</h2>
-                <Show when={meta()}>
-                    <span class="campaign-donations__count">
-                        {meta()!.total} donation{meta()!.total === 1 ? '' : 's'}
-                    </span>
-                </Show>
+                <div class="u-flex-row u-gap-sm" style={{ 'align-items': 'center', }}>
+                    {/* Exports the table as filtered/sorted now — every record. */}
+                    <ExportMenu
+                        url={(format, query,) => cms.exports.campaignDonationsUrl(props.campaignId, format, query,)}
+                        query={() => ({ search: search() || undefined, sortBy: sortBy(), sortOrder: sortOrder(), })}
+                    />
+                    <Show when={meta()}>
+                        <span class="campaign-donations__count">
+                            {meta()!.total} donation{meta()!.total === 1 ? '' : 's'}
+                        </span>
+                    </Show>
+                </div>
             </div>
 
             <div class="admin-filter-bar">

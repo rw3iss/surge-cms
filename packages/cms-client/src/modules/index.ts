@@ -26,6 +26,7 @@ import { MailingListsModule, } from './mailingLists';
 import { MailTemplatesModule, } from './mailTemplates';
 import { RepliesModule, } from './replies';
 import { MailArchiveModule, } from './mailArchive';
+import { ExportsModule, } from './exports';
 import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
@@ -67,6 +68,7 @@ export interface CmsModules {
     mailTemplates: MailTemplatesModule;
     replies: RepliesModule;
     mailArchive: MailArchiveModule;
+    exports: ExportsModule;
     mailSend: MailSendModule;
     payments: PaymentsModule;
     settings: SettingsModule;
@@ -118,6 +120,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.mailTemplates = new MailTemplatesModule(core,);
     c.replies = new RepliesModule(core,);
     c.mailArchive = new MailArchiveModule(core,);
+    c.exports = new ExportsModule(core,);
     c.mailSend = new MailSendModule(core,);
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
@@ -143,7 +146,7 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, UtilsModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
-    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, MailSendModule, PaymentsModule,
+    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,

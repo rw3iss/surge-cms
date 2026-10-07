@@ -15,6 +15,7 @@ import Pagination from '../common/Pagination';
 import SortTh from '../common/SortTh';
 import EntityFilterBar from './EntityFilterBar';
 import '../../../pages/admin/entities/EntitiesList.scss';
+import ExportMenu from '../common/ExportMenu';
 
 export interface EntityDataTableProps {
     type: EntityTypeDef;
@@ -225,8 +226,24 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                     fallback={<div class="empty-state">No {props.type.labelPlural.toLowerCase()} found.</div>}
                 >
                     {/* Top pager (mirrors the bottom): record count + paging,
-                        directly below the filter area. */}
-                    {pager()}
+                        directly below the filter area — with Export to its left,
+                        exporting EVERY record matching the current search,
+                        filters and sort (the same filter value the table sends). */}
+                    <div class="u-flex-row u-gap-sm entity-data-toolbar" style={{ 'align-items': 'center', }}>
+                        <ExportMenu
+                            url={(format, query,) => cms.exports.entitiesUrl(props.type.key, format, query,)}
+                            query={() => {
+                                const f = buildFilter();
+                                return {
+                                    search: search() || undefined,
+                                    sortBy: sortBy() || undefined,
+                                    sortOrder: sortBy() ? sortOrder() : undefined,
+                                    filter: f ? JSON.stringify(f,) : undefined,
+                                };
+                            }}
+                        />
+                        <div style={{ flex: '1', }}>{pager()}</div>
+                    </div>
                     <div class="admin-table-container">
                         <table class="admin-table">
                             <thead>
