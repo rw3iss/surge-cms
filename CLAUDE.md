@@ -287,7 +287,7 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 | /posts/:slug | Post | Single post view |
 | /donate | Donate | Campaign listing |
 | /donate/:slug | Campaign | Single campaign + donation form |
-| /subscribe | Subscribe | Subscription plans (Stripe) |
+| /subscribe | Subscribe | Redirects to /profile?tab=membership (via login when signed out) — tiers are chosen and paid there |
 | /forms/:slug | Form | Dynamic form rendering |
 | /search | Search | Full-text search |
 | /shop | ShopIndexPage | Product grid + filters (feature-gated; replaces the Shopify iframe) |

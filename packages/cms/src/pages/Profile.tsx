@@ -99,7 +99,8 @@ const Profile: Component = () => {
     createEffect(() => {
         if (auth.isLoading) return;
         if (!auth.isAuthenticated) {
-            navigate('/login?redirect=profile', { replace: true, },);
+            // Come back to the same tab (e.g. /subscribe → ?tab=membership).
+            navigate(`/login?redirect=${encodeURIComponent(`/profile${window.location.search}`,)}`, { replace: true, },);
             return;
         }
         if (settingsReady() && !isFeatureEnabled('users',)) {
