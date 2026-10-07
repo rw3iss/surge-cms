@@ -96,6 +96,29 @@ export async function allUsers(q: { search?: string; role?: string; status?: str
 /** snake_case field key → the camelCase key records carry. */
 const camel = (k: string,) => k.replace(/_([a-z0-9])/g, (_m, c: string,) => c.toUpperCase(),);
 
+/**
+ * The printed page's columns for an entity type. A type can name its own set
+ * (a CRM contact reads as name / email / phones / city / state); otherwise the
+ * first schema fields that read well on paper — relation ids, long text, rich
+ * text, JSON and block trees are skipped. "Print — all columns" still has
+ * everything. Both key spellings are listed (schema snake_case, record camel).
+ */
+const PRINT_FIELDS: Record<string, string[]> = {
+    contact: ['firstName', 'lastName', 'email', 'mobilePhone', 'primaryPhone', 'city', 'state',],
+};
+const NOT_PRINTABLE = new Set(['relation', 'longtext', 'richtext', 'json', 'blocks',],);
+
+function printColumnsFor(type: { key: string; hasSlug: boolean; hasStatus: boolean; fields: { key: string; type: string; }[]; },): string[] {
+    const both = (k: string,) => [k, camel(k,), k.replace(/[A-Z]/g, (c,) => `_${c.toLowerCase()}`,),];
+    const named = PRINT_FIELDS[type.key];
+    if (named) return named.flatMap(both,);
+    return [
+        ...(type.hasSlug ? ['slug',] : []),
+        ...type.fields.filter((f,) => !NOT_PRINTABLE.has(f.type,),).slice(0, 8,).flatMap((f,) => both(f.key,),),
+        ...(type.hasStatus ? ['status',] : []),
+    ];
+}
+
 export async function entityRecords(
     typeKey: string,
     q: { search?: string; status?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; filter?: unknown; },
@@ -127,8 +150,7 @@ export async function entityRecords(
         columns: deriveColumns(rows, { preferred: [...lead, ...preferred,].filter((k, i, a,) => a.indexOf(k,) === i), labels, omit: omitSensitive(rows,), },)
             // Timestamps read best last.
             .sort((a, b,) => Number(tail.includes(a.key,),) - Number(tail.includes(b.key,),)),
-        // The first few schema fields — enough to identify each record on paper.
-        printColumns: [...(type.hasSlug ? ['slug',] : []), ...type.fields.slice(0, 8,).flatMap((f,) => [f.key, camel(f.key,),]), ...(type.hasStatus ? ['status',] : []),],
+        printColumns: printColumnsFor(type,),
         rows,
     };
 }
