@@ -150,8 +150,18 @@ export default function ReplyModal(props: ReplyModalProps,) {
         if (!sending()) props.onClose();
     };
 
+    // Closes ONLY via Cancel: a stray backdrop click or Escape would throw away
+    // a message that may have taken a while to write.
     return (
-        <ModalShell open onClose={close} size="lg" class="reply-modal" ariaLabel="Reply by email" dismissOnBackdrop={!sending()}>
+        <ModalShell
+            open
+            onClose={close}
+            size="lg"
+            class="reply-modal"
+            ariaLabel="Reply by email"
+            dismissOnBackdrop={false}
+            dismissOnEscape={false}
+        >
             <div class="reply-modal__header">
                 <h2>{target()?.title ?? 'Reply'}</h2>
                 <Show when={target()}>
