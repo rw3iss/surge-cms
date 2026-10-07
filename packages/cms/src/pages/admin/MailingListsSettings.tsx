@@ -13,13 +13,13 @@
  * send specifies. They also drive the placeholder text in those forms, so what
  * the form suggests and what actually ships are the same value.
  */
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import type { MailingListsSettings, } from '@sitesurge/types';
 import { FormField, } from '../../components/admin/forms';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminMailingListsSettings: Component = () => {
     const toast = useToast();
@@ -59,7 +59,7 @@ const AdminMailingListsSettings: Component = () => {
 
     return (
         <div class="mailing-lists-settings-page">
-            <Title>Mailing List Settings - Admin</Title>
+            <AdminTitle>Mailing List Settings</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>

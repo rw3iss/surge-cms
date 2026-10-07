@@ -6,7 +6,6 @@
  * The block tree is loaded from `GET /mail-templates/:id` and saved
  * via `PUT /mail-templates/:id/blocks` (transactional replace).
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createEffect, createSignal, For, onCleanup, onMount, Show,
@@ -24,6 +23,7 @@ import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { useEditorDraft, } from '../../hooks/useEditorDraft';
 import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
 import { buildMailPreviewVariables, setPreviewVariables, } from '../../stores/previewVariables';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const MailTemplateEdit: Component = () => {
     const params = useParams<{ id: string; }>();
@@ -257,7 +257,7 @@ const MailTemplateEdit: Component = () => {
 
     return (
         <div class="mail-template-edit-page mailing-list-edit-page">
-            <Title>{isNew() ? 'New Template' : name() || 'Edit Template'} - Admin</Title>
+            <AdminTitle>{isNew() ? 'New Template' : name() || 'Edit Template'}</AdminTitle>
 
             {/* Leaving with unsaved edits — the admin's own modal, not a
                 native confirm box that cannot say which editor it came from. */}

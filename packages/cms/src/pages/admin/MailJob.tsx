@@ -3,13 +3,13 @@
  * progress, status badge, action buttons (Retry failed / Cancel),
  * and a paginated recipients table with status filter tabs.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import {
     Component, createResource, createSignal, For, onCleanup, onMount, Show,
 } from 'solid-js';
 import type { MailSendJob, MailSendRecipient, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 type StatusFilter = 'all' | 'pending' | 'sent' | 'failed';
 
@@ -103,7 +103,7 @@ const MailJob: Component = () => {
 
     return (
         <div class="mail-job-page mailing-list-edit-page">
-            <Title>Send Job - Admin</Title>
+            <AdminTitle>Send Job</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>

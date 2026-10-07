@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import LoadingState from '../../../components/admin/common/LoadingState';
@@ -17,6 +16,7 @@ import type { MailingList, } from '@sitesurge/types';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import StripeKeysEditor from '../../../components/admin/StripeKeysEditor';
 import { centsToDollars, dollarsToCents, } from './shopUtils';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'emails' | 'providers';
 const TABS: { key: Tab; label: string; }[] = [
@@ -131,7 +131,7 @@ const ShopSettingsInner: Component = () => {
 
     return (
         <div class="shop-admin shop-settings">
-            <Title>Shop Settings - Admin - RW</Title>
+            <AdminTitle>Shop Settings</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Shop Settings</h1>

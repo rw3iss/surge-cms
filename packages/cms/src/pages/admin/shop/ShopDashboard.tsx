@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
@@ -11,6 +10,7 @@ import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const PAID_STATUSES = new Set(['paid', 'processing', 'shipped', 'delivered',],);
 
@@ -97,7 +97,7 @@ const ShopDashboardInner: Component = () => {
 
     return (
         <div class="shop-admin">
-            <Title>Shop - Admin - RW</Title>
+            <AdminTitle>Shop</AdminTitle>
             <div class="admin-header">
                 <h1>Shop</h1>
                 <div class="admin-header__actions">

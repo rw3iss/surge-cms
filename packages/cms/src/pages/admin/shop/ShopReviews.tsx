@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
 import EmptyState from '../../../components/admin/common/EmptyState';
@@ -12,6 +11,7 @@ import { cms, } from '../../../services/cmsClient';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatDate, } from './shopUtils';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const ShopReviewsInner: Component = () => {
     const toast = useToast();
@@ -52,7 +52,7 @@ const ShopReviewsInner: Component = () => {
 
     return (
         <div class="shop-admin">
-            <Title>Shop Reviews - Admin - RW</Title>
+            <AdminTitle>Shop Reviews</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Reviews</h1>

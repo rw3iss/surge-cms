@@ -1,7 +1,7 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const PROVIDERS = [
     { id: 'instagram', name: 'Instagram', icon: 'IG', },
@@ -55,7 +55,7 @@ const AdminConnections: Component = () => {
 
     return (
         <div>
-            <Title>Connections - Admin - RW</Title>
+            <AdminTitle>Connections</AdminTitle>
             <div class="admin-header">
                 <h1>Connections</h1>
             </div>

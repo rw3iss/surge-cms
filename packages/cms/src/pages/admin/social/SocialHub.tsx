@@ -1,6 +1,6 @@
-import { Title, } from '@solidjs/meta';
 import { A, useLocation, } from '@solidjs/router';
 import { For, type ParentComponent, } from 'solid-js';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 /**
  * Social hub shell — a header + sub-navigation over the three Social areas,
@@ -21,7 +21,7 @@ const SocialHub: ParentComponent = (props,) => {
 
     return (
         <div class="social-hub">
-            <Title>Social - Admin - RW</Title>
+            <AdminTitle>Social</AdminTitle>
             <div class="admin-header">
                 <h1>Social</h1>
             </div>

@@ -5,12 +5,12 @@
  * near-identical components is how two of them quietly fall out of date.
  * Content lives in `services/help/sdkReference.ts`.
  */
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, For, Show, createSignal, type JSX, } from 'solid-js';
 import { COMPONENT_JS_DOC, HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, RELEASES_DOC, SDK_DOCS, type SdkDoc, } from '../../services/help/sdkReference';
 import { SDK_METHOD_COUNT, SDK_MODULE_COUNT, SDK_MODULES, type SdkModuleDoc, } from '../../services/help/sdkModules.generated';
 import './Help.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /**
  * Render `backtick` spans as <code>.
@@ -126,7 +126,7 @@ const SdkModuleReference: Component = () => {
 
 const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
     <div class="help-doc">
-        <Title>{props.doc.title} - Help - Admin</Title>
+        <AdminTitle>{props.doc.title} - Help</AdminTitle>
         <A href="/admin/help" class="help-doc__back">← Help</A>
         <div class="admin-header">
             <h1>{props.doc.title}</h1>

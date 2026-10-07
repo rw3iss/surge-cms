@@ -2,12 +2,12 @@
  * Content-block templates for one entity type — list + create. Each template is
  * an entity-bound block subtree edited in TemplateEditor.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import type { ContentBlockTemplate, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import './EntitiesList.scss';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const TemplateList: Component = () => {
     const params = useParams<{ type: string; }>();
@@ -24,7 +24,7 @@ const TemplateList: Component = () => {
 
     return (
         <div class="admin-page entity-templates-page">
-            <Title>Templates — {params.type} - Admin</Title>
+            <AdminTitle>Templates — {params.type}</AdminTitle>
             {/* Top-level breadcrumb back to the whole Entities list (the header's
                 own back link only goes to this one entity type). */}
             <A href="/admin/entities" class="entity-breadcrumb-back">← All Entities</A>

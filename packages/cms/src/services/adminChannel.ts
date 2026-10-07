@@ -92,11 +92,12 @@ function pathLabel(path: string,): string {
     return `${section}: ${rest.map(abbrevSeg,).join('/',)}`;
 }
 
-/** The page-specific part of a document.title (before the " - Admin …" suffix),
- *  or null if it's generic ("New X" / "Edit X") or empty. */
+/** The page-specific part of an admin document.title (`[A] {page} | {site}`,
+ *  see `AdminTitle`; older pages used `{page} - Admin`), or null if it's
+ *  generic ("New X" / "Edit X") or empty. */
 function specificFromTitle(title: string,): string | null {
     if (!title) return null;
-    const first = title.split(/\s+[–—-]\s+/,)[0]?.trim();
+    const first = title.replace(/^\[A\]\s*/, '',).split(/\s+[|–—-]\s+/,)[0]?.trim();
     if (!first) return null;
     if (/^(new|edit)\b/i.test(first,)) return null;
     return first;

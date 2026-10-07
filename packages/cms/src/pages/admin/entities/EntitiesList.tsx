@@ -4,7 +4,6 @@
  * record count, a Templates link, and an "Edit schema" action) and lets an
  * admin create a new custom type.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import type { EntityTypeDef, } from '@sitesurge/types';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
@@ -14,6 +13,7 @@ import ModalShell from '../../../components/admin/common/ModalShell';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import './EntitiesList.scss';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const EntitiesList: Component = () => {
     const toast = useToast();
@@ -99,7 +99,7 @@ const EntitiesList: Component = () => {
 
     return (
         <div>
-            <Title>Entities - Admin</Title>
+            <AdminTitle>Entities</AdminTitle>
             <div class="admin-header">
                 <h1>Entities</h1>
                 <button class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New entity type</button>

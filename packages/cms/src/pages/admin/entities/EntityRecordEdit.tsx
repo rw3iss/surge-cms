@@ -6,7 +6,6 @@
  *   /admin/entities/:type/:id/edit   → editable form (Save)
  *   /admin/entities/:type/new/edit   → create form (Save → new record)
  */
-import { Title, } from '@solidjs/meta';
 import { A, useLocation, useNavigate, useParams, } from '@solidjs/router';
 import type { EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
@@ -15,6 +14,7 @@ import EntityRecordForm from '../../../components/admin/entities/EntityRecordFor
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import './EntitiesList.scss';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 /** Fields the backend owns — never sent back on create/update. */
 function stripMeta(values: Record<string, unknown>,): Record<string, unknown> {
@@ -106,7 +106,7 @@ const EntityRecordEdit: Component = () => {
 
     return (
         <div>
-            <Title>{heading()} - Admin</Title>
+            <AdminTitle>{heading()}</AdminTitle>
             <div class="admin-header">
                 <h1>
                     <A href="/admin/entities" class="table-link">Entities</A> /{' '}

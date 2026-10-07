@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, lazy, onMount, Show, } from 'solid-js';
 import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
@@ -25,6 +24,7 @@ import FeatureToggleRow from '../../components/admin/features/FeatureToggleRow';
 import Toggle from '../../components/admin/common/Toggle';
 import { FormField, } from '../../components/admin/forms';
 import { FEATURES, } from '../../config/features';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 // HeroContentEditor is now used via the 'carousel' block type, not in Settings.
 const SiteHeaderEditor = lazy(() => import('../../components/admin/editors/SiteHeaderEditor'));
@@ -1720,7 +1720,7 @@ const AdminSettings: Component = () => {
 
     return (
         <div>
-            <Title>Settings - Admin - RW</Title>
+            <AdminTitle>Settings</AdminTitle>
             <div class="admin-header">
                 <h1>Settings</h1>
             </div>

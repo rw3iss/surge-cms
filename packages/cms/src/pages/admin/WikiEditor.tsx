@@ -5,7 +5,6 @@
  * The editor gets the space because writing is the job here — the properties
  * are set once and the body is edited forever.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import type { WikiPage, } from '@sitesurge/types';
@@ -17,6 +16,7 @@ import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import MarkdownEditor from '../../components/admin/common/MarkdownEditor';
 import ModalShell from '../../components/admin/common/ModalShell';
 import './Wiki.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /** Roles that can be granted view access to a single page. */
 const VIEW_ROLES = ['anonymous', 'member', 'editor', 'admin', 'sysadmin',];
@@ -121,7 +121,7 @@ const WikiEditor: Component = () => {
 
     return (
         <div class="admin-wiki-editor admin-full-bleed">
-            <Title>{title() || 'Wiki page'} - Admin</Title>
+            <AdminTitle>{title() || 'Wiki page'}</AdminTitle>
 
             <div class="admin-header">
                 <h1>

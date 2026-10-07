@@ -1,8 +1,8 @@
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
 import LoadingState from '../../components/admin/common/LoadingState';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /** Shared style for the field labels in the message detail grid (was an
  *  inline object repeated 5×; color routed through the admin token). */
@@ -47,7 +47,7 @@ const AdminMessageView: Component = () => {
 
     return (
         <div>
-            <Title>Message - Admin - RW</Title>
+            <AdminTitle>Message</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/messages" class="ui-button ui-button--secondary">&larr; Back to Messages</A>
             </div>

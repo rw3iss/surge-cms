@@ -1,9 +1,9 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { FEATURES, } from '../../config/features';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /**
  * Site features rendered in the dashboard panel. Order matches the
@@ -56,7 +56,7 @@ const AdminDashboard: Component = () => {
 
     return (
         <div class="admin-dashboard">
-            <Title>Dashboard - Admin - RW</Title>
+            <AdminTitle>Dashboard</AdminTitle>
 
             <div class="admin-header">
                 <h1>Dashboard</h1>

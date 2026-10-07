@@ -1,9 +1,9 @@
-import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
 import { FormField, } from '../../components/admin/forms';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const PROVIDER_NAMES: Record<string, string> = {
     instagram: 'Instagram',
@@ -78,7 +78,7 @@ const AdminConnectionEditor: Component = () => {
 
     return (
         <div>
-            <Title>{providerName()} Connection - Admin - RW</Title>
+            <AdminTitle>{providerName()} Connection</AdminTitle>
             <div class="admin-header">
                 <h1>{connection() ? 'Edit' : 'Connect'} {providerName()}</h1>
             </div>

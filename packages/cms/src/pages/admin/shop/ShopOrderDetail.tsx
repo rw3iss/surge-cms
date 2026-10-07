@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
 import type {
@@ -14,6 +13,7 @@ import { getStatusBadgeClass, } from '../../../utils/badges';
 import ShopGuard from './ShopGuard';
 import { formatCents, formatDate, } from './shopUtils';
 import { shipBreakdown, } from '../../shop/shopFormat';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const ORDER_STATUSES: ShopOrderStatus[] = [
     'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',
@@ -128,7 +128,7 @@ const ShopOrderDetailInner: Component = () => {
 
     return (
         <div class="shop-admin shop-order">
-            <Title>Order - Admin - RW</Title>
+            <AdminTitle>Order</AdminTitle>
             <Show when={order()} fallback={<div class="empty-state">Loading order...</div>}>
                 {(o,) => (
                         <>

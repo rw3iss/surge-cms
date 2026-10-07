@@ -10,12 +10,12 @@
  * action (Forms → edit a form → action `email`) is per-form and configured
  * there. This page is about the staff alert that fires for every submission.
  */
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminFormsSettings: Component = () => {
     const toast = useToast();
@@ -43,7 +43,7 @@ const AdminFormsSettings: Component = () => {
 
     return (
         <div class="forms-settings-page">
-            <Title>Forms Settings - Admin</Title>
+            <AdminTitle>Forms Settings</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/forms" class="admin-header__back">← Forms</A>

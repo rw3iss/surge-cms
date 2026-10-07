@@ -1,9 +1,9 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import VideoPlayer from '../../components/blocks/media/VideoPlayer';
 import MediaEditModal from '../../components/admin/media/MediaEditModal';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 function formatSize(bytes: number,): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -141,7 +141,7 @@ const AdminMedia: Component = () => {
 
     return (
         <div>
-            <Title>Media - Admin - RW</Title>
+            <AdminTitle>Media</AdminTitle>
             <div class="admin-header">
                 <h1>Media Library</h1>
                 <div class="admin-header__actions">

@@ -1,9 +1,9 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, } from 'solid-js';
 import DataTable from '../../components/admin/common/DataTable';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminMessages: Component = () => {
     const [messages,] = createResource(async () => {
@@ -19,7 +19,7 @@ const AdminMessages: Component = () => {
 
     return (
         <div>
-            <Title>Messages - Admin - RW</Title>
+            <AdminTitle>Messages</AdminTitle>
             <div class="admin-header">
                 <h1>Contact Messages</h1>
             </div>

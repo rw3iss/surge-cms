@@ -6,7 +6,6 @@
  *            read-only; the key and core fields are always locked.
  *   Data   → the type's records (EntityDataTable).
  */
-import { Title, } from '@solidjs/meta';
 import { A, useLocation, useParams, } from '@solidjs/router';
 import type { EntityCaching, EntityRouting, EntityTypeDef, EntityTypeUpdateBody, } from '@sitesurge/types';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
@@ -17,6 +16,7 @@ import FormField from '../../../components/admin/forms/FormField';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import './EntitiesList.scss';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const clone = <T,>(v: T,): T => JSON.parse(JSON.stringify(v,),);
 
@@ -103,7 +103,7 @@ const EntityDetail: Component = () => {
 
     return (
         <div>
-            <Title>Entity: {params.type} - Admin</Title>
+            <AdminTitle>Entity: {params.type}</AdminTitle>
             <div class="admin-header">
                 <h1>
                     <A href="/admin/entities" class="table-link">Entities</A> / {draft()?.label || params.type}

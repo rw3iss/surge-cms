@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -20,6 +19,7 @@ import { isPluginEnabled, loadEnabledPlugins, } from '../../../stores/plugins';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { centsToDollars, dollarsToCents, slugify, } from './shopUtils';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 // ── Local editor models ───────────────────────────────────────────────
 
@@ -579,7 +579,7 @@ const ShopProductEditorInner: Component = () => {
 
     return (
         <div class="shop-admin shop-product-editor">
-            <Title>{isNew() ? 'New Product' : 'Edit Product'} - Admin - RW</Title>
+            <AdminTitle>{isNew() ? 'New Product' : 'Edit Product'}</AdminTitle>
             {/* All actions live in the STICKY header, so Save stays reachable
                 from anywhere in a long product form instead of requiring a
                 scroll to the bottom. Sync sits next to the title (it acts on

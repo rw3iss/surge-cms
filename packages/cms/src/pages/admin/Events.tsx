@@ -8,7 +8,6 @@
  * back button behaves.
  */
 import type { CalendarEvent, EventOccurrence, } from '@sitesurge/types';
-import { Title, } from '@solidjs/meta';
 import { A, useLocation, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
 import { MONTHS, yearOptions, } from '../../components/common/calendar/calendarGrid';
@@ -17,6 +16,7 @@ import { cms, } from '../../services/cmsClient';
 import { siteSettings, } from '../../stores/siteSettings';
 import EventModal from './events/EventModal';
 import './events/Events.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminEvents: Component = () => {
     const params = useParams<{ id?: string; }>();
@@ -145,7 +145,7 @@ const AdminEvents: Component = () => {
 
     return (
         <div class="admin-events admin-full-bleed">
-            <Title>Events - Admin</Title>
+            <AdminTitle>Events</AdminTitle>
 
             <div class="admin-header">
                 <h1>Events</h1>

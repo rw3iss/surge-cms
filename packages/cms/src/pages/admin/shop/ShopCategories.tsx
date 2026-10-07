@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
@@ -9,6 +8,7 @@ import { cms, } from '../../../services/cmsClient';
 import ShopGuard from './ShopGuard';
 import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { slugify, } from './shopUtils';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 interface Draft {
     id?: string;
@@ -119,7 +119,7 @@ const ShopCategoriesInner: Component = () => {
 
     return (
         <div class="shop-admin">
-            <Title>Shop Categories - Admin - RW</Title>
+            <AdminTitle>Shop Categories</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Categories</h1>

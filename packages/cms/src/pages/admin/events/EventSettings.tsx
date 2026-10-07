@@ -5,7 +5,6 @@
  * trusting the form; the UI mirrors it so the two can't disagree on screen.
  */
 import type { EventsSettings, } from '@sitesurge/types';
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../../components/admin/common/Toggle';
@@ -13,6 +12,7 @@ import { FormField, } from '../../../components/admin/forms';
 import { cms, } from '../../../services/cmsClient';
 import './EventSettings.scss';
 import { useToast, } from '../../../components/common/toast';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const AdminEventSettings: Component = () => {
     const toast = useToast();
@@ -68,7 +68,7 @@ const AdminEventSettings: Component = () => {
 
     return (
         <div class="admin-event-settings">
-            <Title>Event Settings - Admin</Title>
+            <AdminTitle>Event Settings</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/events" class="admin-header__back">← Events</A>
                 <h1>Event Settings</h1>

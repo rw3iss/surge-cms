@@ -3,7 +3,6 @@
  * controls, then the config UI: the plugin's own `mountConfig(el, host)` if it
  * exports one, else the host-rendered declarative form from its configSchema.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, onCleanup, onMount, Show, } from 'solid-js';
 import type { Plugin, } from '@sitesurge/types';
@@ -12,6 +11,7 @@ import { useAuth, useIsAdmin, } from '../../stores/auth';
 import { siteSettings, } from '../../stores/siteSettings';
 import { buildHost, loadPluginModule, } from '../../plugins/host';
 import PluginConfigForm from '../../components/plugins/PluginConfigForm';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminPluginConfig: Component = () => {
     const params = useParams();
@@ -36,7 +36,7 @@ const AdminPluginConfig: Component = () => {
 
     return (
         <div>
-            <Title>Plugin — Admin</Title>
+            <AdminTitle>Plugin</AdminTitle>
             <div class="admin-header">
                 <div>
                     <A href="/admin/plugins" class="text-muted text-sm">← Plugins</A>

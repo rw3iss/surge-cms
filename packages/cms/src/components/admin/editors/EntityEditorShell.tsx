@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { createSignal, JSX, onCleanup, onMount, Show, } from 'solid-js';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import BlockEditor from '../blocks/BlockEditor';
@@ -8,6 +7,7 @@ import PreviewOverlay from '../common/PreviewOverlay';
 import RevisionsPanel from '../panels/RevisionsPanel';
 import type { RevisionEntityType, } from '@sitesurge/types';
 import type { EntityEditorController, } from '../../../hooks/useEntityEditor';
+import AdminTitle from '../common/AdminTitle';
 
 export interface EntityEditorLabels {
     /** Heading + <Title> when creating, e.g. 'New Page'. */
@@ -140,7 +140,7 @@ export function EntityEditorShell<TEntity,>(
 
     return (
         <div class={`entity-editor ${props.rootClass(e.fullBleed(),)}`} ref={rootEl}>
-            <Title>{heading()} - Admin - RW</Title>
+            <AdminTitle>{heading()}</AdminTitle>
 
             <ConfirmModal
                 open={showRevertConfirm()}

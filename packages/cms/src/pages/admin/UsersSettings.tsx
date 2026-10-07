@@ -12,7 +12,6 @@
  * still reads the old location as a fallback so an operator who customised it
  * before this change doesn't silently lose their template.
  */
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import type { UsersSettings, } from '@sitesurge/types';
@@ -23,6 +22,7 @@ import { FormField, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 type Section = 'general' | 'emails';
 
@@ -108,7 +108,7 @@ const AdminUsersSettings: Component = () => {
 
     return (
         <div class="users-settings-page">
-            <Title>Users Settings - Admin</Title>
+            <AdminTitle>Users Settings</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/users" class="admin-header__back">← Users</A>

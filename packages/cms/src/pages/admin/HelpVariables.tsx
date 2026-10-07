@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import {
@@ -11,6 +10,7 @@ import {
     type EntityDoc,
 } from '../../services/template/reference';
 import './Help.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const EntitySection: Component<{ entity: EntityDoc; }> = (props,) => {
     const [open, setOpen,] = createSignal(false,);
@@ -51,7 +51,7 @@ const EntitySection: Component<{ entity: EntityDoc; }> = (props,) => {
 
 const HelpVariables: Component = () => (
     <div class="admin-help help-doc">
-        <Title>Variables &amp; Functions - Help - Admin - RW</Title>
+        <AdminTitle>Variables &amp; Functions - Help</AdminTitle>
         <div class="admin-header">
             <A href="/admin/help" class="help-doc__back">&larr; Help</A>
             <h1>Variables &amp; Functions</h1>

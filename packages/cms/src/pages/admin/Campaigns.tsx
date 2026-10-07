@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
@@ -7,6 +6,7 @@ import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 function formatCurrency(cents: number | null | undefined,): string {
     if (cents === null || cents === undefined) return 'Open';
@@ -49,7 +49,7 @@ const AdminCampaigns: Component = () => {
 
     return (
         <div class="admin-campaigns">
-            <Title>Campaigns - Admin - RW</Title>
+            <AdminTitle>Campaigns</AdminTitle>
             <div class="admin-header">
                 <h1>Campaigns</h1>
                 <A href="/admin/campaigns/new" class="ui-button ui-button--primary">New Campaign</A>

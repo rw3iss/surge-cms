@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
@@ -7,6 +6,7 @@ import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminForms: Component = () => {
     const { searchParams, setSearchParams, } = useSearchFilter();
@@ -41,7 +41,7 @@ const AdminForms: Component = () => {
 
     return (
         <div class="admin-forms">
-            <Title>Forms - Admin - RW</Title>
+            <AdminTitle>Forms</AdminTitle>
             <div class="admin-header">
                 <h1>Forms</h1>
                 <div class="admin-header__actions">

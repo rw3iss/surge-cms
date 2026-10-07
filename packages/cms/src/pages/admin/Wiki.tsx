@@ -5,7 +5,6 @@
  * structure; a table would hide the one relationship that matters and make
  * "where does this page live" unanswerable at a glance.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import type { WikiPage, WikiPageNode, } from '@sitesurge/types';
@@ -14,6 +13,7 @@ import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
 import ModalShell from '../../components/admin/common/ModalShell';
 import './Wiki.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminWiki: Component = () => {
     const navigate = useNavigate();
@@ -151,7 +151,7 @@ const AdminWiki: Component = () => {
 
     return (
         <div class="admin-wiki">
-            <Title>Wiki - Admin</Title>
+            <AdminTitle>Wiki</AdminTitle>
             <div class="admin-header">
                 <h1>Wiki</h1>
                 <div class="admin-header__actions">

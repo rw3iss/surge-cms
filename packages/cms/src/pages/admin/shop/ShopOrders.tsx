@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, For, Show, } from 'solid-js';
 import EmptyState from '../../../components/admin/common/EmptyState';
@@ -14,6 +13,7 @@ import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
 import { createResource, } from 'solid-js';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const ShopOrdersInner: Component = () => {
     const { searchParams, setSearchParams, } = useSearchFilter();
@@ -31,7 +31,7 @@ const ShopOrdersInner: Component = () => {
 
     return (
         <div class="shop-admin">
-            <Title>Shop Orders - Admin - RW</Title>
+            <AdminTitle>Shop Orders</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Orders</h1>
@@ -113,7 +113,7 @@ const ShopifyOrdersInner: Component = () => {
 
     return (
         <div class="shop-admin">
-            <Title>Shop Orders - Admin - RW</Title>
+            <AdminTitle>Shop Orders</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Orders</h1>

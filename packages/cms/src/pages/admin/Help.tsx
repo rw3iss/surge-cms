@@ -1,7 +1,7 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, For, } from 'solid-js';
 import './Help.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 interface HelpTopic { path: string; title: string; desc: string; }
 
@@ -41,7 +41,7 @@ const TOPICS: HelpTopic[] = [
 
 const AdminHelp: Component = () => (
     <div class="admin-help">
-        <Title>Help - Admin - RW</Title>
+        <AdminTitle>Help</AdminTitle>
         <div class="admin-header">
             <h1>Help &amp; Documentation</h1>
         </div>

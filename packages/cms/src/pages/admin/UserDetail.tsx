@@ -1,10 +1,10 @@
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../components/admin/common/Toggle';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, } from '../../utils/badges';
 import './UserDetail.scss';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminUserDetail: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -164,7 +164,7 @@ const AdminUserDetail: Component = () => {
 
     return (
         <div class="user-detail">
-            <Title>{user()?.displayName || 'User'} - Admin - RW</Title>
+            <AdminTitle>{user()?.displayName || 'User'}</AdminTitle>
 
             <A href="/admin/users" class="user-detail__back">&larr; All Users</A>
 

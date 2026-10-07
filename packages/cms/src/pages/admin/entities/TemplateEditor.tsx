@@ -7,7 +7,6 @@
  * Mirrors MailTemplateEdit; reuses the mail blockConverters (identical block
  * shape) to map editor ↔ backend blocks.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
 import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
@@ -22,6 +21,7 @@ import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../c
 import { cms, } from '../../../services/cmsClient';
 import { setTemplatePreviewContext, } from '../../../stores/templatePreviewContext';
 import './EntitiesList.scss';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 /** Fallback sample-record count for a `list` template with no `maxRecords` set —
  *  how many records to load into the editor preview. Static for now. */
@@ -319,7 +319,7 @@ const TemplateEditor: Component = () => {
 
     return (
         <div class="mail-template-edit-page admin-full-bleed">
-            <Title>{isNew() ? 'New Template' : name() || 'Edit Template'} - Admin</Title>
+            <AdminTitle>{isNew() ? 'New Template' : name() || 'Edit Template'}</AdminTitle>
             <div class="admin-header">
                 <A href={listHref()} class="admin-header__back">
                     {isGlobal() ? '← Components' : '← Templates'}

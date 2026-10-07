@@ -5,7 +5,6 @@
  *
  * Templates dropdown for `default_template_id` is stubbed for Phase 3.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
     Component, createResource, createSignal, For, onMount, Show,
@@ -15,6 +14,7 @@ import { FormField, FormSection, } from '../../components/admin/forms';
 import Toggle from '../../components/admin/common/Toggle';
 import SubscriberFormModal from '../../components/admin/mailing-lists/SubscriberFormModal';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 interface SubscriberListResponse { items: MailingListSubscriber[]; total: number; }
 
@@ -126,7 +126,7 @@ const MailingListEdit: Component = () => {
 
     return (
         <div class="mailing-list-edit-page">
-            <Title>{isNew() ? 'New List' : name() || 'Edit List'} - Admin</Title>
+            <AdminTitle>{isNew() ? 'New List' : name() || 'Edit List'}</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Lists</A>

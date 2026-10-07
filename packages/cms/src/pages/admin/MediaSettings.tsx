@@ -10,13 +10,13 @@
  * deployment configured through `.env` is unaffected and an operator can keep
  * object-store credentials out of the database if they prefer.
  */
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import type { MediaStorageSettings, } from '@sitesurge/types';
 import { FormField, } from '../../components/admin/forms';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminMediaSettings: Component = () => {
     const toast = useToast();
@@ -52,7 +52,7 @@ const AdminMediaSettings: Component = () => {
 
     return (
         <div class="media-settings-page">
-            <Title>Media Settings - Admin</Title>
+            <AdminTitle>Media Settings</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/media" class="admin-header__back">&larr; Media</A>

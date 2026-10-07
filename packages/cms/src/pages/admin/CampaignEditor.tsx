@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
@@ -13,6 +12,7 @@ import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateCampaignsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import CampaignDonations from './CampaignDonations';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 interface GbCampaign {
     id: number;
@@ -255,7 +255,7 @@ const CampaignEditor: Component = () => {
 
     return (
         <div class="admin-editor">
-            <Title>{isNew() ? 'New Campaign' : 'Edit Campaign'} - Admin - RW</Title>
+            <AdminTitle>{isNew() ? 'New Campaign' : 'Edit Campaign'}</AdminTitle>
 
             {
                 /* Leaving with unsaved edits — the admin's own modal, the same one

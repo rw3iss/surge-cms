@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
@@ -7,6 +6,7 @@ import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminPages: Component = () => {
     const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
@@ -35,7 +35,7 @@ const AdminPages: Component = () => {
 
     return (
         <div>
-            <Title>Pages - Admin - RW</Title>
+            <AdminTitle>Pages</AdminTitle>
             <div class="admin-header">
                 <h1>Pages</h1>
                 <A href="/admin/pages/new" class="ui-button ui-button--primary">New Page</A>

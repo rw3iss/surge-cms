@@ -5,7 +5,6 @@ import {
     type FormCreateBody,
     parseEmailList,
 } from '@sitesurge/types';
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
@@ -22,6 +21,7 @@ import { useUnsavedChanges, } from '../../hooks/useUnsavedChanges';
 import { invalidateFormsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 type QuestionKind = 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'number' | 'email' | 'date';
 
@@ -437,7 +437,7 @@ const FormEditor: Component = () => {
 
     return (
         <div class="admin-editor form-editor">
-            <Title>{isNew() ? 'New Form' : 'Edit Form'} - Admin - RW</Title>
+            <AdminTitle>{isNew() ? 'New Form' : 'Edit Form'}</AdminTitle>
 
             {
                 /* Leaving with unsaved edits — the admin's own modal, the same one

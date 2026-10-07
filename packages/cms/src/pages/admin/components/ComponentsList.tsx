@@ -11,10 +11,10 @@
  */
 import { Component, createResource, For, Show, } from 'solid-js';
 import { A, useNavigate, } from '@solidjs/router';
-import { Title, } from '@solidjs/meta';
 import type { ContentBlockTemplate, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { formatDate, } from '@sitesurge/types';
+import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 const ComponentsList: Component = () => {
     const navigate = useNavigate();
@@ -50,7 +50,7 @@ const ComponentsList: Component = () => {
 
     return (
         <div class="admin-page">
-            <Title>Components - Admin</Title>
+            <AdminTitle>Components</AdminTitle>
             <div class="admin-header">
                 <h1>Components</h1>
                 <div class="admin-header__actions">

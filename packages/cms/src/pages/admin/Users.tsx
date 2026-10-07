@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
@@ -9,6 +8,7 @@ import { usePaginatedList, } from '../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -89,7 +89,7 @@ const AdminUsers: Component = () => {
 
     return (
         <div>
-            <Title>Users - Admin - RW</Title>
+            <AdminTitle>Users</AdminTitle>
             <div class="admin-header">
                 <h1>Users</h1>
                 <div class="admin-header__actions">

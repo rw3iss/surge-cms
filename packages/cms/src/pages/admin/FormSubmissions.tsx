@@ -1,4 +1,3 @@
-import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
@@ -7,6 +6,7 @@ import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import SubmissionViewModal from '../../components/admin/forms/SubmissionViewModal';
 import ReplyModal from '../../components/admin/reply/ReplyModal';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
  *  (were four identical inline objects). */
@@ -177,7 +177,7 @@ const FormSubmissions: Component = () => {
 
     return (
         <div>
-            <Title>Form Submissions - Admin - RW</Title>
+            <AdminTitle>Form Submissions</AdminTitle>
             <div class="admin-header">
                 <h1>
                     <Show when={form()} fallback="Form Submissions">

@@ -6,13 +6,13 @@
  * because it owns a modal and its own resource; the rest of this page is
  * read-only tables.
  */
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { MailSendJob, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
 import ScheduledSends from '../../components/admin/mail/ScheduledSends';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 type JobWithListName = MailSendJob & { listName: string | null; };
 
@@ -72,7 +72,7 @@ const MailingLists: Component = () => {
 
     return (
         <div class="mailing-lists-page">
-            <Title>Mailing Lists - Admin</Title>
+            <AdminTitle>Mailing Lists</AdminTitle>
             <div class="admin-header">
                 <h1>Mailing Lists</h1>
                 <div class="admin-header__actions">

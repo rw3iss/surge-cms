@@ -1,9 +1,9 @@
-import { Title, } from '@solidjs/meta';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { MarketplacePlugin, Plugin, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { loadEnabledPlugins, } from '../../stores/plugins';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const AdminPlugins: Component = () => {
     const [plugins, { refetch, },] = createResource(async () => {
@@ -50,7 +50,7 @@ const AdminPlugins: Component = () => {
 
     return (
         <div>
-            <Title>Plugins - Admin</Title>
+            <AdminTitle>Plugins</AdminTitle>
             <div class="admin-header">
                 <h1>Plugins</h1>
                 <div class="admin-header__actions">

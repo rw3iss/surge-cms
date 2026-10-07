@@ -8,7 +8,6 @@
  * query param preserves the draft.
  */
 import type { MailingList, MailingListsSettings, MailTemplate, VariableDescriptor, } from '@sitesurge/types';
-import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
@@ -18,6 +17,7 @@ import { BackendBlock, backendToEditor, editorToBackend, } from '../../component
 import MailPreviewModal from '../../components/admin/mail/MailPreviewModal';
 import { cms, } from '../../services/cmsClient';
 import { buildMailPreviewVariables, mailVariableOverrides, setPreviewVariables, } from '../../stores/previewVariables';
+import AdminTitle from '../../components/admin/common/AdminTitle';
 
 interface DraftStore {
     listId: string;
@@ -207,7 +207,7 @@ const MailSend: Component = () => {
 
     return (
         <div class="mail-send-page mailing-list-edit-page">
-            <Title>Send Mail - Admin</Title>
+            <AdminTitle>Send Mail</AdminTitle>
 
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>
