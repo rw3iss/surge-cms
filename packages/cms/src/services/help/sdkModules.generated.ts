@@ -797,6 +797,23 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "mailArchive",
+        "className": "MailArchiveModule",
+        "summary": "mailArchive namespace — mailing-list sends as web pages. `view(jobId, r?)` is personalised by the signed `r` token from `{{mail.viewUrl}}`, else by the signed-in user; `list()` is the public archive.",
+        "methods": [
+            {
+                "name": "list",
+                "signature": "list(params: MailArchiveListQuery = {}): Promise<Paginated<MailArchiveEntry>>",
+                "summary": "GET /mail-archive — public-archive sends, newest first."
+            },
+            {
+                "name": "view",
+                "signature": "view(jobId: string, r?: string): Promise<MailArchiveViewResponse>",
+                "summary": "GET /mail-archive/:jobId — one sent mail, resolved for the viewer."
+            }
+        ]
+    },
+    {
         "namespace": "mailingLists",
         "className": "MailingListsModule",
         "summary": "mailingLists namespace — DUAL MOUNT under one handle. Admin CRUD + subscriber management live at `/mailing-lists/*`; the single PUBLIC subscribe endpoint lives at `/lists/:slug/subscribe` (literal `/lists` path, NOT `/mailing-lists`). The cache `module` identity is 'mailingLists' for both; mutations invalidate the whole module.",
@@ -961,6 +978,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /mail-templates/:id — meta + full block tree."
             },
             {
+                "name": "getRevision",
+                "signature": "getRevision(id: string, version: number): Promise<Revision>",
+                "summary": "GET /mail-templates/:id/revisions/:version — one snapshot."
+            },
+            {
                 "name": "list",
                 "signature": "list(): Promise<MailTemplateListResponse>",
                 "summary": "GET /mail-templates — meta only (no blocks)."
@@ -984,6 +1006,21 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "replaceBlocks",
                 "signature": "replaceBlocks(id: string, body: MailTemplateBlocksReplaceBody): Promise<MailTemplateBlocksReplaceResponse>",
                 "summary": "PUT /mail-templates/:id/blocks — transactional block-tree replace."
+            },
+            {
+                "name": "restoreRevision",
+                "signature": "restoreRevision(id: string, version: number): Promise<MailTemplateGetResponse & { restore: RevisionRestoreOutcome; }>",
+                "summary": "POST /mail-templates/:id/revisions/:version/restore — settings + whole block tree."
+            },
+            {
+                "name": "revisions",
+                "signature": "revisions(id: string): Promise<PageRevisionListResponse>",
+                "summary": "GET /mail-templates/:id/revisions — saved versions (meta + whole block tree each)."
+            },
+            {
+                "name": "snapshotRevision",
+                "signature": "snapshotRevision(id: string): Promise<RevisionSnapshotResponse>",
+                "summary": "POST /mail-templates/:id/revisions — snapshot the current state now."
             },
             {
                 "name": "update",
@@ -2295,5 +2332,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 40;
-export const SDK_METHOD_COUNT = 399;
+export const SDK_MODULE_COUNT = 41;
+export const SDK_METHOD_COUNT = 405;

@@ -17,12 +17,11 @@ import * as subs from '../../repositories/mailingListSubscribers.repo';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/factory';
-import { buildVariableContext, } from './variables';
+import { buildRecipientContext, } from './recipientContext';
 import { finalizeEmail, } from './postProcess';
 import { resolveMailTemplate, } from './templateRuntime';
 import { getMailingListsSettings, isFeatureEnabledServer, } from '../settings';
-import { generateUnsubscribeToken, } from './unsubscribe';
-import type { MailingListSubscriber, OutboundMessage, } from '@sitesurge/types';
+import type { OutboundMessage, } from '@sitesurge/types';
 import type { MailProvider, } from './providers/types';
 
 const sleep = (ms: number,): Promise<void> => new Promise((r,) => setTimeout(r, ms,),);
@@ -57,7 +56,7 @@ async function sendWithRetry(
  * fallback — the same order `getPublicSettings` uses, so the email and the
  * site never disagree about which image is "the logo".
  */
-async function siteContext(): Promise<{
+export async function siteContext(): Promise<{
     name: string;
     url: string;
     settings: Record<string, unknown>;
@@ -143,46 +142,12 @@ export async function kickJob(jobId: string,): Promise<void> {
         await Promise.all(batch.map(async (r,) => {
             try {
                 const sub = r.subscriberId ? await subs.findById(r.subscriberId,) : null;
-                const unsubscribeUrl = sub
-                    ? `${fe}/u/${generateUnsubscribeToken(sub.id, list.id,)}`
-                    : '';
-                const ctx = {
-                    // The job's own variables go UNDER the per-recipient ones:
-                    // a feature supplying `products` must never be able to
-                    // shadow the subscriber, list or unsubscribe URL, which the
-                    // worker is responsible for and RFC 8058 depends on.
-                    ...(job.context ?? {}),
-                    ...buildVariableContext({
-                        // Full site bag, so `{{site.logo}}` resolves in mail.
-                        siteSettings: site.settings,
-                        subscriber: (sub ?? {
-                            id: '',
-                            listId: list.id,
-                            email: r.email,
-                            customFields: {},
-                            status: 'subscribed',
-                            subscribedAt: '',
-                        }) as MailingListSubscriber,
-                        list,
-                        siteName: site.name,
-                        siteUrl: site.url,
-                        unsubscribeUrl,
-                        // From the JOB, not the template row: the job stores
-                        // what it was created with, so {{template.name}} still
-                        // reports what was actually sent after the template is
-                        // renamed or deleted.
-                        template: {
-                            id: job.templateId,
-                            name: job.templateName,
-                            subject: job.subject,
-                            preheader: job.preheader,
-                            fromName: job.fromName,
-                            fromEmail: job.fromEmail,
-                            replyTo: job.replyTo,
-                            wasModified: job.templateWasModified,
-                        },
-                    },),
-                };
+                // Shared with the sent-mail web view, so "view in browser"
+                // resolves exactly like this email did.
+                const ctx = buildRecipientContext({
+                    job, list, site, subscriber: sub, email: r.email, recipientId: r.id,
+                },);
+                const unsubscribeUrl = String(ctx.unsubscribe_url ?? '',);
                 const subject = await resolveMailTemplate(job.subject, ctx as unknown as Record<string, unknown>,);
                 const html = await resolveMailTemplate(job.renderedHtmlTemplate, ctx as unknown as Record<string, unknown>,);
 

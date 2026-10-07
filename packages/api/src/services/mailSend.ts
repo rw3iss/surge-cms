@@ -22,6 +22,8 @@ import { expandDynamicBlocks, } from './mail/expandBlocks';
 import { loadMailRenderContext, } from './mail/siteContext';
 import type { AuditContext, } from './types';
 import { uuidOrNull, } from '../utils/uuid';
+import { logger, } from '../utils/logger';
+import * as revisions from './revisions';
 
 export interface SendBlockInput {
     id?: string;
@@ -89,9 +91,21 @@ export async function send(input: SendInput, ctx: AuditContext,): Promise<{ jobI
     // still identify the source even if the template is later renamed or
     // deleted.
     let templateNameSnapshot: string | null = null;
+    let templateVersion: number | null = null;
     if (input.templateId) {
         const tpl = await templates.findById(input.templateId,);
         templateNameSnapshot = tpl?.name ?? null;
+        // Record (and pin, so retention never drops it) the template version
+        // this send used — the job page and the sent-mail archive reopen it.
+        // Best-effort: history must never block a send.
+        if (tpl) {
+            try {
+                templateVersion = await revisions.captureVersion('mail_template', tpl.id, uuidOrNull(ctx.userId,), 'Sent',);
+                if (templateVersion !== null) await revisions.pin('mail_template', tpl.id, templateVersion,);
+            } catch (err) {
+                logger.warn('mail send: could not record template version', { templateId: tpl.id, error: (err as Error).message, },);
+            }
+        }
     }
 
     const job = await jobs.create({
@@ -106,6 +120,7 @@ export async function send(input: SendInput, ctx: AuditContext,): Promise<{ jobI
         replyTo: input.replyTo,
         renderedHtmlTemplate: rendered.html,
         context: input.context ?? null,
+        templateVersion,
         totalRecipients: subscribed.length,
         // created_by is a UUID FK — synthetic actors → NULL.
         createdBy: uuidOrNull(ctx.userId,),

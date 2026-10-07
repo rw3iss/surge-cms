@@ -1,5 +1,6 @@
 /**
- * Revision history for a page or post.
+ * Revision history for a page, post or mail template (any `RevisionEntityType`
+ * — each is the entity's settings AND its whole block tree).
  *
  * Each row says how many blocks the snapshot holds, because that is the
  * question an operator is actually asking: "does this version have my content
@@ -28,11 +29,26 @@ export interface RevisionsPanelProps {
 }
 
 /** List rows carry two fields the snapshot payload would otherwise be needed for. */
-type RevisionRow = Revision & { blockCount?: number; snapshotVersion?: number; };
+type RevisionRow = Revision & { blockCount?: number; snapshotVersion?: number; pinned?: boolean; };
+
+/** Per-entity history endpoints, so one panel serves every versioned entity. */
+const HISTORY: Record<RevisionEntityType, {
+    list: (id: string,) => Promise<unknown>;
+    restore: (id: string, version: number,) => Promise<unknown>;
+    noun: string;
+}> = {
+    page: { list: (id,) => cms.pages.listRevisions(id,), restore: (id, v,) => cms.pages.restoreRevision(id, v,), noun: 'page', },
+    post: { list: (id,) => cms.posts.listRevisions(id,), restore: (id, v,) => cms.posts.restoreRevision(id, v,), noun: 'post', },
+    mail_template: {
+        list: (id,) => cms.mailTemplates.revisions(id,),
+        restore: (id, v,) => cms.mailTemplates.restoreRevision(id, v,),
+        noun: 'template',
+    },
+};
 
 const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
     const toast = useToast();
-    const moduleFor = () => props.entityType === 'post' ? cms.posts : cms.pages;
+    const history = () => HISTORY[props.entityType];
     const [pending, setPending,] = createSignal<RevisionRow | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
 
@@ -41,7 +57,7 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
         async () => {
             if (!props.entityId || props.entityId === 'new') return [] as RevisionRow[];
             try {
-                return (await moduleFor().listRevisions(props.entityId,) as RevisionRow[]) || [];
+                return (await history().list(props.entityId,) as RevisionRow[]) || [];
             } catch {
                 return [] as RevisionRow[];
             }
@@ -56,13 +72,13 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
         if (!rev) return;
         setBusy(true,);
         try {
-            const res = await moduleFor().restoreRevision(props.entityId, rev.version,) as
+            const res = await history().restore(props.entityId, rev.version,) as
                 { restore?: { blocksRestored: number; metadataOnly: boolean; }; };
             const r = res?.restore;
             if (r?.metadataOnly) {
                 toast.info(
                     `Restored v${rev.version}. This snapshot predates content history, `
-                        + 'so only the page details came back — the blocks are unchanged.',
+                        + `so only the ${history().noun} details came back — the blocks are unchanged.`,
                 );
             } else {
                 toast.success(
@@ -121,6 +137,11 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
                                     </Show>
                                     <Show when={rev.summary}>
                                         <em>{rev.summary}</em>
+                                    </Show>
+                                    <Show when={rev.pinned}>
+                                        <em title="A mailing-list send used this version; it is kept regardless of the history limit.">
+                                            used by a send
+                                        </em>
                                     </Show>
                                 </div>
                                 <button

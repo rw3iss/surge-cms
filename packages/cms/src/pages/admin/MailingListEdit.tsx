@@ -32,6 +32,7 @@ const MailingListEdit: Component = () => {
     const [isEnabled, setIsEnabled,] = createSignal(true,);
     const [registeredUsersOnly, setRegisteredUsersOnly,] = createSignal(false,);
     const [doubleOptIn, setDoubleOptIn,] = createSignal(false,);
+    const [publicArchive, setPublicArchive,] = createSignal(false,);
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
 
@@ -53,6 +54,7 @@ const MailingListEdit: Component = () => {
             setIsEnabled(l.isEnabled,);
             setRegisteredUsersOnly(l.registeredUsersOnly,);
             setDoubleOptIn(l.doubleOptIn,);
+            setPublicArchive(Boolean(l.publicArchive,),);
         } catch {
             /* error toasted by the bus */
         }
@@ -74,6 +76,7 @@ const MailingListEdit: Component = () => {
                 isEnabled: isEnabled(),
                 registeredUsersOnly: registeredUsersOnly(),
                 doubleOptIn: doubleOptIn(),
+                publicArchive: publicArchive(),
             };
             if (isNew()) {
                 const created = await cms.mailingLists.create(data as any,);
@@ -208,6 +211,12 @@ const MailingListEdit: Component = () => {
                                 onChange={setDoubleOptIn}
                                 label="Double opt-in"
                                 hint="Subscribers must click a confirmation link before receiving mail."
+                            />
+                            <PolicyRow
+                                checked={publicArchive()}
+                                onChange={setPublicArchive}
+                                label="Public archive"
+                                hint="List this list's sent emails at /mail and let anyone open them (with no reader's details). Off: only recipients (via their {{mail.viewUrl}} link), subscribers and staff can."
                             />
                         </div>
                     </FormSection>

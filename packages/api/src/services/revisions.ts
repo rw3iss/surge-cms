@@ -44,6 +44,7 @@ import { createHash, } from 'crypto';
 import type { PoolClient, } from 'pg';
 import type { RevisionEntityType, } from '@sitesurge/types';
 import { uuidOrNull, } from '../utils/uuid';
+import { BLOCK_STORES, type BlockStore, } from './blockStores';
 
 /** Current snapshot shape. 1 = legacy (entity row only, no blocks). */
 export const SNAPSHOT_VERSION = 2;
@@ -63,25 +64,13 @@ export const DEFAULT_HISTORY_DAYS = 10;
 const SETTLE_MS = 4000;
 
 /**
- * Where each entity's blocks live.
- *
- * The two tables do NOT share a shape, which is easy to miss: `blocks` orders by
- * `"order"` and nests via `parent_block_id`; `post_content_blocks` orders by
- * `sort_order` and has no nesting at all. Assuming the pages shape for both
- * makes every post snapshot fail on an unknown column.
+ * Where each entity's blocks live — the shared block-store registry, so
+ * versioning and cloning cannot disagree about a table's shape.
  */
-const BLOCK_TABLE: Record<
-    RevisionEntityType,
-    { table: string; fk: string; orderCol: string; parentCol: string | null; }
-> = {
-    page: { table: 'blocks', fk: 'page_id', orderCol: '"order"', parentCol: 'parent_block_id', },
-    post: { table: 'post_content_blocks', fk: 'post_id', orderCol: 'sort_order', parentCol: null, },
-};
-
-const ENTITY_TABLE: Record<RevisionEntityType, string> = {
-    page: 'pages',
-    post: 'posts',
-};
+const BLOCK_TABLE: Record<RevisionEntityType, BlockStore> = BLOCK_STORES;
+const ENTITY_TABLE = Object.fromEntries(
+    Object.entries(BLOCK_STORES,).map(([k, v,],) => [k, v.entityTable,]),
+) as Record<RevisionEntityType, string>;
 
 export interface ContentSnapshot {
     v: number;
@@ -230,6 +219,37 @@ export async function snapshot(
     return version;
 }
 
+/**
+ * The version that represents the entity RIGHT NOW: snapshots it if anything
+ * changed since the newest revision, otherwise returns that newest version.
+ * Any pending debounced snapshot is cancelled first — this one supersedes it.
+ * Null only when the entity does not exist.
+ */
+export async function captureVersion(
+    entityType: RevisionEntityType,
+    entityId: string,
+    authorId: string | null,
+    summary?: string,
+): Promise<number | null> {
+    cancelPending(entityType, entityId,);
+    const created = await snapshot(entityType, entityId, authorId, summary,);
+    if (created !== null) return created;
+    const latest = await query<{ version: number; }>(
+        `SELECT version FROM revisions WHERE entity_type = $1 AND entity_id = $2 ORDER BY version DESC LIMIT 1`,
+        [entityType, entityId,],
+    );
+    return latest.rows[0]?.version ?? null;
+}
+
+/** Exempt a revision from retention (something depends on it — e.g. the
+ *  template version a mailing-list job was sent with). */
+export async function pin(entityType: RevisionEntityType, entityId: string, version: number,): Promise<void> {
+    await query(
+        `UPDATE revisions SET pinned = true WHERE entity_type = $1 AND entity_id = $2 AND version = $3`,
+        [entityType, entityId, version,],
+    );
+}
+
 // ─── Retention ────────────────────────────────────────────────────
 
 /**
@@ -245,7 +265,7 @@ export async function prune(entityType: RevisionEntityType, entityId: string,): 
     if (days > 0) {
         await query(
             `DELETE FROM revisions
-             WHERE entity_type = $1 AND entity_id = $2
+             WHERE entity_type = $1 AND entity_id = $2 AND pinned = false
                AND created_at < NOW() - ($3 || ' days')::INTERVAL
                AND version NOT IN (
                    SELECT version FROM revisions
@@ -258,7 +278,7 @@ export async function prune(entityType: RevisionEntityType, entityId: string,): 
 
     await query(
         `DELETE FROM revisions
-         WHERE entity_type = $1 AND entity_id = $2
+         WHERE entity_type = $1 AND entity_id = $2 AND pinned = false
            AND version NOT IN (
                SELECT version FROM revisions
                WHERE entity_type = $1 AND entity_id = $2
@@ -364,7 +384,7 @@ export async function flushAll(): Promise<void> {
 export async function list(entityType: RevisionEntityType, entityId: string, limit = 50,) {
     const result = await query(
         `SELECT r.id, r.entity_type, r.entity_id, r.version, r.author_id, r.summary,
-                r.created_at, r.snapshot_version,
+                r.created_at, r.snapshot_version, r.pinned,
                 u.display_name AS author_name,
                 -- Type-checked rather than COALESCEd: a legacy snapshot can hold
                 -- a JSON null (not a SQL NULL) at 'blocks', and jsonb_array_length

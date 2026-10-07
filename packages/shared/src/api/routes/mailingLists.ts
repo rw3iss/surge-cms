@@ -45,6 +45,7 @@ export interface MailingListCreateBody {
     isEnabled?: boolean;
     registeredUsersOnly?: boolean;
     doubleOptIn?: boolean;
+    publicArchive?: boolean;
     defaultTemplateId?: string | null;
 }
 

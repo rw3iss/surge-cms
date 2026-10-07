@@ -61,6 +61,8 @@ export const GLOBAL_VARIABLES: { group: string; items: GlobalVariableDoc[]; }[] 
             { path: '{{ template.name }}', desc: 'The template the email was built from, captured AT SEND TIME so it survives a later rename. Also `id`, `subject`, `preheader`, `fromName`, `fromEmail`, `replyTo`, `wasModified`.' },
             { path: '{{ user.name }}', desc: 'In an email this is the RECIPIENT, not a signed-in visitor. Also `email`, `phone`, and `custom.*` for custom subscriber fields.' },
             { path: '{{ unsubscribe_url }}', desc: 'One-click unsubscribe link. Every bulk send must carry one.' },
+            { path: '{{ mail.viewUrl }}', desc: 'This email as a web page (/mail/:jobId), PERSONALISED for the recipient through a signed link that cannot be edited to show someone else. Use it for "View in browser". `{{ view_in_browser_url }}` is the same link.' },
+            { path: '{{ mail.url }}', desc: 'The same web page WITHOUT personalisation — shareable. Readers who are signed in see their own details; anyone else sees reader variables blank. Open to everyone only when the list has "Public archive" on. Also `{{ mail.viewToken }}` (the signed token alone: `{{ mail.url }}?r={{ mail.viewToken }}`), `{{ mail.archiveUrl }}` (the /mail archive) and `{{ mail.id }}`.' },
         ],
     },
 ];

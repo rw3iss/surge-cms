@@ -25,7 +25,7 @@ import type { PoolClient, } from 'pg';
 import type { EntityTypeDef, } from '@sitesurge/types';
 import { assertSafeIdentifier, columnFor, } from './columnMap';
 import { NotFoundError, } from '../middleware/error';
-import { logger, } from '../utils/logger';
+import { BLOCK_STORES, cloneBlockTree, tableColumns, } from '../services/blockStores';
 
 /**
  * Child tables owned by a core type whose rows must be cloned alongside the
@@ -36,27 +36,10 @@ import { logger, } from '../utils/logger';
  * Extend this map to teach a new entity type to deep-copy its related rows.
  */
 const CHILD_TABLES: Record<string, { table: string; fk: string; }[]> = {
-    page: [{ table: 'blocks', fk: 'page_id', },],
-    post: [{ table: 'post_content_blocks', fk: 'post_id', },],
+    page: [{ table: BLOCK_STORES.page.table, fk: BLOCK_STORES.page.fk, },],
+    post: [{ table: BLOCK_STORES.post.table, fk: BLOCK_STORES.post.fk, },],
 };
 
-interface ColumnMeta {
-    name: string;
-    /** GENERATED ALWAYS column — cannot be inserted into. */
-    generated: boolean;
-}
-
-/** Columns of a table, in ordinal order, flagging generated columns. */
-async function tableColumns(client: PoolClient, table: string,): Promise<ColumnMeta[]> {
-    const r = await client.query(
-        `SELECT column_name, is_generated
-         FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = $1
-         ORDER BY ordinal_position`,
-        [table,],
-    );
-    return r.rows.map((row,) => ({ name: row.column_name as string, generated: row.is_generated === 'ALWAYS', }));
-}
 
 /** Single-column UNIQUE indexes/constraints on a table (excluding the `id` PK). */
 async function uniqueColumns(client: PoolClient, table: string,): Promise<Set<string>> {
@@ -189,77 +172,6 @@ async function cloneBaseRow(
     return ins.rows[0].id as string;
 }
 
-/**
- * Clone every row of a child table pointing at `oldParentId` so they point at
- * `newParentId`. When the child table self-nests via `parent_block_id`, the
- * cloned subtree is re-linked through an old→new id map in a SECOND pass:
- * every clone is first inserted with a NULL `parent_block_id` (so the self-FK
- * can't be violated by intra-batch insert order — a grandchild is never
- * inserted before its parent), then each child is UPDATEd to its cloned parent.
- * This is correct for arbitrary nesting depth (groups within groups).
- */
-async function cloneChildTable(
-    client: PoolClient,
-    table: string,
-    fk: string,
-    oldParentId: string,
-    newParentId: string,
-): Promise<void> {
-    const cols = (await tableColumns(client, table,)).filter((c,) => !c.generated,);
-    const names = cols.map((c,) => c.name,);
-    const hasParent = names.includes('parent_block_id',);
-
-    const src = await client.query(
-        `SELECT id, ${hasParent ? 'parent_block_id' : 'NULL::uuid AS parent_block_id'}
-         FROM "${table}" WHERE "${fk}" = $1`,
-        [oldParentId,],
-    );
-    if (src.rows.length === 0) return;
-
-    const idMap = new Map<string, string>();
-    for (const r of src.rows) idMap.set(r.id as string, randomUUID(),);
-
-    // Columns copied verbatim (all except id / fk / parent — overridden — and
-    // created_at / updated_at, which default fresh).
-    const OVERRIDE = new Set(['id', fk, 'created_at', 'updated_at',],);
-    if (hasParent) OVERRIDE.add('parent_block_id',);
-    const copyCols = names.filter((c,) => !OVERRIDE.has(c,));
-
-    // Pass 1 — insert every clone with a NULL parent (order-independent).
-    for (const r of src.rows) {
-        const insertCols = ['"id"', `"${fk}"`,];
-        const selectExprs = ['$2', '$3',];
-        const params: unknown[] = [r.id, idMap.get(r.id as string), newParentId,];
-        if (hasParent) {
-            insertCols.push('"parent_block_id"',);
-            selectExprs.push('NULL::uuid',);
-        }
-        for (const c of copyCols) {
-            insertCols.push(`"${c}"`,);
-            selectExprs.push(`"${c}"`,);
-        }
-        await client.query(
-            `INSERT INTO "${table}" (${insertCols.join(', ',)})
-             SELECT ${selectExprs.join(', ',)} FROM "${table}" WHERE id = $1`,
-            params,
-        );
-    }
-
-    // Pass 2 — re-link cloned children to their cloned parents.
-    if (hasParent) {
-        for (const r of src.rows) {
-            const oldParent = r.parent_block_id as string | null;
-            if (!oldParent) continue;
-            const newParent = idMap.get(oldParent,);
-            if (!newParent) continue; // parent outside this record's set (defensive)
-            await client.query(
-                `UPDATE "${table}" SET parent_block_id = $1 WHERE id = $2`,
-                [newParent, idMap.get(r.id as string),],
-            );
-        }
-    }
-    logger.debug(`recordCopy: cloned ${src.rows.length} row(s) of ${table} → ${newParentId}`,);
-}
 
 /**
  * Deep-copy one record of `typeDef` (base row + registered child tables),
@@ -274,7 +186,7 @@ export async function copyRecord(
 ): Promise<string> {
     const newId = await cloneBaseRow(client, typeDef, sourceId, overrides,);
     for (const child of CHILD_TABLES[typeDef.key] ?? []) {
-        await cloneChildTable(client, child.table, child.fk, sourceId, newId,);
+        await cloneBlockTree(client, child.table, child.fk, sourceId, newId,);
     }
     return newId;
 }

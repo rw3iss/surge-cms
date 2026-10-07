@@ -14,6 +14,7 @@ interface DbRow {
     is_enabled: boolean;
     registered_users_only: boolean;
     double_opt_in: boolean;
+    public_archive: boolean;
     default_template_id: string | null;
     created_by: string | null;
     created_at: Date;
@@ -29,6 +30,7 @@ function map(row: DbRow,): MailingList {
         isEnabled: row.is_enabled,
         registeredUsersOnly: row.registered_users_only,
         doubleOptIn: row.double_opt_in,
+        publicArchive: row.public_archive ?? false,
         defaultTemplateId: row.default_template_id,
         createdBy: row.created_by,
         createdAt: row.created_at.toISOString(),
@@ -72,6 +74,7 @@ export interface CreateInput {
     isEnabled?: boolean;
     registeredUsersOnly?: boolean;
     doubleOptIn?: boolean;
+    publicArchive?: boolean;
     defaultTemplateId?: string | null;
     createdBy?: string | null;
 }
@@ -79,8 +82,8 @@ export interface CreateInput {
 export async function create(input: CreateInput,): Promise<MailingList> {
     const r = await query<DbRow>(`
         INSERT INTO mailing_lists
-            (slug, name, description, is_enabled, registered_users_only, double_opt_in, default_template_id, created_by)
-        VALUES ($1, $2, $3, COALESCE($4, TRUE), COALESCE($5, FALSE), COALESCE($6, FALSE), $7, $8)
+            (slug, name, description, is_enabled, registered_users_only, double_opt_in, default_template_id, created_by, public_archive)
+        VALUES ($1, $2, $3, COALESCE($4, TRUE), COALESCE($5, FALSE), COALESCE($6, FALSE), $7, $8, COALESCE($9, FALSE))
         RETURNING *
     `, [
         input.slug,
@@ -91,6 +94,7 @@ export async function create(input: CreateInput,): Promise<MailingList> {
         input.doubleOptIn ?? null,
         input.defaultTemplateId ?? null,
         input.createdBy ?? null,
+        input.publicArchive ?? null,
     ],);
     return map(r.rows[0],);
 }
@@ -108,6 +112,7 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
     if (patch.isEnabled !== undefined) set('is_enabled', patch.isEnabled,);
     if (patch.registeredUsersOnly !== undefined) set('registered_users_only', patch.registeredUsersOnly,);
     if (patch.doubleOptIn !== undefined) set('double_opt_in', patch.doubleOptIn,);
+    if (patch.publicArchive !== undefined) set('public_archive', patch.publicArchive,);
     if (patch.defaultTemplateId !== undefined) set('default_template_id', patch.defaultTemplateId,);
     if (fields.length === 0) return findById(id,);
     values.push(id,);

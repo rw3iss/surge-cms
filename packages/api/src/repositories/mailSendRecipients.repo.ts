@@ -170,3 +170,9 @@ export async function list(opts: ListOpts,): Promise<ListResult> {
     );
     return { items: dataRes.rows.map(map,), total: countRes.rows[0].n, };
 }
+
+/** One recipient of one job (null when it is not part of that job). */
+export async function findInJob(jobId: string, recipientId: string,): Promise<MailSendRecipient | null> {
+    const r = await query<DbRow>(`SELECT * FROM mail_send_recipients WHERE job_id = $1 AND id = $2`, [jobId, recipientId,],);
+    return r.rows[0] ? map(r.rows[0],) : null;
+}

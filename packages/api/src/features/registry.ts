@@ -109,6 +109,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '078_mail_recipient_sending_status.sql',
             '106_mail_send_job_context.sql',
             '108_create_mail_schedules.sql',
+            '121_mail_archive.sql',
         ],
     },
     shop: {

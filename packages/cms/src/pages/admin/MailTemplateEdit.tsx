@@ -23,6 +23,7 @@ import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { useEditorDraft, } from '../../hooks/useEditorDraft';
 import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
 import { buildMailPreviewVariables, setPreviewVariables, } from '../../stores/previewVariables';
+import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 
 const MailTemplateEdit: Component = () => {
@@ -70,6 +71,8 @@ const MailTemplateEdit: Component = () => {
      * cleared the bar: nothing ever told the editor what "saved" looked like.
      */
     const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
+    /** Bumped after a save / restore so the History panel re-reads. */
+    const [historyToken, setHistoryToken,] = createSignal(0,);
 
     /** Everything a save writes, in one object — the unit of comparison. */
     const formState = () => ({
@@ -112,22 +115,8 @@ const MailTemplateEdit: Component = () => {
         toast.info('Reverted to the last saved version.',);
     };
 
-    onMount(async () => {
-        // Load the variable catalog once on mount; cheap, no DB read.
-        try {
-            setVariableCatalog(await cms.mailTemplates.variables() as VariableDescriptor[],);
-        } catch { /* ignore */ }
-
-        // Sender defaults — shown as placeholders so the operator can see what
-        // a blank field will actually send as.
-        try {
-            setListDefaults(await cms.settings.getMailingListsSettings() as MailingListsSettings,);
-        } catch { /* non-fatal — placeholders fall back to generic text */ }
-
-        if (isNew()) {
-            draft.capture(formState(),);
-            return;
-        }
+    /** Read the saved template into the form (on open, and after a restore). */
+    const loadTemplate = async (): Promise<void> => {
         let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
         try {
             d = await cms.mailTemplates.getById(params.id,) as MailTemplate & { blocks: BackendBlock[]; };
@@ -147,8 +136,25 @@ const MailTemplateEdit: Component = () => {
             setBlocks(loaded,);
             setSavedBlocks(structuredClone(loaded,),);
         }
-        // The baseline is whatever the page opened with — what Revert restores
-        // and what "unsaved changes" is measured against.
+    };
+
+    onMount(async () => {
+        // Load the variable catalog once on mount; cheap, no DB read.
+        try {
+            setVariableCatalog(await cms.mailTemplates.variables() as VariableDescriptor[],);
+        } catch { /* ignore */ }
+
+        // Sender defaults — shown as placeholders so the operator can see what
+        // a blank field will actually send as.
+        try {
+            setListDefaults(await cms.settings.getMailingListsSettings() as MailingListsSettings,);
+        } catch { /* non-fatal — placeholders fall back to generic text */ }
+
+        if (isNew()) {
+            draft.capture(formState(),);
+            return;
+        }
+        await loadTemplate();
         draft.capture(formState(),);
     },);
 
@@ -194,6 +200,9 @@ const MailTemplateEdit: Component = () => {
                 await cms.mailTemplates.replaceBlocks(params.id, { blocks: editorToBackend(blocks(),), } as any,);
                 commitSaved();
                 toast.success('Template saved',);
+                // List the new version straight away rather than after the
+                // server's settle delay.
+                void cms.mailTemplates.snapshotRevision(params.id,).catch(() => {},).finally(() => setHistoryToken((n,) => n + 1,),);
             }
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Save failed.';
@@ -445,6 +454,22 @@ const MailTemplateEdit: Component = () => {
                 savedBlocks={savedBlocks()}
                 onBlocksChange={setBlocks}
             />
+
+            <Show when={!isNew()}>
+                <section class="admin-section">
+                    <RevisionsPanel
+                        entityType="mail_template"
+                        entityId={params.id}
+                        refreshToken={historyToken()}
+                        onRestored={async () => {
+                            await loadTemplate();
+                            // The restored version IS the saved state now.
+                            draft.capture(formState(),);
+                            setHistoryToken((n,) => n + 1,);
+                        }}
+                    />
+                </section>
+            </Show>
 
             <section class="admin-section variables-reference-section">
                 <header class="admin-section__header variables-reference-section__header">

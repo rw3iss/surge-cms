@@ -3,6 +3,7 @@ import type {
     MailTemplateCreateBody, MailTemplateCreateResponse, MailTemplateUpdateBody, MailTemplateUpdateResponse,
     MailTemplatePreviewBody, MailTemplatePreviewResponse, MailTemplateBlocksReplaceBody,
     MailTemplateBlocksReplaceResponse, MailTemplateDeleteResponse, MailTemplateCopyResponse,
+    PageRevisionListResponse, Revision, RevisionRestoreOutcome, RevisionSnapshotResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -24,6 +25,26 @@ export class MailTemplatesModule extends ModuleBase {
      *  Mailing Lists feature). The list behind any template picker. */
     options(): Promise<MailTemplateOptionsResponse> {
         return this.get<MailTemplateOptionsResponse>('/mail-templates/options',);
+    }
+
+    /** GET /mail-templates/:id/revisions — saved versions (meta + whole block tree each). */
+    revisions(id: string,): Promise<PageRevisionListResponse> {
+        return this.get<PageRevisionListResponse>('/mail-templates/:id/revisions', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** POST /mail-templates/:id/revisions — snapshot the current state now. */
+    snapshotRevision(id: string,): Promise<RevisionSnapshotResponse> {
+        return this.mutate<RevisionSnapshotResponse>('POST', '/mail-templates/:id/revisions', { params: { id, }, },);
+    }
+
+    /** GET /mail-templates/:id/revisions/:version — one snapshot. */
+    getRevision(id: string, version: number,): Promise<Revision> {
+        return this.get<Revision>('/mail-templates/:id/revisions/:version', { params: { id, version, }, options: { cache: false, }, },);
+    }
+
+    /** POST /mail-templates/:id/revisions/:version/restore — settings + whole block tree. */
+    restoreRevision(id: string, version: number,): Promise<MailTemplateGetResponse & { restore: RevisionRestoreOutcome; }> {
+        return this.mutate<MailTemplateGetResponse & { restore: RevisionRestoreOutcome; }>('POST', '/mail-templates/:id/revisions/:version/restore', { params: { id, version, }, invalidates: ['mailTemplates',], },);
     }
 
     /** GET /mail-templates/:id — meta + full block tree. */

@@ -676,7 +676,7 @@ export interface SiteSwatch {
 
 // ─── Revision history ───
 
-export type RevisionEntityType = 'post' | 'page';
+export type RevisionEntityType = 'post' | 'page' | 'mail_template';
 
 export interface Revision {
     id: string;

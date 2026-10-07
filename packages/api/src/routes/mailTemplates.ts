@@ -52,6 +52,7 @@ const previewSchema = z.object({
     variables: z.record(z.string(), z.string(),).optional(),
 },) satisfies z.ZodType<MailTemplatePreviewBody>;
 
+const versionParams = z.object({ id: z.string().uuid(), version: z.coerce.number().int(), },);
 const idParams = z.object({ id: z.string(), },);
 
 export const mailTemplatesRoutes = [
@@ -152,9 +153,38 @@ export const mailTemplatesRoutes = [
                 MailTemplateBlocksReplaceBody
             >,
         },
-        handler: async ({ params, body, },) => {
-            const result = await mailTemplates.replaceBlocks(params.id, body.blocks,);
+        handler: async ({ params, body, audit, },) => {
+            const result = await mailTemplates.replaceBlocks(params.id, body.blocks, audit(),);
             return { ok: true, count: result.count, };
         },
+    },),
+
+    // ─── Revisions (full-tree history: meta + every block) ───
+    defineRoute({
+        method: 'get', path: '/:id/revisions', auth: 'admin',
+        summary: "List a template's saved revisions.",
+        input: { params: idParams, },
+        handler: ({ params, },) => mailTemplates.listRevisions(params.id,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/revisions', auth: 'admin',
+        summary: "Snapshot the template's current state as a revision.",
+        input: { params: idParams, },
+        handler: ({ params, audit, },) => mailTemplates.snapshotNow(params.id, audit(),),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/revisions/:version', auth: 'admin',
+        summary: 'Fetch one template revision snapshot.',
+        input: { params: versionParams, },
+        handler: ({ params, },) => mailTemplates.getRevision(params.id, params.version,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/revisions/:version/restore', auth: 'admin',
+        summary: 'Restore a template revision — its settings and whole block tree (snapshots current state first).',
+        input: { params: versionParams, },
+        handler: ({ params, audit, },) => mailTemplates.restoreRevision(params.id, params.version, audit(),),
     },),
 ];

@@ -36,7 +36,28 @@ export interface VariableContext {
      *  why `{{site.logo}}` rendered empty in mail. */
     site: SiteVariables;
     unsubscribe_url: string;
+    /** = `mail.viewUrl` — kept for templates written before `mail.*`. */
     view_in_browser_url: string;
+    /** This sent mail, as an archived web page (`/mail/:jobId`). */
+    mail: MailVars;
+}
+
+/** `{{mail.*}}` — the sent mail as a web page. Empty strings in a context
+ *  that has no job (a template preview before sending). */
+export interface MailVars {
+    /** The send job id. */
+    id: string;
+    /** Archived web view, NOT personalised (variables about the reader are
+     *  blank unless they are signed in). Public when the list's archive is. */
+    url: string;
+    /** The same view personalised for THIS recipient (signed `?r=` token —
+     *  it cannot be edited to show someone else). Use for "View in browser". */
+    viewUrl: string;
+    /** The signed token on its own, for building a link by hand
+     *  (`{{mail.url}}?r={{mail.viewToken}}`). */
+    viewToken: string;
+    /** The list of archived sends (`/mail`). */
+    archiveUrl: string;
 }
 
 export interface BuildContextArgs {
@@ -55,6 +76,8 @@ export interface BuildContextArgs {
         preheader?: string | null; fromName?: string | null; fromEmail?: string | null;
         replyTo?: string | null; wasModified?: boolean | null;
     } | null;
+    /** The sent mail's web-view links (see `MailVars`). */
+    mail?: Partial<MailVars> | null;
 }
 
 export function buildVariableContext(args: BuildContextArgs,): VariableContext {
@@ -92,9 +115,14 @@ export function buildVariableContext(args: BuildContextArgs,): VariableContext {
             args.siteUrl,
         ),
         unsubscribe_url: args.unsubscribeUrl,
-        // V1: documented but resolved to empty. A real archive page
-        // ships post-V1.
-        view_in_browser_url: '',
+        view_in_browser_url: args.mail?.viewUrl ?? '',
+        mail: {
+            id: args.mail?.id ?? '',
+            url: args.mail?.url ?? '',
+            viewUrl: args.mail?.viewUrl ?? '',
+            viewToken: args.mail?.viewToken ?? '',
+            archiveUrl: args.mail?.archiveUrl ?? '',
+        },
     };
 }
 
@@ -151,7 +179,12 @@ export function describeVariables(): VariableDescriptor[] {
         { path: 'site.tagline',        description: 'Site tagline, when set.', sample: 'Independent journalism', },
         { path: 'site.description',    description: 'Site description.', sample: 'News and commentary.', },
         { path: 'unsubscribe_url',     description: 'One-click unsubscribe URL.', sample: 'https://example.com/u/sample-token', },
-        { path: 'view_in_browser_url', description: 'Public archive URL. V1: empty.', sample: '', },
+        { path: 'mail.viewUrl',        description: 'This email as a web page, personalised for the recipient (signed link — use for "View in browser").', sample: 'https://example.com/mail/00000000-0000-0000-0000-000000000000?r=sample', },
+        { path: 'mail.url',            description: 'This email as a web page, NOT personalised (shareable; public when the list has a public archive).', sample: 'https://example.com/mail/00000000-0000-0000-0000-000000000000', },
+        { path: 'mail.viewToken',      description: "The recipient's signed view token alone, e.g. {{mail.url}}?r={{mail.viewToken}}.", sample: 'sample', },
+        { path: 'mail.archiveUrl',     description: 'The archive of sent emails (/mail).', sample: 'https://example.com/mail', },
+        { path: 'mail.id',             description: 'The send job id.', sample: '00000000-0000-0000-0000-000000000000', },
+        { path: 'view_in_browser_url', description: 'Same as {{mail.viewUrl}} (older name).', sample: 'https://example.com/mail/00000000-0000-0000-0000-000000000000?r=sample', },
     ];
 }
 

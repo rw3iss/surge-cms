@@ -61,6 +61,7 @@ export * from './routes/payments';
 export * from './routes/mailingLists';
 export * from './routes/mailTemplates';
 export * from './routes/replies';
+export * from './routes/mailArchive';
 export * from './routes/mailSend';
 export * from './routes/shop';
 export * from './routes/utils';

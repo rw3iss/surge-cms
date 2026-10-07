@@ -1,0 +1,76 @@
+.mail-view {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-block: 2rem;
+
+  &__head {
+    margin-bottom: 1rem;
+
+    h1 { margin: 0.25rem 0; font-size: 1.6rem; }
+  }
+
+  &__back {
+    font-size: 0.85rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__meta,
+  &__note {
+    margin: 0;
+    color: var(--site-text-muted, #6b7280);
+    font-size: 0.9rem;
+  }
+
+  &__frame {
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 8px);
+    overflow: hidden;
+  }
+
+  &__missing { text-align: center; padding: 3rem 1rem; }
+}
+
+.mail-archive {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-block: 2rem;
+
+  h1 { margin: 0 0 1rem; }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--site-border, #e5e7eb);
+  }
+
+  &__item {
+    border-bottom: 1px solid var(--site-border, #e5e7eb);
+
+    a {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 0.25rem;
+      text-decoration: none;
+      color: inherit;
+
+      &:hover strong { text-decoration: underline; }
+    }
+  }
+
+  &__meta {
+    color: var(--site-text-muted, #6b7280);
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  &__pager {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  &__empty { color: var(--site-text-muted, #6b7280); }
+}

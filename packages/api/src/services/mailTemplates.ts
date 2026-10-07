@@ -24,6 +24,9 @@ import { logAudit, } from './audit';
 import { cache, } from './cache';
 import type { AuditContext, } from './types';
 import { uuidOrNull, } from '../utils/uuid';
+import { transaction, } from '../db';
+import { BLOCK_STORES, cloneBlockTree, } from './blockStores';
+import * as revisions from './revisions';
 
 export interface TemplateInput {
     name: string;
@@ -101,6 +104,7 @@ export async function create(input: TemplateInput, ctx: AuditContext,): Promise<
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
+    revisions.markDirty('mail_template', created.id, ctx.userId || null,);
     return created;
 }
 
@@ -131,7 +135,11 @@ export async function copy(id: string, ctx: AuditContext,): Promise<MailTemplate
         replyTo: src.replyTo,
         createdBy: uuidOrNull(ctx.userId,),
     },);
-    await templateBlocks.cloneInto(id, created.id,);
+    // The shared block-tree clone (every column, nesting re-linked) — the same
+    // one page/post copies use.
+    const store = BLOCK_STORES.mail_template;
+    await transaction((client,) => cloneBlockTree(client, store.table, store.fk, id, created.id,),);
+    revisions.markDirty('mail_template', created.id, ctx.userId || null,);
     await cache.invalidateMailTemplatesCache();
     await logAudit({
         userId: ctx.userId,
@@ -149,6 +157,7 @@ export async function update(id: string, patch: Partial<TemplateInput>, ctx: Aud
     const updated = await templates.update(id, patch,);
     if (!updated) throw new NotFoundError('Template',);
     await cache.invalidateMailTemplatesCache(id,);
+    revisions.markDirty('mail_template', id, ctx.userId || null,);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -175,9 +184,10 @@ export async function remove(id: string, ctx: AuditContext,): Promise<void> {
 }
 
 /** Transactional replace of a template's whole block tree. */
-export async function replaceBlocks(id: string, blocks: TemplateBlockInput[],): Promise<{ count: number; }> {
+export async function replaceBlocks(id: string, blocks: TemplateBlockInput[], ctx?: AuditContext,): Promise<{ count: number; }> {
     await templateBlocks.replaceAll(id, blocks,);
     await cache.invalidateMailTemplatesCache(id,);
+    revisions.markDirty('mail_template', id, ctx?.userId || null,);
     return { count: blocks.length, };
 }
 
@@ -290,4 +300,41 @@ export async function preview(input: PreviewInput,) {
         // the one that caused this.
         cssWarnings: lintBlocksForEmail(expanded as never,),
     };
+}
+
+
+// ─── Revisions ────────────────────────────────────────────────────
+// The same full-tree history pages and posts have (`services/revisions`):
+// every save snapshots the template row AND its whole block tree; restore puts
+// both back. A version a send job used is pinned and never pruned.
+
+export function listRevisions(id: string,) {
+    return revisions.list('mail_template', id,);
+}
+
+export async function getRevision(id: string, version: number,) {
+    const rev = await revisions.get('mail_template', id, version,);
+    if (!rev) throw new NotFoundError('Revision',);
+    return rev;
+}
+
+export async function restoreRevision(id: string, version: number, ctx: AuditContext,) {
+    const result = await revisions.restore('mail_template', id, version, ctx.userId || null,);
+    await cache.invalidateMailTemplatesCache(id,);
+    await logAudit({
+        userId: ctx.userId,
+        action: 'restore',
+        entityType: 'mail_template',
+        entityId: id,
+        newValues: { version, blocksRestored: result.blocksRestored, },
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+    },);
+    return { ...(await getById(id,)), restore: result, };
+}
+
+/** Snapshot now — the editor calls this when its save completes. */
+export async function snapshotNow(id: string, ctx: AuditContext,) {
+    const version = await revisions.flush('mail_template', id, ctx.userId || null,);
+    return { created: version !== null, version, };
 }

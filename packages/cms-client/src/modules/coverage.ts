@@ -243,6 +243,13 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/replies/:source/send',
     // ── mail-templates ──
     'GET /api/v1/mail-templates/options',
+    'GET /api/v1/mail-templates/:id/revisions',
+    'POST /api/v1/mail-templates/:id/revisions',
+    'GET /api/v1/mail-templates/:id/revisions/:version',
+    'POST /api/v1/mail-templates/:id/revisions/:version/restore',
+    // ── mail-archive ──
+    'GET /api/v1/mail-archive',
+    'GET /api/v1/mail-archive/:jobId',
     'GET /api/v1/mail-templates/variables',
     'GET /api/v1/mail-templates',
     'POST /api/v1/mail-templates',

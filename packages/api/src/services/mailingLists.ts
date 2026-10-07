@@ -24,6 +24,7 @@ export interface ListInput {
     isEnabled?: boolean;
     registeredUsersOnly?: boolean;
     doubleOptIn?: boolean;
+    publicArchive?: boolean;
     defaultTemplateId?: string | null;
 }
 

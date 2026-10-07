@@ -44,6 +44,7 @@ const listSchema = z.object({
     isEnabled: z.boolean().optional(),
     registeredUsersOnly: z.boolean().optional(),
     doubleOptIn: z.boolean().optional(),
+    publicArchive: z.boolean().optional(),
     defaultTemplateId: z.string().uuid().nullable().optional(),
 },) satisfies z.ZodType<MailingListCreateBody>;
 

@@ -99,6 +99,8 @@ const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
 const EventsPage = lazy(() => import('./pages/Events'));
 const EventDetailPage = lazy(() => import('./pages/EventDetail'));
 const EventTicketPage = lazy(() => import('./pages/EventTicket'));
+const MailArchivePage = lazy(() => import('./pages/MailArchive'));
+const MailViewPage = lazy(() => import('./pages/MailView'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminEventSettings = lazy(() => import('./pages/admin/events/EventSettings'));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
@@ -157,6 +159,9 @@ const App: Component = () => {
 										<Route path="/events" component={EventsPage} />
 										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/tickets/:code" component={EventTicketPage} />
+										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
+										<Route path="/mail" component={MailArchivePage} />
+										<Route path="/mail/:jobId" component={MailViewPage} />
 										<Route path="/:slug" component={DynamicPage} />
 										{/* Catch-all 404 lives INSIDE Layout so the
 											public Header/Footer + theme tokens

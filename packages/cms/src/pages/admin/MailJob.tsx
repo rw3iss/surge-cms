@@ -10,6 +10,7 @@ import {
 import type { MailSendJob, MailSendRecipient, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import SentMailModal from '../../components/admin/mail/SentMailModal';
 
 type StatusFilter = 'all' | 'pending' | 'sent' | 'failed';
 
@@ -19,6 +20,7 @@ const MailJob: Component = () => {
     const [filter, setFilter,] = createSignal<StatusFilter>('all',);
     const [busy, setBusy,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
+    const [viewingSent, setViewingSent,] = createSignal(false,);
 
     const fetchJob = async (): Promise<void> => {
         try {
@@ -223,6 +225,40 @@ const MailJob: Component = () => {
                                 <div class="alert alert--error">Job error: {j().error}</div>
                             </Show>
                         </section>
+
+                        {/* The email as this send rendered it — the job's stored
+                            HTML, so later template edits don't change it. */}
+                        <section class="admin-section">
+                            <header class="admin-section__header"><h2>Sent Email</h2></header>
+                            <div class="u-flex-row u-gap-sm" style={{ 'align-items': 'center', 'flex-wrap': 'wrap', }}>
+                                <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={() => setViewingSent(true,)}>
+                                    View Sent Template
+                                </button>
+                                <a class="ui-button ui-button--secondary ui-button--sm" href={`/mail/${j().id}`} target="_blank" rel="noopener">
+                                    Open web view ↗
+                                </a>
+                                <span class="form-help-muted">
+                                    <Show
+                                        when={j().templateVersion && j().templateId}
+                                        fallback={'Template version not recorded (sent before template history).'}
+                                    >
+                                        {j().templateWasModified ? 'Based on ' : 'Template '}
+                                        <A href={`/admin/mail-templates/${j().templateId}`}>
+                                            {j().templateName ?? 'template'} — version {j().templateVersion}
+                                        </A>
+                                        {' '}(kept in the template's history).
+                                    </Show>
+                                </span>
+                            </div>
+                            <p class="form-help-muted" style={{ margin: '0.5rem 0 0', }}>
+                                Recipients reach this page through <code>{'{{mail.viewUrl}}'}</code> (personalised, signed link).
+                                It is public to everyone only when the list's "Public archive" is on.
+                            </p>
+                        </section>
+
+                        <Show when={viewingSent()}>
+                            <SentMailModal jobId={j().id} onClose={() => setViewingSent(false,)} />
+                        </Show>
 
                         <section class="admin-section admin-section--wide">
                             <header class="admin-section__header">

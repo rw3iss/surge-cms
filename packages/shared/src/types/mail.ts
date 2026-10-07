@@ -11,6 +11,9 @@ export interface MailingList {
     isEnabled: boolean;
     registeredUsersOnly: boolean;
     doubleOptIn: boolean;
+    /** Sent mails are listed in the public archive (`/mail`) and viewable by
+     *  anyone. A personalised "view in browser" link works either way. */
+    publicArchive: boolean;
     defaultTemplateId?: string | null;
     createdBy?: string | null;
     createdAt: string;
@@ -72,6 +75,9 @@ export interface MailSendJob {
      *  template (or when they chose "new blank template"). The detail
      *  page shows "Template Name (custom)" when set. */
     templateWasModified?: boolean;
+    /** The mail_template revision this job was sent with (pinned, never
+     *  pruned). With `templateWasModified` the send was BASED on it. */
+    templateVersion?: number | null;
     subject: string;
     preheader?: string;
     fromName?: string;

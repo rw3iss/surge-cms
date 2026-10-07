@@ -30,6 +30,7 @@ interface DbRow {
     created_at: Date;
     template_name_snapshot: string | null;
     template_was_modified: boolean;
+    template_version: number | null;
     context: Record<string, unknown> | null;
     // Optional joined columns; only present when the query left-joined
     // them (findById, listRecent).
@@ -53,6 +54,7 @@ function map(row: DbRow,): MailSendJob {
         templateWasModified: row.template_was_modified,
     };
     if (row.context) out.context = row.context;
+    if (row.template_version != null) out.templateVersion = row.template_version;
     if (row.preheader) out.preheader = row.preheader;
     if (row.from_name) out.fromName = row.from_name;
     if (row.from_email) out.fromEmail = row.from_email;
@@ -93,6 +95,8 @@ export interface CreateInput {
     /** Extra `{{ }}` variables for every recipient of this job — see the
      *  column comment in migration 106. */
     context?: Record<string, unknown> | null;
+    /** The pinned template revision this send used. */
+    templateVersion?: number | null;
 }
 
 export async function create(input: CreateInput,): Promise<MailSendJob> {
@@ -100,8 +104,8 @@ export async function create(input: CreateInput,): Promise<MailSendJob> {
         INSERT INTO mail_send_jobs
             (list_id, template_id, template_name_snapshot, template_was_modified,
              subject, preheader, from_name, from_email, reply_to,
-             rendered_html_template, total_recipients, created_by, context)
-        VALUES ($1, $2, $3, COALESCE($4, FALSE), $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             rendered_html_template, total_recipients, created_by, context, template_version)
+        VALUES ($1, $2, $3, COALESCE($4, FALSE), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
     `, [
         input.listId, input.templateId ?? null,
@@ -112,6 +116,7 @@ export async function create(input: CreateInput,): Promise<MailSendJob> {
         input.renderedHtmlTemplate, input.totalRecipients,
         input.createdBy ?? null,
         input.context ? JSON.stringify(input.context,) : null,
+        input.templateVersion ?? null,
     ],);
     return map(r.rows[0],);
 }
