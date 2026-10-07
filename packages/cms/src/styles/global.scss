@@ -692,6 +692,16 @@ html:not([data-active-outlines='show']) {
       &:hover:not(:disabled) { background: var(--site-primary, #{$primary-color}); color: var(--site-button-text, #fff); }
     }
 
+    // Outlined in the TEXT colour (not the brand colour) — a secondary action
+    // that should read as a button without competing with a primary one.
+    &--outline-neutral {
+      background: transparent;
+      border-color: var(--site-text, #{$text-color});
+      color: var(--site-text, #{$text-color});
+
+      &:hover:not(:disabled) { background: color-mix(in srgb, var(--site-text, #{$text-color}) 8%, transparent); }
+    }
+
     &--danger {
       background: $error-color;
       border-color: $error-color;

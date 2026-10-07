@@ -187,7 +187,7 @@ const MembershipPanel: Component = () => {
                             </p>
                         </Show>
                         <div class="membership__actions">
-                            <button type="button" class="btn" onClick={openChooser} disabled={tiers().length < 2}>Change subscription</button>
+                            <button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change subscription</button>
                             <Show when={!current()!.tier?.isFree && !current()!.cancelAtPeriodEnd}>
                                 <button
                                     type="button"
