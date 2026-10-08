@@ -296,6 +296,42 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         { key: 'contacts:read', feature: 'contacts', label: 'View contacts', action: 'read', defaultRoles: STAFF, },
         { key: 'contacts:write', feature: 'contacts', label: 'Create and edit contacts', action: 'write', defaultRoles: STAFF, },
     ],
+    video: [
+        {
+            key: 'media.video:upload',
+            feature: 'video',
+            label: 'Upload videos',
+            description: 'Start large (multipart) video uploads to object storage.',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
+        {
+            key: 'media.video:manage',
+            feature: 'video',
+            label: 'Manage video encoding',
+            description: 'Re-encode, cancel or retry encode jobs; change teaser and access level.',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
+        {
+            key: 'media.video:settings',
+            feature: 'video',
+            label: 'Video settings and keys',
+            description: 'Change encoding settings and rotate the private-video encryption key.',
+            action: 'admin',
+            defaultRoles: ADMIN,
+        },
+        {
+            key: 'media.private:view',
+            feature: 'video',
+            label: 'Watch private videos',
+            description:
+                'Play and download the FULL version of private videos (everyone else gets the teaser). '
+                + 'Grant it to a subscription tier to make that tier\'s members subscribers.',
+            action: 'read',
+            defaultRoles: STAFF,
+        },
+    ],
 };
 
 /** Everything to register for the given set of enabled features. */

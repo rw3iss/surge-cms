@@ -39,6 +39,12 @@ const EMBED_FRAME_SRC = [
 
 let pluginOrigins: PluginCspOrigins = EMPTY;
 
+// Media storage origins (from the resolved storage provider): the CDN host —
+// fetched by hls.js (playlists/segments are XHR, so connect-src) — and the
+// object store's own API origin, where the browser uploads multipart parts
+// directly. Kept in sync by `services/storage` (`setStorageCspOrigins`).
+let storageOrigins: string[] = [];
+
 // Operator's Google tag / GA4 measurement id (Admin → Settings → General), or
 // null when unset. When set, the tag's origins + the deterministic sha256 of the
 // SSR-injected inline bootstrap join the CSP so the tag loads + beacons under the
@@ -74,7 +80,9 @@ function buildDirectives(): Record<string, string[]> {
         // (cdn host / R2) — hero-carousel and video-block media included.
         // blob: is needed by an HLS player (hls.js plays via MediaSource blobs).
         mediaSrc: ["'self'", 'data:', 'blob:', 'https:',],
-        connectSrc: ["'self'", 'https://api.stripe.com', ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
+        connectSrc: ["'self'", 'https://api.stripe.com', ...storageOrigins, ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
+        // hls.js runs its demuxer in a Web Worker created from a blob: URL.
+        workerSrc: ["'self'", 'blob:',],
         // js.stripe.com (Elements) + hooks.stripe.com (3-D Secure / redirects).
         frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', ...EMBED_FRAME_SRC, ...pluginOrigins.frameSrc],
     };
@@ -89,6 +97,14 @@ export function setAnalyticsGaId(id: string | null | undefined): void {
     const clean = normalizeGaId(id);
     if (clean === analyticsGaId) return;
     analyticsGaId = clean;
+    cspMiddleware = helmet.contentSecurityPolicy({ directives: buildDirectives() });
+}
+
+/** Set the media storage origins (CDN + upload endpoint) and rebuild. No-op when unchanged. */
+export function setStorageCspOrigins(origins: Array<string | null | undefined>): void {
+    const next = dedupe(origins.filter((o): o is string => Boolean(o)));
+    if (next.join(' ') === storageOrigins.join(' ')) return;
+    storageOrigins = next;
     cspMiddleware = helmet.contentSecurityPolicy({ directives: buildDirectives() });
 }
 

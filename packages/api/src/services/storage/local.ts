@@ -7,8 +7,8 @@ import { StorageProvider, UploadOptions, } from './types';
 export class LocalStorageProvider implements StorageProvider {
     private uploadDir: string;
 
-    constructor() {
-        this.uploadDir = config.upload.dir;
+    constructor(dir?: string,) {
+        this.uploadDir = dir || config.upload.dir;
     }
 
     private async ensureDir(): Promise<void> {

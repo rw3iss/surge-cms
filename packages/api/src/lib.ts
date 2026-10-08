@@ -187,6 +187,16 @@ async function bootRunningMode(
         logger.warn('Analytics CSP init skipped', { error: err, },);
     }
 
+    // Resolve the storage provider from the effective media storage settings
+    // (env, then Settings → Media → Storage) — every process, since each one
+    // serves uploads and its own CSP carries the storage origins.
+    try {
+        const { refreshStorageProvider, } = await import('./services/storage/index.js');
+        await refreshStorageProvider();
+    } catch (err) {
+        logger.warn('Storage provider init skipped', { error: err, },);
+    }
+
     // Resume send jobs left 'running' by a previous crash — PRIMARY ONLY.
     //
     // The worker claims recipients atomically (FOR UPDATE SKIP LOCKED), so N

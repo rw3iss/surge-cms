@@ -12,7 +12,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki';
+    | 'wiki' | 'video';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -225,6 +225,19 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         onUninstall: async () => {},
     },
 
+    video: {
+        key: 'video',
+        label: 'Video hosting',
+        description:
+            'Upload large videos straight to object storage, encode them to adaptive HLS (with a teaser and downloads), and play them on the site — public, or private for subscribers.',
+        defaultEnabled: false,
+        requires: [],
+        migrations: ['124_video.sql',],
+        // Reverse-dropped on uninstall, so parents last. R2 objects are NOT
+        // deleted by an uninstall — delete video media first.
+        tables: ['media_upload_sessions', 'video_keys', 'media_videos', 'video_jobs', 'video_renditions',],
+        settingsKeys: ['video_settings',],
+    },
     events: {
         key: 'events',
         label: 'Events & Calendar',

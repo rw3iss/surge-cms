@@ -18,7 +18,7 @@ import sharp from 'sharp';
 import { config, } from '../config';
 import { query, } from '../db';
 import { NotFoundError, ValidationError, } from '../core/errors';
-import { getStorageProvider, } from './storage';
+import { resolveStorageProvider, } from './storage';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import type { AuditContext, } from './types';
@@ -27,10 +27,12 @@ import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 
 // When using local storage, write directly to uploads dir. For remote
-// providers (S3, etc.), use a temp directory.
+// providers (S3, etc.), stage in UPLOAD_TEMP_DIR — on real disk. NOT
+// os.tmpdir(): on Fedora /tmp is a tmpfs (RAM), so a large upload would land
+// in memory on the web server.
 export const multerDestDir = config.upload.storageProvider === 'local' ?
     config.upload.dir :
-    path.join(os.tmpdir(), 'rw-uploads',);
+    (process.env.UPLOAD_TEMP_DIR || '/var/tmp/sitesurge-uploads');
 
 async function createThumbnail(filePath: string, thumbnailPath: string, width = 300,): Promise<void> {
     await sharp(filePath,)
@@ -76,7 +78,7 @@ async function uploadOne(
     let inserted = false;
 
     try {
-        const storageProvider = getStorageProvider();
+        const storageProvider = (await resolveStorageProvider());
         const uploadOptions = {
             filename: file.filename,
             mimeType: file.mimetype,
@@ -313,7 +315,7 @@ export async function remove(id: string, ctx: AuditContext,): Promise<void> {
     if (result.rows.length === 0) throw new NotFoundError('Media',);
 
     const { filename, thumbnail_url, } = result.rows[0];
-    const storageProvider = getStorageProvider();
+    const storageProvider = (await resolveStorageProvider());
     await storageProvider.delete(filename,);
     if (thumbnail_url) {
         await storageProvider.deleteThumbnail(filename,);

@@ -7,7 +7,7 @@ import { config, } from '../config';
 import { query, } from '../db';
 import { ValidationError, } from '../core/errors';
 import { cache, } from './cache';
-import { getStorageProvider, } from './storage';
+import { resolveStorageProvider, } from './storage';
 import { logger, } from '../utils/logger';
 import type { FetchedPost, } from './social/types';
 import { fetchTweetById, parseTweetUrl, } from './social/twitterHydrate';
@@ -62,7 +62,7 @@ export async function mirrorRemoteMedia(
         tmpPath = path.join(os.tmpdir(), `${crypto.randomUUID()}-${filename}`,);
         await fs.writeFile(tmpPath, buf,);
 
-        return await getStorageProvider().upload(tmpPath, {
+        return await (await resolveStorageProvider()).upload(tmpPath, {
             filename,
             mimeType: contentType || 'image/jpeg',
             originalName: filename,

@@ -609,7 +609,7 @@ Cloudflare Worker cookie gate (§2.5 B); WS push of progress via Redis → Admin
    ```json
    [
      {
-       "AllowedOrigins": ["https://surgemedia.us", "https://surge.ryanweiss.net"],
+       "AllowedOrigins": ["https://surgemedia.us", "https://scale.surgemedia.us", "https://surge.ryanweiss.net"],
        "AllowedMethods": ["GET", "HEAD", "PUT"],
        "AllowedHeaders": ["*"],
        "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
@@ -629,12 +629,24 @@ Cloudflare Worker cookie gate (§2.5 B); WS push of progress via Redis → Admin
 ## 2.12 Open questions
 
 1. **Who may watch:** one permission (`media.gated:view`) for all paid videos, or per-video tier lists (e.g. "Tier 2+ only")? The permission catalog is static; per-tier gating would need either custom permissions per video group or a `required_role_keys[]` column. Recommend one permission for v1.
+- A: Really we will gate most of the pages and hosted content on the API through other objects and processes/pages, checking subscriptions and roles, and then those posts will fetch the videos from the CDN. The videos on the CDN don't necessarily need to care about specific roles or access tiers, only public and private for the most part, and our api can signal first if a user is allowed to view a page with that video content on it... and if so... that page can render and utilize the shared "private key" for all private videos, from that private page that we will gate through our permission and role system after this, but the videos themselves can use a shared private key (that we should be able to rotate in the admin Media settings page).
 2. **Keep originals?** Recommend keep by default for the first months (cost ≈ $0.15/month per 10 GB), then decide.
+- A: Yeah we can keep the originals, ideally auto-delete them after 3 months.
 3. **Max size**: 20 GB enough? Typical length and source bitrate of their videos?
+- A: Yeah 20GB is ok.
 4. **Downloads**: should subscribers get a download (MP4) option? (Note the YouTube perk-policy caution in the research doc.)
+- A: Yeah we will store the uploaded videos, but they are hosted on a gated video entity post/content page, and from there streamed, and we can put the download url there on the page, using the same private key that watching does, when download is clicked (download at highest quality, or make the download button a dropdown to select the quality to download is better).
 5. **Captions / transcripts**: do they have SRT/VTT files from YouTube Studio to upload with each video?
+- A: We won't have captions but it's good to keep it in mind and we will maybe add captions at a later point. We can auto-generate SRT files later through another process, and attach them to the videos... and configurable in a custom video player we will make later, pulling the SRT or VTT file for that video link.
 6. **Workers Paid ($5/month)** acceptable later for the cookie gate?
+- A: I'd rather avoid paid services, let's host privately for as long as possible, and not worry about the gating rules so much (just public vs. private as explained above).
 7. **Free preview**: show the first N seconds to everyone as a teaser?
+- A: This is a good idea, if you can generate it alongside the real videos, we will show post/article pages as sample content, and signal to show the sample version of the videos there as well, if the user is not subscribed. Come up with a means to manage the samples for a given media upload, for videos at least. In the Media library, the video items with different versions (ie. uploaded to CDN with a teaser) should have a special flag so the system knows, and it should show a dropdown for quality selection, plus the option to view the teaser vs. the full video. Also implement some way to get the teaser url from the Media module SDK or api (the media entity), if it has one, so we can display the teaser easily in some areas, from the given requested media item. Ensure the real url/data is kept masked or separate from the teaser url, so non-subscribed users can't scrape the network requests for the full url easily, when they don't need it in that case.
 8. **Existing CDN MP4s** blocked by CSP today (§1.3 S8): confirm in a browser and decide whether Phase 0 ships before the rest (recommended: yes).
+- A: Don't worry about existing data for this, just proceed.
 9. **Domain stability**: is `surgemedia.us` final? The key URI is baked into encrypted playlists.
+- A: We want to keep this CMS system generic, with the host and all elements configurable. Our site using the CMS is primarily surgemedia.us, and we can use that (as the configured domain) in the media upload processes/configuration, for our case here. Yes surgemedia.us is final for us.
 10. **Storage-setting split** (A11): should the provider read the `media_storage` setting? Fix before video so presigning uses the same credentials the admin shows.
+- A: Fix A11 first (the upload path not being read dynamically).
+
+One final note: Ensure the Media module, sdk, and api have a means to query and manage the media videos (with all new features) so that we can utilize and upload videos (using those same processes) from other parts of the site, ie. in a new "Videos" admin page, later... possibly, where we can upload video entities there as a convenience, and they should go inhto the Media library using this system and sdk, easily. Take care to design using SOLID enterprise-level principles.

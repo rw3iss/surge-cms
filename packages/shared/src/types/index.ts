@@ -15,3 +15,4 @@ export * from './event';
 export * from './permission';
 export * from './wiki';
 export * from './mailPurposes';
+export * from './video';

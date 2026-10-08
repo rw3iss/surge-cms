@@ -19,7 +19,7 @@ import { query, } from '../db';
 import * as repo from '../repositories/users.repo';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
-import { getStorageProvider, } from './storage';
+import { resolveStorageProvider, } from './storage';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 import { assertRoleExists, } from './subscriptionTiers';
 
@@ -57,7 +57,7 @@ async function deleteStoredAvatar(avatarUrl: string | null | undefined,): Promis
     // This stops an OAuth provider's avatar URL turning into a stray delete.
     if (!filename.startsWith('avatar-',)) return;
     try {
-        await getStorageProvider().delete(filename,);
+        await (await resolveStorageProvider()).delete(filename,);
     } catch {
         /* best-effort — the DB update matters more than the orphaned object */
     }
@@ -171,7 +171,7 @@ export async function setAvatar(
         await fs.unlink(uploadPath,).catch(() => {},);
     }
 
-    const storage = getStorageProvider();
+    const storage = (await resolveStorageProvider());
     const avatarUrl = await storage.upload(resizedPath, {
         filename: resizedName,
         mimeType: 'image/webp',

@@ -16,6 +16,7 @@ import { SECRET_MASK, } from '../services/shop/providers/settings';
 import * as stripeStatus from '../services/shop/stripeStatus';
 import * as swatches from '../services/swatches';
 import * as systemUpdate from '../services/systemUpdate';
+import { refreshStorageProvider, } from '../services/storage';
 
 // ─── Schemas ──────────────────────────────────────────────────────────
 
@@ -417,6 +418,8 @@ export const settingsRoutes = [
                         secret,
                 },
             }, audit(),);
+            // Uploads go to the new destination from the next request on.
+            await refreshStorageProvider();
             return settings.getMediaStorageSettings();
         },
     },),

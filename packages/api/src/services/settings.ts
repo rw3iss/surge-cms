@@ -205,6 +205,7 @@ export async function computePublicFeatures(
         patreon: { enabled: patreonAdminEnabled && patreonConnected, },
         posts: { enabled: featureOn('posts',), },
         wiki: { enabled: featureOn('wiki',), },
+        video: { enabled: featureOn('video',), },
         campaigns: { enabled: featureOn('campaigns',), },
         forms: { enabled: featureOn('forms',), },
         messages: { enabled: featureOn('messages',), },
@@ -431,6 +432,13 @@ const USERS_SETTINGS: KeyedSetting = {
  * Media storage. Empty is the right fallback — an unconfigured install keeps
  * whatever the environment says, which is how every existing deployment works.
  */
+const VIDEO_SETTINGS: KeyedSetting = {
+    key: 'video_settings',
+    cacheKey: 'settings:video_settings',
+    entityId: 'video_settings',
+    fallback: {},
+};
+
 const MEDIA_STORAGE: KeyedSetting = {
     key: 'media_storage',
     cacheKey: 'settings:media_storage',
@@ -691,6 +699,11 @@ export async function getMediaStorageSettings(): Promise<import('@sitesurge/type
 }
 
 export const setMediaStorageSettings = (value: unknown, ctx: AuditContext,) => setKeyed(MEDIA_STORAGE, value, ctx,);
+
+/** Raw `video_settings` row. Defaults + env overrides are applied by
+ *  `services/video/settings.ts` (`getVideoSettings`). */
+export const getVideoSettingsRaw = () => getKeyed(VIDEO_SETTINGS,);
+export const setVideoSettingsRaw = (value: unknown, ctx: AuditContext,) => setKeyed(VIDEO_SETTINGS, value, ctx,);
 
 /** Per-purpose email overrides (`mail_purposes`): purpose key → { enabled,
  *  subject, blocks, autoSend }. An absent key means "registry defaults", so a

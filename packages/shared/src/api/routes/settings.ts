@@ -30,7 +30,7 @@ import type { NotificationSettings, } from '../../types/notifications';
  */
 export type SettingsFeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
-    | 'mailing_lists' | 'shop';
+    | 'mailing_lists' | 'shop' | 'video';
 
 // ─── GET /settings/public ─────────────────────────────────────────────
 

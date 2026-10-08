@@ -236,6 +236,17 @@ export interface Media {
     credits?: string | null;
     uploadedBy: string;
     createdAt: Date;
+    updatedAt?: Date | null;
+    /** Pixel size (probed for video). */
+    width?: number | null;
+    height?: number | null;
+    durationMs?: number | null;
+    /** `processing` while a video encodes; images are always `ready`. */
+    status?: import('./video').MediaStatus;
+    /** `private` videos play in full only for `media.private:view`. */
+    accessLevel?: import('./video').MediaAccessLevel;
+    /** Present on encoded videos (list + by-id, staff). */
+    video?: import('./video').MediaVideoSummary | null;
 }
 
 /**
@@ -526,6 +537,13 @@ export interface SiteFeatures {
      * notifications. Requires `users`. Disabled by default.
      */
     events: { enabled: boolean; };
+    /**
+     * Self-hosted video. When enabled, large videos upload straight to object
+     * storage and encode to adaptive HLS (with a teaser + downloads); private
+     * videos are AES-128 encrypted and play only for permitted viewers.
+     * Disabled by default.
+     */
+    video: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */
