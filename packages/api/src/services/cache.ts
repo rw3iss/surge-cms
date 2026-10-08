@@ -79,6 +79,11 @@ export const CACHE_KEYS = {
 
     // ── Transient (not entity cache) ──
     oauthState: (state: string,) => `oauth_state:${state}`,
+
+    // Video: built master playlists (full + teaser), invalidated when a
+    // rendition becomes ready or the video is re-packaged/deleted.
+    videoMaster: (mediaId: string, variant: 'full' | 'teaser',) => `video:master:${mediaId}:${variant}`,
+    videoMasterPrefix: (mediaId: string,) => `video:master:${mediaId}:*`,
 } as const;
 
 let redis: Redis | null = null;
@@ -247,6 +252,11 @@ export async function invalidateMediaConsumersCache(): Promise<void> {
     await invalidatePostCache();
     await invalidateCampaignCache();
     await delPattern('entity:*',);
+}
+
+/** A video's renditions changed: drop its cached master playlists. */
+export async function invalidateVideoCache(mediaId: string,): Promise<void> {
+    await delPattern(CACHE_KEYS.videoMasterPrefix(mediaId,),);
 }
 
 export async function invalidateFormCache(formId?: string,): Promise<void> {
@@ -471,6 +481,7 @@ export const cache = {
     invalidatePostCache,
     invalidateCampaignCache,
     invalidateMediaConsumersCache,
+    invalidateVideoCache,
     invalidateFormCache,
     invalidateUserCache,
     invalidateMailingListsCache,
