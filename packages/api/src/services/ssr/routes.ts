@@ -773,6 +773,7 @@ const STATIC_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
     '/setup',
     '/forgot-password',
     '/reset-password',
+    '/mail',
 ],);
 
 /**
@@ -793,6 +794,10 @@ const SPA_OWNED_PREFIXES: readonly string[] = [
     '/u/',
     '/lists/',
     '/orders/',
+    // Player page for video direct links (resolved by the SPA via playback).
+    '/watch/',
+    '/tickets/',
+    '/mail/',
 ];
 
 /**
