@@ -252,8 +252,8 @@ export async function isCancelRequested(jobId: string,): Promise<boolean> {
 /** Terminal transition (ready / failed / cancelled). Clears the lease. */
 export async function finishJob(jobId: string, status: 'ready' | 'failed' | 'cancelled', error: string | null = null, c?: Db,): Promise<void> {
     await db(c,).query(
-        `UPDATE video_jobs SET status = $2, error = $3, lease_owner = NULL, lease_until = NULL,
-                progress = CASE WHEN $2 = 'ready' THEN 100 ELSE progress END,
+        `UPDATE video_jobs SET status = $2::varchar, error = $3, lease_owner = NULL, lease_until = NULL,
+                progress = CASE WHEN $2::varchar = 'ready' THEN 100 ELSE progress END,
                 finished_at = NOW(), updated_at = NOW()
           WHERE id = $1`,
         [jobId, status, error,],
