@@ -12,7 +12,6 @@
  */
 import type { Media, } from '@sitesurge/types';
 import fs from 'fs/promises';
-import os from 'os';
 import path from 'path';
 import sharp from 'sharp';
 import { config, } from '../config';
@@ -23,7 +22,7 @@ import { logAudit, } from './audit';
 import { cache, } from './cache';
 import type { AuditContext, } from './types';
 import { logger, } from '../utils/logger';
-import { mapRow, mapRows, } from '../utils/mapRow';
+import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 
 // When using local storage, write directly to uploads dir. For remote
@@ -120,7 +119,7 @@ async function uploadOne(
             );
 
         inserted = true;
-        const item = mapRow<Media>(result.rows[0],);
+        const item = toMedia(result.rows[0],);
         await logAudit({
             userId: ctx.userId,
             action: 'create',
@@ -246,13 +245,39 @@ export async function list(q: MediaListQuery,): Promise<MediaListResult> {
         params,
     );
 
-    return { data: mapRows<Media>(result.rows,), page, limit, total, };
+    return { data: await withVideo(result.rows.map(toMedia,),), page, limit, total, };
 }
 
 export async function getById(id: string,): Promise<Media> {
     const result = await query('SELECT * FROM media WHERE id = $1', [id,],);
     if (result.rows.length === 0) throw new NotFoundError('Media',);
-    return mapRow<Media>(result.rows[0],);
+    return (await withVideo([toMedia(result.rows[0],),],))[0];
+}
+
+/** Row → Media. `size` is BIGINT (pg returns a string) → number. */
+function toMedia(row: Record<string, unknown>,): Media {
+    const m = mapRow<Media>(row,);
+    return { ...m, size: Number(m.size,), };
+}
+
+/**
+ * Attach the compact video block (poster, progress, renditions, teaser flag)
+ * to encoded videos — one query per page. Skipped when the video feature is
+ * off (its tables may not exist).
+ */
+async function withVideo(items: Media[],): Promise<Media[]> {
+    const ids = items.filter((m,) => m.mimeType?.startsWith('video/',)).map((m,) => m.id);
+    if (ids.length === 0) return items;
+    try {
+        const { isFeatureEnabledServer, } = await import('./settings.js');
+        if (!(await isFeatureEnabledServer('video',))) return items;
+        const { summaries, } = await import('../repositories/video.repo.js');
+        const map = await summaries(ids,);
+        return items.map((m,) => (map.has(m.id,) ? { ...m, video: map.get(m.id,)!, } : m));
+    } catch (e) {
+        logger.warn('Video summaries unavailable', { error: (e as Error).message, },);
+        return items;
+    }
 }
 
 export interface MediaMetaPatch {
@@ -288,11 +313,11 @@ export async function updateMeta(id: string, patch: MediaMetaPatch, ctx: AuditCo
 
     values.push(id,);
     const result = await query(
-        `UPDATE media SET ${updates.join(', ',)} WHERE id = $${values.length} RETURNING *`,
+        `UPDATE media SET ${updates.join(', ',)}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
         values,
     );
     if (result.rows.length === 0) throw new NotFoundError('Media',);
-    const item = mapRow<Media>(result.rows[0],);
+    const item = toMedia(result.rows[0],);
     await logAudit({
         userId: ctx.userId,
         action: 'update',
@@ -308,6 +333,17 @@ export async function updateMeta(id: string, patch: MediaMetaPatch, ctx: AuditCo
 
 /** Delete a media row and its files from storage. */
 export async function remove(id: string, ctx: AuditContext,): Promise<void> {
+    // An encoded video owns many objects (renditions, teaser, downloads,
+    // poster, original) — remove them while their paths are still on record.
+    const kind = await query<{ mime_type: string; }>(`SELECT mime_type FROM media WHERE id = $1`, [id,],);
+    if (kind.rows[0]?.mime_type?.startsWith('video/',)) {
+        try {
+            const { deleteVideoAssets, } = await import('./video/manage.js');
+            await deleteVideoAssets(id,);
+        } catch (e) {
+            logger.warn('Video asset cleanup skipped', { mediaId: id, error: (e as Error).message, },);
+        }
+    }
     const result = await query(
         'DELETE FROM media WHERE id = $1 RETURNING filename, thumbnail_url',
         [id,],

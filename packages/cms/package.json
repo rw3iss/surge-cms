@@ -67,5 +67,8 @@
     "vite-plugin-solid": "^2.11.12",
     "vitest": "^4.1.10",
     "workbox-window": "^7.0.0"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.3"
   }
 }

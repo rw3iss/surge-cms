@@ -65,7 +65,8 @@ export interface ObjectStore {
     putObject(key: string, body: NodeJS.ReadableStream | Buffer | string, opts: ObjectWriteOptions,): Promise<void>;
     putFile(key: string, localPath: string, opts: ObjectWriteOptions,): Promise<void>;
     getObjectStream(key: string, range?: { start: number; end?: number; },): Promise<NodeJS.ReadableStream>;
-    copyObject(fromKey: string, toKey: string,): Promise<void>;
+    /** Server-side copy; any size. `opts` replaces metadata (else kept). */
+    copyObject(fromKey: string, toKey: string, opts?: Partial<ObjectWriteOptions>,): Promise<void>;
     deleteObject(key: string,): Promise<void>;
     /** Delete every object under a prefix; returns the count. */
     deletePrefix(prefix: string,): Promise<number>;

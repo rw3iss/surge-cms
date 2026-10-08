@@ -33,8 +33,10 @@ describe('SSR block output parity', () => {
     it('dynamic blocks emit a naming comment', () => {
         expect(renderBlockForSeo({ type: 'form', },)).toBe('<!-- form block (not server-rendered) -->',);
     });
-    it('video emits nothing; childless group/group_item emit nothing', () => {
+    it('video emits its poster + title (nothing when it has neither); childless group/group_item emit nothing', () => {
         expect(renderBlockForSeo({ type: 'video', },)).toBe('',);
+        expect(renderBlockForSeo({ type: 'video', settings: { posterUrl: 'https://c/p.jpg', title: 'A&B', }, },))
+            .toBe('<figure class="ssr-block ssr-block--video"><img src="https://c/p.jpg" alt="A&amp;B" /><figcaption>A&amp;B</figcaption></figure>',);
         expect(renderBlockForSeo({ type: 'group', },)).toBe('',);
         expect(renderBlockForSeo({ type: 'group_item', },)).toBe('',);
     });

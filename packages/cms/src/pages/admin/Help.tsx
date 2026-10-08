@@ -33,6 +33,11 @@ const TOPICS: HelpTopic[] = [
         desc: 'How a new CMS version is published (pnpm release) and how an installation updates to it (Check for update → Update & restart).',
     },
     {
+        path: '/admin/help/video',
+        title: 'Video hosting',
+        desc: 'Upload large videos, how encoding works, public vs private videos and teasers, using a video in a block, and server setup.',
+    },
+    {
         path: '/admin/help/variables-and-functions',
         title: 'Variables & Functions',
         desc: 'The {{ … }} template syntax for content blocks — variables, entity lookups, if/for logic, and every function + entity schema.',

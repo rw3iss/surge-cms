@@ -7,7 +7,7 @@
  */
 import { A, } from '@solidjs/router';
 import { Component, For, Show, createSignal, type JSX, } from 'solid-js';
-import { COMPONENT_JS_DOC, HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, RELEASES_DOC, SDK_DOCS, type SdkDoc, } from '../../services/help/sdkReference';
+import { COMPONENT_JS_DOC, HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, RELEASES_DOC, SDK_DOCS, type SdkDoc, VIDEO_DOC, } from '../../services/help/sdkReference';
 import { SDK_METHOD_COUNT, SDK_MODULE_COUNT, SDK_MODULES, type SdkModuleDoc, } from '../../services/help/sdkModules.generated';
 import './Help.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
@@ -213,5 +213,6 @@ export const HelpSdkModules: Component = () => <DocPage doc={MODULES_DOC} />;
 export const HelpSdkPermissions: Component = () => <DocPage doc={PERMISSIONS_DOC} />;
 export const HelpReleases: Component = () => <DocPage doc={RELEASES_DOC} />;
 export const HelpSdkComponentJs: Component = () => <DocPage doc={COMPONENT_JS_DOC} />;
+export const HelpVideo: Component = () => <DocPage doc={VIDEO_DOC} />;
 
 export default HelpSdkHeadless;

@@ -5,6 +5,7 @@ import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import AdminPresence from '../../components/admin/presence/AdminPresence';
 import SamePageWarning from '../../components/admin/presence/SamePageWarning';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';
+import UploadTray from '../../components/admin/media/UploadTray';
 import { adminChannel, } from '../../services/adminChannel';
 import SiteLogo from '../../components/common/branding/SiteLogo';
 import { cms, } from '../../services/cmsClient';
@@ -362,6 +363,7 @@ const AdminLayout: ParentComponent = (props,) => {
                 <GlobalSearch />
                 <SessionExpiredModal />
                 <SamePageWarning />
+                <UploadTray />
             </div>
         </Show>
     );

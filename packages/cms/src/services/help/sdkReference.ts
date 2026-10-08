@@ -631,4 +631,130 @@ pnpm release 1.2.0             # or: pnpm release patch | minor | major`,
     ],
 };
 
+export const VIDEO_DOC: SdkDoc = {
+    id: 'video',
+    path: '/admin/help/video',
+    title: 'Video hosting',
+    lead:
+        'With the Video feature on, videos upload straight to object storage, the server encodes them to '
+        + 'adaptive HLS one quality at a time, and viewers stream them from the CDN. A video can be public, '
+        + 'or private — full playback only for permitted viewers, with a short public teaser for everyone else.',
+    sections: [
+        {
+            heading: 'Uploading large videos',
+            blocks: [
+                {
+                    list: [
+                        'Enable Settings → Features → Video. Uploads of video files (or any file over 50 MB) then go '
+                        + 'from the browser directly to storage in parts — the bytes never pass through this server.',
+                        'Progress shows in the upload tray (bottom corner of the admin). The upload keeps running while you '
+                        + 'move between admin pages, and can be paused and resumed.',
+                        'After a reload or a lost connection, the tray lists the upload as unfinished. Choose the same file '
+                        + 'again and only the missing parts are sent.',
+                        'The size limit and part size are in Media → Settings → Video.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Processing',
+            blocks: [
+                {
+                    list: [
+                        'After the upload, an encode job makes the HLS renditions one at a time, at low priority, so the '
+                        + 'website stays fast. Only qualities at or below the source are made.',
+                        'The lowest quality (480p) is made first: the video plays within minutes, and higher qualities '
+                        + 'appear in the player\'s quality menu as they finish.',
+                        'A teaser (the first N seconds, never encrypted) and per-quality MP4 downloads are made too, when '
+                        + 'enabled in Media → Settings → Video.',
+                        'The media library shows progress per quality; a failed quality can be retried, and a video can be '
+                        + 're-encoded while its original is kept.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Public and private videos',
+            blocks: [
+                {
+                    table: [
+                        ['Access', 'Who plays the full video', 'Everyone else',],
+                        ['Public', 'Anyone', '—',],
+                        ['Private', 'Viewers with the media.private:view permission', 'The teaser, then a "subscribe" prompt',],
+                    ],
+                },
+                {
+                    list: [
+                        'Private videos are AES-128 encrypted with a SHARED key. Only a permitted viewer can fetch the key, '
+                        + 'and only a permitted viewer is ever given the full stream\'s address.',
+                        'To sell access, grant media.private:view to a subscription tier (Users → Settings → Subscriptions → '
+                        + 'the tier → extra permissions), or to a role in Settings → Permissions.',
+                        'Rotate the key in Media → Settings → Video. Private videos are then re-packaged onto the new key '
+                        + '(no re-encode); a leaked key stops working.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Using a video in a block',
+            blocks: [
+                {
+                    list: [
+                        'Add a Video block, then upload a file or choose Select Existing to pick one from the media library. '
+                        + 'The editor preview has a Full video / Teaser switch.',
+                        'A YouTube or Vimeo link pasted in the URL field still plays in the provider\'s player; any other '
+                        + 'video file URL plays in the site player.',
+                        'Carousel slides can use a library video as a background — it streams the same way.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'From code (SDK)',
+            blocks: [
+                {
+                    code: `// Direct multipart upload (admin)
+const session = await cms.media.uploads.create({ filename, mimeType, size, fingerprint });
+const { urls } = await cms.media.uploads.partUrls(session.id, [1, 2, 3]);
+// …PUT each part to its URL (keep the ETag), then:
+const media = await cms.media.uploads.complete(session.id); // status: processing
+
+// Encode status and actions (staff)
+const info = await cms.media.video.info(media.id);      // renditions, teaser, job
+await cms.media.video.update(media.id, { accessLevel: 'private' });
+
+// Playback (anyone) — the full stream's src is null unless the viewer may watch it
+const pb = await cms.media.playback(media.id);
+const teaser = await cms.media.teaserUrl(media.id);`,
+                },
+                {
+                    p: 'The exact method names and shapes are in the SDK module reference (`cms.media`).',
+                },
+            ],
+        },
+        {
+            heading: 'Operations',
+            blocks: [
+                {
+                    list: [
+                        'The server needs ffmpeg with libx264. On Fedora: sudo dnf swap ffmpeg-free ffmpeg --allowerasing '
+                        + '(RPM Fusion). Media → Settings → Video shows whether ffmpeg, disk space and storage are ready.',
+                        'The storage bucket needs a CORS rule allowing GET and PUT from the site origin (and exposing ETag) — '
+                        + 'hls.js and the direct upload both use cross-origin requests.',
+                        'Add a CDN cache rule for the video path so .m3u8 and .ts files are cached at the edge (they are not '
+                        + 'cached by extension by default).',
+                        'Encoding runs on the primary process only, one job at a time; Encode threads (default 1) trades '
+                        + 'speed for website responsiveness.',
+                    ],
+                },
+                {
+                    note:
+                        'A video that plays in the admin but not on the site is almost always the bucket CORS rule or the '
+                        + 'site Content-Security-Policy (media-src / connect-src must allow the CDN host).',
+                },
+            ],
+        },
+    ],
+};
+
 export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

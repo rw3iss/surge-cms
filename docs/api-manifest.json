@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T21:30:04.821Z",
-  "totalModules": 47,
-  "totalRoutes": 437,
+  "generatedAt": "2026-10-08T20:24:18.603Z",
+  "totalModules": 48,
+  "totalRoutes": 459,
   "modules": [
     {
       "module": "admin-channel",
@@ -3286,6 +3286,166 @@
           "absolutePath": "/api/v1/utils/url-preview",
           "auth": "admin",
           "summary": "SSRF-guarded link unfurl: fetch a URL and return its OpenGraph/basic meta."
+        }
+      ]
+    },
+    {
+      "module": "video",
+      "mountPath": "/api/v1/video",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/uploads",
+          "absolutePath": "/api/v1/video/uploads",
+          "auth": "staff",
+          "summary": "Create (or resume) a direct multipart upload session."
+        },
+        {
+          "method": "GET",
+          "path": "/uploads",
+          "absolutePath": "/api/v1/video/uploads",
+          "auth": "staff",
+          "summary": "The caller's unfinished upload sessions."
+        },
+        {
+          "method": "GET",
+          "path": "/uploads/:id",
+          "absolutePath": "/api/v1/video/uploads/:id",
+          "auth": "staff",
+          "summary": "An upload session with its uploaded parts."
+        },
+        {
+          "method": "POST",
+          "path": "/uploads/:id/part-urls",
+          "absolutePath": "/api/v1/video/uploads/:id/part-urls",
+          "auth": "staff",
+          "summary": "Presigned PUT URLs for up to 50 parts."
+        },
+        {
+          "method": "POST",
+          "path": "/uploads/:id/complete",
+          "absolutePath": "/api/v1/video/uploads/:id/complete",
+          "auth": "staff",
+          "summary": "Complete an upload: creates the media row (and the encode job for a video)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/uploads/:id",
+          "absolutePath": "/api/v1/video/uploads/:id",
+          "auth": "staff",
+          "summary": "Abort an upload session and discard its parts."
+        },
+        {
+          "method": "GET",
+          "path": "/jobs",
+          "absolutePath": "/api/v1/video/jobs",
+          "auth": "staff",
+          "summary": "The encode queue (newest first; active=true for running/queued only)."
+        },
+        {
+          "method": "GET",
+          "path": "/status",
+          "absolutePath": "/api/v1/video/status",
+          "auth": "staff",
+          "summary": "Can this server encode? ffmpeg, libx264, disk, storage."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/video/settings",
+          "auth": "staff",
+          "summary": "Effective video settings."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/video/settings",
+          "auth": "admin",
+          "summary": "Update video settings (partial)."
+        },
+        {
+          "method": "GET",
+          "path": "/keys",
+          "absolutePath": "/api/v1/video/keys",
+          "auth": "admin",
+          "summary": "Shared encryption key versions (no key bytes)."
+        },
+        {
+          "method": "POST",
+          "path": "/keys/rotate",
+          "absolutePath": "/api/v1/video/keys/rotate",
+          "auth": "admin",
+          "summary": "Rotate the shared private-video key; private videos are re-packaged onto it."
+        },
+        {
+          "method": "GET",
+          "path": "/hls-key/:version",
+          "absolutePath": "/api/v1/video/hls-key/:version",
+          "auth": "optional",
+          "summary": "AES-128 key for private videos (media.private:view). 16 raw bytes, never cached."
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "absolutePath": "/api/v1/video/:id",
+          "auth": "staff",
+          "summary": "Encode status, renditions, teaser and job of a video."
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "absolutePath": "/api/v1/video/:id",
+          "auth": "staff",
+          "summary": "Change access level, teaser window or original expiry."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/cancel",
+          "absolutePath": "/api/v1/video/:id/cancel",
+          "auth": "staff",
+          "summary": "Cancel the running or queued job."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/retry",
+          "absolutePath": "/api/v1/video/:id/retry",
+          "auth": "staff",
+          "summary": "Retry failed renditions."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/reencode",
+          "absolutePath": "/api/v1/video/:id/reencode",
+          "auth": "staff",
+          "summary": "Encode again from the original, or re-package the stored MP4s."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/playback",
+          "absolutePath": "/api/v1/video/:id/playback",
+          "auth": "optional",
+          "summary": "What a player needs; the full stream only for viewers who may watch it."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/master.m3u8",
+          "absolutePath": "/api/v1/video/:id/master.m3u8",
+          "auth": "optional",
+          "summary": "HLS master playlist of the full video (ready renditions only)."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/teaser.m3u8",
+          "absolutePath": "/api/v1/video/:id/teaser.m3u8",
+          "auth": "public",
+          "summary": "HLS master playlist of the public teaser."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/download",
+          "absolutePath": "/api/v1/video/:id/download",
+          "auth": "optional",
+          "summary": "Redirect to a short-lived signed MP4 download (?quality=720p; default highest)."
         }
       ]
     },

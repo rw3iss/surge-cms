@@ -1,0 +1,79 @@
+// Settings → Media → Video. Variables injected by vite `additionalData`.
+
+.video-settings {
+  margin-top: $spacing-lg;
+
+  &__status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    background: $success-bg;
+    color: $success-fg;
+
+    &--warn {
+      background: $warning-bg;
+      color: $warning-fg;
+    }
+  }
+
+  &__subhead {
+    margin: $spacing-lg 0 $spacing-sm;
+    font-size: $font-size-base;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: $spacing-md;
+    align-items: start;
+  }
+
+  &__toggles {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    margin: $spacing-sm 0;
+  }
+
+  &__ladder,
+  &__keys {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+
+    th,
+    td {
+      text-align: left;
+      padding: $spacing-xs $spacing-sm;
+      border-bottom: 1px solid var(--admin-border, #{$border-color});
+      vertical-align: middle;
+    }
+
+    th {
+      font-size: $font-size-xs;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--admin-text-muted, #{$text-light});
+    }
+
+    input { width: 100%; max-width: 140px; }
+  }
+
+  &__current {
+    padding: 0 $spacing-sm;
+    border-radius: $border-radius-full;
+    font-size: $font-size-xs;
+    background: $success-bg;
+    color: $success-fg;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    margin-top: $spacing-md;
+  }
+}

@@ -1,7 +1,7 @@
 import {
     AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CopyObjectCommand, CreateMultipartUploadCommand,
     DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command,
-    ListPartsCommand, PutObjectCommand, S3Client, UploadPartCommand,
+    ListPartsCommand, PutObjectCommand, S3Client, UploadPartCommand, UploadPartCopyCommand,
 } from '@aws-sdk/client-s3';
 import { Upload, } from '@aws-sdk/lib-storage';
 import { getSignedUrl, } from '@aws-sdk/s3-request-presigner';
@@ -24,6 +24,11 @@ export interface S3Settings {
 
 /** Above this, a server-side upload goes multipart (parallel parts, retries). */
 const MULTIPART_THRESHOLD = 100 * 1024 * 1024;
+
+/** CopyObject's single-request ceiling (S3/R2: 5 GiB). */
+const COPY_SINGLE_LIMIT = 5 * 1024 * 1024 * 1024;
+/** Part size for a large server-side copy (equal parts, as R2 requires). */
+const COPY_PART_SIZE = 512 * 1024 * 1024;
 
 export class S3StorageProvider implements StorageProvider, ObjectStore {
     private client: S3Client;
@@ -137,10 +142,51 @@ export class S3StorageProvider implements StorageProvider, ObjectStore {
         return r.Body as Readable;
     }
 
-    async copyObject(fromKey: string, toKey: string,): Promise<void> {
-        await this.client.send(new CopyObjectCommand({
-            Bucket: this.bucket, Key: toKey, CopySource: `${this.bucket}/${encodeURIComponent(fromKey,).replace(/%2F/g, '/',)}`,
+    /**
+     * Server-side copy (no bytes through us). A single CopyObject is capped at
+     * 5 GiB, so larger objects (a kept 20 GB original) are copied as a
+     * multipart upload of UploadPartCopy ranges. `opts` replaces the metadata
+     * (content type / cache control); without it the source's is kept.
+     */
+    async copyObject(fromKey: string, toKey: string, opts?: Partial<ObjectWriteOptions>,): Promise<void> {
+        const source = `${this.bucket}/${encodeURIComponent(fromKey,).replace(/%2F/g, '/',)}`;
+        const head = await this.head(fromKey,);
+        if (!head) throw new Error(`copyObject: source not found: ${fromKey}`,);
+        const meta = opts
+            ? {
+                MetadataDirective: 'REPLACE' as const,
+                ContentType: opts.contentType ?? head.contentType,
+                CacheControl: opts.cacheControl,
+                ContentDisposition: opts.contentDisposition,
+            }
+            : {};
+        if (head.size <= COPY_SINGLE_LIMIT) {
+            await this.client.send(new CopyObjectCommand({ Bucket: this.bucket, Key: toKey, CopySource: source, ...meta, },),);
+            return;
+        }
+        const created = await this.client.send(new CreateMultipartUploadCommand({
+            Bucket: this.bucket, Key: toKey,
+            ContentType: opts?.contentType ?? head.contentType, CacheControl: opts?.cacheControl,
         },),);
+        const uploadId = created.UploadId!;
+        try {
+            const parts: { PartNumber: number; ETag: string; }[] = [];
+            let n = 1;
+            for (let start = 0; start < head.size; start += COPY_PART_SIZE, n++) {
+                const end = Math.min(head.size, start + COPY_PART_SIZE,) - 1;
+                const r = await this.client.send(new UploadPartCopyCommand({
+                    Bucket: this.bucket, Key: toKey, UploadId: uploadId, PartNumber: n,
+                    CopySource: source, CopySourceRange: `bytes=${start}-${end}`,
+                },),);
+                parts.push({ PartNumber: n, ETag: r.CopyPartResult!.ETag!, },);
+            }
+            await this.client.send(new CompleteMultipartUploadCommand({
+                Bucket: this.bucket, Key: toKey, UploadId: uploadId, MultipartUpload: { Parts: parts, },
+            },),);
+        } catch (e) {
+            await this.abortMultipart(toKey, uploadId,).catch(() => undefined);
+            throw e;
+        }
     }
 
     async deleteObject(key: string,): Promise<void> {

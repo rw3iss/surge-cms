@@ -156,6 +156,13 @@ async function bootRunningMode(
         // Event reminders. No-ops when the events feature is off.
         initEventReminderCron();
         initPrintifyCron();
+        // Original-retention + abandoned-upload sweeps. No-ops when video is off.
+        try {
+            const { initVideoCrons, } = await import('./services/video/retention.js');
+            initVideoCrons();
+        } catch (err) {
+            logger.warn('Video crons not registered', { error: err, },);
+        }
         cronRegistry.startAll();
         logger.info(
             config.cronEnabled
@@ -202,6 +209,17 @@ async function bootRunningMode(
     // The worker claims recipients atomically (FOR UPDATE SKIP LOCKED), so N
     // resumers would not double-send; they would just compete for the same rows
     // and open N times the SMTP connections for no benefit. One is enough.
+    // Video encoder — PRIMARY ONLY (one encode at a time per host; the job
+    // lease makes a second encoder host safe later). Idles when the feature is off.
+    if (runOnceOnlyWork) {
+        try {
+            const { startVideoWorker, } = await import('./services/video/worker.js');
+            startVideoWorker();
+        } catch (err) {
+            logger.warn('Video worker not started', { error: err, },);
+        }
+    }
+
     if (runOnceOnlyWork) {
         try {
             const { resumeRunningJobs, } = await import('./services/mail/sendWorker.js');
@@ -335,6 +353,12 @@ function installShutdown(server: Server | null,): void {
             for (const socket of openSockets) socket.destroy();
             openSockets.clear();
             cronRegistry.stopAll();
+            // Give a running encode back to the queue (kills ffmpeg, releases
+            // the lease) so the next boot resumes it at once.
+            try {
+                const { stopVideoWorker, } = await import('./services/video/worker.js');
+                await stopVideoWorker();
+            } catch { /* non-fatal */ }
             // Write out any revision snapshot still inside its settle window,
             // BEFORE the pool closes — otherwise an edit made seconds before a
             // deploy leaves no history entry.

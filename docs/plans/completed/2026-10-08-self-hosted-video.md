@@ -1,6 +1,6 @@
 # Self-hosted adaptive video for paying subscribers — audit + implementation plan
 
-Date: 2026-10-08. Status: design only, no code changed.
+Date: 2026-10-08. **Status: IMPLEMENTED 2026-10-08** (Phases 0–5; Phase 6 partly — see closing notes). Adjusted to the answers in §2.12: two access levels (public/private) with a SHARED rotatable key, teasers, per-quality MP4 downloads, originals kept 90 days.
 
 Related: `docs/plans/2026-10-07-youtube-gated-content-research.md` (why we host the originals ourselves and do not paywall YouTube), `docs/plans/2026-10-06-horizontal-scaling.md` (job leases, `INSTANCE_ROLE`).
 
@@ -540,6 +540,8 @@ Effort in developer-days (one experienced dev on this codebase). Total ≈ **16�
 
 ### Phase 0 — Fixes that help today (1 day)
 
+> **STATUS 2026-10-08 — DONE.** CSP media/connect/worker-src, streaming S3 uploads with immutable Cache-Control, media BIGINT/updated_at/width/height/duration/status/access_level (migration 123), UPLOAD_TEMP_DIR, ALLOWED_FILE_TYPES enforced when set explicitly, VideoPlayer MIME from extension, storage provider reads Settings → Media (A11). R2 CORS/lifecycle: script `packages/api/scripts/r2-video-setup.mjs`; the app's R2 token is object-scoped, so the operator applies it in the dashboard.
+
 Tasks:
 - CSP (`middleware/csp.ts:58-75`): add `mediaSrc: ["'self'", 'blob:', cdnOrigin]`, add `cdnOrigin` + R2 S3 endpoint origin to `connectSrc`, add `workerSrc: ["'self'", 'blob:']`. Derive origins from `S3_CDN_URL` / `S3_ENDPOINT`.
 - `s3.ts`: stream the body (`createReadStream` + `ContentLength`) instead of `fs.readFile`; set `CacheControl` immutable; use `@aws-sdk/lib-storage` `Upload` for files > 100 MB (server-side multipart) as a stop-gap.
@@ -554,6 +556,8 @@ Acceptance: a CDN MP4 plays on the production public site with no CSP error in t
 
 ### Phase 1 — Resumable direct-to-R2 upload (3–4 days)
 
+> **STATUS 2026-10-08 — DONE.** `services/video/uploads.ts` + `uploadMath.ts`, `repositories/uploadSessions.repo.ts`, routes under **`/api/v1/video/uploads`** (not `/media/uploads` — the feature guard would 404 the whole media module when off), `cms/src/services/upload/multipartUploader.ts`, `stores/uploads.ts`, `UploadTray`. Daily sweep in `retention.ts`.
+
 Files: `services/storage/s3.ts` (+ types), `services/mediaUploads.ts`, `routes/media.ts` (new routes), `repositories/mediaUploadSessions.repo.ts`, migration, shared DTOs, `cms-client/src/modules/media.ts`, `cms/src/services/upload/multipartUploader.ts`, `components/admin/media/UploadTray.tsx`, `MediaUploadModal.tsx`, daily abort cron.
 Risks: R2 equal-part-size rule; presigned URL clock skew (use server time, 1 h TTL); CORS `ExposeHeaders: ETag` missing → `complete` must use `ListParts`, not client ETags (designed in).
 Acceptance tests:
@@ -564,6 +568,8 @@ Acceptance tests:
 - Unit: part math (size → partCount, last part size), fingerprint match, session expiry. Integration against MinIO in CI (equal part sizes enforced by a test).
 
 ### Phase 2 — Encoding pipeline (4–5 days)
+
+> **STATUS 2026-10-08 — DONE.** `services/video/{tooling,probe,ladder,ffmpegArgs,progress,pipeline,repackage,worker,retention}.ts`. Each rung: x264 → MP4 (kept as the download + re-package source) → `-c copy` HLS. Poster/sprites under a separate `-public` prefix. Large originals move with multipart `UploadPartCopy`.
 
 Files: `services/video/tooling.ts`, `probe.ts`, `ladder.ts` (pure: probe → rungs), `ffmpegArgs.ts` (pure: args builder, unit-tested), `worker.ts` (claim/lease/heartbeat/loop), `uploadRendition.ts`, `repositories/videoJobs.repo.ts`, `lib.ts` (start under `runOnceOnlyWork`, stop on shutdown), settings, feature registry entry, permissions.
 Risks: CPU contention (mitigated by nice/ionice/threads=1; measure p95 page latency during an encode); disk fill (budget check); ffmpeg build without libx264 (detection); rotated phone video; VFR sources (force_key_frames by time handles it); long encodes vs deploys (lease + resume per rung).
@@ -578,11 +584,15 @@ Acceptance tests:
 
 ### Phase 3 — Playback (2–3 days)
 
+> **STATUS 2026-10-08 — DONE.** `services/video/playback.ts` (role-shaped playback, DB-built masters for full + teaser), `MediaVideo.tsx` (hls.js lazy chunk, quality menu, Full/Teaser switch, locked overlay, downloads), public/admin VideoBlock, `resolveVideoSource` + HeroCarousel, SSR poster emitter.
+
 Files: `routes/media.ts` (`master.m3u8`, `playback`), `services/video/playback.ts`, cache keys, `VideoPlayer.tsx` (hls.js, quality menu, preview thumbnails), public `VideoBlock.tsx`, admin `VideoBlock.tsx`, `HeroCarousel.tsx`, `resolveVideoSource`, SSR block emitter, mail emitter.
 Risks: hls.js bundle size (lazy chunk only on play); Safari native path has no quality menu; CF caching `.m3u8` needs the Cache Rule.
 Acceptance: video plays in Chrome, Firefox, Safari macOS, iOS Safari, Android Chrome; quality menu switches rungs with no stall; after the first rung is ready the video plays, and a reload after the next rung shows two qualities; second viewer's segment requests show `cf-cache-status: HIT`.
 
 ### Phase 4 — Paid access (2–3 days)
+
+> **STATUS 2026-10-08 — DONE (adjusted).** Shared versioned key (`video_keys`) instead of per-video keys; `/api/v1/video/hls-key/:version` gated by `media.private:view`; rotation re-packages private videos; gated MP4 downloads via short-lived presigned URLs. Not done: `video_key_grants` sharing report + per-user key rate limit (deferred — page-level gating comes next).
 
 Files: key generation in job creation, `ffmpegArgs` key-info, `routes/media.ts` (`hls-key`), `services/video/access.ts` (permission + content-access), `catalog.ts` permissions, `video_key_grants`, rate limit, locked overlay in `VideoPlayer`, access-level UI, re-encode warning.
 Risks: domain baked into key URI; a user with the key can share it (documented, sharing report); permission defaults must not remove anything existing (new permission only).
@@ -590,10 +600,14 @@ Acceptance: anonymous / member-without-tier / subscriber / admin each get 403/40
 
 ### Phase 5 — Admin UX (2–3 days)
 
+> **STATUS 2026-10-08 — DONE.** Library tiles (poster, %, rendition chips, teaser flag, lock), `VideoStatusPanel` in `MediaEditModal`, `VideoSettingsPanel` + key rotation in Media → Settings, `/admin/help/video`.
+
 Files: `pages/admin/Media.tsx`, `MediaEditModal.tsx`, `MediaSelectModal.tsx` (posters, status), `components/admin/media/VideoStatusPanel.tsx`, `RenditionChips.tsx`, settings panel `settings/VideoSettingsPanel.tsx`, admin help page `/admin/help/video`.
 Acceptance: progress updates within 5 s; Retry and Cancel work from the library and the modal; settings changes apply to the next job; all inputs commit on blur; booleans are `Toggle`s.
 
 ### Phase 6 — Optional (2–4 days, as needed)
+
+> **STATUS 2026-10-08 — PARTLY.** Done: public preview clip (teaser). Not done (by decision): Cloudflare Worker gate (Q6, no paid services), captions (Q5, later), WS progress push, local-provider chunked fallback, Cache-Control backfill, sharing report.
 
 Cloudflare Worker cookie gate (§2.5 B); WS push of progress via Redis → Admin Channel; captions (WebVTT upload → `#EXT-X-MEDIA:TYPE=SUBTITLES`); audio-only rung; public preview clip; poster from current frame; local-provider chunked fallback; one-off `Cache-Control` backfill for existing objects; key-sharing report page.
 
@@ -650,3 +664,12 @@ Cloudflare Worker cookie gate (§2.5 B); WS push of progress via Redis → Admin
 - A: Fix A11 first (the upload path not being read dynamically).
 
 One final note: Ensure the Media module, sdk, and api have a means to query and manage the media videos (with all new features) so that we can utilize and upload videos (using those same processes) from other parts of the site, ie. in a new "Videos" admin page, later... possibly, where we can upload video entities there as a convenience, and they should go inhto the Media library using this system and sdk, easily. Take care to design using SOLID enterprise-level principles.
+
+---
+
+## Closing notes (2026-10-08)
+
+- **Shipped:** Phases 0–5 as adjusted by §2.12. API at `/api/v1/video/*`; SDK `cms.media.uploads.*`, `cms.media.video.*`, `cms.media.playback(id)`, `cms.media.teaserUrl(id)`; MCP `upload_media` (large/video → direct upload) + `get_video`.
+- **Operator action required:** the R2 bucket CORS rule (`ExposeHeaders: ETag`) and lifecycle rules — browser uploads and hls.js playback from the CDN fail without CORS. The server token cannot set bucket config.
+- **Watch:** the encoder runs on the primary at nice 19 with 1 thread by default; raise `encodeThreads` only if page latency stays fine. A teaser is capped at half the video's length because it is never encrypted.
+- **Next:** page/post-level gating that decides who reaches a page with a private video (the video itself only knows public/private).

@@ -27,6 +27,7 @@ import { exportsRoutes, } from './exports';
 import { rolesRoutes, subscriptionTiersRoutes, } from './subscriptions';
 import { mailSchedulesRoutes, } from './mailSchedules';
 import { mediaRoutes, } from './media';
+import { videoRoutes, } from './video';
 import { messagesRoutes, } from './messages';
 import { pagesRoutes, } from './pages';
 import { paymentsRoutes, } from './payments';
@@ -55,6 +56,7 @@ router.use('/forms', registerModule('forms', formsRoutes, { mountPath: '/api/v1/
 router.use('/users', registerModule('users', usersRoutes, { mountPath: '/api/v1/users', },),);
 router.use('/messages', registerModule('messages', messagesRoutes, { mountPath: '/api/v1/messages', },),);
 router.use('/media', registerModule('media', mediaRoutes, { mountPath: '/api/v1/media', },),);
+router.use('/video', registerModule('video', videoRoutes, { mountPath: '/api/v1/video', feature: 'video', },),);
 router.use('/social', registerModule('social', socialRoutes, { mountPath: '/api/v1/social', },),);
 router.use('/settings', registerModule('settings', settingsRoutes, { mountPath: '/api/v1/settings', },),);
 router.use('/search', registerModule('search', searchRoutes, { mountPath: '/api/v1/search', },),);

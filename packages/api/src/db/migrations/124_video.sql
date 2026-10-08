@@ -1,6 +1,6 @@
 -- @feature video
 
--- Self-hosted adaptive video (docs/plans/2026-10-08-self-hosted-video.md).
+-- Self-hosted adaptive video (docs/plans/completed/2026-10-08-self-hosted-video.md).
 --
 -- Large files go browser → R2 directly (multipart, presigned parts) through a
 -- resumable upload SESSION. An encode JOB turns the original into HLS

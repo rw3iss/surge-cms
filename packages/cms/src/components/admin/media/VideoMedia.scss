@@ -1,0 +1,267 @@
+// Video UI in the media library: rendition chips, tile badges + progress,
+// the edit modal's status panel and the upload-modal options.
+// Variables are injected by vite `additionalData` (styles/variables.scss).
+
+.rendition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
+.rendition-chip {
+  display: inline-block;
+  padding: 0 $spacing-sm;
+  border-radius: $border-radius-full;
+  font-size: $font-size-xs;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  background: $bg-muted;
+  color: var(--admin-text-muted, #{$text-light});
+  white-space: nowrap;
+
+  &--ready {
+    background: $success-bg;
+    color: $success-fg;
+  }
+
+  &--encoding,
+  &--uploading {
+    background: $info-bg;
+    color: $info-fg;
+  }
+
+  &--failed {
+    background: $error-bg;
+    color: $error-fg;
+  }
+}
+
+// ── Library tile ──
+
+.media-video-tile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+
+  &__poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $secondary-color;
+    color: $background;
+    font-size: $font-size-2xl;
+  }
+
+  &__badges {
+    position: absolute;
+    top: $spacing-xs;
+    left: $spacing-xs;
+    right: $spacing-xs;
+    display: flex;
+    gap: $spacing-xs;
+    pointer-events: none;
+  }
+
+  &__badge {
+    padding: 0 $spacing-xs;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+    background: $modal-overlay-bg;
+    color: $background;
+
+    &--teaser { background: $primary-color; }
+    &--failed { background: $error-color; }
+  }
+
+  &__duration {
+    position: absolute;
+    right: $spacing-xs;
+    bottom: $spacing-xs;
+    padding: 0 $spacing-xs;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    font-variant-numeric: tabular-nums;
+    background: $modal-overlay-bg;
+    color: $background;
+  }
+
+  &__processing {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: $spacing-xs;
+    background: $modal-overlay-bg;
+    color: $background;
+    font-size: $font-size-xs;
+
+    .rendition-chips { margin-top: $spacing-xs; }
+  }
+}
+
+.video-progress {
+  height: 4px;
+  background: $bg-muted;
+  border-radius: $border-radius-full;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background: $primary-color;
+    transition: width $transition-base;
+  }
+}
+
+// ── Edit modal ──
+
+.media-edit-modal--video { max-width: 900px; }
+
+.video-status-panel {
+  margin-top: $spacing-md;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-sm;
+  }
+
+  &__state { font-weight: 600; }
+
+  &__blocked,
+  &__error {
+    font-size: $font-size-sm;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-sm;
+  }
+
+  &__blocked {
+    background: $warning-bg;
+    color: $warning-fg;
+  }
+
+  &__error {
+    background: $error-bg;
+    color: $error-fg;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+
+    th,
+    td {
+      text-align: left;
+      padding: $spacing-xs $spacing-sm;
+      border-bottom: 1px solid var(--admin-border, #{$border-color});
+      vertical-align: top;
+    }
+
+    th {
+      font-size: $font-size-xs;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--admin-text-muted, #{$text-light});
+    }
+  }
+
+  &__row-error {
+    color: $error-fg;
+    font-size: $font-size-xs;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    align-items: center;
+  }
+
+  &__menu {
+    position: relative;
+  }
+
+  &__menu-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: $z-index-popover;
+    min-width: 240px;
+    margin-top: $spacing-xs;
+    padding: $spacing-xs 0;
+    list-style: none;
+    background: $background;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    box-shadow: $shadow-lg;
+
+    button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: $spacing-xs $spacing-md;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+
+      &:hover:not(:disabled) { background: var(--admin-bg-subtle, #{$background-dark}); }
+      &:disabled { cursor: not-allowed; opacity: 0.55; }
+    }
+
+    small {
+      display: block;
+      color: var(--admin-text-muted, #{$text-light});
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: $spacing-md;
+    align-items: start;
+  }
+
+  &__downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    font-size: $font-size-sm;
+  }
+
+  &__note {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    margin: 0;
+  }
+}
+
+// ── Upload modal options ──
+
+.media-upload-video-options {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+  }
+}

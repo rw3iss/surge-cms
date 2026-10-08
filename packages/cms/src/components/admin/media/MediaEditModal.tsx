@@ -1,8 +1,13 @@
+import type { MediaVideoSummary, } from '@sitesurge/types';
 import { createSignal, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import { isFeatureEnabled, } from '../../../stores/siteSettings';
+import MediaVideo from '../../blocks/media/MediaVideo';
 import ModalShell from '../common/ModalShell';
 import { FormField, } from '../forms';
+import VideoStatusPanel from './VideoStatusPanel';
 import './MediaEditModal.scss';
+import './VideoMedia.scss';
 
 export interface MediaEditItem {
     id: string;
@@ -18,6 +23,8 @@ export interface MediaEditItem {
     width?: number;
     height?: number;
     createdAt: string;
+    /** Present on encoded videos (`video` feature). */
+    video?: MediaVideoSummary | null;
 }
 
 interface MediaEditModalProps {
@@ -60,11 +67,15 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
         credits: props.media.credits || '',
     },);
 
+    /** Encoded-video summary — from the grid row, refreshed from the server. */
+    const [videoSummary, setVideoSummary,] = createSignal<MediaVideoSummary | null>(props.media.video ?? null,);
+
     // Start from the server's current record, not the grid's cached row.
     onMount(async () => {
         try {
             const fresh = await cms.media.getById(props.media.id, { cache: false, },) as any;
             if (!fresh) return;
+            if (fresh.video !== undefined) setVideoSummary(fresh.video ?? null,);
             const next = { title: fresh.title || '', caption: fresh.caption || '', credits: fresh.credits || '', };
             // Only replace fields the user hasn't started editing.
             if (title() === orig().title) setTitle(next.title,);
@@ -78,6 +89,8 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
 
     const isImage = () => props.media.mimeType?.startsWith('image/',);
     const isVideo = () => props.media.mimeType?.startsWith('video/',);
+    /** An encoded video (HLS) — gets the HLS player + the encode status panel. */
+    const isEncoded = () => isVideo() && isFeatureEnabled('video',) && !!videoSummary();
 
     const handleClose = () => {
         if (busy()) return;
@@ -132,8 +145,8 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
         <ModalShell
             open={true}
             onClose={handleClose}
-            size="md"
-            class="media-edit-modal"
+            size={isEncoded() ? 'lg' : 'md'}
+            class={`media-edit-modal${isEncoded() ? ' media-edit-modal--video' : ''}`}
             ariaLabel="Edit Media"
             dismissOnBackdrop={!busy()}
             dismissOnEscape={!busy()}
@@ -155,7 +168,12 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
                         />
                     </Show>
                     <Show when={isVideo()}>
-                        <video src={props.media.url} controls class="media-edit-modal__preview-video" />
+                        <Show
+                            when={isEncoded()}
+                            fallback={<video src={props.media.url} controls class="media-edit-modal__preview-video" />}
+                        >
+                            <MediaVideo mediaId={props.media.id} showVariantSwitch showQualityMenu class="media-edit-modal__preview-video" />
+                        </Show>
                     </Show>
                     <Show when={!isImage() && !isVideo()}>
                         <div class="media-edit-modal__preview-file">
@@ -181,6 +199,10 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
                         {copied() ? 'Copied' : 'Copy'}
                     </button>
                 </div>
+
+                <Show when={isEncoded()}>
+                    <VideoStatusPanel mediaId={props.media.id} />
+                </Show>
 
                 <div class="media-edit-modal__fields">
                     <FormField label="Title">

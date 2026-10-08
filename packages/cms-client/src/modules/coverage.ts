@@ -15,6 +15,25 @@
 
 /** Every route a `cms.<module>.<method>()` call hits, in manifest form. */
 export const ROUTE_COVERAGE: string[] = [
+    // ── video (cms.media.uploads / cms.media.video / cms.media.playback) ──
+    'POST /api/v1/video/uploads',
+    'GET /api/v1/video/uploads',
+    'GET /api/v1/video/uploads/:id',
+    'POST /api/v1/video/uploads/:id/part-urls',
+    'POST /api/v1/video/uploads/:id/complete',
+    'DELETE /api/v1/video/uploads/:id',
+    'GET /api/v1/video/:id',
+    'PUT /api/v1/video/:id',
+    'POST /api/v1/video/:id/cancel',
+    'POST /api/v1/video/:id/retry',
+    'POST /api/v1/video/:id/reencode',
+    'GET /api/v1/video/jobs',
+    'GET /api/v1/video/status',
+    'GET /api/v1/video/settings',
+    'PUT /api/v1/video/settings',
+    'GET /api/v1/video/keys',
+    'POST /api/v1/video/keys/rotate',
+    'GET /api/v1/video/:id/playback',
     // ── posts ──
     'GET /api/v1/posts',
     'GET /api/v1/posts/search',
@@ -475,6 +494,13 @@ export const ROUTE_COVERAGE: string[] = [
  * no consumer-facing client surface.
  */
 export const INTENTIONALLY_UNEXPOSED: string[] = [
+    // Video playback: playlists, AES key and signed-download redirect are
+    // fetched by the PLAYER (hls.js / Safari / a download link), from URLs the
+    // playback response hands out — not called through the SDK.
+    'GET /api/v1/video/:id/master.m3u8',
+    'GET /api/v1/video/:id/teaser.m3u8',
+    'GET /api/v1/video/hls-key/:version',
+    'GET /api/v1/video/:id/download',
     // Crawler endpoint served as plain text; nothing in the SDK consumes it.
     'GET /robots.txt',
     // Plugin browser bundles: loaded via dynamic import() by the SPA, not the SDK.

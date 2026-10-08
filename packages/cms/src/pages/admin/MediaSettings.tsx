@@ -14,6 +14,8 @@ import { A, } from '@solidjs/router';
 import { Component, createSignal, onMount, Show, } from 'solid-js';
 import type { MediaStorageSettings, } from '@sitesurge/types';
 import { FormField, } from '../../components/admin/forms';
+import VideoSettingsPanel from '../../components/admin/settings/VideoSettingsPanel';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
 import AdminTitle from '../../components/admin/common/AdminTitle';
@@ -175,6 +177,10 @@ const AdminMediaSettings: Component = () => {
                         </div>
                     </section>
                 )}
+            </Show>
+
+            <Show when={isFeatureEnabled('video',)}>
+                <VideoSettingsPanel />
             </Show>
         </div>
     );

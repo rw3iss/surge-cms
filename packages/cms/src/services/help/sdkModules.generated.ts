@@ -1087,9 +1087,19 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /media — paginated admin list with type/types/search/sort filters."
             },
             {
+                "name": "playback",
+                "signature": "playback(id: string): Promise<MediaPlaybackResponse>",
+                "summary": "GET /video/:id/playback — everything a player needs, shaped for the caller: `src` (the full video) only when they may watch it, `teaserSrc` always when a teaser exists. Also works for plain uploaded video files (`fileSrc`)."
+            },
+            {
                 "name": "remove",
                 "signature": "remove(id: string): Promise<MediaDeleteResponse>",
                 "summary": ""
+            },
+            {
+                "name": "teaserUrl",
+                "signature": "teaserUrl(id: string): Promise<string | null>",
+                "summary": "The teaser's master playlist URL, or null when the video has none."
             },
             {
                 "name": "update",
@@ -1100,6 +1110,91 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "upload",
                 "signature": "upload(file: Blob, fields?: MediaUploadFields): Promise<MediaUploadResponse>",
                 "summary": "POST /media — single multipart upload (field \"file\"; optional alt/caption fields)."
+            },
+            {
+                "name": "uploads.abort",
+                "signature": "uploads.abort(id: string): Promise<MediaUploadAbortResponse>",
+                "summary": "DELETE /video/uploads/:id — abort and discard the stored parts."
+            },
+            {
+                "name": "uploads.complete",
+                "signature": "uploads.complete(id: string): Promise<MediaUploadCompleteResponse>",
+                "summary": "POST /video/uploads/:id/complete — finish; creates the media row (+ encode job for video)."
+            },
+            {
+                "name": "uploads.create",
+                "signature": "uploads.create(body: MediaUploadCreateBody): Promise<MediaUploadCreateResponse>",
+                "summary": "POST /video/uploads — create or resume a session."
+            },
+            {
+                "name": "uploads.get",
+                "signature": "uploads.get(id: string): Promise<MediaUploadGetResponse>",
+                "summary": "GET /video/uploads/:id — session + uploaded parts."
+            },
+            {
+                "name": "uploads.list",
+                "signature": "uploads.list(): Promise<MediaUploadListResponse>",
+                "summary": "GET /video/uploads — the caller's unfinished sessions."
+            },
+            {
+                "name": "uploads.partUrls",
+                "signature": "uploads.partUrls(id: string, partNumbers: number[]): Promise<MediaUploadPartUrlsResponse>",
+                "summary": "POST /video/uploads/:id/part-urls — presigned PUT URLs (≤ 50 parts per call)."
+            },
+            {
+                "name": "video.cancel",
+                "signature": "video.cancel(id: string): Promise<MediaVideoActionResponse>",
+                "summary": "POST /video/:id/cancel — stop the running/queued job."
+            },
+            {
+                "name": "video.info",
+                "signature": "video.info(id: string): Promise<MediaVideoInfoResponse>",
+                "summary": "GET /video/:id — encode status, renditions, teaser, job (staff)."
+            },
+            {
+                "name": "video.jobs",
+                "signature": "video.jobs(query?: MediaVideoJobsQuery): Promise<MediaVideoJobsResponse>",
+                "summary": "GET /video/jobs — the encode queue (`active: true` = running/queued only)."
+            },
+            {
+                "name": "video.keys",
+                "signature": "video.keys(): Promise<MediaVideoKeysResponse>",
+                "summary": "GET /video/keys — shared encryption key versions (no key bytes)."
+            },
+            {
+                "name": "video.reencode",
+                "signature": "video.reencode(id: string, body: MediaVideoReencodeBody = {}): Promise<MediaVideoActionResponse>",
+                "summary": "POST /video/:id/reencode — full encode from the original, or a cheap re-package."
+            },
+            {
+                "name": "video.retry",
+                "signature": "video.retry(id: string): Promise<MediaVideoActionResponse>",
+                "summary": "POST /video/:id/retry — re-queue failed renditions."
+            },
+            {
+                "name": "video.rotateKey",
+                "signature": "video.rotateKey(): Promise<MediaVideoKeyRotateResponse>",
+                "summary": "POST /video/keys/rotate — new key; private videos are re-packaged onto it."
+            },
+            {
+                "name": "video.settings",
+                "signature": "video.settings(): Promise<SettingsVideoResponse>",
+                "summary": "GET /video/settings"
+            },
+            {
+                "name": "video.status",
+                "signature": "video.status(): Promise<MediaVideoStatusResponse>",
+                "summary": "GET /video/status — ffmpeg / disk / storage readiness."
+            },
+            {
+                "name": "video.update",
+                "signature": "video.update(id: string, body: MediaVideoUpdateBody): Promise<MediaVideoActionResponse>",
+                "summary": "PUT /video/:id — access level, teaser window, original expiry."
+            },
+            {
+                "name": "video.updateSettings",
+                "signature": "video.updateSettings(body: SettingsVideoBody): Promise<SettingsVideoResponse>",
+                "summary": "PUT /video/settings — partial patch."
             }
         ]
     },
@@ -2459,4 +2554,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 426;
+export const SDK_METHOD_COUNT = 445;

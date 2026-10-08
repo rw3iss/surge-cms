@@ -235,6 +235,12 @@ reads/fetches → Blob → SDK), plus optional `alt`/`caption`. It returns the m
 (see `describe_block_types` for each field). `upload_font` works the same way for
 `@font-face` fonts.
 
+A local **video** (or any file over 50 MB) takes the resumable direct path instead
+(`video` feature): a multipart session, each part PUT straight to object storage,
+then `complete`. Re-running with the same file resumes. The video then encodes in the
+background; poll `get_video` (renditions, %, status) until `status` is `ready`.
+`title` and `accessLevel` (`public` | `private`) apply to videos.
+
 ### Block-type catalog (18 types)
 
 Full field detail is in `describe_block_types`. Summary:
@@ -375,7 +381,8 @@ Footer items do not support `children` (footer links are flat).
 |------|-----|-----------|------|
 | `list_media` | R | `type?`, `search?`, `sort?`, `page?`, `limit?` | List media assets (paginated). |
 | `get_media` | R | `id` | One media asset (url/type/dimensions/thumbnails). |
-| `upload_media` | W | `path` **xor** `url`, `alt?`, `caption?` | Upload from local path or remote URL → returns `id` + `url` for block wiring. |
+| `upload_media` | W | `path` **xor** `url`, `alt?`, `caption?`, `title?`, `accessLevel?` | Upload from local path or remote URL → returns `id` + `url` for block wiring. Videos / files > 50 MB use the resumable direct upload. |
+| `get_video` | R | `id` | Encode status of a video: renditions, progress, teaser, access level. |
 | `update_media` | W | `id`, `title?`, `alt?`, `caption?` | Partial metadata update (file unchanged). |
 | `delete_media` | **W** (destructive) | `id` | Delete a media asset (file + row). |
 

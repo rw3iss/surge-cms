@@ -1,6 +1,8 @@
 import type { HeroCarouselOptions, HeroItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, type JSX, on, onCleanup, onMount, Show, } from 'solid-js';
 import { TEXT_ALIGN, toFlexAlign, } from '../../utils/cssAlign';
+import { resolveVideoSource, } from '../../utils/resolveVideoSource';
+import VideoPlayer from './media/VideoPlayer';
 import { previewBreakpoint, } from '../../stores/previewBreakpoint';
 import './HeroCarousel.scss';
 
@@ -317,9 +319,15 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
     // ─── Video management ───
 
     const handleVideoRef = (el: HTMLVideoElement, item: HeroItem, index: number,) => {
+        // A video is "active" when its slide is within the visible window.
+        const active = () => index >= currentIndex() && index < currentIndex() + perPage();
+        // An HLS source attaches asynchronously (hls.js is lazy-loaded), so the
+        // first play() below can land before there is anything to play.
+        el.addEventListener('loadeddata', () => {
+            if (active() && item.autoplay) el.play().catch(() => {},);
+        }, { once: true, },);
         createEffect(() => {
-            // A video is "active" when its slide is within the visible window.
-            const isActive = index >= currentIndex() && index < currentIndex() + perPage();
+            const isActive = active();
             if (isActive && item.autoplay) {
                 el.play().catch(() => {},);
             } else {
@@ -419,15 +427,35 @@ const HeroCarousel: Component<HeroCarouselProps> = (props,) => {
                                         />
                                     </Show>
                                     <Show when={item.mediaType === 'video'}>
-                                        <video
-                                            ref={(el,) => handleVideoRef(el, item, index(),)}
-                                            src={item.mediaUrl}
-                                            class="hero-carousel__media-element"
-                                            style={{ 'object-fit': item.objectFit || 'cover', }}
-                                            muted
-                                            loop
-                                            playsinline
-                                        />
+                                        <Show
+                                            when={resolveVideoSource({ id: item.mediaId, url: item.mediaUrl || '', },).kind === 'hls'}
+                                            fallback={
+                                                <video
+                                                    ref={(el,) => handleVideoRef(el, item, index(),)}
+                                                    src={item.mediaUrl}
+                                                    class="hero-carousel__media-element"
+                                                    style={{ 'object-fit': item.objectFit || 'cover', }}
+                                                    muted
+                                                    loop
+                                                    playsinline
+                                                />
+                                            }
+                                        >
+                                            {/* Encoded (HLS) video: hls.js on a bare
+                                                <video>, lazy-loaded; same play/pause
+                                                handling as a plain file. */}
+                                            <VideoPlayer
+                                                bare
+                                                hlsSrc={item.mediaUrl}
+                                                ref={(el,) => handleVideoRef(el, item, index(),)}
+                                                class="hero-carousel__media-element"
+                                                style={{ 'object-fit': item.objectFit || 'cover', }}
+                                                poster={item.mediaThumbnailUrl}
+                                                muted
+                                                loop
+                                                preload="auto"
+                                            />
+                                        </Show>
                                     </Show>
                                 </div>
 

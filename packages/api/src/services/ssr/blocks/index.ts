@@ -20,6 +20,7 @@ import { renderImage, } from './image';
 import { renderDocument, } from './document';
 import { renderUrlLink, } from './urlLink';
 import { renderEventBlock, } from './event';
+import { renderVideo, } from './video';
 
 export interface SsrBlockInput {
     type: string;
@@ -91,8 +92,8 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     event: renderEventBlock,
     post: notIndexable,
     spacer: notIndexable,
-    // No SSR output (was the `default:` fallthrough).
-    video: notRendered,
+    // Poster + title (the player is client-side).
+    video: renderVideo,
     // Containers recurse into their children (assembled into a tree by the
     // caller). Childless containers emit nothing.
     group: renderChildren,

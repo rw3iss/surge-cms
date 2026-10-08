@@ -22,6 +22,7 @@ import { z, } from 'zod';
 import type { AssertCompatible, MediaListQuery, MediaUpdateBody, } from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
+import { ValidationError, } from '../core/errors';
 import * as media from '../services/media';
 import type { UploadFile, } from '../services/media';
 
@@ -43,9 +44,26 @@ const storage = multer.diskStorage({
     },
 },);
 
+/**
+ * `ALLOWED_FILE_TYPES` is enforced only when the operator sets it explicitly:
+ * its built-in default omits common types (SVG, AVIF, MP3 variants) that
+ * existing sites already upload, and starting to refuse them would be a
+ * regression. Entries may end in `/*` (e.g. `image/*`).
+ */
+const allowList = process.env.ALLOWED_FILE_TYPES ? config.upload.allowedTypes.map((t,) => t.trim().toLowerCase()).filter(Boolean,) : null;
+function isAllowedType(mime: string,): boolean {
+    if (!allowList) return true;
+    const m = mime.toLowerCase();
+    return allowList.some((t,) => (t.endsWith('/*',) ? m.startsWith(t.slice(0, -1,),) : m === t));
+}
+
 const upload = multer({
     storage,
     limits: { fileSize: config.upload.maxSizeMb * 1024 * 1024, },
+    fileFilter: (_req, file, cb,) => {
+        if (isAllowedType(file.mimetype,)) return cb(null, true,);
+        cb(new ValidationError(`File type not allowed: ${file.mimetype}`,),);
+    },
 },);
 
 const idParams = z.object({ id: z.string(), },);

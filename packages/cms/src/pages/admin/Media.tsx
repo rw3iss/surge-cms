@@ -1,9 +1,16 @@
 import { A, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import type { Media, } from '@sitesurge/types';
+import { Component, createEffect, createResource, createSignal, For, on, onCleanup, Show, } from 'solid-js';
 import VideoPlayer from '../../components/blocks/media/VideoPlayer';
+import MediaVideo from '../../components/blocks/media/MediaVideo';
 import MediaEditModal from '../../components/admin/media/MediaEditModal';
+import RenditionChips from '../../components/admin/media/RenditionChips';
+import { formatDuration, } from '../../components/admin/media/videoFormat';
 import { cms, } from '../../services/cmsClient';
+import { startUpload, uploadsVersion, usesMultipart, } from '../../stores/uploads';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import '../../components/admin/media/VideoMedia.scss';
 
 function formatSize(bytes: number,): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -17,6 +24,59 @@ function getTypeLabel(mimeType: string,): string {
     if (mimeType.startsWith('audio/',)) return 'Audio';
     return 'Document';
 }
+
+const POLL_MS = 3000;
+const ACTIVE_JOB = new Set(['queued', 'downloading', 'probing', 'encoding', 'uploading', 'finalizing',],);
+
+/** A tile is still being encoded (keep polling while any is). */
+function isProcessing(m: Media,): boolean {
+    return m.status === 'processing' || (!!m.video?.jobStatus && ACTIVE_JOB.has(m.video.jobStatus,));
+}
+
+/** An encoded video (has a `media_videos` row). */
+const isEncodedVideo = (m: Media,) => !!m.video;
+
+/**
+ * Library tile preview for a video: the poster as an <img> (never a <video> —
+ * a grid of them would download every file), duration, access + teaser
+ * badges, and while encoding an overall bar + per-quality chips.
+ */
+const VideoTile: Component<{ m: Media; }> = (p,) => {
+    const poster = () => p.m.video?.posterUrl ?? p.m.thumbnailUrl ?? null;
+    return (
+        <div class="media-video-tile">
+            <Show when={poster()} fallback={<div class="media-video-tile__placeholder" aria-hidden="true">&#9654;</div>}>
+                <img class="media-video-tile__poster" src={poster()!} alt={p.m.alt || p.m.originalName} loading="lazy" />
+            </Show>
+            <div class="media-video-tile__badges">
+                <Show when={p.m.accessLevel === 'private'}>
+                    <span class="media-video-tile__badge" title="Private — full video for subscribers only">&#128274; Private</span>
+                </Show>
+                <Show when={p.m.video?.hasTeaser}>
+                    <span class="media-video-tile__badge media-video-tile__badge--teaser">Teaser</span>
+                </Show>
+                <Show when={p.m.status === 'failed'}>
+                    <span class="media-video-tile__badge media-video-tile__badge--failed">Failed</span>
+                </Show>
+            </div>
+            <Show when={!isProcessing(p.m,) && p.m.durationMs}>
+                <span class="media-video-tile__duration">{formatDuration(p.m.durationMs,)}</span>
+            </Show>
+            <Show when={isProcessing(p.m,)}>
+                <div class="media-video-tile__processing">
+                    <div>
+                        {p.m.video?.blockedReason ? `Waiting (${p.m.video.blockedReason.replace('_', ' ',)})` : 'Processing'}{' '}
+                        {Math.floor(p.m.video?.progress ?? 0,)}%
+                    </div>
+                    <div class="video-progress">
+                        <div class="video-progress__fill" style={{ width: `${p.m.video?.progress ?? 0}%`, }} />
+                    </div>
+                    <RenditionChips renditions={p.m.video?.renditions ?? []} />
+                </div>
+            </Show>
+        </div>
+    );
+};
 
 function downloadFile(url: string, filename: string,) {
     const a = document.createElement('a',);
@@ -47,19 +107,43 @@ const AdminMedia: Component = () => {
     const [media, { refetch, },] = createResource(mediaQuery, async (q,) => {
         try {
             const res = await cms.media.list(q as any,);
-            return res.data;
+            return res.data as Media[];
         } catch {
-            return [];
+            return [] as Media[];
         }
     },);
 
+    /** Refetch bypassing the client SWR cache (a cached list would hide progress). */
+    const refetchFresh = async () => {
+        try { await cms.cache.invalidatePrefix(`${cms.config.namespace}:media:`,); } catch { /* ignore */ }
+        refetch();
+    };
+
+    // Poll every 3 s while any visible item is encoding; stop when none is.
+    // `.latest` (not `media()`) so a refetch never suspends the page.
+    createEffect(() => {
+        const list = media.latest ?? [];
+        if (!isFeatureEnabled('video',) || !list.some(isProcessing,)) return;
+        const t = setTimeout(() => void refetchFresh(), POLL_MS,);
+        onCleanup(() => clearTimeout(t,));
+    },);
+
+    // A direct upload finished in the tray → show the new item.
+    createEffect(on(uploadsVersion, () => void refetchFresh(), { defer: true, },),);
+
     const handleUpload = async (e: Event,) => {
         const input = e.target as HTMLInputElement;
-        if (input.files?.[0]) {
-            await cms.media.upload(input.files[0],);
-            input.value = '';
-            refetch();
+        const file = input.files?.[0];
+        if (!file) return;
+        input.value = '';
+        if (usesMultipart(file,)) {
+            // Straight to storage; the upload tray shows progress and the list
+            // refetches when it completes.
+            startUpload(file,);
+            return;
         }
+        await cms.media.upload(file,);
+        refetch();
     };
 
     const startEdit = (item: any, e: Event,) => {
@@ -221,7 +305,7 @@ const AdminMedia: Component = () => {
             </div>
 
             <Show
-                when={media()?.length}
+                when={media.latest?.length}
                 fallback={
                     <div class="empty-state">
                         {media.loading ? 'Loading...' : 'No media found.'}
@@ -229,7 +313,7 @@ const AdminMedia: Component = () => {
                 }
             >
                 <div class="media-grid">
-                    <For each={media()}>
+                    <For each={media.latest}>
                         {(m: any,) => (
                             <div class="media-grid__item" onClick={() => openModal(m,)}>
                                 <div class="media-grid__preview">
@@ -237,7 +321,12 @@ const AdminMedia: Component = () => {
                                         <img src={m.thumbnailUrl || m.url} alt={m.alt || m.title || m.originalName} />
                                     </Show>
                                     <Show when={m.mimeType?.startsWith('video/',)}>
-                                        <video src={m.url} preload="metadata" muted playsinline />
+                                        <Show
+                                            when={isEncodedVideo(m,)}
+                                            fallback={<video src={m.url} preload="metadata" muted playsinline />}
+                                        >
+                                            <VideoTile m={m} />
+                                        </Show>
                                     </Show>
                                     <Show
                                         when={!m.mimeType?.startsWith('image/',) && !m.mimeType?.startsWith('video/',)}
@@ -317,10 +406,12 @@ const AdminMedia: Component = () => {
                                     <img src={m().url} alt={m().alt || m().title || m().originalName} />
                                 </Show>
                                 <Show when={m().mimeType?.startsWith('video/',)}>
-                                    <VideoPlayer
-                                        src={m().url}
-                                        controls={true}
-                                    />
+                                    <Show
+                                        when={isEncodedVideo(m(),)}
+                                        fallback={<VideoPlayer src={m().url} controls={true} />}
+                                    >
+                                        <MediaVideo mediaId={m().id} showVariantSwitch showQualityMenu />
+                                    </Show>
                                 </Show>
                                 <Show when={m().mimeType?.startsWith('audio/',)}>
                                     <div class="media-modal__audio">

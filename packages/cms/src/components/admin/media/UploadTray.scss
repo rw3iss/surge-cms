@@ -1,0 +1,144 @@
+// Global upload tray (bottom-right). Variables are injected by the vite
+// `additionalData` (styles/variables.scss).
+
+.upload-tray {
+  position: fixed;
+  right: $spacing-md;
+  bottom: $spacing-md;
+  z-index: $z-index-toast - 1;
+  width: 360px;
+  max-width: calc(100vw - #{$spacing-md * 2});
+  background: $background;
+  color: var(--admin-text, #{$text-color});
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+  box-shadow: $shadow-xl;
+  font-size: $font-size-sm;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+  }
+
+  &--collapsed &__header { border-bottom: none; }
+
+  &__title {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  &__chevron { color: var(--admin-text-muted, #{$text-light}); }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  &__row {
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__row-top,
+  &__row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  &__pct {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__bar {
+    height: 4px;
+    margin: $spacing-xs 0;
+    background: $bg-muted;
+    border-radius: $border-radius-full;
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    background: $primary-color;
+    transition: width $transition-base;
+  }
+
+  &__row--paused &__bar-fill,
+  &__row--unfinished &__bar-fill { background: $warning-color; }
+  &__row--done &__bar-fill { background: $success-color; }
+  &__row--error &__bar-fill,
+  &__row--cancelled &__bar-fill { background: $error-color; }
+
+  &__meta {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+  }
+
+  &__btn {
+    background: none;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    padding: 1px $spacing-sm;
+    font-size: $font-size-xs;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover { background: var(--admin-bg-subtle, #{$background-dark}); }
+
+    &--primary {
+      border-color: $primary-color;
+      color: $primary-color;
+    }
+
+    &--danger:hover {
+      border-color: $error-color;
+      color: $error-color;
+    }
+  }
+
+  &__file { display: none; }
+
+  &__error {
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $error-fg;
+  }
+}
