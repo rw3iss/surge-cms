@@ -101,6 +101,17 @@ describe('createOrResume', () => {
         expect(s.uploadedParts,).toEqual([],);
     },);
 
+    it('hashes an over-long fingerprint instead of rejecting it', async () => {
+        repoMock.findOpenByFingerprint.mockResolvedValue(null,);
+        storeMock.createMultipart.mockResolvedValue('up9',);
+        repoMock.insertSession.mockImplementation((i: Record<string, unknown>,) => Promise.resolve(row({
+            id: i.id, object_key: i.objectKey, upload_id: i.uploadId, part_count: i.partCount, fingerprint: i.fingerprint,
+        },),),);
+        const long = `${'x'.repeat(200,)}.mp4:118397324:1789868216148:${'a'.repeat(64,)}`;
+        await uploads.createOrResume(USER, { ...body, fingerprint: long, }, ctx,);
+        expect(repoMock.insertSession.mock.calls.at(-1)![0].fingerprint,).toMatch(/^[0-9a-f]{64}$/,);
+    },);
+
     it('rejects a file over the upload limit', async () => {
         await expect(uploads.createOrResume(USER, { ...body, size: 21 * 1024 * 1024 * MIB, }, ctx,),).rejects.toThrow(/upload limit/,);
     },);

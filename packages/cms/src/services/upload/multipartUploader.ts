@@ -102,14 +102,19 @@ function toHex(buf: ArrayBuffer,): string {
  * is what rejects a different file that happens to share name and size; it is
  * omitted when `crypto.subtle` is unavailable (insecure origin).
  */
+/**
+ * A fixed-length (64 hex) identity for a file: SHA-256 over name, size,
+ * lastModified and the first + last MiB. Hashing the whole thing keeps it
+ * short however long the file name is (the server caps it at 128 chars).
+ */
 export async function fileFingerprint(file: File,): Promise<string> {
     const base = `${file.name}:${file.size}:${file.lastModified}`;
     const subtle = globalThis.crypto?.subtle;
-    if (!subtle) return base;
+    if (!subtle) return base.slice(-128,);
     const head = file.slice(0, Math.min(MIB, file.size,),);
     const tail = file.size > MIB ? file.slice(Math.max(MIB, file.size - MIB,), file.size,) : new Blob([],);
-    const bytes = await new Blob([head, tail,],).arrayBuffer();
-    return `${base}:${toHex(await subtle.digest('SHA-256', bytes,),)}`;
+    const bytes = await new Blob([new TextEncoder().encode(`${base}\n`,), head, tail,],).arrayBuffer();
+    return toHex(await subtle.digest('SHA-256', bytes,),);
 }
 
 /** Cheap local check before resuming: same name and size as the stored upload. */

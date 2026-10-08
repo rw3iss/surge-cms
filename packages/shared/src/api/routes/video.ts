@@ -23,8 +23,9 @@ export interface MediaUploadCreateBody {
     filename: string;
     mimeType: string;
     size: number;
-    /** `name:size:lastModified[:sha256(head+tail)]` — identifies the file
-     *  across reloads so a resumed upload cannot continue with another file. */
+    /** Identifies the file across reloads so a resumed upload cannot continue
+     *  with another file (the admin sends SHA-256 of name, size, lastModified
+     *  and the first + last MiB). Values over 128 chars are hashed server-side. */
     fingerprint: string;
     options?: UploadSessionOptions;
 }

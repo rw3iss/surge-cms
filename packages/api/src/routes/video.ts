@@ -53,7 +53,7 @@ const createBody = z.object({
     filename: z.string().min(1,).max(255,),
     mimeType: z.string().min(1,).max(100,),
     size: z.number().int().positive(),
-    fingerprint: z.string().min(1,).max(128,),
+    fingerprint: z.string().min(1,).max(1024,),
     options: sessionOptions.optional(),
 },) satisfies z.ZodType<MediaUploadCreateBody>;
 

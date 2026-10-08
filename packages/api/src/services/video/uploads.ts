@@ -117,14 +117,18 @@ function assertOpen(row: UploadSessionRow,): void {
 export async function createOrResume(userId: string | null, body: MediaUploadCreateBody, ctx: AuditContext,): Promise<UploadSession> {
     const filename = typeof body?.filename === 'string' ? body.filename.trim() : '';
     const mimeType = typeof body?.mimeType === 'string' ? body.mimeType.trim() : '';
-    const fingerprint = typeof body?.fingerprint === 'string' ? body.fingerprint.trim() : '';
+    // Stored as VARCHAR(128): a longer client value is reduced to its SHA-256,
+    // which keeps it stable (the same file maps to the same session) and short.
+    const rawFingerprint = typeof body?.fingerprint === 'string' ? body.fingerprint.trim() : '';
+    const fingerprint = rawFingerprint.length > 128
+        ? crypto.createHash('sha256',).update(rawFingerprint,).digest('hex',)
+        : rawFingerprint;
     const size = Number(body?.size,);
     if (!filename) throw new ValidationError('filename is required',);
     if (filename.length > 255) throw new ValidationError('filename is too long (max 255 characters)',);
     if (!mimeType) throw new ValidationError('mimeType is required',);
     if (mimeType.length > 100 || !/^[\w.+-]+\/[\w.+-]+/.test(mimeType,)) throw new ValidationError('mimeType is invalid',);
     if (!fingerprint) throw new ValidationError('fingerprint is required',);
-    if (fingerprint.length > 128) throw new ValidationError('fingerprint is too long (max 128 characters)',);
     if (!Number.isSafeInteger(size,) || size <= 0) throw new ValidationError('size must be a positive integer',);
     const options = validateOptions(body.options,);
 
