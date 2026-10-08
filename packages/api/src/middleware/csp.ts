@@ -69,6 +69,11 @@ function buildDirectives(): Record<string, string[]> {
         // an Analytics ID is configured.
         scriptSrc: ["'self'", 'https://js.stripe.com', ...analyticsScriptSrc(), ...pluginOrigins.scriptSrc],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:', ...pluginOrigins.imgSrc],
+        // <video>/<audio> sources. Without this the browser falls back to
+        // default-src 'self' and blocks every video served from the media CDN
+        // (cdn host / R2) — hero-carousel and video-block media included.
+        // blob: is needed by an HLS player (hls.js plays via MediaSource blobs).
+        mediaSrc: ["'self'", 'data:', 'blob:', 'https:',],
         connectSrc: ["'self'", 'https://api.stripe.com', ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
         // js.stripe.com (Elements) + hooks.stripe.com (3-D Secure / redirects).
         frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', ...EMBED_FRAME_SRC, ...pluginOrigins.frameSrc],
