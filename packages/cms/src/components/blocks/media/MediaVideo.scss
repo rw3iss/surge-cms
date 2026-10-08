@@ -105,6 +105,9 @@
         flex-wrap: wrap;
         justify-content: flex-end;
         gap: 0.5rem;
+        // Same 0.5rem the column gap puts above it, so the selects never sit
+        // against the right / bottom edge of a modal or card.
+        padding: 0 0.5rem 0.5rem 0;
     }
 
     &__select {

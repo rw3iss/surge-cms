@@ -6,7 +6,7 @@ import type {
     MediaUploadPartUrlsResponse, MediaUploadCompleteResponse, MediaUploadAbortResponse,
     MediaVideoInfoResponse, MediaVideoJobsQuery, MediaVideoJobsResponse, MediaVideoUpdateBody,
     MediaVideoActionResponse, MediaVideoReencodeBody, MediaPlaybackResponse, MediaVideoStatusResponse,
-    SettingsVideoResponse, SettingsVideoBody, MediaVideoKeysResponse, MediaVideoKeyRotateResponse,
+    SettingsVideoResponse, SettingsVideoBody, MediaVideoKeysResponse, MediaVideoKeyRotateResponse, MediaVideoShareResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -108,6 +108,9 @@ export class MediaModule extends ModuleBase {
         /** POST /video/:id/reencode — full encode from the original, or a cheap re-package. */
         reencode: (id: string, body: MediaVideoReencodeBody = {},): Promise<MediaVideoActionResponse> =>
             this.mutate<MediaVideoActionResponse>('POST', '/video/:id/reencode', { params: { id, }, body, invalidates: ['media',], },),
+        /** POST /video/:id/share — a time-limited direct link that skips the access check (default 7 days). */
+        share: (id: string, days?: number,): Promise<MediaVideoShareResponse> =>
+            this.mutate<MediaVideoShareResponse>('POST', '/video/:id/share', { params: { id, }, body: { days, }, },),
         /** GET /video/jobs — the encode queue (`active: true` = running/queued only). */
         jobs: (query?: MediaVideoJobsQuery,): Promise<MediaVideoJobsResponse> =>
             this.get<MediaVideoJobsResponse>('/video/jobs', { query: query as Record<string, unknown>, options: { cache: false, }, },),

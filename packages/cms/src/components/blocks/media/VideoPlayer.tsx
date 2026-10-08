@@ -64,6 +64,9 @@ const BASE_CONTROLS = ['play-large', 'play', 'progress', 'current-time', 'mute',
 
 const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
     let videoRef: HTMLVideoElement | undefined;
+    /** Wraps the <video>: Plyr.destroy() swaps the element for a clone, so the
+     *  live one is re-found here after every teardown. */
+    let hostRef: HTMLDivElement | undefined;
     let player: Plyr | undefined;
     let hls: HlsType | undefined;
     /** Bumped per source change so a late async setup can tell it is stale. */
@@ -74,6 +77,13 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
         hls = undefined;
         player?.destroy();
         player = undefined;
+        // Without this, a source change (Full ↔ Teaser) set up hls.js on the
+        // detached original and the visible player froze.
+        const live = hostRef?.querySelector('video',);
+        if (live && live !== videoRef) {
+            videoRef = live;
+            props.ref?.(live,);
+        }
         if (videoRef) {
             videoRef.removeAttribute('src',);
             videoRef.replaceChildren();
@@ -244,6 +254,7 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
     },);
 
     return (
+        <div ref={hostRef} class="video-player__host" style={{ display: 'contents', }}>
         <video
             ref={(el,) => {
                 videoRef = el;
@@ -261,6 +272,7 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
             class={props.class}
             style={props.style}
         />
+        </div>
     );
 };
 

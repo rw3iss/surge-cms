@@ -101,6 +101,7 @@ const AdminPostPreview = lazy(() => import('./pages/admin/PostPreview'));
 const EventsPage = lazy(() => import('./pages/Events'));
 const EventDetailPage = lazy(() => import('./pages/EventDetail'));
 const EventTicketPage = lazy(() => import('./pages/EventTicket'));
+const WatchPage = lazy(() => import('./pages/Watch'));
 const MailArchivePage = lazy(() => import('./pages/MailArchive'));
 const MailViewPage = lazy(() => import('./pages/MailView'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
@@ -161,6 +162,8 @@ const App: Component = () => {
 										<Route path="/events" component={EventsPage} />
 										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/tickets/:code" component={EventTicketPage} />
+										{/* Video direct links land here when the viewer can't get the plain file. */}
+										<Route path="/watch/:id" component={WatchPage} />
 										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
 										<Route path="/mail" component={MailArchivePage} />
 										<Route path="/mail/:jobId" component={MailViewPage} />

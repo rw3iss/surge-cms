@@ -34,6 +34,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/video/keys',
     'POST /api/v1/video/keys/rotate',
     'GET /api/v1/video/:id/playback',
+    'POST /api/v1/video/:id/share',
     // ── posts ──
     'GET /api/v1/posts',
     'GET /api/v1/posts/search',
@@ -501,6 +502,7 @@ export const INTENTIONALLY_UNEXPOSED: string[] = [
     'GET /api/v1/video/:id/teaser.m3u8',
     'GET /api/v1/video/hls-key/:version',
     'GET /api/v1/video/:id/download',
+    'GET /api/v1/video/:id/file',
     // Crawler endpoint served as plain text; nothing in the SDK consumes it.
     'GET /robots.txt',
     // Plugin browser bundles: loaded via dynamic import() by the SPA, not the SDK.

@@ -45,7 +45,7 @@ vi.mock('./register', () => ({
 }),);
 vi.mock('./paths', () => ({
     incomingKey: (sid: string, f: string,) => `incoming/${sid}/${f}`,
-    masterUrl: (id: string,) => `https://site.test/api/v1/video/${id}/master.m3u8`,
+    fileUrl: (id: string,) => `https://site.test/api/v1/video/${id}/file`,
 }),);
 vi.mock('../../utils/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), }, }),);
 
@@ -163,7 +163,7 @@ describe('complete', () => {
         expect(storeMock.completeMultipart,).toHaveBeenCalledWith('incoming/a/clip.mp4', 'up1', allParts(),);
         expect(m.size,).toBe(130 * MIB,);
         expect((m as unknown as { status: string; }).status,).toBe('processing',);
-        expect(m.url,).toContain('/master.m3u8',);
+        expect(m.url,).toContain('/file',);
         expect(registerVideoMock.mock.calls[0]![0],).toMatchObject({ sourceKey: 'incoming/a/clip.mp4', accessLevel: 'private', },);
         expect(storeMock.copyObject,).not.toHaveBeenCalled();
     },);

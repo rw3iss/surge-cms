@@ -17,7 +17,8 @@ import * as repo from '../../repositories/video.repo';
 import { resolveStorageProvider, isObjectStore, } from '../storage';
 import { canWatchFull, type Viewer, } from './access';
 import { keyBytes, } from './keys';
-import { downloadUrl, masterUrl, teaserMasterUrl, } from './paths';
+import { downloadUrl, masterUrl, teaserMasterUrl, watchUrl, } from './paths';
+import { verifyShareToken, } from './share';
 import { getVideoSettings, } from './settings';
 
 interface MediaHead {
@@ -189,4 +190,69 @@ export async function downloadLink(id: string, quality: string | undefined, view
     if (!isObjectStore(store,)) throw new NotFoundError('Download',);
     const stem = (m.title || m.originalName.replace(/\.[^.]+$/, '',)).replace(/[^\w .-]+/g, '',).trim().slice(0, 80,) || 'video';
     return store.presignGet(pick.downloadPath!, 600, `${stem} (${pick.name}).mp4`,);
+}
+
+/** Browsers natively play these as a plain file (an original in another
+ *  container — MOV/MKV/HEVC — may not, so it is never the default). */
+const BROWSER_PLAYABLE = /^video\/(mp4|webm|ogg)$/i;
+
+export type FileLink =
+    | { kind: 'redirect'; url: string; cacheControl: string; }
+    | { kind: 'watch'; url: string; };
+
+/**
+ * The direct link (`/video/:id/file`): a PLAIN video file, not a playlist.
+ *
+ *   quality  — omitted/`auto`/`highest` → the highest encoded MP4 (H.264,
+ *              faststart: plays in every browser); `720p`/`480p`/… → that
+ *              rung; `original` → the uploaded original when kept and
+ *              browser-playable.
+ *   access   — public → anyone; private → `media.private:view` (session
+ *              cookie) OR a valid share token (`?t=`).
+ *
+ * Public videos redirect to the CDN (edge-cached). Private ones redirect to a
+ * short-lived signed URL. A viewer without access is sent to the site's
+ * player page (teaser + sign-in) — `watch`.
+ */
+export async function fileLink(
+    id: string,
+    opts: { quality?: string; token?: string | null; },
+    viewer: Viewer | null | undefined,
+): Promise<FileLink> {
+    const m = await mediaHead(id,);
+    const allowed = verifyShareToken(id, opts.token,) || await canWatchFull(m.accessLevel, viewer,);
+    if (!allowed) return { kind: 'watch', url: watchUrl(id,), };
+
+    const store = await resolveStorageProvider();
+    const video = await repo.getVideo(id,).catch(() => null);
+    const personal = m.accessLevel === 'private';
+    const TTL = 6 * 3600;
+
+    // Not an encoded video: the stored file itself.
+    if (!video || !isObjectStore(store,)) {
+        if (!m.url || m.url.includes('/api/v1/video/',)) throw new NotFoundError('Video file',);
+        return { kind: 'redirect', url: m.url, cacheControl: 'private, max-age=60', };
+    }
+
+    const q = (opts.quality || 'auto').toLowerCase();
+    const originalOk = !!video.sourceKey && BROWSER_PLAYABLE.test(m.mimeType,);
+    let key: string | null = null;
+    if (q === 'original') {
+        if (!originalOk) throw new NotFoundError('Original file',);
+        key = video.sourceKey;
+    } else {
+        const ready = (await repo.listRenditions(id, 'full',))
+            .filter((r,) => r.status === 'ready' && r.downloadPath)
+            .sort((a, b,) => (b.height ?? 0) - (a.height ?? 0));
+        const pick = q === 'auto' || q === 'highest' ? ready[0] : ready.find((r,) => r.name.toLowerCase() === q);
+        if (pick) key = pick.downloadPath;
+        // Still encoding: a browser-playable original is better than nothing.
+        else if (!ready.length && originalOk) key = video.sourceKey;
+        else if (!ready.length) return { kind: 'watch', url: watchUrl(id,), };
+        else throw new NotFoundError(`Quality ${q}`,);
+    }
+    if (!personal) {
+        return { kind: 'redirect', url: store.publicUrl(key!,), cacheControl: 'public, max-age=300, s-maxage=300', };
+    }
+    return { kind: 'redirect', url: await store.presignGet(key!, TTL,), cacheControl: 'private, no-store', };
 }

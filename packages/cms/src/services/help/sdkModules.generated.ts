@@ -1182,6 +1182,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /video/settings"
             },
             {
+                "name": "video.share",
+                "signature": "video.share(id: string, days?: number): Promise<MediaVideoShareResponse>",
+                "summary": "POST /video/:id/share — a time-limited direct link that skips the access check (default 7 days)."
+            },
+            {
                 "name": "video.status",
                 "signature": "video.status(): Promise<MediaVideoStatusResponse>",
                 "summary": "GET /video/status — ffmpeg / disk / storage readiness."
@@ -2554,4 +2559,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 445;
+export const SDK_METHOD_COUNT = 446;

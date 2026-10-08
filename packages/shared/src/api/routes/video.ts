@@ -111,3 +111,14 @@ export interface MediaVideoKeyRotateResponse {
     /** Private videos queued for re-packaging with the new key. */
     repackageQueued: number;
 }
+
+/** POST /video/:id/share */
+export interface MediaVideoShareBody {
+    /** Link lifetime in days (1–365, default 7). */
+    days?: number;
+}
+export interface MediaVideoShareResponse {
+    /** `/api/v1/video/:id/file?t=…` — plays the plain file for anyone until it expires. */
+    url: string;
+    expiresAt: string;
+}

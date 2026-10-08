@@ -232,7 +232,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             'Upload large videos straight to object storage, encode them to adaptive HLS (with a teaser and downloads), and play them on the site — public, or private for subscribers.',
         defaultEnabled: false,
         requires: [],
-        migrations: ['124_video.sql',],
+        migrations: ['124_video.sql', '125_video_file_urls.sql',],
         // Reverse-dropped on uninstall, so parents last. R2 objects are NOT
         // deleted by an uninstall — delete video media first.
         tables: ['media_upload_sessions', 'video_keys', 'media_videos', 'video_jobs', 'video_renditions',],

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-08T20:24:18.603Z",
+  "generatedAt": "2026-10-08T23:14:54.946Z",
   "totalModules": 48,
-  "totalRoutes": 459,
+  "totalRoutes": 461,
   "modules": [
     {
       "module": "admin-channel",
@@ -3439,6 +3439,20 @@
           "absolutePath": "/api/v1/video/:id/teaser.m3u8",
           "auth": "public",
           "summary": "HLS master playlist of the public teaser."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/file",
+          "absolutePath": "/api/v1/video/:id/file",
+          "auth": "optional",
+          "summary": "Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → the /watch player page."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/share",
+          "absolutePath": "/api/v1/video/:id/share",
+          "auth": "staff",
+          "summary": "Create a time-limited share link to the plain file that skips the access check."
         },
         {
           "method": "GET",

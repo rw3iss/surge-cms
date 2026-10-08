@@ -145,6 +145,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                 <div class="media-video__stage">
                     <Show
                         when={chosen()}
+                        keyed
                         fallback={
                             <div class="media-video__placeholder">
                                 <Show when={pb()?.posterUrl}>
@@ -167,16 +168,18 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                             </div>
                         }
                     >
+                        {/* keyed: switching Full ↔ Teaser mounts a fresh player
+                            (new Plyr + hls.js) instead of re-sourcing a live one. */}
                         {(c,) => (
                             <>
                                 <VideoPlayer
-                                    hlsSrc={c() === 'full' ? pb()!.src! : c() === 'teaser' ? pb()!.teaserSrc! : undefined}
-                                    src={c() === 'file' ? pb()!.fileSrc! : undefined}
-                                    type={c() === 'file' ? pb()!.fileType ?? undefined : undefined}
+                                    hlsSrc={c === 'full' ? pb()!.src! : c === 'teaser' ? pb()!.teaserSrc! : undefined}
+                                    src={c === 'file' ? pb()!.fileSrc! : undefined}
+                                    type={c === 'file' ? pb()!.fileType ?? undefined : undefined}
                                     poster={pb()!.posterUrl ?? undefined}
-                                    thumbnailsVtt={c() === 'full' ? pb()!.thumbnailsVtt ?? undefined : undefined}
+                                    thumbnailsVtt={c === 'full' ? pb()!.thumbnailsVtt ?? undefined : undefined}
+                                    autoplay={props.autoplay || userVariant() !== null}
                                     qualityMenu={props.showQualityMenu !== false}
-                                    autoplay={props.autoplay}
                                     muted={props.autoplay}
                                     onLocked={() => setLocked(true,)}
                                     onEnded={() => setEnded(true,)}

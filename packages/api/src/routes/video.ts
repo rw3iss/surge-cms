@@ -18,7 +18,7 @@
  */
 import { z, } from 'zod';
 import type {
-    MediaUploadCreateBody, MediaVideoUpdateBody, SettingsVideoBody,
+    MediaUploadCreateBody, MediaVideoShareBody, MediaVideoUpdateBody, SettingsVideoBody,
 } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import { requirePermission, } from '../services/permissions';
@@ -264,6 +264,32 @@ export const videoRoutes = [
             res.set('Content-Type', 'application/vnd.apple.mpegurl',);
             res.set('Cache-Control', play.masterCacheControl(r,),);
             res.send(r.body,);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/:id/file', auth: 'optional', raw: true,
+        summary: 'Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → the /watch player page.',
+        input: { params: idParams, query: z.object({ quality: z.string().max(16,).optional(), t: z.string().max(80,).optional(), },), },
+        handler: async ({ params, query, user, req, res, },) => {
+            const link = await play.fileLink(params.id, { quality: query.quality, token: query.t, }, viewer(user,),);
+            if (link.kind === 'watch') {
+                // A browser opening the link gets the player page (teaser +
+                // sign-in); a <video src> / API client gets a plain 403.
+                if (req.accepts(['html', 'json',],) === 'html') return res.redirect(302, link.url,);
+                res.status(403,).json({ success: false, error: { code: 'CONTENT_LOCKED', message: 'This video is for subscribers.', }, },);
+                return;
+            }
+            res.set('Cache-Control', link.cacheControl,);
+            res.redirect(302, link.url,);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/:id/share', auth: 'staff',
+        summary: 'Create a time-limited share link to the plain file that skips the access check.',
+        input: { params: idParams, body: z.object({ days: z.number().int().min(1,).max(365,).optional(), },) satisfies z.ZodType<MediaVideoShareBody>, },
+        handler: async ({ params, body, user, audit, },) => {
+            await need(user, 'media.video:manage',);
+            return manage.share(params.id, body.days ?? 7, audit(),);
         },
     },),
     defineRoute({

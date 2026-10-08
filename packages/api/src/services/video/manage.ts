@@ -15,7 +15,8 @@ import * as repo from '../../repositories/video.repo';
 import { isObjectStore, resolveStorageProvider, } from '../storage';
 import { mediaHead, } from './playback';
 import { createKey, retireUnusedKeys, } from './keys';
-import { masterUrl, mediaVideoRoot, teaserMasterUrl, } from './paths';
+import { fileUrl, masterUrl, mediaVideoRoot, teaserMasterUrl, } from './paths';
+import { createShareToken, } from './share';
 
 export async function info(id: string,): Promise<MediaVideoInfo> {
     const m = await mediaHead(id,);
@@ -149,6 +150,14 @@ export async function update(id: string, patch: VideoPatch, ctx: AuditContext,):
     await cache.invalidateMediaConsumersCache();
     await audit(ctx, id, 'video_update', patch as Record<string, unknown>,);
     return info(id,);
+}
+
+/** A time-limited link to the plain file that skips the access check. */
+export async function share(id: string, days: number, ctx: AuditContext,): Promise<{ url: string; expiresAt: string; }> {
+    await mediaHead(id,);
+    const { token, expiresAt, } = createShareToken(id, days,);
+    await audit(ctx, id, 'video_share', { expiresAt, },);
+    return { url: `${fileUrl(id,)}?t=${token}`, expiresAt, };
 }
 
 /** New shared key; every private video still on an older key is re-packaged. */

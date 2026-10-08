@@ -59,6 +59,11 @@ export function siteBase(): string {
 const API = '/api/v1/video';
 
 export const masterUrl = (mediaId: string,): string => `${siteBase()}${API}/${mediaId}/master.m3u8`;
+/** The video's direct link: a plain MP4 for viewers who may watch it (this is
+ *  `media.url` for a video, so "Copy URL" gives a link that just plays). */
+export const fileUrl = (mediaId: string,): string => `${siteBase()}${API}/${mediaId}/file`;
+/** The site's player page — where a direct link sends a viewer without access. */
+export const watchUrl = (mediaId: string,): string => `${siteBase()}/watch/${mediaId}`;
 export const teaserMasterUrl = (mediaId: string,): string => `${siteBase()}${API}/${mediaId}/teaser.m3u8`;
 export const downloadUrl = (mediaId: string, quality: string,): string =>
     `${siteBase()}${API}/${mediaId}/download?quality=${encodeURIComponent(quality,)}`;

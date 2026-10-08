@@ -181,6 +181,19 @@ const AdminMedia: Component = () => {
         },).catch(() => window.prompt('Copy this URL:', url,));
     };
 
+    /** A 7-day link to the plain video file that skips the access check. */
+    const copyShareLink = async (id: string,) => {
+        try {
+            const { url, } = await cms.media.video.share(id, 7,);
+            await navigator.clipboard.writeText(url,).catch(() => window.prompt('Copy this share link:', url,));
+            const key = `share:${id}`;
+            setCopiedUrl(key,);
+            setTimeout(() => setCopiedUrl((u,) => (u === key ? null : u)), 2000,);
+        } catch (e) {
+            window.alert(`Could not create a share link: ${(e as Error).message}`,);
+        }
+    };
+
     const handleDownload = (m: any, e: Event,) => {
         e.stopPropagation();
         downloadFile(m.url, m.originalName,);
@@ -441,9 +454,22 @@ const AdminMedia: Component = () => {
                                     </span>
                                 </div>
                                 <div class="media-modal__actions">
-                                    <button class="ui-button ui-button--secondary" onClick={() => copyUrl(m().url,)}>
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        title={m().video ? 'Direct link: plays the video file for anyone allowed to watch it' : undefined}
+                                        onClick={() => copyUrl(m().url,)}
+                                    >
                                         {copiedUrl() === m().url ? 'Copied' : 'Copy URL'}
                                     </button>
+                                    <Show when={m().video}>
+                                        <button
+                                            class="ui-button ui-button--secondary"
+                                            title="A 7-day link that plays the file for anyone, signed in or not"
+                                            onClick={() => void copyShareLink(m().id,)}
+                                        >
+                                            {copiedUrl() === `share:${m().id}` ? 'Copied (7 days)' : 'Copy share link'}
+                                        </button>
+                                    </Show>
                                     <button class="ui-button ui-button--primary" onClick={(e,) => handleDownload(m(), e,)}>
                                         Download
                                     </button>

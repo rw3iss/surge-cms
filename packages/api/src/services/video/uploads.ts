@@ -22,7 +22,7 @@ import { logger, } from '../../utils/logger';
 import { mapRow, } from '../../utils/mapRow';
 import { nanoid, } from '../../utils/nanoid';
 import { uuidOrNull, } from '../../utils/uuid';
-import { incomingKey, masterUrl, } from './paths';
+import { fileUrl, incomingKey, } from './paths';
 import { isVideoMime, registerVideo, } from './register';
 import { getVideoSettings, } from './settings';
 import { planParts, } from './uploadMath';
@@ -239,7 +239,7 @@ export async function complete(userId: string | null, id: string, ctx: AuditCont
     // the transaction — object copies cannot roll back; on failure the
     // incoming object stays for the sweep/a retry).
     let fileKey = row.object_key;
-    let url = masterUrl(mediaId,);
+    let url = fileUrl(mediaId,);
     if (!video) {
         fileKey = `uploads/${nanoid(12,)}${extOf(row.filename,)}`;
         await s.copyObject(row.object_key, fileKey, { contentType: row.mime_type, cacheControl: IMMUTABLE_CACHE, },);
