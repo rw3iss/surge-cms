@@ -32,6 +32,49 @@
         color: #f3f4f6;
     }
 
+    &__player {
+        position: absolute;
+        inset: 0;
+        border-radius: 0;
+
+        .vp__video {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    &__locked {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        overflow: auto;
+        color: var(--site-text, #111827);
+
+        > * {
+            max-width: 32rem;
+        }
+    }
+
+    &__replay {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    &__replay-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.5rem 1rem;
+    }
+
+    &__replay-title {
+        margin: 0;
+        color: var(--site-heading, inherit);
+    }
+
     &__placeholder {
         position: absolute;
         inset: 0;
@@ -136,6 +179,7 @@
     &__paused {
         position: absolute;
         inset: 0;
+        pointer-events: none; // keep the player's unmute / volume reachable
         display: grid;
         place-items: center;
         padding: 1rem;

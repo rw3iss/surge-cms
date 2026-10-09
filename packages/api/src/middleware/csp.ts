@@ -45,6 +45,12 @@ let pluginOrigins: PluginCspOrigins = EMPTY;
 // directly. Kept in sync by `services/storage` (`setStorageCspOrigins`).
 let storageOrigins: string[] = [];
 
+// Live-show provider origins (WHIP publish / WHEP playback, e.g.
+// `https://customer-xxxx.cloudflarestream.com`). The browser POSTs SDP offers
+// there (connect-src); the media itself flows over WebRTC, which CSP does not
+// govern. Kept in sync by `services/liveShows.syncLiveCsp`.
+let liveOrigins: string[] = [];
+
 // Operator's Google tag / GA4 measurement id (Admin → Settings → General), or
 // null when unset. When set, the tag's origins + the deterministic sha256 of the
 // SSR-injected inline bootstrap join the CSP so the tag loads + beacons under the
@@ -79,8 +85,8 @@ function buildDirectives(): Record<string, string[]> {
         // default-src 'self' and blocks every video served from the media CDN
         // (cdn host / R2) — hero-carousel and video-block media included.
         // blob: is needed by an HLS player (hls.js plays via MediaSource blobs).
-        mediaSrc: ["'self'", 'data:', 'blob:', 'https:',],
-        connectSrc: ["'self'", 'https://api.stripe.com', ...storageOrigins, ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
+        mediaSrc: ["'self'", 'data:', 'blob:', 'https:', ...liveOrigins,],
+        connectSrc: ["'self'", 'https://api.stripe.com', ...storageOrigins, ...liveOrigins, ...analyticsConnectSrc(), ...pluginOrigins.connectSrc],
         // hls.js runs its demuxer in a Web Worker created from a blob: URL.
         workerSrc: ["'self'", 'blob:',],
         // js.stripe.com (Elements) + hooks.stripe.com (3-D Secure / redirects).
@@ -106,6 +112,19 @@ export function setStorageCspOrigins(origins: Array<string | null | undefined>):
     if (next.join(' ') === storageOrigins.join(' ')) return;
     storageOrigins = next;
     cspMiddleware = helmet.contentSecurityPolicy({ directives: buildDirectives() });
+}
+
+/** Set the live-provider origins (WHIP/WHEP hosts) and rebuild. No-op when unchanged. */
+export function setLiveProviderCspOrigins(origins: Array<string | null | undefined>): void {
+    const next = dedupe(origins.filter((o): o is string => Boolean(o)));
+    if (next.join(' ') === liveOrigins.join(' ')) return;
+    liveOrigins = next;
+    cspMiddleware = helmet.contentSecurityPolicy({ directives: buildDirectives() });
+}
+
+/** Current live-provider origins (tests / diagnostics). */
+export function getLiveProviderCspOrigins(): string[] {
+    return [...liveOrigins];
 }
 
 /** Replace the plugin-contributed CSP origins and rebuild the middleware. */

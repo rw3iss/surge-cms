@@ -1629,6 +1629,41 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "livePlayback",
+                "signature": "livePlayback(id: string): Promise<LivePlaybackInfo>",
+                "summary": "GET /posts/:id/live/playback — how to watch the live stream (WHEP/HLS), for permitted viewers."
+            },
+            {
+                "name": "livePublish",
+                "signature": "livePublish(id: string): Promise<LivePublishInfo>",
+                "summary": "POST /posts/:id/live/publish (host) — the provider ingest (WHIP) for the host's camera."
+            },
+            {
+                "name": "liveRecording.abort",
+                "signature": "liveRecording.abort(id: string, rid: string): Promise<{ message: string; }>",
+                "summary": "DELETE /posts/:id/live/recording/:rid — discard."
+            },
+            {
+                "name": "liveRecording.complete",
+                "signature": "liveRecording.complete(id: string, rid: string): Promise<LiveRecording>",
+                "summary": "POST /posts/:id/live/recording/:rid/complete — assemble the parts → video media (encoded into the replay)."
+            },
+            {
+                "name": "liveRecording.get",
+                "signature": "liveRecording.get(id: string): Promise<LiveRecording | null>",
+                "summary": "GET /posts/:id/live/recording — the open (or latest) recording, null when none."
+            },
+            {
+                "name": "liveRecording.partUrl",
+                "signature": "liveRecording.partUrl(id: string, rid: string, partNumber: number): Promise<PostLiveRecordingPartUrlResponse>",
+                "summary": "POST /posts/:id/live/recording/:rid/part-url — presigned PUT for one part."
+            },
+            {
+                "name": "liveRecording.start",
+                "signature": "liveRecording.start(id: string, body: PostLiveRecordingStartBody): Promise<LiveRecording>",
+                "summary": "POST /posts/:id/live/recording — start, or resume the open one."
+            },
+            {
                 "name": "liveState",
                 "signature": "liveState(id: string): Promise<PostLiveStateResponse>",
                 "summary": "GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket)."
@@ -1667,6 +1702,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "snapshotRevision",
                 "signature": "snapshotRevision(id: string): Promise<RevisionSnapshotResponse>",
                 "summary": "Snapshot the post as it is now — see the pages equivalent."
+            },
+            {
+                "name": "testLiveProvider",
+                "signature": "testLiveProvider(provider: string): Promise<{ ok: boolean; message: string; }>",
+                "summary": "POST /posts/settings/live/test (admin) — check the SAVED credentials of a live provider."
             },
             {
                 "name": "types",
@@ -2589,4 +2629,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 452;
+export const SDK_METHOD_COUNT = 460;

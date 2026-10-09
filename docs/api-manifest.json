@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T07:46:08.654Z",
+  "generatedAt": "2026-10-09T08:22:42.830Z",
   "totalModules": 48,
-  "totalRoutes": 467,
+  "totalRoutes": 475,
   "modules": [
     {
       "module": "admin-channel",
@@ -1966,6 +1966,13 @@
           "summary": "Update posts settings (partial). A secret echoed as the mask is kept."
         },
         {
+          "method": "POST",
+          "path": "/settings/live/test",
+          "absolutePath": "/api/v1/posts/settings/live/test",
+          "auth": "admin",
+          "summary": "Test a live provider's SAVED credentials (read-only call to the provider)."
+        },
+        {
           "method": "GET",
           "path": "/search",
           "absolutePath": "/api/v1/posts/search",
@@ -2062,6 +2069,55 @@
           "absolutePath": "/api/v1/posts/:id/live/ticket",
           "auth": "optional",
           "summary": "Issue a short-lived signed ticket that live-room commands carry as `token`."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/publish",
+          "absolutePath": "/api/v1/posts/:id/live/publish",
+          "auth": "staff",
+          "summary": "Host ingest (WHIP) for a live show; creates the provider input on first use."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/live/playback",
+          "absolutePath": "/api/v1/posts/:id/live/playback",
+          "auth": "optional",
+          "summary": "How to watch a live show now (WHEP), or { available: false, reason }. Per viewer, never cached."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/live/recording",
+          "absolutePath": "/api/v1/posts/:id/live/recording",
+          "auth": "staff",
+          "summary": "The show's open browser recording, else the latest one, else null."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/recording",
+          "absolutePath": "/api/v1/posts/:id/live/recording",
+          "auth": "staff",
+          "summary": "Start (or resume) the host browser recording: an object-store multipart upload of equal parts."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/recording/:rid/part-url",
+          "absolutePath": "/api/v1/posts/:id/live/recording/:rid/part-url",
+          "auth": "staff",
+          "summary": "Presigned PUT URL (1 h) for one recording part (1–10000)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/recording/:rid/complete",
+          "absolutePath": "/api/v1/posts/:id/live/recording/:rid/complete",
+          "auth": "staff",
+          "summary": "Assemble the recording → a video media item the pipeline encodes into the replay."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id/live/recording/:rid",
+          "absolutePath": "/api/v1/posts/:id/live/recording/:rid",
+          "auth": "staff",
+          "summary": "Discard a recording (aborts the multipart upload)."
         },
         {
           "method": "PUT",

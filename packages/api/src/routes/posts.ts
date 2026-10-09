@@ -16,6 +16,9 @@ import { NotFoundError, } from '../core/errors';
 import * as posts from '../services/posts';
 import * as postTypes from '../services/postTypes';
 import * as liveRooms from '../services/liveRooms';
+import * as liveShows from '../services/liveShows';
+import * as liveRecordings from '../services/liveRecordings';
+import type { PostLiveRecordingPartUrlBody, PostLiveRecordingStartBody, } from '@sitesurge/types';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -88,6 +91,15 @@ const postsSettingsBody = z.object({
         providers: z.record(z.string(), z.record(z.string(), z.unknown(),),).optional(),
     },).optional(),
 },);
+
+const recordingParams = z.object({ id: z.string(), rid: z.string().uuid(), },);
+const recordingStartBody = z.object({ mimeType: z.string().min(1,).max(128,), },) satisfies z.ZodType<PostLiveRecordingStartBody>;
+const recordingPartBody = z.object({ partNumber: z.number().int(), },) satisfies z.ZodType<PostLiveRecordingPartUrlBody>;
+const liveTestBody = z.object({ provider: z.string().min(1,).max(32,), },);
+
+/** Staff route + the `posts.live:host` permission. */
+const requireHost = (user: { id?: string; role?: string; } | undefined,) =>
+    requirePermission({ id: user?.id, role: user?.role, }, 'posts.live:host',);
 
 const listQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
@@ -182,7 +194,19 @@ export const postsRoutes = [
         input: { body: postsSettingsBody, },
         handler: async ({ body, user, audit, },) => {
             await requirePermission({ id: user?.id, role: user?.role, }, 'posts.settings:write',);
-            return postSettings.update(body as PostsSettingsBody, audit(),);
+            const result = await postSettings.update(body as PostsSettingsBody, audit(),);
+            await liveShows.syncLiveCsp();
+            return result;
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/settings/live/test', auth: 'admin',
+        summary: 'Test a live provider\'s SAVED credentials (read-only call to the provider).',
+        input: { body: liveTestBody, },
+        handler: async ({ body, user, },) => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'posts.settings:write',);
+            return liveShows.testProvider(body.provider,);
         },
     },),
 
@@ -299,6 +323,77 @@ export const postsRoutes = [
         summary: 'Issue a short-lived signed ticket that live-room commands carry as `token`.',
         input: { params: idParams, },
         handler: ({ params, user, },) => liveRooms.issueTicketFor(params.id, user,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/publish', auth: 'staff',
+        summary: 'Host ingest (WHIP) for a live show; creates the provider input on first use.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await requireHost(user,);
+            return liveShows.publish(params.id,);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/playback', auth: 'optional',
+        summary: 'How to watch a live show now (WHEP), or { available: false, reason }. Per viewer, never cached.',
+        input: { params: idParams, },
+        handler: ({ params, user, res, },) => {
+            // Per-viewer (subscription gate) — no shared/edge caching.
+            res.set('Cache-Control', 'private, no-store',);
+            return liveShows.playback(params.id, user,);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/recording', auth: 'staff',
+        summary: 'The show\'s open browser recording, else the latest one, else null.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await requireHost(user,);
+            return liveRecordings.current(params.id,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/recording', auth: 'staff',
+        summary: 'Start (or resume) the host browser recording: an object-store multipart upload of equal parts.',
+        input: { params: idParams, body: recordingStartBody, },
+        handler: async ({ params, body, user, audit, },) => {
+            await requireHost(user,);
+            return liveRecordings.start(params.id, body.mimeType, user, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/recording/:rid/part-url', auth: 'staff',
+        summary: 'Presigned PUT URL (1 h) for one recording part (1–10000).',
+        input: { params: recordingParams, body: recordingPartBody, },
+        handler: async ({ params, body, user, },) => {
+            await requireHost(user,);
+            return liveRecordings.partUrl(params.id, params.rid, body.partNumber,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/recording/:rid/complete', auth: 'staff',
+        summary: 'Assemble the recording → a video media item the pipeline encodes into the replay.',
+        input: { params: recordingParams, },
+        handler: async ({ params, user, audit, },) => {
+            await requireHost(user,);
+            return liveRecordings.complete(params.id, params.rid, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'delete', path: '/:id/live/recording/:rid', auth: 'staff',
+        summary: 'Discard a recording (aborts the multipart upload).',
+        input: { params: recordingParams, },
+        handler: async ({ params, user, audit, },) => {
+            await requireHost(user,);
+            return liveRecordings.abort(params.id, params.rid, audit(),);
+        },
     },),
 
     defineRoute({

@@ -175,6 +175,11 @@ async function handleCommand(conn: Conn, raw: string,): Promise<void> {
             if (!next) return sendError(conn.ws, 'not_found', 'Room not found', cmd.type,);
             rowCache.set(conn.postId, { at: Date.now(), row: next, },);
             await broadcast(conn.postId, await stateEvent(next,),);
+            if (cmd.type === 'end') {
+                // Release the provider input + arm the recording safety net
+                // (best-effort, never blocks or fails the command).
+                void import('../liveShows.js').then((m,) => m.onShowEnded(conn.postId,),).catch(() => {},);
+            }
         }
     }
 }

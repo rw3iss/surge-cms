@@ -35,6 +35,11 @@ export class PostsModule extends ModuleBase {
         return this.mutate<PostsSettingsResponse>('PUT', '/posts/settings', { body, },);
     }
 
+    /** POST /posts/settings/live/test (admin) — check the SAVED credentials of a live provider. */
+    testLiveProvider(provider: string,): Promise<{ ok: boolean; message: string; }> {
+        return this.mutate<{ ok: boolean; message: string; }>('POST', '/posts/settings/live/test', { body: { provider, }, },);
+    }
+
     /** GET /posts/types — registered post types (built-in + site-defined). */
     types(): Promise<PostTypesResponse> {
         return this.get<PostTypesResponse>('/posts/types',);

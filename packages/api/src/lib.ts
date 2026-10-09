@@ -163,6 +163,13 @@ async function bootRunningMode(
         } catch (err) {
             logger.warn('Video crons not registered', { error: err, },);
         }
+        // Live-show recordings the host never finished (complete or abort).
+        try {
+            const { initLiveRecordingCron, } = await import('./services/liveRecordings.js');
+            initLiveRecordingCron();
+        } catch (err) {
+            logger.warn('Live recording cron not registered', { error: err, },);
+        }
         cronRegistry.startAll();
         logger.info(
             config.cronEnabled
@@ -202,6 +209,15 @@ async function bootRunningMode(
         await refreshStorageProvider();
     } catch (err) {
         logger.warn('Storage provider init skipped', { error: err, },);
+    }
+
+    // Live-show provider origins (WHIP/WHEP hosts) into the CSP — every
+    // process, since each one serves pages with its own CSP header.
+    try {
+        const { syncLiveCsp, } = await import('./services/liveShows.js');
+        await syncLiveCsp();
+    } catch (err) {
+        logger.warn('Live provider CSP init skipped', { error: err, },);
     }
 
     // Resume send jobs left 'running' by a previous crash — PRIMARY ONLY.

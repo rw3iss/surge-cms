@@ -13,6 +13,12 @@
  * The UI is composed from `./player/*`: media state (useVideoState), SeekBar,
  * VolumeControl, SettingsMenu, fullscreen helpers and icons. `bare` renders
  * only the <video> (background slides).
+ *
+ * LIVE mode (`live`): a real-time stream — no seek bar, duration, seeking or
+ * speed menu; a red LIVE pill instead of the time; starts muted (autoplay
+ * rules) with a large "Tap to unmute". The picture comes from `srcObject`
+ * (a WebRTC MediaStream), from a caller that sets `srcObject` on the element
+ * itself (via `ref`), or from `hlsSrc`.
  */
 import type HlsType from 'hls.js';
 import { Component, createEffect, createSignal, on, onCleanup, onMount, Show, } from 'solid-js';
@@ -27,6 +33,7 @@ import {
     IconPip,
     IconPlay,
     IconRewind,
+    IconVolumeMuted,
 } from './player/icons';
 import SeekBar from './player/SeekBar';
 import SettingsMenu from './player/SettingsMenu';
@@ -70,6 +77,10 @@ interface VideoPlayerProps {
     bare?: boolean;
     /** The underlying <video> element. */
     ref?: (el: HTMLVideoElement,) => void;
+    /** A MediaStream to play (WebRTC). Wins over `src`/`hlsSrc` while set. */
+    srcObject?: MediaStream | null;
+    /** Real-time stream: no seeking / duration; LIVE pill; starts muted. */
+    live?: boolean;
 }
 
 let hlsModule: Promise<HlsCtor> | null = null;
@@ -153,7 +164,7 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
         else video.pause();
     };
     const seekBy = (d: number,) => {
-        if (!video) return;
+        if (!video || props.live) return;
         const end = st.duration() || Number.POSITIVE_INFINITY;
         video.currentTime = Math.min(end, Math.max(0, video.currentTime + d,),);
     };
@@ -316,7 +327,8 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
             const prefs = readPrefs();
             if (prefs) v.volume = prefs.volume;
             // Autoplay needs muted; otherwise honour the viewer's last choice.
-            v.muted = Boolean(props.muted,) || Boolean(prefs?.muted,);
+            // Live always starts muted — it autoplays, and "Tap to unmute" is offered.
+            v.muted = Boolean(props.muted,) || Boolean(props.live,) || Boolean(prefs?.muted,);
 
             setFsOk(Boolean(root,) && canFullscreen(v,),);
             if (root) onCleanup(onFullscreenChange(root, v, setFs,),);
@@ -345,6 +357,14 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                 else setupFile(k.src, k.type,);
             },
         ),);
+
+        // A MediaStream source (WebRTC). Only touched when the prop is used,
+        // so a caller driving `srcObject` itself (through `ref`) is left alone.
+        createEffect(on(() => props.srcObject, (stream, prev,) => {
+            if (stream === undefined && prev === undefined) return;
+            v.srcObject = stream ?? null;
+            if (stream && (props.autoplay || props.live)) play();
+        },),);
     },);
 
     onCleanup(() => {
@@ -383,13 +403,13 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
         const isDouble = lastTap && now - lastTap.t < DOUBLE_TAP_MS && lastTap.zone === zone;
         lastTap = { t: now, zone, };
         clearTimeout(tapTimer,);
-        if (isDouble && zone !== 'center' && st.started()) {
+        if (isDouble && zone !== 'center' && st.started() && !props.live) {
             seekBy(zone === 'left' ? -10 : 10,);
             showRipple(zone,);
             return;
         }
         // Side zones wait to see whether a second tap follows.
-        if (zone === 'center' || !st.started()) singleTap();
+        if (zone === 'center' || !st.started() || props.live) singleTap();
         else tapTimer = setTimeout(singleTap, DOUBLE_TAP_MS,);
     };
 
@@ -406,15 +426,19 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                 togglePlay();
                 break;
             case 'j':
+                if (props.live) return;
                 seekBy(-10,);
                 break;
             case 'l':
+                if (props.live) return;
                 seekBy(10,);
                 break;
             case 'ArrowLeft':
+                if (props.live) return;
                 seekBy(-5,);
                 break;
             case 'ArrowRight':
+                if (props.live) return;
                 seekBy(5,);
                 break;
             case 'ArrowUp':
@@ -430,7 +454,7 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                 toggleFs();
                 break;
             default:
-                if (/^[0-9]$/.test(key,) && st.duration()) {
+                if (/^[0-9]$/.test(key,) && st.duration() && !props.live) {
                     video.currentTime = (st.duration() * Number(key,)) / 10;
                     break;
                 }
@@ -470,6 +494,7 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                 'vp--playing': !st.paused(),
                 'vp--hidden': !controlsVisible(),
                 'vp--fs': fs(),
+                'vp--live': Boolean(props.live,),
             }}
             style={props.style}
             tabindex="0"
@@ -517,6 +542,13 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                 </button>
             </Show>
 
+            <Show when={props.live && st.started() && st.muted() && !st.error()}>
+                <button type="button" class="vp__unmute" onClick={() => { toggleMute(); poke(); }}>
+                    <IconVolumeMuted />
+                    <span>Tap to unmute</span>
+                </button>
+            </Show>
+
             <Show when={st.error()}>
                 {(msg,) => (
                     <div class="vp__error" role="alert">
@@ -542,14 +574,16 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                         if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null,)) setKbdFocus(false,);
                     }}
                 >
-                    <SeekBar
-                        video={() => video}
-                        current={st.currentTime}
-                        duration={st.duration}
-                        buffered={st.buffered}
-                        thumbnailsVtt={props.thumbnailsVtt}
-                        onActiveChange={setSeekActive}
-                    />
+                    <Show when={!props.live}>
+                        <SeekBar
+                            video={() => video}
+                            current={st.currentTime}
+                            duration={st.duration}
+                            buffered={st.buffered}
+                            thumbnailsVtt={props.thumbnailsVtt}
+                            onActiveChange={setSeekActive}
+                        />
+                    </Show>
                     <div class="vp__bar">
                         <div class="vp__group">
                             <button
@@ -569,34 +603,41 @@ const VideoPlayer: Component<VideoPlayerProps> = (props,) => {
                                 onToggleMute={toggleMute}
                                 onOpenChange={setVolOpen}
                             />
-                            <button
-                                type="button"
-                                class="vp__btn vp__time"
-                                aria-label={remaining() ? 'Show elapsed time' : 'Show remaining time'}
-                                onClick={() => setRemaining(!remaining(),)}
-                            >
-                                <span>
-                                    {remaining()
-                                        ? `-${formatTime(st.duration() - st.currentTime(),)}`
-                                        : formatTime(st.currentTime(),)}
-                                </span>
-                                <span class="vp__time-sep">/</span>
-                                <span class="vp__time-total">{formatTime(st.duration(),)}</span>
-                            </button>
+                            <Show when={props.live}>
+                                <span class="vp__live-pill"><span class="vp__live-dot" aria-hidden="true" />LIVE</span>
+                            </Show>
+                            <Show when={!props.live}>
+                                <button
+                                    type="button"
+                                    class="vp__btn vp__time"
+                                    aria-label={remaining() ? 'Show elapsed time' : 'Show remaining time'}
+                                    onClick={() => setRemaining(!remaining(),)}
+                                >
+                                    <span>
+                                        {remaining()
+                                            ? `-${formatTime(st.duration() - st.currentTime(),)}`
+                                            : formatTime(st.currentTime(),)}
+                                    </span>
+                                    <span class="vp__time-sep">/</span>
+                                    <span class="vp__time-total">{formatTime(st.duration(),)}</span>
+                                </button>
+                            </Show>
                         </div>
                         <div class="vp__group">
-                            <SettingsMenu
-                                heights={heights}
-                                showQuality={() => heights().length > 1}
-                                quality={quality}
-                                autoHeight={autoHeight}
-                                onQuality={chooseQuality}
-                                rate={st.rate}
-                                onRate={(r,) => {
-                                    if (video) video.playbackRate = r;
-                                }}
-                                onOpenChange={setMenuOpen}
-                            />
+                            <Show when={!props.live}>
+                                <SettingsMenu
+                                    heights={heights}
+                                    showQuality={() => heights().length > 1}
+                                    quality={quality}
+                                    autoHeight={autoHeight}
+                                    onQuality={chooseQuality}
+                                    rate={st.rate}
+                                    onRate={(r,) => {
+                                        if (video) video.playbackRate = r;
+                                    }}
+                                    onOpenChange={setMenuOpen}
+                                />
+                            </Show>
                             <Show when={pipOk()}>
                                 <button
                                     type="button"

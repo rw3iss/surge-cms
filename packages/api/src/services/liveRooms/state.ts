@@ -14,7 +14,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export type LivePostRow = Pick<
     Post,
-    'id' | 'slug' | 'status' | 'isPrivate' | 'requiredTierId' | 'gateHidden' | 'gateShowSample' | 'gateSamplePercent'
+    'id' | 'slug' | 'title' | 'status' | 'isPrivate' | 'requiredTierId' | 'gateHidden' | 'gateShowSample' | 'gateSamplePercent'
 > & {
     postType: string;
     typeSettings: Record<string, unknown>;
@@ -23,7 +23,7 @@ export type LivePostRow = Pick<
     liveEndedAt: Date | null;
 };
 
-const COLUMNS = `id, slug, status, is_private, required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent,
+const COLUMNS = `id, slug, title, status, is_private, required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent,
                  post_type, type_settings, live_status, live_started_at, live_ended_at`;
 
 export async function loadLivePost(postId: string,): Promise<LivePostRow | null> {
@@ -59,8 +59,8 @@ export function toState(row: LivePostRow, viewers: number,): LiveRoomState {
         startedAt: iso(row.liveStartedAt,),
         endedAt: iso(row.liveEndedAt,),
         viewers,
-        // No streaming provider is wired yet.
-        providerConnected: false,
+        // The host has a provider input (POST /posts/:id/live/publish ran).
+        providerConnected: effectiveStatus(row,) !== 'ended' && typeof s.providerInputId === 'string' && s.providerInputId !== '',
     };
 }
 

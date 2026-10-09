@@ -4,12 +4,14 @@
  * adapter and a browser adapter behind the shared provider interface (see the
  * research doc docs/plans/2026-10-09-live-stream-providers.md).
  *
- * Add a provider: append a descriptor; set `implemented` when its adapters
- * exist. Nothing else in the admin needs to change.
+ * Add a provider: append a descriptor; `implemented` is DERIVED — true once a
+ * server adapter is registered for its key (adapters.ts). Nothing else in the
+ * admin needs to change.
  */
 import type { LiveProviderDescriptor, } from '@sitesurge/types';
+import { LIVE_ADAPTERS, } from './adapters';
 
-export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
+const DESCRIPTORS: Omit<LiveProviderDescriptor, 'implemented'>[] = [
     {
         key: 'livekit',
         label: 'LiveKit (recommended)',
@@ -21,7 +23,6 @@ export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
             browserPublish: true, webrtcViewing: true, hlsViewing: true, recording: true,
             recordingToOwnBucket: true, guests: true,
         },
-        implemented: false,
         fields: [
             {
                 key: 'url', label: 'Server URL', type: 'url', required: true, placeholder: 'wss://your-project.livekit.cloud',
@@ -58,15 +59,14 @@ export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
     {
         key: 'cloudflare_stream',
         label: 'Cloudflare Stream',
-        description: 'Cloudflare-native: browser shows over WebRTC (WHIP in, WHEP out, <0.5 s), or OBS over RTMPS with automatic recording and signed HLS. Note: a browser (WebRTC) show is not recorded by Cloudflare — the host browser records and uploads it.',
+        description: 'Cloudflare-native WebRTC: the host publishes from the browser (WHIP) and viewers watch sub-second (WHEP, <0.5 s). Cloudflare does not record WebRTC shows — the host browser records and uploads the replay (see Recording).',
         website: 'https://developers.cloudflare.com/stream/',
         docsUrl: 'https://developers.cloudflare.com/stream/webrtc-beta/',
         pricingNote: 'Research 2026-10-09: 1 h show / 500 viewers ≈ $30; 4 shows × 200 viewers ≈ $48/month ($1 per 1,000 WebRTC viewer-minutes from 2026-10-15).',
         capabilities: {
-            browserPublish: true, webrtcViewing: true, hlsViewing: true, recording: true,
-            recordingToOwnBucket: false, guests: false,
+            browserPublish: true, webrtcViewing: true, hlsViewing: false, recording: true,
+            recordingToOwnBucket: true, guests: false,
         },
-        implemented: false,
         fields: [
             { key: 'accountId', label: 'Account ID', type: 'text', required: true, },
             { key: 'apiToken', label: 'API token', type: 'secret', required: true, help: 'Token with Stream:Edit.', },
@@ -75,10 +75,12 @@ export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
                 placeholder: 'customer-xxxx.cloudflarestream.com',
             },
             {
-                key: 'recordingMode', label: 'Mode', type: 'select', default: 'browser',
+                key: 'recordingMethod', label: 'Recording', type: 'select', default: 'browser',
+                help: 'Cloudflare does not record WebRTC shows; the replay is made by the method chosen here.',
                 options: [
-                    { value: 'browser', label: 'Browser (WebRTC) — host browser records + uploads the replay', },
-                    { value: 'rtmps', label: 'OBS / RTMPS — Cloudflare records automatically', },
+                    { value: 'browser', label: 'Host browser records at camera quality, uploads to R2 while live', },
+                    { value: 'server', label: 'Server recorder — coming later', },
+                    { value: 'none', label: 'Do not record', },
                 ],
             },
             { key: 'signingKeyId', label: 'Signing key ID', type: 'text', help: 'For signed (subscriber-only) playback URLs.', },
@@ -97,7 +99,6 @@ export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
             browserPublish: true, webrtcViewing: true, hlsViewing: true, recording: true,
             recordingToOwnBucket: true, guests: true,
         },
-        implemented: false,
         fields: [
             {
                 key: 'accessKey', label: 'App access key', type: 'text', required: true,
@@ -132,6 +133,8 @@ export const LIVE_PROVIDERS: LiveProviderDescriptor[] = [
         ],
     },
 ];
+
+export const LIVE_PROVIDERS: LiveProviderDescriptor[] = DESCRIPTORS.map((d,) => ({ ...d, implemented: d.key in LIVE_ADAPTERS, }),);
 
 export function getLiveProvider(key: string | null | undefined,): LiveProviderDescriptor | undefined {
     return key ? LIVE_PROVIDERS.find((p,) => p.key === key) : undefined;

@@ -3,29 +3,38 @@
  * 'live'`): a 16:9 stage, reactions and a chat panel, driven by the live room
  * WebSocket (`services/liveRoom.ts`).
  *
- * The stream itself is a STUB — no provider is connected yet, so the stage is
- * a placeholder carrying the room's status overlay (not started / LIVE /
- * paused / muted / ended).
+ * Video: while the room is live/paused the page asks the server how to watch
+ * (`cms.posts.livePlayback`) — WebRTC (WHEP, sub-second, via
+ * `services/liveProviders`) or HLS — and plays it in `VideoPlayer`'s live
+ * mode. No provider / not configured → the placeholder stage; a viewer the
+ * post's subscription gate refuses → the UpgradeTout. Playback is re-requested
+ * when the room reconnects, on login, and after the viewer gives up.
  *
  * An ended show has no room, so it never connects: it shows when the show
- * ended (and that a recording is coming when the post archives video). The
+ * ended and its replay (`typeSettings.recordingMediaId`) once recorded. The
  * connection is keyed on the signed-in user, so logging in from "Log in to
  * chat" reconnects with a ticket for that user.
  */
 import {
     LIVE_REACTIONS,
     type LiveChatMessage,
+    type LivePlaybackInfo,
     type LivePostSettings,
     type LiveRoomState,
+    type LiveRuntimeSettings,
     type LiveServerEvent,
     type Post,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Match, on, onCleanup, Show, Switch, } from 'solid-js';
+import { cms, } from '../../services/cmsClient';
+import { getViewer, hasViewer, type LiveConnectionState, } from '../../services/liveProviders';
 import { connectLiveRoom, type LiveRoomConnection, type LiveRoomStatus, } from '../../services/liveRoom';
 import { useAuth, } from '../../stores/auth';
 import LoginModal from '../auth/LoginModal';
-import { MEMBERSHIP_TAB_URL, } from '../content/UpgradeTout';
+import MediaVideo from '../blocks/media/MediaVideo';
+import VideoPlayer from '../blocks/media/VideoPlayer';
+import UpgradeTout, { MEMBERSHIP_TAB_URL, } from '../content/UpgradeTout';
 import './LiveShow.scss';
 
 export interface LiveShowProps {
@@ -44,6 +53,8 @@ const MAX_FLOATS = 30;
 const FLOAT_MS = 2600;
 const TOAST_MS = 4000;
 const CHAT_MAX_LENGTH = 500;
+/** Ask for fresh playback info this long after the viewer gave up. */
+const PLAYBACK_RETRY_MS = 5000;
 /** Errors that belong to the chat panel rather than the stage. */
 const CHAT_ERRORS = new Set(['chat_off', 'chat_restricted', 'rate_limited',],);
 
@@ -59,7 +70,7 @@ function formatTime(at: string,): string {
 
 const LiveShow: Component<LiveShowProps> = (props,) => {
     const auth = useAuth();
-    const settings = () => (props.post.typeSettings ?? {}) as Partial<LivePostSettings>;
+    const settings = () => (props.post.typeSettings ?? {}) as Partial<LivePostSettings> & LiveRuntimeSettings;
 
     const [ended, setEnded,] = createSignal(!!props.post.liveEndedAt,);
     const [endedAt, setEndedAt,] = createSignal<Date | string | null>(props.post.liveEndedAt ?? null,);
@@ -184,8 +195,67 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
     },);
 
     const status = () => room()?.status;
+
+    // ─── Video playback ───
+    const [playback, setPlayback,] = createSignal<LivePlaybackInfo | null>(null,);
+    const [playbackNonce, setPlaybackNonce,] = createSignal(0,);
+    const [videoEl, setVideoEl,] = createSignal<HTMLVideoElement>();
+    const [viewerState, setViewerState,] = createSignal<LiveConnectionState>('idle',);
+    const watchable = () => !ended() && (status() === 'live' || status() === 'paused');
+
+    // Fetch how to watch whenever the show becomes watchable, the room
+    // (re)connects, the viewer changes (login) or a retry is requested.
+    createEffect(on(
+        () => [watchable(), connStatus() === 'open', auth.user?.id ?? null, playbackNonce(),] as const,
+        ([ok, open,],) => {
+            if (!ok) {
+                setPlayback(null,);
+                return;
+            }
+            if (!open) return; // keep the current stream while the room reconnects
+            let cancelled = false;
+            onCleanup(() => { cancelled = true; },);
+            cms.posts.livePlayback(props.post.id,)
+                .then((info,) => { if (!cancelled) setPlayback(info,); },)
+                .catch(() => { if (!cancelled) setPlayback({ available: false, reason: 'not_live', },); },);
+        },
+    ),);
+
+    const playable = () => {
+        const p = playback();
+        if (!p?.available || !p.url) return null;
+        if (p.kind === 'hls') return p;
+        return p.kind === 'whep' && hasViewer(p.provider,) ? p : null;
+    };
+
+    // One WebRTC viewer per (playback info, <video>); stopped on change/unmount.
+    createEffect(on(() => [playable(), videoEl(),] as const, ([info, el,],) => {
+        if (!info || info.kind !== 'whep' || !el) return;
+        const viewer = getViewer(info.provider,);
+        if (!viewer) return;
+        let retry: ReturnType<typeof setTimeout> | undefined;
+        const off = viewer.onState((s,) => {
+            setViewerState(s,);
+            if (s === 'failed') retry = setTimeout(() => setPlaybackNonce((n,) => n + 1), PLAYBACK_RETRY_MS,);
+        },);
+        void viewer.start(info, el,).catch(() => setViewerState('failed',),);
+        onCleanup(() => {
+            off();
+            clearTimeout(retry,);
+            void viewer.stop();
+            setViewerState('idle',);
+        },);
+    },),);
+
+    const placeholderText = () => {
+        if (status() === 'idle') return 'Waiting for the show to start';
+        if (watchable() && !playback()) return 'Connecting to the stream…';
+        return 'Live video coming soon';
+    };
+
     const reactionsOn = () => !!room()?.reactionsEnabled && status() === 'live';
     const archive = () => room()?.archiveVideo ?? settings().archiveVideo ?? true;
+    const replayId = () => settings().recordingMediaId ?? null;
 
     /** Why chat is disabled right now, or null when the viewer may chat. */
     const chatBlock = (): { kind: 'text' | 'login' | 'upgrade'; text: string; } | null => {
@@ -219,26 +289,67 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
             when={!ended()}
             fallback={
                 <section class="live-show live-show--ended">
-                    <div class="live-show__stage live-show__stage--ended">
-                        <div class="live-show__placeholder">
-                            <p class="live-show__ended-title">This live show ended on {formatEndedDate(endedAt(),)}.</p>
-                            <Show when={archive()}>
-                                <p class="live-show__ended-sub">Recording coming soon.</p>
-                            </Show>
-                        </div>
-                    </div>
+                    <Show
+                        when={replayId()}
+                        fallback={
+                            <div class="live-show__stage live-show__stage--ended">
+                                <div class="live-show__placeholder">
+                                    <p class="live-show__ended-title">This live show ended on {formatEndedDate(endedAt(),)}.</p>
+                                    <Show when={archive()}>
+                                        <p class="live-show__ended-sub">Recording coming soon.</p>
+                                    </Show>
+                                </div>
+                            </div>
+                        }
+                    >
+                        {(mediaId,) => (
+                            <div class="live-show__replay">
+                                <div class="live-show__replay-head">
+                                    <h3 class="live-show__replay-title">Replay</h3>
+                                    <span class="live-show__ended-sub">Live on {formatEndedDate(endedAt(),)}</span>
+                                </div>
+                                <MediaVideo mediaId={mediaId()} showVariantSwitch />
+                            </div>
+                        )}
+                    </Show>
                 </section>
             }
         >
             <section class="live-show">
                 <div class="live-show__main">
                     <div class="live-show__stage">
-                        <div class="live-show__placeholder">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4 5h16v14H4zM10 9l5 3-5 3z" />
-                            </svg>
-                            <p>Live video coming soon</p>
-                        </div>
+                        <Switch
+                            fallback={
+                                <div class="live-show__placeholder">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M4 5h16v14H4zM10 9l5 3-5 3z" />
+                                    </svg>
+                                    <p>{placeholderText()}</p>
+                                </div>
+                            }
+                        >
+                            <Match when={watchable() && playable()}>
+                                {(info,) => (
+                                    <VideoPlayer
+                                        live
+                                        autoplay
+                                        class="live-show__player"
+                                        title={props.post.title}
+                                        hlsSrc={info().kind === 'hls' ? info().url : undefined}
+                                        ref={setVideoEl}
+                                    />
+                                )}
+                            </Match>
+                            <Match when={watchable() && playback()?.reason === 'forbidden'}>
+                                <div class="live-show__locked">
+                                    <UpgradeTout
+                                        title="Subscriber live show"
+                                        message="Subscribe to watch this live show."
+                                        onLoggedIn={() => setPlaybackNonce((n,) => n + 1)}
+                                    />
+                                </div>
+                            </Match>
+                        </Switch>
 
                         <div class="live-show__overlay">
                             <Switch fallback={<span class="live-show__status">Connecting…</span>}>
@@ -274,7 +385,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                             </div>
                         </Show>
 
-                        <Show when={connStatus() === 'reconnecting'}>
+                        <Show when={connStatus() === 'reconnecting' || viewerState() === 'reconnecting'}>
                             <span class="live-show__conn">Reconnecting…</span>
                         </Show>
 

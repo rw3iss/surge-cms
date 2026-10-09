@@ -7,8 +7,12 @@
 import type { LiveProviderDescriptor, LiveProviderField, } from '@sitesurge/types';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import type { SetStoreFunction, } from 'solid-js/store';
+import { cms, } from '../../../../services/cmsClient';
 import { FormField, } from '../../forms';
 import Toggle from '../../common/Toggle';
+
+/** POST /posts/settings/live/test — checks the SAVED credentials. */
+const testProvider = (provider: string,) => cms.posts.testLiveProvider(provider,);
 
 export interface LiveProviderSettingsProps {
     providers: LiveProviderDescriptor[];
@@ -50,6 +54,22 @@ const CAPS: { key: keyof LiveProviderDescriptor['capabilities']; label: string; 
 
 const LiveProviderSettings: Component<LiveProviderSettingsProps> = (props,) => {
     const active = () => props.providers.find((p,) => p.key === props.provider);
+    const [testing, setTesting,] = createSignal(false,);
+    const [testResult, setTestResult,] = createSignal<{ ok: boolean; message: string; provider: string; } | null>(null,);
+    const runTest = async () => {
+        const key = props.provider;
+        if (!key) return;
+        setTesting(true,);
+        setTestResult(null,);
+        try {
+            const r = await testProvider(key,);
+            setTestResult({ ...r, provider: key, },);
+        } catch (err) {
+            setTestResult({ ok: false, message: (err as Error)?.message || 'The test request failed.', provider: key, },);
+        } finally {
+            setTesting(false,);
+        }
+    };
     const cfg = () => (props.provider ? props.configs[props.provider] ?? {} : {});
     const valueOf = (f: LiveProviderField,): unknown => cfg()[f.key] ?? f.default;
     const set = (f: LiveProviderField, v: unknown,) => {
@@ -136,6 +156,26 @@ const LiveProviderSettings: Component<LiveProviderSettingsProps> = (props,) => {
                                     </Show>
                                 )}
                             </For>
+                            <Show when={p().implemented}>
+                                <div class="live-provider__test">
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--secondary ui-button--sm"
+                                        disabled={testing()}
+                                        onClick={() => void runTest()}
+                                    >
+                                        {testing() ? 'Testing…' : 'Test connection'}
+                                    </button>
+                                    <span class="form-help-muted">Tests the SAVED settings — save changes first.</span>
+                                    <Show when={testResult()?.provider === p().key ? testResult() : null}>
+                                        {(r,) => (
+                                            <p class={`live-provider__test-result live-provider__test-result--${r().ok ? 'ok' : 'error'}`} role="status">
+                                                {r().ok ? '✓ ' : '✕ '}{r().message}
+                                            </p>
+                                        )}
+                                    </Show>
+                                </div>
+                            </Show>
                         </div>
                     )}
                 </Show>

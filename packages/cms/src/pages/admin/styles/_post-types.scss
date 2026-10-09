@@ -198,6 +198,65 @@
     border-radius: $border-radius-md;
   }
 
+  &__provider-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $spacing-2xs $spacing-sm;
+  }
+
+  &__provider-status {
+    color: var(--admin-text-muted);
+    font-size: 0.85rem;
+  }
+
+  &__provider--ready &__provider-status { color: $success-color; }
+  &__provider--unconfigured &__provider-status,
+  &__provider--unknown &__provider-status { color: $warning-fg; }
+
+  &__stat {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: 0.85rem;
+  }
+
+  &__stat-value {
+    color: var(--admin-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__stat-error {
+    color: $error-color;
+    font-size: 0.8rem;
+  }
+
+  &__state {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--admin-bg-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+
+    &--live,
+    &--rec-recording { background: $error-color; color: #fff; }
+    &--reconnecting,
+    &--connecting,
+    &--rec-paused,
+    &--rec-finalizing { background: $warning-bg; color: $warning-fg; }
+    &--failed,
+    &--rec-error { background: $error-bg; color: $error-color; }
+    &--rec-completed { background: $success-bg; color: $success-fg; }
+  }
+
+  &__recording-notice {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    margin-bottom: 0;
+  }
+
   &__card {
     display: flex;
     flex-direction: column;
@@ -303,6 +362,22 @@
       font-size: 0.8rem;
       color: var(--admin-text-muted);
     }
+  }
+
+  &__test {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-sm;
+  }
+
+  &__test-result {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.9rem;
+
+    &--ok { color: $success-fg; }
+    &--error { color: $error-color; }
   }
 
   &__notice {

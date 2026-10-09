@@ -40,6 +40,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/posts/types',
     'GET /api/v1/posts/settings',
     'PUT /api/v1/posts/settings',
+    'POST /api/v1/posts/settings/live/test',
     'GET /api/v1/posts/:id/live',
     'POST /api/v1/posts/:id/live/ticket',
     'POST /api/v1/posts/:id/live/publish',
