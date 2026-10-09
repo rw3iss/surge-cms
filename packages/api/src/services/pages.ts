@@ -375,11 +375,13 @@ export async function reorderBlocks(
 
 // ─── Bulk ─────────────────────────────────────────────────────────
 
-export async function bulk(body: unknown,): Promise<BulkActionResult> {
+export async function bulk(body: unknown, ctx: AuditContext,): Promise<BulkActionResult> {
     return performBulkAction(body, {
         table: 'pages',
         allowedStatuses: ['draft', 'published', 'scheduled', 'archived', 'deleted',],
         softDelete: true,
+        // Deleting from the trash = permanent (the page and its blocks).
+        purgeTrashed: async (ids,) => { for (const id of ids) await remove(id, ctx,); },
         onInvalidate: () => cache.invalidatePageCache(),
     },);
 }

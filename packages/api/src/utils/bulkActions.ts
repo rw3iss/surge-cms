@@ -20,6 +20,14 @@ export interface BulkActionConfig {
     softDelete?: boolean;
     /** Cache invalidator called on success */
     onInvalidate?: () => Promise<void> | void;
+    /**
+     * Trash semantics: with soft delete, ids that are ALREADY `deleted` (the
+     * trash view) are deleted PERMANENTLY through this callback — the
+     * module's own single-item remove, so related data (blocks, media,
+     * revisions) goes with them. Without it, deleting from the trash would
+     * just re-trash the row.
+     */
+    purgeTrashed?: (ids: string[],) => Promise<void>;
 }
 
 export interface BulkActionResult {
@@ -47,10 +55,22 @@ export async function performBulkAction(
         );
     } else if (action === 'delete') {
         if (config.softDelete !== false) {
-            await query(
-                `UPDATE ${config.table} SET status = 'deleted', updated_at = NOW() WHERE id = ANY($1::uuid[])`,
-                [ids,],
-            );
+            let toTrash = ids;
+            if (config.purgeTrashed) {
+                const trashed = await query<{ id: string; }>(
+                    `SELECT id FROM ${config.table} WHERE id = ANY($1::uuid[]) AND status = 'deleted'`,
+                    [ids,],
+                );
+                const purge = trashed.rows.map((r,) => r.id);
+                if (purge.length) await config.purgeTrashed(purge,);
+                toTrash = ids.filter((id,) => !purge.includes(id,));
+            }
+            if (toTrash.length) {
+                await query(
+                    `UPDATE ${config.table} SET status = 'deleted', updated_at = NOW() WHERE id = ANY($1::uuid[])`,
+                    [toTrash,],
+                );
+            }
         } else {
             await query(
                 `DELETE FROM ${config.table} WHERE id = ANY($1::uuid[])`,

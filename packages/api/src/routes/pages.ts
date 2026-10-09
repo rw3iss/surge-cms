@@ -146,7 +146,7 @@ export const pagesRoutes = [
         path: '/bulk',
         auth: 'staff',
         summary: 'Bulk status change / soft-delete by id list.',
-        handler: ({ body, },) => pages.bulk(body,),
+        handler: ({ body, audit, },) => pages.bulk(body, audit(),),
     },),
 
     // Revisions (admin).

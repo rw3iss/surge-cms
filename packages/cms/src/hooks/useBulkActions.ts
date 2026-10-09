@@ -59,11 +59,13 @@ export function useBulkActions(opts: UseBulkActionsOptions,) {
         }
     };
 
-    const runBulk = async (action: 'delete' | 'status', value?: string,) => {
+    const runBulk = async (action: 'delete' | 'status', value?: string, permanent = false,) => {
         const ids = selectedIds();
         if (ids.length === 0) return;
         const confirmMsg = action === 'delete' ?
-            `Delete ${ids.length} ${opts.entityType}(s)?` :
+            (permanent
+                ? `Permanently delete ${ids.length} ${opts.entityType}(s)? This removes them and all their data — including stored videos — and cannot be undone.`
+                : `Delete ${ids.length} ${opts.entityType}(s)?`) :
             `Change status of ${ids.length} ${opts.entityType}(s) to "${value}"?`;
         if (!confirm(confirmMsg,)) return;
 
@@ -79,7 +81,8 @@ export function useBulkActions(opts: UseBulkActionsOptions,) {
         }
     };
 
-    const applyDelete = () => runBulk('delete',);
+    /** `permanent`: the selection is in the trash — the server deletes it for good. */
+    const applyDelete = (o?: { permanent?: boolean; },) => runBulk('delete', undefined, o?.permanent === true,);
     const applyStatus = (value: string,) => runBulk('status', value,);
 
     return {

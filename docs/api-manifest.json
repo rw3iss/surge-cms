@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T08:22:42.830Z",
+  "generatedAt": "2026-10-09T08:49:31.872Z",
   "totalModules": 48,
-  "totalRoutes": 475,
+  "totalRoutes": 479,
   "modules": [
     {
       "module": "admin-channel",
@@ -2083,6 +2083,34 @@
           "absolutePath": "/api/v1/posts/:id/live/playback",
           "auth": "optional",
           "summary": "How to watch a live show now (WHEP), or { available: false, reason }. Per viewer, never cached."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/live/recordings",
+          "absolutePath": "/api/v1/posts/:id/live/recordings",
+          "auth": "staff",
+          "summary": "Saved recordings (versions) of a live show, newest first; `current` = shown on the post."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/recordings/:mediaId/select",
+          "absolutePath": "/api/v1/posts/:id/live/recordings/:mediaId/select",
+          "auth": "staff",
+          "summary": "Show this recording version as the post's replay."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id/live/recordings/:mediaId",
+          "absolutePath": "/api/v1/posts/:id/live/recordings/:mediaId",
+          "auth": "staff",
+          "summary": "Delete a recording version and all its stored files (CDN included). The post stays; a removed shown replay reads \"Video has been removed.\""
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/restart",
+          "absolutePath": "/api/v1/posts/:id/live/restart",
+          "auth": "staff",
+          "summary": "Re-open an ended live show so it can go live again and record a new version."
         },
         {
           "method": "GET",

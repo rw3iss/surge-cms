@@ -295,8 +295,13 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                             <div class="live-show__stage live-show__stage--ended">
                                 <div class="live-show__placeholder">
                                     <p class="live-show__ended-title">This live show ended on {formatEndedDate(endedAt(),)}.</p>
-                                    <Show when={archive()}>
-                                        <p class="live-show__ended-sub">Recording coming soon.</p>
+                                    <Show
+                                        when={!settings().recordingRemovedAt}
+                                        fallback={<p class="live-show__ended-sub">Video has been removed.</p>}
+                                    >
+                                        <Show when={archive()}>
+                                            <p class="live-show__ended-sub">Recording coming soon.</p>
+                                        </Show>
                                     </Show>
                                 </div>
                             </div>

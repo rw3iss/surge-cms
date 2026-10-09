@@ -1664,6 +1664,26 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /posts/:id/live/recording — start, or resume the open one."
             },
             {
+                "name": "liveReplays.list",
+                "signature": "liveReplays.list(id: string): Promise<LiveRecordingVersion[]>",
+                "summary": "GET /posts/:id/live/recordings — newest first; `current` = shown on the post."
+            },
+            {
+                "name": "liveReplays.remove",
+                "signature": "liveReplays.remove(id: string, mediaId: string): Promise<LiveRecordingVersion[]>",
+                "summary": "DELETE /posts/:id/live/recordings/:mediaId — removes the video and all its files."
+            },
+            {
+                "name": "liveReplays.select",
+                "signature": "liveReplays.select(id: string, mediaId: string): Promise<LiveRecordingVersion[]>",
+                "summary": "POST /posts/:id/live/recordings/:mediaId/select"
+            },
+            {
+                "name": "liveRestart",
+                "signature": "liveRestart(id: string): Promise<{ message: string; }>",
+                "summary": "POST /posts/:id/live/restart — re-open an ended show to record a new version."
+            },
+            {
                 "name": "liveState",
                 "signature": "liveState(id: string): Promise<PostLiveStateResponse>",
                 "summary": "GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket)."
@@ -2629,4 +2649,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 460;
+export const SDK_METHOD_COUNT = 464;

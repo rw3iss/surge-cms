@@ -137,7 +137,10 @@ describe('complete', () => {
         expect(params[9],).toBe('public',);
         expect(m.registerVideo,).toHaveBeenCalledWith(expect.objectContaining({ sourceKey: row().object_key, sourceSize: 11, accessLevel: 'public', },), expect.anything(),);
         const upd = m.clientQuery.mock.calls.find((c,) => String(c[0],).includes('UPDATE posts',),)!;
-        expect(JSON.parse((upd[1] as string[])[1]!,),).toEqual({ recordingMediaId: params[0], },);
+        // A new VERSION is appended and becomes the shown replay.
+        expect(String(upd[0],),).toContain('recordingVersions',);
+        expect(upd[1],).toEqual([POST_ID, params[0], row().id,],);
+        expect(m.registerVideo,).toHaveBeenCalledWith(expect.objectContaining({ quickReplay: true, },), expect.anything(),);
         expect(m.invalidatePostCache,).toHaveBeenCalledWith(POST_ID,);
     },);
 

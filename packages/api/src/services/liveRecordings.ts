@@ -319,9 +319,17 @@ async function finalize(row: LiveRecordingRow, ctx: AuditContext | null,): Promi
                     quickReplay: replayStrategyFor(row.method,) === 'quick_remux',
                 }, client,);
             }
+            // Every recording is a VERSION of the show's replay (a part after a
+            // crash, a re-recorded show); the newest becomes the shown one.
             await client.query(
-                `UPDATE posts SET type_settings = COALESCE(type_settings, '{}'::jsonb) || $2::jsonb, updated_at = NOW() WHERE id = $1`,
-                [row.post_id, JSON.stringify({ recordingMediaId: mediaId, },),],
+                `UPDATE posts SET type_settings =
+                        jsonb_set(COALESCE(type_settings, '{}'::jsonb), '{recordingVersions}',
+                            COALESCE(type_settings->'recordingVersions', '[]'::jsonb)
+                            || jsonb_build_array(jsonb_build_object('mediaId', $2::text, 'recordedAt', NOW(), 'recordingId', $3::text)))
+                        || jsonb_build_object('recordingMediaId', $2::text, 'recordingRemovedAt', NULL),
+                    updated_at = NOW()
+                  WHERE id = $1`,
+                [row.post_id, mediaId, row.id,],
             );
             const done = await repo.transition(row.id, 'finalizing', 'completed', { mediaId, error: null, }, client,);
             if (!done) throw new ConflictError('Recording changed while finalizing',);

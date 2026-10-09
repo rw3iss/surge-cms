@@ -36,6 +36,7 @@ import {
     type LiveRecorder, type RecorderProgress,
 } from '../../../../../services/liveRecording';
 import ConfirmModal from '../../../common/ConfirmModal';
+import LiveRecordings from './LiveRecordings';
 import Toggle from '../../../common/Toggle';
 import { FormField, } from '../../../forms';
 import { useToast, } from '../../../../common/toast';
@@ -750,7 +751,7 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                         <h3 class="live-console__card-title">Host controls</h3>
                         <Show
                             when={!ended()}
-                            fallback={<p class="form-help-muted">{endedLabel()}. A show cannot be restarted.</p>}
+                            fallback={<p class="form-help-muted">{endedLabel()}. Use Restart show under Recordings to go live again.</p>}
                         >
                             <Show
                                 when={canHost()}
@@ -850,10 +851,14 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                 </div>
             </div>
 
+            <Show when={props.postId}>
+                <LiveRecordings postId={props.postId!} ended={ended()} refreshKey={saved() ? 1 : 0} />
+            </Show>
+
             <ConfirmModal
                 open={confirmEnd()}
                 title="End the show?"
-                message="End the show? Viewers are disconnected and it cannot be restarted."
+                message="End the show? Viewers are disconnected and the recording is saved. You can restart the show later to record a new version."
                 confirmLabel="End show"
                 danger
                 onConfirm={endShow}

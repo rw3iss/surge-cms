@@ -127,6 +127,23 @@ export interface LiveRecording {
 export interface LiveRuntimeSettings {
     /** Provider resource (e.g. Cloudflare live input uid) — server use. */
     providerInputId?: string | null;
-    /** The replay: media id of the encoded recording. */
+    /** The replay shown on the post: media id of one recording version. */
     recordingMediaId?: string | null;
+    /** Every saved recording of this show (parts after a crash, re-recorded shows), oldest first. */
+    recordingVersions?: { mediaId: string; recordedAt: string; recordingId?: string; }[];
+    /** Set when the shown recording was deleted — the post page says "Video has been removed." */
+    recordingRemovedAt?: string | null;
+}
+
+/** A saved recording of a live show, as listed in the admin. */
+export interface LiveRecordingVersion {
+    mediaId: string;
+    recordedAt: string;
+    /** Shown as the replay on the post. */
+    current: boolean;
+    title: string | null;
+    status: 'uploading' | 'processing' | 'ready' | 'failed' | 'missing';
+    durationMs: number | null;
+    size: number | null;
+    posterUrl: string | null;
 }

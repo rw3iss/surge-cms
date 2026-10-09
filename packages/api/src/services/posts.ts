@@ -274,6 +274,13 @@ export async function update(
 export async function remove(id: string, ctx: AuditContext,): Promise<repo.PostWithBlocks | null> {
     const existing = await getById(id,);
     if (!existing) return null;
+    // PERMANENT delete: the post's videos go too (live recording versions,
+    // Video-block media not used elsewhere) — every rendition, teaser,
+    // download and original, in storage and therefore on the CDN. A post
+    // moved to the trash (bulk status 'deleted') keeps them, so it can be
+    // restored whole.
+    const { purgePostMedia, } = await import('./liveReplays.js');
+    const purged = await purgePostMedia(id, ctx,);
     await repo.deletePost(id,);
     await cache.invalidatePostCache(id,);
     await logAudit({
@@ -281,7 +288,7 @@ export async function remove(id: string, ctx: AuditContext,): Promise<repo.PostW
         action: 'delete',
         entityType: 'post',
         entityId: id,
-        oldValues: existing as unknown as Record<string, unknown>,
+        oldValues: { ...(existing as unknown as Record<string, unknown>), purgedMedia: purged.removed, keptSharedMedia: purged.kept, },
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
@@ -364,11 +371,14 @@ export async function snapshotNow(postId: string, ctx: AuditContext,) {
 
 // ─── Bulk + block order ───────────────────────────────────────────
 
-export async function bulk(body: unknown,): Promise<BulkActionResult> {
+export async function bulk(body: unknown, ctx: AuditContext,): Promise<BulkActionResult> {
     return performBulkAction(body, {
         table: 'posts',
         allowedStatuses: ['draft', 'published', 'scheduled', 'archived', 'deleted',],
         softDelete: true,
+        // Deleting from the trash = permanent (post, blocks, revisions,
+        // recordings, and its videos in storage/CDN).
+        purgeTrashed: async (ids,) => { for (const id of ids) await remove(id, ctx,); },
         onInvalidate: () => cache.invalidatePostCache(),
     },);
 }

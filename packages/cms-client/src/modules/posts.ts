@@ -1,5 +1,5 @@
 import type {
-    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody, LivePublishInfo, LivePlaybackInfo, LiveRecording,
+    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody, LivePublishInfo, LivePlaybackInfo, LiveRecording, LiveRecordingVersion,
     PostLiveRecordingStartBody, PostLiveRecordingPartUrlResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
@@ -78,6 +78,24 @@ export class PostsModule extends ModuleBase {
         abort: (id: string, rid: string,): Promise<{ message: string; }> =>
             this.mutate<{ message: string; }>('DELETE', '/posts/:id/live/recording/:rid', { params: { id, rid, }, },),
     };
+
+    /** A live show's saved recordings (versions): list, choose the shown one, delete (storage + CDN). */
+    readonly liveReplays = {
+        /** GET /posts/:id/live/recordings — newest first; `current` = shown on the post. */
+        list: (id: string,): Promise<LiveRecordingVersion[]> =>
+            this.get<LiveRecordingVersion[]>('/posts/:id/live/recordings', { params: { id, }, options: { cache: false, }, },),
+        /** POST /posts/:id/live/recordings/:mediaId/select */
+        select: (id: string, mediaId: string,): Promise<LiveRecordingVersion[]> =>
+            this.mutate<LiveRecordingVersion[]>('POST', '/posts/:id/live/recordings/:mediaId/select', { params: { id, mediaId, }, invalidates: ['posts',], },),
+        /** DELETE /posts/:id/live/recordings/:mediaId — removes the video and all its files. */
+        remove: (id: string, mediaId: string,): Promise<LiveRecordingVersion[]> =>
+            this.mutate<LiveRecordingVersion[]>('DELETE', '/posts/:id/live/recordings/:mediaId', { params: { id, mediaId, }, invalidates: ['posts', 'media',], },),
+    };
+
+    /** POST /posts/:id/live/restart — re-open an ended show to record a new version. */
+    liveRestart(id: string,): Promise<{ message: string; }> {
+        return this.mutate<{ message: string; }>('POST', '/posts/:id/live/restart', { params: { id, }, invalidates: ['posts',], },);
+    }
 
     /** GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket). */
     liveState(id: string,): Promise<PostLiveStateResponse> {

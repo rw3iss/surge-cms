@@ -388,3 +388,68 @@
     font-size: 0.9rem;
   }
 }
+
+// Live console → Recordings card
+.live-recordings {
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+  }
+
+  &__player {
+    margin: $spacing-sm 0 $spacing-md;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-xs;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+
+    &--playing { box-shadow: inset 0 0 0 1px $primary-color; }
+  }
+
+  &__play {
+    flex: 0 0 auto;
+    width: 96px;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: $border-radius-sm;
+    background: #000;
+    color: #fff;
+    cursor: pointer;
+
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+
+  &__meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__date { font-weight: 600; }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+}

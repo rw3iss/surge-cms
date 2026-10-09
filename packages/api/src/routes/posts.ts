@@ -1,4 +1,5 @@
 import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isValidBannerPositionCustom, } from '@sitesurge/types';
+import * as liveReplays from '../services/liveReplays';
 import * as postSettings from '../services/postSettings';
 import { requirePermission, } from '../services/permissions';
 import type { PostsSettingsBody, } from '@sitesurge/types';
@@ -242,7 +243,7 @@ export const postsRoutes = [
     defineRoute({
         method: 'post', path: '/bulk', auth: 'staff',
         summary: 'Bulk status change / soft-delete by id list.',
-        handler: ({ body, },) => posts.bulk(body,),
+        handler: ({ body, audit, },) => posts.bulk(body, audit(),),
     },),
 
     defineRoute({
@@ -343,6 +344,47 @@ export const postsRoutes = [
             // Per-viewer (subscription gate) — no shared/edge caching.
             res.set('Cache-Control', 'private, no-store',);
             return liveShows.playback(params.id, user,);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/recordings', auth: 'staff',
+        summary: 'Saved recordings (versions) of a live show, newest first; `current` = shown on the post.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await requireHost(user,);
+            return liveReplays.listVersions(params.id,);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/recordings/:mediaId/select', auth: 'staff',
+        summary: 'Show this recording version as the post\'s replay.',
+        input: { params: z.object({ id: z.string(), mediaId: z.string().uuid(), },), },
+        handler: async ({ params, user, audit, },) => {
+            await requireHost(user,);
+            return liveReplays.selectVersion(params.id, params.mediaId, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'delete', path: '/:id/live/recordings/:mediaId', auth: 'staff',
+        summary: 'Delete a recording version and all its stored files (CDN included). The post stays; a removed shown replay reads "Video has been removed."',
+        input: { params: z.object({ id: z.string(), mediaId: z.string().uuid(), },), },
+        handler: async ({ params, user, audit, },) => {
+            await requireHost(user,);
+            return liveReplays.deleteVersion(params.id, params.mediaId, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/restart', auth: 'staff',
+        summary: 'Re-open an ended live show so it can go live again and record a new version.',
+        input: { params: idParams, },
+        handler: async ({ params, user, audit, },) => {
+            await requireHost(user,);
+            await liveReplays.restartShow(params.id, audit(),);
+            return { message: 'Show reopened', };
         },
     },),
 

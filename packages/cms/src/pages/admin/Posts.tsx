@@ -120,7 +120,11 @@ const AdminPosts: Component = () => {
                     actions: [
                         { label: 'Publish', onClick: () => bulk.applyStatus('published',), },
                         { label: 'Unpublish', onClick: () => bulk.applyStatus('draft',), },
-                        { label: 'Delete', variant: 'danger', onClick: () => bulk.applyDelete(), },
+                        {
+                            label: searchParams.status === 'deleted' ? 'Delete permanently' : 'Delete',
+                            variant: 'danger',
+                            onClick: () => bulk.applyDelete({ permanent: searchParams.status === 'deleted', },),
+                        },
                     ],
                 }}
                 pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
