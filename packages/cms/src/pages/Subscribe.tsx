@@ -78,7 +78,7 @@ const SubscribePage: Component = () => {
                             <Show when={!signedIn()}>
                                 <p class="subscribe-page__note">Create a free account to comment, get updates and more.</p>
                                 <div class="subscribe-page__actions">
-                                    <A href="/join" class="btn">Create an account</A>
+                                    <A href="/join" class="btn btn--primary">Create an account</A>
                                     <A href={loginUrl('/subscribe',)} class="btn btn--outline">Log in</A>
                                 </div>
                             </Show>
@@ -96,7 +96,7 @@ const SubscribePage: Component = () => {
                                 </div>
                                 <div class="subscribe-page__actions">
                                     <A href={loginUrl('/subscribe',)} class="btn btn--outline">Log in</A>
-                                    <A href="/join" class="btn">Create an account</A>
+                                    <A href="/join" class="btn btn--primary">Create an account</A>
                                 </div>
                             </section>
                         }
@@ -135,7 +135,7 @@ const SubscribePage: Component = () => {
                                     <Markdown class="subscribe-card__desc" text={t.description} />
                                     <button
                                         type="button"
-                                        class={`btn subscribe-card__cta${t.isFree ? ' btn--outline' : ''}`}
+                                        class={`btn subscribe-card__cta ${t.isFree ? 'btn--outline' : 'btn--primary'}`}
                                         disabled={current()?.id === t.id}
                                         onClick={() => choose(t,)}
                                     >
