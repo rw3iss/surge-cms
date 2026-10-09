@@ -1,6 +1,9 @@
 /**
  * Live room protocol — the WebSocket at `LIVE_ROOM_PATH?post=<postId>`.
  *
+ * Command `token` = the room ticket from `POST /posts/:id/live/ticket`
+ * (`cms.posts.liveTicket`), NOT the JWT (the session cookie is httpOnly).
+ *
  * One room per live post. The socket authenticates from the session cookie at
  * the upgrade (anonymous viewers may join to watch/read chat); EVERY command
  * also carries the caller's access token (`token`) when they have one, and the

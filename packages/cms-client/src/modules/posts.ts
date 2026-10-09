@@ -1,5 +1,5 @@
 import type {
-    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse,
+    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
@@ -27,6 +27,11 @@ export class PostsModule extends ModuleBase {
     /** GET /posts/types — registered post types (built-in + site-defined). */
     types(): Promise<PostTypesResponse> {
         return this.get<PostTypesResponse>('/posts/types',);
+    }
+
+    /** POST /posts/:id/live/ticket — the signed per-room token live commands carry. */
+    liveTicket(id: string,): Promise<PostLiveTicketResponse> {
+        return this.mutate<PostLiveTicketResponse>('POST', '/posts/:id/live/ticket', { params: { id, }, },);
     }
 
     /** GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket). */

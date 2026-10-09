@@ -220,3 +220,17 @@ export type PostTypesResponse = import('../../types/postTypes').PostTypeDefiniti
 
 /** GET /posts/:id/live — the live room's current state (REST fallback). */
 export type PostLiveStateResponse = import('../../types/liveRoom').LiveRoomState;
+
+/**
+ * POST /posts/:id/live/ticket — a short-lived signed token (HMAC of user + post
+ * + expiry) that every live-room command carries as `token`. The session
+ * cookie is httpOnly, so page JS cannot attach the JWT itself; the ticket lets
+ * the server authorise EACH command by its sender. Anonymous callers get a
+ * viewer ticket (userId null). Refresh before `expiresAt`.
+ */
+export interface PostLiveTicketResponse {
+    token: string;
+    expiresAt: string;
+    userId: string | null;
+    isHost: boolean;
+}
