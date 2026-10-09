@@ -1,4 +1,4 @@
-// Post type badge — round icon. `--float` overlays a card corner; `--inline`
+// Post type badge — rounded-square icon. `--float` overlays a card corner; `--inline`
 // sits beside a title, sized to the text (em).
 .post-type-badge {
     display: inline-flex;
@@ -15,7 +15,7 @@
         height: 58%;
         fill: none;
         stroke: currentColor;
-        stroke-width: 2;
+        stroke-width: 1.5;
         stroke-linecap: round;
         stroke-linejoin: round;
     }
@@ -23,10 +23,19 @@
     &--float {
         width: 36px;
         height: 36px;
-        box-shadow: 0 0 0 3px var(--site-bg, #ffffff), 0 2px 8px rgb(0 0 0 / 0.22);
+        // A softened square rather than a circle, the icon in the brand colour.
+        border-radius: 9px;
+        color: var(--site-primary, #6b7280);
+        box-shadow: 0 0 0 3px var(--site-bg, #ffffff), 0 2px 8px rgb(0 0 0 / 0.18);
+
+        svg {
+            width: 54%;
+            height: 54%;
+        }
     }
 
     &--inline {
+        border-radius: 0.3em;
         width: 1.6em;
         height: 1.6em;
         font-size: 0.55em;
