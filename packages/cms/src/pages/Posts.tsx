@@ -1,4 +1,4 @@
-import { featuredImagePath, } from '@sitesurge/types';
+import { featuredImagePath, getPostType, listPostTypes, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, onMount, Show, } from 'solid-js';
@@ -14,13 +14,34 @@ import './Posts.scss';
 const PAGE_SIZE = 12;
 
 const PostsPage: Component = () => {
-    const [searchParams,] = useSearchParams();
+    const [searchParams, setSearchParams,] = useSearchParams();
     const [posts, setPosts,] = createSignal<Post[]>([],);
     const [total, setTotal,] = createSignal(0,);
     const [page, setPage,] = createSignal(1,);
     const [loading, setLoading,] = createSignal(true,);
     const [loadingMore, setLoadingMore,] = createSignal(false,);
     const auth = useAuth();
+
+    // ─── Post-type filter (?type=) ───
+    // Counts are per viewer (subscriber-hidden posts don't count for others),
+    // so a type button only appears when this viewer has posts of that type,
+    // and the bar only when there are at least two types to choose between.
+    const activeType = () => {
+        const t = Array.isArray(searchParams.type,) ? searchParams.type[0] : searchParams.type;
+        return t || null;
+    };
+    const [typeCounts, setTypeCounts,] = createSignal<Record<string, number>>({},);
+    const loadTypeCounts = () => cms.posts.typeCounts().then(setTypeCounts,).catch(() => setTypeCounts({},),);
+    const typeLabel = (key: string,) => (key === 'custom' ? 'Other' : getPostType(key,).label);
+    const typeOptions = () => {
+        const counts = typeCounts();
+        const known = listPostTypes().map((t,) => t.key);
+        const keys = [...known, ...Object.keys(counts,).filter((k,) => !known.includes(k,)),];
+        return keys.filter((k,) => (counts[k] ?? 0) > 0).map((k,) => ({ key: k, label: typeLabel(k,), count: counts[k], icon: getPostType(k,).icon, }));
+    };
+    const showTypeBar = () => typeOptions().length > 1;
+    const allCount = () => Object.values(typeCounts(),).reduce((a, b,) => a + b, 0,);
+    const selectType = (key: string | null,) => setSearchParams({ type: key ?? undefined, },);
 
     const hasMore = () => posts().length < total();
 
@@ -29,6 +50,7 @@ const PostsPage: Component = () => {
         else setLoading(true,);
 
         const tag = Array.isArray(searchParams.tag,) ? searchParams.tag[0] : searchParams.tag;
+        const type = activeType() ?? undefined;
         const category = Array.isArray(searchParams.category,) ? searchParams.category[0] : searchParams.category;
 
         try {
@@ -37,6 +59,7 @@ const PostsPage: Component = () => {
                 limit: PAGE_SIZE,
                 tag,
                 category,
+                type,
             },);
 
             const items = data ?? [];
@@ -58,9 +81,17 @@ const PostsPage: Component = () => {
 
     // The list is shaped per viewer (hidden subscriber posts, badges), so
     // reload it when someone signs in or out.
-    createEffect(on(() => auth.user?.id ?? null, () => void loadPosts(1,), { defer: true, },),);
+    createEffect(on(() => auth.user?.id ?? null, () => {
+        void loadPosts(1,);
+        void loadTypeCounts();
+    }, { defer: true, },),);
+    // Picking a type re-queries from page 1.
+    createEffect(on(activeType, () => void loadPosts(1,), { defer: true, },),);
 
-    onMount(() => loadPosts(1,),);
+    onMount(() => {
+        void loadPosts(1,);
+        void loadTypeCounts();
+    },);
 
     const handleLoadMore = () => {
         loadPosts(page() + 1, true,);
@@ -96,6 +127,33 @@ const PostsPage: Component = () => {
                 <h1>Latest Posts</h1>
                 <Show when={total() > 0}>
                     <span style={{ 'font-size': '0.85rem', color: 'var(--site-text-muted, #6b7280)', 'font-weight': '400', }}>{total()} {total() === 1 ? 'post' : 'posts'}</span>
+                </Show>
+                <Show when={showTypeBar()}>
+                    <div class="posts-type-filter" role="toolbar" aria-label="Filter posts by type">
+                        <button
+                            type="button"
+                            class={`posts-type-filter__btn${activeType() === null ? ' posts-type-filter__btn--active' : ''}`}
+                            aria-pressed={activeType() === null}
+                            onClick={() => selectType(null,)}
+                        >
+                            All
+                            <span class="posts-type-filter__count">{allCount()}</span>
+                        </button>
+                        <For each={typeOptions()}>
+                            {(t,) => (
+                                <button
+                                    type="button"
+                                    class={`posts-type-filter__btn${activeType() === t.key ? ' posts-type-filter__btn--active' : ''}`}
+                                    aria-pressed={activeType() === t.key}
+                                    onClick={() => selectType(activeType() === t.key ? null : t.key,)}
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d={t.icon} /></svg>
+                                    {t.label}
+                                    <span class="posts-type-filter__count">{t.count}</span>
+                                </button>
+                            )}
+                        </For>
+                    </div>
                 </Show>
             </div>
 

@@ -41,6 +41,8 @@ export interface PostListQuery {
     after?: string;
     /** comma-separated post ids (pinned feeds) */
     ids?: string;
+    /** post type key (`article`, `video`, `live`, `custom`, …) */
+    type?: string;
     /** '1' | 'true' to include content blocks in list items */
     withBlocks?: string;
     /** admin-only: presence of status or sort switches to the admin
@@ -257,3 +259,6 @@ export interface PostLiveRecordingPartUrlResponse {
     url: string;
     expiresIn: number;
 }
+
+/** GET /posts/type-counts — post type key → number of posts the caller can see. */
+export type PostTypeCountsResponse = Record<string, number>;

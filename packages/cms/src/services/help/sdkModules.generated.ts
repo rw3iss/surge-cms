@@ -1729,6 +1729,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /posts/settings/live/test (admin) — check the SAVED credentials of a live provider."
             },
             {
+                "name": "typeCounts",
+                "signature": "typeCounts(): Promise<PostTypeCountsResponse>",
+                "summary": "GET /posts/type-counts — post type → count of posts the caller can see (filter bars)."
+            },
+            {
                 "name": "types",
                 "signature": "types(): Promise<PostTypesResponse>",
                 "summary": "GET /posts/types — registered post types (built-in + site-defined)."
@@ -2649,4 +2654,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 464;
+export const SDK_METHOD_COUNT = 465;

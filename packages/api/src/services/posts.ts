@@ -25,7 +25,7 @@ import { assertPostType, resolveTypeSettings, } from './postTypes';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
-import { cache, } from './cache';
+import { cache, CACHE_KEYS, } from './cache';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 
 export type {
@@ -126,6 +126,22 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
 
 function gatePosts<T extends Post>(rows: T[], rank: ViewerRank, tiers: Awaited<ReturnType<typeof tiersById>>,): T[] {
     return rows.map((p,) => applyGateSync(p as T & { contentBlocks?: unknown[]; }, rank, tiers,));
+}
+
+/**
+ * Post counts per type for the /posts filter bar, shaped per viewer (gated
+ * posts hidden from them are not counted). Anonymous result cached 5 min —
+ * every post write clears `posts:*`.
+ */
+export async function typeCounts(user: Pick<User, 'id' | 'role'> | undefined, isAdmin: boolean,): Promise<Record<string, number>> {
+    if (!user && !isAdmin) {
+        const cached = await cache.get<Record<string, number>>(CACHE_KEYS.postTypeCountsAnon,);
+        if (cached) return cached;
+        const counts = await repo.countPublicByType(null,);
+        await cache.set(CACHE_KEYS.postTypeCountsAnon, counts, 300,);
+        return counts;
+    }
+    return repo.countPublicByType(isAdmin ? undefined : await viewerRank(user,),);
 }
 
 export async function getById(id: string,): Promise<repo.PostWithBlocks | null> {

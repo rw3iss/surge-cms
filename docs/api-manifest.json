@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T08:49:31.872Z",
+  "generatedAt": "2026-10-09T09:02:48.942Z",
   "totalModules": 48,
-  "totalRoutes": 479,
+  "totalRoutes": 480,
   "modules": [
     {
       "module": "admin-channel",
@@ -1971,6 +1971,13 @@
           "absolutePath": "/api/v1/posts/settings/live/test",
           "auth": "admin",
           "summary": "Test a live provider's SAVED credentials (read-only call to the provider)."
+        },
+        {
+          "method": "GET",
+          "path": "/type-counts",
+          "absolutePath": "/api/v1/posts/type-counts",
+          "auth": "optional",
+          "summary": "Published posts per post type, as the caller can see them (drives the /posts type filter)."
         },
         {
           "method": "GET",

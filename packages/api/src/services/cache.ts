@@ -80,6 +80,9 @@ export const CACHE_KEYS = {
     // ── Transient (not entity cache) ──
     oauthState: (state: string,) => `oauth_state:${state}`,
 
+    // Public post counts per type (anonymous view; cleared with posts:*).
+    postTypeCountsAnon: 'posts:type-counts:anon',
+
     // Video: built master playlists (full + teaser), invalidated when a
     // rendition becomes ready or the video is re-packaged/deleted.
     videoMaster: (mediaId: string, variant: 'full' | 'teaser',) => `video:master:${mediaId}:${variant}`,

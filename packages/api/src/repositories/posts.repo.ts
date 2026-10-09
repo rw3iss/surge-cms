@@ -134,6 +134,22 @@ import { hiddenClause, } from '../services/postGate/index';
 
 const POST_SELECT = `SELECT p.*, u.display_name as author FROM posts p LEFT JOIN users u ON p.author_id = u.id`;
 
+/**
+ * Published, non-private posts per post type, as THIS viewer can see them
+ * (posts hidden by subscription gating are left out for viewers without the
+ * tier) — drives the /posts type filter bar.
+ */
+export async function countPublicByType(viewerRank: number | null | undefined,): Promise<Record<string, number>> {
+    const params: unknown[] = [];
+    let where = `WHERE p.status = 'published' AND p.is_private = false`;
+    if (viewerRank !== undefined) where += hiddenClause('p', viewerRank, params,);
+    const r = await query<{ post_type: string; n: number; }>(
+        `SELECT p.post_type, COUNT(*)::int AS n FROM posts p ${where} GROUP BY p.post_type`,
+        params,
+    );
+    return Object.fromEntries(r.rows.map((x,) => [x.post_type || 'article', x.n,]),);
+}
+
 export async function findPublicPosts(
     filters: PostFilters,
     pagination: PaginationOptions,

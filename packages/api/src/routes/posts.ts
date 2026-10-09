@@ -212,6 +212,12 @@ export const postsRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/type-counts', auth: 'optional',
+        summary: 'Published posts per post type, as the caller can see them (drives the /posts type filter).',
+        handler: ({ user, apiKey, },) => posts.typeCounts(user, isAdminRole(user?.role,) || Boolean(apiKey,),),
+    },),
+
+    defineRoute({
         method: 'get', path: '/search', auth: 'public',
         summary: 'Full-text search over published posts.',
         input: { query: searchQuery, },

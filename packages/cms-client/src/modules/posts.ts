@@ -1,5 +1,5 @@
 import type {
-    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody, LivePublishInfo, LivePlaybackInfo, LiveRecording, LiveRecordingVersion,
+    RevisionSnapshotResponse, PostTypesResponse, PostTypeCountsResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody, LivePublishInfo, LivePlaybackInfo, LiveRecording, LiveRecordingVersion,
     PostLiveRecordingStartBody, PostLiveRecordingPartUrlResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
@@ -38,6 +38,11 @@ export class PostsModule extends ModuleBase {
     /** POST /posts/settings/live/test (admin) — check the SAVED credentials of a live provider. */
     testLiveProvider(provider: string,): Promise<{ ok: boolean; message: string; }> {
         return this.mutate<{ ok: boolean; message: string; }>('POST', '/posts/settings/live/test', { body: { provider, }, },);
+    }
+
+    /** GET /posts/type-counts — post type → count of posts the caller can see (filter bars). */
+    typeCounts(): Promise<PostTypeCountsResponse> {
+        return this.get<PostTypeCountsResponse>('/posts/type-counts',);
     }
 
     /** GET /posts/types — registered post types (built-in + site-defined). */
