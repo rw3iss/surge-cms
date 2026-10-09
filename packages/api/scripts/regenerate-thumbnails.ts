@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     let fixed = 0;
     for (const r of rows) {
         try {
-            const res = await fetch(r.url,);
+            const res = await fetch(new URL(r.url, process.env.SITE_URL || 'https://surgemedia.us',),);
             if (!res.ok) { console.log(`skip ${r.filename}: original HTTP ${res.status}`,); continue; }
             const buf = Buffer.from(await res.arrayBuffer(),);
             const { hasAlpha, } = await sharp(buf,).metadata();
@@ -61,4 +61,4 @@ async function main(): Promise<void> {
     console.log(`${APPLY ? 'Fixed' : 'Would fix'} ${fixed} thumbnail(s).`,);
 }
 
-main().catch((e,) => { console.error(e,); process.exitCode = 1; },).finally(() => void closePool(),);
+main().catch((e,) => { console.error(e,); process.exitCode = 1; },).finally(async () => { await closePool(); process.exit(); },);
