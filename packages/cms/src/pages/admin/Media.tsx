@@ -88,8 +88,21 @@ function downloadFile(url: string, filename: string,) {
     document.body.removeChild(a,);
 }
 
+type MediaKind = 'image' | 'video' | 'audio' | 'document';
+
+/** Type filter buttons (the API's `types` list; `document` = anything else). */
+const MEDIA_KINDS: { key: MediaKind; label: string; icon: string; }[] = [
+    { key: 'image', label: 'Images', icon: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1.5 1.5 0 1 0 0-.01', },
+    { key: 'video', label: 'Videos', icon: 'M4 6h12v12H4zM16 10l4-2.5v9L16 14', },
+    { key: 'audio', label: 'Audio', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM19 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', },
+    { key: 'document', label: 'Documents', icon: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6', },
+];
+
 const AdminMedia: Component = () => {
-    const [typeFilter, setTypeFilter,] = createSignal('',);
+    // Type filter: any combination of types; none selected = All.
+    const [types, setTypes,] = createSignal<MediaKind[]>([],);
+    const toggleType = (k: MediaKind,) =>
+        setTypes((cur,) => (cur.includes(k,) ? cur.filter((x,) => x !== k) : [...cur, k,]));
     const [searchInput, setSearchInput,] = createSignal('',);
     const [searchQuery, setSearchQuery,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('date_desc',);
@@ -98,7 +111,7 @@ const AdminMedia: Component = () => {
 
     const mediaQuery = () => {
         const q: Record<string, string> = {};
-        if (typeFilter()) q.type = typeFilter();
+        if (types().length) q.types = types().join(',',);
         if (searchQuery()) q.search = searchQuery();
         if (sortBy()) q.sort = sortBy();
         return q;
@@ -265,14 +278,31 @@ const AdminMedia: Component = () => {
                     'align-items': 'center',
                 }}
             >
-                <div class="form-group" style={{ margin: '0', }}>
-                    <select value={typeFilter()} onChange={(e,) => setTypeFilter(e.currentTarget.value,)}>
-                        <option value="">All Types</option>
-                        <option value="image">Images</option>
-                        <option value="video">Videos</option>
-                        <option value="audio">Audio</option>
-                        <option value="document">Documents</option>
-                    </select>
+                <div class="media-type-filter" role="group" aria-label="Media types">
+                    <button
+                        type="button"
+                        class="media-type-filter__btn"
+                        classList={{ 'is-active': types().length === 0, }}
+                        aria-pressed={types().length === 0}
+                        onClick={() => setTypes([],)}
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
+                        All
+                    </button>
+                    <For each={MEDIA_KINDS}>
+                        {(k,) => (
+                            <button
+                                type="button"
+                                class="media-type-filter__btn"
+                                classList={{ 'is-active': types().includes(k.key,), }}
+                                aria-pressed={types().includes(k.key,)}
+                                onClick={() => toggleType(k.key,)}
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d={k.icon} /></svg>
+                                {k.label}
+                            </button>
+                        )}
+                    </For>
                 </div>
                 <div class="form-group" style={{ margin: '0', flex: '1', 'min-width': '200px', position: 'relative', }}>
                     <input

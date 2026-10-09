@@ -31,11 +31,13 @@
     overflow: hidden;
     background: $background-dark;
 
+    // Contained, not cropped: the whole image is visible in the square tile
+    // (letterboxed on the tile background).
     img,
     video {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
     }
   }
 
@@ -404,5 +406,49 @@
     gap: $spacing-sm;
     padding: $spacing-md $spacing-lg;
     border-top: 1px solid $border-color;
+  }
+}
+
+// Media type filter — toggle buttons (All + one per type).
+.media-type-filter {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--admin-text);
+    background: transparent;
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:hover { border-color: $primary-color; color: $primary-color; }
+    &:focus-visible { outline: 2px solid $primary-color; outline-offset: 2px; }
+
+    &.is-active,
+    &.is-active:hover {
+      color: white;
+      background: $primary-color;
+      border-color: $primary-color;
+    }
   }
 }
