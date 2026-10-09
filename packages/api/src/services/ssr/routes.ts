@@ -22,6 +22,7 @@ import {
     truncateText,
 } from './schema';
 import { resolveContentForSsr, } from './templateRuntime';
+import { resolveStaticMeta, } from './staticMeta';
 import { gateFor, isHiddenFor, tiersById, } from '../postGate/index';
 import { samplePostContent, } from '../postGate/samples';
 
@@ -761,6 +762,13 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     // and `index, follow`, so every typo, scraped link and probe became an
     // indexable page — an unbounded soft-404 surface on a site with ~18 real
     // URLs.
+    // App screens + SPA-rendered detail pages get their own title, description,
+    // image and JSON-LD (account screens noindex) — not just the site name.
+    const appMeta = await resolveStaticMeta({
+        path, url, siteUrl: siteUrl(), siteName: SITE_NAME, siteDescription: SITE_DESCRIPTION, logo,
+    },);
+    if (appMeta) return appMeta;
+
     if (STATIC_PUBLIC_ROUTES.has(path,) || SPA_OWNED_PREFIXES.some((p,) => path.startsWith(p,))) {
         return {
             title: SITE_NAME,
