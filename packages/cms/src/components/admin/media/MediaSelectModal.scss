@@ -3,8 +3,8 @@
   border-radius: $border-radius-lg;
   box-shadow: $shadow-xl;
   width: 100%;
-  max-width: 720px;
-  max-height: 85vh;
+  max-width: 1080px;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   z-index: $z-index-modal;
@@ -44,6 +44,8 @@
 
   &__toolbar {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: $spacing-sm;
     padding: $spacing-md $spacing-lg;
     border-bottom: 1px solid $border-color;
@@ -112,7 +114,7 @@
     }
 
     @include lg {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
     }
   }
 
@@ -125,6 +127,18 @@
     &:hover {
       border-color: color.adjust($border-color, $lightness: -10%);
       box-shadow: $shadow-md;
+    }
+  }
+
+  // A library item — clicking it opens the full-size lightbox.
+  &__card--item {
+    display: flex;
+    flex-direction: column;
+    cursor: zoom-in;
+
+    &:focus-visible {
+      outline: 2px solid var(--site-primary, #{$primary-color});
+      outline-offset: 2px;
     }
   }
 
@@ -173,29 +187,15 @@
     position: relative;
     width: 100%;
     aspect-ratio: 4 / 3;
-    background: $background-dark;
+    background: transparent;
     overflow: hidden;
   }
 
   &__thumb {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  &__video {
-    width: 100%;
-    height: 100%;
     object-fit: contain;
     display: block;
-    background: #000;
-  }
-
-  &__thumb-wrap {
-    position: relative;
-    width: 100%;
-    height: 100%;
   }
 
   &__thumb-placeholder {
@@ -218,16 +218,15 @@
     height: 44px;
     border-radius: $border-radius-full;
     background: rgba(0, 0, 0, 0.6);
-    border: none;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: none;
     transition: background $transition-fast;
+  }
 
-    &:hover {
-      background: rgba(0, 0, 0, 0.8);
-    }
+  &__card--item:hover &__play-btn {
+    background: rgba(0, 0, 0, 0.8);
   }
 
   &__play-icon {
@@ -237,6 +236,7 @@
   }
 
   &__info {
+    margin-top: auto;
     padding: $spacing-sm;
     display: flex;
     flex-direction: column;
@@ -259,6 +259,7 @@
 
   &__select-btn {
     margin-top: $spacing-xs;
+    cursor: pointer;
     padding: $spacing-xs $spacing-sm;
     background: var(--site-primary, #{$primary-color});
     color: #fff;

@@ -1,9 +1,10 @@
 import { A, } from '@solidjs/router';
 import type { Media, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, on, onCleanup, Show, } from 'solid-js';
-import VideoPlayer from '../../components/blocks/media/VideoPlayer';
-import MediaVideo from '../../components/blocks/media/MediaVideo';
 import MediaEditModal from '../../components/admin/media/MediaEditModal';
+import MediaTypeFilter, { type MediaKind, } from '../../components/admin/media/MediaTypeFilter';
+import MediaViewerModal from '../../components/admin/media/MediaViewerModal';
+import { downloadFile, formatSize, getTypeLabel, } from '../../components/admin/media/mediaUtils';
 import RenditionChips from '../../components/admin/media/RenditionChips';
 import { formatDuration, } from '../../components/admin/media/videoFormat';
 import { cms, } from '../../services/cmsClient';
@@ -12,18 +13,6 @@ import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import '../../components/admin/media/VideoMedia.scss';
 
-function formatSize(bytes: number,): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1,)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1,)} MB`;
-}
-
-function getTypeLabel(mimeType: string,): string {
-    if (mimeType.startsWith('image/',)) return 'Image';
-    if (mimeType.startsWith('video/',)) return 'Video';
-    if (mimeType.startsWith('audio/',)) return 'Audio';
-    return 'Document';
-}
 
 const POLL_MS = 3000;
 const ACTIVE_JOB = new Set(['queued', 'downloading', 'probing', 'encoding', 'uploading', 'finalizing',],);
@@ -78,31 +67,11 @@ const VideoTile: Component<{ m: Media; }> = (p,) => {
     );
 };
 
-function downloadFile(url: string, filename: string,) {
-    const a = document.createElement('a',);
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a,);
-    a.click();
-    document.body.removeChild(a,);
-}
 
-type MediaKind = 'image' | 'video' | 'audio' | 'document';
-
-/** Type filter buttons (the API's `types` list; `document` = anything else). */
-const MEDIA_KINDS: { key: MediaKind; label: string; icon: string; }[] = [
-    { key: 'image', label: 'Images', icon: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1.5 1.5 0 1 0 0-.01', },
-    { key: 'video', label: 'Videos', icon: 'M4 6h12v12H4zM16 10l4-2.5v9L16 14', },
-    { key: 'audio', label: 'Audio', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM19 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', },
-    { key: 'document', label: 'Documents', icon: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6', },
-];
 
 const AdminMedia: Component = () => {
     // Type filter: any combination of types; none selected = All.
     const [types, setTypes,] = createSignal<MediaKind[]>([],);
-    const toggleType = (k: MediaKind,) =>
-        setTypes((cur,) => (cur.includes(k,) ? cur.filter((x,) => x !== k) : [...cur, k,]));
     const [searchInput, setSearchInput,] = createSignal('',);
     const [searchQuery, setSearchQuery,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('date_desc',);
@@ -185,28 +154,6 @@ const AdminMedia: Component = () => {
         refetch();
     };
 
-    /** URL just copied from the view modal — flips its button to "Copied" briefly. */
-    const [copiedUrl, setCopiedUrl,] = createSignal<string | null>(null,);
-    const copyUrl = (url: string,) => {
-        void navigator.clipboard.writeText(url,).then(() => {
-            setCopiedUrl(url,);
-            setTimeout(() => setCopiedUrl((u,) => (u === url ? null : u)), 1500,);
-        },).catch(() => window.prompt('Copy this URL:', url,));
-    };
-
-    /** A 7-day link to the plain video file that skips the access check. */
-    const copyShareLink = async (id: string,) => {
-        try {
-            const { url, } = await cms.media.video.share(id, 7,);
-            await navigator.clipboard.writeText(url,).catch(() => window.prompt('Copy this share link:', url,));
-            const key = `share:${id}`;
-            setCopiedUrl(key,);
-            setTimeout(() => setCopiedUrl((u,) => (u === key ? null : u)), 2000,);
-        } catch (e) {
-            window.alert(`Could not create a share link: ${(e as Error).message}`,);
-        }
-    };
-
     const handleDownload = (m: any, e: Event,) => {
         e.stopPropagation();
         downloadFile(m.url, m.originalName,);
@@ -220,22 +167,6 @@ const AdminMedia: Component = () => {
         setViewingMedia(null,);
     };
 
-    const handleModalContentClick = (m: any,) => {
-        // For images and documents, open in new tab
-        // Videos are handled by Plyr's built-in controls
-        if (
-            m.mimeType?.startsWith('image/',) ||
-            (!m.mimeType?.startsWith('video/',) && !m.mimeType?.startsWith('audio/',))
-        ) {
-            window.open(m.url, '_blank',);
-        }
-    };
-
-    const handleBackdropClick = (e: Event,) => {
-        if ((e.target as HTMLElement).classList.contains('media-modal',)) {
-            closeModal();
-        }
-    };
 
     let searchTimeout: ReturnType<typeof setTimeout>;
     const handleSearchInput = (value: string,) => {
@@ -278,32 +209,7 @@ const AdminMedia: Component = () => {
                     'align-items': 'center',
                 }}
             >
-                <div class="media-type-filter" role="group" aria-label="Media types">
-                    <button
-                        type="button"
-                        class="media-type-filter__btn"
-                        classList={{ 'is-active': types().length === 0, }}
-                        aria-pressed={types().length === 0}
-                        onClick={() => setTypes([],)}
-                    >
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
-                        All
-                    </button>
-                    <For each={MEDIA_KINDS}>
-                        {(k,) => (
-                            <button
-                                type="button"
-                                class="media-type-filter__btn"
-                                classList={{ 'is-active': types().includes(k.key,), }}
-                                aria-pressed={types().includes(k.key,)}
-                                onClick={() => toggleType(k.key,)}
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d={k.icon} /></svg>
-                                {k.label}
-                            </button>
-                        )}
-                    </For>
-                </div>
+                <MediaTypeFilter value={types()} onChange={setTypes} />
                 <div class="form-group" style={{ margin: '0', flex: '1', 'min-width': '200px', position: 'relative', }}>
                     <input
                         type="text"
@@ -437,77 +343,7 @@ const AdminMedia: Component = () => {
 
             {/* Media View Modal */}
             <Show when={viewingMedia()}>
-                {(m,) => (
-                    <div class="media-modal" onClick={handleBackdropClick}>
-                        <div class="media-modal__container">
-                            <button class="media-modal__close-icon" onClick={closeModal} title="Close">
-                                &times;
-                            </button>
-
-                            <div class="media-modal__content" onClick={() => handleModalContentClick(m(),)}>
-                                <Show when={m().mimeType?.startsWith('image/',)}>
-                                    <img src={m().url} alt={m().alt || m().title || m().originalName} />
-                                </Show>
-                                <Show when={m().mimeType?.startsWith('video/',)}>
-                                    <Show
-                                        when={isEncodedVideo(m(),)}
-                                        fallback={<VideoPlayer src={m().url} controls={true} />}
-                                    >
-                                        <MediaVideo mediaId={m().id} showVariantSwitch showQualityMenu />
-                                    </Show>
-                                </Show>
-                                <Show when={m().mimeType?.startsWith('audio/',)}>
-                                    <div class="media-modal__audio">
-                                        <div class="media-modal__audio-icon">&#9835;</div>
-                                        <audio src={m().url} controls preload="metadata" />
-                                    </div>
-                                </Show>
-                                <Show
-                                    when={!m().mimeType?.startsWith('image/',) &&
-                                        !m().mimeType?.startsWith('video/',) && !m().mimeType?.startsWith('audio/',)}
-                                >
-                                    <div class="media-modal__file">
-                                        <div class="media-modal__file-icon">{getTypeLabel(m().mimeType,)}</div>
-                                        <div class="media-modal__file-name">{m().originalName}</div>
-                                        <div class="media-modal__file-hint">Click to open in new tab</div>
-                                    </div>
-                                </Show>
-                            </div>
-
-                            <div class="media-modal__footer">
-                                <button class="ui-button ui-button--secondary" onClick={closeModal}>Close</button>
-                                <div class="media-modal__meta">
-                                    <span>{m().title || m().originalName}</span>
-                                    <span class="media-modal__meta-details">
-                                        {getTypeLabel(m().mimeType,)} &middot; {formatSize(m().size,)} &middot;{' '}
-                                        {new Date(m().createdAt,).toLocaleDateString()}
-                                    </span>
-                                </div>
-                                <div class="media-modal__actions">
-                                    <button
-                                        class="ui-button ui-button--secondary"
-                                        title={m().video ? 'Direct link: plays the video file for anyone allowed to watch it' : undefined}
-                                        onClick={() => copyUrl(m().url,)}
-                                    >
-                                        {copiedUrl() === m().url ? 'Copied' : 'Copy URL'}
-                                    </button>
-                                    <Show when={m().video}>
-                                        <button
-                                            class="ui-button ui-button--secondary"
-                                            title="A 7-day link that plays the file for anyone, signed in or not"
-                                            onClick={() => void copyShareLink(m().id,)}
-                                        >
-                                            {copiedUrl() === `share:${m().id}` ? 'Copied (7 days)' : 'Copy share link'}
-                                        </button>
-                                    </Show>
-                                    <button class="ui-button ui-button--primary" onClick={(e,) => handleDownload(m(), e,)}>
-                                        Download
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {(m,) => <MediaViewerModal media={m()} onClose={closeModal} />}
             </Show>
         </div>
     );

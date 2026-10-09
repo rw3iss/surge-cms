@@ -1,10 +1,12 @@
 import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
+import MediaTypeFilter, { MEDIA_KINDS, type MediaKind, } from './MediaTypeFilter';
 import MediaUploadModal from './MediaUploadModal';
+import MediaViewerModal from './MediaViewerModal';
 import './MediaSelectModal.scss';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 15;
 
 export interface MediaItem {
     id: string;
@@ -15,7 +17,10 @@ export interface MediaItem {
     url: string;
     thumbnailUrl?: string;
     title?: string;
+    alt?: string;
     createdAt: string;
+    /** Encoded-video details (poster etc.), when the item is an encoded video. */
+    video?: { posterUrl?: string | null; } | null;
 }
 
 interface MediaSelectModalProps {
@@ -31,8 +36,22 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
     const [searchText, setSearchText,] = createSignal('',);
     const [sort, setSort,] = createSignal('date_desc',);
     const [page, setPage,] = createSignal(1,);
-    const [playingVideo, setPlayingVideo,] = createSignal<string | null>(null,);
     const [showUpload, setShowUpload,] = createSignal(false,);
+    /** Item open in the full-size lightbox (selecting still needs the Select button). */
+    const [viewing, setViewing,] = createSignal<MediaItem | null>(null,);
+
+    /** Kinds this picker may show: the caller's `types`, else all four. */
+    const allowedKinds = (): MediaKind[] => {
+        const all = MEDIA_KINDS.map((k,) => k.key);
+        const t = (props.types ?? []).filter((x,): x is MediaKind => all.includes(x as MediaKind,));
+        return t.length ? t : all;
+    };
+    const [kinds, setKinds,] = createSignal<MediaKind[]>([],);
+    const handleKindsChange = (next: MediaKind[],) => {
+        setKinds(next,);
+        setPage(1,);
+        fetchMedia();
+    };
 
     let searchTimer: ReturnType<typeof setTimeout>;
 
@@ -44,7 +63,8 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                 page: page(),
                 limit: ITEMS_PER_PAGE,
             };
-            if (props.types?.length) query.types = props.types.join(',',);
+            const t = kinds().length ? kinds() : props.types;
+            if (t?.length) query.types = t.join(',',);
             if (searchText()) query.search = searchText();
 
             const result = await cms.media.list(query,);
@@ -122,13 +142,23 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
     },);
 
     return (
-        <ModalShell open={true} onClose={props.onClose} size="lg" class="media-select-modal" ariaLabel="Select Media">
+        <ModalShell
+            open={true}
+            onClose={props.onClose}
+            size="lg"
+            class="media-select-modal"
+            ariaLabel="Select Media"
+            dismissOnEscape={!viewing() && !showUpload()}
+        >
                 <div class="media-select-modal__header">
                     <h2>Select Media</h2>
                     <button class="media-select-modal__close" onClick={props.onClose}>&times;</button>
                 </div>
 
                 <div class="media-select-modal__toolbar">
+                    <Show when={allowedKinds().length > 1}>
+                        <MediaTypeFilter value={kinds()} onChange={handleKindsChange} kinds={allowedKinds()} />
+                    </Show>
                     <input
                         type="text"
                         class="media-select-modal__search"
@@ -173,46 +203,48 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                             <div style={{ display: 'contents', }}>
                                 <For each={items()}>
                                     {(item,) => (
-                                        <div class="media-select-modal__card">
+                                        <div
+                                            class="media-select-modal__card media-select-modal__card--item"
+                                            title={item.title || item.originalName}
+                                            role="button"
+                                            tabindex="0"
+                                            onClick={() => setViewing(item,)}
+                                            onKeyDown={(e,) => {
+                                                if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                                                    e.preventDefault();
+                                                    setViewing(item,);
+                                                }
+                                            }}
+                                        >
                                             <div class="media-select-modal__preview">
-                                                <Show when={isVideo(item,) && playingVideo() === item.id}>
-                                                    <video
-                                                        class="media-select-modal__video"
-                                                        src={item.url}
-                                                        controls
-                                                        autoplay
-                                                    />
-                                                </Show>
-                                                <Show when={isVideo(item,) && playingVideo() !== item.id}>
-                                                    <div class="media-select-modal__thumb-wrap">
-                                                        <Show
-                                                            when={item.thumbnailUrl}
-                                                            fallback={
-                                                                <div class="media-select-modal__thumb-placeholder">
-                                                                    <span>&#9654;</span>
-                                                                </div>
-                                                            }
-                                                        >
+                                                <Show when={isVideo(item,)}>
+                                                    <Show
+                                                        when={item.video?.posterUrl || item.thumbnailUrl}
+                                                        fallback={
+                                                            <div class="media-select-modal__thumb-placeholder">
+                                                                <span>&#9654;</span>
+                                                            </div>
+                                                        }
+                                                    >
+                                                        {(src,) => (
                                                             <img
-                                                                src={item.thumbnailUrl}
-                                                                alt={item.title || item.originalName}
+                                                                src={src()}
+                                                                alt={item.alt || item.title || item.originalName}
                                                                 class="media-select-modal__thumb"
+                                                                loading="lazy"
                                                             />
-                                                        </Show>
-                                                        <button
-                                                            class="media-select-modal__play-btn"
-                                                            onClick={() => setPlayingVideo(item.id,)}
-                                                            title="Play video"
-                                                        >
-                                                            <span class="media-select-modal__play-icon">&#9654;</span>
-                                                        </button>
-                                                    </div>
+                                                        )}
+                                                    </Show>
+                                                    <span class="media-select-modal__play-btn" aria-hidden="true">
+                                                        <span class="media-select-modal__play-icon">&#9654;</span>
+                                                    </span>
                                                 </Show>
                                                 <Show when={isImage(item,)}>
                                                     <img
                                                         src={item.thumbnailUrl || item.url}
-                                                        alt={item.title || item.originalName}
+                                                        alt={item.alt || item.title || item.originalName}
                                                         class="media-select-modal__thumb"
+                                                        loading="lazy"
                                                     />
                                                 </Show>
                                                 <Show when={!isImage(item,) && !isVideo(item,)}>
@@ -222,10 +254,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                                                 </Show>
                                             </div>
                                             <div class="media-select-modal__info">
-                                                <span
-                                                    class="media-select-modal__name"
-                                                    title={item.title || item.originalName}
-                                                >
+                                                <span class="media-select-modal__name">
                                                     {item.title || item.originalName}
                                                 </span>
                                                 <span class="media-select-modal__meta">
@@ -233,7 +262,10 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                                                 </span>
                                                 <button
                                                     class="media-select-modal__select-btn"
-                                                    onClick={() => props.onSelect(item,)}
+                                                    onClick={(e,) => {
+                                                        e.stopPropagation();
+                                                        props.onSelect(item,);
+                                                    }}
                                                 >
                                                     Select
                                                 </button>
@@ -266,6 +298,10 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                             Next
                         </button>
                     </div>
+                </Show>
+
+                <Show when={viewing()}>
+                    {(m,) => <MediaViewerModal media={m() as never} onClose={() => setViewing(null,)} />}
                 </Show>
 
                 <Show when={showUpload()}>

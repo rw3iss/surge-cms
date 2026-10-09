@@ -123,7 +123,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: $z-index-modal;
+  z-index: $z-index-modal + 10; // above a ModalShell (opened from MediaSelectModal)
   padding: $spacing-lg;
 
   &__container {
