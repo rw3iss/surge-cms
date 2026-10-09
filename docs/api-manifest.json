@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-08T23:14:54.946Z",
+  "generatedAt": "2026-10-09T06:00:13.487Z",
   "totalModules": 48,
-  "totalRoutes": 461,
+  "totalRoutes": 462,
   "modules": [
     {
       "module": "admin-channel",
@@ -3093,6 +3093,13 @@
           "absolutePath": "/api/v1/subscription-tiers",
           "auth": "admin",
           "summary": "All subscription tiers (role, extra permissions, Stripe price, subscriber count)."
+        },
+        {
+          "method": "GET",
+          "path": "/options",
+          "absolutePath": "/api/v1/subscription-tiers/options",
+          "auth": "staff",
+          "summary": "Tier picker for content gating: id/name/slug/free, in rank order (staff)."
         },
         {
           "method": "GET",

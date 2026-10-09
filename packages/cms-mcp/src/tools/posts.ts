@@ -60,6 +60,10 @@ const postCreateShape = {
     publishAt: z.string().nullable().optional().describe('ISO date-time to publish (for status="scheduled").',),
     isPrivate: z.boolean().optional().describe('Restrict access (see accessLevel).',),
     accessLevel: z.string().optional().describe('Content access level (public | members | tier).',),
+    requiredTierId: z.string().nullable().optional().describe('Subscription tier id required to read the post (see subscription tiers). null or "" = public. Viewers with this tier or any higher-ranked tier pass.',),
+    gateHidden: z.boolean().optional().describe('When a tier is required: hide the post entirely from non-subscribers (left out of listings, 404 on direct visit). Default false.',),
+    gateShowSample: z.boolean().optional().describe('When a tier is required and not hidden: show non-subscribers a sample of the article plus an upgrade prompt. false = only title, banner and the prompt. Default false.',),
+    gateSamplePercent: z.number().int().min(1,).max(100,).optional().describe('Share (1-100) of the article text shown as the sample, taken from the first Rich Text block (blocks above it are shown too). Default 25.',),
     tags: z.array(z.string(),).optional().describe('Tags.',),
     categories: z.array(z.string(),).optional().describe('Categories.',),
     metaTitle: z.string().optional().describe('SEO <title>.',),
@@ -145,7 +149,7 @@ const tools = [
     defineTool({
         name: 'create_post',
         description:
-            'Create a post. Set slug + title; optionally excerpt, featuredImage, status, publishAt, access (isPrivate/accessLevel), tags/categories, SEO (metaTitle/metaDescription). '
+            'Create a post. Set slug + title; optionally excerpt, featuredImage, status, publishAt, access (isPrivate/accessLevel), subscription gating (requiredTierId/gateHidden/gateShowSample/gateSamplePercent), tags/categories, SEO (metaTitle/metaDescription). '
             + 'Pass `blocks` (an array of block descriptors: { type, title?, content?, settings?, style? }) to author the body — they are stored in order as content blocks. Posts are FLAT: group/group_item are rejected. Returns the created post with its content blocks.',
         write: true,
         inputSchema: {

@@ -1,7 +1,9 @@
 import { featuredImagePath, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@sitesurge/types';
-import { Component, createSignal, For, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, on, onMount, Show, } from 'solid-js';
+import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
+import { useAuth, } from '../stores/auth';
 import SeoHead from '../components/common/seo/SeoHead';
 import { siteName, } from '../stores/siteSettings';
 import { cms, } from '../services/cmsClient';
@@ -17,6 +19,7 @@ const PostsPage: Component = () => {
     const [page, setPage,] = createSignal(1,);
     const [loading, setLoading,] = createSignal(true,);
     const [loadingMore, setLoadingMore,] = createSignal(false,);
+    const auth = useAuth();
 
     const hasMore = () => posts().length < total();
 
@@ -51,6 +54,10 @@ const PostsPage: Component = () => {
             setLoadingMore(false,);
         }
     };
+
+    // The list is shaped per viewer (hidden subscriber posts, badges), so
+    // reload it when someone signs in or out.
+    createEffect(on(() => auth.user?.id ?? null, () => void loadPosts(1,), { defer: true, },),);
 
     onMount(() => loadPosts(1,),);
 
@@ -103,7 +110,10 @@ const PostsPage: Component = () => {
                                         </div>
                                     </Show>
                                     <div class="post-card__body">
-                                        <h2 class="post-card__title">{post.title}</h2>
+                                        <h2 class="post-card__title">
+                                            {post.title}
+                                            <PostVisibilityBadge gate={post.gate} />
+                                        </h2>
                                         <Show when={post.excerpt}>
                                             <p class="post-card__excerpt">{post.excerpt}</p>
                                         </Show>

@@ -7,6 +7,7 @@ import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
+import { Slider, } from '../../components/ui/Slider';
 import { BlockData, } from '../../components/admin/blocks/ContentBlock';
 import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
@@ -44,6 +45,14 @@ const AdminPostEditor: Component = () => {
     /** Banner height for every image layout (any CSS height); '' = layout default. */
     const [bannerHeight, setBannerHeight,] = createSignal('',);
     const [showPhotoCredits, setShowPhotoCredits,] = createSignal(false,);
+    /** Subscription tier required to read the post ('' = public). */
+    const [requiredTierId, setRequiredTierId,] = createSignal('',);
+    /** Hide the post entirely (listings + 404) from viewers without the tier. */
+    const [gateHidden, setGateHidden,] = createSignal(false,);
+    /** Show non-subscribers the start of the article + an upgrade prompt. */
+    const [gateShowSample, setGateShowSample,] = createSignal(false,);
+    /** Share of the article text shown as the sample (1–100). */
+    const [gateSamplePercent, setGateSamplePercent,] = createSignal(25,);
     /** The saved banner's media item — for the preview's credit line. */
     const [loadedMedia, setLoadedMedia,] = createSignal<{ path?: string; credits?: string | null; } | null>(null,);
     const [publishAt, setPublishAt,] = createSignal('',);
@@ -65,6 +74,18 @@ const AdminPostEditor: Component = () => {
         [] as { id: string; displayName: string; role: string; }[],
     );
 
+    // Subscription tiers for the "Subscription required" picker. A failure
+    // (feature off / no permission) leaves just the "None (public)" option.
+    const [tierOptions,] = createSafeResource(
+        async () => await cms.subscriptionTiers.options(),
+        [] as { id: string; name: string; slug: string; isFree: boolean; isActive: boolean; sortOrder: number; }[],
+    );
+    const requiredTierName = () => {
+        const id = requiredTierId();
+        if (!id) return '';
+        return (tierOptions() ?? []).find((t,) => t.id === id)?.name ?? 'Subscribers';
+    };
+
     const editor = useEntityEditor<Post>({
         entityKind: 'post',
         listPath: '/admin/posts',
@@ -83,6 +104,10 @@ const AdminPostEditor: Component = () => {
             bannerImagePositionCustom: bannerImagePositionCustom(),
             bannerHeight: bannerHeight(),
             showPhotoCredits: showPhotoCredits(),
+            requiredTierId: requiredTierId(),
+            gateHidden: gateHidden(),
+            gateShowSample: gateShowSample(),
+            gateSamplePercent: gateSamplePercent(),
             publishAt: publishAt(),
             authorId: authorId(),
             applyPostPadding: applyPostPadding(),
@@ -112,6 +137,10 @@ const AdminPostEditor: Component = () => {
                 bannerImagePositionCustom: bannerImagePosition() === 'custom' ? bannerImagePositionCustom().trim() || null : null,
                 bannerHeight: bannerHeight().trim() || null,
                 showPhotoCredits: showPhotoCredits(),
+                requiredTierId: requiredTierId() || null,
+                gateHidden: gateHidden(),
+                gateShowSample: gateShowSample(),
+                gateSamplePercent: gateSamplePercent(),
                 authorId: authorId() || null,
                 publishAt: publishAt() ? new Date(publishAt(),).toISOString() : null,
                 applyPostPadding: applyPostPadding(),
@@ -162,6 +191,7 @@ const AdminPostEditor: Component = () => {
     // publishes an anonymous article. The backend also defaults this on create;
     // doing it here as well makes the choice VISIBLE and editable before save.
     let authorSelect: HTMLSelectElement | undefined;
+    let tierSelect: HTMLSelectElement | undefined;
     createEffect(() => {
         // `auth.user` is a PROPERTY on the store, not an accessor — calling it
         // threw and killed the effect silently.
@@ -188,6 +218,13 @@ const AdminPostEditor: Component = () => {
         if (authorSelect && document.activeElement !== authorSelect) authorSelect.value = v;
     },);
 
+    // Same async-options re-sync for the tier picker.
+    createEffect(() => {
+        tierOptions();
+        const v = requiredTierId();
+        if (tierSelect && document.activeElement !== tierSelect) tierSelect.value = v;
+    },);
+
     // ─── Offer to restore a localStorage draft for NEW posts ───
     // (only if a draft exists and the current state is empty)
     createEffect(() => {
@@ -208,6 +245,10 @@ const AdminPostEditor: Component = () => {
             setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
             setBannerHeight(d.bannerHeight || '',);
             setShowPhotoCredits(d.showPhotoCredits === true,);
+            setRequiredTierId(d.requiredTierId || '',);
+            setGateHidden(d.gateHidden === true,);
+            setGateShowSample(d.gateShowSample === true,);
+            setGateSamplePercent(typeof d.gateSamplePercent === 'number' ? d.gateSamplePercent : 25,);
             setPublishAt(d.publishAt || '',);
             setAuthorId(d.authorId || '',);
             setApplyPostPadding(d.applyPostPadding !== false,);
@@ -234,6 +275,10 @@ const AdminPostEditor: Component = () => {
         setBannerImagePositionCustom((p as any).bannerImagePositionCustom || '',);
         setBannerHeight((p as any).bannerHeight || '',);
         setShowPhotoCredits((p as any).showPhotoCredits === true,);
+        setRequiredTierId(p.requiredTierId || '',);
+        setGateHidden(p.gateHidden === true,);
+        setGateShowSample(p.gateShowSample === true,);
+        setGateSamplePercent(typeof p.gateSamplePercent === 'number' ? p.gateSamplePercent : 25,);
         setLoadedMedia((p as any).featuredMedia ?? null,);
         setAuthorId((p as any).authorId || '',);
         setApplyPostPadding((p as any).applyPostPadding !== false,);
@@ -277,6 +322,9 @@ const AdminPostEditor: Component = () => {
                 <>
                     <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
                     <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
+                    <Show when={requiredTierId()}>
+                        <span class="editor-pill editor-pill--member" title="Subscription required">🔒 {requiredTierName()}</span>
+                    </Show>
                 </>
             }
         >
@@ -569,6 +617,52 @@ const AdminPostEditor: Component = () => {
                             <option value="patron">Patrons Only</option>
                         </select>
                     </FormField>
+                    <FormField label="Subscription required">
+                        <select
+                            ref={tierSelect}
+                            value={requiredTierId()}
+                            onChange={(e,) => { setRequiredTierId(e.currentTarget.value,); editor.markDirty(); }}
+                        >
+                            <option value="">None (public)</option>
+                            <For each={tierOptions() || []}>
+                                {(t,) => <option value={t.id}>{t.name}{t.isActive ? '' : ' (inactive)'}</option>}
+                            </For>
+                        </select>
+                    </FormField>
+                    <Show when={requiredTierId()}>
+                        <div style={{ 'padding-left': '0.75rem', 'border-left': '2px solid var(--admin-border)', 'margin-bottom': '1rem', display: 'flex', 'flex-direction': 'column', gap: '0.75rem', }}>
+                            <Toggle
+                                checked={gateHidden()}
+                                onChange={(next,) => { setGateHidden(next,); editor.markDirty(); }}
+                                label="Hide from non-subscribers"
+                                hint="Left out of listings and 404s for anyone without this tier."
+                            />
+                            <Show when={!gateHidden()}>
+                                <Toggle
+                                    checked={gateShowSample()}
+                                    onChange={(next,) => { setGateShowSample(next,); editor.markDirty(); }}
+                                    label="Show a sample"
+                                    hint="Non-subscribers see the start of the article and an upgrade prompt. Off: just the title, banner and the prompt."
+                                />
+                                <Show when={gateShowSample()}>
+                                    <FormField
+                                        label="Sample size"
+                                        hint="Share of the article text shown (taken from the first Rich Text block; blocks above it are shown too)."
+                                    >
+                                        <Slider
+                                            value={gateSamplePercent()}
+                                            min={1}
+                                            max={100}
+                                            step={1}
+                                            suffix="%"
+                                            ariaLabel="Sample size"
+                                            onCommit={(v,) => { setGateSamplePercent(v,); editor.markDirty(); }}
+                                        />
+                                    </FormField>
+                                </Show>
+                            </Show>
+                        </div>
+                    </Show>
                     <FormField label="Author" hint="Staff user credited as the post's author.">
                         <select
                             ref={authorSelect}

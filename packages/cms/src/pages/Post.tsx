@@ -3,6 +3,8 @@ import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type ContentAc
 import { ContentLockedError, } from '@sitesurge/client';
 import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import ContentGate from '../components/auth/ContentGate';
+import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
+import UpgradeTout from '../components/content/UpgradeTout';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import TemplatedContent from '../components/blocks/TemplatedContent';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -41,13 +43,16 @@ const PostPage: Component = () => {
     const isAdminViewer = () => isAdminRole(auth.user?.role,);
     const usePreview = () => isPreviewMode() || isAdminViewer();
 
+    // Keyed on the signed-in user too: a post's body is shaped per viewer
+    // (subscription gating), so logging in — e.g. from the upgrade prompt's
+    // modal — refetches and unlocks the post in place.
     const [post,] = createResource(
-        () => params.slug,
-        async (slug,) => {
+        () => ({ slug: params.slug, viewer: auth.user?.id ?? null, }),
+        async ({ slug, },) => {
             setLockedContent(null,);
             const preview = (usePreview() && isAdminViewer()) ? 'admin' : undefined;
             try {
-                return await cms.posts.getBySlug(slug, preview ? { preview, } : undefined,) as Post;
+                return await cms.posts.getBySlug(slug!, preview ? { preview, } : undefined,) as Post;
             } catch (e) {
                 if (e instanceof ContentLockedError) {
                     // ContentLockedError.preview types fields as `string |
@@ -180,10 +185,14 @@ const PostPage: Component = () => {
                         const postCtx = () => ({
                             post: { kind: 'post', data: postData() as unknown as Record<string, unknown>, id: postData().id },
                         });
+                        const isLocked = () => postData().gate?.state === 'locked';
                         const heading = () => (
                             <>
                                 <a class="post-page__back" href="/posts">← Back to Posts</a>
-                                <h1 class="post-page__title">{postData().title}</h1>
+                                <h1 class="post-page__title">
+                                    {postData().title}
+                                    <PostVisibilityBadge gate={postData().gate} />
+                                </h1>
                                 <div class="post-page__meta">
                                     {/* Only show the byline when an author is actually set. */}
                                     <Show when={postData().author}>
@@ -289,9 +298,11 @@ const PostPage: Component = () => {
                                     </Match>
                                 </Switch>
 
-                                {/* Render content blocks if present */}
+                                {/* Render content blocks if present. For a viewer without the
+                                    post's subscription tier these are only the SAMPLE blocks
+                                    (or none) — the server never sends the rest. */}
                                 <Show when={(postData() as any).contentBlocks?.length}>
-                                    <div class="post-page__blocks">
+                                    <div class={`post-page__blocks${isLocked() && postData().gate?.sample ? ' gated-sample' : ''}`}>
                                         <For each={(postData() as any).contentBlocks}>
                                             {(block: any,) => <PostContentBlock block={block} templateContext={postCtx()} />}
                                         </For>
@@ -301,6 +312,13 @@ const PostPage: Component = () => {
                                 {/* Fallback to legacy content field if no blocks */}
                                 <Show when={!(postData() as any).contentBlocks?.length && postData().content}>
                                     <TemplatedContent class="rich-text" html={postData().content} entities={postCtx()} />
+                                </Show>
+
+                                <Show when={isLocked()}>
+                                    <UpgradeTout
+                                        requiredTier={postData().gate?.requiredTier}
+                                        variant={postData().gate?.sample ? 'continue' : 'locked'}
+                                    />
                                 </Show>
 
                                 {/* Footer nav row after the article body:

@@ -2404,6 +2404,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /subscription-tiers"
             },
             {
+                "name": "options",
+                "signature": "options(): Promise<SubscriptionTierOption[]>",
+                "summary": "GET /subscription-tiers/options (staff) — the tier picker for gating content, lowest rank first."
+            },
+            {
                 "name": "remove",
                 "signature": "remove(id: string): Promise<{ deleted: boolean; }>",
                 "summary": "DELETE /subscription-tiers/:id — only a tier that never had subscribers."
@@ -2559,4 +2564,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 446;
+export const SDK_METHOD_COUNT = 447;

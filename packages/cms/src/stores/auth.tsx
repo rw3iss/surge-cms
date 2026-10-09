@@ -1,6 +1,6 @@
 import { UnauthorizedError, } from '@sitesurge/client';
 import { type Contact, isAdminRole, type User, } from '@sitesurge/types';
-import { createContext, createEffect, createSignal, ParentComponent, useContext, } from 'solid-js';
+import { createContext, createEffect, createSignal, on, ParentComponent, useContext, } from 'solid-js';
 import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
 import { isFeatureEnabled, } from './siteSettings';
 
@@ -50,6 +50,15 @@ export const AuthProvider: ParentComponent = (props,) => {
     let contactChecked = false;
 
     const isAuthenticated = () => !!user();
+
+    // Post responses are shaped per viewer (subscription gating: a sample for
+    // one, the full article for another), but the SDK's local cache is keyed
+    // by request only. Drop cached posts whenever WHO is signed in changes, so
+    // a login unlocks content and a logout cannot replay a subscriber's copy.
+    createEffect(on(() => user()?.id ?? null, () => {
+        void cms.cache.invalidatePrefix(`${cms.config.namespace}:posts:`,);
+        void import('../services/postsService').then((m,) => m.invalidatePostListCache());
+    }, { defer: true, },),);
 
     const dismissContactPrompt = () => setContactPrompt(null,);
 

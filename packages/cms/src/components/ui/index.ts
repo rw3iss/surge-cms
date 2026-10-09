@@ -19,3 +19,4 @@ export { Alert, type AlertProps, type AlertTone, } from './Alert';
 export { Badge, statusToVariant, type BadgeProps, type BadgeVariant, type BadgeSize, } from './Badge';
 export { Spinner, type SpinnerProps, } from './Spinner';
 export { Tabs, type TabsProps, type TabItem, } from './Tabs';
+export { Slider, type SliderProps, } from './Slider';

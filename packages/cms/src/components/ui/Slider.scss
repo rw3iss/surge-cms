@@ -1,0 +1,107 @@
+@use '../../styles/variables' as *;
+
+// Range slider with live value readout. Component-scoped (imported by
+// Slider.tsx) so it renders the same in the admin and on the public site.
+// The track fill is drawn from `--slider-pct`, set inline from the value.
+.ui-slider {
+    --slider-accent: var(--site-primary, #{$primary-color});
+    --slider-track: var(--admin-border, #{$border-color});
+
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+
+    &--disabled {
+        opacity: 0.55;
+    }
+
+    &__input {
+        flex: 1;
+        min-width: 0;
+        height: 1.25rem;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+
+        &:disabled {
+            cursor: not-allowed;
+        }
+
+        &:focus {
+            outline: none;
+            box-shadow: none;
+        }
+
+        &::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(
+                to right,
+                var(--slider-accent) 0%,
+                var(--slider-accent) var(--slider-pct, 0%),
+                var(--slider-track) var(--slider-pct, 0%),
+                var(--slider-track) 100%
+            );
+        }
+
+        &::-moz-range-track {
+            height: 6px;
+            border-radius: 999px;
+            background: var(--slider-track);
+        }
+
+        &::-moz-range-progress {
+            height: 6px;
+            border-radius: 999px;
+            background: var(--slider-accent);
+        }
+
+        &::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            margin-top: -5px;
+            border-radius: 50%;
+            background: $background;
+            border: 2px solid var(--slider-accent);
+            box-shadow: 0 1px 2px rgba($text-color, 0.2);
+            transition: transform 0.1s ease;
+        }
+
+        &::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: $background;
+            border: 2px solid var(--slider-accent);
+            box-shadow: 0 1px 2px rgba($text-color, 0.2);
+        }
+
+        &:focus-visible::-webkit-slider-thumb {
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.25);
+        }
+
+        &:focus-visible::-moz-range-thumb {
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.25);
+        }
+
+        &:active::-webkit-slider-thumb {
+            transform: scale(1.1);
+        }
+    }
+
+    &__value {
+        flex: 0 0 auto;
+        min-width: 3.25em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.875rem;
+        color: var(--admin-text, #{$text-color});
+    }
+}
