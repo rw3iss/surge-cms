@@ -130,7 +130,6 @@ export interface PostCreateBody {
     status?: 'draft' | 'published' | 'scheduled' | 'archived' | 'deleted';
     publishAt?: string | null;
     isPrivate?: boolean;
-    accessLevel?: ContentAccessLevel;
     tags?: string[];
     categories?: string[];
     metaTitle?: string;

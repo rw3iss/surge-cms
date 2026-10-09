@@ -329,12 +329,12 @@ export async function createPost(data: Record<string, unknown>, authorId: string
 
     const result = await query(
         `INSERT INTO posts (slug, title, excerpt, content, featured_image, author_id,
-                        status, is_private, access_level, tags, categories, meta_title,
+                        status, is_private, tags, categories, meta_title,
                         meta_description, published_at, publish_at,
                         apply_post_padding, apply_site_gutter, header_style, header_position, banner_layout,
                         banner_image_position, banner_image_position_custom, banner_height, show_photo_credits,
                         required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
      RETURNING *`,
         [
             data.slug,
@@ -358,7 +358,6 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             uuidOrNull((data.authorId as string | null) || authorId,),
             data.status || 'draft',
             data.isPrivate || false,
-            data.accessLevel || 'public',
             data.tags || [],
             data.categories || [],
             data.metaTitle,
@@ -405,7 +404,7 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
     // `contentBlocks` is handled separately below; other keys are ignored.
     const ALLOWED_FIELDS = [
         'slug', 'title', 'excerpt', 'content', 'featuredImage', 'authorId',
-        'status', 'isPrivate', 'accessLevel', 'tags', 'categories', 'metaTitle',
+        'status', 'isPrivate', 'tags', 'categories', 'metaTitle',
         'metaDescription', 'publishAt', 'applyPostPadding', 'applySiteGutter',
         'headerStyle', 'headerPosition', 'bannerLayout', 'bannerImagePosition', 'bannerImagePositionCustom', 'bannerHeight', 'showPhotoCredits',
         'requiredTierId', 'gateHidden', 'gateShowSample', 'gateSamplePercent',

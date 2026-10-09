@@ -37,7 +37,6 @@ const postSchema = z.object({
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
     publishAt: z.string().datetime().nullable().optional(),
     isPrivate: z.boolean().optional(),
-    accessLevel: z.enum(['public', 'member', 'patron',],).optional(),
     tags: z.array(z.string(),).optional(),
     categories: z.array(z.string(),).optional(),
     metaTitle: z.string().max(255,).optional(),

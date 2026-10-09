@@ -32,7 +32,6 @@ const AdminPostEditor: Component = () => {
     const [slug, setSlug,] = createSignal('',);
     const [excerpt, setExcerpt,] = createSignal('',);
     const [status, setStatus,] = createSignal('draft',);
-    const [accessLevel, setAccessLevel,] = createSignal('public',);
     const [tags, setTags,] = createSignal('',);
     const [featuredImage, setFeaturedImage,] = createSignal('',);
     /** How the banner image + title/meta header renders: standalone (default),
@@ -74,8 +73,8 @@ const AdminPostEditor: Component = () => {
         [] as { id: string; displayName: string; role: string; }[],
     );
 
-    // Subscription tiers for the "Subscription required" picker. A failure
-    // (feature off / no permission) leaves just the "None (public)" option.
+    // Subscription tiers for the Access picker. A failure
+    // (feature off / no permission) leaves just the Public option.
     const [tierOptions,] = createSafeResource(
         async () => await cms.subscriptionTiers.options(),
         [] as { id: string; name: string; slug: string; isFree: boolean; isActive: boolean; sortOrder: number; }[],
@@ -96,7 +95,6 @@ const AdminPostEditor: Component = () => {
             slug: slug(),
             excerpt: excerpt(),
             status: status(),
-            accessLevel: accessLevel(),
             tags: tags(),
             featuredImage: featuredImage(),
             bannerLayout: bannerLayout(),
@@ -127,7 +125,6 @@ const AdminPostEditor: Component = () => {
                 slug: slug(),
                 excerpt: excerpt(),
                 status: status(),
-                accessLevel: accessLevel(),
                 tags: tagList,
                 featuredImage: featuredImage() || null,
                 bannerLayout: bannerLayout(),
@@ -237,7 +234,6 @@ const AdminPostEditor: Component = () => {
             setSlug(d.slug || '',);
             setExcerpt(d.excerpt || '',);
             setStatus(d.status || 'draft',);
-            setAccessLevel(d.accessLevel || 'public',);
             setTags(d.tags || '',);
             setFeaturedImage(d.featuredImage || '',);
             setBannerLayout(d.bannerLayout || 'standalone',);
@@ -267,7 +263,6 @@ const AdminPostEditor: Component = () => {
         setSlug(p.slug || '',);
         setExcerpt(p.excerpt || '',);
         setStatus(p.status || 'draft',);
-        setAccessLevel(p.accessLevel || 'public',);
         setTags((p.tags || []).join(', ',),);
         setFeaturedImage(p.featuredImage || '',);
         setBannerLayout(((p as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail') || 'standalone',);
@@ -321,8 +316,10 @@ const AdminPostEditor: Component = () => {
             headerExtra={
                 <>
                     <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
-                    <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
-                    <Show when={requiredTierId()}>
+                    <Show
+                        when={requiredTierId()}
+                        fallback={<span class="editor-pill editor-pill--public">public</span>}
+                    >
                         <span class="editor-pill editor-pill--member" title="Subscription required">🔒 {requiredTierName()}</span>
                     </Show>
                 </>
@@ -607,23 +604,16 @@ const AdminPostEditor: Component = () => {
                             />
                         </FormField>
                     </Show>
-                    <FormField label="Access">
-                        <select
-                            value={accessLevel()}
-                            onChange={(e,) => { setAccessLevel(e.currentTarget.value,); editor.markDirty(); }}
-                        >
-                            <option value="public">Public</option>
-                            <option value="member">Members Only</option>
-                            <option value="patron">Patrons Only</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Subscription required">
+                    <FormField
+                        label="Access"
+                        tooltip="Public, or a subscription tier (Users → Settings → Subscriptions). A reader passes with that tier or any tier ranked above it; staff always see the full post."
+                    >
                         <select
                             ref={tierSelect}
                             value={requiredTierId()}
                             onChange={(e,) => { setRequiredTierId(e.currentTarget.value,); editor.markDirty(); }}
                         >
-                            <option value="">None (public)</option>
+                            <option value="">Public</option>
                             <For each={tierOptions() || []}>
                                 {(t,) => <option value={t.id}>{t.name}{t.isActive ? '' : ' (inactive)'}</option>}
                             </For>

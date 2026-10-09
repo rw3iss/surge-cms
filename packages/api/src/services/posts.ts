@@ -17,7 +17,6 @@
 import { attachFeaturedMedia, withFeaturedMedia, } from './mediaRefs';
 import type { Post, User, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
-import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
 import { isAdminRole, } from '@sitesurge/types';
 import { applyGateSync, gateFor, isHiddenFor, tiersById, viewerRank, type ViewerRank, } from './postGate/index';
 import * as repo from '../repositories/posts.repo';
@@ -174,22 +173,6 @@ export async function getPublicBySlug(
 
     if (post.isPrivate && !user) throw new UnauthorizedError('Authentication required',);
 
-    const accessLevel = (post.accessLevel || 'public') as ContentAccessLevel;
-    if (accessLevel !== 'public') {
-        const accessCheck = await checkContentAccess(accessLevel, user,);
-        if (!accessCheck.allowed) {
-            throw new AppError(403, 'CONTENT_LOCKED', accessCheck.reason || 'Access denied', {
-                locked: true,
-                accessLevel,
-                preview: {
-                    title: post.title,
-                    description: post.excerpt || post.metaDescription || null,
-                    featuredImage: post.featuredImage || null,
-                },
-            },);
-        }
-    }
-
     // Subscription tier: hidden → as if it did not exist; locked → the
     // sample (or no body), never the full content.
     const isAdmin = isAdminRole(user?.role,);
@@ -198,7 +181,7 @@ export async function getPublicBySlug(
     const gate = gateFor(post, rank, tiers,);
     if (isHiddenFor(post, gate,)) throw new NotFoundError('Post',);
 
-    if (!post.isPrivate && accessLevel === 'public' && !post.requiredTierId) {
+    if (!post.isPrivate && !post.requiredTierId) {
         await cache.set(cacheKey, post, 300,);
     }
 

@@ -58,8 +58,7 @@ const postCreateShape = {
     featuredImage: z.string().optional().describe('Featured image URL.',),
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional().describe('Publication status (default draft).',),
     publishAt: z.string().nullable().optional().describe('ISO date-time to publish (for status="scheduled").',),
-    isPrivate: z.boolean().optional().describe('Restrict access (see accessLevel).',),
-    accessLevel: z.string().optional().describe('Content access level (public | members | tier).',),
+    isPrivate: z.boolean().optional().describe('Hide from anonymous visitors entirely (unlisted).',),
     requiredTierId: z.string().nullable().optional().describe('Subscription tier id required to read the post (see subscription tiers). null or "" = public. Viewers with this tier or any higher-ranked tier pass.',),
     gateHidden: z.boolean().optional().describe('When a tier is required: hide the post entirely from non-subscribers (left out of listings, 404 on direct visit). Default false.',),
     gateShowSample: z.boolean().optional().describe('When a tier is required and not hidden: show non-subscribers a sample of the article plus an upgrade prompt. false = only title, banner and the prompt. Default false.',),
@@ -149,7 +148,7 @@ const tools = [
     defineTool({
         name: 'create_post',
         description:
-            'Create a post. Set slug + title; optionally excerpt, featuredImage, status, publishAt, access (isPrivate/accessLevel), subscription gating (requiredTierId/gateHidden/gateShowSample/gateSamplePercent), tags/categories, SEO (metaTitle/metaDescription). '
+            'Create a post. Set slug + title; optionally excerpt, featuredImage, status, publishAt, access (isPrivate; requiredTierId/gateHidden/gateShowSample/gateSamplePercent), tags/categories, SEO (metaTitle/metaDescription). '
             + 'Pass `blocks` (an array of block descriptors: { type, title?, content?, settings?, style? }) to author the body — they are stored in order as content blocks. Posts are FLAT: group/group_item are rejected. Returns the created post with its content blocks.',
         write: true,
         inputSchema: {

@@ -132,7 +132,6 @@ export interface Post {
     authorId: string;
     status: PostStatus;
     isPrivate: boolean;
-    accessLevel?: ContentAccessLevel;
     tags: string[];
     categories: string[];
     metaTitle?: string;

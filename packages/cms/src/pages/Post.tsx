@@ -1,8 +1,6 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type ContentAccessLevel, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
-import { ContentLockedError, } from '@sitesurge/client';
-import { Component, createEffect, createResource, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
-import ContentGate from '../components/auth/ContentGate';
+import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
+import { Component, createEffect, createResource, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
 import UpgradeTout from '../components/content/UpgradeTout';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
@@ -16,20 +14,10 @@ import { siteLogo, siteName, } from '../stores/siteSettings';
 import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
 import './Post.scss';
 
-interface LockedContent {
-    accessLevel: ContentAccessLevel;
-    preview: {
-        title?: string;
-        description?: string;
-        featuredImage?: string;
-    };
-}
-
 const PostPage: Component = () => {
     const params = useParams();
     const auth = useAuth();
     const canonicalUrl = () => `${window.location.origin}/posts/${params.slug}`;
-    const [lockedContent, setLockedContent,] = createSignal<LockedContent | null>(null,);
 
     const isPreviewMode = () => {
         const searchParams = new URLSearchParams(window.location.search,);
@@ -49,21 +37,10 @@ const PostPage: Component = () => {
     const [post,] = createResource(
         () => ({ slug: params.slug, viewer: auth.user?.id ?? null, }),
         async ({ slug, },) => {
-            setLockedContent(null,);
             const preview = (usePreview() && isAdminViewer()) ? 'admin' : undefined;
             try {
                 return await cms.posts.getBySlug(slug!, preview ? { preview, } : undefined,) as Post;
-            } catch (e) {
-                if (e instanceof ContentLockedError) {
-                    // ContentLockedError.preview types fields as `string |
-                    // null`; LockedContent uses `string | undefined`. Both
-                    // are read only via truthy `<Show>` gates in ContentGate,
-                    // so the cast is safe (null and undefined behave alike).
-                    setLockedContent({
-                        accessLevel: e.accessLevel as ContentAccessLevel,
-                        preview: (e.preview ?? {}) as LockedContent['preview'],
-                    },);
-                }
+            } catch {
                 return null;
             }
         },
@@ -103,15 +80,6 @@ const PostPage: Component = () => {
 
     return (
         <div class="post-page page-wrapper" style={wrapperStyle()}>
-            <Show when={lockedContent()}>
-                {(locked,) => (
-                    <ContentGate
-                        accessLevel={locked().accessLevel}
-                        preview={locked().preview}
-                    />
-                )}
-            </Show>
-            <Show when={!lockedContent()}>
                 {/* Three states for the post resource:
                       1. Loading — fetch in flight, show spinner text.
                       2. Resolved with data — render the post.
@@ -341,7 +309,6 @@ const PostPage: Component = () => {
                     }}
                     </Show>
                 </Show>
-            </Show>
         </div>
     );
 };
