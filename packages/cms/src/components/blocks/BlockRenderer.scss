@@ -219,6 +219,18 @@
     width: 100%;
     height: 100%;
   }
+
+  // A plain video file (not a library video) inside a block with a height
+  // or max-height: cap it to the block and letterbox, like MediaVideo does.
+  > .plyr,
+  > .video-player__host .plyr,
+  video {
+    max-height: var(--block-max-height, var(--block-height, none));
+  }
+
+  video {
+    object-fit: contain;
+  }
 }
 
 .post-block {

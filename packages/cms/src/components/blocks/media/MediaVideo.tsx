@@ -123,6 +123,8 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
         <A href={MEMBERSHIP_URL} class="media-video__cta-link">Subscribe to watch the full video</A>
     );
 
+    const hasToolbar = () => canSwitch() || (pb()?.downloads.length ?? 0) > 0;
+
     const onDownload = (e: Event & { currentTarget: HTMLSelectElement; },) => {
         const url = e.currentTarget.value;
         e.currentTarget.value = '';
@@ -130,7 +132,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
     };
 
     return (
-        <div class={`media-video${props.class ? ` ${props.class}` : ''}`}>
+        <div class={`media-video${hasToolbar() ? ' media-video--has-toolbar' : ''}${props.class ? ` ${props.class}` : ''}`}>
             <Show
                 when={!failed()}
                 fallback={

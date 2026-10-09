@@ -151,10 +151,23 @@ export function blockStyleLayoutCss(
         const w = normalizeCssWidth(s.width,);
         if (w) out.width = w;
         if (s.maxWidth) out['max-width'] = s.maxWidth;
-        if (s.height && !opts.suppressHeight) out.height = s.height;
+        if (s.height && !opts.suppressHeight) {
+            out.height = s.height;
+            out['--block-height'] = s.height;
+        }
     }
     if (s.minHeight) out['min-height'] = s.minHeight;
-    if (s.maxHeight) out['max-height'] = s.maxHeight;
+    if (s.maxHeight) {
+        out['max-height'] = s.maxHeight;
+        /*
+         * Published for the block's CONTENT too: a max-height caps only the
+         * block's own box, and a replaced element inside (a portrait video)
+         * sizes from its width and overflows it. Media renderers cap
+         * themselves with `var(--block-max-height, …)`, as text does with
+         * `--block-font-size`.
+         */
+        out['--block-max-height'] = s.maxHeight;
+    }
 
     if (s.borderRadius) {
         out['border-radius'] = s.borderRadius;

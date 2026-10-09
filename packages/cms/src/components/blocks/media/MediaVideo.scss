@@ -6,6 +6,32 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+
+    /*
+     * Fit inside a block that sets a height / max-height. The block publishes
+     * it as --block-max-height / --block-height (blockStyleCss); the video caps
+     * itself to that, less the toolbar row when one is shown, and letterboxes
+     * (object-fit: contain) — so a portrait video gets narrower, not taller.
+     * Without a block cap the fallback is effectively "no limit".
+     */
+    --media-video-cap: calc(var(--block-max-height, var(--block-height, 100000px)) - var(--media-video-toolbar, 0px));
+
+    &--has-toolbar {
+        --media-video-toolbar: 2.75rem;
+    }
+
+    &__stage video,
+    &__stage .plyr,
+    &__stage .plyr__video-wrapper,
+    > video,
+    > .plyr {
+        max-height: var(--media-video-cap);
+    }
+
+    &__stage video,
+    > video {
+        object-fit: contain;
+    }
     width: 100%;
 
     &__stage {
