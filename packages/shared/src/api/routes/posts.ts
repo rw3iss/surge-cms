@@ -234,3 +234,12 @@ export interface PostLiveTicketResponse {
     userId: string | null;
     isHost: boolean;
 }
+
+/** GET /posts/settings (staff) — settings (secrets masked) + the provider catalogue. */
+export interface PostsSettingsResponse {
+    settings: import('../../types/liveProviders').PostsSettings;
+    liveProviders: import('../../types/liveProviders').LiveProviderDescriptor[];
+}
+
+/** PUT /posts/settings (admin) — partial; a secret echoed as the mask is kept. */
+export type PostsSettingsBody = Partial<import('../../types/liveProviders').PostsSettings>;

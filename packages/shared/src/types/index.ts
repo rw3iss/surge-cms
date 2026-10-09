@@ -18,3 +18,4 @@ export * from './mailPurposes';
 export * from './video';
 export * from './postTypes';
 export * from './liveRoom';
+export * from './liveProviders';

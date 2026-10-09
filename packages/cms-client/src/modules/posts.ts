@@ -1,5 +1,5 @@
 import type {
-    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse,
+    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
@@ -24,6 +24,16 @@ export class PostsModule extends ModuleBase {
     }
 
     /** GET /posts/slug/:slug — throws ContentLockedError on gated content. */
+    /** GET /posts/settings (staff) — General / per-type / Live Show provider settings (secrets masked) + provider catalogue. */
+    settings(): Promise<PostsSettingsResponse> {
+        return this.get<PostsSettingsResponse>('/posts/settings', { options: { cache: false, }, },);
+    }
+
+    /** PUT /posts/settings (admin, `posts.settings:write`) — partial; an echoed secret mask keeps the stored secret. */
+    updateSettings(body: PostsSettingsBody,): Promise<PostsSettingsResponse> {
+        return this.mutate<PostsSettingsResponse>('PUT', '/posts/settings', { body, },);
+    }
+
     /** GET /posts/types — registered post types (built-in + site-defined). */
     types(): Promise<PostTypesResponse> {
         return this.get<PostTypesResponse>('/posts/types',);

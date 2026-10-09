@@ -1,4 +1,7 @@
 import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isValidBannerPositionCustom, } from '@sitesurge/types';
+import * as postSettings from '../services/postSettings';
+import { requirePermission, } from '../services/permissions';
+import type { PostsSettingsBody, } from '@sitesurge/types';
 import { ALL_BLOCK_TYPES, isPostType, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
@@ -76,6 +79,15 @@ const postSchema = z.object({
 },);
 
 const idParams = z.object({ id: z.string(), },);
+
+const postsSettingsBody = z.object({
+    general: z.object({ defaultPostType: z.string().max(32,), },).partial().optional(),
+    types: z.record(z.string(), z.record(z.string(), z.unknown(),),).optional(),
+    live: z.object({
+        provider: z.string().max(32,).nullable().optional(),
+        providers: z.record(z.string(), z.record(z.string(), z.unknown(),),).optional(),
+    },).optional(),
+},);
 
 const listQuery = z.object({
     page: z.coerce.number().int().min(1,).default(1,),
@@ -155,6 +167,22 @@ export const postsRoutes = [
                 user,
             },);
             return reply(result.data, { meta: result.meta, },);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/settings', auth: 'staff',
+        summary: 'Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue.',
+        handler: () => postSettings.getForClient(),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/settings', auth: 'admin',
+        summary: 'Update posts settings (partial). A secret echoed as the mask is kept.',
+        input: { body: postsSettingsBody, },
+        handler: async ({ body, user, audit, },) => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'posts.settings:write',);
+            return postSettings.update(body as PostsSettingsBody, audit(),);
         },
     },),
 

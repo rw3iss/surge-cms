@@ -51,6 +51,10 @@
     overflow-x: auto;
   }
 
+  &__tile--default {
+    box-shadow: inset 0 0 0 1px $primary-color;
+  }
+
   &__tile {
     flex: 1 1 0;
     min-width: 130px;
@@ -274,4 +278,38 @@
   &--live { background: $error-color; color: $background; }
   &--paused { background: $warning-bg; color: $warning-fg; }
   &--ended { background: $background-dark; color: var(--admin-text, #{$text-color}); }
+}
+
+// Posts → Settings → Live Show provider panel
+.live-provider {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__desc { margin: 0; }
+
+  &__caps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      padding: 2px 8px;
+      border: 1px solid $border-color;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--admin-text-muted);
+    }
+  }
+
+  &__notice {
+    margin: 0;
+    padding: $spacing-sm $spacing-md;
+    border-left: 3px solid $primary-color;
+    background: var(--admin-bg-subtle);
+    font-size: 0.9rem;
+  }
 }

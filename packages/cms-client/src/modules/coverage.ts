@@ -38,6 +38,8 @@ export const ROUTE_COVERAGE: string[] = [
     // ── posts ──
     'GET /api/v1/posts',
     'GET /api/v1/posts/types',
+    'GET /api/v1/posts/settings',
+    'PUT /api/v1/posts/settings',
     'GET /api/v1/posts/:id/live',
     'POST /api/v1/posts/:id/live/ticket',
     'GET /api/v1/posts/search',

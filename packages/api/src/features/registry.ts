@@ -49,6 +49,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         label: 'Posts',
         description: 'Blog posts with rich content blocks.',
         defaultEnabled: true,
+        settingsKeys: ['posts_settings',],
     },
     campaigns: {
         key: 'campaigns',

@@ -41,6 +41,9 @@ const AdminPosts: Component = () => {
     const postTypes = usePostTypes();
     const creatableTypes = () => postTypes().filter((t,) => t.creatable !== false);
     const [showCreate, setShowCreate,] = createSignal(false,);
+    // Posts → Settings → General → Default post type: highlighted in the picker.
+    const [defaultType, setDefaultType,] = createSignal('article',);
+    void cms.posts.settings().then((r,) => setDefaultType(r.settings.general.defaultPostType,),).catch(() => undefined);
     const createPost = (key: string,) => {
         setShowCreate(false,);
         navigate(`/admin/posts/new?type=${encodeURIComponent(key,)}`,);
@@ -55,7 +58,10 @@ const AdminPosts: Component = () => {
             <AdminTitle>Posts</AdminTitle>
             <div class="admin-header">
                 <h1>Posts</h1>
-                <button type="button" class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New Post</button>
+                <div class="admin-header__actions">
+                    <A href="/admin/posts/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <button type="button" class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New Post</button>
+                </div>
             </div>
             <ModalShell open={showCreate()} onClose={() => setShowCreate(false,)} size="md" showClose ariaLabel="Create a post">
                 <div class="post-type-picker">
@@ -65,7 +71,7 @@ const AdminPosts: Component = () => {
                             {(t,) => (
                                 <button
                                     type="button"
-                                    class="post-type-picker__tile"
+                                    class={`post-type-picker__tile${t.key === defaultType() ? ' post-type-picker__tile--default' : ''}`}
                                     title={t.description}
                                     onClick={() => createPost(t.key,)}
                                 >

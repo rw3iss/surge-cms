@@ -246,10 +246,21 @@ const AdminPostEditor: Component = () => {
     /** Start a NEW post as the `?type=` type (default article): its default
      *  blocks + settings. Skipped when a draft was restored. */
     const seedNewPost = () => {
-        const def = getPostType(searchParams.type || DEFAULT_POST_TYPE,);
-        setPostType(def.key,);
-        setTypeSettings({ ...(def.settingsDefaults ?? {}), },);
-        editor.setBlocks(seedDefaultBlocks(def,),);
+        const seedAs = (key: string,) => {
+            const def = getPostType(key,);
+            setPostType(def.key,);
+            setTypeSettings({ ...(def.settingsDefaults ?? {}), },);
+            editor.setBlocks(seedDefaultBlocks(def,),);
+        };
+        seedAs(searchParams.type || DEFAULT_POST_TYPE,);
+        // No ?type: use Posts → Settings → General → Default post type, unless
+        // the editor has already started typing.
+        if (!searchParams.type) {
+            void cms.posts.settings().then((r,) => {
+                const key = r.settings.general.defaultPostType;
+                if (key && key !== postType() && !title() && isEmptyOrUntouchedDefaults(editor.blocks(), getPostType(postType(),),)) seedAs(key,);
+            },).catch(() => { /* keep the built-in default */ },);
+        }
     };
 
     // ─── Offer to restore a localStorage draft for NEW posts ───

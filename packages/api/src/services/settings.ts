@@ -319,7 +319,9 @@ export async function getAllSettings(): Promise<Record<string, AdminSettingRow>>
     const settings: Record<string, AdminSettingRow> = {};
     for (const row of result.rows) {
         settings[row.key] = {
-            value: row.value,
+            // Rows whose credentials are managed by their own masked endpoint
+            // must not leak through this generic dump.
+            value: REDACT_IN_DUMP.has(row.key,) ? redactSecrets(row.value,) : row.value,
             updatedAt: row.updated_at,
             updatedBy: row.updated_by_name,
         };
@@ -432,6 +434,13 @@ const USERS_SETTINGS: KeyedSetting = {
  * Media storage. Empty is the right fallback — an unconfigured install keeps
  * whatever the environment says, which is how every existing deployment works.
  */
+const POSTS_SETTINGS: KeyedSetting = {
+    key: 'posts_settings',
+    cacheKey: 'settings:posts_settings',
+    entityId: 'posts_settings',
+    fallback: {},
+};
+
 const VIDEO_SETTINGS: KeyedSetting = {
     key: 'video_settings',
     cacheKey: 'settings:video_settings',
@@ -508,6 +517,9 @@ async function getKeyed(def: KeyedSetting,): Promise<unknown> {
  * into `audit_log.new_values` in plaintext.
  */
 const SECRET_FIELD = /secret|password|token|credential|privatekey|apikey/i;
+
+/** Keyed rows holding provider credentials (served masked by their own route). */
+const REDACT_IN_DUMP = new Set(['posts_settings',],);
 
 /** Replace secret-looking leaf values with a marker, recursively. */
 function redactSecrets(value: unknown,): unknown {
@@ -699,6 +711,10 @@ export async function getMediaStorageSettings(): Promise<import('@sitesurge/type
 }
 
 export const setMediaStorageSettings = (value: unknown, ctx: AuditContext,) => setKeyed(MEDIA_STORAGE, value, ctx,);
+
+/** Raw `posts_settings` row — normalised + masked by services/postSettings. */
+export const getPostsSettingsRaw = () => getKeyed(POSTS_SETTINGS,);
+export const setPostsSettingsRaw = (value: unknown, ctx: AuditContext,) => setKeyed(POSTS_SETTINGS, value, ctx,);
 
 /** Raw `video_settings` row. Defaults + env overrides are applied by
  *  `services/video/settings.ts` (`getVideoSettings`). */

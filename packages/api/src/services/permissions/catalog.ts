@@ -186,6 +186,14 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         },
         { key: 'posts:delete', feature: 'posts', label: 'Delete posts', action: 'delete', defaultRoles: ADMIN, },
         {
+            key: 'posts.settings:write',
+            feature: 'posts',
+            label: 'Change posts settings',
+            description: 'Posts → Settings, including the live-stream provider credentials.',
+            action: 'write',
+            defaultRoles: ADMIN,
+        },
+        {
             key: 'posts.live:host',
             feature: 'posts',
             label: 'Host live shows',

@@ -41,6 +41,7 @@ const AdminPages = lazy(() => import('./pages/admin/Pages'));
 const AdminPageEditor = lazy(() => import('./pages/admin/PageEditor'));
 const AdminPosts = lazy(() => import('./pages/admin/Posts'));
 const AdminPostEditor = lazy(() => import('./pages/admin/PostEditor'));
+const AdminPostsSettings = lazy(() => import('./pages/admin/PostsSettings'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminUsersSettings = lazy(() => import('./pages/admin/UsersSettings'));
 const AdminFormsSettings = lazy(() => import('./pages/admin/FormsSettings'));
@@ -192,6 +193,7 @@ const App: Component = () => {
 										<Route path="/events/settings" component={AdminEventSettings} />
 										<Route path="/events/:id" component={AdminEvents} />
 										<Route path="/posts/:id/preview" component={AdminPostPreview} />
+										<Route path="/posts/settings" component={AdminPostsSettings} />
 										<Route path="/posts/new" component={AdminPostEditor} />
 										<Route path="/posts/:id" component={AdminPostEditor} />
 										<Route path="/users" component={AdminUsers} />
