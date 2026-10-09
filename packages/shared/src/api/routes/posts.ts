@@ -149,6 +149,9 @@ export interface PostCreateBody {
     gateHidden?: boolean;
     gateShowSample?: boolean;
     gateSamplePercent?: number;
+    /** Post type key (registered; default `article`). */
+    postType?: string;
+    typeSettings?: Record<string, unknown> | null;
     contentBlocks?: PostCreateContentBlock[];
 }
 
@@ -211,3 +214,9 @@ export interface PostReorderBlocksBody {
 export interface PostReorderBlocksResponse {
     message: string;
 }
+
+/** GET /posts/types — the registered post types (built-in + site-defined). */
+export type PostTypesResponse = import('../../types/postTypes').PostTypeDefinition[];
+
+/** GET /posts/:id/live — the live room's current state (REST fallback). */
+export type PostLiveStateResponse = import('../../types/liveRoom').LiveRoomState;

@@ -183,6 +183,13 @@ export interface Post {
     gateSamplePercent?: number;
     /** How THIS viewer sees the post (set on every public read). */
     gate?: PostGate;
+    /** Post type key (`article` default) — see `listPostTypes()`. */
+    postType?: string;
+    /** Per-type options (e.g. `LivePostSettings` for `live`). */
+    typeSettings?: Record<string, unknown> | null;
+    /** Live shows: when the stream started / ended (ended = no live room). */
+    liveStartedAt?: Date | string | null;
+    liveEndedAt?: Date | string | null;
     createdAt: Date;
     updatedAt: Date;
 }

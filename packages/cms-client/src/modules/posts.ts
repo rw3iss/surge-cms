@@ -1,5 +1,5 @@
 import type {
-    RevisionSnapshotResponse,
+    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
@@ -24,6 +24,16 @@ export class PostsModule extends ModuleBase {
     }
 
     /** GET /posts/slug/:slug — throws ContentLockedError on gated content. */
+    /** GET /posts/types — registered post types (built-in + site-defined). */
+    types(): Promise<PostTypesResponse> {
+        return this.get<PostTypesResponse>('/posts/types',);
+    }
+
+    /** GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket). */
+    liveState(id: string,): Promise<PostLiveStateResponse> {
+        return this.get<PostLiveStateResponse>('/posts/:id/live', { params: { id, }, options: { cache: false, }, },);
+    }
+
     getBySlug(slug: string, query?: PostBySlugQuery,): Promise<PostBySlugResponse> {
         return this.get<PostBySlugResponse>('/posts/slug/:slug', { params: { slug, }, query: query as Record<string, unknown>, },);
     }

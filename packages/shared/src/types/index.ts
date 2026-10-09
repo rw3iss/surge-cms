@@ -16,3 +16,5 @@ export * from './permission';
 export * from './wiki';
 export * from './mailPurposes';
 export * from './video';
+export * from './postTypes';
+export * from './liveRoom';

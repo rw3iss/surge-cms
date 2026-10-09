@@ -37,6 +37,8 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/video/:id/share',
     // ── posts ──
     'GET /api/v1/posts',
+    'GET /api/v1/posts/types',
+    'GET /api/v1/posts/:id/live',
     'GET /api/v1/posts/search',
     'GET /api/v1/posts/slug/:slug',
     'GET /api/v1/posts/:id',
