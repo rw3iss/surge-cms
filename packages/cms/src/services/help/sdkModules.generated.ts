@@ -1413,6 +1413,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/membership — current tier (incl. free) + the tiers to switch to."
             },
             {
+                "name": "membershipTiers",
+                "signature": "membershipTiers(): Promise<MembershipPublicTiersResponse>",
+                "summary": "GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page."
+            },
+            {
                 "name": "plans",
                 "signature": "plans(): Promise<PaymentsPublicPlansResponse>",
                 "summary": "GET /payments/plans — active plans for the public subscribe page."
@@ -2654,4 +2659,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 465;
+export const SDK_METHOD_COUNT = 466;

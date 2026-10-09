@@ -117,8 +117,16 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         />
                     </FormField>
                 </div>
-                <FormField label="Description">
-                    <textarea rows={2} value={form.description} onBlur={(e,) => setForm('description', e.currentTarget.value,)} />
+                <FormField
+                    label="Description"
+                    hint="Markdown supported — **bold**, *italic*, [links](https://…), and lists (lines starting with “- ”). Shown on the plan cards (/subscribe, profile → Membership). Empty = the Stripe product's description."
+                >
+                    <textarea
+                        class="tier-modal__description"
+                        rows={4}
+                        value={form.description}
+                        onBlur={(e,) => setForm('description', e.currentTarget.value,)}
+                    />
                 </FormField>
 
                 <div class="tier-modal__grid">

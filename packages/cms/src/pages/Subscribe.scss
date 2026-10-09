@@ -1,0 +1,154 @@
+// /subscribe — membership plans. Site tokens throughout.
+.subscribe-page {
+  max-width: var(--site-max-width, 1100px);
+  margin: 0 auto;
+  padding: 2.5rem var(--site-gutter, 1rem) 4rem;
+  font-family: var(--site-font, inherit);
+  color: var(--site-text, #1f2937);
+
+  &__header {
+    text-align: center;
+    margin-bottom: 2rem;
+
+    h1 {
+      margin: 0 0 0.5rem;
+      font-family: var(--site-heading-font, inherit);
+      color: var(--site-heading, inherit);
+    }
+  }
+
+  &__lead { margin: 0; color: var(--site-text-muted, #6b7280); font-size: 1.05rem; }
+  &__note { color: var(--site-text-muted, #6b7280); }
+
+  &__loading {
+    height: 18rem;
+    border-radius: var(--site-radius, 12px);
+    background: color-mix(in srgb, var(--site-text, #1f2937) 5%, transparent);
+  }
+
+  &__free {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 2rem;
+    text-align: center;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: calc(var(--site-radius, 12px) * 1.25);
+
+    h2 { margin: 0 0 0.5rem; font-family: var(--site-heading-font, inherit); }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  &__tout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 auto 2rem;
+    padding: 1.1rem 1.4rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 12px);
+    background: color-mix(in srgb, var(--site-primary, #e63946) 5%, var(--site-bg, #fff));
+
+    > div:first-child {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .subscribe-page__actions { margin-top: 0; }
+
+    span { color: var(--site-text-muted, #6b7280); }
+
+    &--current strong { font-size: 1.2rem; }
+  }
+
+  &__eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    align-items: stretch;
+  }
+}
+
+.subscribe-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  background: var(--site-bg, #fff);
+  border: 1px solid var(--site-border, #e5e7eb);
+  border-radius: calc(var(--site-radius, 12px) * 1.25);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--site-primary, #e63946) 45%, var(--site-border, #e5e7eb));
+    box-shadow: 0 14px 30px -18px rgb(0 0 0 / 0.3);
+    transform: translateY(-2px);
+  }
+
+  &--current {
+    border-color: var(--site-primary, #e63946);
+    box-shadow: inset 0 0 0 1px var(--site-primary, #e63946);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &__name {
+    margin: 0;
+    font-family: var(--site-heading-font, inherit);
+    font-size: 1.25rem;
+    color: var(--site-heading, inherit);
+  }
+
+  &__badge {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--site-button-text, #fff);
+    background: var(--site-primary, #e63946);
+    border-radius: 999px;
+  }
+
+  &__price { margin-top: 0.9rem; display: flex; align-items: baseline; gap: 0.2rem; }
+  &__amount { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
+  &__per { color: var(--site-text-muted, #6b7280); }
+  &__freq { font-size: 0.85rem; color: var(--site-text-muted, #6b7280); }
+
+  &__desc {
+    flex: 1 1 auto;
+    margin: 1rem 0 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--site-border, #e5e7eb);
+  }
+
+  &__cta {
+    width: 100%;
+    margin-top: auto;
+
+    &:disabled { opacity: 0.6; cursor: default; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &:hover { transform: none; }
+  }
+}

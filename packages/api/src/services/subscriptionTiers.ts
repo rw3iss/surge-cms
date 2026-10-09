@@ -219,6 +219,10 @@ async function setTierPermissions(client: { query: typeof query; }, tierId: stri
 async function invalidateGate(): Promise<void> {
     const { invalidateGateTiers, } = await import('./postGate/index.js');
     invalidateGateTiers();
+    // The tier catalogue (/subscribe, profile Membership) caches Stripe
+    // prices + descriptions for an hour — a tier change refreshes it.
+    const { cache, } = await import('./cache.js');
+    await cache.invalidateMembershipCache();
 }
 
 export async function saveTier(id: string | null, body: SubscriptionTierBody, ctx: AuditContext,): Promise<SubscriptionTier> {

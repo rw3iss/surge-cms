@@ -331,3 +331,11 @@ export type PaymentsPlanUpdateResponse = AdminPlan | { message: string; };
 
 /** GET /payments/plans — active plans for the public subscribe page. */
 export type PaymentsPublicPlansResponse = PublicPlan[];
+
+/** GET /payments/membership/tiers (public) — the /subscribe catalogue. */
+export interface MembershipPublicTiersResponse {
+    tiers: MembershipTierOption[];
+    /** Any tier other than free exists (else the site is completely free). */
+    paidAvailable: boolean;
+    signedIn: boolean;
+}

@@ -107,6 +107,11 @@ export const paymentsRoutes = [
 
     // ─── Membership (own subscription tier — profile → Membership) ───
     defineRoute({
+        method: 'get', path: '/membership/tiers', auth: 'optional',
+        summary: 'Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer.',
+        handler: ({ userId, },) => membership.publicTiers(userId ?? null,),
+    },),
+    defineRoute({
         method: 'get', path: '/membership', auth: 'user',
         summary: "The user's current tier (incl. free) + the tiers they can switch to.",
         handler: ({ userId, },) => membership.overview(userId!,),

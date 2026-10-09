@@ -18,7 +18,7 @@
  */
 import type Stripe from 'stripe';
 import type {
-    MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipResponse, MembershipTierOption,
+    MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import { query, } from '../db';
@@ -26,6 +26,7 @@ import { logger, } from '../utils/logger';
 import { sendPurposeMail, } from './mail/purposes';
 import { getPaymentProvider, } from './payment';
 import { getStripeClient, } from './payment/stripe';
+import { cache, CACHE_KEYS, } from './cache';
 import { subscriptionPeriod, } from './payment/stripeCompat';
 import { createCustomer, } from './payments';
 import { ENTITLED_STATUSES, } from './permissions';
@@ -33,12 +34,21 @@ import { listTiers, stripePrices, syncUserRole, userSubscription, } from './subs
 
 // ─── Tier catalogue (with Stripe amounts) ────────────────────────────────
 
-let priceCache: { at: number; byId: Map<string, { amount: number; currency: string; interval: string; intervalCount: number; productDescription: string | null; }>; } | null = null;
+type PriceDetail = { amount: number; currency: string; interval: string; intervalCount: number; productDescription: string | null; };
 
-async function priceDetails() {
-    if (priceCache && Date.now() - priceCache.at < 5 * 60_000) return priceCache.byId;
-    const byId = new Map<string, { amount: number; currency: string; interval: string; intervalCount: number; productDescription: string | null; }>();
+/**
+ * Stripe price amounts/intervals + product descriptions, by price id. Cached
+ * in Redis for an hour (shared by every server process) and cleared whenever a
+ * subscription tier is saved or deleted (`cache.invalidateMembershipCache`),
+ * so a changed Stripe price or description shows up after a tier save, or
+ * within the hour otherwise.
+ */
+async function priceDetails(): Promise<Map<string, PriceDetail>> {
+    const cached = await cache.get<Record<string, PriceDetail>>(CACHE_KEYS.membershipStripePrices,);
+    if (cached) return new Map(Object.entries(cached,),);
+    const byId = new Map<string, PriceDetail>();
     const stripe = getStripeClient('default',);
+    let ok = true;
     if (stripe) {
         try {
             for await (const p of stripe.prices.list({ active: true, type: 'recurring', expand: ['data.product',], limit: 100, },)) {
@@ -52,10 +62,12 @@ async function priceDetails() {
                 },);
             }
         } catch (e) {
+            ok = false;
             logger.warn('membership: stripe prices failed', { error: (e as Error).message, },);
         }
     }
-    priceCache = { at: Date.now(), byId, };
+    // Do not pin a failed fetch for an hour.
+    if (ok) await cache.set(CACHE_KEYS.membershipStripePrices, Object.fromEntries(byId,), 3600,);
     return byId;
 }
 void stripePrices; // (admin listing lives in subscriptionTiers)
@@ -82,6 +94,23 @@ async function tierOptions(currentTierId: string | null,): Promise<MembershipTie
         },);
     }
     return out.sort((a, b,) => Number(b.isFree,) - Number(a.isFree,) || a.priceCents - b.priceCents);
+}
+
+/**
+ * The public tier catalogue for `/subscribe`: every active tier (free first,
+ * then paid by price) with its price and description — the tier's own
+ * description, else the Stripe product's. `isCurrent` marks the signed-in
+ * viewer's tier; `paidAvailable` is false when the site only has free tiers.
+ */
+export async function publicTiers(userId: string | null,): Promise<MembershipPublicTiersResponse> {
+    let currentId: string | null = null;
+    if (userId) {
+        try {
+            currentId = (await userSubscription(userId,)).tier?.id ?? null;
+        } catch { /* signed-in but no tier row → free */ }
+    }
+    const tiers = await tierOptions(currentId,);
+    return { tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, };
 }
 
 // ─── Current ─────────────────────────────────────────────────────────────

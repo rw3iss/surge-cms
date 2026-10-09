@@ -1,0 +1,55 @@
+// Compact Markdown body (tier descriptions, short blurbs). Inherits colour and
+// font from its container.
+.markdown {
+  font-size: 0.95em;
+  line-height: 1.55;
+
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+
+  p { margin: 0 0 0.6em; }
+
+  ul,
+  ol {
+    margin: 0 0 0.6em;
+    padding-left: 1.25em;
+  }
+
+  ul { list-style: none; padding-left: 0; }
+
+  ul > li {
+    position: relative;
+    padding-left: 1.5em;
+    margin: 0.3em 0;
+
+    // A check mark in the brand colour — tier feature lists read as included.
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0.1em;
+      top: 0.38em;
+      width: 0.85em;
+      height: 0.5em;
+      border-left: 2px solid var(--site-primary, #e63946);
+      border-bottom: 2px solid var(--site-primary, #e63946);
+      transform: rotate(-45deg);
+    }
+  }
+
+  ol > li { margin: 0.3em 0; }
+
+  strong { font-weight: 700; }
+
+  a {
+    color: var(--site-link, var(--site-primary, #e63946));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  code {
+    padding: 0.05em 0.3em;
+    font-size: 0.9em;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    border-radius: 4px;
+  }
+}

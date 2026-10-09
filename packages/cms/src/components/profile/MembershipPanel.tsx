@@ -12,24 +12,17 @@
  * the period already paid for, and can be resumed until then.
  */
 import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
-import { createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
-import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
+import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
+import { useSearchParams, } from '@solidjs/router';
+import Markdown from '../common/Markdown';
+import { freq, money, per, } from '../../utils/membershipFormat';
+import type { MembershipPreviewResponse, MembershipResponse, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import './MembershipPanel.scss';
 
 type View = 'overview' | 'choose' | 'confirm';
 
-function money(cents: number, currency = 'usd',): string {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency.toUpperCase(), },).format(cents / 100,);
-}
-function per(t: { isFree: boolean; interval: string; intervalCount: number; },): string {
-    if (t.isFree) return '';
-    if (t.intervalCount > 1) return ` every ${t.intervalCount} ${t.interval}s`;
-    return ` / ${t.interval}`;
-}
-const freq = (t: MembershipTierOption,) =>
-    t.isFree ? 'Free' : t.intervalCount > 1 ? `Every ${t.intervalCount} ${t.interval}s` : ({ day: 'Daily', week: 'Weekly', month: 'Monthly', year: 'Yearly', } as Record<string, string>)[t.interval] ?? t.interval;
 const longDate = (iso: string | null,) => (iso ? new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'long', },) : '');
 
 const MembershipPanel: Component = () => {
@@ -62,6 +55,20 @@ const MembershipPanel: Component = () => {
         if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my subscription' : 'No change';
         return `${direction() === 'upgrade' ? 'Upgrade' : 'Downgrade'} to ${to.name} tier`;
     };
+
+    // `/profile?tab=membership&tier=<id>` (from /subscribe): open the chooser
+    // with that tier picked, once the tiers are loaded.
+    const [params,] = useSearchParams<{ tier?: string; }>();
+    let preselected = false;
+    createEffect(() => {
+        const want = params.tier;
+        if (preselected || !want || tiers().length === 0) return;
+        preselected = true;
+        if (tiers().some((t,) => t.id === want && !t.isCurrent)) {
+            openChooser();
+            setSelected(want,);
+        }
+    },);
 
     const openChooser = () => {
         setError('',);
@@ -161,9 +168,7 @@ const MembershipPanel: Component = () => {
                         <div class="membership__current">
                             <div>
                                 <div class="membership__tier-name">{current()!.tier?.name ?? 'Free'}</div>
-                                <Show when={current()!.tier?.description}>
-                                    <p class="membership__desc">{current()!.tier!.description}</p>
-                                </Show>
+                                <Markdown class="membership__desc" text={current()!.tier?.description} />
                             </div>
                             <div class="membership__price">
                                 {current()!.interval ? `${money(current()!.priceCents, current()!.currency,)} / ${current()!.interval}` : 'Free'}
@@ -209,13 +214,21 @@ const MembershipPanel: Component = () => {
                         <div class="membership__tiers" role="radiogroup">
                             <For each={tiers()}>
                                 {(t,) => (
-                                    <button
-                                        type="button"
+                                    // A div, not a <button>: the description is Markdown
+                                    // (lists, paragraphs) and a button cannot hold blocks.
+                                    <div
                                         role="radio"
+                                        tabindex="0"
                                         aria-checked={selected() === t.id}
                                         class="membership__tout"
                                         classList={{ 'is-selected': selected() === t.id, 'is-current': t.isCurrent, }}
                                         onClick={() => setSelected(t.id,)}
+                                        onKeyDown={(e,) => {
+                                            if (e.key === ' ' || e.key === 'Enter') {
+                                                e.preventDefault();
+                                                setSelected(t.id,);
+                                            }
+                                        }}
                                     >
                                         <span class="membership__tout-head">
                                             <strong>{t.name}</strong>
@@ -225,8 +238,8 @@ const MembershipPanel: Component = () => {
                                             {t.isFree ? 'Free' : money(t.priceCents, t.currency,)}<small>{per(t,)}</small>
                                         </span>
                                         <span class="membership__tout-freq">{freq(t,)}</span>
-                                        <Show when={t.description}><span class="membership__tout-desc">{t.description}</span></Show>
-                                    </button>
+                                        <Markdown class="membership__tout-desc" text={t.description} />
+                                    </div>
                                 )}
                             </For>
                         </div>

@@ -286,6 +286,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/mail-templates/:id/revisions/:version',
     'POST /api/v1/mail-templates/:id/revisions/:version/restore',
     // ── membership (own tier) ──
+    'GET /api/v1/payments/membership/tiers',
     'GET /api/v1/payments/membership',
     'POST /api/v1/payments/membership/preview',
     'POST /api/v1/payments/membership/change',

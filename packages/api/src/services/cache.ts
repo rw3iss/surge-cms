@@ -80,6 +80,10 @@ export const CACHE_KEYS = {
     // ── Transient (not entity cache) ──
     oauthState: (state: string,) => `oauth_state:${state}`,
 
+    // Stripe price amounts/intervals + product descriptions for the tier
+    // catalogue (membership + /subscribe). 1 h; cleared when a tier changes.
+    membershipStripePrices: 'membership:stripe-prices',
+
     // Public post counts per type (anonymous view; cleared with posts:*).
     postTypeCountsAnon: 'posts:type-counts:anon',
 
@@ -255,6 +259,11 @@ export async function invalidateMediaConsumersCache(): Promise<void> {
     await invalidatePostCache();
     await invalidateCampaignCache();
     await delPattern('entity:*',);
+}
+
+/** A subscription tier changed: drop the cached Stripe price/description catalogue. */
+export async function invalidateMembershipCache(): Promise<void> {
+    await del(CACHE_KEYS.membershipStripePrices,);
 }
 
 /** A video's renditions changed: drop its cached master playlists. */
@@ -485,6 +494,7 @@ export const cache = {
     invalidateCampaignCache,
     invalidateMediaConsumersCache,
     invalidateVideoCache,
+    invalidateMembershipCache,
     invalidateFormCache,
     invalidateUserCache,
     invalidateMailingListsCache,

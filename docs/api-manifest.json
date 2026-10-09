@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T09:02:48.942Z",
+  "generatedAt": "2026-10-09T17:29:58.110Z",
   "totalModules": 48,
-  "totalRoutes": 480,
+  "totalRoutes": 481,
   "modules": [
     {
       "module": "admin-channel",
@@ -1617,6 +1617,13 @@
           "absolutePath": "/api/v1/payments/unsubscribe",
           "auth": "user",
           "summary": "Cancel the user's active subscription at period end."
+        },
+        {
+          "method": "GET",
+          "path": "/membership/tiers",
+          "absolutePath": "/api/v1/payments/membership/tiers",
+          "auth": "optional",
+          "summary": "Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer."
         },
         {
           "method": "GET",

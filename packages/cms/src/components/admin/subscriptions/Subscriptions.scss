@@ -117,3 +117,14 @@
     @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
   }
 }
+
+// Description: full modal width, only grows downward (dragging it wider used
+// to push it off the modal).
+.tier-modal__description {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 5.5rem;
+  resize: vertical;
+}
