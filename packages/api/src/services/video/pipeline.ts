@@ -32,6 +32,8 @@ import {
     type LowPriority,
     lowPriority,
     posterArgs,
+    quickReplayArgs,
+    remuxArgs,
     SPRITE_COLS,
     SPRITE_ROWS,
     spriteArgs,
@@ -348,8 +350,9 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
     const head = await store.head(video.sourceKey,);
     if (!head) throw new PermanentJobError('The uploaded original is missing from storage — re-upload the video.',);
     const ext = /\.[A-Za-z0-9]{1,8}$/.exec(video.sourceKey,)?.[0].toLowerCase() ?? '';
-    const src = path.join(work, `source${ext}`,);
-    const have = await stat(src,).then((x,) => x.size, () => 0,);
+    const downloaded = path.join(work, `source${ext}`,);
+    let src = downloaded;
+    const have = await stat(downloaded,).then((x,) => x.size, () => 0,);
     const free = await diskFreeBytes();
     if (free !== null) {
         const priorMs = Number((video.probe as { durationMs?: number; } | null)?.durationMs ?? 0,);
@@ -362,13 +365,21 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
     }
     await ctl.setStatus('downloading',);
     let lastDl = 0;
-    await downloadObject(store, video.sourceKey, src, ctl, (done, total,) => {
+    await downloadObject(store, video.sourceKey, downloaded, ctl, (done, total,) => {
         ctl.progress = Math.round(500 * done / total,) / 100;
         if (Date.now() - lastDl > 5000) {
             lastDl = Date.now();
             void ctl.beat();
         }
     },);
+
+    // 1b. Live recordings: quick replay (H.264 → seekable MP4 served at once)
+    //     or a container repair (VP8/VP9) — a MediaRecorder file has no
+    //     duration, and every later step needs one. Encode from the result.
+    if (video.quickReplay) {
+        src = await prepareLiveRecording({ store, src: downloaded, work, video, mediaId, lp, ctl, },);
+        video = (await repo.getVideo(mediaId,))!;
+    }
 
     // 2. Probe.
     await ctl.setStatus('probing',);
@@ -515,6 +526,51 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
 const fmtGb = (b: number,): string => `${(b / 1e9).toFixed(1,)} GB`;
 
 /** Delete a full prefix's rung dirs + downloads (NOT poster/sprites). */
+/**
+ * Live recording → playable source. H.264 (what the live console records when
+ * the browser can): copy into a faststart MP4 (video untouched, audio → AAC),
+ * upload it as the QUICK REPLAY and mark the media playable — viewers get the
+ * replay at camera quality within a minute or two, while the HLS ladder is
+ * encoded from the same file afterwards. Anything else (VP8/VP9): a stream
+ * copy into Matroska, which only repairs the duration for the encode.
+ */
+async function prepareLiveRecording(o: {
+    store: ObjectStore; src: string; work: string; video: repo.VideoRow; mediaId: string; lp: LowPriority; ctl: JobControl;
+},): Promise<string> {
+    const { store, src, work, video, mediaId, lp, ctl, } = o;
+    await ctl.setStatus('probing',);
+    let raw: ProbeInfo | null = null;
+    try {
+        raw = await probeFile(ffprobeBin(), src, ctl.signal,);
+    } catch (e) {
+        if (e instanceof NoVideoStreamError) throw new PermanentJobError(e.message,);
+        if (e instanceof ProcessAbortedError) throw new JobAbortedError(ctl.reason ?? 'shutdown',);
+        raw = null; // unreadable header: the remux below may still fix it
+    }
+    await ctl.setStatus('encoding',);
+    if (raw?.videoCodec === 'h264') {
+        const out = path.join(work, 'replay.mp4',);
+        await ffmpeg(quickReplayArgs({ input: src, output: out, hasAudio: raw.hasAudio, },), 'quick-replay', { lp, ctl, },);
+        if (!video.quickReplayPath) {
+            const key = `${video.storagePrefix}/quick/replay.mp4`;
+            await ctl.setStatus('uploading',);
+            await store.putFile(key, out, { contentType: 'video/mp4', cacheControl: IMMUTABLE_CACHE, },);
+            const size = (await stat(out,)).size;
+            await repo.updateVideo(mediaId, { quickReplayPath: key, quickReplayBytes: size, },);
+            await wrepo.setMediaStatus(mediaId, 'ready',);
+            await cache.invalidateVideoCache(mediaId,);
+            logger.info('Quick replay ready', { mediaId, bytes: size, },);
+        }
+        return out;
+    }
+    const out = path.join(work, 'source.mkv',);
+    await ffmpeg(remuxArgs({ input: src, output: out, },), 'remux', { lp, ctl, },);
+    logger.info('Live recording is not H.264 — no quick replay; encoding from a remuxed copy', {
+        mediaId, codec: raw?.videoCodec ?? 'unknown',
+    },);
+    return out;
+}
+
 export async function deleteRungObjects(store: ObjectStore, prefix: string, rungNames: string[],): Promise<void> {
     try {
         for (const n of new Set(rungNames,)) await store.deletePrefix(`${renditionDir(prefix, n,)}/`,);

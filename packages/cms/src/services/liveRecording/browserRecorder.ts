@@ -32,12 +32,39 @@ export const TIMESLICE_MS = 2000;
 /** Attempts per part once finalising (while live, uploads retry forever). */
 const FINAL_ATTEMPTS = 6;
 
+/**
+ * H.264 first: the server's QUICK REPLAY copies the H.264 video untouched into
+ * a faststart MP4 (audio → AAC), so the replay is ready a minute or two after
+ * the show, at camera quality, playable in every browser. MP4/AAC (Safari,
+ * recent Chrome/Edge) is ideal; WebM/Matroska with H.264 (Chrome/Edge) works
+ * too (Opus is converted). VP9/VP8 (Firefox) still records and encodes, but
+ * gets no quick replay — the replay then waits for the first encoded quality.
+ */
 const MIME_PREFERENCE = [
+    'video/mp4;codecs=avc1.640028,mp4a.40.2',
+    'video/mp4;codecs=avc1.4d002a,mp4a.40.2',
+    'video/mp4;codecs=avc1,mp4a',
+    'video/webm;codecs=h264,opus',
+    'video/x-matroska;codecs=avc1,opus',
+    'video/webm;codecs=avc1,opus',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
-    'video/mp4;codecs=avc1,mp4a', // Safari
     'video/mp4',
 ];
+
+/** Does this recording type get the instant (quick) replay? */
+export function isQuickReplayFormat(mime: string,): boolean {
+    return /avc1|h264/i.test(mime,) || /^video\/mp4$/i.test(mime.trim(),);
+}
+
+/** Human summary of what this browser will record. */
+export function recordingFormatInfo(mime = pickRecordingMimeType(),): { mime: string; label: string; quickReplay: boolean; } {
+    const quickReplay = isQuickReplayFormat(mime,);
+    const container = /mp4/i.test(mime,) ? 'MP4' : /matroska/i.test(mime,) ? 'MKV' : 'WebM';
+    const codec = /avc1|h264/i.test(mime,) ? 'H.264' : /vp9/i.test(mime,) ? 'VP9' : /vp8/i.test(mime,) ? 'VP8' : mime ? 'default' : 'browser default';
+    const audio = /mp4a|aac/i.test(mime,) ? 'AAC' : /opus/i.test(mime,) ? 'Opus' : '';
+    return { mime, label: `${codec}${audio ? ` + ${audio}` : ''} (${container})`, quickReplay, };
+}
 
 /** First MediaRecorder type this browser supports ('' = its default). */
 export function pickRecordingMimeType(): string {

@@ -32,7 +32,7 @@ import {
     getPublisher, hasBrowserClient, type LiveConnectionState, type LivePublisher,
 } from '../../../../../services/liveProviders';
 import {
-    createRecorder, discardStoredRecording, EMPTY_PROGRESS, finishStoredRecording, isOpenRecording,
+    createRecorder, discardStoredRecording, EMPTY_PROGRESS, finishStoredRecording, isOpenRecording, recordingFormatInfo,
     type LiveRecorder, type RecorderProgress,
 } from '../../../../../services/liveRecording';
 import ConfirmModal from '../../../common/ConfirmModal';
@@ -314,6 +314,8 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
     };
     /** This page publishes the camera when going live. */
     const publishesFromBrowser = () => providerStatus().kind === 'ready' && !externalEncoder();
+    /** What this browser records — H.264 gets the instant (quick) replay. */
+    const recFormat = () => recordingFormatInfo();
     const recordingMethod = (): LiveRecordingMethod =>
         !settings().archiveVideo ? 'none' : externalEncoder() ? 'server' : 'browser';
 
@@ -636,6 +638,15 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                                     fallback={<span class="form-help-muted">Off — archive video is disabled.</span>}
                                 >
                                     <span class={`live-console__state live-console__state--rec-${rec().state}`}>{REC_LABEL[rec().state]}</span>
+                                    <span
+                                        class={`live-console__stat-value${recFormat().quickReplay ? '' : ' live-console__stat-error'}`}
+                                        title={recFormat().mime || 'browser default'}
+                                    >
+                                        {recFormat().label}
+                                        {recFormat().quickReplay
+                                            ? ' · instant replay'
+                                            : ' · no instant replay (replay after encoding, ~10–15 min) — use Chrome, Edge or Safari to record H.264'}
+                                    </span>
                                     <Show when={rec().state !== 'idle'}>
                                         <span class="live-console__stat-value">
                                             {formatFileSize(rec().uploadedBytes,)} uploaded

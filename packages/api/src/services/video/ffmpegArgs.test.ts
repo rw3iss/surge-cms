@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { encodeArgs, hlsPackageArgs, lowPriority, posterArgs, spriteArgs, spriteSheetCount, spriteVtt, teaserCutArgs, } from './ffmpegArgs';
+import { encodeArgs, hlsPackageArgs, lowPriority, posterArgs, quickReplayArgs, remuxArgs, spriteArgs, spriteSheetCount, spriteVtt, teaserCutArgs, } from './ffmpegArgs';
 import { selectRungs, } from './ladder';
 
 const rung = selectRungs([{ name: '720p', height: 720, maxrateKbps: 2800, audioKbps: 128, enabled: true, },], 1920, 1080, 30,)[0];
@@ -85,3 +85,21 @@ describe('spriteVtt', () => {
         expect(vtt,).toContain('00:16:40.000 --> 00:16:50.000\ns2#xywh=0,0,160,90',);
     },);
 },);
+describe('quick replay / remux', () => {
+    it('copies video, converts audio to AAC, faststart MP4', () => {
+        const a = quickReplayArgs({ input: 'in.webm', output: 'out.mp4', hasAudio: true, },);
+        expect(a.join(' ',),).toContain('-c:v copy',);
+        expect(a.join(' ',),).toContain('-c:a aac',);
+        expect(a.join(' ',),).toContain('-movflags +faststart',);
+        expect(a.at(-1,),).toBe('out.mp4',);
+    },);
+    it('skips the audio map when there is no audio', () => {
+        expect(quickReplayArgs({ input: 'i', output: 'o', hasAudio: false, },).join(' ',),).not.toContain('0:a:0',);
+    },);
+    it('remux is a pure stream copy into matroska', () => {
+        const a = remuxArgs({ input: 'i.webm', output: 'o.mkv', },).join(' ',);
+        expect(a,).toContain('-c copy',);
+        expect(a,).toContain('-f matroska',);
+    },);
+},);
+

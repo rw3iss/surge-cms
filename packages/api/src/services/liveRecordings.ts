@@ -33,8 +33,21 @@ import type { AuditContext, } from './types';
 import { fileUrl, } from './video/paths';
 import { registerVideo, } from './video/register';
 import { logger, } from '../utils/logger';
+import type { LiveReplayStrategy, } from './liveProviders/types';
 import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
+
+/**
+ * Replay strategy per recording method (see `LiveReplayStrategy`). A browser
+ * recording is the camera's original H.264 when the host's browser can record
+ * it, so it gets the quick-replay remux; a server recorder or a provider that
+ * writes HLS itself would map to its own strategy here.
+ */
+export function replayStrategyFor(method: string,): LiveReplayStrategy {
+    if (method === 'browser') return 'quick_remux';
+    if (method === 'server') return 'quick_remux';
+    return 'encode_only';
+}
 
 /** 8 MiB: every part but the last must be exactly this size. */
 export const LIVE_PART_SIZE = 8 * 1024 * 1024;
@@ -300,6 +313,10 @@ async function finalize(row: LiveRecordingRow, ctx: AuditContext | null,): Promi
             if (videoOn) {
                 await registerVideo({
                     mediaId, sourceKey: row.object_key, sourceSize: size, accessLevel, createdBy: uploadedBy,
+                    // How a recording becomes a replay is the provider's REPLAY
+                    // STRATEGY (services/liveProviders): browser recordings use
+                    // the quick-replay remux, then the normal encode.
+                    quickReplay: replayStrategyFor(row.method,) === 'quick_remux',
                 }, client,);
             }
             await client.query(

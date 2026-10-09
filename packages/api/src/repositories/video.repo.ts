@@ -52,6 +52,11 @@ export interface VideoRow {
     teaserStartMs: number;
     teaserDurationMs: number;
     hlsVersion: number;
+    /** Make a quick-replay MP4 first (live recordings). */
+    quickReplay: boolean;
+    /** Object key of the quick-replay MP4, once made. */
+    quickReplayPath: string | null;
+    quickReplayBytes: number | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -76,21 +81,25 @@ function mapVideo(r: Record<string, unknown>,): VideoRow {
         teaserStartMs: Number(r.teaser_start_ms,),
         teaserDurationMs: Number(r.teaser_duration_ms,),
         hlsVersion: Number(r.hls_version,),
+        quickReplay: r.quick_replay === true,
+        quickReplayPath: (r.quick_replay_path as string) ?? null,
+        quickReplayBytes: num(r.quick_replay_bytes,),
         createdAt: iso(r.created_at,)!,
         updatedAt: iso(r.updated_at,)!,
     };
 }
 
 export type VideoInsert = Pick<VideoRow, 'mediaId' | 'encodeId' | 'storagePrefix' | 'teaserPrefix' | 'sourceKey' | 'sourceSize'
-    | 'keepOriginal' | 'encrypted' | 'keyVersion' | 'ivHex' | 'teaserEnabled' | 'teaserStartMs' | 'teaserDurationMs'>;
+    | 'keepOriginal' | 'encrypted' | 'keyVersion' | 'ivHex' | 'teaserEnabled' | 'teaserStartMs' | 'teaserDurationMs'>
+    & { quickReplay?: boolean; };
 
 export async function insertVideo(v: VideoInsert, c?: Db,): Promise<VideoRow> {
     const r = await db(c,).query(
         `INSERT INTO media_videos (media_id, encode_id, storage_prefix, teaser_prefix, source_key, source_size,
-             keep_original, encrypted, key_version, iv_hex, teaser_enabled, teaser_start_ms, teaser_duration_ms)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+             keep_original, encrypted, key_version, iv_hex, teaser_enabled, teaser_start_ms, teaser_duration_ms, quick_replay)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
         [v.mediaId, v.encodeId, v.storagePrefix, v.teaserPrefix, v.sourceKey, v.sourceSize, v.keepOriginal,
-            v.encrypted, v.keyVersion, v.ivHex, v.teaserEnabled, v.teaserStartMs, v.teaserDurationMs,],
+            v.encrypted, v.keyVersion, v.ivHex, v.teaserEnabled, v.teaserStartMs, v.teaserDurationMs, v.quickReplay === true,],
     );
     return mapVideo(r.rows[0],);
 }
@@ -106,6 +115,7 @@ const VIDEO_COLUMNS: Record<string, string> = {
     posterUrl: 'poster_url', thumbnailsVtt: 'thumbnails_vtt', encrypted: 'encrypted', keyVersion: 'key_version',
     ivHex: 'iv_hex', teaserEnabled: 'teaser_enabled', teaserStartMs: 'teaser_start_ms',
     teaserDurationMs: 'teaser_duration_ms', hlsVersion: 'hls_version',
+    quickReplay: 'quick_replay', quickReplayPath: 'quick_replay_path', quickReplayBytes: 'quick_replay_bytes',
 };
 
 export async function updateVideo(mediaId: string, patch: Partial<Omit<VideoRow, 'mediaId' | 'createdAt' | 'updatedAt'>>, c?: Db,): Promise<VideoRow | null> {

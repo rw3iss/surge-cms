@@ -21,6 +21,12 @@ export interface RegisterVideoInput {
     teaserStartSeconds?: number;
     teaserSeconds?: number;
     createdBy?: string | null;
+    /**
+     * Live recordings: copy the source into a seekable MP4 first (H.264 kept,
+     * audio → AAC) and serve it as the replay until HLS is ready. Also jumps
+     * the queue — a just-ended show is what viewers are waiting for.
+     */
+    quickReplay?: boolean;
 }
 
 /** Inside the caller's transaction when `client` is given. */
@@ -43,8 +49,11 @@ export async function registerVideo(input: RegisterVideoInput, client?: PoolClie
         teaserEnabled: teaserOn,
         teaserStartMs: Math.max(0, Math.round((input.teaserStartSeconds ?? s.teaserStartSeconds) * 1000,),),
         teaserDurationMs: Math.max(1000, Math.round((input.teaserSeconds ?? s.teaserSeconds) * 1000,),),
+        quickReplay: input.quickReplay === true,
     }, client,);
-    await repo.enqueueJob(input.mediaId, { kind: 'encode', createdBy: input.createdBy ?? null, }, client,);
+    await repo.enqueueJob(input.mediaId, {
+        kind: 'encode', createdBy: input.createdBy ?? null, priority: input.quickReplay ? 10 : 100,
+    }, client,);
     return video;
 }
 

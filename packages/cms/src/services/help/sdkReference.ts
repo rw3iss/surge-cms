@@ -918,8 +918,11 @@ export default AnnouncementEditor;`,
                         + 'reactions. Every command carries a short-lived room ticket (`cms.posts.liveTicket(id)`), and '
                         + 'the server re-checks who sent it — host commands need `posts.live:host`, deleting chat '
                         + '`posts.live:chat_moderate`.',
-                        'Ended shows open no connection. The video stream itself (100ms or another provider) is not '
-                        + 'connected yet — the stage shows a placeholder.',
+                        'Video goes through the provider chosen in Posts → Settings → Live Show (Cloudflare Stream today: '
+                        + 'WHIP from the host browser, WHEP to viewers, under a second of delay). Ended shows open no connection.',
+                        'Recording: the host browser records the camera (H.264 when the browser can — Chrome, Edge, Safari) and '
+                        + 'uploads it while live. Within a minute or two of the end a quick replay (a copy, not a re-encode) '
+                        + 'plays on the post page at camera quality; the multi-quality version replaces it once encoded.',
                     ],
                 },
             ],

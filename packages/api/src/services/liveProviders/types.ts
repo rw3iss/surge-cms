@@ -48,3 +48,17 @@ export interface LiveProviderAdapter {
     /** Origins the BROWSER must reach (WHIP/WHEP) — added to CSP connect-src. */
     cspOrigins?(cfg: LiveProviderConfig,): string[];
 }
+
+/**
+ * How a finished show becomes its REPLAY — swappable per recording method /
+ * provider, so moving providers does not touch the post page or the pipeline:
+ *
+ *   quick_remux  — a file recorded elsewhere (today: the host BROWSER) is
+ *                  copied into a seekable faststart MP4 (H.264 kept, audio →
+ *                  AAC) and served at once; the HLS ladder is encoded after.
+ *   provider_hls — the provider already wrote HLS into our bucket while live
+ *                  (e.g. LiveKit segmented egress to R2): register those
+ *                  segments as the replay, nothing to encode. (Not built yet.)
+ *   encode_only  — no quick step; replay appears when the first rung is encoded.
+ */
+export type LiveReplayStrategy = 'quick_remux' | 'provider_hls' | 'encode_only';

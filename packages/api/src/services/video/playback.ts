@@ -99,8 +99,27 @@ export async function playback(id: string, viewer: Viewer | null | undefined,): 
             .map((r,) => ({ quality: r.name, height: r.height, bytes: r.downloadBytes, url: downloadUrl(id, r.name,), }))
         : [];
 
+    // Quick replay (live recordings): a faststart H.264/AAC MP4 at camera
+    // quality — the replay until the first HLS rung is ready, and the
+    // "Original" download after. Same access rule as the full video.
+    let quick: { url: string; type: string; } | null = null;
+    if (full && video.quickReplayPath) {
+        const store = await resolveStorageProvider();
+        if (isObjectStore(store,)) {
+            const url = m.accessLevel === 'private'
+                ? await store.presignGet(video.quickReplayPath, 6 * 3600,)
+                : store.publicUrl(video.quickReplayPath,);
+            quick = { url, type: 'video/mp4', };
+        }
+    }
+    if (full && video.quickReplayPath && settings.downloadsEnabled) {
+        downloads.unshift({ quality: 'original', height: m.height, bytes: video.quickReplayBytes, url: downloadUrl(id, 'original',), },);
+    }
+
     return {
         ...base,
+        fileSrc: readyFull.length === 0 && quick ? quick.url : null,
+        fileType: readyFull.length === 0 && quick ? quick.type : null,
         posterUrl: video.posterUrl ?? m.thumbnailUrl,
         thumbnailsVtt: full ? video.thumbnailsVtt : null,
         src: full && readyFull.length > 0 ? masterUrl(id,) : null,
@@ -110,7 +129,7 @@ export async function playback(id: string, viewer: Viewer | null | undefined,): 
             : null,
         qualities: full ? readyFull.sort((a, b,) => (b.height ?? 0) - (a.height ?? 0)).map((r,) => r.name) : [],
         downloads,
-        access: { full, reason: !full ? 'private' : readyFull.length === 0 ? 'not_ready' : 'ok', },
+        access: { full, reason: !full ? 'private' : readyFull.length === 0 && !quick ? 'not_ready' : 'ok', },
     };
 }
 
@@ -181,14 +200,19 @@ export async function downloadLink(id: string, quality: string | undefined, view
     if (!(await canWatchFull(m.accessLevel, viewer,))) throw new ForbiddenError('This video is for subscribers.',);
     const settings = await getVideoSettings();
     if (!settings.downloadsEnabled) throw new NotFoundError('Download',);
+    const store = await resolveStorageProvider();
+    if (!isObjectStore(store,)) throw new NotFoundError('Download',);
+    const stem = (m.title || m.originalName.replace(/\.[^.]+$/, '',)).replace(/[^\w .-]+/g, '',).trim().slice(0, 80,) || 'video';
+    if (quality === 'original') {
+        const video = await repo.getVideo(id,);
+        if (!video?.quickReplayPath) throw new NotFoundError('Download',);
+        return store.presignGet(video.quickReplayPath, 600, `${stem} (original).mp4`,);
+    }
     const ready = (await repo.listRenditions(id, 'full',))
         .filter((r,) => r.status === 'ready' && r.downloadPath)
         .sort((a, b,) => (b.height ?? 0) - (a.height ?? 0));
     const pick = quality ? ready.find((r,) => r.name === quality) : ready[0];
     if (!pick) throw new NotFoundError('Download',);
-    const store = await resolveStorageProvider();
-    if (!isObjectStore(store,)) throw new NotFoundError('Download',);
-    const stem = (m.title || m.originalName.replace(/\.[^.]+$/, '',)).replace(/[^\w .-]+/g, '',).trim().slice(0, 80,) || 'video';
     return store.presignGet(pick.downloadPath!, 600, `${stem} (${pick.name}).mp4`,);
 }
 
@@ -237,7 +261,9 @@ export async function fileLink(
     const q = (opts.quality || 'auto').toLowerCase();
     const originalOk = !!video.sourceKey && BROWSER_PLAYABLE.test(m.mimeType,);
     let key: string | null = null;
-    if (q === 'original') {
+    if (q === 'original' && video.quickReplayPath) {
+        key = video.quickReplayPath;
+    } else if (q === 'original') {
         if (!originalOk) throw new NotFoundError('Original file',);
         key = video.sourceKey;
     } else {
@@ -246,6 +272,8 @@ export async function fileLink(
             .sort((a, b,) => (b.height ?? 0) - (a.height ?? 0));
         const pick = q === 'auto' || q === 'highest' ? ready[0] : ready.find((r,) => r.name.toLowerCase() === q);
         if (pick) key = pick.downloadPath;
+        // Still encoding a live recording: the quick replay.
+        else if (!ready.length && video.quickReplayPath) key = video.quickReplayPath;
         // Still encoding: a browser-playable original is better than nothing.
         else if (!ready.length && originalOk) key = video.sourceKey;
         else if (!ready.length) return { kind: 'watch', url: watchUrl(id,), };

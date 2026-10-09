@@ -107,6 +107,37 @@ export function posterArgs(i: { input: string; output: string; atSec: number; },
     ];
 }
 
+/**
+ * Quick replay: copy an H.264 recording into a seekable, faststart MP4 —
+ * the video stream untouched (no quality loss, little CPU), audio → AAC (the
+ * one universally playable audio codec; a browser often records Opus). The
+ * MP4 plays in every browser and carries the duration/seek index a
+ * MediaRecorder file lacks.
+ */
+export function quickReplayArgs(i: { input: string; output: string; hasAudio: boolean; },): string[] {
+    return [
+        ...COMMON,
+        // MediaRecorder output can have unset/odd timestamps.
+        '-fflags', '+genpts',
+        '-i', i.input,
+        '-map', '0:v:0',
+        ...(i.hasAudio ? ['-map', '0:a:0', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2',] : []),
+        '-c:v', 'copy',
+        '-movflags', '+faststart',
+        '-f', 'mp4',
+        i.output,
+    ];
+}
+
+/**
+ * Container repair for a recording that cannot be quick-replayed (VP8/VP9):
+ * a stream copy into Matroska writes the duration + cues a MediaRecorder WebM
+ * lacks, so the encode (which needs a duration) can proceed.
+ */
+export function remuxArgs(i: { input: string; output: string; },): string[] {
+    return [...COMMON, '-fflags', '+genpts', '-i', i.input, '-map', '0', '-c', 'copy', '-f', 'matroska', i.output,];
+}
+
 export const SPRITE_INTERVAL_SEC = 10;
 export const SPRITE_COLS = 10;
 export const SPRITE_ROWS = 10;

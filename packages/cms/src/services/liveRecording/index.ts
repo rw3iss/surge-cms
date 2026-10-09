@@ -8,7 +8,7 @@ import { BrowserRecorder, } from './browserRecorder';
 import type { LiveRecorder, RecorderProgress, } from './types';
 import { EMPTY_PROGRESS, } from './types';
 
-export { discardStoredRecording, finishStoredRecording, isOpenRecording, } from './browserRecorder';
+export { discardStoredRecording, finishStoredRecording, isOpenRecording, isQuickReplayFormat, recordingFormatInfo, } from './browserRecorder';
 export type { LiveRecorder, RecorderProgress, RecorderState, } from './types';
 export { EMPTY_PROGRESS, } from './types';
 
