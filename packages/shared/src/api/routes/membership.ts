@@ -81,3 +81,11 @@ export interface MembershipChangeResponse {
 export interface MembershipConfirmBody {
     subscriptionId: string;
 }
+
+/** GET /payments/membership/tiers (public) — the /subscribe catalogue. */
+export interface MembershipPublicTiersResponse {
+    tiers: MembershipTierOption[];
+    /** Any tier other than free exists (else the site is completely free). */
+    paidAvailable: boolean;
+    signedIn: boolean;
+}
