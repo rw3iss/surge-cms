@@ -453,3 +453,9 @@
     }
   }
 }
+
+// An assigned media thumbnail (logo, banner, block image…) — click opens the
+// shared lightbox via `openMediaViewer()` (stores/mediaViewer.ts).
+.media-viewable {
+  cursor: zoom-in;
+}

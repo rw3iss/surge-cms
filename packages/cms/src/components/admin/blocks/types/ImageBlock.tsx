@@ -14,6 +14,7 @@
  * those into a single-item images array on read, and write back to the
  * new shape on first edit.
  */
+import { openMediaViewer, } from '@/stores/mediaViewer';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import MediaSelectModal from '../../media/MediaSelectModal';
 import MediaUploadModal from '../../media/MediaUploadModal';
@@ -147,9 +148,9 @@ const ImageBlock: Component<ImageBlockProps> = (props,) => {
                         {(img,) => (
                             <button
                                 type="button"
-                                class={`image-block-strip__thumb ${selectedId() === img.id ? 'is-active' : ''}`}
-                                onClick={() => select(img.id,)}
-                                title={img.alt || 'Image'}
+                                class={`image-block-strip__thumb ${selectedId() === img.id ? 'is-active media-viewable' : ''}`}
+                                onClick={() => (selectedId() === img.id && img.url ? openMediaViewer(img.url,) : select(img.id,))}
+                                title={selectedId() === img.id && img.url ? 'View full size' : img.alt || 'Image'}
                             >
                                 <Show
                                     when={img.url}

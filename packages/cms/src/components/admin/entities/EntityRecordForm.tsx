@@ -6,6 +6,7 @@
  * Media fields open the shared MediaSelectModal; relation fields open the
  * EntitySearchSelectModal (single) scoped to the field's target type.
  */
+import { openMediaViewer, } from '@/stores/mediaViewer';
 import type { EntityFieldDef, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import FormCheck from '../forms/FormCheck';
@@ -164,6 +165,15 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
                                 onClick={() => setPicker({ key, kind: 'media', },)}
                             >
                                 Select
+                            </button>
+                        </Show>
+                        <Show when={val(key,)}>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--sm ui-button--secondary"
+                                onClick={() => openMediaViewer({ id: String(val(key,),), },)}
+                            >
+                                View
                             </button>
                         </Show>
                     </div>

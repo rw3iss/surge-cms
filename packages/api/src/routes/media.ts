@@ -19,7 +19,7 @@ import multer from 'multer';
 import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { z, } from 'zod';
-import type { AssertCompatible, MediaListQuery, MediaUpdateBody, } from '@sitesurge/types';
+import type { AssertCompatible, MediaByUrlQuery, MediaListQuery, MediaUpdateBody, } from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { ValidationError, } from '../core/errors';
@@ -152,6 +152,13 @@ export const mediaRoutes = [
                 },
             },);
         },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/by-url', auth: 'staff',
+        summary: 'The library item behind a stored URL (null when not in the library).',
+        input: { query: z.object({ url: z.string().min(1,).max(2048,), },) satisfies z.ZodType<MediaByUrlQuery>, },
+        handler: ({ query, },) => media.findByUrl(query.url,),
     },),
 
     defineRoute({

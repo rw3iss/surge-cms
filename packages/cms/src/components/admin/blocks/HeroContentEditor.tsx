@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import type {
     HeroActionConfig,
     HeroButtonSize,
@@ -915,6 +916,8 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                                     fallback={
                                                         <img
                                                             src={item.mediaThumbnailUrl || item.mediaUrl}
+                                                            class="media-viewable"
+                                                            {...viewMediaProps(() => item.mediaUrl,)}
                                                             alt=""
                                                             style={{ 'object-fit': item.objectFit || 'cover', }}
                                                         />

@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import { useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, lazy, onMount, Show, } from 'solid-js';
 import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
@@ -1240,6 +1241,8 @@ function BrandingMediaField(props: {
                     <img
                         src={props.value.url}
                         alt={props.label}
+                        class="media-viewable"
+                        {...viewMediaProps(() => props.value.url,)}
                         style={{
                             'max-height': '40px',
                             'max-width': '120px',

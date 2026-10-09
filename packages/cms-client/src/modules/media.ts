@@ -1,6 +1,6 @@
 import type {
     MediaUploadFields, MediaUploadResponse, MediaBlockUploadFields, MediaBlockUploadResponse,
-    MediaBulkUploadResponse, MediaListQuery, MediaListResponse, MediaByIdResponse,
+    MediaBulkUploadResponse, MediaListQuery, MediaListResponse, MediaByIdResponse, MediaByUrlResponse,
     MediaUpdateBody, MediaUpdateResponse, MediaDeleteResponse,
     MediaUploadCreateBody, MediaUploadCreateResponse, MediaUploadListResponse, MediaUploadGetResponse,
     MediaUploadPartUrlsResponse, MediaUploadCompleteResponse, MediaUploadAbortResponse,
@@ -47,6 +47,12 @@ export class MediaModule extends ModuleBase {
     /** GET /media — paginated admin list with type/types/search/sort filters. */
     list(query?: MediaListQuery,): Promise<Paginated<MediaListResponse[number]>> {
         return this.getPaged<MediaListResponse[number]>('/media', { query: query as Record<string, unknown>, },);
+    }
+
+    /** GET /media/by-url — the library item behind a stored URL (null when
+     *  the URL is not in the library). Used to preview an assigned image. */
+    byUrl(url: string,): Promise<MediaByUrlResponse> {
+        return this.get<MediaByUrlResponse>('/media/by-url', { query: { url, }, },);
     }
 
     /** GET /media/:id — the media row. `{ cache: false }` reads fresh

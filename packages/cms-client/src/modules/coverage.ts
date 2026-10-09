@@ -123,6 +123,7 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/media/block-upload',
     'POST /api/v1/media/bulk',
     'GET /api/v1/media',
+    'GET /api/v1/media/by-url',
     'GET /api/v1/media/:id',
     'PUT /api/v1/media/:id',
     'DELETE /api/v1/media/:id',

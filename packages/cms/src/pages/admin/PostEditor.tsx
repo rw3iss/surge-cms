@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import {
     BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerHeight,
     isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition,
@@ -466,7 +467,8 @@ const AdminPostEditor: Component = () => {
                                 <Show when={featuredImage()}>
                                     <div class="post-banner-field__preview-col">
                                         <img
-                                            class="post-banner-field__preview"
+                                            class="post-banner-field__preview media-viewable"
+                                            {...viewMediaProps(featuredImage,)}
                                             src={featuredImage()}
                                             alt="Banner preview"
                                         />

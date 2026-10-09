@@ -11,6 +11,7 @@
  * the URL falls back to the selected media image. The component owns its own
  * media-modal state so a host just renders it and reacts to `onChange`.
  */
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import { Component, createSignal, Show, } from 'solid-js';
 import MediaSelectModal, { type MediaItem, } from './MediaSelectModal';
 import MediaUploadModal from './MediaUploadModal';
@@ -61,7 +62,7 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
         <div class="image-link-picker">
             <Show when={previewSrc()}>
                 <div class="image-link-picker__preview" classList={{ 'is-overridden': urlOverrides(), }}>
-                    <img src={previewSrc()} alt="" />
+                    <img src={previewSrc()} alt="" class="media-viewable" {...viewMediaProps(previewSrc,)} />
                     <Show when={urlOverrides()}>
                         <span class="image-link-picker__preview-badge">Overridden by URL</span>
                     </Show>

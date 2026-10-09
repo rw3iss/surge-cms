@@ -1,3 +1,4 @@
+import { openMediaViewer, } from '@/stores/mediaViewer';
 import type { Media, } from '@sitesurge/types';
 import { Component, createSignal, Match, Show, Switch, type JSX, } from 'solid-js';
 import MediaVideo from '../../../blocks/media/MediaVideo';
@@ -154,6 +155,16 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     <label>Video</label>
                     <Show when={props.data.url || props.data.mediaId}>
                         {preview({ 'max-width': '320px', 'margin-bottom': '0.5rem', 'border-radius': '4px', },)}
+                        <Show when={props.data.mediaId}>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--sm ui-button--secondary"
+                                style={{ 'margin-bottom': '0.5rem', }}
+                                onClick={() => openMediaViewer({ id: props.data.mediaId!, },)}
+                            >
+                                View full size
+                            </button>
+                        </Show>
                     </Show>
                     <Show when={uploading()}>
                         <div class="block-upload-spinner">

@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import { BLOCK_CUSTOM_CSS_MAX, type SiteBreakpoint, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { BLOCK_STYLE_DEFAULTS, BlockStyleData, } from '../../../../services/blockStyles';
@@ -279,7 +280,8 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     >
                         <div class="block-style-editor__bg-row">
                             <img
-                                class="block-style-editor__bg-thumb"
+                                class="block-style-editor__bg-thumb media-viewable"
+                                {...viewMediaProps(() => sv('backgroundImage',) as string,)}
                                 src={sv('backgroundImage',)}
                                 alt="Background preview"
                             />

@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -826,10 +827,11 @@ const ShopProductEditorInner: Component = () => {
                                                     <div class="shop-product-editor__media-frame">
                                                         <Show
                                                             when={m.kind === 'image'}
-                                                            fallback={<div class="shop-product-editor__media-thumb shop-product-editor__media-thumb--video">▶</div>}
+                                                            fallback={<div class="shop-product-editor__media-thumb shop-product-editor__media-thumb--video media-viewable" {...viewMediaProps(() => m.url,)}>▶</div>}
                                                         >
                                                             <img
-                                                                class="shop-product-editor__media-thumb"
+                                                                class="shop-product-editor__media-thumb media-viewable"
+                                                                {...viewMediaProps(() => m.url,)}
                                                                 src={m.thumbnailUrl || m.url}
                                                                 alt=""
                                                                 draggable={false}

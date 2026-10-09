@@ -1077,6 +1077,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /media/bulk — multiple files (field \"files\", max 10)."
             },
             {
+                "name": "byUrl",
+                "signature": "byUrl(url: string): Promise<MediaByUrlResponse>",
+                "summary": "GET /media/by-url — the library item behind a stored URL (null when the URL is not in the library). Used to preview an assigned image."
+            },
+            {
                 "name": "getById",
                 "signature": "getById(id: string, options?: { cache?: boolean; }): Promise<MediaByIdResponse>",
                 "summary": "GET /media/:id — the media row. `{ cache: false }` reads fresh (an editor must not start from a stale copy)."
@@ -2659,4 +2664,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 466;
+export const SDK_METHOD_COUNT = 467;

@@ -4,6 +4,7 @@ import { createEffect, createMemo, createResource, createSignal, For, onCleanup,
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import AdminPresence from '../../components/admin/presence/AdminPresence';
 import SamePageWarning from '../../components/admin/presence/SamePageWarning';
+import MediaViewerHost from '../../components/admin/media/MediaViewerHost';
 import SessionExpiredModal from '../../components/auth/SessionExpiredModal';
 import UploadTray from '../../components/admin/media/UploadTray';
 import { adminChannel, } from '../../services/adminChannel';
@@ -363,6 +364,7 @@ const AdminLayout: ParentComponent = (props,) => {
                 <GlobalSearch />
                 <SessionExpiredModal />
                 <SamePageWarning />
+                <MediaViewerHost />
                 <UploadTray />
             </div>
         </Show>

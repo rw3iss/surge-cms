@@ -102,8 +102,12 @@ const MediaViewerModal: Component<MediaViewerModalProps> = (props,) => {
                         <div class="media-modal__meta">
                             <span>{m().title || m().originalName}</span>
                             <span class="media-modal__meta-details">
-                                {getTypeLabel(m().mimeType,)} &middot; {formatSize(m().size,)} &middot;{' '}
-                                {new Date(m().createdAt,).toLocaleDateString()}
+                                {[
+                                    getTypeLabel(m().mimeType,),
+                                    m().size ? formatSize(m().size,) : '',
+                                    m().createdAt ? new Date(m().createdAt,).toLocaleDateString() : '',
+                                    m().id ? '' : 'Not in the media library',
+                                ].filter(Boolean,).join(' · ',)}
                             </span>
                         </div>
                         <div class="media-modal__actions">

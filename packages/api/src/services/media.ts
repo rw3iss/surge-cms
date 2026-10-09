@@ -24,6 +24,7 @@ import type { AuditContext, } from './types';
 import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
+import { mediaRefsFor, } from './mediaRefs';
 
 // When using local storage, write directly to uploads dir. For remote
 // providers (S3, etc.), stage in UPLOAD_TEMP_DIR — on real disk. NOT
@@ -257,6 +258,18 @@ export async function list(q: MediaListQuery,): Promise<MediaListResult> {
     );
 
     return { data: await withVideo(result.rows.map(toMedia,),), page, limit, total, };
+}
+
+/** The library item behind a stored URL (absolute or `/uploads/…`), or null. */
+export async function findByUrl(url: string,): Promise<Media | null> {
+    const id = (await mediaRefsFor([url,],)).get(url,)?.id;
+    if (!id) return null;
+    try {
+        return await getById(id,);
+    } catch (e) {
+        if (e instanceof NotFoundError) return null;
+        throw e;
+    }
 }
 
 export async function getById(id: string,): Promise<Media> {

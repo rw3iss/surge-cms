@@ -81,6 +81,17 @@ export interface MediaListQuery {
 /** GET /media — list items. Page meta rides the ApiResponse envelope. */
 export type MediaListResponse = MediaWire[];
 
+// ─── GET /media/by-url ────────────────────────────────────────────────
+
+/** Query for GET /media/by-url. Absolute or host-relative (`/uploads/x.jpg`). */
+export interface MediaByUrlQuery {
+    url: string;
+}
+
+/** GET /media/by-url — the library item behind a stored URL, or null when
+ *  the URL is not in the library (pasted from elsewhere). */
+export type MediaByUrlResponse = MediaWire | null;
+
 // ─── GET /media/:id ───────────────────────────────────────────────────
 
 /** Params for the media-by-id family of routes. */

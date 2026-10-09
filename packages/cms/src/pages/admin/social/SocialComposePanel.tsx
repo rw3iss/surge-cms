@@ -1,3 +1,4 @@
+import { viewMediaProps, } from '@/stores/mediaViewer';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { SocialPublishResult, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
@@ -99,9 +100,9 @@ const SocialComposePanel: Component = () => {
                         <div class="social-compose__media-item">
                             <Show
                                 when={m.mimeType.startsWith('video/',)}
-                                fallback={<img src={m.thumbnailUrl || m.url} alt={m.originalName} />}
+                                fallback={<img src={m.thumbnailUrl || m.url} alt={m.originalName} class="media-viewable" {...viewMediaProps(() => m as never,)} />}
                             >
-                                <video src={m.url} muted preload="metadata" />
+                                <video src={m.url} muted preload="metadata" class="media-viewable" {...viewMediaProps(() => m as never,)} />
                             </Show>
                             <button
                                 type="button"

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T17:29:58.110Z",
+  "generatedAt": "2026-10-09T19:04:49.752Z",
   "totalModules": 48,
-  "totalRoutes": 481,
+  "totalRoutes": 482,
   "modules": [
     {
       "module": "admin-channel",
@@ -1368,6 +1368,13 @@
           "absolutePath": "/api/v1/media",
           "auth": "staff",
           "summary": "Paginated media list (type/types/search/sort filters)."
+        },
+        {
+          "method": "GET",
+          "path": "/by-url",
+          "absolutePath": "/api/v1/media/by-url",
+          "auth": "staff",
+          "summary": "The library item behind a stored URL (null when not in the library)."
         },
         {
           "method": "GET",
