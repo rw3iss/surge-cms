@@ -1,74 +1,194 @@
+// 404 — every colour, font and radius comes from the site's appearance
+// tokens (with neutral fallbacks), so the page follows the configured theme.
 .not-found {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 70vh;
-  padding: $spacing-2xl $spacing-md;
-  text-align: center;
+  --nf-primary: var(--site-primary, #{$primary-color});
+  --nf-text: var(--site-text, #{$text-color});
+  --nf-muted: var(--site-text-muted, #{$text-light});
+  --nf-border: var(--site-border, #{$border-color});
+  --nf-bg: var(--site-bg, #fff);
+  --nf-radius: var(--site-radius, 12px);
 
-  &__logo-link {
-    display: block;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: 72vh;
+  padding: $spacing-2xl $spacing-md;
+  overflow: hidden;
+  font-family: var(--site-font, inherit);
+  color: var(--nf-text);
+
+  // Soft brand-coloured light behind the card.
+  &__glow {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(42rem 26rem at 50% 38%, color-mix(in srgb, var(--nf-primary) 14%, transparent), transparent 70%),
+      radial-gradient(24rem 16rem at 72% 70%, color-mix(in srgb, var(--nf-primary) 8%, transparent), transparent 70%);
+  }
+
+  &__card {
+    width: min(100%, 34rem);
+    padding: clamp(#{$spacing-xl}, 6vw, 3.5rem) clamp(#{$spacing-lg}, 6vw, 3rem);
+    text-align: center;
+    background: color-mix(in srgb, var(--nf-bg) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--nf-border) 80%, transparent);
+    border-radius: calc(var(--nf-radius) * 1.5);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 20px 50px -24px rgb(0 0 0 / 0.25);
+    backdrop-filter: blur(6px);
+    animation: not-found-in 0.45s ease-out both;
+  }
+
+  &__brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: $spacing-xl;
+    color: var(--site-heading, var(--nf-text));
+    text-decoration: none;
     transition: opacity 0.2s;
 
-    &:hover {
-      opacity: 0.8;
-    }
+    &:hover { opacity: 0.75; }
+    &:focus-visible { outline: 2px solid var(--nf-primary); outline-offset: 4px; border-radius: 4px; }
   }
 
   &__logo {
-    width: 160px;
+    display: block;
+    max-width: 180px;
+    max-height: 56px;
+    width: auto;
     height: auto;
+  }
 
-    @include md {
-      width: 200px;
-    }
+  &__site-name {
+    font-family: var(--site-heading-font, var(--site-font, inherit));
+    font-weight: var(--site-heading-weight, 700);
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
   }
 
   &__code {
-    font-size: 6rem;
+    margin: 0;
+    font-family: var(--site-heading-font, var(--site-font, inherit));
+    font-size: clamp(5rem, 18vw, 8.5rem);
     font-weight: 800;
-    line-height: 1;
-    color: var(--site-primary, #{$primary-color});
-    margin: 0 0 $spacing-sm;
-    letter-spacing: -0.03em;
-
-    @include md {
-      font-size: 8rem;
-    }
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: var(--nf-primary);
+    background: linear-gradient(180deg, var(--nf-primary), color-mix(in srgb, var(--nf-primary) 55%, var(--nf-bg)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  &__message {
-    font-size: $font-size-2xl;
-    font-weight: 600;
-    color: $text-color;
-    margin: 0 0 $spacing-sm;
+  &__title {
+    margin: $spacing-md 0 $spacing-sm;
+    font-family: var(--site-heading-font, var(--site-font, inherit));
+    font-weight: var(--site-heading-weight, 700);
+    font-size: clamp(1.4rem, 3.5vw, 1.85rem);
+    color: var(--site-heading, var(--nf-text));
   }
 
   &__detail {
-    font-size: $font-size-base;
-    color: $text-light;
-    margin: 0 0 $spacing-xl;
-    max-width: 400px;
+    margin: 0 auto;
+    max-width: 26rem;
+    color: var(--nf-muted);
+    line-height: 1.6;
+  }
+
+  &__path {
+    margin: $spacing-md 0 0;
+
+    code {
+      display: inline-block;
+      max-width: 100%;
+      padding: 0.25rem 0.6rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+      font-size: 0.85rem;
+      color: var(--nf-muted);
+      background: color-mix(in srgb, var(--nf-text) 5%, transparent);
+      border: 1px solid color-mix(in srgb, var(--nf-border) 70%, transparent);
+      border-radius: 999px;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: $spacing-sm;
+    margin-top: $spacing-xl;
   }
 
   &__btn {
     display: inline-flex;
     align-items: center;
-    padding: $spacing-sm $spacing-xl;
-    background: var(--site-primary, #{$primary-color});
-    color: white;
-    border-radius: $border-radius-md;
-    text-decoration: none;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 9rem;
+    padding: 0.7rem 1.3rem;
+    font: inherit;
     font-weight: 600;
-    font-size: $font-size-base;
-    transition: background 0.2s, transform 0.15s;
+    line-height: 1;
+    text-decoration: none;
+    border-radius: var(--site-button-radius, var(--nf-radius));
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
 
-    &:hover {
-      background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 92%, black);
-      color: white;
-      transform: translateY(-1px);
+    svg {
+      width: 1.05em;
+      height: 1.05em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:hover { transform: translateY(-1px); }
+    &:active { transform: translateY(0); }
+    &:focus-visible { outline: 2px solid var(--nf-primary); outline-offset: 3px; }
+
+    &--primary {
+      color: var(--site-button-text, #fff);
+      background: var(--nf-primary);
+      border: 1px solid var(--nf-primary);
+      box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--nf-primary) 70%, transparent);
+
+      &:hover {
+        color: var(--site-button-text, #fff);
+        background: color-mix(in srgb, var(--nf-primary) 88%, #000);
+      }
+    }
+
+    &--ghost {
+      color: var(--nf-text);
+      background: transparent;
+      border: 1px solid var(--nf-border);
+
+      &:hover {
+        border-color: var(--nf-primary);
+        color: var(--nf-primary);
+      }
     }
   }
+
+  @media (max-width: 480px) {
+    &__btn { flex: 1 1 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__card { animation: none; }
+    &__btn { transition: none; &:hover { transform: none; } }
+  }
+}
+
+@keyframes not-found-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
