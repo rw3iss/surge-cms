@@ -1,5 +1,6 @@
 import type {
-    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody,
+    RevisionSnapshotResponse, PostTypesResponse, PostLiveStateResponse, PostLiveTicketResponse, PostsSettingsResponse, PostsSettingsBody, LivePublishInfo, LivePlaybackInfo, LiveRecording,
+    PostLiveRecordingStartBody, PostLiveRecordingPartUrlResponse,
     PostListQuery, PostListResponse, PostSearchQuery, PostSearchResponse,
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
@@ -43,6 +44,35 @@ export class PostsModule extends ModuleBase {
     liveTicket(id: string,): Promise<PostLiveTicketResponse> {
         return this.mutate<PostLiveTicketResponse>('POST', '/posts/:id/live/ticket', { params: { id, }, },);
     }
+
+    /** POST /posts/:id/live/publish (host) — the provider ingest (WHIP) for the host's camera. */
+    livePublish(id: string,): Promise<LivePublishInfo> {
+        return this.mutate<LivePublishInfo>('POST', '/posts/:id/live/publish', { params: { id, }, },);
+    }
+
+    /** GET /posts/:id/live/playback — how to watch the live stream (WHEP/HLS), for permitted viewers. */
+    livePlayback(id: string,): Promise<LivePlaybackInfo> {
+        return this.get<LivePlaybackInfo>('/posts/:id/live/playback', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** Browser recording of a live show (host): start/resume, part URLs, complete, abort. */
+    readonly liveRecording = {
+        /** GET /posts/:id/live/recording — the open (or latest) recording, null when none. */
+        get: (id: string,): Promise<LiveRecording | null> =>
+            this.get<LiveRecording | null>('/posts/:id/live/recording', { params: { id, }, options: { cache: false, }, },),
+        /** POST /posts/:id/live/recording — start, or resume the open one. */
+        start: (id: string, body: PostLiveRecordingStartBody,): Promise<LiveRecording> =>
+            this.mutate<LiveRecording>('POST', '/posts/:id/live/recording', { params: { id, }, body, },),
+        /** POST /posts/:id/live/recording/:rid/part-url — presigned PUT for one part. */
+        partUrl: (id: string, rid: string, partNumber: number,): Promise<PostLiveRecordingPartUrlResponse> =>
+            this.mutate<PostLiveRecordingPartUrlResponse>('POST', '/posts/:id/live/recording/:rid/part-url', { params: { id, rid, }, body: { partNumber, }, },),
+        /** POST /posts/:id/live/recording/:rid/complete — assemble the parts → video media (encoded into the replay). */
+        complete: (id: string, rid: string,): Promise<LiveRecording> =>
+            this.mutate<LiveRecording>('POST', '/posts/:id/live/recording/:rid/complete', { params: { id, rid, }, invalidates: ['posts', 'media',], },),
+        /** DELETE /posts/:id/live/recording/:rid — discard. */
+        abort: (id: string, rid: string,): Promise<{ message: string; }> =>
+            this.mutate<{ message: string; }>('DELETE', '/posts/:id/live/recording/:rid', { params: { id, rid, }, },),
+    };
 
     /** GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket). */
     liveState(id: string,): Promise<PostLiveStateResponse> {

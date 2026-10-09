@@ -66,3 +66,67 @@ export interface PostsSettings {
         providers: Record<string, Record<string, unknown>>;
     };
 }
+
+// ─── Runtime contract (server ↔ browser) ──────────────────────────────
+
+/** POST /posts/:id/live/publish (host) — where the host's browser sends its stream. */
+export interface LivePublishInfo {
+    provider: string;
+    /** `whip`: POST an SDP offer to `url` (WebRTC-HTTP Ingestion). */
+    kind: 'whip';
+    url: string;
+    /** Bearer token for the WHIP endpoint, when the provider needs one. */
+    token?: string | null;
+    iceServers?: { urls: string | string[]; username?: string; credential?: string; }[];
+}
+
+/**
+ * GET /posts/:id/live/playback (viewer) — how to watch the live stream now.
+ * Only returned to viewers allowed to watch the post (subscription gate);
+ * `available: false` with a reason otherwise (not live yet, no provider…).
+ */
+export interface LivePlaybackInfo {
+    available: boolean;
+    reason?: 'not_live' | 'no_provider' | 'not_configured' | 'ended' | 'forbidden';
+    provider?: string;
+    /** `whep`: WebRTC-HTTP Egress (sub-second); `hls`: an HLS URL. */
+    kind?: 'whep' | 'hls';
+    url?: string;
+    token?: string | null;
+    iceServers?: LivePublishInfo['iceServers'];
+}
+
+/** How a live show is recorded for replay. */
+export type LiveRecordingMethod = 'browser' | 'server' | 'none';
+
+export type LiveRecordingStatus = 'recording' | 'finalizing' | 'completed' | 'aborted' | 'failed';
+
+/**
+ * A browser recording of a live show (method `browser`): the host page records
+ * the camera stream with MediaRecorder and uploads it in equal-size parts to
+ * object storage while live (S3/R2 multipart — every part but the last must be
+ * `partSize` bytes). Completing it creates a video media item that the video
+ * pipeline encodes into the replay.
+ */
+export interface LiveRecording {
+    id: string;
+    postId: string;
+    status: LiveRecordingStatus;
+    mimeType: string;
+    partSize: number;
+    /** Part numbers already stored (resume after a reload/crash). */
+    uploadedParts: number[];
+    uploadedBytes: number;
+    mediaId: string | null;
+    error: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** `type_settings` keys a live post gains at runtime (besides LivePostSettings). */
+export interface LiveRuntimeSettings {
+    /** Provider resource (e.g. Cloudflare live input uid) — server use. */
+    providerInputId?: string | null;
+    /** The replay: media id of the encoded recording. */
+    recordingMediaId?: string | null;
+}

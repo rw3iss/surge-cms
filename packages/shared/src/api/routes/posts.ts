@@ -243,3 +243,17 @@ export interface PostsSettingsResponse {
 
 /** PUT /posts/settings (admin) — partial; a secret echoed as the mask is kept. */
 export type PostsSettingsBody = Partial<import('../../types/liveProviders').PostsSettings>;
+
+/** POST /posts/:id/live/recording — body. */
+export interface PostLiveRecordingStartBody {
+    /** MediaRecorder mimeType actually used (e.g. `video/webm;codecs=vp9,opus`). */
+    mimeType: string;
+}
+/** POST /posts/:id/live/recording/:recordingId/part-url */
+export interface PostLiveRecordingPartUrlBody {
+    partNumber: number;
+}
+export interface PostLiveRecordingPartUrlResponse {
+    url: string;
+    expiresIn: number;
+}
