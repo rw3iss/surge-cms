@@ -1659,6 +1659,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /posts/search — full-text over published posts."
             },
             {
+                "name": "settings",
+                "signature": "settings(): Promise<PostsSettingsResponse>",
+                "summary": "GET /posts/settings (staff) — General / per-type / Live Show provider settings (secrets masked) + provider catalogue."
+            },
+            {
                 "name": "snapshotRevision",
                 "signature": "snapshotRevision(id: string): Promise<RevisionSnapshotResponse>",
                 "summary": "Snapshot the post as it is now — see the pages equivalent."
@@ -1672,6 +1677,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "update",
                 "signature": "update(id: string, body: PostUpdateBody): Promise<PostUpdateResponse>",
                 "summary": ""
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: PostsSettingsBody): Promise<PostsSettingsResponse>",
+                "summary": "PUT /posts/settings (admin, `posts.settings:write`) — partial; an echoed secret mask keeps the stored secret."
             }
         ]
     },
@@ -2579,4 +2589,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 450;
+export const SDK_METHOD_COUNT = 452;

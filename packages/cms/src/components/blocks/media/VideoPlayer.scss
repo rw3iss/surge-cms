@@ -1,0 +1,647 @@
+// VideoPlayer — custom control layer (public site + admin).
+// Reads the public --site-* tokens with neutral fallbacks so it looks right in
+// the admin too, where those tokens are unset. Build-time CSS is wrapped in
+// `@layer theme` by postcss — never use !important here.
+
+.vp {
+    --vp-accent: var(--site-primary, #e63946);
+    --vp-radius: var(--site-radius, 8px);
+    --vp-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --vp-panel-bg: rgba(18, 18, 20, 0.9);
+
+    container: vp / inline-size;
+    position: relative;
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: var(--vp-radius);
+    background: #000;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+
+    &:focus-visible {
+        box-shadow: inset 0 0 0 2px var(--vp-accent);
+    }
+
+    &__video {
+        display: block;
+        width: 100%;
+        height: auto;
+        // A cap set on the player (block max-height, admin preview) reaches the video.
+        max-height: inherit;
+        object-fit: contain;
+        background: #000;
+    }
+
+    &--fs {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        border-radius: 0;
+
+        .vp__video {
+            height: 100%;
+            max-height: none;
+        }
+    }
+
+    &--hidden,
+    &--hidden .vp__surface {
+        cursor: none;
+    }
+
+    // ── Surface, overlays ────────────────────────────────────────────────
+    &__surface {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    &__bigplay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: var(--vp-accent);
+        color: #fff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(255, 255, 255, 0.12);
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        transition: transform 0.2s var(--vp-ease), box-shadow 0.2s var(--vp-ease);
+
+        .vp-icon {
+            width: 30px;
+            height: 30px;
+            margin-left: 3px;
+        }
+
+        &:hover {
+            transform: translate(-50%, -50%) scale(1.06);
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4), 0 0 0 9px rgba(255, 255, 255, 0.14);
+        }
+
+        &:focus-visible {
+            outline: 2px solid #fff;
+            outline-offset: 3px;
+        }
+    }
+
+    &__spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 2;
+        width: 44px;
+        height: 44px;
+        margin: -22px 0 0 -22px;
+        border: 3px solid rgba(255, 255, 255, 0.18);
+        border-top-color: #fff;
+        border-radius: 50%;
+        pointer-events: none;
+        // Short stalls never flash a spinner.
+        animation: vp-spin 0.8s linear infinite, vp-fade-in 0.2s ease 0.25s both;
+    }
+
+    &__error {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.78);
+        text-align: center;
+
+        .vp-icon {
+            width: 32px;
+            height: 32px;
+            opacity: 0.85;
+        }
+
+        p {
+            max-width: 32ch;
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+    }
+
+    &__ripple {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38%;
+        background: rgba(255, 255, 255, 0.1);
+        pointer-events: none;
+        animation: vp-ripple 0.65s ease-out forwards;
+
+        &--left {
+            left: 0;
+            border-radius: 0 50% 50% 0 / 0 60% 60% 0;
+        }
+
+        &--right {
+            right: 0;
+            border-radius: 50% 0 0 50% / 60% 0 0 60%;
+        }
+    }
+
+    &__ripple-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+
+        .vp-icon {
+            width: 26px;
+            height: 26px;
+        }
+    }
+
+    // ── Control bar ──────────────────────────────────────────────────────
+    &__controls {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 3;
+        padding: 36px 10px 6px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.42) 50%, rgba(0, 0, 0, 0) 100%);
+        transition: opacity 0.25s ease, transform 0.25s var(--vp-ease);
+    }
+
+    &--hidden &__controls {
+        opacity: 0;
+        transform: translateY(6px);
+        pointer-events: none;
+    }
+
+    &--fresh &__controls {
+        display: none;
+    }
+
+    &__bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        height: 38px;
+    }
+
+    &__group {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    &__btn {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        transition: background-color 0.15s ease, transform 0.15s var(--vp-ease), opacity 0.15s ease;
+
+        .vp-icon {
+            width: 22px;
+            height: 22px;
+        }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        &:active {
+            transform: scale(0.92);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--vp-accent);
+            outline-offset: -2px;
+        }
+    }
+
+    &__time {
+        display: inline-flex;
+        gap: 4px;
+        width: auto;
+        padding: 0 8px;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+    }
+
+    &__time-sep,
+    &__time-total {
+        opacity: 0.65;
+    }
+}
+
+.vp-icon {
+    display: block;
+    flex: none;
+}
+
+// ── Seek bar ─────────────────────────────────────────────────────────────
+.vp-seek {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin: 0 6px;
+    outline: none;
+    cursor: pointer;
+    touch-action: none;
+
+    &__rail {
+        position: relative;
+        width: 100%;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.22);
+        transition: height 0.15s var(--vp-ease);
+    }
+
+    &:hover &__rail,
+    &--active &__rail,
+    &:focus-visible &__rail {
+        height: 6px;
+    }
+
+    &:focus-visible &__rail {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+    }
+
+    &__buffered,
+    &__hover,
+    &__played {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+    }
+
+    &__buffered {
+        background: rgba(255, 255, 255, 0.32);
+    }
+
+    &__hover {
+        left: 0;
+        background: rgba(255, 255, 255, 0.22);
+    }
+
+    &__played {
+        left: 0;
+        background: var(--vp-accent);
+    }
+
+    &__thumb {
+        position: absolute;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        margin: -7px 0 0 -7px;
+        border-radius: 50%;
+        background: var(--vp-accent);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+        transform: scale(0);
+        transition: transform 0.15s var(--vp-ease);
+    }
+
+    &:hover &__thumb,
+    &--active &__thumb,
+    &:focus-visible &__thumb {
+        transform: scale(1);
+    }
+
+    &--dragging &__thumb {
+        transform: scale(1.2);
+    }
+
+    &__tip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        pointer-events: none;
+        transform: translateX(-50%);
+    }
+
+    &__frame {
+        overflow: hidden;
+        border: 1.5px solid rgba(255, 255, 255, 0.9);
+        border-radius: 6px;
+        background: #000;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    &__frame-img {
+        background-repeat: no-repeat;
+        transform-origin: 0 0;
+    }
+
+    &__frame-full {
+        display: block;
+        width: 168px;
+        height: auto;
+    }
+
+    &__time {
+        padding: 4px 7px;
+        border-radius: 5px;
+        background: rgba(12, 12, 14, 0.88);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+}
+
+// ── Volume ───────────────────────────────────────────────────────────────
+.vp-volume {
+    position: relative;
+    display: flex;
+
+    &__panel {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        z-index: 5;
+        // The padding bridges the gap, so moving from the icon into the panel
+        // never leaves the hover area.
+        padding-bottom: 6px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, 8px);
+        transition: opacity 0.18s ease, transform 0.18s var(--vp-ease);
+    }
+
+    &--open &__panel {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, 0);
+    }
+
+    &__box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 6px;
+        border-radius: 10px;
+        background: var(--vp-panel-bg);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(8px);
+    }
+
+    &__slider {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        width: 24px;
+        height: 96px;
+        outline: none;
+        cursor: pointer;
+        touch-action: none;
+    }
+
+    &__rail {
+        position: relative;
+        width: 4px;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    &__slider:focus-visible &__rail {
+        box-shadow: 0 0 0 2px var(--vp-accent);
+    }
+
+    &__fill {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: var(--vp-accent);
+    }
+
+    &__knob {
+        position: absolute;
+        left: 50%;
+        width: 12px;
+        height: 12px;
+        margin: 0 0 -6px -6px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+    }
+
+    &__mute.vp__btn {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+// ── Settings menu ────────────────────────────────────────────────────────
+.vp-settings {
+    position: relative;
+
+    &__btn .vp-icon {
+        transition: transform 0.3s var(--vp-ease);
+    }
+
+    &__btn--open .vp-icon {
+        transform: rotate(45deg);
+    }
+
+    &__menu {
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 8px);
+        z-index: 5;
+        min-width: 200px;
+        max-height: 260px;
+        overflow: auto;
+        padding: 6px;
+        border-radius: 10px;
+        background: var(--vp-panel-bg);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(10px);
+        animation: vp-pop 0.16s var(--vp-ease);
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        width: 100%;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        line-height: 1.2;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .vp-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        &--radio {
+            justify-content: flex-start;
+            gap: 10px;
+        }
+    }
+
+    &__head {
+        justify-content: flex-start;
+        gap: 6px;
+        margin-bottom: 4px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+        font-weight: 600;
+    }
+
+    &__value {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        opacity: 0.7;
+    }
+
+    &__check {
+        display: flex;
+        width: 16px;
+        color: var(--vp-accent);
+        visibility: hidden;
+    }
+
+    [aria-checked='true'] &__check {
+        visibility: visible;
+    }
+}
+
+// ── Small players ────────────────────────────────────────────────────────
+@container vp (max-width: 420px) {
+    .vp__time,
+    .vp__pip,
+    .vp-settings--speed-only {
+        display: none;
+    }
+
+    .vp__btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .vp__controls {
+        padding: 28px 4px 2px;
+    }
+
+    .vp__bigplay {
+        width: 56px;
+        height: 56px;
+
+        .vp-icon {
+            width: 24px;
+            height: 24px;
+        }
+    }
+}
+
+@keyframes vp-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes vp-fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes vp-ripple {
+    0% {
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes vp-pop {
+    from {
+        opacity: 0;
+        transform: translateY(4px) scale(0.98);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vp,
+    .vp * {
+        transition: none;
+    }
+
+    .vp__ripple,
+    .vp-settings__menu {
+        animation: none;
+    }
+
+    .vp__spinner {
+        animation: vp-spin 1.6s linear infinite;
+    }
+}

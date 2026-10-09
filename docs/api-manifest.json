@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T06:59:18.412Z",
+  "generatedAt": "2026-10-09T07:46:08.654Z",
   "totalModules": 48,
-  "totalRoutes": 465,
+  "totalRoutes": 467,
   "modules": [
     {
       "module": "admin-channel",
@@ -1950,6 +1950,20 @@
           "absolutePath": "/api/v1/posts",
           "auth": "optional",
           "summary": "List posts. Public gate by default; admins passing status/sort get the all-statuses listing."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/posts/settings",
+          "auth": "staff",
+          "summary": "Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/posts/settings",
+          "auth": "admin",
+          "summary": "Update posts settings (partial). A secret echoed as the mask is kept."
         },
         {
           "method": "GET",

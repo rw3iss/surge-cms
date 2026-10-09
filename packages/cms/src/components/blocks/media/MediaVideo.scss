@@ -21,10 +21,9 @@
     }
 
     &__stage video,
-    &__stage .plyr,
-    &__stage .plyr__video-wrapper,
+    &__stage .vp,
     > video,
-    > .plyr {
+    > .vp {
         max-height: var(--media-video-cap);
     }
 

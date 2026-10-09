@@ -222,8 +222,7 @@
 
   // A plain video file (not a library video) inside a block with a height
   // or max-height: cap it to the block and letterbox, like MediaVideo does.
-  > .plyr,
-  > .video-player__host .plyr,
+  > .vp,
   video {
     max-height: var(--block-max-height, var(--block-height, none));
   }
