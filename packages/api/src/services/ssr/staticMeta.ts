@@ -37,9 +37,12 @@ const ROUTES: Record<string, Entry> = {
         title: 'Membership',
         description: (c,) => `Membership plans for ${c.siteName} — support independent journalism and get subscriber access.`,
     },
+    // Internal search results are thin, endless URLs (?q=…) — Google asks
+    // sites to keep them out of the index.
     '/search': {
         title: 'Search',
         description: (c,) => `Search articles, videos and pages on ${c.siteName}.`,
+        noindex: true,
     },
     '/campaigns': {
         title: 'Campaigns',
