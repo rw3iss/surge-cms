@@ -1,4 +1,5 @@
 import { useParams, } from '@solidjs/router';
+import NotFoundPage from '../NotFound';
 import type { ShopAppearance, ShopCategory, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
@@ -61,9 +62,7 @@ const ShopCategoryInner: Component = () => {
                 <Show
                     when={category()}
                     fallback={
-                        <div class="shop-store__not-found">
-                            <h1>Category not found</h1>
-                        </div>
+                        <NotFoundPage title="Category not found" message="This category doesn't exist." link={{ href: "/shop", label: "Back to the shop", }} />
                     }
                 >
                     {(c,) => (

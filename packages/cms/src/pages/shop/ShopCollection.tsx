@@ -1,4 +1,5 @@
 import { useParams, } from '@solidjs/router';
+import NotFoundPage from '../NotFound';
 import type { ShopAppearance, ShopCollection, ShopProduct, ShopPublicSettings, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
@@ -53,9 +54,7 @@ const ShopCollectionInner: Component = () => {
                 <Show
                     when={collection()}
                     fallback={
-                        <div class="shop-store__not-found">
-                            <h1>Collection not found</h1>
-                        </div>
+                        <NotFoundPage title="Collection not found" message="This collection doesn't exist." link={{ href: "/shop", label: "Back to the shop", }} />
                     }
                 >
                     {(c,) => (

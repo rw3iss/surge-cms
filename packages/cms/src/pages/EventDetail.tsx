@@ -6,6 +6,7 @@ import { featuredImagePath, } from '@sitesurge/types';
  * allows it, so turning the master switch off hides the form everywhere without
  * touching individual events.
  */
+import NotFoundPage from './NotFound';
 import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
 import { describeRecurrence, parseRecurrenceRule, renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
@@ -55,11 +56,7 @@ const EventDetailPage: Component = () => {
                 <Show
                     when={event()}
                     fallback={
-                        <div class="event-detail__missing">
-                            <h1>Event not found</h1>
-                            <p>This event may have been removed.</p>
-                            <A href="/events" class="btn btn--primary">Back to events</A>
-                        </div>
+                        <NotFoundPage title="Event not found" message="This event doesn't exist, or it is no longer listed." link={{ href: "/events", label: "Browse events", }} />
                     }
                 >
                     {(ev,) => (

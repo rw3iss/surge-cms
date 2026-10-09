@@ -1,4 +1,5 @@
 import { A, useParams, } from '@solidjs/router';
+import NotFoundPage from '../NotFound';
 import type { ShopCollection, ShopProductDetail, ShopProductMediaDetail, ShopReview, ShopVariant, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
@@ -37,10 +38,7 @@ const ShopProductInner: Component = () => {
                 <Show
                     when={product()}
                     fallback={
-                        <div class="shop-store__not-found">
-                            <h1>Product not found</h1>
-                            <p>This product doesn't exist or is no longer available.</p>
-                        </div>
+                        <NotFoundPage title="Product not found" message="This product doesn't exist, or it is no longer available." link={{ href: "/shop", label: "Back to the shop", }} />
                     }
                 >
                     {(p,) => <ProductDetail product={p()} isLoggedIn={auth.isAuthenticated} />}

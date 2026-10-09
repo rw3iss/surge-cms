@@ -20,7 +20,16 @@ function safePath(p: string,): string {
     }
 }
 
-const NotFoundPage: Component = () => {
+export interface NotFoundProps {
+    /** Heading, e.g. "Post not found" (default "Page not found"). */
+    title?: string;
+    /** Explanation under the heading. */
+    message?: string;
+    /** A related place to go, shown under the buttons (e.g. "All posts" → /posts). */
+    link?: { href: string; label: string; };
+}
+
+const NotFoundPage: Component<NotFoundProps> = (props,) => {
     const location = useLocation();
     const navigate = useNavigate();
     // A direct visit (no in-site history) has nowhere to go "back" to.
@@ -29,7 +38,7 @@ const NotFoundPage: Component = () => {
 
     return (
         <main class="not-found" aria-labelledby="not-found-title">
-            <SeoHead title="Page Not Found" description="The page you're looking for doesn't exist." noindex={true} nofollow={true} />
+            <SeoHead title={props.title ?? 'Page Not Found'} description="The page you're looking for doesn't exist." noindex={true} nofollow={true} />
             <div class="not-found__glow" aria-hidden="true" />
 
             <div class="not-found__card">
@@ -40,9 +49,9 @@ const NotFoundPage: Component = () => {
                 </A>
 
                 <p class="not-found__code" aria-hidden="true">404</p>
-                <h1 id="not-found-title" class="not-found__title">Page not found</h1>
+                <h1 id="not-found-title" class="not-found__title">{props.title ?? 'Page not found'}</h1>
                 <p class="not-found__detail">
-                    We couldn't find the page you were looking for. It may have been moved, renamed, or never existed.
+                    {props.message ?? "We couldn't find the page you were looking for. It may have been moved, renamed, or never existed."}
                 </p>
                 <Show when={location.pathname && location.pathname !== '/'}>
                     <p class="not-found__path">
@@ -60,6 +69,9 @@ const NotFoundPage: Component = () => {
                         Go home
                     </A>
                 </div>
+                <Show when={props.link}>
+                    {(l,) => <A href={l().href} class="not-found__link">{l().label} →</A>}
+                </Show>
             </div>
         </main>
     );

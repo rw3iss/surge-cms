@@ -1,4 +1,5 @@
 import { useParams, } from '@solidjs/router';
+import NotFoundPage from './NotFound';
 import { getPostType, isAdminRole, resolveBannerHeight, resolveBannerPosition, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
 import { Component, createEffect, createResource, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
@@ -92,12 +93,7 @@ const PostPage: Component = () => {
                          loaders. */}
                 <Show when={!post.loading} fallback={<div class="post-page__loading">Loading…</div>}>
                     <Show when={post()} fallback={
-                        <div class="post-page__not-found">
-                            <h1>Post not found</h1>
-                            <p>
-                                The post you're looking for doesn't exist or hasn't been published yet.
-                            </p>
-                        </div>
+                        <NotFoundPage title="Post not found" message="This post doesn't exist, or it is no longer available." link={{ href: "/posts", label: "All posts", }} />
                     }>
                         {(postData,) => {
                         const description = () =>

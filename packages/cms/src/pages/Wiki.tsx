@@ -4,6 +4,7 @@
  * Three routed components in one file because they share the tree shape, the
  * search box and the styling — splitting them would mean duplicating all three.
  */
+import NotFoundPage from './NotFound';
 import { Title, } from '@solidjs/meta';
 import { A, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
@@ -253,10 +254,7 @@ export const WikiPageView: Component = () => {
                 when={page()}
                 fallback={
                     <Show when={!page.loading} fallback={<p class="wiki-page__muted">Loading…</p>}>
-                        <div class="wiki-page__notfound">
-                            <h1>Page not found</h1>
-                            <A href="/wiki" class="btn btn--primary">Back to the wiki</A>
-                        </div>
+                        <NotFoundPage title="Wiki page not found" message="This wiki page doesn't exist or was renamed — browse the wiki from the menu." link={{ href: "/wiki", label: "Back to the wiki", }} />
                     </Show>
                 }
             >

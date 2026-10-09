@@ -176,7 +176,7 @@ const App: Component = () => {
 											(--site-primary, etc.) apply. Multi-
 											segment paths like /pages/foo land here
 											instead of the un-themed root catch-all. */}
-										<Route path="*" component={NotFoundPage} />
+										<Route path="*" component={() => <NotFoundPage />} />
 									</Route>
 
 									{/* Admin routes with admin layout */}

@@ -7,6 +7,7 @@
  * email link → that recipient; else the signed-in user; else nobody (and only
  * for a list with a public archive — otherwise this reads "not available").
  */
+import NotFoundPage from './NotFound';
 import { Meta, Title, } from '@solidjs/meta';
 import { A, useParams, useSearchParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
@@ -40,11 +41,7 @@ const MailView: Component = () => {
                 <Show
                     when={mail()}
                     fallback={
-                        <div class="mail-view__missing">
-                            <h1>Email not available</h1>
-                            <p>This email doesn't exist, or it isn't public. If it was sent to you, open it from the link in the email.</p>
-                            <p><A href="/mail">Browse the email archive</A></p>
-                        </div>
+                        <NotFoundPage title="Email not available" message="This email doesn't exist, or it isn't public. If it was sent to you, open it from the link in the email." link={{ href: "/mail", label: "Browse the email archive", }} />
                     }
                 >
                     <header class="mail-view__head">

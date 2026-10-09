@@ -178,6 +178,17 @@
     }
   }
 
+  &__link {
+    display: inline-block;
+    margin-top: $spacing-md;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--site-link, var(--nf-primary));
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+
   @media (max-width: 480px) {
     &__btn { flex: 1 1 100%; }
   }

@@ -8,6 +8,7 @@
  * then get the full video here). Everyone else sees the teaser and the
  * subscribe prompt; a video still encoding shows "Processing…".
  */
+import NotFoundPage from './NotFound';
 import type { MediaPlayback, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
@@ -51,10 +52,7 @@ const WatchPage: Component = () => {
             <Show
                 when={!missing()}
                 fallback={
-                    <div class="watch-page__missing">
-                        <h1>Video not found</h1>
-                        <A href="/">Go to the home page</A>
-                    </div>
+                    <NotFoundPage title="Video not found" message="This video doesn't exist, or it has been removed." link={{ href: "/posts", label: "Browse posts", }} />
                 }
             >
                 <Show when={pb()} fallback={<div class="watch-page__loading" />}>

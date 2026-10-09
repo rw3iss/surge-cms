@@ -8,6 +8,7 @@
  * contact details for anyone but the attendee or staff. Meant as the base
  * for a later "proof of registration" (QR code, check-in).
  */
+import NotFoundPage from './NotFound';
 import type { EventTicketView, } from '@sitesurge/types';
 import { formatCurrency, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
@@ -65,11 +66,7 @@ const EventTicketPage: Component = () => {
                 <Show
                     when={ticket()}
                     fallback={
-                        <div class="event-ticket__missing">
-                            <h1>Ticket not found</h1>
-                            <p>Check the code and try again.</p>
-                            <A href="/events" class="btn btn--primary">Browse events</A>
-                        </div>
+                        <NotFoundPage title="Ticket not found" message="Check the ticket code from your email — this one doesn't match a ticket." link={{ href: "/events", label: "Browse events", }} />
                     }
                 >
                     {(t,) => (

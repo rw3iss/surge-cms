@@ -1,4 +1,5 @@
 import { A, useParams, } from '@solidjs/router';
+import NotFoundPage from '../NotFound';
 import type { ShopOrderDetail, } from '@sitesurge/types';
 import { Component, createEffect, createResource, For, onCleanup, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
@@ -69,10 +70,7 @@ const ShopOrderConfirmationInner: Component = () => {
                 <Show
                     when={order()}
                     fallback={
-                        <div class="shop-store__not-found">
-                            <h1>Order not found</h1>
-                            <A href="/shop" class="btn btn--primary">Back to shop</A>
-                        </div>
+                        <NotFoundPage title="Order not found" message="Check the order number from your confirmation email." link={{ href: "/shop", label: "Back to the shop", }} />
                     }
                 >
                     {(o,) => (
