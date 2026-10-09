@@ -757,4 +757,186 @@ const teaser = await cms.media.teaserUrl(media.id);`,
     ],
 };
 
+
+export const POST_TYPES_DOC: SdkDoc = {
+    id: 'post-types',
+    path: '/admin/help/post-types',
+    title: 'Post types',
+    lead:
+        'Every post has a type (`posts.post_type`). The type is a signal: all types keep their body in the same '
+        + 'content-block system, but the type picks the admin editor for the Content section, how the public page '
+        + 'renders the body, the starting blocks of a new post, the sample shown to non-subscribers, and the icon '
+        + 'on badges. Built in: Article (default), Video, Live Show and Custom. A site can add its own.',
+    sections: [
+        {
+            heading: 'Built-in types',
+            blocks: [
+                {
+                    table: [
+                        ['Type', 'Key', 'Admin editor', 'Starts with', 'Public page',],
+                        ['Article', '`article`', 'Content blocks', 'One Rich Text block', 'The blocks',],
+                        ['Video', '`video`', 'Content blocks', 'One Video block', 'The blocks',],
+                        ['Live Show', '`live`', 'Live console (webcam, host controls, chat)', '—', 'Live stage + chat',],
+                        ['Custom', '`custom`', 'Content blocks, no starting layout', 'Nothing', 'The blocks',],
+                    ],
+                },
+                {
+                    list: [
+                        'Choose the type when you create a post: Posts → New Post opens a picker with one tile per type '
+                        + '(it opens `/admin/posts/new?type=<key>`).',
+                        'Change it later in Post Properties → Type. Blocks are kept: a post with no content gets the new '
+                        + 'type\'s starting blocks, a post with content keeps it.',
+                        'Type-specific options are stored in `posts.type_settings` (JSON). A Live Show keeps its archive, '
+                        + 'chat and reaction settings there.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: '1. Register the type (shared code)',
+            blocks: [
+                {
+                    p: 'A post type is one definition in the shared registry (`@sitesurge/types`). Register it in code that '
+                        + 'BOTH the server and the admin load (for example a module imported from `packages/shared/src/utils/`, '
+                        + 'or a plugin\'s shared entry). The server then accepts the key on save, `GET /api/v1/posts/types` '
+                        + '(`cms.posts.types()`) lists it, and the pickers and badges show it.',
+                },
+                {
+                    code: `import { registerPostType } from '@sitesurge/types';
+
+registerPostType({
+    key: 'announcement',          // [a-z][a-z0-9_-]{1,31}, stored in posts.post_type
+    label: 'Announcement',
+    description: 'A short notice with a call to action.',
+    icon: 'M3 11v2l13 5V6zM16 8a4 4 0 0 1 0 8',  // SVG path, 24×24, stroked
+    editor: 'blocks',             // 'blocks' | 'live' | your own editor key
+    display: 'blocks',            // 'blocks' | 'live' | your own display key
+    defaultBlocks: [
+        { type: 'rich_text', data: { content: '' } },
+        { type: 'url_link', data: {} },
+    ],
+    sampler: 'article',           // gated-post sample strategy (see below)
+    settingsDefaults: { pinned: false },
+    order: 40,                    // position in pickers
+});`,
+                },
+                {
+                    table: [
+                        ['Field', 'Meaning',],
+                        ['`key`', 'Stored on the post. Unknown keys on old posts fall back to Custom.',],
+                        ['`editor`', 'Which admin editor renders Content. `blocks` = the content-block editor.',],
+                        ['`display`', 'How the public page renders the body. `blocks` = the normal post body.',],
+                        ['`defaultBlocks`', 'Blocks a new (or empty) post of this type starts with. Editors can change them.',],
+                        ['`sampler`', 'Which sample a non-subscriber sees when the post is gated (default `article`).',],
+                        ['`settingsDefaults`', 'Initial `type_settings` for a new post of this type.',],
+                        ['`creatable`', 'false = hidden from the New Post picker (existing posts still work).',],
+                    ],
+                },
+            ],
+        },
+        {
+            heading: '2. Optional: a custom admin editor',
+            blocks: [
+                {
+                    p: 'A type that needs its own form (a countdown, auction controls, a schedule) gets an editor component. '
+                        + 'Put it at `packages/cms/src/components/admin/posts/types/<key>/index.tsx` — the folder is scanned '
+                        + 'at build time (`import.meta.glob`), so there is nothing else to register. Resolution order: a '
+                        + 'folder named after the TYPE key, then a folder named after its `editor` key, then `custom` '
+                        + '(the full block editor). The props contract is `PostTypeEditorProps` in '
+                        + '`components/admin/posts/types/types.ts` (the post, its blocks and block-editor callbacks, and '
+                        + '`typeSettings` with a change callback).',
+                },
+                {
+                    code: `// packages/cms/src/components/admin/posts/types/announcement/index.tsx
+import type { Component } from 'solid-js';
+import type { PostTypeEditorProps } from '../types';
+import BlocksEditor from '../blocks';
+import Toggle from '../../../common/Toggle';
+
+const AnnouncementEditor: Component<PostTypeEditorProps> = (props) => (
+    <>
+        <Toggle
+            label="Pin to the top of /posts"
+            checked={props.typeSettings?.pinned === true}
+            onChange={(v) => props.onTypeSettingsChange({ ...props.typeSettings, pinned: v })}
+        />
+        <BlocksEditor {...props} />   {/* reuse the block editor below your own fields */}
+    </>
+);
+export default AnnouncementEditor;`,
+                },
+                {
+                    note: 'Follow the admin form rules: FormField for every field, Toggle for on/off, text inputs commit '
+                        + 'on blur. Save type options through `onTypeSettingsChange` — they persist in `type_settings` with '
+                        + 'the post, and autosave / revert / history work without extra code.',
+                },
+            ],
+        },
+        {
+            heading: '3. Optional: a sample strategy for gated posts',
+            blocks: [
+                {
+                    p: 'When a post requires a subscription and shows a sample, the server builds the sample by type '
+                        + '(`packages/api/src/services/postGate/samples.ts`, `POST_SAMPLERS`). Built in: `article` '
+                        + '(blocks before the first Rich Text + a share of its text), `video` (up to the first Video '
+                        + 'block — the player shows only the teaser to non-subscribers), `live` (no body). Add one for a '
+                        + 'new type and point the definition\'s `sampler` at it:',
+                },
+                {
+                    code: `POST_SAMPLERS.announcement = (post, percent) => ({
+    blocks: (post.contentBlocks ?? []).slice(0, 1),   // only the first block
+    content: '',
+});`,
+                },
+                {
+                    note: 'The sample is built on the SERVER and is all a locked reader receives — never send the full '
+                        + 'body and hide it in the browser.',
+                },
+            ],
+        },
+        {
+            heading: '4. Optional: a custom public display',
+            blocks: [
+                {
+                    p: 'Types with `display: \'blocks\'` render like any post. A different display (as `live` does) is a '
+                        + 'branch in `packages/cms/src/pages/Post.tsx` keyed on `getPostType(post.postType).display` — '
+                        + 'add a component under `components/` and a branch there. The header, banner, badges and the '
+                        + 'subscription gate stay the same for every type.',
+                },
+            ],
+        },
+        {
+            heading: 'Live Show',
+            blocks: [
+                {
+                    list: [
+                        'The admin Live console previews the webcam and microphone, and holds the show settings: archive '
+                        + 'video (record for later, default on), chat (off / public / members / subscribers) and reactions.',
+                        'Once the post is published, host controls drive the live room: Go live, Pause / Resume, Mute, '
+                        + 'End show (asks to confirm; an ended show cannot restart). Ending sets `live_ended_at`.',
+                        'Viewers on the post page join a WebSocket room (`/ws/live?post=<id>`) for status, chat and '
+                        + 'reactions. Every command carries a short-lived room ticket (`cms.posts.liveTicket(id)`), and '
+                        + 'the server re-checks who sent it — host commands need `posts.live:host`, deleting chat '
+                        + '`posts.live:chat_moderate`.',
+                        'Ended shows open no connection. The video stream itself (100ms or another provider) is not '
+                        + 'connected yet — the stage shows a placeholder.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'SDK and API',
+            blocks: [
+                {
+                    code: `const types = await cms.posts.types();                 // registered types
+await cms.posts.create({ slug: 'launch', title: 'We launched', postType: 'video' });
+await cms.posts.update(id, { postType: 'live', typeSettings: { chatMode: 'subscribers' } });
+const list = await cms.posts.list({ type: 'video' });     // filter by type
+const room = await cms.posts.liveState(id);               // live room state`,
+                },
+            ],
+        },
+    ],
+};
+
 export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

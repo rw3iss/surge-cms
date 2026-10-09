@@ -1,6 +1,8 @@
-import { A, } from '@solidjs/router';
-import { Component, createEffect, } from 'solid-js';
-import { formatDateShort as formatDate, } from '@sitesurge/types';
+import { A, useNavigate, } from '@solidjs/router';
+import { Component, createEffect, createSignal, For, } from 'solid-js';
+import { formatDateShort as formatDate, getPostType, } from '@sitesurge/types';
+import ModalShell from '../../components/admin/common/ModalShell';
+import { PostTypeIcon, usePostTypes, } from '../../components/admin/posts/usePostTypes';
 import DataTable from '../../components/admin/common/DataTable';
 import { useBulkActions, } from '../../hooks/useBulkActions';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
@@ -35,6 +37,15 @@ const AdminPosts: Component = () => {
         onComplete: () => list.refetch(),
     },);
 
+    const navigate = useNavigate();
+    const postTypes = usePostTypes();
+    const creatableTypes = () => postTypes().filter((t,) => t.creatable !== false);
+    const [showCreate, setShowCreate,] = createSignal(false,);
+    const createPost = (key: string,) => {
+        setShowCreate(false,);
+        navigate(`/admin/posts/new?type=${encodeURIComponent(key,)}`,);
+    };
+
     const handleSort = (sort: string,) => {
         setSearchParams({ sort, },);
     };
@@ -44,8 +55,29 @@ const AdminPosts: Component = () => {
             <AdminTitle>Posts</AdminTitle>
             <div class="admin-header">
                 <h1>Posts</h1>
-                <A href="/admin/posts/new" class="ui-button ui-button--primary">New Post</A>
+                <button type="button" class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New Post</button>
             </div>
+            <ModalShell open={showCreate()} onClose={() => setShowCreate(false,)} size="md" showClose ariaLabel="Create a post">
+                <div class="post-type-picker">
+                    <h3 class="post-type-picker__title">Create a post</h3>
+                    <div class="post-type-picker__tiles">
+                        <For each={creatableTypes()}>
+                            {(t,) => (
+                                <button
+                                    type="button"
+                                    class="post-type-picker__tile"
+                                    title={t.description}
+                                    onClick={() => createPost(t.key,)}
+                                >
+                                    <PostTypeIcon def={t} class="post-type-icon post-type-icon--lg" />
+                                    <span class="post-type-picker__label">{t.label}</span>
+                                    <span class="post-type-picker__hint">{t.description}</span>
+                                </button>
+                            )}
+                        </For>
+                    </div>
+                </div>
+            </ModalShell>
             <div class="admin-filter-bar">
                 <input
                     class="admin-filter-bar__search"
@@ -88,6 +120,19 @@ const AdminPosts: Component = () => {
                 pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
                 columns={[
                     { header: 'Title', sortField: 'title', cell: (post: any,) => <A href={`/admin/posts/${post.id}`} class="table-link">{post.title}</A>, },
+                    {
+                        header: 'Type',
+                        cell: (post: any,) => {
+                            postTypes();
+                            const def = getPostType(post.postType,);
+                            return (
+                                <span class="post-type-cell">
+                                    <PostTypeIcon def={def} class="post-type-icon post-type-icon--sm" />
+                                    {def.label}
+                                </span>
+                            );
+                        },
+                    },
                     { header: 'Status', sortField: 'status', cell: (post: any,) => <span class={`badge ${getStatusBadgeClass(post.status,)}`}>{post.status}</span>, },
                     { header: 'Blocks', cell: (post: any,) => post.blockCount || 0, },
                     { header: 'Published', sortField: 'date', cell: (post: any,) => formatDate(post.publishedAt,), },

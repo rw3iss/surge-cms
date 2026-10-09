@@ -76,6 +76,8 @@ const AdminHelpReleases = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpReleases, })));
 const AdminHelpSdkComponentJs = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkComponentJs, })));
+const AdminHelpPostTypes = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpPostTypes, })));
 const AdminHelpVideo = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpVideo, })));
 const AdminWiki = lazy(() => import('./pages/admin/Wiki'));
@@ -252,6 +254,7 @@ const App: Component = () => {
 										<Route path="/help/sdk/component-js" component={AdminHelpSdkComponentJs} />
 										<Route path="/help/releases" component={AdminHelpReleases} />
 										<Route path="/help/video" component={AdminHelpVideo} />
+										<Route path="/help/post-types" component={AdminHelpPostTypes} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

@@ -1,7 +1,9 @@
 import { useParams, } from '@solidjs/router';
-import { isAdminRole, resolveBannerHeight, resolveBannerPosition, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
+import { getPostType, isAdminRole, resolveBannerHeight, resolveBannerPosition, type Post, featuredImageAlt, featuredImagePath, } from '@sitesurge/types';
 import { Component, createEffect, createResource, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
+import PostTypeBadge from '../components/content/PostTypeBadge';
+import LiveShow from '../components/live/LiveShow';
 import UpgradeTout from '../components/content/UpgradeTout';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import TemplatedContent from '../components/blocks/TemplatedContent';
@@ -154,11 +156,15 @@ const PostPage: Component = () => {
                             post: { kind: 'post', data: postData() as unknown as Record<string, unknown>, id: postData().id },
                         });
                         const isLocked = () => postData().gate?.state === 'locked';
+                        // Live posts render the live show in place of the content
+                        // blocks (unless the viewer's tier is locked out).
+                        const isLive = () => getPostType(postData().postType,).display === 'live';
                         const heading = () => (
                             <>
                                 <a class="post-page__back" href="/posts">← Back to Posts</a>
                                 <h1 class="post-page__title">
                                     {postData().title}
+                                    <PostTypeBadge type={postData().postType} ended={!!postData().liveEndedAt} />
                                     <PostVisibilityBadge gate={postData().gate} />
                                 </h1>
                                 <div class="post-page__meta">
@@ -266,20 +272,26 @@ const PostPage: Component = () => {
                                     </Match>
                                 </Switch>
 
-                                {/* Render content blocks if present. For a viewer without the
-                                    post's subscription tier these are only the SAMPLE blocks
-                                    (or none) — the server never sends the rest. */}
-                                <Show when={(postData() as any).contentBlocks?.length}>
-                                    <div class={`post-page__blocks${isLocked() && postData().gate?.sample ? ' gated-sample' : ''}`}>
-                                        <For each={(postData() as any).contentBlocks}>
-                                            {(block: any,) => <PostContentBlock block={block} templateContext={postCtx()} />}
-                                        </For>
-                                    </div>
+                                <Show when={isLive() && !isLocked()}>
+                                    <LiveShow post={postData()} />
                                 </Show>
 
-                                {/* Fallback to legacy content field if no blocks */}
-                                <Show when={!(postData() as any).contentBlocks?.length && postData().content}>
-                                    <TemplatedContent class="rich-text" html={postData().content} entities={postCtx()} />
+                                <Show when={!isLive()}>
+                                    {/* Render content blocks if present. For a viewer without the
+                                        post's subscription tier these are only the SAMPLE blocks
+                                        (or none) — the server never sends the rest. */}
+                                    <Show when={(postData() as any).contentBlocks?.length}>
+                                        <div class={`post-page__blocks${isLocked() && postData().gate?.sample ? ' gated-sample' : ''}`}>
+                                            <For each={(postData() as any).contentBlocks}>
+                                                {(block: any,) => <PostContentBlock block={block} templateContext={postCtx()} />}
+                                            </For>
+                                        </div>
+                                    </Show>
+
+                                    {/* Fallback to legacy content field if no blocks */}
+                                    <Show when={!(postData() as any).contentBlocks?.length && postData().content}>
+                                        <TemplatedContent class="rich-text" html={postData().content} entities={postCtx()} />
+                                    </Show>
                                 </Show>
 
                                 <Show when={isLocked()}>

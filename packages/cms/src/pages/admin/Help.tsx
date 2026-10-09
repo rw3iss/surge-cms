@@ -33,6 +33,11 @@ const TOPICS: HelpTopic[] = [
         desc: 'How a new CMS version is published (pnpm release) and how an installation updates to it (Check for update → Update & restart).',
     },
     {
+        path: '/admin/help/post-types',
+        title: 'Post types',
+        desc: 'Article, Video, Live Show and Custom posts — and how to create your own post type: register it, add a custom editor form, a gated sample and a public display.',
+    },
+    {
         path: '/admin/help/video',
         title: 'Video hosting',
         desc: 'Upload large videos, how encoding works, public vs private videos and teasers, using a video in a block, and server setup.',

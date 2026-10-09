@@ -1,0 +1,277 @@
+@use 'sass:color';
+@use '../../../styles/variables' as *;
+
+// Post types: type icons, the Type select, the "Create a post" picker,
+// and the live-show console (components/admin/posts/types/live).
+
+.post-type-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+
+  &--sm { width: 14px; height: 14px; }
+  &--lg { width: 36px; height: 36px; }
+}
+
+.editor-pill--type {
+  gap: $spacing-2xs;
+  background: $background-dark;
+  color: var(--admin-text, #{$text-color});
+  border-color: $border-color;
+}
+
+.post-type-select {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  color: var(--admin-text-muted, #{$text-light});
+
+  select { flex: 1; }
+}
+
+.post-type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  white-space: nowrap;
+}
+
+// ─── "Create a post" modal ───
+.post-type-picker {
+  padding: $spacing-lg;
+
+  &__title {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-lg;
+  }
+
+  &__tiles {
+    display: flex;
+    gap: $spacing-md;
+    overflow-x: auto;
+  }
+
+  &__tile {
+    flex: 1 1 0;
+    min-width: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-lg $spacing-md;
+    background: transparent;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    color: var(--admin-text, #{$text-color});
+    cursor: pointer;
+    text-align: center;
+    transition: border-color $transition-fast, background $transition-fast;
+
+    &:hover,
+    &:focus-visible {
+      border-color: $primary-color;
+      background: rgba($primary-color, 0.05);
+      color: $primary-color;
+    }
+  }
+
+  &__label {
+    font-weight: 600;
+    color: var(--admin-text, #{$text-color});
+  }
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+}
+
+// ─── Live-show console ───
+.live-console {
+  margin: $spacing-lg 0;
+  padding: $spacing-lg;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-lg;
+  background: var(--admin-bg-subtle, #{$background});
+
+  &__header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $font-size-lg;
+  }
+
+  &__viewers,
+  &__conn {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__conn {
+    text-transform: capitalize;
+
+    &--open { color: $success-color; }
+    &--reconnecting { color: $warning-color; }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: $spacing-lg;
+
+    @media (max-width: $breakpoint-lg) { grid-template-columns: 1fr; }
+  }
+
+  &__preview,
+  &__side {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-width: 0;
+  }
+
+  &__video-wrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: $secondary-color;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+  }
+
+  &__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__video-empty {
+    position: absolute;
+    inset: 0;
+    @include flex-center;
+  }
+
+  &__meter {
+    height: 6px;
+    border-radius: $border-radius-full;
+    background: $background-dark;
+    overflow: hidden;
+  }
+
+  &__meter-fill {
+    height: 100%;
+    background: $success-color;
+    transition: width 60ms linear;
+  }
+
+  &__devices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: $breakpoint-sm) { grid-template-columns: 1fr; }
+  }
+
+  &__preview-actions,
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+
+  &__provider {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-2xs;
+    padding: $spacing-sm $spacing-md;
+    border: 1px dashed $border-color-strong;
+    border-radius: $border-radius-md;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    padding: $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: var(--admin-page-bg, #{$background});
+  }
+
+  &__card-title {
+    margin: 0;
+    font-size: $font-size-sm;
+    font-weight: 700;
+  }
+
+  &__messages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 360px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  &__message {
+    position: relative;
+    padding: $spacing-xs $spacing-xl $spacing-xs $spacing-sm;
+    border-radius: $border-radius-sm;
+    background: $background-dark;
+  }
+
+  &__message-head {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-xs;
+    font-size: $font-size-xs;
+  }
+
+  &__message-role,
+  &__message-time {
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__message-text {
+    margin: $spacing-2xs 0 0;
+    font-size: $font-size-sm;
+    overflow-wrap: anywhere;
+  }
+
+  &__message-delete {
+    position: absolute;
+    top: $spacing-2xs;
+    right: $spacing-2xs;
+    border: none;
+    background: transparent;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: $font-size-lg;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { color: $error-color; }
+  }
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  border-radius: $border-radius-full;
+  background: $background-dark;
+  color: var(--admin-text-muted, #{$text-light});
+
+  &--live { background: $error-color; color: $background; }
+  &--paused { background: $warning-bg; color: $warning-fg; }
+  &--ended { background: $background-dark; color: var(--admin-text, #{$text-color}); }
+}

@@ -1,5 +1,5 @@
 import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isValidBannerPositionCustom, } from '@sitesurge/types';
-import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
+import { ALL_BLOCK_TYPES, isPostType, } from '@sitesurge/types';
 import { z, } from 'zod';
 import type {
     AssertCompatible,
@@ -11,6 +11,8 @@ import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
 import { NotFoundError, } from '../core/errors';
 import * as posts from '../services/posts';
+import * as postTypes from '../services/postTypes';
+import * as liveRooms from '../services/liveRooms';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -63,6 +65,14 @@ const postSchema = z.object({
         .refine((v,) => v === '' || isValidBannerHeight(v,), 'Not a valid CSS height',)
         .nullish(),
     contentBlocks: z.array(contentBlockSchema,).optional(),
+    // Post type (registered key, see @sitesurge/types utils/postTypes) +
+    // its per-type options. Defaults: 'article', the type's settingsDefaults.
+    postType: z.string().superRefine((v, ctx,) => {
+        if (!isPostType(v,)) {
+            ctx.addIssue({ code: 'custom', message: `Unknown post type "${v}". Valid types: ${postTypes.validKeys().join(', ',)}`, },);
+        }
+    },).optional(),
+    typeSettings: z.record(z.string(), z.unknown(),).nullish(),
 },);
 
 const idParams = z.object({ id: z.string(), },);
@@ -79,6 +89,8 @@ const listQuery = z.object({
     withBlocks: z.string().optional(),
     status: z.string().optional(),
     sort: z.string().optional(),
+    /** Post type filter (e.g. 'live'). */
+    type: z.string().regex(/^[a-z][a-z0-9_-]{1,31}$/,).optional(),
 },);
 
 const searchQuery = z.object({
@@ -116,7 +128,7 @@ export const postsRoutes = [
             if (isAdmin && (query.status !== undefined || query.sort !== undefined)) {
                 const status = query.status && query.status !== 'all' ? query.status : undefined;
                 const result = await posts.list(
-                    { status, search: query.search, sort: query.sort, },
+                    { status, search: query.search, sort: query.sort, postType: query.type, },
                     { page: query.page, limit: query.limit, },
                 );
                 return reply(result.data, { meta: result.meta, },);
@@ -134,6 +146,7 @@ export const postsRoutes = [
                     publishedBefore: query.before,
                     publishedAfter: query.after,
                     ids: idList,
+                    postType: query.type,
                     withContentBlocks: query.withBlocks === '1' || query.withBlocks === 'true',
                 },
                 pagination: { page: query.page, limit: query.limit, },
@@ -166,6 +179,12 @@ export const postsRoutes = [
             const adminPreview = query.preview === 'admin' && isAdminRole(user?.role,);
             return posts.getPublicBySlug(params.slug, user, adminPreview,);
         },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/types', auth: 'public',
+        summary: 'Registered post types (built-in + site-defined).',
+        handler: () => postTypes.list(),
     },),
 
     defineRoute({
@@ -238,6 +257,20 @@ export const postsRoutes = [
         summary: 'Restore a revision (snapshots current state first).',
         input: { params: z.object({ id: z.string(), version: z.coerce.number().int(), },), },
         handler: ({ params, audit, },) => posts.restoreRevision(params.id, params.version, audit(),),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live', auth: 'optional',
+        summary: 'A live show\'s room state (REST fallback to the /ws/live socket).',
+        input: { params: idParams, },
+        handler: ({ params, user, },) => liveRooms.getState(params.id, user,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/ticket', auth: 'optional',
+        summary: 'Issue a short-lived signed ticket that live-room commands carry as `token`.',
+        input: { params: idParams, },
+        handler: ({ params, user, },) => liveRooms.issueTicketFor(params.id, user,),
     },),
 
     defineRoute({

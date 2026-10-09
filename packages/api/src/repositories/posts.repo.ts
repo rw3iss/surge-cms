@@ -24,6 +24,8 @@ export interface PostFilters {
     status?: string;
     search?: string;
     sort?: string;
+    /** Restrict to one post type (`posts.post_type`). */
+    postType?: string;
     tag?: string;
     category?: string;
     publishedOnly?: boolean;
@@ -147,6 +149,10 @@ export async function findPublicPosts(
 
     if (filters.viewerRank !== undefined) whereClause += hiddenClause('p', filters.viewerRank, params,);
 
+    if (filters.postType) {
+        params.push(filters.postType,);
+        whereClause += ` AND p.post_type = $${params.length}`;
+    }
     if (filters.tag) {
         params.push(filters.tag,);
         whereClause += ` AND $${params.length} = ANY(p.tags)`;
@@ -235,6 +241,10 @@ export async function findAllPosts(
         whereClause += ` AND p.status = $${params.length}`;
     } else {
         whereClause += ` AND p.status != 'deleted'`;
+    }
+    if (filters.postType) {
+        params.push(filters.postType,);
+        whereClause += ` AND p.post_type = $${params.length}`;
     }
     if (filters.search) {
         whereClause += ` AND ${ilikeSearch(['p.title', 'p.slug',], filters.search, params,)}`;
@@ -333,8 +343,10 @@ export async function createPost(data: Record<string, unknown>, authorId: string
                         meta_description, published_at, publish_at,
                         apply_post_padding, apply_site_gutter, header_style, header_position, banner_layout,
                         banner_image_position, banner_image_position_custom, banner_height, show_photo_credits,
-                        required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+                        required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent,
+                        post_type, type_settings, live_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
+             $28, $29, $30)
      RETURNING *`,
         [
             data.slug,
@@ -382,6 +394,11 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             data.gateHidden === true,
             data.gateShowSample === true,
             (data.gateSamplePercent as number) ?? 25,
+            // Type + settings are resolved by the service (validated, merged
+            // over the type's defaults); fall back for direct repo callers.
+            (data.postType as string) || 'article',
+            (data.typeSettings as Record<string, unknown>) ?? {},
+            (data.liveStatus as string) ?? null,
         ],
     );
 
@@ -408,6 +425,9 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
         'metaDescription', 'publishAt', 'applyPostPadding', 'applySiteGutter',
         'headerStyle', 'headerPosition', 'bannerLayout', 'bannerImagePosition', 'bannerImagePositionCustom', 'bannerHeight', 'showPhotoCredits',
         'requiredTierId', 'gateHidden', 'gateShowSample', 'gateSamplePercent',
+        'postType', 'typeSettings',
+        // Server-set only (the route's zod schema strips it from bodies).
+        'liveStatus',
     ] as const;
 
     const patch: Record<string, unknown> = {};
@@ -441,6 +461,17 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
     }
 
     return findPostById(id,);
+}
+
+/** The type columns of one post (null when it does not exist). */
+export async function findTypeInfo(id: string,): Promise<{ postType: string; typeSettings: Record<string, unknown>; liveStatus: string | null; liveEnded: boolean; } | null> {
+    const r = await query<{ post_type: string; type_settings: Record<string, unknown> | null; live_status: string | null; live_ended_at: Date | null; }>(
+        'SELECT post_type, type_settings, live_status, live_ended_at FROM posts WHERE id = $1',
+        [id,],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return { postType: row.post_type, typeSettings: row.type_settings ?? {}, liveStatus: row.live_status, liveEnded: row.live_ended_at !== null, };
 }
 
 export async function deletePost(id: string,): Promise<void> {

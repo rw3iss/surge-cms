@@ -1,0 +1,377 @@
+// Public live show: 16:9 stage + reactions, chat beside it (stacked on mobile).
+// Public-site tokens with neutral fallbacks.
+.live-show {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    gap: 1rem;
+    margin: 1.5rem 0;
+    color: var(--site-text, #1f2937);
+
+    @media (max-width: 900px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    &--ended {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    &__main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    &__stage {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        overflow: hidden;
+        border-radius: var(--site-radius, 8px);
+        background: #0f1115;
+        color: #f3f4f6;
+    }
+
+    &__placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+        color: rgb(255 255 255 / 0.7);
+
+        svg {
+            width: 3rem;
+            height: 3rem;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.6;
+        }
+
+        p {
+            margin: 0;
+        }
+    }
+
+    &__ended-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #f3f4f6;
+    }
+
+    &__ended-sub {
+        font-size: 0.95rem;
+    }
+
+    &__overlay {
+        position: absolute;
+        top: 0.75rem;
+        left: 0.75rem;
+        right: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+
+    &__status,
+    &__viewers,
+    &__conn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #fff;
+        background: rgb(0 0 0 / 0.55);
+        backdrop-filter: blur(4px);
+    }
+
+    &__status--live {
+        background: #dc2626;
+        letter-spacing: 0.06em;
+    }
+
+    &__status--muted {
+        background: rgb(0 0 0 / 0.7);
+    }
+
+    &__dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: #fff;
+        animation: live-show-blink 1.4s ease-in-out infinite;
+    }
+
+    &__viewers {
+        margin-left: auto;
+
+        svg {
+            width: 1rem;
+            height: 1rem;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+        }
+    }
+
+    &__conn {
+        position: absolute;
+        bottom: 0.75rem;
+        left: 0.75rem;
+    }
+
+    &__paused {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        text-align: center;
+        background: rgb(0 0 0 / 0.55);
+
+        p {
+            margin: 0;
+            font-weight: 600;
+        }
+    }
+
+    &__toast {
+        position: absolute;
+        left: 50%;
+        bottom: 1rem;
+        transform: translateX(-50%);
+        max-width: calc(100% - 2rem);
+        padding: 0.5rem 0.9rem;
+        border-radius: var(--site-radius, 8px);
+        font-size: 0.875rem;
+        color: #fff;
+        background: rgb(17 24 39 / 0.9);
+    }
+
+    &__floats {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+
+    &__float {
+        position: absolute;
+        bottom: 0.5rem;
+        font-size: 1.75rem;
+        animation: live-show-float 2.6s ease-out forwards;
+    }
+
+    &__reactions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    &__reaction {
+        min-width: 2.5rem;
+        height: 2.5rem;
+        padding: 0 0.5rem;
+        font-size: 1.25rem;
+        line-height: 1;
+        cursor: pointer;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: 999px;
+        background: var(--site-bg, #fff);
+        transition: transform 0.12s, border-color 0.12s;
+
+        &:hover:not(:disabled) {
+            transform: translateY(-2px);
+            border-color: var(--site-primary, #e63946);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+    }
+
+    &__chat {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        max-height: 560px;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 8px);
+        background: var(--site-bg, #fff);
+
+        @media (max-width: 900px) {
+            max-height: 420px;
+        }
+    }
+
+    &__chat-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem;
+        font-weight: 600;
+        border-bottom: 1px solid var(--site-border, #e5e7eb);
+    }
+
+    &__chat-mode {
+        padding: 0.15rem 0.5rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        border-radius: 999px;
+        color: var(--site-primary, #e63946);
+        background: color-mix(in srgb, var(--site-primary, #e63946) 10%, transparent);
+    }
+
+    &__messages {
+        flex: 1 1 auto;
+        min-height: 200px;
+        overflow-y: auto;
+        padding: 0.6rem 0.85rem;
+    }
+
+    &__empty {
+        margin: 1rem 0;
+        text-align: center;
+        font-size: 0.875rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__message {
+        padding: 0.3rem 0;
+        font-size: 0.9rem;
+    }
+
+    &__message-name {
+        font-weight: 600;
+        margin-right: 0.4rem;
+    }
+
+    &__message-time {
+        font-size: 0.72rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__message-text {
+        margin: 0.1rem 0 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    &__chat-error {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: 0 0.85rem 0.5rem;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.82rem;
+        border-radius: var(--site-radius, 6px);
+        color: #991b1b;
+        background: #fef2f2;
+
+        button {
+            border: 0;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            color: inherit;
+        }
+    }
+
+    &__chat-form {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem;
+        border-top: 1px solid var(--site-border, #e5e7eb);
+    }
+
+    &__chat-input {
+        flex: 1;
+        min-width: 0;
+        padding: 0.5rem 0.65rem;
+        font: inherit;
+        font-size: 0.9rem;
+        color: inherit;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 6px);
+        background: var(--site-bg, #fff);
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+    }
+
+    &__chat-send:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+    }
+
+    &__chat-gate {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0.85rem;
+        font-size: 0.875rem;
+        text-align: center;
+        border-top: 1px solid var(--site-border, #e5e7eb);
+
+        &--upgrade {
+            background: color-mix(in srgb, var(--site-primary, #e63946) 5%, var(--site-bg, #fff));
+
+            a {
+                font-weight: 600;
+                color: var(--site-primary, #e63946);
+            }
+        }
+    }
+}
+
+@keyframes live-show-blink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes live-show-float {
+    0% {
+        transform: translateY(0) scale(0.8);
+        opacity: 0;
+    }
+    15% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-220px) scale(1.2);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-show__dot,
+    .live-show__float {
+        animation: none;
+    }
+}

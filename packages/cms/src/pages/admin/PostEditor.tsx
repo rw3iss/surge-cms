@@ -2,7 +2,13 @@ import {
     BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerHeight,
     isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition,
 } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, Match, Show, Switch, } from 'solid-js';
+import { useSearchParams, } from '@solidjs/router';
+import { Component, createEffect, createSignal, For, Match, Show, Switch, untrack, } from 'solid-js';
+import { Dynamic, } from 'solid-js/web';
+import { DEFAULT_POST_TYPE, getPostType, type PostTypeDefinition, } from '@sitesurge/types';
+import { getEditorFor, } from '../../components/admin/posts/types/registry';
+import { isEmptyOrUntouchedDefaults, seedDefaultBlocks, } from '../../components/admin/posts/postTypeBlocks';
+import { PostTypeIcon, usePostTypes, } from '../../components/admin/posts/usePostTypes';
 import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
@@ -64,6 +70,17 @@ const AdminPostEditor: Component = () => {
     const [headerStyle, setHeaderStyle,] = createSignal('',);
     /** Header position for this post ('' = '-' → inherit the site default). */
     const [headerPosition, setHeaderPosition,] = createSignal('',);
+    /** Post type key (`posts.post_type`) — picks the Content editor. */
+    const [postType, setPostType,] = createSignal(DEFAULT_POST_TYPE,);
+    /** Per-type options (`posts.type_settings`). */
+    const [typeSettings, setTypeSettings,] = createSignal<Record<string, unknown>>({},);
+    /** Live shows: set from the loaded post (server-owned, read-only here). */
+    const [liveStartedAt, setLiveStartedAt,] = createSignal<string | null>(null,);
+    const [liveEndedAt, setLiveEndedAt,] = createSignal<string | null>(null,);
+    const postTypes = usePostTypes();
+    /** Depends on `postTypes()` so a server-only type resolves once it loads. */
+    const typeDef = (): PostTypeDefinition => { postTypes(); return getPostType(postType(),); };
+    const [searchParams,] = useSearchParams<{ type?: string; }>();
     const [showImageSelect, setShowImageSelect,] = createSignal(false,);
     const [showImageUpload, setShowImageUpload,] = createSignal(false,);
 
@@ -112,6 +129,8 @@ const AdminPostEditor: Component = () => {
             applySiteGutter: applySiteGutter(),
             headerStyle: headerStyle(),
             headerPosition: headerPosition(),
+            postType: postType(),
+            typeSettings: typeSettings(),
         }),
         validate: () => {
             if (!title()) return 'Title is required';
@@ -144,6 +163,8 @@ const AdminPostEditor: Component = () => {
                 applySiteGutter: applySiteGutter(),
                 headerStyle: headerStyle() || undefined,
                 headerPosition: headerPosition() || undefined,
+                postType: postType(),
+                typeSettings: typeSettings(),
                 contentBlocks: ctx.blocks.map((b, i,) => {
                     // Persist the block's style. The backend reads it from
                     // `data.__styleRef`; resolve the active ref (an explicit
@@ -222,37 +243,54 @@ const AdminPostEditor: Component = () => {
         if (tierSelect && document.activeElement !== tierSelect) tierSelect.value = v;
     },);
 
+    /** Start a NEW post as the `?type=` type (default article): its default
+     *  blocks + settings. Skipped when a draft was restored. */
+    const seedNewPost = () => {
+        const def = getPostType(searchParams.type || DEFAULT_POST_TYPE,);
+        setPostType(def.key,);
+        setTypeSettings({ ...(def.settingsDefaults ?? {}), },);
+        editor.setBlocks(seedDefaultBlocks(def,),);
+    };
+
     // ─── Offer to restore a localStorage draft for NEW posts ───
-    // (only if a draft exists and the current state is empty)
+    // (only if a draft exists and the current state is empty). Runs once:
+    // seeding default blocks would otherwise look like "not empty".
+    let newPostChecked = false;
     createEffect(() => {
-        if (!editor.isNew()) return;
-        if (title() || editor.blocks().length) return;
+        if (!editor.isNew() || newPostChecked) return;
+        if (untrack(() => title() || editor.blocks().length,)) return;
+        newPostChecked = true;
         const draft = editor.autoSave.getDraft();
-        if (draft && confirm('A draft was found from a previous session. Restore it?',)) {
-            const d = draft.data as any;
-            setTitle(d.title || '',);
-            setSlug(d.slug || '',);
-            setExcerpt(d.excerpt || '',);
-            setStatus(d.status || 'draft',);
-            setTags(d.tags || '',);
-            setFeaturedImage(d.featuredImage || '',);
-            setBannerLayout(d.bannerLayout || 'standalone',);
-            setBannerImagePosition((d.bannerImagePosition as BannerImagePosition) || 'center',);
-            setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
-            setBannerHeight(d.bannerHeight || '',);
-            setShowPhotoCredits(d.showPhotoCredits === true,);
-            setRequiredTierId(d.requiredTierId || '',);
-            setGateHidden(d.gateHidden === true,);
-            setGateShowSample(d.gateShowSample === true,);
-            setGateSamplePercent(typeof d.gateSamplePercent === 'number' ? d.gateSamplePercent : 25,);
-            setPublishAt(d.publishAt || '',);
-            setAuthorId(d.authorId || '',);
-            setApplyPostPadding(d.applyPostPadding !== false,);
-            setApplySiteGutter(d.applySiteGutter !== false,);
-            setHeaderStyle(d.headerStyle || '',);
-            setHeaderPosition(d.headerPosition || '',);
-            editor.setBlocks(d.blocks || [],);
+        if (!draft || !confirm('A draft was found from a previous session. Restore it?',)) {
+            seedNewPost();
+            return;
         }
+        const d = draft.data as any;
+        setTitle(d.title || '',);
+        setSlug(d.slug || '',);
+        setExcerpt(d.excerpt || '',);
+        setStatus(d.status || 'draft',);
+        setTags(d.tags || '',);
+        setFeaturedImage(d.featuredImage || '',);
+        setBannerLayout(d.bannerLayout || 'standalone',);
+        setBannerImagePosition((d.bannerImagePosition as BannerImagePosition) || 'center',);
+        setBannerImagePositionCustom(d.bannerImagePositionCustom || '',);
+        setBannerHeight(d.bannerHeight || '',);
+        setShowPhotoCredits(d.showPhotoCredits === true,);
+        setRequiredTierId(d.requiredTierId || '',);
+        setGateHidden(d.gateHidden === true,);
+        setGateShowSample(d.gateShowSample === true,);
+        setGateSamplePercent(typeof d.gateSamplePercent === 'number' ? d.gateSamplePercent : 25,);
+        setPublishAt(d.publishAt || '',);
+        setAuthorId(d.authorId || '',);
+        setApplyPostPadding(d.applyPostPadding !== false,);
+        setApplySiteGutter(d.applySiteGutter !== false,);
+        setHeaderStyle(d.headerStyle || '',);
+        setHeaderPosition(d.headerPosition || '',);
+        const draftDef = getPostType(d.postType || DEFAULT_POST_TYPE,);
+        setPostType(draftDef.key,);
+        setTypeSettings({ ...(draftDef.settingsDefaults ?? {}), ...(d.typeSettings || {}), },);
+        editor.setBlocks(d.blocks || [],);
     },);
 
     // ─── Hydrate signals from the loaded post ───
@@ -281,6 +319,13 @@ const AdminPostEditor: Component = () => {
         setHeaderStyle((p as any).headerStyle || '',);
         setHeaderPosition((p as any).headerPosition || '',);
         setPublishAt(p.publishAt ? new Date(p.publishAt,).toISOString().slice(0, 16,) : '',);
+        const loadedDef = getPostType(p.postType || DEFAULT_POST_TYPE,);
+        // Keep an unregistered key as-is (it renders with the custom editor)
+        // so saving doesn't silently rewrite the post's type.
+        setPostType(p.postType || DEFAULT_POST_TYPE,);
+        setTypeSettings({ ...(loadedDef.settingsDefaults ?? {}), ...(p.typeSettings || {}), },);
+        setLiveStartedAt(p.liveStartedAt ? new Date(p.liveStartedAt,).toISOString() : null,);
+        setLiveEndedAt(p.liveEndedAt ? new Date(p.liveEndedAt,).toISOString() : null,);
         const blockList = (p as any).contentBlocks as any[] | undefined;
         if (blockList?.length) {
             const converted = blockList.map((b,) => ({
@@ -299,6 +344,24 @@ const AdminPostEditor: Component = () => {
         }
     },);
 
+    /**
+     * Switch the post's type. Blocks are replaced by the new type's defaults
+     * ONLY when there are none, or just the previous type's untouched
+     * defaults — user content is never deleted. To/from `live` keeps blocks.
+     */
+    const changeType = (nextKey: string,) => {
+        const prevDef = typeDef();
+        if (nextKey === postType()) return;
+        const nextDef = getPostType(nextKey,);
+        setPostType(nextKey,);
+        setTypeSettings({ ...(nextDef.settingsDefaults ?? {}), ...typeSettings(), },);
+        const touchesLive = prevDef.editor === 'live' || nextDef.editor === 'live';
+        if (!touchesLive && isEmptyOrUntouchedDefaults(editor.blocks(), prevDef,)) {
+            editor.setBlocks(seedDefaultBlocks(nextDef,),);
+        }
+        editor.markDirty();
+    };
+
     const properties = (
         <CollapsiblePanel
             title="Post Properties"
@@ -315,6 +378,10 @@ const AdminPostEditor: Component = () => {
             }
             headerExtra={
                 <>
+                    <span class="editor-pill editor-pill--type" title={`Post type: ${typeDef().label}`}>
+                        <PostTypeIcon def={typeDef()} class="post-type-icon post-type-icon--sm" />
+                        {typeDef().label}
+                    </span>
                     <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
                     <Show
                         when={requiredTierId()}
@@ -327,6 +394,25 @@ const AdminPostEditor: Component = () => {
         >
             <div class="editor-properties">
                 <div class="editor-properties__main">
+                    <FormField
+                        label="Type"
+                        tooltip="What kind of post this is. It picks the content editor below (blocks or the live-show console) and how the post displays. Changing it never deletes content you added."
+                    >
+                        <div class="post-type-select">
+                            <PostTypeIcon def={typeDef()} />
+                            <select
+                                value={postType()}
+                                onChange={(e,) => changeType(e.currentTarget.value,)}
+                            >
+                                <Show when={!postTypes().some((t,) => t.key === postType())}>
+                                    <option value={postType()}>{postType()} (not registered)</option>
+                                </Show>
+                                <For each={postTypes()}>
+                                    {(t,) => <option value={t.key}>{t.label}</option>}
+                                </For>
+                            </select>
+                        </div>
+                    </FormField>
                     <FormField label="Title">
                         <input
                             type="text"
@@ -813,6 +899,25 @@ const AdminPostEditor: Component = () => {
                     'Are you sure you want to restore this post? It will be changed back to draft status.',
             }}
             properties={properties}
+            content={
+                <Dynamic
+                    component={getEditorFor(typeDef(),)}
+                    postId={editor.isNew() ? null : editor.params.id}
+                    definition={typeDef()}
+                    editor={editor}
+                    blocks={editor.blocks()}
+                    savedBlocks={editor.savedBlocks()}
+                    onBlocksChange={(next: BlockData[],) => { editor.setBlocks(next,); editor.markDirty(); }}
+                    onFullWidthChange={editor.setFullBleed}
+                    containerStyle={editor.siteContainerStyle()}
+                    typeSettings={typeSettings()}
+                    onTypeSettingsChange={(next: Record<string, unknown>,) => { setTypeSettings(next,); editor.markDirty(); }}
+                    title={title()}
+                    status={status()}
+                    liveStartedAt={liveStartedAt()}
+                    liveEndedAt={liveEndedAt()}
+                />
+            }
             previewBody={previewBody}
             extraModals={extraModals}
         />

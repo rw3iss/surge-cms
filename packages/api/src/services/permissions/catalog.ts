@@ -185,6 +185,22 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             defaultRoles: STAFF,
         },
         { key: 'posts:delete', feature: 'posts', label: 'Delete posts', action: 'delete', defaultRoles: ADMIN, },
+        {
+            key: 'posts.live:host',
+            feature: 'posts',
+            label: 'Host live shows',
+            description: 'Start, pause, resume and end a live show, mute it, and change its chat and reaction settings.',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
+        {
+            key: 'posts.live:chat_moderate',
+            feature: 'posts',
+            label: 'Moderate live chat',
+            description: 'Delete messages from a live show\'s chat.',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
     ],
     forms: [
         { key: 'forms:read', feature: 'forms', label: 'View forms', action: 'read', defaultRoles: STAFF, },

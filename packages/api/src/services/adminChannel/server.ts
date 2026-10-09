@@ -12,7 +12,6 @@
 import { randomUUID, } from 'crypto';
 import type { IncomingMessage, Server, } from 'http';
 import type { Socket, } from 'net';
-import jwt from 'jsonwebtoken';
 import { WebSocket, WebSocketServer, } from 'ws';
 import {
     ADMIN_CHANNEL_PATH,
@@ -21,11 +20,11 @@ import {
     type UserRole,
 } from '@sitesurge/types';
 import { config, } from '../../config';
-import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getActiveTimeoutMs, } from './config';
 import * as registry from './registry';
 import * as peers from './peers';
+import { registerUpgrade, userFromUpgrade, } from '../ws/upgrade';
 
 let wss: WebSocketServer | null = null;
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,41 +42,16 @@ interface LiveSocket extends WebSocket {
     isAlive?: boolean;
 }
 
-function parseCookies(header?: string,): Record<string, string> {
-    const out: Record<string, string> = {};
-    if (!header) return out;
-    for (const part of header.split(';',)) {
-        const i = part.indexOf('=',);
-        if (i === -1) continue;
-        const k = part.slice(0, i,).trim();
-        if (!k) continue;
-        out[k] = decodeURIComponent(part.slice(i + 1,).trim(),);
-    }
-    return out;
-}
-
 /** Verify the upgrade's cookie JWT → a staff user, or null to reject. */
 async function authenticateUpgrade(req: IncomingMessage,): Promise<AuthedUser | null> {
-    try {
-        const token = parseCookies(req.headers.cookie,).accessToken;
-        if (!token || !config.jwt.secret) return null;
-        const decoded = jwt.verify(token, config.jwt.secret,) as { userId: string; };
-        const r = await query<Record<string, unknown>>(
-            `SELECT id, email, display_name, role, is_active, is_banned FROM users WHERE id = $1`,
-            [decoded.userId,],
-        );
-        const row = r.rows[0];
-        if (!row || !row.is_active || row.is_banned) return null;
-        if (!isStaffRole(row.role as string,)) return null;
-        return {
-            userId: row.id as string,
-            displayName: (row.display_name as string) || 'User',
-            email: (row.email as string) || '',
-            role: row.role as UserRole,
-        };
-    } catch {
-        return null;
-    }
+    const user = await userFromUpgrade(req,);
+    if (!user || !isStaffRole(user.role,)) return null;
+    return {
+        userId: user.userId,
+        displayName: user.displayName || 'User',
+        email: user.email,
+        role: user.role as UserRole,
+    };
 }
 
 function send(ws: WebSocket, payload: unknown,): void {
@@ -214,15 +188,9 @@ export function attachAdminChannel(server: Server,): void {
     }
 
     wss = new WebSocketServer({ noServer: true, },);
-    server.on('upgrade', (req, socket, head,) => {
-        let pathname = '';
-        try {
-            pathname = new URL(req.url ?? '', 'http://localhost',).pathname;
-        } catch {
-            pathname = req.url ?? '';
-        }
-        if (pathname !== ADMIN_CHANNEL_PATH) return; // not ours — leave for others
-
+    // Routed by the shared dispatcher (services/ws/upgrade) — one `upgrade`
+    // listener for every WebSocket endpoint.
+    registerUpgrade(server, ADMIN_CHANNEL_PATH, (req, socket, head,) => {
         void (async () => {
             const user = await authenticateUpgrade(req,);
             if (!user) {

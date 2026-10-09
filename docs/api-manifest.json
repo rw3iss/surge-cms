@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T06:10:26.857Z",
+  "generatedAt": "2026-10-09T06:59:18.412Z",
   "totalModules": 48,
-  "totalRoutes": 462,
+  "totalRoutes": 465,
   "modules": [
     {
       "module": "admin-channel",
@@ -1966,6 +1966,13 @@
           "summary": "Fetch a post by slug. Gated content yields CONTENT_LOCKED with a preview in error.details."
         },
         {
+          "method": "GET",
+          "path": "/types",
+          "absolutePath": "/api/v1/posts/types",
+          "auth": "public",
+          "summary": "Registered post types (built-in + site-defined)."
+        },
+        {
           "method": "POST",
           "path": "/bulk",
           "absolutePath": "/api/v1/posts/bulk",
@@ -2027,6 +2034,20 @@
           "absolutePath": "/api/v1/posts/:id/revisions/:version/restore",
           "auth": "staff",
           "summary": "Restore a revision (snapshots current state first)."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/live",
+          "absolutePath": "/api/v1/posts/:id/live",
+          "auth": "optional",
+          "summary": "A live show's room state (REST fallback to the /ws/live socket)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/ticket",
+          "absolutePath": "/api/v1/posts/:id/live/ticket",
+          "auth": "optional",
+          "summary": "Issue a short-lived signed ticket that live-room commands carry as `token`."
         },
         {
           "method": "PUT",

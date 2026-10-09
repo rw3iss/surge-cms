@@ -30,6 +30,7 @@
  *   full  — render every content block, no clipping or expansion UI.
  */
 import PostVisibilityBadge from '../../content/PostVisibilityBadge';
+import PostTypeBadge from '../../content/PostTypeBadge';
 import type { Block, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { fetchPostList, type PostWithBlocks, } from '../../../services/postsService';
@@ -319,6 +320,7 @@ const PostListItem: Component<PostListItemProps> = (props,) => {
                 {/* ─── Title (always visible, never clipped) ─── */}
                 <h3 class="post-list-item__title">
                     <a href={`/posts/${props.post.slug}`}>{props.post.title}</a>
+                    <PostTypeBadge type={props.post.postType} ended={!!props.post.liveEndedAt} />
                     <PostVisibilityBadge gate={props.post.gate} />
                 </h3>
 

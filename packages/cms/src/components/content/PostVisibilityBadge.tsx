@@ -20,14 +20,16 @@ export interface PostVisibilityBadgeProps {
     class?: string;
 }
 
+/** Factories, not shared elements: a DOM node can live in ONE place, so a
+ *  shared JSX constant would be moved into the last badge rendered. */
 const ICONS = {
-    public: (
+    public: () => (
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
     ),
-    locked: (
+    locked: () => (
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
     ),
-    premium: (
+    premium: () => (
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" /></svg>
     ),
 } as const;
@@ -54,7 +56,7 @@ const PostVisibilityBadge: Component<PostVisibilityBadgeProps> = (props,) => {
                 aria-label={v().title}
                 role="img"
             >
-                {ICONS[v().state]}
+                {ICONS[v().state]()}
                 <Show when={props.showLabel}>
                     <span class="post-visibility__label">{v().label}</span>
                 </Show>

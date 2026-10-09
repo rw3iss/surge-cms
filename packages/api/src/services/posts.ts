@@ -21,6 +21,7 @@ import { isAdminRole, } from '@sitesurge/types';
 import { applyGateSync, gateFor, isHiddenFor, tiersById, viewerRank, type ViewerRank, } from './postGate/index';
 import * as repo from '../repositories/posts.repo';
 import * as revisions from './revisions';
+import { assertPostType, resolveTypeSettings, } from './postTypes';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
@@ -93,7 +94,7 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
 
     const cacheKey = `posts:public:${page}:${limit}:${filters.tag || ''}:${filters.category || ''}:${
         filters.search || ''}:${filters.publishedBefore || ''}:${filters.publishedAfter || ''}:${
-        filters.ids ? filters.ids.join('|',) : ''}:${filters.withContentBlocks ? 'b' : ''}`;
+        filters.ids ? filters.ids.join('|',) : ''}:${filters.withContentBlocks ? 'b' : ''}:${filters.postType || ''}`;
 
     // Never let admin-shaped results (drafts via includeNonPublishedForIds)
     // touch the public cache — even if the caller mislabels the request
@@ -213,6 +214,13 @@ export async function create(
     data: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<repo.PostWithBlocks> {
+    const postType = data.postType === undefined || data.postType === null ? 'article' : assertPostType(data.postType,);
+    data = {
+        ...data,
+        postType,
+        typeSettings: resolveTypeSettings(postType, data.typeSettings,),
+        liveStatus: postType === 'live' ? 'idle' : null,
+    };
     const post = await repo.createPost(data, ctx.userId,);
     await cache.invalidatePostCache();
     await logAudit({
@@ -232,6 +240,20 @@ export async function update(
     patch: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<repo.PostWithBlocks> {
+    if (patch.postType !== undefined || patch.typeSettings !== undefined) {
+        const current = await repo.findTypeInfo(id,);
+        if (!current) throw new NotFoundError('Post',);
+        const postType = patch.postType === undefined || patch.postType === null ? current.postType : assertPostType(patch.postType,);
+        const sameType = postType === current.postType;
+        patch = {
+            ...patch,
+            postType,
+            // Switching type starts from the new type's defaults; keeping it
+            // merges the patch over what is stored.
+            typeSettings: resolveTypeSettings(postType, patch.typeSettings, sameType ? current.typeSettings : null,),
+        };
+        if (!sameType) patch.liveStatus = postType === 'live' ? (current.liveEnded ? 'ended' : 'idle') : null;
+    }
     const post = await repo.updatePost(id, patch,);
     await cache.invalidatePostCache(id,);
     // Snapshot once the writes settle rather than before this one — a save is

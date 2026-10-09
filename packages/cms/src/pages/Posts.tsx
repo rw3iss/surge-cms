@@ -3,6 +3,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import type { Post, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, onMount, Show, } from 'solid-js';
 import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
+import PostTypeBadge from '../components/content/PostTypeBadge';
 import { useAuth, } from '../stores/auth';
 import SeoHead from '../components/common/seo/SeoHead';
 import { siteName, } from '../stores/siteSettings';
@@ -104,6 +105,12 @@ const PostsPage: Component = () => {
                         <For each={posts()}>
                             {(post,) => (
                                 <A href={`/posts/${post.slug}`} class="post-card">
+                                    <PostTypeBadge
+                                        type={post.postType}
+                                        ended={!!post.liveEndedAt}
+                                        variant="float"
+                                        class="post-card__type"
+                                    />
                                     <Show when={featuredImagePath(post)}>
                                         <div class="post-card__image">
                                             <img src={featuredImagePath(post)} alt={post.title} loading="lazy" />

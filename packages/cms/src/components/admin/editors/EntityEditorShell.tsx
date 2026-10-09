@@ -1,4 +1,4 @@
-import { createSignal, JSX, onCleanup, onMount, Show, } from 'solid-js';
+import { children, createSignal, JSX, onCleanup, onMount, Show, } from 'solid-js';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import BlockEditor from '../blocks/BlockEditor';
 import ConfirmModal from '../common/ConfirmModal';
@@ -49,6 +49,11 @@ export interface EntityEditorShellProps<TEntity,> {
     properties: JSX.Element;
     /** Body rendered inside the PreviewOverlay. */
     previewBody: JSX.Element;
+    /**
+     * Replaces the default BlockEditor content section — the post editor
+     * renders the editor for the post's TYPE here (blocks, live console…).
+     */
+    content?: JSX.Element;
     /** Optional extra modals (e.g. post banner media pickers). */
     extraModals?: JSX.Element;
     /**
@@ -71,6 +76,9 @@ export function EntityEditorShell<TEntity,>(
     props: EntityEditorShellProps<TEntity>,
 ): JSX.Element {
     const e = props.editor;
+    // Resolved ONCE (`children` memoises): reading `props.content` directly in
+    // two places would build the custom content section twice.
+    const customContent = children(() => props.content,);
 
     const [showRevertConfirm, setShowRevertConfirm,] = createSignal(false,);
     const [showCloneConfirm, setShowCloneConfirm,] = createSignal(false,);
@@ -237,15 +245,20 @@ export function EntityEditorShell<TEntity,>(
 
             {props.properties}
 
-            <BlockEditor
-                title={props.labels.blockEditorTitle}
-                blocks={e.blocks()}
-                savedBlocks={e.savedBlocks()}
-                onBlocksChange={(newBlocks,) => { e.setBlocks(newBlocks,); e.markDirty(); }}
-                onFullWidthChange={e.setFullBleed}
-                containerStyle={{ ...e.siteContainerStyle(), ...(props.containerStyleExtra?.() ?? {}), }}
-                containerClass="site-preview-container"
-            />
+            <Show
+                when={customContent.toArray().length === 0}
+                fallback={customContent()}
+            >
+                <BlockEditor
+                    title={props.labels.blockEditorTitle}
+                    blocks={e.blocks()}
+                    savedBlocks={e.savedBlocks()}
+                    onBlocksChange={(newBlocks,) => { e.setBlocks(newBlocks,); e.markDirty(); }}
+                    onFullWidthChange={e.setFullBleed}
+                    containerStyle={{ ...e.siteContainerStyle(), ...(props.containerStyleExtra?.() ?? {}), }}
+                    containerClass="site-preview-container"
+                />
+            </Show>
 
             <EditorSaveBar
                 onSave={e.handleSave}

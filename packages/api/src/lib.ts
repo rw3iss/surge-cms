@@ -302,6 +302,13 @@ export async function startServer(): Promise<Server> {
         } catch (err) {
             logger.warn('Admin Channel attach skipped', { error: (err as Error).message, },);
         }
+        // Live rooms (live-show posts) — same shared upgrade dispatcher.
+        try {
+            const { attachLiveRooms, } = await import('./services/liveRooms/server.js');
+            attachLiveRooms(server,);
+        } catch (err) {
+            logger.warn('Live rooms attach skipped', { error: (err as Error).message, },);
+        }
     }
 
     installShutdown(server,);
@@ -373,6 +380,10 @@ function installShutdown(server: Server | null,): void {
                 const { shutdownPeers, } = await import('./services/adminChannel/peers.js');
                 await shutdownPeers();
             } catch { /* presence is a convenience; never block shutdown */ }
+            try {
+                const { shutdownLiveRooms, } = await import('./services/liveRooms/server.js');
+                await shutdownLiveRooms();
+            } catch { /* never block shutdown */ }
             await Promise.allSettled([closePool(), cache.close(),],);
             logger.info('Shutdown complete',);
             clearTimeout(forceExitTimer,);

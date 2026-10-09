@@ -1611,7 +1611,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "getBySlug",
                 "signature": "getBySlug(slug: string, query?: PostBySlugQuery): Promise<PostBySlugResponse>",
-                "summary": "GET /posts/slug/:slug — throws ContentLockedError on gated content."
+                "summary": ""
             },
             {
                 "name": "getRevision",
@@ -1627,6 +1627,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "listRevisions",
                 "signature": "listRevisions(id: string): Promise<PostRevisionListResponse>",
                 "summary": ""
+            },
+            {
+                "name": "liveState",
+                "signature": "liveState(id: string): Promise<PostLiveStateResponse>",
+                "summary": "GET /posts/:id/live — a live show's room state (REST fallback to the WebSocket)."
+            },
+            {
+                "name": "liveTicket",
+                "signature": "liveTicket(id: string): Promise<PostLiveTicketResponse>",
+                "summary": "POST /posts/:id/live/ticket — the signed per-room token live commands carry."
             },
             {
                 "name": "remove",
@@ -1652,6 +1662,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "snapshotRevision",
                 "signature": "snapshotRevision(id: string): Promise<RevisionSnapshotResponse>",
                 "summary": "Snapshot the post as it is now — see the pages equivalent."
+            },
+            {
+                "name": "types",
+                "signature": "types(): Promise<PostTypesResponse>",
+                "summary": "GET /posts/types — registered post types (built-in + site-defined)."
             },
             {
                 "name": "update",
@@ -2564,4 +2579,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 447;
+export const SDK_METHOD_COUNT = 450;

@@ -68,6 +68,12 @@ const postCreateShape = {
     metaTitle: z.string().optional().describe('SEO <title>.',),
     metaDescription: z.string().optional().describe('SEO meta description.',),
     publishedAt: z.string().optional().describe('Explicit published-at ISO date-time.',),
+    postType: z.union([z.enum(['article', 'video', 'live', 'custom',],), z.string(),],).optional().describe(
+        'Post type (default "article"): article | video | live | custom, or a site-registered key (the server rejects unknown keys and lists the valid ones). Picks the editor, public display and gated-sample rule.',
+    ),
+    typeSettings: z.record(z.string(), z.unknown(),).optional().describe(
+        'Per-type options, merged over the type defaults. live: { archiveVideo: boolean, chatMode: "off"|"public"|"members"|"subscribers", reactionsEnabled: boolean }.',
+    ),
 };
 
 /** A UnifiedBlock argument (block type + optional title/content/settings/style). */

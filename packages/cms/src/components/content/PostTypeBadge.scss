@@ -1,0 +1,66 @@
+// Post type badge — round icon. `--float` overlays a card corner; `--inline`
+// sits beside a title, sized to the text (em).
+.post-type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    color: var(--site-text, #1f2937);
+    background: var(--site-bg, #ffffff);
+    line-height: 1;
+
+    svg {
+        width: 58%;
+        height: 58%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    &--float {
+        width: 36px;
+        height: 36px;
+        box-shadow: 0 0 0 3px var(--site-bg, #ffffff), 0 2px 8px rgb(0 0 0 / 0.22);
+    }
+
+    &--inline {
+        width: 1.6em;
+        height: 1.6em;
+        font-size: 0.55em;
+        vertical-align: middle;
+        margin-left: 0.45em;
+        color: var(--site-text-muted, #6b7280);
+        border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    }
+
+    &--live {
+        color: var(--site-button-text, #ffffff);
+        background: var(--site-primary, #e63946);
+        border-color: transparent;
+    }
+
+    &--pulse {
+        animation: post-type-badge-pulse 2s ease-in-out infinite;
+    }
+}
+
+@keyframes post-type-badge-pulse {
+    0%,
+    100% {
+        filter: none;
+        transform: scale(1);
+    }
+    50% {
+        filter: brightness(1.12);
+        transform: scale(1.06);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .post-type-badge--pulse {
+        animation: none;
+    }
+}

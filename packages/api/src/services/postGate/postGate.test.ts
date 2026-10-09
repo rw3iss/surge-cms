@@ -71,6 +71,37 @@ describe('samplePostContent', () => {
         const s = samplePostContent({ contentBlocks: [{ type: 'image', }, { type: 'video', },], } as never, 25,);
         expect(s.blocks,).toHaveLength(1,);
     },);
+    it('defaults to the article sampler (no type, unknown type → custom → article)', () => {
+        const blocks = [{ type: 'image', }, { type: 'rich_text', data: { content: '<p>a b c d</p>', }, }, { type: 'image', },];
+        expect(samplePostContent({ contentBlocks: blocks, } as never, 50,).blocks.map((b,) => b.type),).toEqual(['image', 'rich_text',],);
+        expect(samplePostContent({ postType: 'nope', contentBlocks: blocks, } as never, 50,).blocks,).toHaveLength(2,);
+    },);
+    it('video: lead blocks through the first video, then part of a following rich text', () => {
+        const blocks = [
+            { type: 'image', },
+            { type: 'video', data: { url: 'v', }, },
+            { type: 'rich_text', data: { content: '<p>one two three four five six seven eight nine ten</p>', }, },
+            { type: 'image', },
+        ];
+        const s = samplePostContent({ postType: 'video', contentBlocks: blocks, } as never, 30,);
+        expect(s.blocks.map((b,) => b.type),).toEqual(['image', 'video', 'rich_text',],);
+        expect(String(s.blocks[2].data?.content,),).toContain('one',);
+        expect(String(s.blocks[2].data?.content,),).not.toContain('ten',);
+    },);
+    it('video: nothing after the video when the next block is not rich text', () => {
+        const s = samplePostContent({ postType: 'video', contentBlocks: [{ type: 'video', }, { type: 'image', }, { type: 'rich_text', data: { content: 'x', }, },], } as never, 30,);
+        expect(s.blocks.map((b,) => b.type),).toEqual(['video',],);
+    },);
+    it('video without a video block falls back to the article rule', () => {
+        const s = samplePostContent({ postType: 'video', contentBlocks: [{ type: 'image', }, { type: 'rich_text', data: { content: '<p>a b</p>', }, },], } as never, 50,);
+        expect(s.blocks.map((b,) => b.type),).toEqual(['image', 'rich_text',],);
+    },);
+    it('live: no body, only the first lead block', () => {
+        const s = samplePostContent({ postType: 'live', content: '<p>secret</p>', contentBlocks: [{ type: 'image', }, { type: 'rich_text', data: { content: 'x', }, },], } as never, 50,);
+        expect(s.blocks.map((b,) => b.type),).toEqual(['image',],);
+        expect(s.content,).toBe('',);
+        expect(samplePostContent({ postType: 'live', contentBlocks: [{ type: 'rich_text', data: { content: 'x', }, },], } as never, 50,).blocks,).toEqual([],);
+    },);
 },);
 
 describe('hiddenClause', () => {
