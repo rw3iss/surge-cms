@@ -639,27 +639,15 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         };
     }
 
-    // ─── Noindex routes ───
-    const noindexRoutes = ['/login', '/join', '/subscribe', '/search', '/forms',];
-    if (noindexRoutes.some((p,) => path === p || path.startsWith(`${p}/`,))) {
-        const names: Record<string, string> = {
-            '/login': 'Sign In',
-            '/join': 'Join',
-            '/subscribe': 'Subscribe',
-            '/search': 'Search',
-            '/forms': 'Form',
-        };
-        const base = Object.keys(names,).find((k,) => path === k || path.startsWith(`${k}/`,));
-        return {
-            title: base ? names[base] : SITE_NAME,
-            description: SITE_DESCRIPTION,
-            canonical: url,
-            image: logo,
-            noindex: true,
-            nofollow: true,
-            siteName: SITE_NAME,
-        };
-    }
+    // ─── App screens + SPA-rendered detail pages ───
+    // /subscribe, /search, /events…, shop products, events, forms, /watch:
+    // their own title, description, image and JSON-LD (services/ssr/staticMeta);
+    // account screens (/login, /join, /profile, cart, tickets…) are noindex.
+    // Before the CMS-page lookup: these routes win in the SPA router too.
+    const appMeta = await resolveStaticMeta({
+        path, url, siteUrl: siteUrl(), siteName: SITE_NAME, siteDescription: SITE_DESCRIPTION, logo,
+    },);
+    if (appMeta) return appMeta;
 
     // ─── Dynamic CMS pages (catch-all) ───
     // Try to match as a CMS page slug (also handles /donate, etc. when stored as a page)
@@ -762,13 +750,6 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     // and `index, follow`, so every typo, scraped link and probe became an
     // indexable page — an unbounded soft-404 surface on a site with ~18 real
     // URLs.
-    // App screens + SPA-rendered detail pages get their own title, description,
-    // image and JSON-LD (account screens noindex) — not just the site name.
-    const appMeta = await resolveStaticMeta({
-        path, url, siteUrl: siteUrl(), siteName: SITE_NAME, siteDescription: SITE_DESCRIPTION, logo,
-    },);
-    if (appMeta) return appMeta;
-
     if (STATIC_PUBLIC_ROUTES.has(path,) || SPA_OWNED_PREFIXES.some((p,) => path.startsWith(p,))) {
         return {
             title: SITE_NAME,
