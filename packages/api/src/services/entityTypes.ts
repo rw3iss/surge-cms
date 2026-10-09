@@ -9,18 +9,26 @@ import { transaction, } from '../db';
 import * as repo from '../repositories/entityTypes.repo';
 import * as tableGen from '../entities/tableGenerator';
 import * as entityManager from '../entities/entityManager';
+import { virtualFilterDefs, } from '../entities/virtualFilters';
 import { assertSafeIdentifier, assertValidFieldKey, } from '../entities/columnMap';
 import { cache, } from './cache';
 import { ValidationError, } from '../middleware/error';
 
+/** A copy carrying the type's query-only properties (never mutates the cached def). */
+function withVirtualFilters(t: EntityTypeDef,): EntityTypeDef {
+    const vf = virtualFilterDefs(t.key,);
+    return vf.length ? { ...t, virtualFilters: vf, } : t;
+}
+
 export async function listTypes(): Promise<EntityTypeDef[]> {
     await entityManager.ready();
-    return entityManager.all();
+    return entityManager.all().map(withVirtualFilters,);
 }
 
 export async function getType(key: string,): Promise<EntityTypeDef | undefined> {
     await entityManager.ready();
-    return entityManager.getType(key,);
+    const t = entityManager.getType(key,);
+    return t ? withVirtualFilters(t,) : t;
 }
 
 export interface CreateTypeInput {

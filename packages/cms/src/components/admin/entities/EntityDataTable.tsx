@@ -81,7 +81,8 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
         const schema = props.type.fields
             .filter((f,) => f.type !== 'blocks' && f.type !== 'json' && f.key !== 'status' && f.key !== 'slug')
             .map((f,) => f.key);
-        return [...std, ...schema,];
+        const virtual = (props.type.virtualFilters ?? []).map((v,) => v.key);
+        return [...std, ...virtual, ...schema.filter((k,) => !virtual.includes(k,)),];
     },);
 
     /** Merge the filterable-field dropdowns (bare equality) with the field/op/value
@@ -269,7 +270,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                     >
                         <option value="">Filter field…</option>
                         <For each={filterFields()}>
-                            {(f,) => <option value={f}>{f}</option>}
+                            {(f,) => <option value={f}>{props.type.virtualFilters?.find((v,) => v.key === f,)?.label ?? f}</option>}
                         </For>
                     </select>
                     <select

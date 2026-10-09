@@ -25,3 +25,4 @@ export * from './usStates';
 export * from './validation';
 export * from './htmlSample';
 export * from './postTypes';
+export * from './videoFile';

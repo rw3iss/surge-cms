@@ -24,6 +24,7 @@ import { nanoid, } from '../../utils/nanoid';
 import { uuidOrNull, } from '../../utils/uuid';
 import { fileUrl, incomingKey, } from './paths';
 import { isVideoMime, registerVideo, } from './register';
+import { videoMimeFor, } from '@sitesurge/types';
 import { getVideoSettings, } from './settings';
 import { planParts, } from './uploadMath';
 
@@ -116,7 +117,10 @@ function assertOpen(row: UploadSessionRow,): void {
 
 export async function createOrResume(userId: string | null, body: MediaUploadCreateBody, ctx: AuditContext,): Promise<UploadSession> {
     const filename = typeof body?.filename === 'string' ? body.filename.trim() : '';
-    const mimeType = typeof body?.mimeType === 'string' ? body.mimeType.trim() : '';
+    const rawMime = typeof body?.mimeType === 'string' ? body.mimeType.trim() : '';
+    // An empty/generic type on a video container (.mkv, .mov…) → the video type,
+    // so the file is encoded instead of stored as a plain download.
+    const mimeType = videoMimeFor(typeof body?.filename === 'string' ? body.filename : '', rawMime,) ?? rawMime;
     // Stored as VARCHAR(128): a longer client value is reduced to its SHA-256,
     // which keeps it stable (the same file maps to the same session) and short.
     const rawFingerprint = typeof body?.fingerprint === 'string' ? body.fingerprint.trim() : '';

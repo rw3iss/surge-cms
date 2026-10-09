@@ -3,6 +3,7 @@
  * read caching (honoring each type's `caching` rules) over the generic repo.
  * The single business-logic home for CRUD on ANY entity type.
  */
+import { getVirtualFilter, type SqlCondition, } from '../entities/virtualFilters';
 import { createHash, } from 'crypto';
 import { type EntityFieldOption, type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
 import * as repo from '../repositories/genericEntity.repo';
@@ -78,12 +79,33 @@ export async function list(
         if (cached) return cached;
     }
     const provider = getEntityDataProvider(typeKey,);
-    const res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, q,);
+    const { query: plainQ, conditions, } = await splitVirtualFilters(typeKey, q,);
+    const res = provider?.list ? await provider.list(plainQ, opts,) : await repo.list(t, plainQ, { extraWhere: conditions, },);
     // Any record with a `featuredImage` URL gets its media item (title,
     // description, credits) — what `{{post.featuredImage.credits}}` reads.
     await attachFeaturedMedia(res.items,);
     if (cacheable) await cache.set(key, res, t.caching.indexTtlSeconds,);
     return res;
+}
+
+/**
+ * Pull a query's virtual-filter keys (see entities/virtualFilters.ts) out of
+ * `filter` and resolve each into a SQL condition for the repo. A bare value is
+ * equality; `{ op, value }` any operator the filter supports.
+ */
+async function splitVirtualFilters(typeKey: string, q: EntityQuery,): Promise<{ query: EntityQuery; conditions: SqlCondition[]; }> {
+    if (!q.filter) return { query: q, conditions: [], };
+    const rest: Record<string, unknown> = {};
+    const conditions: SqlCondition[] = [];
+    for (const [key, raw,] of Object.entries(q.filter,)) {
+        const vf = getVirtualFilter(typeKey, key,);
+        if (!vf) { rest[key] = raw; continue; }
+        const { op, value, } = raw !== null && typeof raw === 'object' && 'op' in (raw as object)
+            ? raw as { op: string; value: unknown; }
+            : { op: 'eq', value: raw, };
+        conditions.push(await vf.resolve(op, value,),);
+    }
+    return { query: { ...q, filter: rest as EntityQuery['filter'], }, conditions, };
 }
 
 /** Get one record by id OR slug. */
@@ -234,6 +256,11 @@ export async function getFilterValues(
     search?: string,
 ): Promise<EntityFieldOption[]> {
     const t = await requireType(typeKey,);
+
+    // Query-only properties (a post's subscription level / type) answer from
+    // their own option lists.
+    const virtual = getVirtualFilter(typeKey, fieldKey,);
+    if (virtual) return applySearch(await virtual.options(), search,);
 
     // Standard columns aren't schema fields, but every record has them and they
     // are filterable in the query builder — so they need suggestions too.

@@ -110,8 +110,20 @@ export interface EntityTypeDef {
     /** Template with `:id` (e.g. `/admin/posts/:id/edit`). */
     adminEditRoute?: string;
     fields: EntityFieldDef[];
+    /** Filterable properties that are not columns (a post's `subscription`
+     *  level, its `type`), resolved server-side. Offered in query builders
+     *  beside the fields; values via `GET /entities/:type/fields/:key/values`. */
+    virtualFilters?: EntityVirtualFilterDef[];
     createdAt: string;
     updatedAt: string;
+}
+
+/** A query-only property of an entity type (see `EntityTypeDef.virtualFilters`). */
+export interface EntityVirtualFilterDef {
+    key: string;
+    label: string;
+    /** One line of help for the builder (e.g. how ranks compare). */
+    description?: string;
 }
 
 /** A generic entity instance. Known columns are surfaced; everything else is

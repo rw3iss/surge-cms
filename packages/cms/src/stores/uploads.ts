@@ -10,6 +10,7 @@
  * `uploadsVersion()` ticks each time an upload completes; the media library
  * watches it to refetch.
  */
+import { isVideoFile, } from '@sitesurge/types';
 import type { Media, UploadSessionOptions, } from '@sitesurge/types';
 import { createSignal, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -48,7 +49,7 @@ export const MULTIPART_THRESHOLD_BYTES = 50 * 1024 * 1024;
  *  AND the file is a video or larger than 50 MB). */
 export function usesMultipart(file: File,): boolean {
     if (!isFeatureEnabled('video',)) return false;
-    return file.type.startsWith('video/',) || file.size > MULTIPART_THRESHOLD_BYTES;
+    return isVideoFile(file.name, file.type,) || file.size > MULTIPART_THRESHOLD_BYTES;
 }
 
 const [state, setState,] = createStore<{ items: UploadItem[]; }>({ items: [], },);

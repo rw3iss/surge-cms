@@ -4,7 +4,7 @@ import { assertPostType, resolveTypeSettings, } from './postTypes';
 describe('post types', () => {
     it('accepts registered keys and names the valid ones otherwise', () => {
         expect(assertPostType('video',),).toBe('video',);
-        expect(() => assertPostType('podcast',)).toThrow(/Valid types: article, video, live, custom/,);
+        expect(() => assertPostType('podcast',)).toThrow(/Valid types: article, video, short, live, custom/,);
     },);
     it('merges settings over the type defaults (and stored settings when the type is kept)', () => {
         expect(resolveTypeSettings('live', { chatMode: 'members', },),).toMatchObject({

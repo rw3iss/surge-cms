@@ -766,7 +766,7 @@ export const POST_TYPES_DOC: SdkDoc = {
         'Every post has a type (`posts.post_type`). The type is a signal: all types keep their body in the same '
         + 'content-block system, but the type picks the admin editor for the Content section, how the public page '
         + 'renders the body, the starting blocks of a new post, the sample shown to non-subscribers, and the icon '
-        + 'on badges. Built in: Article (default), Video, Live Show and Custom. A site can add its own.',
+        + 'on badges. Built in: Article (default), Video, Short, Live Show and Custom. A site can add its own.',
     sections: [
         {
             heading: 'Built-in types',
@@ -776,6 +776,7 @@ export const POST_TYPES_DOC: SdkDoc = {
                         ['Type', 'Key', 'Admin editor', 'Starts with', 'Public page',],
                         ['Article', '`article`', 'Content blocks', 'One Rich Text block', 'The blocks',],
                         ['Video', '`video`', 'Content blocks', 'One Video block', 'The blocks',],
+                        ['Short', '`short`', 'Content blocks (same as Video; classified apart for filtering)', 'One Video block', 'The blocks',],
                         ['Live Show', '`live`', 'Live console (webcam, host controls, chat)', '—', 'Live stage + chat',],
                         ['Custom', '`custom`', 'Content blocks, no starting layout', 'Nothing', 'The blocks',],
                     ],

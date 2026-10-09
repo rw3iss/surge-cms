@@ -216,6 +216,27 @@ async function setTierPermissions(client: { query: typeof query; }, tierId: stri
     }
 }
 
+/**
+ * Tier RANK (`sort_order`) is automatic: free = 0, paid 1…N by monthly price,
+ * cheapest first (equal prices share a rank). The post gate and the entity
+ * `subscription` filter compare these. Same statement as migration 131.
+ */
+export const TIER_RANK_SQL = `
+WITH monthly AS (
+    SELECT id,
+           COALESCE(is_free, false) AS free,
+           COALESCE(price_cents, 0) * CASE lower(COALESCE("interval", 'month'))
+               WHEN 'year' THEN 1.0 / 12 WHEN 'week' THEN 52.0 / 12 WHEN 'day' THEN 365.0 / 12 ELSE 1 END AS per_month
+      FROM subscription_plans
+), ranked AS (
+    SELECT id, CASE WHEN free THEN 0 ELSE DENSE_RANK() OVER (PARTITION BY free ORDER BY per_month) END AS rank
+      FROM monthly
+)
+UPDATE subscription_plans p
+   SET sort_order = ranked.rank
+  FROM ranked
+ WHERE ranked.id = p.id AND p.sort_order IS DISTINCT FROM ranked.rank`;
+
 async function invalidateGate(): Promise<void> {
     const { invalidateGateTiers, } = await import('./postGate/index.js');
     invalidateGateTiers();
@@ -223,6 +244,9 @@ async function invalidateGate(): Promise<void> {
     // prices + descriptions for an hour — a tier change refreshes it.
     const { cache, } = await import('./cache.js');
     await cache.invalidateMembershipCache();
+    // Ranks may have moved: cached post entity queries filtered by
+    // `subscription` would otherwise keep the old ordering.
+    await cache.invalidateEntityCache('post',);
 }
 
 export async function saveTier(id: string | null, body: SubscriptionTierBody, ctx: AuditContext,): Promise<SubscriptionTier> {
@@ -276,6 +300,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);
+        await c.query(TIER_RANK_SQL,);
         return tid;
     },).catch((e,) => {
         if ((e as { code?: string; }).code === '23505') throw new ConflictError('Another subscription already uses that slug (or Stripe price).',);
@@ -299,6 +324,7 @@ export async function deleteTier(id: string, ctx: AuditContext,): Promise<void> 
     await transaction(async (c,) => {
         await c.query(`DELETE FROM permission_grants WHERE subject_type = 'plan' AND subject_id = $1`, [id,],);
         await c.query(`DELETE FROM subscription_plans WHERE id = $1`, [id,],);
+        await c.query(TIER_RANK_SQL,);
     },);
     invalidatePermissionCache();
     invalidatePlan();

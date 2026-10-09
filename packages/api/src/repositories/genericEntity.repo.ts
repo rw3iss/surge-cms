@@ -81,8 +81,10 @@ export function buildEntitySortClause(typeDef: EntityTypeDef, q: EntityQuery,): 
 }
 
 /** Build a parameterized WHERE from filter/search/status. */
-function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],): string {
+function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[], extra: Array<(params: unknown[],) => string> = [],): string {
     const clauses: string[] = [];
+    // Virtual-filter conditions (pre-resolved, parameterized) — entities/virtualFilters.ts.
+    for (const cond of extra) clauses.push(`(${cond(params,)})`,);
     const fieldKeys = new Set(columnFields(typeDef,).map((f,) => f.key,));
 
     if (typeDef.hasStatus && q.status) {
@@ -146,6 +148,8 @@ function buildWhere(typeDef: EntityTypeDef, q: EntityQuery, params: unknown[],):
 }
 
 export interface GenericListOptions {
+    /** Pre-resolved, parameterized conditions from virtual filters (entities/virtualFilters.ts). */
+    extraWhere?: Array<(params: unknown[],) => string>;
     /**
      * Raw `ORDER BY …` used when the caller asked for NO explicit sort.
      *
@@ -166,7 +170,7 @@ export async function list(
 ): Promise<{ items: EntityRecord[]; total: number; }> {
     const table = `"${assertSafeIdentifier(typeDef.tableName, 'table name',)}"`;
     const params: unknown[] = [];
-    const where = buildWhere(typeDef, q, params,);
+    const where = buildWhere(typeDef, q, params, opts.extraWhere,);
     // An explicit sort always wins — the default only fills the gap. A bare
     // `sortOrder` counts as explicit: it means "the default FIELD, in this
     // direction" (oldest-first), which a caller can now ask for from the

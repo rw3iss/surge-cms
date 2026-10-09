@@ -16,10 +16,22 @@ describe('selectRungs', () => {
         expect(r.every((x,) => x.width % 2 === 0 && x.height % 2 === 0),).toBe(true,);
     },);
 
-    it('portrait (rotated) sources keep their aspect', () => {
+    it('portrait sources (shorts) size rungs by the short side and keep their aspect', () => {
         const r = selectRungs(LADDER, 1080, 1920, 30,);
-        expect(r[0].name,).toBe('1080p',);
-        expect(r[0].width,).toBe(608,);
+        expect(r.map((x,) => x.name),).toEqual(['1080p', '720p', '480p', '360p',],);
+        expect([r[0].width, r[0].height,],).toEqual([1080, 1920,],);
+        expect([r[1].width, r[1].height,],).toEqual([720, 1280,],);
+    },);
+
+    it('a small portrait clip still gets one rung', () => {
+        const r = selectRungs(LADDER, 240, 426, 30,);
+        expect(r,).toHaveLength(1,);
+        expect([r[0].width, r[0].height,],).toEqual([240, 426,],);
+    },);
+
+    it('teaser rungs compare the short side', () => {
+        const r = selectRungs(LADDER, 1080, 1920, 30,);
+        expect(teaserRungs(r, 480,).map((x,) => x.name),).toEqual(['480p', '360p',],);
     },);
 
     it('a source below the lowest rung gets one rung at its own height', () => {

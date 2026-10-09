@@ -9,6 +9,7 @@
  * segments from the CDN. The switch is one DB transaction; the old rung dirs
  * and downloads are deleted after. Poster + sprites are left where they are.
  */
+import { shortSide, } from './ladder';
 import { mkdir, rm, stat, } from 'fs/promises';
 import path from 'path';
 import { transaction, } from '../../db';
@@ -74,7 +75,7 @@ export async function runRepackageJob(run: JobRun,): Promise<void> {
     const byHeightDesc = [...fullReady,].sort((a, b,) => (b.height ?? 0) - (a.height ?? 0));
     const teaserFrom = video.teaserEnabled
         ? (() => {
-            const fit = byHeightDesc.filter((r,) => (r.height ?? 0) <= s.teaserMaxHeight);
+            const fit = byHeightDesc.filter((r,) => shortSide(r,) <= s.teaserMaxHeight);
             return fit.length > 0 ? fit : byHeightDesc.slice(-1,);
         })()
         : [];

@@ -212,6 +212,8 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      *  (`publishedAt`, `featured_image`), which read as code sitting beside
      *  "Date created" and "Status" in the very same dropdown. */
     const fieldLabel = (key: string,): string => {
+        const v = typeDef()?.virtualFilters?.find((x,) => x.key === key,);
+        if (v) return v.label;
         const f = typeDef()?.fields.find((x,) => x.key === key,);
         return f?.label && f.label !== f.key ? f.label : humaniseKey(key,);
     };
@@ -222,7 +224,10 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         const std: string[] = [];
         if (def.hasStatus) std.push('status',);
         if (def.hasSlug) std.push('slug',);
-        return [...std, ...sortableFields().filter((k,) => k !== 'slug' && k !== 'status'),];
+        // Query-only properties (a post's Subscription level and Type) come
+        // next — server-resolved, with their own value suggestions.
+        const virtual = (def.virtualFilters ?? []).map((v,) => v.key);
+        return [...std, ...virtual, ...sortableFields().filter((k,) => k !== 'slug' && k !== 'status' && !virtual.includes(k,)),];
     };
 
     /**
@@ -434,7 +439,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     };
 
     return (
-        <ModalShell open onClose={props.onClose} size="lg" ariaLabel={title()}>
+        <ModalShell open onClose={props.onClose} size="lg" class="entity-search-modal-shell" ariaLabel={title()}>
             <div class="entity-search-modal">
                 <div class="entity-search-modal__header">
                     <h2>{title()}</h2>
@@ -531,6 +536,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                         onCommit={(v,) => onFilterValueCommit(i(), v,)}
                                         placeholder="Value (comma-separated for 'is any of')"
                                     />
+                                    <Show when={typeDef()?.virtualFilters?.find((v,) => v.key === c.field,)?.description}>
+                                        {(d,) => <small class="entity-search-modal__clause-hint">{d()}</small>}
+                                    </Show>
                                     <Show when={clauses.length > 1}>
                                         <button
                                             type="button"

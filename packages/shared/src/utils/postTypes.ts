@@ -18,6 +18,8 @@ const ICONS = {
     article: 'M7 3h7l5 5v13H7zM14 3v5h5M10 12h6M10 16h6',
     // Play button in a frame.
     video: 'M4 5h16v14H4zM10 9l5 3-5 3z',
+    // Tall phone-shaped frame with a play mark.
+    short: 'M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 9l4 3-4 3z',
     // Broadcast: dot with signal arcs.
     live: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8',
     // Building blocks.
@@ -33,6 +35,14 @@ export const BUILTIN_POST_TYPES: PostTypeDefinition[] = [
     {
         key: 'video', label: 'Video', description: 'A video post: one Video block to start.',
         icon: ICONS.video, editor: 'blocks', display: 'blocks', sampler: 'video', order: 20,
+        defaultBlocks: [{ type: 'video', data: {}, },],
+    },
+    {
+        // Same as a video post (one Video block, video sampler) but classified
+        // apart, so shorts can be filtered/placed separately (/posts filter,
+        // newsletters, entity queries `post_type = short`).
+        key: 'short', label: 'Short', description: 'A short (often vertical) video: one Video block to start.',
+        icon: ICONS.short, editor: 'blocks', display: 'blocks', sampler: 'video', order: 25,
         defaultBlocks: [{ type: 'video', data: {}, },],
     },
     {

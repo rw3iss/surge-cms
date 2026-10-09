@@ -17,6 +17,7 @@
  * session id is kept in localStorage (`sitesurge.uploads`) until the upload
  * completes or is aborted, so a reload can offer "choose the file to resume".
  */
+import { videoMimeFor, } from '@sitesurge/types';
 import type { Media, UploadSession, UploadSessionOptions, } from '@sitesurge/types';
 import { cms, } from '../cmsClient';
 
@@ -238,7 +239,7 @@ export class MultipartUpload {
         if (this.state !== 'hashing') return; // paused/cancelled while hashing
         const session = await cms.media.uploads.create({
             filename: this.file.name,
-            mimeType: this.file.type || 'application/octet-stream',
+            mimeType: videoMimeFor(this.file.name, this.file.type,) || this.file.type || 'application/octet-stream',
             size: this.file.size,
             fingerprint: this.fingerprint,
             options: this.opts.options,

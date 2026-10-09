@@ -609,3 +609,18 @@
         color: var(--admin-danger, #{$error-color});
     }
 }
+
+// The search/query modal: wider and a little taller than the lg preset.
+.modal-shell.entity-search-modal-shell {
+    max-width: min(1180px, 94vw);
+    max-height: 92vh;
+
+    .entity-search-modal { min-height: 480px; }
+}
+
+// Help line under a clause on a query-only property (e.g. how subscription ranks compare).
+.entity-search-modal__clause-hint {
+    flex: 1 0 100%;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: $font-size-xs;
+}

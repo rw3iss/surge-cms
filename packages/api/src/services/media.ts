@@ -11,13 +11,14 @@
  * a `finally`/`catch` so a thrown error never leaks staged files.
  */
 import type { Media, } from '@sitesurge/types';
+import { videoMimeFor, } from '@sitesurge/types';
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
 import { config, } from '../config';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { NotFoundError, ValidationError, } from '../core/errors';
-import { resolveStorageProvider, } from './storage';
+import { isObjectStore, resolveStorageProvider, } from './storage';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import type { AuditContext, } from './types';
@@ -79,6 +80,43 @@ export interface UploadFile {
  * Temp files are cleaned up in finally — both on success (remote storage)
  * and on error (always).
  */
+/**
+ * A video arriving through the classic multer routes (`/media`, `/block-upload`,
+ * `/bulk` — SDK/MCP clients, small files) goes through the SAME encode
+ * pipeline as a direct upload, whatever its length or size: the stored file
+ * becomes the encode source and the item's URL the plain-file endpoint.
+ * Needs the `video` feature and S3-compatible storage; otherwise it stays a
+ * plain file, as before.
+ */
+async function encodeIfVideo(item: Media, file: UploadFile, storageProvider: unknown, uploadedBy: string | null,): Promise<Media> {
+    const mime = videoMimeFor(file.originalname, file.mimetype,);
+    if (!mime || !isObjectStore(storageProvider as never,)) return item;
+    try {
+        const { isFeatureEnabledServer, } = await import('./settings.js');
+        if (!(await isFeatureEnabledServer('video',))) return item;
+        const { registerVideo, } = await import('./video/register.js');
+        const { fileUrl, } = await import('./video/paths.js');
+        const res = await transaction(async (client,) => {
+            await registerVideo({
+                mediaId: item.id,
+                sourceKey: `uploads/${file.filename}`,
+                sourceSize: file.size,
+                accessLevel: 'public',
+                createdBy: uploadedBy,
+            }, client,);
+            return client.query(
+                `UPDATE media SET url = $2, mime_type = $3, status = 'processing', updated_at = NOW() WHERE id = $1 RETURNING *`,
+                [item.id, fileUrl(item.id,), mime,],
+            );
+        },);
+        return toMedia(res.rows[0],);
+    } catch (e) {
+        // The plain file is still there and usable; log rather than fail the upload.
+        logger.error('Could not queue the video encode for an uploaded video', { mediaId: item.id, error: (e as Error).message, },);
+        return item;
+    }
+}
+
 async function uploadOne(
     file: UploadFile,
     ctx: AuditContext,
@@ -131,7 +169,8 @@ async function uploadOne(
             );
 
         inserted = true;
-        const item = toMedia(result.rows[0],);
+        let item = toMedia(result.rows[0],);
+        item = await encodeIfVideo(item, file, storageProvider, uploadedBy,);
         await logAudit({
             userId: ctx.userId,
             action: 'create',

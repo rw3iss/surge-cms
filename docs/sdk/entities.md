@@ -70,6 +70,19 @@ const total = await cms.entities.count('recipe', { filter: { cuisine: 'thai' } }
 Records return the schema fields verbatim (snake_case keys) plus the standard
 columns `id`, `slug`, `status`, `createdAt`, `updatedAt`, `createdBy` (camel).
 
+**Virtual filters.** Some types also filter on properties that are not columns;
+the type definition lists them in `virtualFilters` and
+`cms.entities.filterValues(type, key)` returns their values. Posts have two:
+
+| Key | Values | Notes |
+|-----|--------|-------|
+| `subscription` | `public`, a tier slug/id/name, or a rank number | Compares the required tier's RANK: Public = -1, Free = 0, paid tiers 1, 2… by price (cheapest first, automatic). Every operator works: `{ op: 'gt', value: 'free' }` = paid-only posts; `{ op: 'in', value: ['public', 'free'] }`. An unknown level matches nothing. |
+| `type` | a post type key (`article`, `video`, `short`, `live`, `custom`, …) | `eq`, `ne`, `like`, `in`. |
+
+```ts
+await cms.entities.list('post', { filter: { type: 'short', subscription: { op: 'lte', value: 'free' } } });
+```
+
 ## Templates in `{{ }}`
 
 Once a type is registered, its records resolve in the content-template engine on

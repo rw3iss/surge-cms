@@ -55,21 +55,28 @@ export function codecsFor(level: number,): string {
 
 /**
  * Pick the rungs for a source of display size `srcW`×`srcH`: every enabled
- * rung no taller than the source; at least one (the source height itself
- * when the source is below the lowest rung). Returned highest-first.
+ * rung no larger than the source; at least one (the source's own size when it
+ * is below the lowest rung). Returned highest-first.
+ *
+ * A rung's `height` is the SHORT side, so a vertical short (1080×1920) gets a
+ * real 1080p rung (1080×1920) rather than being shrunk to 608×1080.
  */
 export function selectRungs(ladder: VideoLadderRung[], srcW: number, srcH: number, fps: number | null,): PlannedRung[] {
     const enabled = ladder.filter((r,) => r.enabled).sort((a, b,) => b.height - a.height);
     const pool = enabled.length > 0 ? enabled : [...ladder,].sort((a, b,) => b.height - a.height);
-    let picked = pool.filter((r,) => r.height <= srcH);
+    const portrait = srcH > srcW;
+    const srcShort = Math.min(srcW, srcH,);
+    let picked = pool.filter((r,) => r.height <= srcShort);
     if (picked.length === 0) {
         const lowest = pool[pool.length - 1];
-        const h = even(srcH,);
+        const h = even(srcShort,);
         picked = [{ ...lowest, name: `${h}p`, height: h, },];
     }
     return picked.map((r, i,) => {
-        const height = even(r.height,);
-        const width = even(srcW * height / srcH,);
+        const short = even(r.height,);
+        const long = even((portrait ? srcH / srcW : srcW / srcH) * short,);
+        const width = portrait ? short : long;
+        const height = portrait ? long : short;
         const lvl = avcLevel(width, height, fps,);
         const peak = Math.round((r.maxrateKbps + r.audioKbps) * 1000 * 1.1,);
         return {
@@ -96,10 +103,14 @@ export function encodeOrder(rungs: PlannedRung[], order: VideoSettings['encodeOr
     return [desc[desc.length - 1], ...desc.slice(0, -1,),];
 }
 
-/** Teaser rungs: those ≤ `maxHeight`, and at least the lowest. */
+/** Short side of a rung — what a "720p" label means for any orientation. */
+export const shortSide = (r: { width?: number | null; height?: number | null; },): number =>
+    Math.min(r.width ?? r.height ?? 0, r.height ?? r.width ?? 0,);
+
+/** Teaser rungs: those ≤ `maxHeight` (short side), and at least the lowest. */
 export function teaserRungs(rungs: PlannedRung[], maxHeight: number,): PlannedRung[] {
     const desc = [...rungs,].sort((a, b,) => b.height - a.height);
-    const fit = desc.filter((r,) => r.height <= maxHeight);
+    const fit = desc.filter((r,) => shortSide(r,) <= maxHeight);
     return fit.length > 0 ? fit : desc.slice(-1,);
 }
 

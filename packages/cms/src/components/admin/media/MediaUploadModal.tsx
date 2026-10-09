@@ -1,3 +1,4 @@
+import { isVideoFile, } from '@sitesurge/types';
 import type { MediaAccessLevel, UploadSessionOptions, } from '@sitesurge/types';
 import { createSignal, onCleanup, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
@@ -43,7 +44,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
     const [error, setError,] = createSignal('',);
     let fileInputRef: HTMLInputElement | undefined;
 
-    const isVideo = () => file()?.type.startsWith('video/',);
+    const isVideo = () => { const f = file(); return !!f && isVideoFile(f.name, f.type,); };
     const isImage = () => file()?.type.startsWith('image/',);
 
     // ── Direct (multipart) upload path: video files and anything > 50 MB,
@@ -113,7 +114,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
         if (!selected) return;
         setFile(selected,);
         setError('',);
-        if (usesMultipart(selected,) && selected.type.startsWith('video/',)) void loadVideoDefaults();
+        if (usesMultipart(selected,) && isVideoFile(selected.name, selected.type,)) void loadVideoDefaults();
         // Create preview URL
         if (previewUrl()) URL.revokeObjectURL(previewUrl(),);
         setPreviewUrl(URL.createObjectURL(selected,),);
