@@ -216,6 +216,12 @@ async function bootRunningMode(
     try {
         const { syncLiveCsp, } = await import('./services/liveShows.js');
         await syncLiveCsp();
+        // A settings save reaches only the worker that handled it; the others
+        // would keep serving pages whose CSP blocks the provider (viewers'
+        // WHEP fetch refused) until their own next publish/playback call. A
+        // cheap periodic re-sync (cached settings read, no-op when unchanged)
+        // converges every process within a minute.
+        setInterval(() => void syncLiveCsp(), 60_000,).unref();
     } catch (err) {
         logger.warn('Live provider CSP init skipped', { error: err, },);
     }
