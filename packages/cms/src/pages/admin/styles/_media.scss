@@ -29,7 +29,8 @@
   &__preview {
     aspect-ratio: 1;
     overflow: hidden;
-    background: $background-dark;
+    // Transparent, so a transparent PNG shows the card behind it (not a dark box).
+    background: transparent;
 
     // Contained, not cropped: the whole image is visible in the square tile
     // (letterboxed on the tile background).

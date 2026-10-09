@@ -12,6 +12,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
     "seed:fonts": "tsx scripts/seed-fonts.ts",
+    "media:regenerate-thumbnails": "tsx scripts/regenerate-thumbnails.ts",
     "sitemap": "tsx scripts/generate-sitemap.ts",
     "docs:api": "tsx scripts/generate-api-docs.ts",
     "plugin:pack": "node scripts/pack-plugin.mjs",

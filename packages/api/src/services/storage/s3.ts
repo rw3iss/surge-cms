@@ -71,7 +71,7 @@ export class S3StorageProvider implements StorageProvider, ObjectStore {
 
     async uploadThumbnail(localPath: string, options: UploadOptions,): Promise<string> {
         const thumbFilename = `thumb_${options.filename}`;
-        await this.uploadToS3(localPath, `uploads/${thumbFilename}`, 'image/jpeg',);
+        await this.uploadToS3(localPath, `uploads/${thumbFilename}`, options.thumbnailMimeType || 'image/jpeg',);
         return this.getThumbnailUrl(options.filename,);
     }
 
@@ -81,6 +81,9 @@ export class S3StorageProvider implements StorageProvider, ObjectStore {
 
     async deleteThumbnail(filename: string,): Promise<void> {
         await this.deleteObject(`uploads/thumb_${filename}`,);
+        // Regenerated (transparency-keeping) thumbnails live under a new key —
+        // see scripts/regenerate-thumbnails.ts. Deleting a missing key is a no-op.
+        await this.deleteObject(`uploads/thumb_v2_${filename}`,);
     }
 
     getUrl(filename: string,): string {

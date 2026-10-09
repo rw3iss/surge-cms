@@ -33,11 +33,22 @@ export const multerDestDir = config.upload.storageProvider === 'local' ?
     config.upload.dir :
     (process.env.UPLOAD_TEMP_DIR || '/var/tmp/sitesurge-uploads');
 
-async function createThumbnail(filePath: string, thumbnailPath: string, width = 300,): Promise<void> {
-    await sharp(filePath,)
-        .resize(width, null, { withoutEnlargement: true, },)
-        .jpeg({ quality: 80, },)
-        .toFile(thumbnailPath,);
+/**
+ * A 300px thumbnail. Images with an alpha channel (PNG/WebP/AVIF logos,
+ * cut-outs) get a PNG thumbnail — JPEG has no transparency, so their clear
+ * areas used to come out BLACK. Everything else stays JPEG (smaller).
+ * Returns the thumbnail's MIME type.
+ */
+export async function createThumbnail(filePath: string, thumbnailPath: string, width = 300,): Promise<string> {
+    const img = sharp(filePath,);
+    const { hasAlpha, } = await img.metadata();
+    const resized = img.resize(width, null, { withoutEnlargement: true, },);
+    if (hasAlpha) {
+        await resized.png({ compressionLevel: 9, adaptiveFiltering: true, },).toFile(thumbnailPath,);
+        return 'image/png';
+    }
+    await resized.jpeg({ quality: 80, },).toFile(thumbnailPath,);
+    return 'image/jpeg';
 }
 
 async function cleanupTemp(filePath: string,): Promise<void> {
@@ -90,8 +101,8 @@ async function uploadOne(
         if (isThumbnailable(file.mimetype,)) {
             tempThumbPath = path.join(multerDestDir, `thumb_${file.filename}`,);
             try {
-                await createThumbnail(file.path, tempThumbPath,);
-                thumbnailUrl = await storageProvider.uploadThumbnail(tempThumbPath, uploadOptions,);
+                const thumbnailMimeType = await createThumbnail(file.path, tempThumbPath,);
+                thumbnailUrl = await storageProvider.uploadThumbnail(tempThumbPath, { ...uploadOptions, thumbnailMimeType, },);
             } catch (thumbError) {
                 logger.warn('Failed to create thumbnail', { error: thumbError, },);
             }

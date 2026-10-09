@@ -11,6 +11,9 @@ export interface UploadOptions {
     filename: string;
     mimeType: string;
     originalName: string;
+    /** Format of the generated thumbnail (default image/jpeg). PNG keeps an
+     *  image's transparency — JPEG has none, so alpha would turn black. */
+    thumbnailMimeType?: string;
 }
 
 export interface StorageProvider {
