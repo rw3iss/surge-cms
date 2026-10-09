@@ -89,10 +89,14 @@ async function getSiteMeta(): Promise<SiteMeta> {
 export async function buildFeed(): Promise<string> {
     const site = await getSiteMeta();
     const result = await query<FeedPost>(
-        `SELECT p.title, p.slug, p.excerpt, p.content, u.display_name as author,
-                p.published_at, p.updated_at, p.tags
+        // Subscriber-only posts: hidden ones are left out; the rest appear
+        // with their excerpt only — a feed reader is anonymous.
+        `SELECT p.title, p.slug, p.excerpt,
+                CASE WHEN p.required_tier_id IS NULL THEN p.content ELSE '' END AS content,
+                u.display_name as author, p.published_at, p.updated_at, p.tags
          FROM posts p LEFT JOIN users u ON p.author_id = u.id
          WHERE p.status = 'published' AND p.is_private = false
+           AND (p.required_tier_id IS NULL OR p.gate_hidden = false)
          ORDER BY COALESCE(p.published_at, p.created_at) DESC
          LIMIT 50`,
     );

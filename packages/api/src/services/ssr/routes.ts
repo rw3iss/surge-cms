@@ -22,6 +22,8 @@ import {
     truncateText,
 } from './schema';
 import { resolveContentForSsr, } from './templateRuntime';
+import { gateFor, isHiddenFor, tiersById, } from '../postGate/index';
+import { samplePostContent, } from '../postGate/samples';
 
 const FALLBACK_SITE_NAME = 'RW';
 /**
@@ -418,6 +420,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         }>(
             `SELECT title, slug, excerpt, published_at FROM posts
              WHERE status = 'published' AND is_private = false
+               AND (required_tier_id IS NULL OR gate_hidden = false)
              ORDER BY COALESCE(published_at, created_at) DESC
              LIMIT 30`,
         ).catch(() => null);
@@ -466,7 +469,8 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             `SELECT p.id, p.title, p.slug, p.excerpt, p.content, p.featured_image,
                     COALESCE(NULLIF(BTRIM(p.author), ''), u.display_name) AS author,
                     p.published_at, p.updated_at, p.categories, p.tags,
-                    p.meta_title, p.meta_description
+                    p.meta_title, p.meta_description,
+                    p.required_tier_id, p.gate_hidden, p.gate_show_sample, p.gate_sample_percent
              FROM posts p
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.slug = $1 AND p.status = 'published'`,
@@ -478,12 +482,31 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
         // SPA a 200 for a URL that resolves to nothing.
         if (!row) return notFoundMeta(SITE_NAME,);
         const post = mapRow(row,) as any;
+        // Subscription gate — SSR is anonymous: a hidden gated post does not
+        // exist here, and a locked one renders only its sample (or no body),
+        // so the full article never reaches the HTML a scraper can read.
+        const gate = gateFor(post, null, await tiersById(),);
+        if (isHiddenFor(post, gate,)) return notFoundMeta(SITE_NAME,);
         // Resolve any {{ … }} template syntax in the post body (the post itself
         // is exposed as `post` to the templates).
-        const resolvedContent = await resolveContentForSsr(post.content, { post, },);
+        let resolvedContent = await resolveContentForSsr(post.content, { post, },);
         // The article body. Block-authored posts leave `posts.content` empty,
         // so without this the SSR body is a headline and an excerpt.
-        const postBlocks = await loadPostBlocks(post.id, { post, },);
+        let postBlocks = await loadPostBlocks(post.id, { post, },);
+        if (gate.state === 'locked') {
+            if (gate.sample) {
+                const sample = samplePostContent({
+                    ...post,
+                    content: resolvedContent,
+                    contentBlocks: postBlocks.map((b,) => ({ ...b, data: { ...(b.settings ?? {}), content: b.content, }, })),
+                }, post.gateSamplePercent ?? 25,);
+                resolvedContent = sample.content;
+                postBlocks = sample.blocks.map((b,) => ({ ...(b as unknown as SsrBlockInput), content: String(b.data?.content ?? '',), }));
+            } else {
+                resolvedContent = '';
+                postBlocks = [];
+            }
+        }
         const blocksHtml = postBlocks.map((b,) => b.content || '').join(' ',);
         const description = post.metaDescription || post.excerpt ||
             truncateText(stripHtml(resolvedContent || blocksHtml || '',), 200,) ||
@@ -520,6 +543,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                     publisherLogo: logo,
                     articleSection: section,
                     keywords: post.tags,
+                    ...(gate.state === 'public' ? {} : { isAccessibleForFree: false, }),
                 },),
                 buildBreadcrumbSchema([
                     { name: 'Home', url: siteUrl(), },

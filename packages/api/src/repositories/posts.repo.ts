@@ -37,6 +37,9 @@ export interface PostFilters {
      *  filters except the public/published gates still apply. Order of
      *  the returned rows mirrors the order in this array. */
     ids?: string[];
+    /** Subscription gating: leave out posts HIDDEN from a viewer of this
+     *  rank (see services/postGate). `undefined` = no gate filter (admin). */
+    viewerRank?: number | null;
     /** When true, the returned rows include their `contentBlocks`. Bulk-
      *  loaded with a single query to avoid an N+1 storm. Used by the
      *  post-list block in 'short' / 'full' brevity modes. */
@@ -125,6 +128,8 @@ export async function reorderContentBlocks(postId: string, blockIds: string[],):
 
 // ─── Posts ───
 
+import { hiddenClause, } from '../services/postGate/index';
+
 const POST_SELECT = `SELECT p.*, u.display_name as author FROM posts p LEFT JOIN users u ON p.author_id = u.id`;
 
 export async function findPublicPosts(
@@ -139,6 +144,8 @@ export async function findPublicPosts(
         ? `WHERE p.status != 'deleted'`
         : `WHERE p.status = 'published' AND p.is_private = false`;
     const params: unknown[] = [];
+
+    if (filters.viewerRank !== undefined) whereClause += hiddenClause('p', filters.viewerRank, params,);
 
     if (filters.tag) {
         params.push(filters.tag,);
@@ -325,8 +332,9 @@ export async function createPost(data: Record<string, unknown>, authorId: string
                         status, is_private, access_level, tags, categories, meta_title,
                         meta_description, published_at, publish_at,
                         apply_post_padding, apply_site_gutter, header_style, header_position, banner_layout,
-                        banner_image_position, banner_image_position_custom, banner_height, show_photo_credits)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+                        banner_image_position, banner_image_position_custom, banner_height, show_photo_credits,
+                        required_tier_id, gate_hidden, gate_show_sample, gate_sample_percent)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
      RETURNING *`,
         [
             data.slug,
@@ -371,6 +379,10 @@ export async function createPost(data: Record<string, unknown>, authorId: string
             (data.bannerImagePositionCustom as string) || null,
             (data.bannerHeight as string) || null,
             data.showPhotoCredits === true,
+            (data.requiredTierId as string) || null,
+            data.gateHidden === true,
+            data.gateShowSample === true,
+            (data.gateSamplePercent as number) ?? 25,
         ],
     );
 
@@ -396,6 +408,7 @@ export async function updatePost(id: string, data: Record<string, unknown>,): Pr
         'status', 'isPrivate', 'accessLevel', 'tags', 'categories', 'metaTitle',
         'metaDescription', 'publishAt', 'applyPostPadding', 'applySiteGutter',
         'headerStyle', 'headerPosition', 'bannerLayout', 'bannerImagePosition', 'bannerImagePositionCustom', 'bannerHeight', 'showPhotoCredits',
+        'requiredTierId', 'gateHidden', 'gateShowSample', 'gateSamplePercent',
     ] as const;
 
     const patch: Record<string, unknown> = {};
@@ -438,18 +451,20 @@ export async function deletePost(id: string,): Promise<void> {
 export async function searchPosts(
     searchQuery: string,
     pagination: PaginationOptions,
+    viewerRank: number | null = null,
 ): Promise<PaginatedResult<Post>> {
-    const params = [searchQuery,];
+    const params: unknown[] = [searchQuery,];
+    const hidden = hiddenClause('p', viewerRank, params,);
 
     return paginatedQuery<Post>(
         `${POST_SELECT},
             ts_rank(p.search_vector, plainto_tsquery('english', $1)) as relevance
      WHERE p.status = 'published' AND p.is_private = false
-     AND p.search_vector @@ plainto_tsquery('english', $1)
+     AND p.search_vector @@ plainto_tsquery('english', $1)${hidden}
      ORDER BY relevance DESC, p.published_at DESC`,
         `SELECT COUNT(*) FROM posts p
      WHERE p.status = 'published' AND p.is_private = false
-     AND p.search_vector @@ plainto_tsquery('english', $1)`,
+     AND p.search_vector @@ plainto_tsquery('english', $1)${hidden}`,
         params,
         pagination,
     );

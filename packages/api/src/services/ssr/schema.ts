@@ -15,6 +15,8 @@ export function buildArticleSchema(article: {
     publisherLogo?: string;
     articleSection?: string;
     keywords?: string[];
+    /** false for subscriber-only articles (Google's paywalled-content markup). */
+    isAccessibleForFree?: boolean;
 },): Record<string, unknown> {
     const toIso = (d: string | Date | undefined,) => {
         if (!d) return undefined;
@@ -49,6 +51,7 @@ export function buildArticleSchema(article: {
             { keywords: article.keywords.join(', ',), } :
             {}),
         mainEntityOfPage: { '@type': 'WebPage', '@id': article.url, },
+        ...(article.isAccessibleForFree === false ? { isAccessibleForFree: false, } : {}),
     };
 }
 

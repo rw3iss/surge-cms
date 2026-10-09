@@ -115,7 +115,8 @@ const PUBLIC_SEARCHABLE: SearchDescriptor[] = [
         from: 'posts',
         mode: 'fts',
         selectSql: `id, slug, title, excerpt, featured_image, published_at, ${FTS_RANK}`,
-        whereSql: `status = 'published' AND is_private = false AND ${FTS_MATCH}`,
+        // Subscriber-only posts that hide themselves stay out of public search.
+        whereSql: `status = 'published' AND is_private = false AND (required_tier_id IS NULL OR gate_hidden = false) AND ${FTS_MATCH}`,
         orderSql: 'relevance DESC',
         mapRow: (row,) => ({
             id: row.id,

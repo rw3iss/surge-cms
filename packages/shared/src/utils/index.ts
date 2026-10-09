@@ -23,3 +23,4 @@ export * from './timezones';
 export * from './typography';
 export * from './usStates';
 export * from './validation';
+export * from './htmlSample';

@@ -55,6 +55,11 @@ const postSchema = z.object({
         .refine((v,) => v === '' || isValidBannerPositionCustom(v,), 'Not a valid background position',)
         .nullish(),
     showPhotoCredits: z.boolean().optional(),
+    // Subscription gating ('' from a "None" select = public).
+    requiredTierId: z.preprocess((v,) => (v === '' ? null : v), z.string().uuid().nullish(),),
+    gateHidden: z.boolean().optional(),
+    gateShowSample: z.boolean().optional(),
+    gateSamplePercent: z.number().int().min(1,).max(100,).optional(),
     bannerHeight: z.string().trim().max(BANNER_HEIGHT_MAX,)
         .refine((v,) => v === '' || isValidBannerHeight(v,), 'Not a valid CSS height',)
         .nullish(),
@@ -135,6 +140,7 @@ export const postsRoutes = [
                 pagination: { page: query.page, limit: query.limit, },
                 anonymous: !user && !apiKey,
                 isAdmin,
+                user,
             },);
             return reply(result.data, { meta: result.meta, },);
         },

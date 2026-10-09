@@ -1,5 +1,5 @@
 import type {
-    RoleCreateBody, RoleDef, RoleUpdateBody, StripeSubscriptionPricesResponse, SubscriptionTier, SubscriptionTierBody,
+    RoleCreateBody, RoleDef, RoleUpdateBody, StripeSubscriptionPricesResponse, SubscriptionTier, SubscriptionTierBody, SubscriptionTierOption,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -35,6 +35,11 @@ export class SubscriptionTiersModule extends ModuleBase {
     /** GET /subscription-tiers */
     list(): Promise<SubscriptionTier[]> {
         return this.get<SubscriptionTier[]>('/subscription-tiers', { options: { cache: false, }, },);
+    }
+
+    /** GET /subscription-tiers/options (staff) — the tier picker for gating content, lowest rank first. */
+    options(): Promise<SubscriptionTierOption[]> {
+        return this.get<SubscriptionTierOption[]>('/subscription-tiers/options', { options: { cache: false, }, },);
     }
 
     /** GET /subscription-tiers/:id */

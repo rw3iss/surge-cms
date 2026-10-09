@@ -18,6 +18,8 @@ import { attachFeaturedMedia, withFeaturedMedia, } from './mediaRefs';
 import type { Post, User, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import { checkContentAccess, ContentAccessLevel, } from '../middleware/content-access';
+import { isAdminRole, } from '@sitesurge/types';
+import { applyGateSync, gateFor, isHiddenFor, tiersById, viewerRank, type ViewerRank, } from './postGate/index';
 import * as repo from '../repositories/posts.repo';
 import * as revisions from './revisions';
 import { performBulkAction, } from '../utils/bulkActions';
@@ -77,6 +79,8 @@ export interface PublicListOptions {
     pagination: PaginationOpts;
     /** anonymous requests read and write the Redis cache */
     anonymous: boolean;
+    /** the viewer (subscription gating); undefined = anonymous */
+    user?: Pick<User, 'id' | 'role'>;
     /** admins get drafts back when requesting an id-restricted feed
      *  (the post-list block picker lets them pin drafts; the preview
      *  must resolve them). Date/search filters keep the public gate. */
@@ -99,11 +103,13 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
 
     if (cacheable) {
         const cached = await cache.get<ListResult<Post>>(cacheKey,);
-        if (cached) return cached;
+        if (cached) return { ...cached, data: gatePosts(cached.data, null, await tiersById(),), };
     }
 
+    // Admins / API keys see every post; everyone else is ranked by tier.
+    const rank = isAdmin ? Infinity : await viewerRank(opts.user,);
     const result = await repo.findPublicPosts(
-        { ...filters, includeNonPublishedForIds: isAdmin, },
+        { ...filters, includeNonPublishedForIds: isAdmin, viewerRank: isAdmin ? undefined : rank, },
         { page, limit, },
     );
     await attachFeaturedMedia(result.data,);
@@ -113,8 +119,13 @@ export async function listPublicCached(opts: PublicListOptions,): Promise<ListRe
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
     };
 
+    // Cache the raw rows (anonymous only, so one rank), then gate per request.
     if (cacheable) await cache.set(cacheKey, out, 300,);
-    return out;
+    return { ...out, data: gatePosts(out.data, rank, await tiersById(),), };
+}
+
+function gatePosts<T extends Post>(rows: T[], rank: ViewerRank, tiers: Awaited<ReturnType<typeof tiersById>>,): T[] {
+    return rows.map((p,) => applyGateSync(p as T & { contentBlocks?: unknown[]; }, rank, tiers,));
 }
 
 export async function getById(id: string,): Promise<repo.PostWithBlocks | null> {
@@ -151,7 +162,8 @@ export async function getPublicBySlug(
 
     if (!user) {
         const cached = await cache.get<repo.PostWithBlocks>(cacheKey,);
-        if (cached) return cached;
+        // Only ungated posts are cached, so the gate is always public here.
+        if (cached) return { ...cached, gate: { state: 'public', requiredTier: null, sample: false, }, };
     }
 
     const post = adminPreview ?
@@ -178,11 +190,19 @@ export async function getPublicBySlug(
         }
     }
 
-    if (!post.isPrivate && accessLevel === 'public') {
+    // Subscription tier: hidden → as if it did not exist; locked → the
+    // sample (or no body), never the full content.
+    const isAdmin = isAdminRole(user?.role,);
+    const rank = isAdmin ? Infinity : await viewerRank(user,);
+    const tiers = await tiersById();
+    const gate = gateFor(post, rank, tiers,);
+    if (isHiddenFor(post, gate,)) throw new NotFoundError('Post',);
+
+    if (!post.isPrivate && accessLevel === 'public' && !post.requiredTierId) {
         await cache.set(cacheKey, post, 300,);
     }
 
-    return post;
+    return applyGateSync(post, rank, tiers,);
 }
 
 export async function search(
@@ -191,9 +211,10 @@ export async function search(
 ): Promise<ListResult<Post>> {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 10;
-    const result = await repo.searchPosts(q, { page, limit, },);
+    // Public route → anonymous: hidden posts left out, locked bodies gated.
+    const result = await repo.searchPosts(q, { page, limit, }, null,);
     return {
-        data: result.data,
+        data: gatePosts(result.data, null, await tiersById(),),
         meta: {
             page,
             limit,

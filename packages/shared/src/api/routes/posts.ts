@@ -145,6 +145,11 @@ export interface PostCreateBody {
     bannerImagePositionCustom?: string | null;
     bannerHeight?: string | null;
     showPhotoCredits?: boolean;
+    /** Required subscription tier id; null/'' = public. */
+    requiredTierId?: string | null;
+    gateHidden?: boolean;
+    gateShowSample?: boolean;
+    gateSamplePercent?: number;
     contentBlocks?: PostCreateContentBlock[];
 }
 

@@ -56,6 +56,7 @@ export async function buildSitemap(): Promise<string> {
         query<SitemapRow>(
             `SELECT slug, updated_at FROM posts
              WHERE status = 'published' AND is_private = false
+               AND (required_tier_id IS NULL OR gate_hidden = false)
              ORDER BY updated_at DESC`,
         ),
         query<SitemapRow>(

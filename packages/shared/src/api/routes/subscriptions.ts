@@ -94,3 +94,14 @@ export interface UserSubscriptionAssignBody {
     /** The tier to put the user on; null or the free tier ends a manual one. */
     tierId: string | null;
 }
+
+/** GET /subscription-tiers/options (staff) — tier picker for content gating. */
+export interface SubscriptionTierOption {
+    id: string;
+    name: string;
+    slug: string | null;
+    isFree: boolean;
+    isActive: boolean;
+    /** Rank: a viewer with this tier or a higher one passes. */
+    sortOrder: number;
+}

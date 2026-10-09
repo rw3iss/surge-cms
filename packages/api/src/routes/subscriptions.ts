@@ -81,6 +81,11 @@ export const subscriptionTiersRoutes = [
     },),
     // Before /:id.
     defineRoute({
+        method: 'get', path: '/options', auth: 'staff',
+        summary: 'Tier picker for content gating: id/name/slug/free, in rank order (staff).',
+        handler: () => tiers.tierOptions(),
+    },),
+    defineRoute({
         method: 'get', path: '/stripe-prices', auth: 'admin',
         summary: 'Recurring prices in the connected Stripe account (connected=false when Stripe is not set up).',
         handler: () => tiers.stripePrices(),

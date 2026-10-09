@@ -19,7 +19,7 @@
  */
 import type {
     RoleCreateBody, RoleDef, RoleUpdateBody, StripeSubscriptionPricesResponse, SubscriptionTier,
-    SubscriptionTierBody, UserSubscriptionInfo,
+    SubscriptionTierBody, SubscriptionTierOption, UserSubscriptionInfo,
 } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
 import { ConflictError, NotFoundError, ValidationError, } from '../core/errors';
@@ -171,6 +171,21 @@ export async function listTiers(): Promise<SubscriptionTier[]> {
     return r.rows.map(mapTier,);
 }
 
+/**
+ * Tiers for a content-gating picker, lowest rank first. A gated item requires
+ * a tier; a viewer passes with that tier or any tier ranked above it
+ * (`sort_order`). Staff-safe: no prices, permissions or Stripe ids.
+ */
+export async function tierOptions(): Promise<SubscriptionTierOption[]> {
+    const r = await query(
+        `SELECT id, name, slug, is_free, is_active, sort_order FROM subscription_plans ORDER BY sort_order, created_at`,
+    );
+    return r.rows.map((t,) => ({
+        id: t.id, name: t.name, slug: t.slug ?? null, isFree: t.is_free === true, isActive: t.is_active !== false,
+        sortOrder: Number(t.sort_order ?? 0,),
+    }));
+}
+
 export async function getTier(id: string,): Promise<SubscriptionTier> {
     const r = await query(`${TIER_SELECT} WHERE p.id = $2`, [ENTITLED_STATUSES, id,],);
     if (!r.rows[0]) throw new NotFoundError('Subscription',);
@@ -199,6 +214,11 @@ async function setTierPermissions(client: { query: typeof query; }, tierId: stri
             [key, tierId, userId,],
         );
     }
+}
+
+async function invalidateGate(): Promise<void> {
+    const { invalidateGateTiers, } = await import('./postGate/index.js');
+    invalidateGateTiers();
 }
 
 export async function saveTier(id: string | null, body: SubscriptionTierBody, ctx: AuditContext,): Promise<SubscriptionTier> {
@@ -263,6 +283,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
     await logAudit({ userId: ctx.userId, action: id ? 'update' : 'create', entityType: 'subscription_tier', entityId: tierId, newValues: body as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     // A role change on the tier moves its current subscribers too.
     if (id && body.role !== undefined) await resyncTierSubscribers(tierId,);
+    await invalidateGate();
     return getTier(tierId,);
 }
 
@@ -278,6 +299,7 @@ export async function deleteTier(id: string, ctx: AuditContext,): Promise<void> 
     invalidatePermissionCache();
     invalidatePlan();
     await logAudit({ userId: ctx.userId, action: 'delete', entityType: 'subscription_tier', entityId: id, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    await invalidateGate();
 }
 
 // ─── Stripe ──────────────────────────────────────────────────────────────

@@ -279,6 +279,7 @@ export const ROUTE_COVERAGE: string[] = [
     'PUT /api/v1/roles/:key',
     'DELETE /api/v1/roles/:key',
     'GET /api/v1/subscription-tiers',
+    'GET /api/v1/subscription-tiers/options',
     'GET /api/v1/subscription-tiers/stripe-prices',
     'GET /api/v1/subscription-tiers/:id',
     'POST /api/v1/subscription-tiers',

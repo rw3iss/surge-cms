@@ -174,8 +174,40 @@ export interface Post {
     bannerHeight?: string | null;
     /** Show "Captured by <credits>" in the header meta row when the banner media has credits. */
     showPhotoCredits?: boolean;
+    /** Subscription tier (subscription_plans.id) required to read the post; null = public. */
+    requiredTierId?: string | null;
+    /** Gated + viewer lacks the tier → left out of listings and 404s. */
+    gateHidden?: boolean;
+    /** Gated + not hidden → show a sample of the content to non-subscribers. */
+    gateShowSample?: boolean;
+    /** Share of the article text shown as the sample (1–100, default 25). */
+    gateSamplePercent?: number;
+    /** How THIS viewer sees the post (set on every public read). */
+    gate?: PostGate;
     createdAt: Date;
     updatedAt: Date;
+}
+
+/** The tier a gated post requires, as shown to readers. */
+export interface PostGateTier {
+    id: string;
+    name: string;
+    slug: string | null;
+}
+
+/**
+ * A post's visibility for the CURRENT viewer:
+ *   public  — no tier required
+ *   premium — a tier is required and the viewer has it (or is staff)
+ *   locked  — a tier is required and the viewer lacks it; the body is either
+ *             a sample (`sample: true`, only the sample blocks are sent) or
+ *             absent — never the full content
+ */
+export interface PostGate {
+    state: 'public' | 'premium' | 'locked';
+    requiredTier: PostGateTier | null;
+    /** Locked viewers get a sample of the content. */
+    sample: boolean;
 }
 
 export type SocialPlatform =
