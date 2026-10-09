@@ -10,7 +10,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import type { LiveProviderDescriptor, PostsSettings, } from '@sitesurge/types';
 import { getPostType, listPostTypes, } from '@sitesurge/types';
 import { Component, createSignal, For, type JSX, onMount, Show, } from 'solid-js';
-import { createStore, reconcile, } from 'solid-js/store';
+import { createStore, reconcile, unwrap, } from 'solid-js/store';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import { FormField, } from '../../components/admin/forms';
 import LiveProviderSettings from '../../components/admin/posts/settings/LiveProviderSettings';
@@ -58,7 +58,7 @@ const AdminPostsSettings: Component = () => {
         setProviders(list,);
         setDefaultType(s.general.defaultPostType,);
         setProvider(s.live.provider,);
-        setConfigs(reconcile(structuredClone(s.live.providers,),),);
+        setConfigs(reconcile(JSON.parse(JSON.stringify(s.live.providers,),),),);
     };
 
     onMount(async () => {
@@ -77,7 +77,9 @@ const AdminPostsSettings: Component = () => {
         try {
             const r = await cms.posts.updateSettings({
                 general: { defaultPostType: defaultType(), },
-                live: { provider: provider(), providers: structuredClone({ ...configs, },), },
+                // A store is a Proxy: structuredClone() throws on it (DataCloneError), which
+                // silently broke Save. unwrap() → plain data, then a JSON copy.
+                live: { provider: provider(), providers: JSON.parse(JSON.stringify(unwrap(configs,),),), },
             },);
             apply(r.settings, r.liveProviders,);
             toast.success('Posts settings saved',);
