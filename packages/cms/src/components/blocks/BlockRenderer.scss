@@ -435,3 +435,74 @@
 .template-block__root {
     display: contents;
 }
+
+// ─── Video block: the player fills the block, the video fits inside it ───
+//
+// The block's inner is a centred flex column (see the media-types rule above),
+// which SHRINK-WRAPS its child — so the player used to take the video file's
+// own pixel size (a 360p rung → a small box) and ignore the block's height.
+//
+// Now the video is as large as the block allows, whichever of width or height
+// runs out first, and is always fully contained. The player box itself takes
+// the FITTED video's shape (`--vp-ar` = width ÷ height, published by
+// MediaVideo), so the controls sit on the picture with no letterbox bars.
+//   - No block height: full width, capped at 90vh (a vertical short at full
+//     width would otherwise be taller than the screen).
+//   - Block height (style height / max-height, or the video block's Max
+//     height): fills that box.
+.block--video {
+  .video-block {
+    width: 100%;
+  }
+
+  .media-video {
+    align-items: center;
+    --media-video-cap: calc(var(--block-max-height, var(--block-height, 90vh)) - var(--media-video-toolbar, 0px));
+  }
+
+  .media-video__stage:not(.media-video__stage--empty) {
+    width: min(100%, calc(var(--media-video-cap) * var(--vp-ar, 1.7778)));
+    background: transparent;
+  }
+
+  .media-video__stage .vp__video {
+    width: 100%;
+    height: auto;
+  }
+}
+
+// With an explicit block height the height is passed all the way down and the
+// player is fitted to the stage box with container units.
+.block--video.block--has-height {
+  > .block__inner {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .video-block,
+  .media-video {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .media-video__stage:not(.media-video__stage--empty) {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    container-type: size;
+
+    > .vp {
+      width: min(100cqw, calc(100cqh * var(--vp-ar, 1.7778)));
+      height: min(100cqh, calc(100cqw / var(--vp-ar, 1.7778)));
+      max-height: none;
+    }
+
+    .vp__video {
+      height: 100%;
+      max-height: none;
+    }
+  }
+}

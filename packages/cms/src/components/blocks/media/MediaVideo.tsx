@@ -53,6 +53,22 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
 
     const pb = () => props.playback ?? fetched();
 
+    /**
+     * The video's display shape (width ÷ height): from the playback info, then
+     * from the loaded file (exact, rotation applied). Published as `--vp-ar` so
+     * a container can size the player to the FITTED video — see
+     * `.block--video` in BlockRenderer.scss.
+     */
+    const [loadedRatio, setLoadedRatio,] = createSignal<number | null>(null,);
+    const ratio = (): number | null => {
+        if (loadedRatio()) return loadedRatio();
+        const p = pb();
+        return p?.width && p?.height ? p.width / p.height : null;
+    };
+    const onPlayerReady = (v: HTMLVideoElement,) => {
+        if (v.videoWidth && v.videoHeight) setLoadedRatio(v.videoWidth / v.videoHeight,);
+    };
+
     // Fetch (and poll while processing) when the caller did not supply playback.
     createEffect(on(
         () => [props.mediaId, props.playback,] as const,
@@ -132,7 +148,10 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
     };
 
     return (
-        <div class={`media-video${hasToolbar() ? ' media-video--has-toolbar' : ''}${props.class ? ` ${props.class}` : ''}`}>
+        <div
+            class={`media-video${hasToolbar() ? ' media-video--has-toolbar' : ''}${props.class ? ` ${props.class}` : ''}`}
+            style={ratio() ? { '--vp-ar': String(ratio(),), } : undefined}
+        >
             <Show
                 when={!failed()}
                 fallback={
@@ -185,6 +204,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                                     muted={props.autoplay}
                                     onLocked={() => setLocked(true,)}
                                     onEnded={() => setEnded(true,)}
+                                    onReady={onPlayerReady}
                                 />
                                 <Show when={showPreviewBadge()}>
                                     <span class="media-video__badge">Preview</span>

@@ -23,7 +23,9 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
     const resolved = () => resolveVideoSource({ url: url(), },);
     const sizeStyle = (): Record<string, string> => ({
         ...(s().maxWidth ? { 'max-width': `${s().maxWidth}px`, } : {}),
-        ...(s().maxHeight ? { 'max-height': `${s().maxHeight}px`, } : {}),
+        // The block's own "Max height" setting caps the player the same way a
+        // block style max-height does (MediaVideo reads --block-max-height).
+        ...(s().maxHeight ? { 'max-height': `${s().maxHeight}px`, '--block-max-height': `${s().maxHeight}px`, } : {}),
     });
 
     return (
