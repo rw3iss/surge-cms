@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T19:04:49.752Z",
-  "totalModules": 48,
-  "totalRoutes": 482,
+  "generatedAt": "2026-10-10T07:53:07.447Z",
+  "totalModules": 52,
+  "totalRoutes": 516,
   "modules": [
     {
       "module": "admin-channel",
@@ -320,6 +320,40 @@
       ]
     },
     {
+      "module": "comments",
+      "mountPath": "/api/v1/comments",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/threads/:targetType/:targetId",
+          "absolutePath": "/api/v1/comments/threads/:targetType/:targetId",
+          "auth": "optional",
+          "summary": "An item's comment switches + count (defaults when never set)."
+        },
+        {
+          "method": "PUT",
+          "path": "/threads/:targetType/:targetId",
+          "absolutePath": "/api/v1/comments/threads/:targetType/:targetId",
+          "auth": "staff",
+          "summary": "Set an item's Enable commenting / Allow anonymous / Lock switches."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/comments/settings",
+          "auth": "staff",
+          "summary": "Comments settings (approval, reply emails, default for new items)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/comments/settings",
+          "auth": "staff",
+          "summary": "Update the Comments settings."
+        }
+      ]
+    },
+    {
       "module": "components",
       "mountPath": "/api/v1/components",
       "routes": [
@@ -507,6 +541,110 @@
           "absolutePath": "/api/v1/dev/crons/:name",
           "auth": "admin",
           "summary": "Fetch a single cron job by name (null when unknown)."
+        }
+      ]
+    },
+    {
+      "module": "discussions",
+      "mountPath": "/api/v1/discussions",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/comments",
+          "absolutePath": "/api/v1/discussions/comments",
+          "auth": "optional",
+          "summary": "Comments on an item: top-level comments (paged) with their reply trees."
+        },
+        {
+          "method": "POST",
+          "path": "/comments",
+          "absolutePath": "/api/v1/discussions/comments",
+          "auth": "optional",
+          "summary": "Post a comment or reply (anonymous only where the item allows it)."
+        },
+        {
+          "method": "PUT",
+          "path": "/comments/:id",
+          "absolutePath": "/api/v1/discussions/comments/:id",
+          "auth": "user",
+          "summary": "Edit a comment (author within the edit window, or a moderator)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/comments/:id",
+          "absolutePath": "/api/v1/discussions/comments/:id",
+          "auth": "user",
+          "summary": "Delete a comment (soft: a comment with replies stays as \"[deleted]\")."
+        },
+        {
+          "method": "POST",
+          "path": "/comments/:id/reactions",
+          "absolutePath": "/api/v1/discussions/comments/:id/reactions",
+          "auth": "user",
+          "summary": "Toggle one reaction on a comment."
+        },
+        {
+          "method": "POST",
+          "path": "/comments/:id/report",
+          "absolutePath": "/api/v1/discussions/comments/:id/report",
+          "auth": "user",
+          "summary": "Report a comment to the moderators."
+        },
+        {
+          "method": "GET",
+          "path": "/comments/:id/history",
+          "absolutePath": "/api/v1/discussions/comments/:id/history",
+          "auth": "staff",
+          "summary": "Edit history of a comment (moderators)."
+        },
+        {
+          "method": "GET",
+          "path": "/moderation",
+          "absolutePath": "/api/v1/discussions/moderation",
+          "auth": "staff",
+          "summary": "Moderation queue (pending + reported by default), comments and forum posts."
+        },
+        {
+          "method": "GET",
+          "path": "/moderation/counts",
+          "absolutePath": "/api/v1/discussions/moderation/counts",
+          "auth": "staff",
+          "summary": "Pending + reported counts (admin badges), optionally for comments or the forum only."
+        },
+        {
+          "method": "POST",
+          "path": "/moderation/bulk",
+          "absolutePath": "/api/v1/discussions/moderation/bulk",
+          "auth": "staff",
+          "summary": "Apply one moderation action to many comments."
+        },
+        {
+          "method": "POST",
+          "path": "/moderation/:id/:action",
+          "absolutePath": "/api/v1/discussions/moderation/:id/:action",
+          "auth": "staff",
+          "summary": "Approve / hide / delete / restore a comment, or dismiss its reports."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/discussions/settings",
+          "auth": "optional",
+          "summary": "Engine settings (reactions, max length, edit window) — public: the composer needs them."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/discussions/settings",
+          "auth": "admin",
+          "summary": "Update engine settings."
+        },
+        {
+          "method": "GET",
+          "path": "/query",
+          "absolutePath": "/api/v1/discussions/query",
+          "auth": "optional",
+          "summary": "Discovery: latest / hot / top comments and forum threads, filtered to what the viewer may read."
         }
       ]
     },
@@ -974,6 +1112,110 @@
       ]
     },
     {
+      "module": "forum",
+      "mountPath": "/api/v1/forum",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/forum/settings",
+          "auth": "optional",
+          "summary": "Forum settings (public: the pages need the title, page sizes and access rules)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/forum/settings",
+          "auth": "admin",
+          "summary": "Update the forum settings."
+        },
+        {
+          "method": "GET",
+          "path": "/categories",
+          "absolutePath": "/api/v1/forum/categories",
+          "auth": "optional",
+          "summary": "Categories the caller may read, with counts and the latest thread."
+        },
+        {
+          "method": "POST",
+          "path": "/categories",
+          "absolutePath": "/api/v1/forum/categories",
+          "auth": "staff",
+          "summary": "Create a category."
+        },
+        {
+          "method": "POST",
+          "path": "/categories/reorder",
+          "absolutePath": "/api/v1/forum/categories/reorder",
+          "auth": "staff",
+          "summary": "Set category order."
+        },
+        {
+          "method": "PUT",
+          "path": "/categories/:id",
+          "absolutePath": "/api/v1/forum/categories/:id",
+          "auth": "staff",
+          "summary": "Update a category."
+        },
+        {
+          "method": "DELETE",
+          "path": "/categories/:id",
+          "absolutePath": "/api/v1/forum/categories/:id",
+          "auth": "staff",
+          "summary": "Delete an empty category."
+        },
+        {
+          "method": "GET",
+          "path": "/categories/:slug/threads",
+          "absolutePath": "/api/v1/forum/categories/:slug/threads",
+          "auth": "optional",
+          "summary": "A category's threads: pinned first, then by last activity."
+        },
+        {
+          "method": "GET",
+          "path": "/threads",
+          "absolutePath": "/api/v1/forum/threads",
+          "auth": "staff",
+          "summary": "All threads (moderators), filterable by status / category / pinned / search."
+        },
+        {
+          "method": "POST",
+          "path": "/threads",
+          "absolutePath": "/api/v1/forum/threads",
+          "auth": "user",
+          "summary": "Start a thread (title + first post)."
+        },
+        {
+          "method": "GET",
+          "path": "/threads/:id",
+          "absolutePath": "/api/v1/forum/threads/:id",
+          "auth": "optional",
+          "summary": "A thread by id (with its opening post)."
+        },
+        {
+          "method": "GET",
+          "path": "/t/:category/:thread",
+          "absolutePath": "/api/v1/forum/t/:category/:thread",
+          "auth": "optional",
+          "summary": "A thread page by category + thread slug (counts a view)."
+        },
+        {
+          "method": "PUT",
+          "path": "/threads/:id",
+          "absolutePath": "/api/v1/forum/threads/:id",
+          "auth": "user",
+          "summary": "Edit a thread title (author) or move it (moderators)."
+        },
+        {
+          "method": "POST",
+          "path": "/threads/:id/:action",
+          "absolutePath": "/api/v1/forum/threads/:id/:action",
+          "auth": "user",
+          "summary": "Pin / lock / approve / hide / restore / delete a thread (moderators; authors may delete an unanswered thread)."
+        }
+      ]
+    },
+    {
       "module": "health",
       "mountPath": "/api/v1/health",
       "routes": [
@@ -1396,6 +1638,26 @@
           "absolutePath": "/api/v1/media/:id",
           "auth": "staff",
           "summary": "Delete a media item (removes files from storage)."
+        }
+      ]
+    },
+    {
+      "module": "members",
+      "mountPath": "/api/v1/members",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/:handle",
+          "absolutePath": "/api/v1/members/:handle",
+          "auth": "optional",
+          "summary": "A member's public profile (404 when unknown or hidden)."
+        },
+        {
+          "method": "GET",
+          "path": "/:handle/comments",
+          "absolutePath": "/api/v1/members/:handle/comments",
+          "auth": "optional",
+          "summary": "A member's visible comments and forum posts across the site, newest first (gated items left out)."
         }
       ]
     },

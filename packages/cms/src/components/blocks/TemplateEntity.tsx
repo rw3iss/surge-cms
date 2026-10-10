@@ -1,7 +1,8 @@
-import { featuredImagePath, } from '@sitesurge/types';
+import { DISCUSSION_LIST_KIND, type DiscussionItem, FORUM_THREAD_KIND, featuredImagePath, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, For, Match, Show, Switch, } from 'solid-js';
+import DiscussionList from '../discussions/DiscussionList';
 import FormRenderer from '../forms/FormRenderer';
 import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
@@ -46,6 +47,13 @@ const TemplateEntity: Component<{
 }> = (props,) => (
     <Show when={props.data} fallback={null}>
         <Switch fallback={<GenericEntityCard kind={props.kind} data={props.data!} />}>
+            {/* Discovery lists (`{{ hotThreads(5) }}`) + one forum thread. */}
+            <Match when={props.kind === DISCUSSION_LIST_KIND}>
+                <DiscussionList items={(props.data as unknown as DiscussionItem[]) ?? []} excerpts={props.options?.excerpts !== false} />
+            </Match>
+            <Match when={props.kind === FORUM_THREAD_KIND}>
+                <DiscussionList items={[{ kind: 'thread', ...props.data, } as unknown as DiscussionItem,]} excerpts={props.options?.excerpts !== false} />
+            </Match>
             <Match when={props.kind === 'form'}>
                 <FormRenderer
                     form={props.data as unknown as Form}

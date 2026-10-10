@@ -1,0 +1,176 @@
+@use '../../../styles/variables' as *;
+
+// Comments moderation queue + Comment Settings (admin).
+.comments-admin {
+    &__badge {
+        display: inline-block;
+        min-width: 1.25rem;
+        margin-left: 0.4rem;
+        padding: 0 0.35rem;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        line-height: 1.25rem;
+        text-align: center;
+        color: #fff;
+        background: $primary-color;
+        border-radius: 999px;
+    }
+
+    &__toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-sm;
+        margin: $spacing-md 0;
+    }
+
+    &__search {
+        flex: 1 1 18rem;
+        max-width: 28rem;
+    }
+
+    &__filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.6rem;
+        font-size: $font-size-sm;
+        background: var(--admin-bg-subtle);
+        border: 1px solid var(--admin-border);
+        border-radius: 999px;
+
+        button {
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+            color: var(--admin-text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+    }
+
+    &__bulk {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        margin-left: auto;
+        font-size: $font-size-sm;
+        color: var(--admin-text-muted);
+    }
+
+    &__select-all {
+        margin-bottom: $spacing-sm;
+        font-size: $font-size-sm;
+    }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+        margin: 0 0 $spacing-md;
+        padding: 0;
+        list-style: none;
+    }
+
+    &__item {
+        display: flex;
+        gap: $spacing-sm;
+        padding: $spacing-md;
+        background: $background;
+        border: 1px solid var(--admin-border);
+        border-left-width: 3px;
+        border-radius: $border-radius-md;
+
+        &--pending { border-left-color: $warning-color; }
+        &--hidden,
+        &--deleted { opacity: 0.8; border-left-color: var(--admin-text-muted); }
+    }
+
+    &__main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+
+    &__guest,
+    &__time {
+        font-size: $font-size-xs;
+        color: var(--admin-text-muted);
+    }
+
+    &__status {
+        padding: 0.05rem 0.45rem;
+        font-size: $font-size-xs;
+        font-weight: 600;
+        border: 1px solid var(--admin-border);
+        border-radius: 3px;
+
+        &--pending { color: $warning-color; border-color: currentColor; }
+        &--hidden,
+        &--deleted { color: var(--admin-text-muted); }
+    }
+
+    &__target {
+        margin-top: 0.35rem;
+        font-size: $font-size-sm;
+        color: var(--admin-text-muted);
+    }
+
+    &__body {
+        margin-top: $spacing-sm;
+        font-size: $font-size-sm;
+        overflow-wrap: anywhere;
+
+        > :first-child { margin-top: 0; }
+        > :last-child { margin-bottom: 0; }
+    }
+
+    &__reports {
+        margin: $spacing-sm 0 0;
+        padding: $spacing-xs $spacing-sm;
+        font-size: $font-size-sm;
+        list-style: none;
+        background: color-mix(in srgb, #{$error-color} 6%, transparent);
+        border-radius: $border-radius-sm;
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin-top: $spacing-sm;
+    }
+
+    &__history {
+        padding: $spacing-lg;
+
+        h2 { margin-top: 0; }
+    }
+
+    &__version {
+        margin-top: $spacing-md;
+
+        pre {
+            margin: $spacing-xs 0 0;
+            padding: $spacing-sm;
+            font-family: var(--admin-font-mono);
+            font-size: $font-size-sm;
+            white-space: pre-wrap;
+            background: var(--admin-bg-subtle);
+            border-radius: $border-radius-sm;
+        }
+    }
+}
+
+.comments-settings-page__toggles {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+}

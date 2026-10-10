@@ -10,7 +10,7 @@
  * their record — and fall back to the generic tags when the feature's tables
  * do not exist or the record is gone (the SPA then shows its own 404).
  */
-import { stripMarkdown, } from '@sitesurge/types';
+import { DEFAULT_FORUM_SETTINGS, renderMarkdown, stripMarkdown, type ForumSettings, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { buildGenericBody, } from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
@@ -229,6 +229,119 @@ async function mailView(c: StaticMetaCtx, id: string,): Promise<MetaTags | null>
 }
 
 /**
+ * A public member page. `noindex`: member pages are thin and personal — they
+ * are linked from comments, not meant to be search results. A hidden or
+ * unknown member resolves to null (the SPA shows its 404).
+ */
+async function member(c: StaticMetaCtx, handle: string,): Promise<MetaTags | null> {
+    const row = await safe(async () => (await query<{ display_name: string; avatar_url: string | null; bio: string | null; }>(
+        `SELECT display_name, avatar_url, bio FROM users
+          WHERE lower(handle) = lower($1) AND profile_public AND is_active AND NOT is_banned`, [handle,],
+    )).rows[0] ?? null,);
+    if (!row) return null;
+    return page(c, row.display_name, clip(row.bio,) || `${row.display_name} on ${c.siteName}.`, {
+        image: row.avatar_url || c.logo,
+        imageAlt: row.display_name,
+        noindex: true,
+        jsonLd: undefined,
+    },);
+}
+
+// ─── Forum ──────────────────────────────────────────────────────────
+
+const esc = (v: string,) => v.replace(/&/g, '&amp;',).replace(/</g, '&lt;',).replace(/>/g, '&gt;',).replace(/"/g, '&quot;',);
+
+/** Forum settings when the feature is on; null when off (the route then 404s). */
+async function forumSettings(): Promise<ForumSettings | null> {
+    return safe(async () => {
+        const on = await query<{ value: unknown; }>(`SELECT value FROM site_settings WHERE key = 'forum_enabled'`,);
+        const v = on.rows[0]?.value;
+        if (!(v === true || v === 'true')) return null;
+        const r = await query<{ value: Partial<ForumSettings>; }>(`SELECT value FROM site_settings WHERE key = 'forum_settings'`,);
+        return { ...DEFAULT_FORUM_SETTINGS, ...(r.rows[0]?.value ?? {}), };
+    },);
+}
+
+/** Crawlers are anonymous: only a publicly readable forum / category is indexed. */
+const forumPublic = (s: ForumSettings, readMinRank: number | null,) => s.readAccess === 'public' && readMinRank === null;
+
+async function forumIndex(c: StaticMetaCtx,): Promise<MetaTags | null> {
+    const s = await forumSettings();
+    if (!s) return null;
+    const description = clip(s.description,) || `Discussions on ${c.siteName}.`;
+    return page(c, s.title || 'Forum', description, s.readAccess === 'public' ? {} : { noindex: true, jsonLd: undefined, body: undefined, },);
+}
+
+async function forumCategory(c: StaticMetaCtx, slug: string,): Promise<MetaTags | null> {
+    const s = await forumSettings();
+    if (!s) return null;
+    const row = await safe(async () => (await query<{ name: string; description: string | null; read_min_rank: number | null; }>(
+        `SELECT name, description, read_min_rank FROM forum_categories WHERE slug = $1`, [slug,],
+    )).rows[0] ?? null,);
+    if (!row) return null;
+    const description = clip(row.description,) || `${row.name} — ${s.title || 'Forum'} on ${c.siteName}.`;
+    return page(c, row.name, description, forumPublic(s, row.read_min_rank,) ? {} : { noindex: true, jsonLd: undefined, body: undefined, },);
+}
+
+async function forumThread(c: StaticMetaCtx, category: string, slug: string,): Promise<MetaTags | null> {
+    const s = await forumSettings();
+    if (!s) return null;
+    const row = await safe(async () => (await query<{
+        id: string; title: string; created_at: string; updated_at: string; reply_count: number; read_min_rank: number | null;
+        c_name: string; author: string | null; opening: string | null;
+    }>(
+        `SELECT t.id, t.title, t.created_at, t.updated_at, t.reply_count, fc.read_min_rank, fc.name AS c_name,
+                u.display_name AS author, oc.body AS opening
+           FROM forum_threads t
+           JOIN forum_categories fc ON fc.id = t.category_id
+           LEFT JOIN users u ON u.id = t.author_id
+           LEFT JOIN comments oc ON oc.target_type = 'forum_thread' AND oc.target_id = t.id AND oc.is_opening AND oc.status = 'visible'
+          WHERE fc.slug = $1 AND t.slug = $2 AND t.status = 'visible'`,
+        [category, slug,],
+    )).rows[0] ?? null,);
+    if (!row) return null;
+    const description = clip(row.opening,) || `${row.title} — ${row.c_name}.`;
+    if (!forumPublic(s, row.read_min_rank,)) return page(c, row.title, description, { noindex: true, jsonLd: undefined, body: undefined, },);
+
+    // Indexable body: the opening post + the first page of replies.
+    const replies = await safe(async () => (await query<{ body: string; author: string | null; guest_name: string | null; created_at: string; }>(
+        `SELECT c.body, u.display_name AS author, c.guest_name, c.created_at FROM comments c LEFT JOIN users u ON u.id = c.author_id
+          WHERE c.target_type = 'forum_thread' AND c.target_id = $1 AND NOT c.is_opening AND c.status = 'visible'
+          ORDER BY c.created_at ASC LIMIT $2`,
+        [row.id, s.postsPerPage,],
+    )).rows,) ?? [];
+    const body = [
+        '<article class="ssr-forum-thread">',
+        `  <h1>${esc(row.title,)}</h1>`,
+        `  <p>${esc(row.author ?? 'Member',)} · ${new Date(row.created_at,).toISOString().slice(0, 10,)}</p>`,
+        `  <div>${renderMarkdown(row.opening ?? '',)}</div>`,
+        ...replies.map((r,) => `  <section><h2>${esc(r.author ?? r.guest_name ?? 'Member',)}</h2><div>${renderMarkdown(r.body,)}</div></section>`),
+        '</article>',
+    ].join('\n',);
+    return page(c, row.title, description, {
+        type: 'article',
+        body,
+        jsonLd: [
+            {
+                '@context': 'https://schema.org',
+                '@type': 'DiscussionForumPosting',
+                headline: row.title,
+                text: description,
+                url: c.url,
+                datePublished: new Date(row.created_at,).toISOString(),
+                dateModified: new Date(row.updated_at,).toISOString(),
+                ...(row.author ? { author: { '@type': 'Person', name: row.author, }, } : {}),
+                interactionStatistic: { '@type': 'InteractionCounter', interactionType: 'https://schema.org/CommentAction', userInteractionCount: Number(row.reply_count,), },
+            },
+            buildBreadcrumbSchema([
+                { name: 'Home', url: c.siteUrl, }, { name: s.title || 'Forum', url: `${c.siteUrl}/forum`, },
+                { name: row.c_name, url: `${c.siteUrl}/forum/${category}`, }, { name: row.title, url: c.url, },
+            ],),
+        ],
+    },);
+}
+
+/**
  * Meta for an app route / SPA-rendered detail page, or null when the path is
  * none of them (the caller then 404s or uses its own fallthrough).
  */
@@ -253,5 +366,12 @@ export async function resolveStaticMeta(c: StaticMetaCtx,): Promise<MetaTags | n
     if (m) return watch(c, m[1],);
     m = /^\/mail\/([0-9a-f-]+)$/i.exec(path,);
     if (m) return mailView(c, m[1],);
+    m = /^\/members\/([a-z0-9_-]{1,40})$/i.exec(path,);
+    if (m) return member(c, m[1],);
+    if (path === '/forum') return forumIndex(c,);
+    m = /^\/forum\/([a-z0-9-]+)$/i.exec(path,);
+    if (m) return forumCategory(c, m[1],);
+    m = /^\/forum\/([a-z0-9-]+)\/([a-z0-9-]+)$/i.exec(path,);
+    if (m) return forumThread(c, m[1], m[2],);
     return null;
 }

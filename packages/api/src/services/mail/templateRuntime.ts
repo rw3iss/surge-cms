@@ -19,6 +19,9 @@
  * is never lost to a template typo.
  */
 import {
+    DISCUSSION_LIST_KIND,
+    type DiscussionItem,
+    FORUM_THREAD_KIND,
     entityRef,
     hasTemplateSyntax,
     renderTemplateToString,
@@ -26,6 +29,11 @@ import {
 } from '@sitesurge/types';
 import { logger, } from '../../utils/logger';
 import { escapeHtml, } from './blocks/_util';
+import { config, } from '../../config';
+import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
+
+/** Site origin for absolute links in email (`https://site`), no trailing slash. */
+const siteBase = (): string => String(config.frontendUrl ?? '',).replace(/\/+$/, '',);
 import {
     type AsyncMemo,
     buildBackendRuntime,
@@ -66,6 +74,11 @@ function entityToMailHtml(kind: string, data: Rec | null,): string {
             return `<strong>${g('title',)}</strong>` + (data.shortDescription ? ` — ${g('shortDescription',)}` : '');
         case 'form':
             return `<strong>${g('title',)}</strong>`;
+        // Discovery lists / one forum thread — absolute links (an inbox has no origin).
+        case DISCUSSION_LIST_KIND:
+            return discussionListHtml(data as unknown as DiscussionItem[], siteBase(),);
+        case FORUM_THREAD_KIND:
+            return forumThreadHtml(data, siteBase(),);
         default: {
             const title = g('title',) || g('name',);
             return title ? `<strong>${title}</strong>` : '';

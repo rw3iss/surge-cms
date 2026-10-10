@@ -26,6 +26,10 @@ export { parse as parseTemplate } from './parser';
 /** Shared value/utility functions (upper, formatDate, default, …) that every
  *  runtime delegates to. */
 export { resolveValueFunction, UNRESOLVED, VALUE_FUNCTION_NAMES } from './valueFunctions';
+/** Discovery functions over comments + forum threads (latestComments, hotThreads, …). */
+export {
+    commentCountTarget, DISCUSSION_FUNCTION_NAMES, DISCUSSION_LIST_KIND, discussionQueryFor, FORUM_THREAD_KIND,
+} from './discussionFunctions';
 
 const astCache = new Map<string, Node[]>();
 

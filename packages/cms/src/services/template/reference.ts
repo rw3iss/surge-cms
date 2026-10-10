@@ -132,6 +132,19 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
         ],
     },
     {
+        group: 'Discussions (comments + forum)',
+        items: [
+            { sig: 'latestComments(limit?, …)', desc: 'Newest comments site-wide. Use in a for loop ({{ for latestComments(5) as c }}{{ c.author.name }}: {{ c.excerpt }}{{ endfor }}) or alone for a ready-made list. Each item: author.name / author.handle, excerpt, url (links to the comment), target.title / target.url, createdAt, replyCount, reactions. Keyword args (all lists): targetType=\'post\'|\'event\'|\'forum_thread\', targetId=, category=\'<forum category slug>\', author=\'<handle>\', window=\'24h\'|\'7d\'|\'30d\'|\'all\', minReactions=N, includeReplies=false.' },
+            { sig: 'hotComments(limit?, …)', desc: 'The most active comments right now — replies and reactions, weighted by age (default window 7 days).' },
+            { sig: 'latestThreads(limit?, category?)', desc: 'Forum threads with the newest activity. Each item: title, url, category.name / category.slug, author.name, excerpt (opening post), replyCount, viewCount, reactionCount, lastReplyAt.' },
+            { sig: "hotThreads(limit?, window='7d', category?)", desc: 'The hottest forum threads — replies, reactions and views weighted by age. E.g. hotThreads(5, window=\'7d\', category=\'general\').' },
+            { sig: "discussions(sort=, kind=, window=, limit=)", desc: 'The general form: sort=\'latest\'|\'hot\'|\'top\' (top = most replies + reactions in the window), kind=\'comment\'|\'thread\'|\'both\'. E.g. discussions(sort=\'top\', kind=\'both\', window=\'30d\', limit=10).' },
+            { sig: 'commentCount(item)', desc: 'Number of visible comments on a post or event: commentCount(post), or commentCount(\'<id>\', type=\'event\').' },
+            { sig: "forumThread(slugOrId)", desc: 'One forum thread: forumThread(\'welcome\').replyCount, .title, .url. Alone, renders a link with its reply count.' },
+            { sig: '(visibility)', desc: 'Every list shows only what the viewer may read (gated posts, private forum categories). In server-rendered HTML and in email the viewer is anonymous, so only public discussions appear there.' },
+        ],
+    },
+    {
         group: 'Value utilities',
         items: [
             {

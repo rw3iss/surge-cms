@@ -12,6 +12,7 @@
  * byte-for-byte from the pre-framework implementation — this is the auth
  * system, so behaviour preservation beats normalization.
  */
+import { ensureHandle, setHandle, } from '../services/handles';
 import type { Response, } from 'express';
 import rateLimit, { ipKeyGenerator, } from 'express-rate-limit';
 import { z, } from 'zod';
@@ -91,6 +92,11 @@ const updateProfileSchema = z.object({
     bio: z.string().max(250,).nullish(),
     locationCity: z.string().max(100,).nullish(),
     locationState: z.string().max(100,).nullish(),
+    // Public member page: handle (validated + uniqueness in services/handles) and visibility.
+    handle: z.string().max(40,).optional(),
+    profilePublic: z.boolean().optional(),
+    /** Email me when someone replies to my comments / forum posts. */
+    replyEmails: z.boolean().optional(),
     // Contacts (CRM) fields — not user columns; mirrored onto the linked
     // contact row when the `contacts` feature is enabled.
     mobilePhone: z.string().max(255,).nullish(),
@@ -449,7 +455,11 @@ export const authRoutes = [
     defineRoute({
         method: 'get', path: '/me', auth: 'user',
         summary: 'Return the currently-authenticated user.',
-        handler: ({ user, },) => ({ user, }),
+        handler: async ({ user, },) => {
+            // An account created before handles existed gets one on first read.
+            if (user && !user.handle) user.handle = await ensureHandle(user.id,).catch(() => null);
+            return { user, };
+        },
     },),
 
     defineRoute({
@@ -465,8 +475,12 @@ export const authRoutes = [
             // NOT columns on `users` — they mirror onto the linked contact row).
             const {
                 mobilePhone, primaryPhone, streetAddress1, streetAddress2, zip, country, timeZone,
-                dateOfBirth, ...base
+                dateOfBirth, handle, ...base
             } = body;
+            // Handle first: a taken handle (409) must not half-apply the rest.
+            if (handle !== undefined && handle.trim().toLowerCase() !== (user.handle ?? '').toLowerCase()) {
+                await setHandle(user.id, handle,);
+            }
             const updated = await usersService.update(user.id, base, audit(),);
 
             // When Contacts (CRM) is on, ensure this user has a contact row and

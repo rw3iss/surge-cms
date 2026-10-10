@@ -14,6 +14,8 @@ import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import EventSignup from '../components/events/EventSignup';
+import CommentsSection from '../components/discussions/CommentsSection';
+import { isFeatureEnabled, } from '../stores/siteSettings';
 import { cms, } from '../services/cmsClient';
 import './EventDetail.scss';
 
@@ -111,6 +113,10 @@ const EventDetailPage: Component = () => {
                                             More information
                                         </a>
                                     </p>
+                                </Show>
+
+                                <Show when={isFeatureEnabled('comments',)}>
+                                    <CommentsSection targetType="event" targetId={ev().id} />
                                 </Show>
                             </article>
 

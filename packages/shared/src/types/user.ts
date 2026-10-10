@@ -18,6 +18,12 @@ export interface User {
     bio?: string;
     locationCity?: string;
     locationState?: string;
+    /** Public member page handle: `/members/:handle`. Unique, case-insensitive. */
+    handle?: string | null;
+    /** The member page is visible (else it 404s and their name on comments has no link). */
+    profilePublic?: boolean;
+    /** Reply emails (comments + forum) on/off; default on. */
+    replyEmails?: boolean;
     role: UserRole;
     authProvider: AuthProvider;
     patreonId?: string;

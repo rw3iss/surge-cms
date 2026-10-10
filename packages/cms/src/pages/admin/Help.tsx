@@ -35,7 +35,12 @@ const TOPICS: HelpTopic[] = [
     {
         path: '/admin/help/post-types',
         title: 'Post types',
-        desc: 'Article, Video, Live Show and Custom posts — and how to create your own post type: register it, add a custom editor form, a gated sample and a public display.',
+        desc: 'Article, Video, Short, Live Show and Custom posts — and how to create your own post type: register it, add a custom editor form, a gated sample and a public display.',
+    },
+    {
+        path: '/admin/help/comments-and-forum',
+        title: 'Comments & Forum',
+        desc: 'Comments on posts and events, the members\' forum, moderation, member pages + activity counts, and showing latest / hottest discussions anywhere.',
     },
     {
         path: '/admin/help/video',

@@ -280,6 +280,44 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         ],
     },
 
+    // ── Comments ──
+    {
+        key: 'comment_reply',
+        label: 'Comment reply',
+        description: 'Sent to a member when someone replies to their comment on a post or event. Members can turn reply emails off site-wide in Comments → Settings.',
+        feature: 'comments',
+        audience: 'user',
+        defaultEnabled: true,
+        defaultSubject: '{{reply.authorName}} replied to your comment on {{item.title}}',
+        variables: [
+            ...USER_VARS,
+            { name: 'item.title', description: 'Title of the post or event.', example: 'Summer Gala', },
+            { name: 'item.url', description: 'Link straight to the reply.', example: 'https://example.com/posts/summer-gala#comment-…', },
+            { name: 'reply.authorName', description: 'Who replied.', example: 'Grace', },
+            { name: 'reply.excerpt', description: 'The reply as plain text (up to 300 characters).', },
+            { name: 'reply.bodyHtml', description: 'The reply, formatted.', },
+            { name: 'comment.excerpt', description: 'The recipient\'s own comment, as plain text.', },
+        ],
+    },
+
+    {
+        key: 'forum_reply',
+        label: 'Forum reply',
+        description: 'Sent to a member when someone replies to their forum thread, or to their post in a thread.',
+        feature: 'forum',
+        audience: 'user',
+        defaultEnabled: true,
+        defaultSubject: '{{reply.authorName}} replied in “{{thread.title}}”',
+        variables: [
+            ...USER_VARS,
+            { name: 'thread.title', description: 'The thread title.', example: 'Show us your setup', },
+            { name: 'thread.url', description: 'Link straight to the reply.', example: 'https://example.com/forum/general/show-us-your-setup#comment-…', },
+            { name: 'reply.authorName', description: 'Who replied.', example: 'Grace', },
+            { name: 'reply.excerpt', description: 'The reply as plain text (up to 300 characters).', },
+            { name: 'reply.bodyHtml', description: 'The reply, formatted.', },
+        ],
+    },
+
     // ── Messages ──
     {
         key: 'contact_message_admin',

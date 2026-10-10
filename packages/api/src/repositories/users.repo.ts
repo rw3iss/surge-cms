@@ -7,6 +7,7 @@ import { mapRow, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 import { buildLimitOffset, findByIdOrThrow, PaginatedResult, PaginationOptions, updateById, } from './base.repo';
 import { ilikeSearch, } from '../utils/queryBuilders';
+import { assignHandle, } from '../services/handles';
 
 export interface UserFilters {
     search?: string;
@@ -153,8 +154,11 @@ export async function createUser(data: {
         // First/last are split from the single name, so the profile opens filled.
         [data.email, passwordHash, data.displayName, data.role || 'member', name.firstName || null, name.lastName || null,],
     );
+    // Public member page handle (/members/:handle), derived from the name.
+    // Best effort — /auth/me assigns one lazily if this fails.
+    const handle = await assignHandle(String(result.rows[0].id,), data.displayName,).catch(() => null);
 
-    return mapRow<User>(result.rows[0],);
+    return mapRow<User>({ ...result.rows[0], handle, },);
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>,): Promise<User> {

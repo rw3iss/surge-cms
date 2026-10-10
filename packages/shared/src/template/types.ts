@@ -125,8 +125,11 @@ export interface TemplateRuntime {
     /** Root variables (`user`, `site`, `post`, `campaign`, …). */
     context: Record<string, unknown>;
     /** Resolve a function call, e.g. `post('id')`. Returns a value (often an
-     *  EntityRef) or `undefined` when unknown/not found. May be async. */
-    resolve(name: string, args: unknown[]): Promise<unknown> | unknown;
+     *  EntityRef) or `undefined` when unknown/not found. May be async.
+     *  `named` carries the call's keyword args (`hotThreads(5, window='7d')`),
+     *  for functions whose RESULT depends on them; they are also attached as
+     *  render `options` on an EntityRef result, as before. */
+    resolve(name: string, args: unknown[], named?: Record<string, unknown>): Promise<unknown> | unknown;
     /** Optional warning sink (defaults to console.warn) for unresolved refs /
      *  parse errors — helps editors debug their syntax. */
     warn?: (message: string) => void;

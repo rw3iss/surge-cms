@@ -20,6 +20,7 @@ import { FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { deriveStyleRefFromStyle, resolveActiveStyleRef, styleRefToPersistedStyle, } from '../../services/blockStyleRef';
 import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
+import { CommentSwitchesFields, useCommentSwitches, } from '../../components/discussions/admin/CommentSwitches';
 import MediaUploadModal from '../../components/admin/media/MediaUploadModal';
 import { Layout, } from '../../components/layout/Layout';
 import PostContentBlock from '../../components/blocks/posts/PostContentBlock';
@@ -189,7 +190,11 @@ const AdminPostEditor: Component = () => {
             const saved = ctx.isNew
                 ? await cms.posts.create(data,)
                 : await cms.posts.update(ctx.id, data,);
-            return (saved as any)?.id ?? ctx.id;
+            const savedId = (saved as any)?.id ?? ctx.id;
+            // Comment switches live on their own row, keyed by the post id —
+            // a NEW post only has one now.
+            if (savedId) await commentSwitches.save(savedId,);
+            return savedId;
         },
         onSaved: () => invalidatePostsCache(),
         snapshot: (id,) => cms.posts.snapshotRevision(id,),
@@ -204,6 +209,9 @@ const AdminPostEditor: Component = () => {
             restoreError: 'Failed to restore post',
         },
     },);
+
+    // Enable commenting / anonymous / lock (Comments feature).
+    const commentSwitches = useCommentSwitches('post', () => (editor.isNew() ? null : editor.params.id),);
 
     // Default a NEW post's author to the signed-in user, so the dropdown shows
     // who is about to be credited instead of an empty field that silently
@@ -764,6 +772,7 @@ const AdminPostEditor: Component = () => {
                             </For>
                         </select>
                     </FormField>
+                    <CommentSwitchesFields ctl={commentSwitches} onChange={() => editor.markDirty()} />
                 </div>
             </div>
         </CollapsiblePanel>

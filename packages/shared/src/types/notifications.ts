@@ -78,4 +78,28 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
         description: 'When a visitor sends a contact message.',
         feature: 'messages',
     },
+    {
+        key: 'comment_posted',
+        label: 'New comment',
+        description: 'When someone comments on a post or event (including comments waiting for approval).',
+        feature: 'comments',
+    },
+    {
+        key: 'comment_reported',
+        label: 'Comment reported',
+        description: 'When a reader reports a comment to the moderators.',
+        feature: 'comments',
+    },
+    {
+        key: 'forum_thread_created',
+        label: 'New forum thread',
+        description: 'When a member starts a forum thread (including threads waiting for approval).',
+        feature: 'forum',
+    },
+    {
+        key: 'forum_reported',
+        label: 'Forum post reported',
+        description: 'When a member reports a forum post to the moderators.',
+        feature: 'forum',
+    },
 ];

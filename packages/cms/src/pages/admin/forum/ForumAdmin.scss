@@ -1,0 +1,103 @@
+// Admin → Forum (threads, categories, settings).
+@use '../../../styles/variables' as *;
+
+.admin-forum {
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    input[type='search'] { flex: 1 1 14rem; min-width: 0; }
+    select { flex: 0 0 auto; }
+  }
+
+  &__title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    a { font-weight: 600; }
+    small { color: var(--admin-text-muted); }
+  }
+
+  &__flags {
+    display: inline-flex;
+    gap: 0.3rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+
+  &__status {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--admin-bg-subtle);
+    color: var(--admin-text-muted);
+
+    &--visible { background: $success-bg; color: $success-fg; }
+    &--pending { background: $warning-bg; color: $warning-fg; }
+    &--hidden, &--deleted { background: $error-bg; color: $error-fg; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+
+    select { max-width: 9rem; }
+  }
+
+  &__categories {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__category {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 6px;
+    background: $background;
+
+    h3 { margin: 0; font-size: 1rem; }
+    p { margin: 0.15rem 0 0; color: var(--admin-text-muted); font-size: 0.85rem; }
+  }
+
+  &__order {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  &__meta {
+    color: var(--admin-text-muted);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+
+    h2 { margin: 0 0 0.25rem; }
+  }
+
+  &__form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  &__number { max-width: 8rem; }
+}

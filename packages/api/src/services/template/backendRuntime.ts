@@ -12,6 +12,7 @@
  */
 import {
     entityRef,
+    DISCUSSION_FUNCTION_NAMES,
     resolveValueFunction,
     type TemplateRuntime,
     UNRESOLVED,
@@ -140,7 +141,7 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
     const memo = createAsyncMemo();
     const s = (v: unknown,): string => (v == null ? '' : String(v,));
 
-    const resolve = async (name: string, args: unknown[],): Promise<unknown> => {
+    const resolve = async (name: string, args: unknown[], named?: Record<string, unknown>,): Promise<unknown> => {
         // Shared value/utility functions (upper, formatDate, formatCurrency,
         // default, now, …).
         const vf = resolveValueFunction(name, args,);
@@ -160,6 +161,14 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
             if (!ref) return entityRef(name, null,);
             const data = await memo(`campaign:${ref}`, () => fetchEntity('campaign', ref, opts.singleKinds,),);
             return entityRef(name, data, ref,);
+        }
+
+        // Discovery over comments + forum threads (latestComments, hotThreads,
+        // discussions, commentCount, forumThread) — same on SSR and email.
+        if ((DISCUSSION_FUNCTION_NAMES as readonly string[]).includes(name,)) {
+            const { resolveDiscussionFunction, } = await import('../discussions/templateFunctions.js');
+            const r = await resolveDiscussionFunction(name, args, named, memo,);
+            if (r !== UNRESOLVED) return r;
         }
 
         return opts.resolveExtra ? await opts.resolveExtra(name, args, memo,) : undefined;

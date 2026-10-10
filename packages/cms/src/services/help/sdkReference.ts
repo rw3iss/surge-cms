@@ -631,6 +631,125 @@ pnpm release 1.2.0             # or: pnpm release patch | minor | major`,
     ],
 };
 
+export const DISCUSSIONS_DOC: SdkDoc = {
+    id: 'comments-and-forum',
+    path: '/admin/help/comments-and-forum',
+    title: 'Comments & Forum',
+    lead:
+        'Comments on posts and events, and a members\' forum, built on one discussion engine: replies, reactions, '
+        + 'editing, moderation, reports and an activity count per member are the same everywhere. Turn on Comments '
+        + 'and/or Forum in Settings → Features (the shared engine installs with them).',
+    sections: [
+        {
+            heading: 'Comments on posts and events',
+            blocks: [
+                {
+                    list: [
+                        'Open a post (or an event) → Comments: Enable commenting. Then optionally Allow anonymous comments '
+                        + 'and Lock comments (readable, no new comments).',
+                        'By default only signed-in members comment; their name, avatar and activity count link to their member page.',
+                        'Anonymous comments ask for a name (optional) and an email (optional, never shown). They wait for approval '
+                        + 'while Comments → Settings → "Approve anonymous comments" is on (the default).',
+                        'A post\'s comments follow the post: someone who cannot read the full post (subscriber content) cannot read '
+                        + 'or write its comments either.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Moderation',
+            blocks: [
+                {
+                    list: [
+                        'Admin → Comments is the queue: Needs review (pending + reported), Pending, Reported, Hidden, All. Approve, '
+                        + 'hide, delete, restore, dismiss reports — one at a time or in bulk.',
+                        'Forum posts have the same queue: Admin → Forum → Moderation.',
+                        'A deleted comment that has replies stays as "[deleted]" so the conversation still reads.',
+                        'Edits keep a history (the last 10 versions), visible to moderators.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Forum',
+            blocks: [
+                {
+                    list: [
+                        'Public pages: `/forum`, `/forum/<category>`, `/forum/<category>/<thread>`.',
+                        'Admin → Forum: threads (pin, lock, move, hide, delete), Categories (order, lock, minimum tier to read / '
+                        + 'post) and Settings.',
+                        'Access compares with subscription tier ranks: anonymous −1, a signed-in member 0 (Free), then each paid tier '
+                        + 'by price. Settings decide who reads the forum and who starts threads / replies; a category can raise both.',
+                        'Approval: hold every new post, or a member\'s posts until they have N approved forum posts.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Member pages and activity',
+            blocks: [
+                {
+                    p: 'Every member has a public page at `/members/<handle>` with their activity count and a Comments tab '
+                        + '(their visible comments and forum posts, only those the reader may see). Members choose their handle, '
+                        + 'can hide the page, and can turn reply emails off — all in their Profile.',
+                },
+            ],
+        },
+        {
+            heading: 'Showing discussions elsewhere',
+            blocks: [
+                {
+                    p: 'Latest / hottest comments and threads can appear on any page, post or email:',
+                },
+                {
+                    code: `{{ for hotThreads(5, window='7d') as t }}
+  <a href="{{ t.url }}">{{ t.title }}</a> ({{ t.replyCount }} replies)
+{{ endfor }}
+
+{{ latestComments(5) }}          // a whole list, ready to show
+{{ discussions(sort='top', kind='both', window='30d', limit=10) }}`,
+                },
+                {
+                    p: 'An Entity block (or a carousel entity item) can also bind the read-only `comment` and `forum_thread` types '
+                        + 'in query mode — sort, window and category are filters. Developers: `cms.discussions.query()`, '
+                        + '`cms.forum.threads.hot()`, `cms.comments.latest()`.',
+                },
+                {
+                    note: 'Hot = (replies × 2 + reactions + views ÷ 50 + 1) ÷ (hours since the last activity + 2)^1.5 — new activity rises, then fades.',
+                },
+            ],
+        },
+        {
+            heading: 'Emails and notifications',
+            blocks: [
+                {
+                    list: [
+                        'Members: "Comment reply" and "Forum reply" emails (edit them under the email templates; a member can turn '
+                        + 'reply emails off in Profile).',
+                        'Staff: Settings → Notifications → New comment, Comment reported, New forum thread, Forum post reported.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Permissions',
+            blocks: [
+                {
+                    table: [
+                        ['Permission', 'Default',],
+                        ['`comments:write`, `forum:thread_create`, `forum:reply`', 'Members',],
+                        ['`discussions:react`, `discussions:report`, `discussions:edit_own`, `discussions:delete_own`', 'Members',],
+                        ['`comments:anonymous`', 'Everyone (only where an item allows it)',],
+                        ['`discussions:moderate`, `comments:manage`, `forum:moderate`', 'Staff',],
+                        ['`forum:manage` (categories + settings)', 'Admins',],
+                    ],
+                },
+                { p: 'Grant any of them to a subscription tier in Settings → Permissions.', },
+            ],
+        },
+    ],
+};
+
 export const VIDEO_DOC: SdkDoc = {
     id: 'video',
     path: '/admin/help/video',

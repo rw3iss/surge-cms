@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { closePool, getPool, query, } from './client';
 import { runSeed, } from './seeder';
 import { logger, } from '../utils/logger';
+import { assignHandle, } from '../services/handles';
 
 async function ensureCliAdmin(): Promise<string> {
     const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com';
@@ -21,6 +22,8 @@ async function ensureCliAdmin(): Promise<string> {
          RETURNING id`,
         [adminEmail, hash, 'Admin', 'admin', 'email', true,],
     );
+    // Public member page handle (best effort — an older schema may lack the column).
+    await assignHandle(result.rows[0].id, 'Admin',).catch(() => {},);
     logger.info(`CLI seed admin: ${adminEmail}`,);
     return result.rows[0].id;
 }

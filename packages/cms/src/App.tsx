@@ -79,6 +79,8 @@ const AdminHelpSdkComponentJs = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkComponentJs, })));
 const AdminHelpPostTypes = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpPostTypes, })));
+const AdminHelpDiscussions = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpDiscussions, })));
 const AdminHelpVideo = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpVideo, })));
 const AdminWiki = lazy(() => import('./pages/admin/Wiki'));
@@ -109,7 +111,7 @@ const MailArchivePage = lazy(() => import('./pages/MailArchive'));
 const MailViewPage = lazy(() => import('./pages/MailView'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminEventSettings = lazy(() => import('./pages/admin/events/EventSettings'));
-// Discussions (docs/plans/2026-10-10-comments-and-forum.md)
+// Discussions (docs/plans/completed/2026-10-10-comments-and-forum.md)
 const MemberPage = lazy(() => import('./pages/Member'));
 const ForumIndexPage = lazy(() => import('./pages/forum/ForumIndex'));
 const ForumCategoryPage = lazy(() => import('./pages/forum/ForumCategory'));
@@ -276,6 +278,7 @@ const App: Component = () => {
 										<Route path="/help/releases" component={AdminHelpReleases} />
 										<Route path="/help/video" component={AdminHelpVideo} />
 										<Route path="/help/post-types" component={AdminHelpPostTypes} />
+										<Route path="/help/comments-and-forum" component={AdminHelpDiscussions} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

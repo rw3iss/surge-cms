@@ -1,6 +1,6 @@
 # Comments + Forum (on one discussion engine) — plan
 
-> **STATUS 2026-10-10 — IN PROGRESS.** Phase 1 (engine) DONE; phases 2–6 under way.
+> **STATUS 2026-10-10 — DONE.** Phases 1–6 implemented and deployed; phase 7 ("Later") deferred by design. Closing notes at the bottom.
 >
 > Corrections made while building (the text below is updated to match):
 > - Comment CRUD, reactions, reports and moderation are mounted at **`/api/v1/discussions`**
@@ -13,6 +13,11 @@
 >   discussions); the planner enables a hidden prerequisite silently and still checks ITS
 >   prerequisites.
 > - The forum lives at a fixed `/forum` (like `/events` in the SPA router), not a configurable URL.
+> - Per-member reply-email opt-out is a core column `users.reply_emails` (migration 136) + a Profile toggle,
+>   honoured by both the `comment_reply` and `forum_reply` emails.
+> - Forum staff alerts are `forum_thread_created` + `forum_reported` (not part of the original list).
+> - The moderation queue is ONE page (`/admin/comments`) with `?scope=forum|comments`; the Forum admin
+>   links to it. Engine settings are one shared section on both settings pages.
 
 ## Goal
 
@@ -336,18 +341,18 @@ with a content-block template — no bespoke block needed.
    the client), migrations 132–133, `services/discussions/*`, member handles,
    permissions, DTOs, SDK, cache keys, unit tests (tree building, counters, access,
    rate limits, soft delete rules).
-2. **Comments** — migration 134, target registry for post + event, admin toggles in the
+2. **Comments** — **DONE.** Migration 134, target registry for post + event, admin toggles in the
    Post editor + Event modal, `CommentsSection` on Post + EventDetail, anonymous flow,
    `/admin/comments` queue + Settings, reply emails + admin notifications.
-3. **Member pages** — `/members/:handle` with Overview + Comments tabs, Profile handle
+3. **Member pages** — **DONE.** `/members/:handle` with Overview + Comments tabs, Profile handle
    + visibility, author links everywhere, admin user activity panel.
-4. **Forum** — migration 135, admin Forum section (threads, categories, moderation,
+4. **Forum** — **DONE.** Migration 135, admin Forum section (threads, categories, moderation,
    Settings page), public `/forum` pages, forum emails, SSR meta + sitemap.
-5. **Discovery** — `services/discussions/query.ts` (latest / hot / top / general),
+5. **Discovery** — **DONE.** `services/discussions/query.ts` (latest / hot / top / general),
    `GET /discussions/query` + SDK shortcuts, template functions in the site / SSR / mail
    runtimes + reference docs, `DiscussionList` component, read-only `comment` and
    `forum_thread` entity types for entity blocks and carousels.
-6. **Docs** — CLAUDE.md feature entries, `docs/how-it-works/COMMENTS-AND-FORUM.md`,
+6. **Docs** — **DONE** (guide, in-admin help, CLAUDE.md, API docs, SDK reference; no MCP tools — not needed yet). CLAUDE.md feature entries, `docs/how-it-works/COMMENTS-AND-FORUM.md`,
    in-admin help page, API docs regenerated, MCP tools (list/moderate) if wanted.
 7. **Later** — per-item minimum subscription to comment, live updates over WebSocket,
    @mentions, image attachments, comments on custom entity types (UI only — the
@@ -365,3 +370,25 @@ with a content-block template — no bespoke block needed.
   names are not unique, so author links always use the handle.
 - **Uninstall** — removing Forum with `discussions` kept must delete `forum_thread`
   comments (its `onUninstall` hook), or orphans remain.
+
+## Closing notes (2026-10-10)
+
+**Shipped:** all of phases 1–6. Verified with the full suites (shared 127, api 1266, cms-client 126,
+cms 280, cms build) and three live smoke scripts against a dev database (`npm run
+smoke:discussions` 15 checks, `smoke:forum` 15, `smoke:discovery` 12) covering create / reply /
+tree reads / reactions / edit / soft delete / anonymous approval / moderation / counters +
+reconcile / forum tier gating (incl. no leak through the comments API) / thread moderation /
+discovery latest + hot / SSR + email template output.
+
+**Not done, deliberately:**
+- Phase 7 items (per-item minimum tier to comment, live updates, @mentions, attachments, forum
+  search, ignoring users, comments UI on custom entity types — storage already supports it).
+- Comments are not SSR-rendered (forum threads are). Revisit only if wanted for SEO.
+- No MCP tools for discussions.
+
+**Watch:**
+- Spam once anonymous comments are enabled anywhere — keep "Approve anonymous comments" on.
+- Discovery `total` is an upper bound (rows are counted before the per-item access filter).
+- Entity-block reads of `comment` / `forum_thread` are anonymous-shaped (the generic entity
+  endpoint has no per-viewer shape), so a subscriber sees only public items there.
+- The features ship OFF; enabling them runs migrations 133–135 on that site.

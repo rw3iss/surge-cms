@@ -159,7 +159,7 @@ export async function applyVisibility(client: PoolClient, row: CommentRow, delta
     if (row.parent_id) {
         await client.query(`UPDATE comments SET reply_count = GREATEST(0, reply_count + $2) WHERE id = $1`, [row.parent_id, delta,],);
     }
-    await target?.onCountChange?.(client, row.target_id, delta, { isOpening: Boolean(row.is_opening,), createdAt: row.created_at, },);
+    await target?.onCountChange?.(client, row.target_id, delta, { isOpening: Boolean(row.is_opening,), createdAt: row.created_at, authorId: row.author_id, },);
 }
 
 export interface CreateContext {

@@ -179,6 +179,52 @@ export function contactDescriptor(): EntityTypeDef {
     };
 }
 
+/** One field of a read-only discussion type (describes a record key, not a column). */
+function df(type: string, key: string, t: EntityFieldType, label: string, position: number,): EntityFieldDef {
+    return {
+        id: `core:${type}:${key}`, key, label, type: t, core: true,
+        required: false, unique: false, indexed: false, searchable: false, filterable: false, position,
+    };
+}
+
+/**
+ * Read-only discussion types, served by the discovery provider
+ * (services/discussions/entityProvider.ts) — not by their tables. Query knobs
+ * (sort / window / category / targetType) are virtual filters; records carry
+ * `author` (name, handle, avatarUrl, activityCount …) and these keys.
+ * Caching is off at the entity layer: the provider caches anonymous results
+ * itself and must not share one list across viewers.
+ */
+function discussionDescriptor(kind: 'comment' | 'forum_thread',): EntityTypeDef {
+    const thread = kind === 'forum_thread';
+    const fields: EntityFieldDef[] = thread
+        ? [
+            df(kind, 'title', 'text', 'Title', 0,), df(kind, 'url', 'text', 'URL', 1,), df(kind, 'excerpt', 'longtext', 'Excerpt (opening post)', 2,),
+            df(kind, 'replyCount', 'integer', 'Replies', 3,), df(kind, 'viewCount', 'integer', 'Views', 4,),
+            df(kind, 'reactionCount', 'integer', 'Reactions', 5,), df(kind, 'lastReplyAt', 'datetime', 'Last reply', 6,),
+            df(kind, 'pinned', 'boolean', 'Pinned', 7,), df(kind, 'locked', 'boolean', 'Locked', 8,), df(kind, 'score', 'number', 'Score', 9,),
+        ]
+        : [
+            df(kind, 'excerpt', 'longtext', 'Excerpt', 0,), df(kind, 'bodyHtml', 'richtext', 'Body', 1,), df(kind, 'url', 'text', 'URL', 2,),
+            df(kind, 'targetType', 'text', 'On (type)', 3,), df(kind, 'replyCount', 'integer', 'Replies', 4,),
+            df(kind, 'createdAt', 'datetime', 'Posted', 5,), df(kind, 'score', 'number', 'Score', 6,),
+        ];
+    return {
+        id: '', key: kind, label: thread ? 'Forum thread' : 'Comment', labelPlural: thread ? 'Forum threads' : 'Comments',
+        singularVar: thread ? 'thread' : 'comment', pluralVar: thread ? 'threads' : 'comments',
+        description: thread
+            ? 'A forum thread (read-only; managed in the Forum). Query with sort = latest | hot | top, window, category.'
+            : 'A comment on a post, event or forum thread (read-only; managed in Comments). Query with sort, window, targetType, category.',
+        origin: 'core', internal: true, ownerFeature: thread ? 'forum' : 'discussions',
+        tableName: thread ? 'forum_threads' : 'comments',
+        hasSlug: thread, hasStatus: false, searchable: false, revisioned: false,
+        routing: { detailEnabled: false, detailPrefix: '', indexEnabled: false, indexPrefix: '', },
+        caching: { indexEnabled: false, indexTtlSeconds: 60, recordEnabled: false, recordTtlSeconds: 60, },
+        adminListRoute: thread ? '/admin/forum' : '/admin/comments', adminEditRoute: '',
+        fields, createdAt: '', updatedAt: '',
+    };
+}
+
 /** All core descriptors (built fresh each call). */
 export function coreDescriptors(): EntityTypeDef[] {
     return [
@@ -198,6 +244,8 @@ export function coreDescriptors(): EntityTypeDef[] {
             adminListRoute: '/admin/users', adminEditRoute: '/admin/users', }),
         productDescriptor(),
         contactDescriptor(),
+        discussionDescriptor('comment',),
+        discussionDescriptor('forum_thread',),
     ].filter((d,): d is EntityTypeDef => d !== null);
 }
 

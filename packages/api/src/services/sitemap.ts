@@ -46,6 +46,26 @@ function urlEntry(loc: string, lastmod?: string, changefreq?: string, priority?:
 }
 
 /** Build the full sitemap.xml string from current published content. */
+/** Public forum threads, or null when the forum is off / not public. */
+async function forumSitemapRows(): Promise<Array<{ slug: string; c_slug: string; updated_at: string; }> | null> {
+    try {
+        const on = await query<{ value: unknown; }>(`SELECT value FROM site_settings WHERE key = 'forum_enabled'`,);
+        const v = on.rows[0]?.value;
+        if (!(v === true || v === 'true')) return null;
+        const st = await query<{ value: { readAccess?: string; }; }>(`SELECT value FROM site_settings WHERE key = 'forum_settings'`,);
+        if ((st.rows[0]?.value?.readAccess ?? 'public') !== 'public') return null;
+        const r = await query<{ slug: string; c_slug: string; updated_at: string; }>(
+            `SELECT t.slug, fc.slug AS c_slug, GREATEST(t.updated_at, COALESCE(t.last_reply_at, t.updated_at)) AS updated_at
+               FROM forum_threads t JOIN forum_categories fc ON fc.id = t.category_id
+              WHERE t.status = 'visible' AND fc.read_min_rank IS NULL
+              ORDER BY COALESCE(t.last_reply_at, t.created_at) DESC LIMIT 5000`,
+        );
+        return r.rows;
+    } catch {
+        return null;
+    }
+}
+
 export async function buildSitemap(): Promise<string> {
     const [pagesResult, postsResult, campaignsResult, formsResult,] = await Promise.all([
         query<SitemapRow>(
@@ -109,6 +129,15 @@ export async function buildSitemap(): Promise<string> {
     }
     // Form pages are `noindex` too (services/ssr/routes.ts), so they are not
     // listed here.
+
+    // Forum: only when the feature is on and publicly readable; threads in
+    // categories with no read tier. Crawlers are anonymous — anything gated
+    // would only show them a sign-in prompt.
+    const forum = await forumSitemapRows();
+    if (forum) {
+        addUrl(`${SITE_URL}/forum`, undefined, 'daily', 0.6,);
+        for (const t of forum) addUrl(`${SITE_URL}/forum/${t.c_slug}/${t.slug}`, t.updated_at, 'weekly', 0.5,);
+    }
 
     xml += '</urlset>';
     return xml;

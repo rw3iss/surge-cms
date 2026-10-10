@@ -3,6 +3,7 @@ import { Component, createEffect, createResource, createSignal, For, Show, } fro
 import Toggle from '../../components/admin/common/Toggle';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, } from '../../utils/badges';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 import './UserDetail.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import UserSubscriptionPanel from '../../components/admin/subscriptions/UserSubscriptionPanel';
@@ -18,6 +19,14 @@ const AdminUserDetail: Component = () => {
             return null;
         }
     },);
+
+    // Activity (comments + forum) via the public member profile — staff see
+    // hidden pages too. Zeros when the member has no handle yet.
+    const discussionsOn = () => isFeatureEnabled('comments',) || isFeatureEnabled('forum',);
+    const [memberProfile,] = createResource(
+        () => (discussionsOn() ? (userData()?.user as { handle?: string | null; } | undefined)?.handle ?? null : null),
+        (handle,) => cms.members.profile(handle,).catch(() => null),
+    );
 
     // Editable fields
     const [displayName, setDisplayName,] = createSignal('',);
@@ -333,6 +342,58 @@ const AdminUserDetail: Component = () => {
                 </div>
 
                 <UserSubscriptionPanel userId={params.id} onChanged={() => refetch()} />
+
+                {/* ─── Activity (comments + forum) + public member page ─── */}
+                <div class="user-detail__panel user-detail__panel--activity">
+                    <h2 class="user-detail__panel-title">Activity</h2>
+                    <Show when={discussionsOn()}>
+                        <div class="user-detail__info-grid">
+                            <div class="user-detail__info-item">
+                                <span class="user-detail__info-label">Total posts</span>
+                                <span class="user-detail__info-value">{(memberProfile()?.activity.total ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div class="user-detail__info-item">
+                                <span class="user-detail__info-label">Comments</span>
+                                <span class="user-detail__info-value">{(memberProfile()?.activity.comments ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div class="user-detail__info-item">
+                                <span class="user-detail__info-label">Forum threads</span>
+                                <span class="user-detail__info-value">{(memberProfile()?.activity.forumThreads ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div class="user-detail__info-item">
+                                <span class="user-detail__info-label">Forum replies</span>
+                                <span class="user-detail__info-value">{(memberProfile()?.activity.forumReplies ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div class="user-detail__info-item">
+                                <span class="user-detail__info-label">Last active</span>
+                                <span class="user-detail__info-value">{formatDate(memberProfile()?.activity.lastActiveAt ?? undefined,)}</span>
+                            </div>
+                        </div>
+                    </Show>
+                    <div class="user-detail__info-grid">
+                        <div class="user-detail__info-item">
+                            <span class="user-detail__info-label">Member page</span>
+                            <span class="user-detail__info-value">
+                                <Show when={user()?.handle} fallback={'No handle yet (assigned on their next sign-in)'}>
+                                    <a href={`/members/${user()!.handle}`} target="_blank" rel="noopener">/members/{user()!.handle}</a>
+                                    <Show when={user()?.profilePublic === false}> (hidden by the member)</Show>
+                                </Show>
+                            </span>
+                        </div>
+                    </div>
+                    <Show when={discussionsOn()}>
+                        <div class="user-detail__activity-links">
+                            <Show when={user()?.handle}>
+                                <a class="ui-button ui-button--sm ui-button--secondary" href={`/members/${user()!.handle}?tab=comments`} target="_blank" rel="noopener">
+                                    Public comments
+                                </a>
+                            </Show>
+                            <A class="ui-button ui-button--sm ui-button--secondary" href={`/admin/comments?authorId=${params.id}`}>
+                                Moderate their comments
+                            </A>
+                        </div>
+                    </Show>
+                </div>
 
                 {/* ─── Actions Panel ─── */}
                 <div class="user-detail__panel user-detail__panel--actions">

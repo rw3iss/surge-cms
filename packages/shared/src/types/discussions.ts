@@ -5,7 +5,7 @@
  * a forum thread, or any entity type later. Replies nest via `parentId`. A
  * forum thread's opening post and its replies are comments too, so editing,
  * reactions, moderation and activity counts are one implementation.
- * Plan: docs/plans/2026-10-10-comments-and-forum.md
+ * Plan: docs/plans/completed/2026-10-10-comments-and-forum.md
  */
 
 /** visible · pending (awaiting approval) · hidden (moderated) · deleted (soft). */

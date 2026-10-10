@@ -91,6 +91,11 @@ export const CACHE_KEYS = {
     // rendition becomes ready or the video is re-packaged/deleted.
     videoMaster: (mediaId: string, variant: 'full' | 'teaser',) => `video:master:${mediaId}:${variant}`,
     videoMasterPrefix: (mediaId: string,) => `video:master:${mediaId}:*`,
+
+    // Discussions discovery (latest / hot / top comment + thread lists), the
+    // ANONYMOUS result only. 5 min; dropped on any comment write / moderation.
+    discussionFeed: (hash: string,) => `discussions:feed:${hash}`,
+    discussionFeedPrefix: 'discussions:feed:*',
 } as const;
 
 let redis: Redis | null = null;
@@ -264,6 +269,11 @@ export async function invalidateMediaConsumersCache(): Promise<void> {
 /** A subscription tier changed: drop the cached Stripe price/description catalogue. */
 export async function invalidateMembershipCache(): Promise<void> {
     await del(CACHE_KEYS.membershipStripePrices,);
+}
+
+/** A comment / thread changed: drop every cached anonymous discovery list. */
+export async function invalidateDiscussionFeedCache(): Promise<void> {
+    await delPattern(CACHE_KEYS.discussionFeedPrefix,);
 }
 
 /** A video's renditions changed: drop its cached master playlists. */
@@ -495,6 +505,7 @@ export const cache = {
     invalidateMediaConsumersCache,
     invalidateVideoCache,
     invalidateMembershipCache,
+    invalidateDiscussionFeedCache,
     invalidateFormCache,
     invalidateUserCache,
     invalidateMailingListsCache,

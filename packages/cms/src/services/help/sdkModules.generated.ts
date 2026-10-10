@@ -291,6 +291,43 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "comments",
+        "className": "CommentsModule",
+        "summary": "/comments — the Comments feature: an item's switches (Enable commenting, Allow anonymous, Lock) and the feature settings. Comment CRUD itself is `cms.discussions`. 404s when the feature is off.",
+        "methods": [
+            {
+                "name": "hot",
+                "signature": "hot(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {}): Promise<Paginated<DiscussionCommentItem>>",
+                "summary": "Hottest comments (default window 7d). Shortcut over `cms.discussions.query`."
+            },
+            {
+                "name": "latest",
+                "signature": "latest(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {}): Promise<Paginated<DiscussionCommentItem>>",
+                "summary": "Newest comments site-wide (or on `targetType` / `targetId`). Shortcut over `cms.discussions.query`."
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<CommentsSettings>",
+                "summary": ""
+            },
+            {
+                "name": "thread",
+                "signature": "thread(targetType: string, targetId: string): Promise<CommentThreadSettings>",
+                "summary": "An item's switches + comment count (`targetType` = `post` | `event`)."
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: CommentsSettingsBody): Promise<CommentsSettings>",
+                "summary": ""
+            },
+            {
+                "name": "updateThread",
+                "signature": "updateThread(targetType: string, targetId: string, body: CommentsThreadUpdateBody): Promise<CommentThreadSettings>",
+                "summary": ""
+            }
+        ]
+    },
+    {
         "namespace": "components",
         "className": "ComponentsModule",
         "summary": "",
@@ -474,6 +511,93 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "listCrons",
                 "signature": "listCrons(): Promise<DevCronListResponse>",
                 "summary": "GET /dev/crons — all registered cron jobs."
+            }
+        ]
+    },
+    {
+        "namespace": "discussions",
+        "className": "DiscussionsModule",
+        "summary": "/discussions — the comment engine behind Comments AND the Forum: comments on any item (`post:<id>`, `event:<id>`, `forum_thread:<id>`), reactions, reports, moderation. 404s when neither feature is on.",
+        "methods": [
+            {
+                "name": "create",
+                "signature": "create(body: DiscussionsCommentCreateBody): Promise<Comment>",
+                "summary": "Post a comment/reply. Anonymous only where the item allows it (pass guestName)."
+            },
+            {
+                "name": "history",
+                "signature": "history(id: string): Promise<DiscussionsHistoryResponse>",
+                "summary": "Edit history (moderators)."
+            },
+            {
+                "name": "hot",
+                "signature": "hot(q: Omit<DiscussionQuery, 'sort'> = {}): Promise<Paginated<DiscussionItem>>",
+                "summary": "Hottest comments + threads — activity weighted by age (default window 7d)."
+            },
+            {
+                "name": "latest",
+                "signature": "latest(q: Omit<DiscussionQuery, 'sort'> = {}): Promise<Paginated<DiscussionItem>>",
+                "summary": "Newest comments + threads (`kind` narrows)."
+            },
+            {
+                "name": "list",
+                "signature": "list(target: CommentTargetRef, query: Omit<DiscussionsCommentsQuery, 'target'> = {}): Promise<Paginated<Comment>>",
+                "summary": "Top-level comments (paged) with nested `replies`. Never cached: per-viewer."
+            },
+            {
+                "name": "moderation.act",
+                "signature": "moderation.act(id: string, action: DiscussionsModerationAction): Promise<DiscussionsModerationActResponse>",
+                "summary": ""
+            },
+            {
+                "name": "moderation.bulk",
+                "signature": "moderation.bulk(ids: string[], action: DiscussionsModerationAction): Promise<DiscussionsModerationBulkResponse>",
+                "summary": ""
+            },
+            {
+                "name": "moderation.counts",
+                "signature": "moderation.counts(scope?: 'all' | 'comments' | 'forum'): Promise<DiscussionsModerationCountsResponse>",
+                "summary": ""
+            },
+            {
+                "name": "moderation.list",
+                "signature": "moderation.list(query: DiscussionsModerationQuery = {}): Promise<Paginated<ModerationItem>>",
+                "summary": ""
+            },
+            {
+                "name": "query",
+                "signature": "query(q: DiscussionQuery = {}): Promise<Paginated<DiscussionItem>>",
+                "summary": "Discovery: latest / hot / top comments and forum threads, filtered to what the caller may read. `kind` = comment | thread | both (default); `window` = 24h | 7d | 30d | all. Items are a union on `kind`."
+            },
+            {
+                "name": "react",
+                "signature": "react(id: string, kind: string): Promise<DiscussionsReactResponse>",
+                "summary": "Toggle one reaction kind."
+            },
+            {
+                "name": "remove",
+                "signature": "remove(id: string): Promise<DiscussionsCommentDeleteResponse>",
+                "summary": ""
+            },
+            {
+                "name": "report",
+                "signature": "report(id: string, reason?: string): Promise<DiscussionsReportResponse>",
+                "summary": ""
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<DiscussionsSettings>",
+                "summary": "Engine settings — reactions, max length, edit window."
+            },
+            {
+                "name": "update",
+                "signature": "update(id: string, body: string): Promise<Comment>",
+                "summary": ""
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: DiscussionsSettingsBody): Promise<DiscussionsSettings>",
+                "summary": ""
             }
         ]
     },
@@ -792,6 +916,93 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "updateQuestion",
                 "signature": "updateQuestion(formId: string, questionId: string, body: FormQuestionUpdateBody): Promise<FormQuestionUpdateResponse>",
+                "summary": ""
+            }
+        ]
+    },
+    {
+        "namespace": "forum",
+        "className": "ForumModule",
+        "summary": "/forum — categories, threads and the forum settings. A thread's replies are comments: read/write them with `cms.discussions.list('forum_thread:<id>')` / `cms.discussions.create({ target: 'forum_thread:<id>', … })`. 404s when the forum feature is off.",
+        "methods": [
+            {
+                "name": "categories.create",
+                "signature": "categories.create(body: ForumCategoryBody): Promise<ForumCategory>",
+                "summary": ""
+            },
+            {
+                "name": "categories.list",
+                "signature": "categories.list(): Promise<ForumCategory[]>",
+                "summary": "Categories the caller may read (counts + latest thread)."
+            },
+            {
+                "name": "categories.remove",
+                "signature": "categories.remove(id: string): Promise<{ deleted: true; }>",
+                "summary": ""
+            },
+            {
+                "name": "categories.reorder",
+                "signature": "categories.reorder(ids: string[]): Promise<{ reordered: true; }>",
+                "summary": ""
+            },
+            {
+                "name": "categories.threads",
+                "signature": "categories.threads(slug: string, query: { page?: number; limit?: number; } = {}): Promise<{ data: ForumCategoryThreadsResponse; meta: PageMeta; }>",
+                "summary": "One category's threads (pinned first, then by last activity)."
+            },
+            {
+                "name": "categories.update",
+                "signature": "categories.update(id: string, body: Partial<ForumCategoryBody>): Promise<ForumCategory>",
+                "summary": ""
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<ForumSettings>",
+                "summary": ""
+            },
+            {
+                "name": "threads.act",
+                "signature": "threads.act(id: string, action: ForumThreadAction): Promise<ForumThreadActResponse>",
+                "summary": ""
+            },
+            {
+                "name": "threads.adminList",
+                "signature": "threads.adminList(query: ForumAdminThreadsQuery = {}): Promise<Paginated<ForumThread>>",
+                "summary": "Every thread (moderators)."
+            },
+            {
+                "name": "threads.byId",
+                "signature": "threads.byId(id: string): Promise<ForumThreadDetail>",
+                "summary": ""
+            },
+            {
+                "name": "threads.create",
+                "signature": "threads.create(body: ForumThreadCreateBody): Promise<ForumThreadDetail>",
+                "summary": ""
+            },
+            {
+                "name": "threads.get",
+                "signature": "threads.get(category: string, thread: string): Promise<ForumThreadDetail>",
+                "summary": "The thread page by its URL parts (counts a view)."
+            },
+            {
+                "name": "threads.hot",
+                "signature": "threads.hot(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {}): Promise<Paginated<DiscussionThreadItem>>",
+                "summary": "Hottest threads (default window 7d). Shortcut over `cms.discussions.query`."
+            },
+            {
+                "name": "threads.latest",
+                "signature": "threads.latest(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {}): Promise<Paginated<DiscussionThreadItem>>",
+                "summary": "Newest threads (optionally in one `category`). Shortcut over `cms.discussions.query`."
+            },
+            {
+                "name": "threads.update",
+                "signature": "threads.update(id: string, body: ForumThreadUpdateBody): Promise<ForumThreadDetail>",
+                "summary": ""
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: ForumSettingsBody): Promise<ForumSettings>",
                 "summary": ""
             }
         ]
@@ -1205,6 +1416,23 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "video.updateSettings",
                 "signature": "video.updateSettings(body: SettingsVideoBody): Promise<SettingsVideoResponse>",
                 "summary": "PUT /video/settings — partial patch."
+            }
+        ]
+    },
+    {
+        "namespace": "members",
+        "className": "MembersModule",
+        "summary": "/members — public member pages (`/members/:handle`).",
+        "methods": [
+            {
+                "name": "comments",
+                "signature": "comments(handle: string, query: MembersCommentsQuery = {}): Promise<Paginated<CommentWithTarget>>",
+                "summary": "Their visible comments + forum posts, newest first (gated items left out)."
+            },
+            {
+                "name": "profile",
+                "signature": "profile(handle: string): Promise<MemberProfile>",
+                "summary": "A member's public profile (404 when unknown or hidden)."
             }
         ]
     },
@@ -2663,5 +2891,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 44;
-export const SDK_METHOD_COUNT = 467;
+export const SDK_MODULE_COUNT = 48;
+export const SDK_METHOD_COUNT = 507;

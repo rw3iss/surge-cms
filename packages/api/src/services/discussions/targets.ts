@@ -40,7 +40,7 @@ export interface CommentTarget {
     /** Should a new comment start `pending`? */
     needsApproval?(viewer: Viewer, isGuest: boolean,): Promise<boolean>;
     /** Keep the target's own counters in step — runs inside the write transaction. */
-    onCountChange?(client: PoolClient, targetId: string, delta: number, comment: { isOpening: boolean; createdAt: Date; },): Promise<void>;
+    onCountChange?(client: PoolClient, targetId: string, delta: number, comment: { isOpening: boolean; createdAt: Date; authorId: string | null; },): Promise<void>;
     /** Nightly: recompute the target's counters from the comment rows. */
     reconcile?(): Promise<void>;
 }

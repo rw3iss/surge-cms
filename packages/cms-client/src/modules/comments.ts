@@ -1,4 +1,5 @@
 import type {
+    DiscussionCommentItem, DiscussionQuery, Paginated,
     CommentsSettings, CommentsSettingsBody, CommentsThreadUpdateBody, CommentThreadSettings,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -19,6 +20,20 @@ export class CommentsModule extends ModuleBase {
     updateThread(targetType: string, targetId: string, body: CommentsThreadUpdateBody,): Promise<CommentThreadSettings> {
         return this.mutate('PUT', '/comments/threads/:targetType/:targetId', {
             params: { targetType, targetId, }, body, invalidates: ['comments',],
+        },);
+    }
+
+    /** Newest comments site-wide (or on `targetType` / `targetId`). Shortcut over `cms.discussions.query`. */
+    latest(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {},): Promise<Paginated<DiscussionCommentItem>> {
+        return this.getPaged<DiscussionCommentItem>('/discussions/query', {
+            query: { ...q, kind: 'comment', sort: 'latest', } as Record<string, unknown>,
+        },);
+    }
+
+    /** Hottest comments (default window 7d). Shortcut over `cms.discussions.query`. */
+    hot(q: Omit<DiscussionQuery, 'sort' | 'kind'> = {},): Promise<Paginated<DiscussionCommentItem>> {
+        return this.getPaged<DiscussionCommentItem>('/discussions/query', {
+            query: { ...q, kind: 'comment', sort: 'hot', } as Record<string, unknown>,
         },);
     }
 

@@ -436,3 +436,38 @@
     &--warn { background: #fef3c7; color: #92400e; }
     &--ended { background: #f3f4f6; color: var(--site-text-muted, #6b7280); }
 }
+
+// Public member page section (handle + visibility).
+.profile__member { margin-top: 1.5rem; }
+
+.profile__section-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-family: var(--site-heading-font, inherit);
+    color: var(--site-heading, inherit);
+}
+
+.profile__handle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+
+    .profile__input { flex: 1; }
+}
+
+.profile__handle-prefix {
+    color: var(--site-text-muted, #6b7280);
+    font-weight: 600;
+}
+
+.profile__hint {
+    font-size: 0.8rem;
+    color: var(--site-text-muted, #6b7280);
+    word-break: break-all;
+}
+
+.profile__member-link {
+    align-self: flex-start;
+    color: var(--site-link, var(--site-primary, #e63946));
+    font-weight: 600;
+}

@@ -19,6 +19,7 @@ import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, } from '../../../components/admin/forms';
 import { cms, } from '../../../services/cmsClient';
 import RegistrantsTable from './RegistrantsTable';
+import { CommentSwitchesFields, useCommentSwitches, } from '../../../components/discussions/admin/CommentSwitches';
 import './EventModal.scss';
 
 export interface EventModalProps {
@@ -179,6 +180,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
 
     const canSave = createMemo(() => Boolean(title().trim() && startDate(),));
 
+    // Enable commenting / anonymous / lock (Comments feature) — saved with the event.
+    const commentSwitches = useCommentSwitches('event', () => props.event?.id ?? null,);
+
     const save = async () => {
         if (!canSave() || saving()) return;
         setSaving(true,);
@@ -220,6 +224,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
             const saved = props.event ?
                 await cms.events.update(props.event.id, body,) :
                 await cms.events.create(body,);
+            await commentSwitches.save(saved.id,);
 
             // Tiers are a separate resource; only write them when relevant.
             if (ticketingEnabled()) {
@@ -584,6 +589,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         occurrenceDate={props.event!.startsAt.slice(0, 10,)}
                     />
                 </Show>
+
+                <CommentSwitchesFields ctl={commentSwitches} />
 
                 <FormField label="Status">
                     <select

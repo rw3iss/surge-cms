@@ -12,6 +12,7 @@ import type {
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as discussions from '../services/discussions';
 import * as permissions from '../services/permissions';
+import { query as discoveryQuery, } from '../services/discussions/query';
 
 const TARGET_RE = /^[a-z_][a-z0-9_]*:[0-9a-f-]{36}$/i;
 const target = z.custom<CommentTargetRef>((v,) => typeof v === 'string' && TARGET_RE.test(v,), 'target must be "<type>:<uuid>"',);
@@ -126,8 +127,9 @@ export const discussionsRoutes = [
 
     defineRoute({
         method: 'get', path: '/moderation/counts', auth: 'staff',
-        summary: 'Pending + reported counts (admin badges).',
-        handler: ({ user, },) => discussions.moderation.counts(viewer(user,),),
+        summary: 'Pending + reported counts (admin badges), optionally for comments or the forum only.',
+        input: { query: z.object({ scope: z.enum(['all', 'comments', 'forum',],).optional(), },), },
+        handler: ({ query, user, },) => discussions.moderation.counts(viewer(user,), query.scope,),
     },),
 
     defineRoute({
@@ -160,6 +162,31 @@ export const discussionsRoutes = [
         handler: async ({ body, user, audit, },) => {
             await permissions.requirePermission(viewer(user,), 'discussions:moderate',);
             return discussions.updateSettings(body, audit(),);
+        },
+    },),
+    // ─── Discovery (latest / hot / top) ───
+    defineRoute({
+        method: 'get', path: '/query', auth: 'optional',
+        summary: 'Discovery: latest / hot / top comments and forum threads, filtered to what the viewer may read.',
+        input: {
+            query: z.object({
+                kind: z.enum(['comment', 'thread', 'both',],).optional(),
+                sort: z.enum(['latest', 'hot', 'top',],).optional(),
+                window: z.enum(['24h', '7d', '30d', 'all',],).optional(),
+                targetType: z.string().regex(/^[a-z_][a-z0-9_]*$/,).max(32,).optional(),
+                targetId: z.string().uuid().optional(),
+                category: z.string().max(80,).optional(),
+                author: z.string().max(40,).optional(),
+                thread: z.string().max(160,).optional(),
+                minReactions: z.coerce.number().int().min(0,).optional(),
+                includeReplies: z.enum(['true', 'false',],).transform((v,) => v === 'true',).optional(),
+                page: z.coerce.number().int().min(1,).optional(),
+                limit: z.coerce.number().int().min(1,).max(50,).optional(),
+            },),
+        },
+        handler: async ({ query, user, },) => {
+            const r = await discoveryQuery(query, viewer(user,),);
+            return reply(r.items, { meta: { page: r.page, limit: r.limit, total: r.total, totalPages: Math.ceil(r.total / r.limit,), }, },);
         },
     },),
 ];

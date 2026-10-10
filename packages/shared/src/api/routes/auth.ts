@@ -148,6 +148,12 @@ export interface AuthUpdateProfileBody {
     bio?: string | null;
     locationCity?: string | null;
     locationState?: string | null;
+    /** Member page handle (`/members/:handle`); 409 when taken. */
+    handle?: string;
+    /** Show the public member page. */
+    profilePublic?: boolean;
+    /** Email when someone replies to my comments / forum posts (default true). */
+    replyEmails?: boolean;
     // Contacts (CRM) fields — only meaningful when the `contacts` feature is
     // enabled. They are NOT stored on the users table; the PUT /auth/me handler
     // mirrors them (plus name/city/state) onto the user's linked contact row.

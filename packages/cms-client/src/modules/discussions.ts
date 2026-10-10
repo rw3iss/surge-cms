@@ -2,7 +2,7 @@ import type {
     Comment, CommentTargetRef, DiscussionsCommentCreateBody, DiscussionsCommentDeleteResponse, DiscussionsCommentsQuery,
     DiscussionsHistoryResponse, DiscussionsModerationAction, DiscussionsModerationActResponse,
     DiscussionsModerationBulkResponse, DiscussionsModerationCountsResponse, DiscussionsModerationQuery,
-    DiscussionsReactResponse, DiscussionsReportResponse, DiscussionsSettings, DiscussionsSettingsBody, ModerationItem,
+    DiscussionItem, DiscussionQuery, DiscussionsReactResponse, DiscussionsReportResponse, DiscussionsSettings, DiscussionsSettingsBody, ModerationItem,
     Paginated,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -58,12 +58,31 @@ export class DiscussionsModule extends ModuleBase {
         return this.mutate('PUT', '/discussions/settings', { body, invalidates: ['discussions',], },);
     }
 
+    /**
+     * Discovery: latest / hot / top comments and forum threads, filtered to
+     * what the caller may read. `kind` = comment | thread | both (default);
+     * `window` = 24h | 7d | 30d | all. Items are a union on `kind`.
+     */
+    query(q: DiscussionQuery = {},): Promise<Paginated<DiscussionItem>> {
+        return this.getPaged<DiscussionItem>('/discussions/query', { query: q as Record<string, unknown>, },);
+    }
+
+    /** Newest comments + threads (`kind` narrows). */
+    latest(q: Omit<DiscussionQuery, 'sort'> = {},): Promise<Paginated<DiscussionItem>> {
+        return this.query({ ...q, sort: 'latest', },);
+    }
+
+    /** Hottest comments + threads — activity weighted by age (default window 7d). */
+    hot(q: Omit<DiscussionQuery, 'sort'> = {},): Promise<Paginated<DiscussionItem>> {
+        return this.query({ ...q, sort: 'hot', },);
+    }
+
     /** Moderation (staff): the queue, single + bulk actions, badge counts. */
     readonly moderation = {
         list: (query: DiscussionsModerationQuery = {},): Promise<Paginated<ModerationItem>> =>
             this.getPaged<ModerationItem>('/discussions/moderation', { query: query as Record<string, unknown>, options: { cache: false, }, },),
-        counts: (): Promise<DiscussionsModerationCountsResponse> =>
-            this.get('/discussions/moderation/counts', { options: { cache: false, }, },),
+        counts: (scope?: 'all' | 'comments' | 'forum',): Promise<DiscussionsModerationCountsResponse> =>
+            this.get('/discussions/moderation/counts', { query: scope ? { scope, } : undefined, options: { cache: false, }, },),
         act: (id: string, action: DiscussionsModerationAction,): Promise<DiscussionsModerationActResponse> =>
             this.mutate('POST', '/discussions/moderation/:id/:action', { params: { id, action, }, invalidates: ['discussions',], },),
         bulk: (ids: string[], action: DiscussionsModerationAction,): Promise<DiscussionsModerationBulkResponse> =>

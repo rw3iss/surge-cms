@@ -84,7 +84,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
     // ─── Discussions: comments + forum on one engine ───
     // `discussions` owns the shared data (comments, reactions, reports, activity
     // counters); `comments` attaches it to posts/events, `forum` adds the forum.
-    // Plan: docs/plans/2026-10-10-comments-and-forum.md
+    // Plan: docs/plans/completed/2026-10-10-comments-and-forum.md
     discussions: {
         key: 'discussions',
         label: 'Discussions (engine)',

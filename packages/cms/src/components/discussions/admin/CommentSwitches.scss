@@ -1,0 +1,21 @@
+@use '../../../styles/variables' as *;
+
+// Comments switches in the post editor / event modal.
+.comment-switches {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+
+    &__sub {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding-left: 0.75rem;
+        border-left: 2px solid var(--admin-border);
+    }
+
+    &__count {
+        font-size: $font-size-sm;
+        color: var(--admin-text-muted);
+    }
+}

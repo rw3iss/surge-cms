@@ -10,6 +10,7 @@ type UserDonation = PaymentsDonationsResponse[number];
 import SeoHead from '../components/common/seo/SeoHead';
 import RecurringDonationModal from '../components/profile/RecurringDonationModal';
 import MembershipPanel from '../components/profile/MembershipPanel';
+import Toggle from '../components/ui/Toggle';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { isFeatureEnabled, siteSettings, } from '../stores/siteSettings';
@@ -34,6 +35,13 @@ const Profile: Component = () => {
     const [bio, setBio,] = createSignal('',);
     const [city, setCity,] = createSignal('',);
     const [stateRegion, setStateRegion,] = createSignal('',);
+    // Public member page (/members/:handle): saved on its own — the handle on
+    // blur, visibility on flip — so a taken handle never blocks the main form.
+    const [handleDraft, setHandleDraft,] = createSignal('',);
+    const [handleError, setHandleError,] = createSignal('',);
+    const [handleSaving, setHandleSaving,] = createSignal(false,);
+    const [handleSaved, setHandleSaved,] = createSignal(false,);
+    let handleInput: HTMLInputElement | undefined;
     // Contacts (CRM) fields — only shown/saved when the `contacts` feature is on.
     const [mobilePhone, setMobilePhone,] = createSignal('',);
     const [primaryPhone, setPrimaryPhone,] = createSignal('',);
@@ -122,6 +130,7 @@ const Profile: Component = () => {
             // 'Pennsylvania' → 'PA' so the dropdown selects it; unknown kept raw.
             setStateRegion(normalizeUsState(u.locationState,) ?? (u.locationState ?? ''),);
             setAvatarUrl(u.avatarUrl,);
+            setHandleDraft(u.handle ?? '',);
             setInitialized(true,);
         }
     },);
@@ -193,6 +202,52 @@ const Profile: Component = () => {
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not save your profile.',);
             setStatus('error',);
+        }
+    };
+
+    // Keep the handle box in step with the account (e.g. assigned lazily on
+    // first read) unless the member is typing in it.
+    createEffect(() => {
+        const h = auth.user?.handle ?? '';
+        if (document.activeElement !== handleInput) setHandleDraft(h,);
+    },);
+
+    const commitHandle = async () => {
+        const next = handleDraft().trim().toLowerCase();
+        const cur = (auth.user?.handle ?? '').toLowerCase();
+        setHandleError('',);
+        if (!next) { setHandleDraft(cur,); return; }
+        if (next === cur) { setHandleDraft(cur,); return; }
+        setHandleSaving(true,);
+        try {
+            await cms.auth.updateProfile({ handle: next, },);
+            await auth.refreshUser();
+            setHandleSaved(true,);
+            setTimeout(() => setHandleSaved(false,), 2500,);
+        } catch (err) {
+            setHandleError(err instanceof Error ? err.message : 'Could not change your handle.',);
+        } finally {
+            setHandleSaving(false,);
+        }
+    };
+
+    const setProfilePublic = async (next: boolean,) => {
+        setHandleError('',);
+        try {
+            await cms.auth.updateProfile({ profilePublic: next, },);
+            await auth.refreshUser();
+        } catch (err) {
+            setHandleError(err instanceof Error ? err.message : 'Could not update your member page.',);
+        }
+    };
+
+    const setReplyEmails = async (next: boolean,) => {
+        setHandleError('',);
+        try {
+            await cms.auth.updateProfile({ replyEmails: next, },);
+            await auth.refreshUser();
+        } catch (err) {
+            setHandleError(err instanceof Error ? err.message : 'Could not update your email preference.',);
         }
     };
 
@@ -600,6 +655,55 @@ const Profile: Component = () => {
                                 </Show>
                             </div>
                         </form>
+
+                        {/* ── Public member page (/members/:handle) ── */}
+                        <section class="profile__card profile__member">
+                            <h2 class="profile__section-title">Public member page</h2>
+                            <label class="profile__field">
+                                <span class="profile__label">Handle</span>
+                                <div class="profile__handle">
+                                    <span class="profile__handle-prefix">@</span>
+                                    <input
+                                        ref={handleInput}
+                                        class="profile__input"
+                                        type="text"
+                                        maxLength={40}
+                                        value={handleDraft()}
+                                        disabled={handleSaving()}
+                                        onInput={(ev,) => setHandleDraft(ev.currentTarget.value,)}
+                                        onBlur={() => void commitHandle()}
+                                        onKeyDown={(ev,) => { if (ev.key === 'Enter') { ev.preventDefault(); ev.currentTarget.blur(); } }}
+                                        placeholder="your-name"
+                                        autocomplete="off"
+                                        spellcheck={false}
+                                    />
+                                </div>
+                                <span class="profile__hint">
+                                    {window.location.origin}/members/{handleDraft().trim().toLowerCase() || '…'}
+                                    <Show when={handleSaving()}> · Saving…</Show>
+                                    <Show when={handleSaved()}> · Saved ✓</Show>
+                                </span>
+                            </label>
+                            <Toggle
+                                checked={auth.user?.profilePublic !== false}
+                                onChange={(next,) => void setProfilePublic(next,)}
+                                label="Show my public member page"
+                                hint="When off, the page is hidden and your name on comments is shown without a link."
+                            />
+                            <Show when={isFeatureEnabled('comments',) || isFeatureEnabled('forum',)}>
+                                <Toggle
+                                    checked={auth.user?.replyEmails !== false}
+                                    onChange={(next,) => void setReplyEmails(next,)}
+                                    label="Email me when someone replies to my comments or forum posts"
+                                />
+                            </Show>
+                            <Show when={handleError()}>
+                                <div class="profile__error">{handleError()}</div>
+                            </Show>
+                            <Show when={auth.user?.handle}>
+                                <A class="profile__member-link" href={`/members/${auth.user!.handle}`}>View my public page →</A>
+                            </Show>
+                        </section>
                     </Show>
 
                     {/* ── Membership tab ── */}

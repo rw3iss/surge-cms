@@ -212,3 +212,11 @@
         flex-wrap: wrap;
     }
 }
+
+// Activity panel: comment/forum counts + member page links.
+.user-detail__activity-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}

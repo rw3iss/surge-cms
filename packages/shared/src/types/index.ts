@@ -20,3 +20,4 @@ export * from './postTypes';
 export * from './liveRoom';
 export * from './liveProviders';
 export * from './discussions';
+export * from './forum';

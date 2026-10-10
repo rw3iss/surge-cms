@@ -83,12 +83,14 @@ async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<
                 if (v === undefined && a.kind === 'path') return a.parts.join('.');
                 return v;
             }));
-            let val = await rt.resolve(expr.name, args);
-            // Keyword args (`{{form(id, title=false, columns=2)}}`) attach as
+            // Keyword args (`{{form(id, title=false, columns=2)}}`), evaluated
+            // BEFORE the call: a function whose result depends on them
+            // (`hotThreads(5, window='7d')`) receives them; they also attach as
             // render `options` on an EntityRef result, so the renderer can tweak
-            // the output. Any order; ignored when the result isn't an entity.
-            if (expr.named && isEntityRef(val)) {
-                const options: Record<string, unknown> = { ...(val.options ?? {}) };
+            // the output. Any order.
+            let named: Record<string, unknown> | undefined;
+            if (expr.named) {
+                named = {};
                 for (const key of Object.keys(expr.named)) {
                     const ex = expr.named[key];
                     let v = await evalExpr(ex, scope, rt);
@@ -96,10 +98,11 @@ async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<
                     // isn't a variable becomes its literal name, so `title=Hello`
                     // works unquoted alongside `title='Hello'`.
                     if (v === undefined && ex.kind === 'path') v = ex.parts.join('.');
-                    options[key] = v;
+                    named[key] = v;
                 }
-                val = { ...val, options };
             }
+            let val = await rt.resolve(expr.name, args, named);
+            if (named && isEntityRef(val)) val = { ...val, options: { ...(val.options ?? {}), ...named } };
             for (const p of expr.props) val = getProp(val, p);
             return val;
         }

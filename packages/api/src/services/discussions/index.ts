@@ -2,7 +2,7 @@
  * The discussion engine (hidden `discussions` feature) — comments on any
  * registered target, reactions, reports, moderation, activity counters.
  * Comments (posts/events) and the Forum (threads) register their targets.
- * Plan: docs/plans/2026-10-10-comments-and-forum.md
+ * Plan: docs/plans/completed/2026-10-10-comments-and-forum.md
  */
 import { logger, } from '../../utils/logger';
 import { cronRegistry, } from '../cron';

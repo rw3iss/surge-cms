@@ -6,6 +6,7 @@ import PostVisibilityBadge from '../components/content/PostVisibilityBadge';
 import PostTypeBadge from '../components/content/PostTypeBadge';
 import LiveShow from '../components/live/LiveShow';
 import UpgradeTout from '../components/content/UpgradeTout';
+import CommentsSection from '../components/discussions/CommentsSection';
 import PostContentBlock from '../components/blocks/posts/PostContentBlock';
 import TemplatedContent from '../components/blocks/TemplatedContent';
 import SeoHead from '../components/common/seo/SeoHead';
@@ -13,7 +14,7 @@ import { cms, } from '../services/cmsClient';
 import { contentPaddingStyle, } from '../utils/appearanceStyle';
 import { setActiveHeaderPosition, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
-import { siteLogo, siteName, } from '../stores/siteSettings';
+import { isFeatureEnabled, siteLogo, siteName, } from '../stores/siteSettings';
 import { buildArticle, buildBreadcrumb, stripHtml, truncateText, } from '../utils/schema';
 import './Post.scss';
 
@@ -295,6 +296,12 @@ const PostPage: Component = () => {
                                         requiredTier={postData().gate?.requiredTier}
                                         variant={postData().gate?.sample ? 'continue' : 'locked'}
                                     />
+                                </Show>
+
+                                {/* Comments — only when the feature is on and the reader can see
+                                    the whole post (a locked post's comments are for subscribers). */}
+                                <Show when={isFeatureEnabled('comments',) && !isLocked() && postData().id}>
+                                    <CommentsSection targetType="post" targetId={postData().id} />
                                 </Show>
 
                                 {/* Footer nav row after the article body:

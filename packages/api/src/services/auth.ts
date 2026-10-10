@@ -13,6 +13,7 @@ import { mapRow, } from '../utils/mapRow';
 import { getUsersSettings, } from './settings';
 import { generateVerificationToken, sendVerificationEmail, } from './mail/verification';
 import { notify, } from './notifications';
+import { assignHandle, } from './handles';
 
 interface PatreonTokenResponse {
     access_token: string;
@@ -198,13 +199,23 @@ export async function authenticateWithPatreon(
          updated_at = NOW()
        RETURNING id, email, display_name, avatar_url, role, auth_provider,
                  patreon_id, patreon_tier, is_active, is_banned,
-                 last_login_at, created_at, updated_at`,
+                 handle, profile_public, reply_emails, last_login_at, created_at, updated_at`,
             [email, displayName, avatarUrl, role, patreonId, patreonTier,
              splitFullName(displayName,).firstName || null, splitFullName(displayName,).lastName || null,],
         );
 
         return result.rows[0] as Record<string, unknown>;
     },);
+
+    // A first Patreon login creates the account — give it a member handle.
+    // After the transaction (a unique-violation retry would abort it) and best
+    // effort: a missing handle is assigned lazily on the next /auth/me.
+    if (!userResult.handle) {
+        userResult.handle = await assignHandle(String(userResult.id,), displayName,).catch((err,) => {
+            logger.warn('Could not assign a member handle', { userId: userResult.id, error: (err as Error).message, },);
+            return null;
+        },);
+    }
 
     const user = mapRow<User>(userResult,);
 
@@ -242,7 +253,7 @@ export async function authenticateWithEmail(
     const result = await query(
         `SELECT id, email, password_hash, display_name, avatar_url, role,
             auth_provider, patreon_id, patreon_tier, is_active, is_banned,
-            email_verified, last_login_at, created_at, updated_at
+            email_verified, handle, profile_public, reply_emails, last_login_at, created_at, updated_at
      FROM users WHERE email = $1 AND auth_provider = 'email'`,
         [email,],
     );
@@ -322,7 +333,7 @@ export async function refreshTokens(
         const userResult = await query(
             `SELECT id, email, display_name, avatar_url, role, auth_provider,
               patreon_id, patreon_tier, is_active, is_banned,
-              last_login_at, created_at, updated_at
+              handle, profile_public, reply_emails, last_login_at, created_at, updated_at
        FROM users WHERE id = $1`,
             [decoded.userId,],
         );
@@ -404,6 +415,11 @@ export async function registerMember(
     );
 
     const row = result.rows[0] as { id: string; email: string; };
+    // Public member page handle (/members/:handle), derived from the name.
+    // Best effort — never fail a sign-up over it; /auth/me assigns one lazily.
+    await assignHandle(row.id, name,).catch((err,) =>
+        logger.warn('Could not assign a member handle', { userId: row.id, error: (err as Error).message, },)
+    );
 
     if (requireEmailVerification && token) {
         // Best effort — a mail failure must not roll back the account (the
@@ -471,7 +487,7 @@ export async function verifyEmailToken(token: string,): Promise<User | null> {
           WHERE verification_token = $1 AND email_verified = false
         RETURNING id, email, display_name, avatar_url, role, auth_provider,
                   patreon_id, patreon_tier, is_active, is_banned,
-                  last_login_at, created_at, updated_at`,
+                  handle, profile_public, reply_emails, last_login_at, created_at, updated_at`,
         [token,],
     );
     if (result.rows.length === 0) return null;
@@ -515,7 +531,7 @@ export async function autologinAdmin(
     const result = await query(
         `SELECT id, email, display_name, avatar_url, role, auth_provider,
                 patreon_id, patreon_tier, is_active, is_banned,
-                last_login_at, created_at, updated_at
+                handle, profile_public, reply_emails, last_login_at, created_at, updated_at
          FROM users WHERE role IN ('sysadmin', 'admin') ORDER BY CASE role WHEN 'sysadmin' THEN 0 ELSE 1 END LIMIT 1`,
     );
 

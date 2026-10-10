@@ -41,7 +41,7 @@ export function authenticate(required = true,) {
                 `SELECT id, email, display_name, avatar_url, role, auth_provider,
                 patreon_id, patreon_tier, is_active, is_banned,
                 first_name, last_name, bio, location_city, location_state,
-                last_login_at, created_at, updated_at
+                handle, profile_public, reply_emails, last_login_at, created_at, updated_at
          FROM users WHERE id = $1`,
                 [decoded.userId,],
             );

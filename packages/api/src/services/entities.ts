@@ -80,7 +80,10 @@ export async function list(
     }
     const provider = getEntityDataProvider(typeKey,);
     const { query: plainQ, conditions, } = await splitVirtualFilters(typeKey, q,);
-    const res = provider?.list ? await provider.list(plainQ, opts,) : await repo.list(t, plainQ, { extraWhere: conditions, },);
+    // A provider gets the FULL query, virtual keys included, and interprets
+    // them itself (e.g. the discussion types' sort/window/category knobs);
+    // the generic repo gets them pre-resolved as SQL conditions.
+    const res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, plainQ, { extraWhere: conditions, },);
     // Any record with a `featuredImage` URL gets its media item (title,
     // description, credits) — what `{{post.featuredImage.credits}}` reads.
     await attachFeaturedMedia(res.items,);

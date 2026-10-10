@@ -189,6 +189,23 @@ export async function defaultPurposeHtml(
                 + (pick(ctx, 'submission.url',) ? button(pick(ctx, 'submission.url',), 'View submission',) : '');
             break;
 
+        case 'comment_reply':
+            body = greeting(pick(ctx, 'user.name',),)
+                + P(`<strong>${escapeHtml(pick(ctx, 'reply.authorName',),)}</strong> replied to your comment on <strong>${escapeHtml(pick(ctx, 'item.title',),)}</strong>:`,)
+                // reply.bodyHtml comes from the safe Markdown renderer (escaped first).
+                + `<div style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e5e7eb;font-size:15px;line-height:1.5;color:#111">${pick(ctx, 'reply.bodyHtml',) || escapeHtml(pick(ctx, 'reply.excerpt',),)}</div>`
+                + (pick(ctx, 'comment.excerpt',) ? MUTED(`Your comment: “${escapeHtml(pick(ctx, 'comment.excerpt',),)}”`,) : '')
+                + (pick(ctx, 'item.url',) ? button(pick(ctx, 'item.url',), 'View the reply',) : '');
+            break;
+
+        case 'forum_reply':
+            body = greeting(pick(ctx, 'user.name',),)
+                + P(`<strong>${escapeHtml(pick(ctx, 'reply.authorName',),)}</strong> replied in <strong>${escapeHtml(pick(ctx, 'thread.title',),)}</strong>:`,)
+                // reply.bodyHtml comes from the safe Markdown renderer (escaped first).
+                + `<div style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e5e7eb;font-size:15px;line-height:1.5;color:#111">${pick(ctx, 'reply.bodyHtml',) || escapeHtml(pick(ctx, 'reply.excerpt',),)}</div>`
+                + (pick(ctx, 'thread.url',) ? button(pick(ctx, 'thread.url',), 'View the reply',) : '');
+            break;
+
         case 'contact_message_admin':
             body = H('New contact message',)
                 + P(`<strong>${escapeHtml(pick(ctx, 'message.name',),)}</strong> &lt;${escapeHtml(pick(ctx, 'message.email',),)}&gt;`,)

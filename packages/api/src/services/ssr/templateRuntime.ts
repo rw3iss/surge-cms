@@ -14,6 +14,9 @@
  * only the SSR-specific serializer + the collections/counts/`user` resolvers.
  */
 import {
+    DISCUSSION_LIST_KIND,
+    type DiscussionItem,
+    FORUM_THREAD_KIND,
     buildSiteVariables,
     entityRef,
     hasTemplateSyntax,
@@ -26,6 +29,7 @@ import * as entityManager from '../../entities/entityManager';
 import { config, } from '../../config';
 import { getPublicSettings, } from '../settings';
 import { escapeHtml, } from './blocks/_util';
+import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import {
     type AsyncMemo,
     buildBackendRuntime,
@@ -102,6 +106,11 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
         }
         case 'user':
             return escapeHtml(String((data.displayName ?? data.name) ?? '',),);
+        // Discovery lists / one forum thread — plain indexable links.
+        case DISCUSSION_LIST_KIND:
+            return discussionListHtml(data as unknown as DiscussionItem[],);
+        case FORUM_THREAD_KIND:
+            return forumThreadHtml(data,);
         default: {
             // Generic entity (custom type, no bespoke serializer): emit a title
             // + a short indexable field dump so crawlers see real words.

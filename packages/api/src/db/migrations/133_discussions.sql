@@ -3,7 +3,7 @@
 -- The discussion engine behind Comments and the Forum (hidden base feature).
 -- A comment belongs to a TARGET (target_type + target_id): a post, an event,
 -- a forum thread, or any entity type later. Replies nest via parent_id.
--- Plan: docs/plans/2026-10-10-comments-and-forum.md
+-- Plan: docs/plans/completed/2026-10-10-comments-and-forum.md
 CREATE TABLE IF NOT EXISTS comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     target_type VARCHAR(32) NOT NULL,

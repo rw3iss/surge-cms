@@ -7,7 +7,10 @@
  * entity resolves to an EntityRef with `data: null`, so downstream property
  * access is simply ignored (with a console warning).
  */
-import { resolveValueFunction, UNRESOLVED, } from '@sitesurge/types';
+import {
+    commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, FORUM_THREAD_KIND,
+    resolveValueFunction, UNRESOLVED,
+} from '@sitesurge/types';
 import { cms, } from '../cmsClient';
 import { entityRef, type TemplateRuntime, } from './index';
 
@@ -136,12 +139,51 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
 
     const s = (v: unknown): string => (v == null ? '' : String(v));
 
-    const resolve = async (name: string, args: unknown[]): Promise<unknown> => {
+    const resolve = async (name: string, args: unknown[], named?: Record<string, unknown>): Promise<unknown> => {
         // Shared value/utility functions (upper, formatDate, default, now, …).
         const vf = resolveValueFunction(name, args);
         if (vf !== UNRESOLVED) return vf;
 
+        // ── discovery over comments + forum threads ── latestComments(5),
+        // hotThreads(5, window='7d', category='general'), discussions(sort=…).
+        // Filtered server-side to what THIS viewer may read. Feature off → [].
+        const dq = discussionQueryFor(name, args, named);
+        if (dq) {
+            const items = await memo(`disc:${JSON.stringify(dq)}`, async () => {
+                try {
+                    return (await cms.discussions.query(dq)).data ?? [];
+                } catch {
+                    return [] as DiscussionItem[];
+                }
+            });
+            return entityRef(DISCUSSION_LIST_KIND, items as unknown as Record<string, unknown>);
+        }
+
         switch (name) {
+            case 'commentCount': {
+                const t = commentCountTarget(args, named);
+                if (!t) return 0;
+                return memo(`commentCount:${t.type}:${t.id}`, async () => {
+                    try {
+                        return (await cms.comments.thread(t.type, t.id)).commentCount;
+                    } catch {
+                        return 0;
+                    }
+                });
+            }
+            case 'forumThread': {
+                const ref = s(args[0]).trim();
+                if (!ref) return entityRef(FORUM_THREAD_KIND, null);
+                const item = await memo(`forumThread:${ref}`, async () => {
+                    try {
+                        return (await cms.discussions.query({ thread: ref, kind: 'thread', limit: 1 })).data?.[0] ?? null;
+                    } catch {
+                        return null;
+                    }
+                });
+                return entityRef(FORUM_THREAD_KIND, item as unknown as Record<string, unknown> | null, ref);
+            }
+
             // ── single entities ──
             case 'post':
             case 'campaign':

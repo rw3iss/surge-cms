@@ -180,11 +180,13 @@ export async function bulk(ids: string[], action: DiscussionsModerationAction, v
     return { updated, };
 }
 
-export async function counts(viewer: Viewer,): Promise<{ pending: number; reported: number; }> {
+export async function counts(viewer: Viewer, scope: 'all' | 'comments' | 'forum' = 'all',): Promise<{ pending: number; reported: number; }> {
     await requireModerator(viewer,);
+    const s = scope === 'forum' ? `AND c.target_type = 'forum_thread'` : scope === 'comments' ? `AND c.target_type <> 'forum_thread'` : '';
     const r = await query<{ pending: number; reported: number; }>(
-        `SELECT (SELECT COUNT(*)::int FROM comments WHERE status = 'pending') AS pending,
-                (SELECT COUNT(DISTINCT comment_id)::int FROM comment_reports WHERE status = 'open') AS reported`,
+        `SELECT (SELECT COUNT(*)::int FROM comments c WHERE c.status = 'pending' ${s}) AS pending,
+                (SELECT COUNT(DISTINCT r.comment_id)::int FROM comment_reports r JOIN comments c ON c.id = r.comment_id
+                  WHERE r.status = 'open' ${s}) AS reported`,
     );
     return r.rows[0] ?? { pending: 0, reported: 0, };
 }

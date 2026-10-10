@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { AppError, ConflictError, } from '../../../core/errors';
 import type { InstallContext, InstallStep, } from './InstallStep';
+import { assignHandle, } from '../../handles';
 
 /**
  * Creates the admin user when the wizard's admin section is enabled. If
@@ -40,6 +41,8 @@ export const adminUserStep: InstallStep = {
             [email.toLowerCase(), hash, displayName ?? 'Admin',],
         );
         ctx.adminId = result.rows[0].id;
+        // Public member page handle. Best effort: the wizard must not fail on it.
+        await assignHandle(result.rows[0].id, displayName ?? 'Admin', ctx.pool as never,).catch(() => {},);
         ctx.scratch.adminEmail = email.toLowerCase();
     },
 

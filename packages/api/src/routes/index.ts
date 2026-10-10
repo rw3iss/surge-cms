@@ -97,7 +97,7 @@ router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: 
 router.use('/events', registerModule('events', eventsRoutes, { mountPath: '/api/v1/events', feature: 'events', },),);
 // Discussions: the engine (comment CRUD/moderation, used by Comments AND the
 // Forum), the Comments feature's per-item switches, the Forum, and the core
-// public member pages. Plan: docs/plans/2026-10-10-comments-and-forum.md
+// public member pages. Plan: docs/plans/completed/2026-10-10-comments-and-forum.md
 router.use('/discussions', registerModule('discussions', discussionsRoutes, { mountPath: '/api/v1/discussions', feature: 'discussions', },),);
 router.use('/comments', registerModule('comments', commentsRoutes, { mountPath: '/api/v1/comments', feature: 'comments', },),);
 router.use('/forum', registerModule('forum', forumRoutes, { mountPath: '/api/v1/forum', feature: 'forum', },),);
