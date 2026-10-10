@@ -11,6 +11,10 @@ import { campaignsRoutes, } from './campaigns';
 import { connectionsRoutes, } from './connections';
 import { contactsRoutes, } from './contacts';
 import { eventsRoutes, } from './events';
+import { discussionsRoutes, } from './discussions';
+import { commentsRoutes, } from './comments';
+import { forumRoutes, } from './forum';
+import { membersRoutes, } from './members';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
 import { componentsRoutes, } from './components';
@@ -91,5 +95,12 @@ router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/a
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 // `feature: 'events'` makes every route here 404 while the module is disabled.
 router.use('/events', registerModule('events', eventsRoutes, { mountPath: '/api/v1/events', feature: 'events', },),);
+// Discussions: the engine (comment CRUD/moderation, used by Comments AND the
+// Forum), the Comments feature's per-item switches, the Forum, and the core
+// public member pages. Plan: docs/plans/2026-10-10-comments-and-forum.md
+router.use('/discussions', registerModule('discussions', discussionsRoutes, { mountPath: '/api/v1/discussions', feature: 'discussions', },),);
+router.use('/comments', registerModule('comments', commentsRoutes, { mountPath: '/api/v1/comments', feature: 'comments', },),);
+router.use('/forum', registerModule('forum', forumRoutes, { mountPath: '/api/v1/forum', feature: 'forum', },),);
+router.use('/members', registerModule('members', membersRoutes, { mountPath: '/api/v1/members', },),);
 
 export default router;

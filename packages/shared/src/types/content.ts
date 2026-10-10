@@ -582,6 +582,12 @@ export interface SiteFeatures {
      * Disabled by default.
      */
     video: { enabled: boolean; };
+    /** Hidden base feature: the shared engine behind Comments and the Forum. */
+    discussions: { enabled: boolean; };
+    /** Comments on posts and events (per item: Enable commenting). Requires `users`. */
+    comments: { enabled: boolean; };
+    /** A members' forum (/forum + admin Forum section). Requires `users`. */
+    forum: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */

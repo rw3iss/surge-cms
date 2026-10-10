@@ -14,6 +14,8 @@ import type { PermissionRegistration, } from './index';
 /** Roles that can already reach the admin's content screens. */
 const STAFF = ['editor', 'admin', 'sysadmin',];
 const ADMIN = ['admin', 'sysadmin',];
+/** Every signed-in role: built-ins + anything whose base role is `member`. */
+const MEMBERS = ['member', 'editor', 'admin', 'sysadmin',];
 
 /** Always registered, regardless of which features are on. */
 export const CORE_PERMISSIONS: PermissionRegistration[] = [
@@ -285,6 +287,41 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
     social: [
         { key: 'social:read', feature: 'social', label: 'View social posts', action: 'read', defaultRoles: STAFF, },
         { key: 'social:write', feature: 'social', label: 'Compose and manage social posts', action: 'write', defaultRoles: STAFF, },
+    ],
+    // ─── Discussions (Comments + Forum) ───
+    // Member-level defaults use MEMBERS: a custom role (e.g. `subscriber`)
+    // inherits them through its base role.
+    discussions: [
+        { key: 'discussions:react', feature: 'discussions', label: 'React to comments and forum posts', action: 'write', defaultRoles: MEMBERS, },
+        { key: 'discussions:report', feature: 'discussions', label: 'Report comments and forum posts', action: 'write', defaultRoles: MEMBERS, },
+        // Engine-level (not per feature) so they work with only the Forum on.
+        { key: 'discussions:edit_own', feature: 'discussions', label: 'Edit own comments and forum posts', action: 'write', defaultRoles: MEMBERS, },
+        { key: 'discussions:delete_own', feature: 'discussions', label: 'Delete own comments and forum posts', action: 'delete', defaultRoles: MEMBERS, },
+        {
+            key: 'discussions:moderate', feature: 'discussions', label: 'Moderate comments and forum posts',
+            description: 'Approve, hide, edit or delete anyone\'s comments and forum posts; resolve reports.',
+            action: 'write', defaultRoles: STAFF,
+        },
+    ],
+    comments: [
+        { key: 'comments:write', feature: 'comments', label: 'Post comments', description: 'Where an item has commenting enabled.', action: 'write', defaultRoles: MEMBERS, },
+        {
+            key: 'comments:anonymous', feature: 'comments', label: 'Comment without an account',
+            description: 'Only where the item allows anonymous comments.',
+            action: 'write', defaultAccess: 'everyone',
+        },
+        { key: 'comments:manage', feature: 'comments', label: 'Manage comment settings', description: 'Per-item commenting switches and the Comments settings page.', action: 'admin', defaultRoles: STAFF, },
+    ],
+    forum: [
+        {
+            key: 'forum:read', feature: 'forum', label: 'Read the forum',
+            description: 'Narrowed further by the forum settings and per-category tiers.',
+            action: 'read', defaultAccess: 'everyone',
+        },
+        { key: 'forum:thread_create', feature: 'forum', label: 'Start forum threads', action: 'write', defaultRoles: MEMBERS, },
+        { key: 'forum:reply', feature: 'forum', label: 'Reply in the forum', action: 'write', defaultRoles: MEMBERS, },
+        { key: 'forum:moderate', feature: 'forum', label: 'Moderate the forum', description: 'Pin, lock, move, hide and delete threads.', action: 'write', defaultRoles: STAFF, },
+        { key: 'forum:manage', feature: 'forum', label: 'Manage the forum', description: 'Categories and forum settings.', action: 'admin', defaultRoles: ADMIN, },
     ],
     wiki: [
         {

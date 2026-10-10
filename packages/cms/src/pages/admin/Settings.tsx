@@ -1798,7 +1798,7 @@ const AdminSettings: Component = () => {
                                     Enable or disable site modules. Disabling a module hides its admin sidebar
                                     link and stops surfacing related public links. Existing data is preserved.
                                 </p>
-                                <For each={FEATURES.filter((f,) => f.key !== 'patreon',)}>
+                                <For each={FEATURES.filter((f,) => f.key !== 'patreon' && !f.hidden,)}>
                                     {(f,) => (
                                         <FeatureToggleRow
                                             featureKey={f.key}

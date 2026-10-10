@@ -163,6 +163,13 @@ async function bootRunningMode(
         } catch (err) {
             logger.warn('Video crons not registered', { error: err, },);
         }
+        // Comment/forum counter reconcile. No-op when discussions is off.
+        try {
+            const { initDiscussionsCron, } = await import('./services/discussions/index.js');
+            initDiscussionsCron();
+        } catch (err) {
+            logger.warn('Discussions cron not registered', { error: err, },);
+        }
         // Live-show recordings the host never finished (complete or abort).
         try {
             const { initLiveRecordingCron, } = await import('./services/liveRecordings.js');

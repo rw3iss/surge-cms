@@ -1,3 +1,4 @@
+import type { FeatureKey, } from '../../config/features';
 import { A, useLocation, useNavigate, } from '@solidjs/router';
 import { isAdminRole, isStaffRole, type AppearanceSettings, } from '@sitesurge/types';
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, ParentComponent, Show, } from 'solid-js';
@@ -66,7 +67,7 @@ interface NavItem {
      * without a feature (Dashboard, Pages, Media, Users, Settings)
      * always render — they're core CMS surfaces.
      */
-    feature?: 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events';
+    feature?: Exclude<FeatureKey, 'patreon' | 'discussions'>;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -77,6 +78,9 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     // Events sits with the other content-authoring areas, after Forms.
     { path: '/admin/events', label: 'Events', icon: 'campaigns', feature: 'events', },
+    // Discussions: the comment moderation queue + the forum's own section.
+    { path: '/admin/comments', label: 'Comments', icon: 'messages', feature: 'comments', },
+    { path: '/admin/forum', label: 'Forum', icon: 'messages', feature: 'forum', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     // Wiki sits directly above Users, per the module's design.
     { path: '/admin/wiki', label: 'Wiki', icon: 'pages', feature: 'wiki', },

@@ -216,6 +216,9 @@ export async function computePublicFeatures(
         plugins: { enabled: featureOn('plugins',), },
         contacts: { enabled: featureOn('contacts',), },
         events: { enabled: featureOn('events',), },
+        discussions: { enabled: featureOn('discussions',), },
+        comments: { enabled: featureOn('comments',), },
+        forum: { enabled: featureOn('forum',), },
     };
 }
 

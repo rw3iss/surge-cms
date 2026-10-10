@@ -9,13 +9,16 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum';
 
 export interface FeatureConfig {
     key: FeatureKey;
     label: string;
     description?: string;
     requires?: FeatureKey[];
+    /** A base feature (enabled automatically as a prerequisite) — not listed
+     *  in Settings → Features or the dashboard. */
+    hidden?: boolean;
 }
 
 export const FEATURES: FeatureConfig[] = [
@@ -36,6 +39,9 @@ export const FEATURES: FeatureConfig[] = [
     { key: 'plugins',       label: 'Plugins',       description: 'Install and manage external plugins & extensions.', },
     { key: 'contacts',      label: 'Contacts (CRM)', description: 'Manage contacts/leads separate from users; link them on sign-up.', requires: ['users',], },
     { key: 'events',        label: 'Events & Calendar', description: 'Publish events on a calendar, with a public /events page and subscriber notifications.', requires: ['users',], },
+    { key: 'discussions',   label: 'Discussions (engine)', description: 'Shared engine for Comments and the Forum.', requires: ['users',], hidden: true, },
+    { key: 'comments',      label: 'Comments',      description: 'Comments on posts and events: replies, reactions, editing, moderation; optional anonymous comments.', requires: ['discussions',], },
+    { key: 'forum',         label: 'Forum',         description: 'A members\' forum: categories, threads and replies, with its own admin section and settings.', requires: ['discussions',], },
     { key: 'video',         label: 'Video hosting', description: 'Large video uploads to object storage, adaptive HLS encoding, teasers, private (encrypted) playback.', },
 ];
 

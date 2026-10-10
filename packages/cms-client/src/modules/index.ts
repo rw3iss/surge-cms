@@ -16,6 +16,10 @@ import { AuthModule, } from './auth';
 import { ApiKeysModule, } from './apiKeys';
 import { PermissionsModule, } from './permissions';
 import { WikiModule, } from './wiki';
+import { DiscussionsModule, } from './discussions';
+import { CommentsModule, } from './comments';
+import { ForumModule, } from './forum';
+import { MembersModule, } from './members';
 import { ConnectionsModule, } from './connections';
 import { BlockStylesModule, } from './blockStyles';
 import { FontsModule, } from './fonts';
@@ -59,6 +63,13 @@ export interface CmsModules {
     apiKeys: ApiKeysModule;
     permissions: PermissionsModule;
     wiki: WikiModule;
+    /** Comment engine (Comments + Forum): CRUD, reactions, reports, moderation. */
+    discussions: DiscussionsModule;
+    /** Comments feature: per-item switches + settings. */
+    comments: CommentsModule;
+    forum: ForumModule;
+    /** Public member pages. */
+    members: MembersModule;
     connections: ConnectionsModule;
     blockStyles: BlockStylesModule;
     fonts: FontsModule;
@@ -113,6 +124,10 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.apiKeys = new ApiKeysModule(core,);
     c.permissions = new PermissionsModule(core,);
     c.wiki = new WikiModule(core,);
+    c.discussions = new DiscussionsModule(core,);
+    c.comments = new CommentsModule(core,);
+    c.forum = new ForumModule(core,);
+    c.members = new MembersModule(core,);
     c.connections = new ConnectionsModule(core,);
     c.blockStyles = new BlockStylesModule(core,);
     c.fonts = new FontsModule(core,);

@@ -12,7 +12,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -20,6 +20,10 @@ export interface FeatureConfig {
     description?: string;
     defaultEnabled: boolean;
     requires?: FeatureKey[];
+    /** A base feature other features build on — not listed in Settings →
+     *  Features, and enabled automatically as a prerequisite (the planner
+     *  never asks about it). */
+    hidden?: boolean;
     /** Migration filenames (relative to db/migrations/) to apply on first enable. */
     migrations?: string[];
     /** Tables this feature owns, in CREATION order. Uninstall drops them
@@ -76,6 +80,52 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         // Core-ish module (social_connections / social_posts are base tables),
         // so it defaults ON and is not uninstallable.
         defaultEnabled: true,
+    },
+    // ─── Discussions: comments + forum on one engine ───
+    // `discussions` owns the shared data (comments, reactions, reports, activity
+    // counters); `comments` attaches it to posts/events, `forum` adds the forum.
+    // Plan: docs/plans/2026-10-10-comments-and-forum.md
+    discussions: {
+        key: 'discussions',
+        label: 'Discussions (engine)',
+        description: 'Shared engine for Comments and the Forum: replies, reactions, moderation, activity counts.',
+        defaultEnabled: false,
+        hidden: true,
+        requires: ['users',],
+        migrations: ['133_discussions.sql',],
+        // Reverse-dropped on uninstall, so parents last.
+        tables: ['comments', 'comment_edits', 'comment_reactions', 'comment_reports', 'user_activity',],
+        settingsKeys: ['discussions_settings',],
+    },
+    comments: {
+        key: 'comments',
+        label: 'Comments',
+        description: 'Comments on posts and events: replies, reactions, editing, moderation; optional anonymous comments.',
+        defaultEnabled: false,
+        // Transitively `users` (discussions requires it).
+        requires: ['discussions',],
+        migrations: ['134_comments.sql',],
+        tables: ['comment_threads',],
+        settingsKeys: ['comments_settings',],
+        // Comment ROWS live in the discussions engine; removing the feature
+        // deletes the ones attached to content (forum replies stay).
+        onUninstall: async (client,) => {
+            await client.query(`DELETE FROM comments WHERE target_type <> 'forum_thread'`,).catch(() => {},);
+        },
+    },
+    forum: {
+        key: 'forum',
+        label: 'Forum',
+        description: 'A members\' forum: categories, threads and replies, with its own admin section and settings.',
+        defaultEnabled: false,
+        // Transitively `users` (discussions requires it).
+        requires: ['discussions',],
+        migrations: ['135_forum.sql',],
+        tables: ['forum_categories', 'forum_threads',],
+        settingsKeys: ['forum_settings',],
+        onUninstall: async (client,) => {
+            await client.query(`DELETE FROM comments WHERE target_type = 'forum_thread'`,).catch(() => {},);
+        },
     },
     wiki: {
         key: 'wiki',

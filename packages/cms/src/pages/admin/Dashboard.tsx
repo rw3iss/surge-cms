@@ -20,7 +20,7 @@ import AdminTitle from '../../components/admin/common/AdminTitle';
  * `patreon` is filtered out: it is an auth/integration switch rather than a
  * site module, and Settings groups it separately.
  */
-const DASHBOARD_FEATURES = FEATURES.filter((f,) => f.key !== 'patreon');
+const DASHBOARD_FEATURES = FEATURES.filter((f,) => f.key !== 'patreon' && !f.hidden);
 
 const AdminDashboard: Component = () => {
     const [stats, { refetch: refetchStats, },] = createResource(async () => {

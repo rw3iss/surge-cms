@@ -109,6 +109,16 @@ const MailArchivePage = lazy(() => import('./pages/MailArchive'));
 const MailViewPage = lazy(() => import('./pages/MailView'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminEventSettings = lazy(() => import('./pages/admin/events/EventSettings'));
+// Discussions (docs/plans/2026-10-10-comments-and-forum.md)
+const MemberPage = lazy(() => import('./pages/Member'));
+const ForumIndexPage = lazy(() => import('./pages/forum/ForumIndex'));
+const ForumCategoryPage = lazy(() => import('./pages/forum/ForumCategory'));
+const ForumThreadPage = lazy(() => import('./pages/forum/ForumThread'));
+const AdminComments = lazy(() => import('./pages/admin/comments/CommentsAdmin'));
+const AdminCommentsSettings = lazy(() => import('./pages/admin/comments/CommentsSettings'));
+const AdminForum = lazy(() => import('./pages/admin/forum/ForumAdmin'));
+const AdminForumCategories = lazy(() => import('./pages/admin/forum/ForumCategories'));
+const AdminForumSettings = lazy(() => import('./pages/admin/forum/ForumSettings'));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -165,6 +175,10 @@ const App: Component = () => {
 										<Route path="/events" component={EventsPage} />
 										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/tickets/:code" component={EventTicketPage} />
+										<Route path="/members/:handle" component={MemberPage} />
+										<Route path="/forum" component={ForumIndexPage} />
+										<Route path="/forum/:category" component={ForumCategoryPage} />
+										<Route path="/forum/:category/:thread" component={ForumThreadPage} />
 										{/* Video direct links land here when the viewer can't get the plain file. */}
 										<Route path="/watch/:id" component={WatchPage} />
 										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
@@ -192,6 +206,11 @@ const App: Component = () => {
 										<Route path="/events/new" component={AdminEvents} />
 										<Route path="/events/settings" component={AdminEventSettings} />
 										<Route path="/events/:id" component={AdminEvents} />
+										<Route path="/comments" component={AdminComments} />
+										<Route path="/comments/settings" component={AdminCommentsSettings} />
+										<Route path="/forum" component={AdminForum} />
+										<Route path="/forum/categories" component={AdminForumCategories} />
+										<Route path="/forum/settings" component={AdminForumSettings} />
 										<Route path="/posts/:id/preview" component={AdminPostPreview} />
 										<Route path="/posts/settings" component={AdminPostsSettings} />
 										<Route path="/posts/new" component={AdminPostEditor} />

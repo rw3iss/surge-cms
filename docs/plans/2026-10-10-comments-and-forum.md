@@ -1,6 +1,18 @@
 # Comments + Forum (on one discussion engine) — plan
 
-> **STATUS 2026-10-10 — PLANNED.** Not started.
+> **STATUS 2026-10-10 — IN PROGRESS.** Phase 1 (engine) DONE; phases 2–6 under way.
+>
+> Corrections made while building (the text below is updated to match):
+> - Comment CRUD, reactions, reports and moderation are mounted at **`/api/v1/discussions`**
+>   (gated by the hidden `discussions` feature), not `/api/v1/comments` — otherwise turning
+>   Comments off would also break replying in the Forum. `/api/v1/comments` keeps the per-item
+>   switches + the Comments settings.
+> - "Edit / delete own" are engine permissions (`discussions:edit_own` / `:delete_own`) so they
+>   work with only the Forum on; `comments:edit_own` / `:delete_own` were dropped.
+> - `comments` and `forum` declare `requires: ['discussions']` (users comes through
+>   discussions); the planner enables a hidden prerequisite silently and still checks ITS
+>   prerequisites.
+> - The forum lives at a fixed `/forum` (like `/events` in the SPA router), not a configurable URL.
 
 ## Goal
 
@@ -320,7 +332,7 @@ with a content-block template — no bespoke block needed.
 
 ## Phases
 
-1. **Engine** — `discussions` feature (+ `hidden` flag, planner `enableDependencies` from
+1. **Engine** — **DONE 2026-10-10.** `discussions` feature (+ `hidden` flag, planner `enableDependencies` from
    the client), migrations 132–133, `services/discussions/*`, member handles,
    permissions, DTOs, SDK, cache keys, unit tests (tree building, counters, access,
    rate limits, soft delete rules).
