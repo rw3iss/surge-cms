@@ -787,7 +787,6 @@ const STATIC_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
     '/forgot-password',
     '/reset-password',
     '/mail',
-    '/forum',
 ],);
 
 /**
@@ -812,9 +811,8 @@ const SPA_OWNED_PREFIXES: readonly string[] = [
     '/watch/',
     '/tickets/',
     '/mail/',
-    // Public member pages + the forum (their meta resolvers live in staticMeta).
-    '/members/',
-    '/forum/',
+    // NOT /members/ or /forum/: staticMeta resolves those authoritatively (a
+    // disabled forum, an unknown thread or a hidden member page is a real 404).
 ];
 
 /**
