@@ -26,6 +26,8 @@ export interface SocialPost {
     publishedAt?: string;
     /** Runtime in seconds; absent for providers that don't report one. */
     durationSeconds?: number | null;
+    /** YouTube: `unlisted` for an unlisted video (listed via "Sign in with Google"). */
+    privacyStatus?: 'public' | 'unlisted' | null;
 }
 
 interface SocialPostSelectModalProps {
@@ -203,6 +205,10 @@ const SocialPostSelectModal: Component<SocialPostSelectModalProps> = (props,) =>
                                                     />
                                                 </Show>
                                                 <div class="social-media-grid__caption">
+                                                    {/* YouTube via "Sign in with Google": unlisted videos are listed too. */}
+                                                    <Show when={post.privacyStatus === 'unlisted'}>
+                                                        <span class="badge badge--muted" title="Unlisted on YouTube — playable by anyone with the link">Unlisted</span>{' '}
+                                                    </Show>
                                                     {(post.content || '').substring(0, 80,)}
                                                 </div>
                                                 <div class="social-media-grid__meta">

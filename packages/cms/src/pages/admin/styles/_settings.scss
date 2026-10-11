@@ -325,6 +325,24 @@
     flex-shrink: 0;
   }
 
+  // YouTube "Sign in with Google" block, above the API-key fields.
+  &__google {
+    padding: $spacing-md;
+    margin-bottom: $spacing-md;
+    border: 1px solid var(--admin-border);
+    border-radius: $border-radius-md;
+    background: var(--admin-bg-subtle);
+
+    h4 { margin: 0 0 $spacing-xs; }
+    code { word-break: break-all; }
+  }
+
+  &__subhead {
+    margin: $spacing-sm 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted);
+  }
+
   &__editor {
     padding: $spacing-md $spacing-lg $spacing-lg;
     border-top: 1px solid $border-color;

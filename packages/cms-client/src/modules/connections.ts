@@ -45,6 +45,12 @@ export class ConnectionsModule extends ModuleBase {
         return this.mutate<ConnectionReorderResponse>('PUT', '/connections/:provider/reorder', { params: { provider, }, body, invalidates: ['connections',], },);
     }
 
+    /** DELETE /connections/:provider/oauth — remove only the OAuth sign-in
+     *  (YouTube "Sign in with Google"); the API-key setup, if any, stays. */
+    oauthDisconnect(provider: string,): Promise<{ message: string; }> {
+        return this.mutate<{ message: string; }>('DELETE', '/connections/:provider/oauth', { params: { provider, }, invalidates: ['connections', 'social',], },);
+    }
+
     /** GET /connections/:provider/oauth/authorize — OAuth URL + CSRF state. */
     oauthAuthorize(provider: string,): Promise<ConnectionOAuthAuthorizeResponse> {
         return this.get<ConnectionOAuthAuthorizeResponse>('/connections/:provider/oauth/authorize', { params: { provider, }, },);

@@ -533,6 +533,7 @@ export function mapSocialRow(row: Record<string, any>,): SocialPost {
         publishedAt: row.published_at,
         fetchedAt: row.fetched_at,
         rawData: row.raw_data,
+        privacyStatus: (row.raw_data as { privacyStatus?: string; } | null)?.privacyStatus === 'unlisted' ? 'unlisted' : 'public',
         source: row.source,
         postUrl: row.post_url,
         isHidden: row.is_hidden,

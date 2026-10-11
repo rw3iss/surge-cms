@@ -18,6 +18,7 @@ import { config, } from '../../config';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import type { FetchedPost, } from './types';
+import { authRequest, resolveYouTubeAuth, type YouTubeAuth, } from './youtubeAuth';
 
 /** What kind of thing a YouTube item is, from the operator's point of view. */
 export type YouTubeMediaKind = 'short' | 'live' | 'video';
@@ -196,19 +197,22 @@ export interface YouTubeVideoDetails {
     kind: YouTubeMediaKind;
     /** Runtime in seconds; null for a live broadcast or an unparseable value. */
     durationSeconds: number | null;
+    /** `public` | `unlisted` | `private` (from `status`). */
+    privacyStatus?: string | null;
 }
 
-/** Fetch `contentDetails`/`liveStreamingDetails` for up to 50 ids. */
+/** Fetch `contentDetails`/`liveStreamingDetails` for up to 50 ids (API key, or the signed-in token). */
 async function fetchVideoDetails(
     ids: string[],
-    apiKey: string,
+    auth: string | YouTubeAuth,
 ): Promise<Map<string, YouTubeVideoDetails>> {
     const out = new Map<string, YouTubeVideoDetails>();
     if (ids.length === 0) return out;
 
-    const url = `${API}/videos?key=${apiKey}`
-        + `&part=contentDetails,liveStreamingDetails,snippet&id=${ids.join(',',)}`;
-    const res = await fetch(url,);
+    const a: YouTubeAuth = typeof auth === 'string' ? { mode: 'key', apiKey: auth, channelId: '', } : auth;
+    const req = authRequest(a,);
+    const url = `${API}/videos?part=contentDetails,liveStreamingDetails,snippet,status&id=${ids.join(',',)}${req.query}`;
+    const res = await fetch(url, req.init,);
     if (!res.ok) {
         // Classification is an enhancement; without it everything is a plain
         // video rather than the whole sync failing.
@@ -224,6 +228,7 @@ async function fetchVideoDetails(
             // Already parsed to classify short-vs-video; keeping the number
             // costs nothing and is the only place it is available.
             durationSeconds: parseIsoDuration(v.contentDetails?.duration,),
+            privacyStatus: (v.status?.privacyStatus as string | undefined) ?? null,
         },);
     }
     return out;
@@ -242,6 +247,11 @@ export async function fetchYouTubeVideos(
         ? { maxResults: maxResultsOrOpts, }
         : maxResultsOrOpts;
     const maxResults = Math.min(50, Math.max(1, opts.maxResults ?? 10,),);
+
+    // Signed in with Google → the uploads playlist, which includes UNLISTED
+    // videos (an API key only ever sees public ones).
+    const signedIn = await resolveYouTubeAuth();
+    if (signedIn?.mode === 'oauth') return fetchSignedIn(signedIn, opts, maxResults,);
 
     const creds = await resolveCredentials();
     if (!creds) {
@@ -294,7 +304,7 @@ export async function fetchYouTubeVideos(
                 // Both ride on rawData: the sync's upsert reads the kind from
                 // there already, so the duration follows the same path rather
                 // than adding a second channel for one field.
-                rawData: { ...item, mediaKind: kind, durationSeconds: detail?.durationSeconds ?? null, },
+                rawData: { ...item, mediaKind: kind, durationSeconds: detail?.durationSeconds ?? null, privacyStatus: detail?.privacyStatus ?? 'public', },
             } as FetchedPost;
         },);
 
@@ -302,6 +312,83 @@ export async function fetchYouTubeVideos(
         return opts.kind ? posts.filter((p,) => (p.rawData as any).mediaKind === opts.kind) : posts;
     } catch (error) {
         logger.error('Error fetching YouTube videos', { error, },);
+        return [];
+    }
+}
+
+/** How many uploads a filtered (search / kind) signed-in read scans at most. */
+const SIGNED_IN_SCAN = 200;
+
+/**
+ * Signed-in read: the channel's uploads playlist (`UU…`), newest first. With
+ * the owner's token it lists unlisted AND private uploads; private ones are
+ * dropped (the public cannot play them), unlisted are kept and flagged
+ * `rawData.privacyStatus = 'unlisted'`. The playlist has no text search, so
+ * `search` / `kind` filter here over up to SIGNED_IN_SCAN uploads.
+ */
+async function fetchSignedIn(
+    auth: Extract<YouTubeAuth, { mode: 'oauth'; }>,
+    opts: YouTubeFetchOptions,
+    maxResults: number,
+): Promise<FetchedPost[]> {
+    const req = authRequest(auth,);
+    const playlistId = `UU${auth.channelId.slice(2,)}`;
+    const filtered = Boolean(opts.search || opts.kind,);
+    const scanLimit = filtered ? SIGNED_IN_SCAN : maxResults;
+    const term = opts.search?.trim().toLowerCase();
+    try {
+        const items: Array<Record<string, any>> = [];
+        let page = '';
+        while (items.length < scanLimit) {
+            const res = await fetch(
+                `${API}/playlistItems?part=snippet,status,contentDetails&maxResults=50&playlistId=${playlistId}${page ? `&pageToken=${page}` : ''}${req.query}`,
+                req.init,
+            );
+            if (!res.ok) throw new Error(`YouTube API error: ${res.status} ${res.statusText}`,);
+            const data = await res.json() as { items?: Array<Record<string, any>>; nextPageToken?: string; };
+            for (const it of data.items ?? []) {
+                if (it.status?.privacyStatus === 'private') continue;
+                const sn = it.snippet ?? {};
+                if (term && !`${sn.title ?? ''} ${sn.description ?? ''}`.toLowerCase().includes(term,)) continue;
+                items.push(it,);
+            }
+            if (!data.nextPageToken) break;
+            page = data.nextPageToken;
+        }
+
+        const posts: FetchedPost[] = [];
+        for (let i = 0; i < items.length; i += 50) {
+            const chunk = items.slice(i, i + 50,);
+            const ids = chunk.map((it,) => it.snippet?.resourceId?.videoId as string).filter(Boolean,);
+            const details = await fetchVideoDetails(ids, auth,);
+            for (const it of chunk) {
+                const sn = it.snippet as Record<string, any>;
+                const id = sn?.resourceId?.videoId as string;
+                if (!id) continue;
+                const detail = details.get(id,);
+                const kind = detail?.kind ?? 'video';
+                if (opts.kind && kind !== opts.kind) continue;
+                posts.push({
+                    id,
+                    content: sn?.title as string,
+                    mediaUrl: kind === 'short' ? `https://www.youtube.com/shorts/${id}` : `https://www.youtube.com/watch?v=${id}`,
+                    thumbnailUrl: (sn?.thumbnails?.high?.url ?? sn?.thumbnails?.medium?.url) as string | undefined,
+                    authorName: (sn?.videoOwnerChannelTitle ?? sn?.channelTitle) as string,
+                    // videoPublishedAt is the video's own date; publishedAt is when it entered the playlist.
+                    publishedAt: new Date((it.contentDetails?.videoPublishedAt ?? sn?.publishedAt) as string,),
+                    rawData: {
+                        ...it,
+                        mediaKind: kind,
+                        durationSeconds: detail?.durationSeconds ?? null,
+                        privacyStatus: detail?.privacyStatus ?? it.status?.privacyStatus ?? 'public',
+                    },
+                } as FetchedPost,);
+                if (posts.length >= maxResults) return posts;
+            }
+        }
+        return posts;
+    } catch (error) {
+        logger.error('Error fetching YouTube uploads (signed in)', { error, },);
         return [];
     }
 }

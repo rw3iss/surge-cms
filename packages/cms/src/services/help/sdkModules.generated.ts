@@ -395,6 +395,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /connections/:provider/oauth/authorize — OAuth URL + CSRF state."
             },
             {
+                "name": "oauthDisconnect",
+                "signature": "oauthDisconnect(provider: string): Promise<{ message: string; }>",
+                "summary": "DELETE /connections/:provider/oauth — remove only the OAuth sign-in (YouTube \"Sign in with Google\"); the API-key setup, if any, stays."
+            },
+            {
                 "name": "remove",
                 "signature": "remove(provider: string): Promise<ConnectionDeleteResponse>",
                 "summary": "DELETE /connections/:provider — disconnect (clears issued tokens)."
@@ -2892,4 +2897,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 48;
-export const SDK_METHOD_COUNT = 507;
+export const SDK_METHOD_COUNT = 508;

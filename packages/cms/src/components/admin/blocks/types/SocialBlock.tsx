@@ -541,6 +541,9 @@ const SocialSlotRow: Component<SocialSlotRowProps> = (props,) => {
                                                 <img src={p.thumbnailUrl} alt="" />
                                             </Show>
                                             <span class="social-slot-row__option-text">
+                                                <Show when={p.privacyStatus === 'unlisted'}>
+                                                    <span class="badge badge--muted">Unlisted</span>{' '}
+                                                </Show>
                                                 {(p.content || '(no caption)').substring(0, 100,)}
                                             </span>
                                         </button>

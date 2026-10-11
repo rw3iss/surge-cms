@@ -91,6 +91,42 @@ read-sync path (with media mirrored into local storage for IG/FB, whose CDN URLs
 expire). Compose/cross-post to these is not implemented yet — the Compose tab
 greys them out with a reason.
 
+## YouTube: API key vs "Sign in with Google"
+
+Two ways to connect (Social → Configuration → YouTube):
+
+| | API key | Sign in with Google |
+|---|---|---|
+| Sees | public videos only | public **and unlisted** videos (private ones are skipped) |
+| Needs | a YouTube Data API v3 key + the channel id/handle | a Google OAuth client (id + secret) and one sign-in by the channel or a manager of it |
+| Lasts | until the key is rotated | indefinitely — the server renews the 1 h access token with the refresh token |
+
+Google returns unlisted videos only to the channel itself, never to an API key
+(verified against the live channel: channel stats, uploads playlist and search
+all returned only the public uploads). The client id + secret identify the app;
+they cannot read anything without the sign-in.
+
+**Google Cloud setup** (once): enable *YouTube Data API v3*; create an OAuth
+client of type *Web application* with the Authorized redirect URI
+`https://<site>/api/v1/connections/youtube/oauth/callback`; set the OAuth
+consent screen to **In production** (in *Testing* the sign-in expires after 7
+days). The scope is `youtube.readonly`; an unverified app shows a one-time
+warning that the owner clicks through. For a channel on a **Brand Account**,
+choose that account on Google's account picker.
+
+**How it works:** `services/oauth/google.ts` (sign-in URL with
+`access_type=offline` + `prompt=consent`, code exchange, `channels?mine=true`
+for the channel list); the callback stores `accessToken`, `refreshToken`,
+`oauthChannels`, `channelId` on the connection. `services/social/youtubeAuth.ts`
+renews the access token on demand; a failed renewal records `oauthError`
+(the admin shows it + Reconnect) and the sync falls back to a saved API key.
+Signed in, `fetchYouTubeVideos` reads the uploads playlist (`UU…`) with the token
+instead of `search.list`; text search / kind filters scan the newest 200 uploads.
+Each post carries `privacyStatus` (`unlisted` shows an "Unlisted" tag in the
+pickers). **Disconnect Google** (`DELETE /connections/youtube/oauth`,
+`cms.connections.oauthDisconnect`) revokes the grant and brings the API-key
+fields back.
+
 ## Rendering
 
 The public Social block renders stored posts as `SocialEmbed` cards. Manual and

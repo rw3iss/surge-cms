@@ -147,6 +147,46 @@ const ConnectionsPanel: Component = () => {
 
     const cancelEditing = () => setEditingProvider(null,);
 
+    // ─── YouTube "Sign in with Google" ───
+    /** Signed in with Google (has a refresh token) — the uploads include unlisted videos. */
+    const googleSignedIn = (conn: any,) => Boolean(conn?.credentials?.hasRefreshToken,);
+    const googleChannels = (conn: any,): Array<{ id: string; title: string; handle: string | null; }> =>
+        (conn?.credentials?.oauthChannels as Array<{ id: string; title: string; handle: string | null; }> | undefined) ?? [];
+    const youtubeCallbackUrl = () => `${window.location.origin}/api/v1/connections/youtube/oauth/callback`;
+
+    /** Save the Google client id/secret, then go to Google's sign-in. */
+    const signInWithGoogle = async () => {
+        setConnError('',);
+        const conn = getConnection('youtube',);
+        if (!appId().trim() || (!appSecret().trim() && !conn?.credentials?.hasAppSecret)) {
+            setConnError('Enter the Google OAuth Client ID and Client Secret first.',);
+            return;
+        }
+        try {
+            const credentials: Record<string, unknown> = { appId: appId().trim(), };
+            if (appSecret().trim()) credentials.appSecret = appSecret().trim();
+            if (conn) await cms.connections.update('youtube', { credentials, } as any,);
+            else await cms.connections.upsert({ provider: 'youtube', enabled: true, credentials, } as any,);
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Could not save the Google client',);
+            return;
+        }
+        await handleOAuthConnect('youtube',);
+    };
+
+    const disconnectGoogle = async () => {
+        if (!window.confirm('Remove the Google sign-in? Unlisted videos will no longer sync. A saved API key keeps working for public videos.')) return;
+        setConnError('',);
+        try {
+            await cms.connections.oauthDisconnect('youtube',);
+            setConnSuccess('Google sign-in removed.',);
+            setChannelId('',);
+            refetch();
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Could not remove the sign-in',);
+        }
+    };
+
     const handleSaveConnection = async () => {
         const provider = editingProvider();
         if (!provider) return;
@@ -163,6 +203,11 @@ const ConnectionsPanel: Component = () => {
             if (accessSecret()) credentials.accessSecret = accessSecret();
             if (apiKey()) credentials.apiKey = apiKey();
             if (channelId().trim()) credentials.channelId = channelId().trim();
+            // YouTube: the optional Google OAuth client ("Sign in with Google").
+            if (provider === 'youtube') {
+                if (appId().trim()) credentials.appId = appId().trim();
+                if (appSecret().trim()) credentials.appSecret = appSecret().trim();
+            }
             if (apiSecret()) credentials.apiSecret = apiSecret();
         }
 
@@ -350,10 +395,81 @@ const ConnectionsPanel: Component = () => {
                                                     </select>
                                                 </FormField>
                                             </Show>
+                                            <Show when={provider.id === 'youtube'}>
+                                                <div class="connection-card__google">
+                                                    <Show
+                                                        when={googleSignedIn(conn(),)}
+                                                        fallback={
+                                                            <>
+                                                                <h4>Sign in with Google</h4>
+                                                                <p class="form-help">
+                                                                    An API key sees only public videos. Signing in as the channel (or a manager of it)
+                                                                    also lists its <strong>unlisted</strong> videos. Sign in once — the connection renews itself.
+                                                                </p>
+                                                                <FormField label="Google OAuth Client ID">
+                                                                    <input type="text" value={appId()} onInput={(e,) => setAppId(e.currentTarget.value,)} placeholder="….apps.googleusercontent.com" />
+                                                                </FormField>
+                                                                <FormField label="Google OAuth Client Secret">
+                                                                    <input
+                                                                        type="password"
+                                                                        value={appSecret()}
+                                                                        onInput={(e,) => setAppSecret(e.currentTarget.value,)}
+                                                                        placeholder={conn()?.credentials?.hasAppSecret ? 'Secret saved (enter new to replace)' : 'GOCSPX-…'}
+                                                                    />
+                                                                </FormField>
+                                                                <p class="form-help">
+                                                                    In Google Cloud → Credentials, add this Authorized redirect URI: <code>{youtubeCallbackUrl()}</code>.
+                                                                    Set the OAuth consent screen to "In production", or the sign-in expires after 7 days.
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    class="ui-button ui-button--sm ui-button--primary"
+                                                                    disabled={oauthLoading()}
+                                                                    onClick={() => void signInWithGoogle()}
+                                                                >
+                                                                    {oauthLoading() ? 'Redirecting…' : 'Sign in with Google'}
+                                                                </button>
+                                                            </>
+                                                        }
+                                                    >
+                                                        <div class={`alert ${conn()?.credentials?.oauthError ? 'alert--error' : 'alert--success'}`}>
+                                                            <Show
+                                                                when={conn()?.credentials?.oauthError}
+                                                                fallback={<>Signed in with Google — unlisted videos are included.</>}
+                                                            >
+                                                                The Google sign-in stopped working ({String(conn()?.credentials?.oauthError,)}). Reconnect below;
+                                                                until then a saved API key is used for public videos.
+                                                            </Show>
+                                                        </div>
+                                                        <FormField label="Channel" hint="The channel to sync — one of the channels this Google account can read.">
+                                                            <select
+                                                                value={channelId() || String(conn()?.credentials?.channelId ?? '',)}
+                                                                onChange={(e,) => setChannelId(e.currentTarget.value,)}
+                                                            >
+                                                                <For each={googleChannels(conn(),)}>
+                                                                    {(c,) => <option value={c.id}>{c.title}{c.handle ? ` (${c.handle})` : ''}</option>}
+                                                                </For>
+                                                            </select>
+                                                        </FormField>
+                                                        <div class="u-flex-row" style={{ gap: '0.5rem', 'margin-bottom': '1rem', }}>
+                                                            <button type="button" class="ui-button ui-button--sm ui-button--secondary" disabled={oauthLoading()} onClick={() => void handleOAuthConnect('youtube',)}>
+                                                                {oauthLoading() ? 'Redirecting…' : 'Reconnect'}
+                                                            </button>
+                                                            <button type="button" class="ui-button ui-button--sm ui-button--danger" onClick={() => void disconnectGoogle()}>
+                                                                Disconnect Google
+                                                            </button>
+                                                        </div>
+                                                    </Show>
+                                                </div>
+                                            </Show>
                                             <Show
                                                 when={provider.id === 'twitter'}
                                                 fallback={
+                                                    <Show when={!(provider.id === 'youtube' && googleSignedIn(conn(),))}>
                                                     <>
+                                                        <Show when={provider.id === 'youtube'}>
+                                                            <h4 class="connection-card__subhead">Or use an API key (public videos only)</h4>
+                                                        </Show>
                                                         <SecretField
                                                             label="Access Token"
                                                             value={accessToken}
@@ -397,6 +513,7 @@ const ConnectionsPanel: Component = () => {
                                                             </FormField>
                                                         </Show>
                                                     </>
+                                                    </Show>
                                                 }
                                             >
                                                 {/* X/Twitter OAuth 1.0a — two related pairs, grouped: consumer

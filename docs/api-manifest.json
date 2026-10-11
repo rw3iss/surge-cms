@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-10T07:53:07.447Z",
+  "generatedAt": "2026-10-11T23:58:24.252Z",
   "totalModules": 52,
-  "totalRoutes": 516,
+  "totalRoutes": 517,
   "modules": [
     {
       "module": "admin-channel",
@@ -446,6 +446,13 @@
           "absolutePath": "/api/v1/connections/:provider/oauth/callback",
           "auth": "public",
           "summary": "OAuth provider callback. Persists tokens, then redirects to the Social hub."
+        },
+        {
+          "method": "DELETE",
+          "path": "/:provider/oauth",
+          "absolutePath": "/api/v1/connections/:provider/oauth",
+          "auth": "admin",
+          "summary": "Remove only the OAuth sign-in (YouTube \"Sign in with Google\"); keeps app credentials + any API-key setup."
         },
         {
           "method": "PUT",

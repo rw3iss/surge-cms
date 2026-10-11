@@ -1,4 +1,5 @@
 import { ValidationError, } from '../../core/errors';
+import { GoogleYouTubeOAuthProvider, } from './google';
 import { InstagramOAuthProvider, } from './instagram';
 import type { OAuthProvider, } from './types';
 
@@ -21,6 +22,14 @@ const OAUTH_PROVIDERS: Record<string, OAuthProviderFactory> = {
         new InstagramOAuthProvider({
             appId: credentials.appId,
             appSecret: credentials.appSecret,
+            redirectUri,
+        },),
+    // "Sign in with Google" for the YouTube connection: appId/appSecret hold the
+    // Google OAuth client id/secret. Optional — an API key alone still works.
+    youtube: (credentials, redirectUri,) =>
+        new GoogleYouTubeOAuthProvider({
+            clientId: credentials.appId,
+            clientSecret: credentials.appSecret,
             redirectUri,
         },),
 };

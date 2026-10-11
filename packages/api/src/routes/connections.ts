@@ -101,6 +101,16 @@ export const connectionsRoutes = [
     },),
 
     defineRoute({
+        method: 'delete', path: '/:provider/oauth', auth: 'admin',
+        summary: 'Remove only the OAuth sign-in (YouTube "Sign in with Google"); keeps app credentials + any API-key setup.',
+        input: { params: providerEnumParams, },
+        handler: async ({ params, },) => {
+            await connections.disconnectOAuth(params.provider,);
+            return { message: 'Sign-in removed', };
+        },
+    },),
+
+    defineRoute({
         method: 'put', path: '/:provider/reorder', auth: 'admin',
         summary: 'Move a connection up/down in the manual sort order.',
         input: {

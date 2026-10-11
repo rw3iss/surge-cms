@@ -258,6 +258,8 @@ export interface SocialPost {
      * absent — never a placeholder, since "0:00" reads as a real duration.
      */
     durationSeconds?: number | null;
+    /** YouTube: `unlisted` when the video is unlisted (seen via "Sign in with Google"); `public` otherwise. */
+    privacyStatus?: 'public' | 'unlisted' | null;
 }
 
 export interface Media {

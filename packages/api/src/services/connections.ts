@@ -16,6 +16,7 @@ import { AppError, NotFoundError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { cache, } from './cache';
 import { getOAuthProvider, isOAuthProvider, } from './oauth';
+import { GOOGLE_REVOKE_URL, } from './oauth/google';
 import * as youtube from './social/youtube';
 import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
 import { logger, } from '../utils/logger';
@@ -164,6 +165,13 @@ function hasUsableCredentials(provider: string, creds: Record<string, unknown>,)
 async function resolveYouTubeChannel(
     creds: Record<string, unknown>,
 ): Promise<{ channelId?: string; displayName?: string; accountId?: string; }> {
+    // Signed in with Google: the channel is picked from the account's own
+    // channels — no API lookup needed (and a key may not even be saved).
+    const signedIn = (creds.oauthChannels as Array<{ id: string; title: string; handle: string | null; }> | undefined) ?? [];
+    if (creds.refreshToken && signedIn.length) {
+        const pick = signedIn.find((c,) => c.id === creds.channelId,) ?? signedIn[0];
+        return { channelId: pick.id, displayName: pick.handle || pick.title || undefined, accountId: pick.id, };
+    }
     const apiKey = String(creds.apiKey || config.social.youtube.apiKey || '',).trim();
     const configured = String(creds.channelId || config.social.youtube.channelId || '',).trim();
     if (!apiKey || !configured) return {};
@@ -218,7 +226,10 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
 
     // OAuth providers' connected state is owned by the OAuth callback; for
     // manual providers, having the required credentials means connected.
-    const isConnected = isOAuthProvider(data.provider,)
+    // YouTube works either way — an API key, or "Sign in with Google" (refresh token).
+    const isConnected = data.provider === 'youtube'
+        ? hasUsableCredentials(data.provider, mergedCreds,) || Boolean(mergedCreds.refreshToken,)
+        : isOAuthProvider(data.provider,)
         ? Boolean(existing.rows[0]?.is_connected,)
         : hasUsableCredentials(data.provider, mergedCreds,);
 
@@ -299,6 +310,40 @@ export async function disconnect(provider: string,): Promise<void> {
     await cache.invalidateSocialCache();
 
     logger.info(`Social connection disconnected: ${provider}`,);
+}
+
+/**
+ * Remove ONLY the OAuth sign-in (YouTube "Sign in with Google"), keeping the
+ * app credentials and any API-key setup, which the admin then shows again.
+ * The grant is revoked at Google so the token cannot be reused.
+ */
+export async function disconnectOAuth(provider: string,): Promise<void> {
+    assertValidProvider(provider,);
+    const r = await query<{ credentials: Record<string, unknown> | null; }>(
+        `SELECT credentials FROM social_connections WHERE provider = $1`, [provider,],
+    );
+    if (!r.rows.length) throw new NotFoundError('Connection',);
+    const creds = { ...(r.rows[0].credentials ?? {}), };
+    const token = (creds.refreshToken ?? creds.accessToken) as string | undefined;
+    if (token && provider === 'youtube') {
+        await fetch(`${GOOGLE_REVOKE_URL}?token=${encodeURIComponent(token,)}`, { method: 'POST', },)
+            .catch((e,) => logger.warn('google: revoke failed (removing locally anyway)', { error: (e as Error).message, },));
+    }
+    for (const k of ['accessToken', 'refreshToken', 'tokenExpiresAt', 'oauthChannels', 'oauthError',]) delete creds[k];
+
+    // Back to the API-key setup, if there is one.
+    const resolved = provider === 'youtube' ? await resolveYouTubeChannel(creds,) : {};
+    if (resolved.channelId) creds.channelId = resolved.channelId;
+    const connected = hasUsableCredentials(provider, creds,);
+    await query(
+        `UPDATE social_connections
+            SET credentials = $2::jsonb, is_connected = $3,
+                display_name = $4, account_id = $5, updated_at = NOW()
+          WHERE provider = $1`,
+        [provider, JSON.stringify(creds,), connected, resolved.displayName ?? null, resolved.accountId ?? null,],
+    );
+    await cache.invalidateSocialCache();
+    logger.info(`OAuth sign-in removed: ${provider} (still connected: ${connected})`,);
 }
 
 /**
@@ -485,6 +530,9 @@ export async function completeOAuth(
                 ...credentials,
                 accessToken: tokenResult.accessToken,
                 tokenExpiresAt,
+                // Google (YouTube) issues a refresh token on consent — without it
+                // the connection dies with the 1 h access token.
+                ...(tokenResult.refreshToken ? { refreshToken: tokenResult.refreshToken, } : {}),
             },),
             // connected_by is a UUID FK; the state-carried actor may be a
             // synthetic api-key:<name> — coerce to NULL.
