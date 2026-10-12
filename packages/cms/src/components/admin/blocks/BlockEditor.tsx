@@ -608,10 +608,11 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         emitBlocks(flattenTree(tree,),);
     };
 
-    /** Insert a new empty block immediately before the given one, in the
-     *  same parent list. A blank `rich_text` block is the neutral starting
-     *  point — the operator can edit it or switch its type. */
-    const insertBlockBefore = (id: string,) => {
+    /** Insert a new empty block immediately before (`offset` 0) or after
+     *  (`offset` 1) the given one, in the same parent list. A blank
+     *  `rich_text` block is the neutral starting point — the operator can edit
+     *  it or switch its type. */
+    const insertBlockAt = (id: string, offset: 0 | 1,) => {
         const tree = treeify(props.blocks,);
         const found = findInTree(tree, id,);
         if (!found) return;
@@ -623,10 +624,12 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             data: { ...createBlockDefaultData('rich_text',), },
             children: [],
         };
-        found.parent.splice(found.idx, 0, newBlock,);
+        found.parent.splice(found.idx + offset, 0, newBlock,);
         emitBlocks(flattenTree(tree,),);
         setSelectedBlockId(newBlock.id,);
     };
+    const insertBlockBefore = (id: string,) => insertBlockAt(id, 0,);
+    const insertBlockAfter = (id: string,) => insertBlockAt(id, 1,);
 
     // ─── Copy / paste ─────────────────────────────────────────────────
     // The clipboard is the copied block's full subtree (data + styles +
@@ -991,6 +994,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                                         onMoveToTop={moveBlockToTop}
                                         onMoveToBottom={moveBlockToBottom}
                                         onInsertBefore={insertBlockBefore}
+                                        onInsertAfter={insertBlockAfter}
                                         onDragStart={handleDragStart}
                                         onAddChildBlock={addChildBlock}
                                         onCopyBlock={copyBlock}

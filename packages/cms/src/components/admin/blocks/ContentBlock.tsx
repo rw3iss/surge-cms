@@ -58,6 +58,8 @@ interface ContentBlockProps {
     onMoveToBottom?: (id: string,) => void;
     /** Insert a new empty block immediately before this one (same parent). */
     onInsertBefore?: (id: string,) => void;
+    /** Insert a new empty block immediately after this one (same parent). */
+    onInsertAfter?: (id: string,) => void;
     onDragStart: (e: PointerEvent, id: string,) => void;
     onToggleCollapse?: (id: string,) => void;
     /** Add a child block to a parent (group / group_item). Used by the
@@ -301,6 +303,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                             <button onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Insert Block Before
                             </button>
+                            <button onClick={() => { props.onInsertAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                Insert Block After
+                            </button>
                             <button onClick={() => { props.onCopyBlock?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Copy Block
                             </button>
@@ -458,6 +463,7 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                             onMoveToTop={props.ownProps.onMoveToTop}
                             onMoveToBottom={props.ownProps.onMoveToBottom}
                             onInsertBefore={props.ownProps.onInsertBefore}
+                            onInsertAfter={props.ownProps.onInsertAfter}
                             onDragStart={props.ownProps.onDragStart}
                             onAddChildBlock={props.ownProps.onAddChildBlock}
                             onCopyBlock={props.ownProps.onCopyBlock}
