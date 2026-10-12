@@ -1,6 +1,8 @@
 <style>
 /* Newsletter signup banner — see newsletter-signup-banner.js.
-   A slim full-width bar: lede · email · name (optional) · Sign up · ×.
+   A rounded, translucent bar that FLOATS over the top of the page content
+   (the first hero), just below the site header — it takes no space in the
+   page flow. lede · email · name (optional) · Sign up · ×.
    Hidden until the script decides this visitor should see it (signed up
    already, or dismissed → never painted at all, so there is no flash). */
 
@@ -8,22 +10,39 @@
 .nl-banner.is-shown { display: block; }
 
 .nl-banner {
-  overflow: hidden;
-  background: #111;
+  /* Placed by the script: `top` = just below the header. */
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  z-index: 20; /* above the hero, below the site header (1020) */
+  width: min(1200px, calc(100% - 2 * var(--site-gutter, 16px)));
+  margin: 0 auto;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: rgba(10, 10, 10, .62);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
   color: #fff;
-  /* Collapse animation (script): height → 0 + fade. */
-  transition: height .38s cubic-bezier(.4,0,.2,1), opacity .3s ease, margin .38s ease;
+  transition: background-color .2s ease, opacity .3s ease, transform .3s ease;
 }
+.nl-banner:hover,
+.nl-banner:focus-within { background: rgba(10, 10, 10, .9); }
+
+/* In the admin (page/component editor) it sits in the flow, so the block
+   preview has a real height and nothing floats over the editor chrome. */
+.nl-banner--static { position: relative; top: 0 !important; margin: 8px auto; }
+
+/* Close (script): fade + lift, then hidden. */
+.nl-banner.is-leaving { opacity: 0; transform: translateY(-10px); pointer-events: none; }
 
 .nl-banner__inner {
   position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: var(--site-max-width, 1200px);
-  margin: 0 auto;
-  padding: 12px 56px 12px 20px; /* right: room for the × */
-  box-sizing: border-box;
+  padding: 10px 52px 10px 20px; /* right: room for the × */
 }
 
 .nl-banner__lede {
@@ -86,14 +105,15 @@
   font-weight: 700;
   line-height: 1.35;
 }
-.nl-banner__msg--error { color: #ff8a8a; flex: 0 1 auto; font-weight: 600; font-size: .9rem; }
+.nl-banner__msg--error { color: #ff9a9a; flex: 0 1 auto; font-weight: 600; font-size: .9rem; }
 .nl-banner--done .nl-banner__lede,
 .nl-banner--done .nl-banner__form { display: none; }
+.nl-banner--done .nl-banner__msg { padding: 6px 0; }
 
 .nl-banner__close {
   position: absolute;
   top: 50%;
-  right: 10px;
+  right: 8px;
   transform: translateY(-50%);
   width: 36px;
   height: 36px;
@@ -110,20 +130,23 @@
   line-height: 1;
   cursor: pointer;
 }
-.nl-banner__close:hover { background: rgba(255,255,255,.12); color: #fff; }
+.nl-banner__close:hover { background: rgba(255,255,255,.14); color: #fff; }
 .nl-banner__close:focus-visible { outline: 3px solid var(--site-primary, #ED2024); outline-offset: 1px; }
 
 @media (prefers-reduced-motion: reduce) {
   .nl-banner { transition: none; }
 }
 
-/* Phones: lede on its own line, then the fields stacked full width. */
+/* Phones: still floating under the header, kept compact — lede, then
+   email + Sign up on one row (the optional name is left out). */
 @media (max-width: 768px) {
-  .nl-banner__inner { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 48px 14px 16px; }
-  .nl-banner__close { top: 10px; transform: none; }
-  .nl-banner__form { flex-wrap: wrap; }
-  .nl-banner__input, .nl-banner__input--name { flex: 1 1 100%; width: auto; }
-  .nl-banner__submit { flex: 1 1 100%; }
+  .nl-banner { width: calc(100% - 20px); border-radius: 12px; }
+  .nl-banner__inner { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 44px 10px 12px; }
+  .nl-banner__lede { font-size: .85rem; }
+  .nl-banner__close { top: 6px; right: 4px; transform: none; }
+  .nl-banner__input { flex: 1 1 auto; width: auto; font-size: 16px; padding: 8px 10px; } /* 16px: no iOS zoom */
+  .nl-banner__input--name { display: none; }
+  .nl-banner__submit { padding: 9px 16px; }
 }
 </style>
 

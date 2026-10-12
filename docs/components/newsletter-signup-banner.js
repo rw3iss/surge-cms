@@ -13,8 +13,14 @@
  * older SDK. A signup here also sets the Newsletter Signup MODAL's flag (and a
  * modal signup is honoured here), so a visitor is never asked twice.
  *
+ * Placement: the bar FLOATS over the top of the page content (the first hero)
+ * just below the site header, taking no space in the flow — the wrapper is
+ * zero-height and the bar is absolutely positioned at the header's bottom
+ * edge + a small gap (re-measured on resize and when the header changes
+ * size). A header in the normal flow (not floating) simply leaves the gap.
+ *
  * After a signup the fields turn into a success message for `doneMs` (3 s),
- * then the bar collapses upward. × collapses it the same way.
+ * then the bar fades out. × fades it out the same way.
  *
  * SDK: cms.mailingLists.subscriptionStatus(slug), cms.mailingLists.subscribe(slug, { email, name }),
  *      cms.ui.get / cms.ui.merge.
@@ -93,46 +99,50 @@ export function mount(el, ctx) {
     const emailInput = form && form.elements.email;
     const nameInput = form && form.elements.name;
 
-    /**
-     * A floating header (fixed, transparent, over the page) would cover a
-     * banner at the very top. When this banner starts at the top of the page,
-     * pad it by the header's height: the header then sits on the banner's
-     * band and the signup row shows just below it.
-     */
-    const clearFloatingHeader = () => {
-        const header = document.querySelector('.header--float');
-        const atTop = root.getBoundingClientRect().top + window.scrollY < 4;
-        root.style.paddingTop = header && atTop ? header.getBoundingClientRect().height + 'px' : '';
+    const GAP = 12;
+    /** The site header's bottom edge, in document coordinates. */
+    const headerBottom = () => {
+        const header = document.querySelector('.layout .header') || document.querySelector('header.header');
+        if (!header) return 0;
+        const h = header.offsetHeight;
+        // A fixed header sits at the viewport top; otherwise use its place in
+        // the page (offsetTop ignores the auto-hide transform).
+        return getComputedStyle(header).position === 'fixed' ? h : header.offsetTop + h;
     };
-    const onResize = () => { if (root.classList.contains('is-shown')) clearFloatingHeader(); };
+    /** Put the bar just below the header, over whatever follows. */
+    const place = () => {
+        const wrapTop = el.getBoundingClientRect().top + window.scrollY;
+        root.style.top = Math.max(0, headerBottom() - wrapTop) + GAP + 'px';
+    };
+    const onResize = () => { if (root.classList.contains('is-shown')) place(); };
+    let headerObserver = null;
 
     const show = () => {
         if (disposed) return;
+        // The wrapper takes no space: the bar floats over the next block.
+        el.style.position = 'relative';
+        el.style.height = '0';
+        el.style.zIndex = '20';
         root.classList.add('is-shown');
-        clearFloatingHeader();
+        place();
         window.addEventListener('resize', onResize);
+        const header = document.querySelector('.layout .header') || document.querySelector('header.header');
+        if (header && typeof ResizeObserver === 'function') {
+            headerObserver = new ResizeObserver(onResize);
+            headerObserver.observe(header);
+        }
     };
 
-    /** Collapse upward (height → 0, fade), then remove from the flow. */
+    /** Fade out and lift, then hide. */
     const collapse = () => {
         if (!root.classList.contains('is-shown')) return;
+        root.classList.add('is-leaving');
         const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduce) { root.classList.remove('is-shown'); return; }
-        root.style.height = root.scrollHeight + 'px';
-        // Force the start height to apply before animating to 0.
-        void root.offsetHeight;
-        root.style.height = '0px';
-        root.style.opacity = '0';
-        const done = () => {
-            root.removeEventListener('transitionend', onEnd);
-            root.classList.remove('is-shown');
-            root.style.height = '';
-            root.style.opacity = '';
-        };
-        const onEnd = (e) => { if (e.target === root && e.propertyName === 'height') done(); };
-        root.addEventListener('transitionend', onEnd);
-        // Safety net if transitionend never fires (hidden tab, interrupted).
-        setTimeout(done, 700);
+        setTimeout(() => {
+            root.classList.remove('is-shown', 'is-leaving');
+            window.removeEventListener('resize', onResize);
+            if (headerObserver) { headerObserver.disconnect(); headerObserver = null; }
+        }, reduce ? 0 : 320);
     };
 
     const say = (text, ok) => {
@@ -142,7 +152,7 @@ export function mount(el, ctx) {
     };
 
     if (inAdmin) {
-        show();
+        root.classList.add('nl-banner--static', 'is-shown');
         return undefined;
     }
 
@@ -180,7 +190,7 @@ export function mount(el, ctx) {
             say(pending
                 ? 'Almost there — check your inbox and click the confirmation link.'
                 : "You're on the list. Thanks for signing up!", true);
-            timer = setTimeout(collapse, pending ? Math.max(doneMs, 4500) : doneMs);
+            timer = setTimeout(collapse, doneMs);
         } catch {
             say("We couldn't sign you up just then. Please try again.", false);
             submit.disabled = false;
@@ -208,6 +218,7 @@ export function mount(el, ctx) {
         disposed = true;
         if (timer) clearTimeout(timer);
         window.removeEventListener('resize', onResize);
+        if (headerObserver) headerObserver.disconnect();
         closeBtn && closeBtn.removeEventListener('click', onClose);
         form && form.removeEventListener('submit', onSubmit);
     };
