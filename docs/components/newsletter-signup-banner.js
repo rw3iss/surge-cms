@@ -93,7 +93,25 @@ export function mount(el, ctx) {
     const emailInput = form && form.elements.email;
     const nameInput = form && form.elements.name;
 
-    const show = () => { if (!disposed) root.classList.add('is-shown'); };
+    /**
+     * A floating header (fixed, transparent, over the page) would cover a
+     * banner at the very top. When this banner starts at the top of the page,
+     * pad it by the header's height: the header then sits on the banner's
+     * band and the signup row shows just below it.
+     */
+    const clearFloatingHeader = () => {
+        const header = document.querySelector('.header--float');
+        const atTop = root.getBoundingClientRect().top + window.scrollY < 4;
+        root.style.paddingTop = header && atTop ? header.getBoundingClientRect().height + 'px' : '';
+    };
+    const onResize = () => { if (root.classList.contains('is-shown')) clearFloatingHeader(); };
+
+    const show = () => {
+        if (disposed) return;
+        root.classList.add('is-shown');
+        clearFloatingHeader();
+        window.addEventListener('resize', onResize);
+    };
 
     /** Collapse upward (height → 0, fade), then remove from the flow. */
     const collapse = () => {
@@ -189,6 +207,7 @@ export function mount(el, ctx) {
     return () => {
         disposed = true;
         if (timer) clearTimeout(timer);
+        window.removeEventListener('resize', onResize);
         closeBtn && closeBtn.removeEventListener('click', onClose);
         form && form.removeEventListener('submit', onSubmit);
     };

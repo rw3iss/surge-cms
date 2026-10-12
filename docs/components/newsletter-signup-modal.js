@@ -184,6 +184,10 @@ export function mount(el, ctx) {
 
     const open = () => {
         if (disposed || overlay) return;
+        // The Newsletter Signup BANNER is asking the same question on this
+        // page right now — don't stack a pop-up on top of it. (A signup in
+        // either silences both; a dismissed banner lets the modal ask later.)
+        if (document.querySelector('.nl-banner.is-shown[data-list="' + slug.replace(/"/g, '') + '"]')) return;
         lastFocused = document.activeElement;
         if (typeof window !== 'undefined') window[LOCK] = true;
 
