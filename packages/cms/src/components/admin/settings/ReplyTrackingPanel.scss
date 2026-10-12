@@ -1,0 +1,47 @@
+// Settings → General → Reply Tracking.
+.reply-tracking {
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    padding: $spacing-md 0;
+    border-top: 1px solid $border-color;
+  }
+
+  &__detail {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    margin-left: 2.75rem;
+  }
+
+  &__url {
+    display: flex;
+    gap: 6px;
+
+    input { flex: 1 1 auto; min-width: 0; font-family: var(--admin-font-mono, monospace); font-size: 0.8rem; }
+  }
+
+  &__status {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 0.85rem;
+
+    dt { color: var(--admin-text-muted, #{$text-light}); font-weight: 600; }
+    dd { margin: 0; word-break: break-all; }
+  }
+
+  &__setup {
+    font-size: 0.85rem;
+
+    summary { cursor: pointer; font-weight: 600; }
+    ol { margin: $spacing-sm 0 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 6px; }
+  }
+
+  @media (max-width: 640px) {
+    &__detail { margin-left: 0; }
+    &__url { flex-wrap: wrap; }
+  }
+}

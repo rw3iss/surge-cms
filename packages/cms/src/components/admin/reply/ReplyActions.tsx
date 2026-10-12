@@ -10,6 +10,7 @@ import { useToast, } from '../../common/toast';
 import { formatDateTime, } from '@sitesurge/types';
 import ReplyHistoryModal from './ReplyHistoryModal';
 import ReplyModal from './ReplyModal';
+import { replyStatusView, } from './replyStatus';
 import './ReplyActions.scss';
 
 export interface ReplyActionsProps {
@@ -30,6 +31,7 @@ export default function ReplyActions(props: ReplyActionsProps,) {
     const [viewing, setViewing,] = createSignal(false,);
     const count = () => props.summary?.count ?? 0;
     const failed = () => props.summary?.lastStatus === 'failed';
+    const view = () => replyStatusView(props.summary?.lastStatus ?? 'sent', props.summary?.lastDelivery ?? null, !!props.summary?.lastOpened,);
     const words = () => props.kind === 'message'
         ? { action: 'Message', done: 'Messaged', one: 'message', many: 'messages', again: 'Message again', }
         : { action: 'Reply', done: 'Replied', one: 'reply', many: 'replies', again: 'Reply again', };
@@ -50,11 +52,10 @@ export default function ReplyActions(props: ReplyActionsProps,) {
                 }
             >
                 <span
-                    class="reply-actions__status"
-                    classList={{ 'reply-actions__status--failed': failed(), }}
-                    title={props.summary?.lastAt ? `Last reply ${formatDateTime(props.summary.lastAt,)}` : undefined}
+                    class={`reply-actions__status reply-actions__status--${view().tone}`}
+                    title={`${view().hint}${props.summary?.lastAt ? ` Last ${words().one}: ${formatDateTime(props.summary.lastAt,)}.` : ''}`}
                 >
-                    {failed() ? `✕ Last ${words().one} failed` : `✓ ${words().done}${count() > 1 ? ` ×${count()}` : ''}`}
+                    {view().label}{count() > 1 ? ` · ${count()}` : ''}
                 </span>
                 <button type="button" class="reply-actions__link" onClick={() => setViewing(true,)}>
                     View {count() > 1 ? words().many : words().one}

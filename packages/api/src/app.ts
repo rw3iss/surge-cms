@@ -2,7 +2,7 @@ import { adminDistPath, } from '@sitesurge/admin';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express, { Express, json, raw, urlencoded, } from 'express';
+import express, { Express, json, raw, text, urlencoded, } from 'express';
 import rateLimit from 'express-rate-limit';
 import { existsSync, } from 'fs';
 import helmet from 'helmet';
@@ -151,6 +151,9 @@ export function createApp(mode: AppMode = 'running',): Express {
     if (mode === 'running') {
         app.use('/api/v1/payments/webhook', raw({ type: 'application/json', },),);
     }
+    // Amazon SNS posts its JSON as `text/plain`; keep it as the exact string so
+    // the SNS signature can be checked (services/reply/sesEvents).
+    app.use('/api/v1/mail-events/ses', text({ type: '*/*', limit: '256kb', },),);
     // Stash the exact bytes alongside the parsed body.
     //
     // Needed for provider webhook signatures: an HMAC is computed over what the

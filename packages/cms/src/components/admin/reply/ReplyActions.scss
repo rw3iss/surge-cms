@@ -7,11 +7,9 @@
   font-size: 0.8rem;
 
   &__status {
-    color: $success-color;
     font-weight: 600;
     white-space: nowrap;
-
-    &--failed { color: $error-color; }
+    cursor: help;
   }
 
   &__link {
@@ -55,16 +53,44 @@
     flex: 0 0 auto;
     padding: 1px 8px;
     border-radius: 9999px;
-    background: color-mix(in srgb, #{$success-color} 15%, transparent);
-    color: $success-color;
     font-size: 0.75rem;
     font-weight: 700;
+    white-space: nowrap;
+  }
 
-    &--failed {
-      background: color-mix(in srgb, #{$error-color} 15%, transparent);
-      color: $error-color;
+  &__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 10px 12px 0;
+    font-size: 0.8rem;
+    color: var(--admin-text-muted, #{$text-light});
+
+    strong { color: var(--admin-text, #{$text-color}); }
+  }
+
+  &__timeline {
+    margin: 10px 12px 0;
+    padding: 0 0 0 14px;
+    border-left: 2px solid $border-color;
+    list-style: none;
+    font-size: 0.8rem;
+
+    li { position: relative; padding: 2px 0; }
+    li::before {
+      content: '';
+      position: absolute;
+      left: -19px;
+      top: 8px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: $border-color;
     }
   }
+
+  &__event-time { color: var(--admin-text-muted, #{$text-light}); margin-right: 6px; }
+  &__event-detail { color: var(--admin-text-muted, #{$text-light}); word-break: break-all; }
 
   &__subject {
     flex: 1 1 auto;
@@ -138,3 +164,18 @@
     font-size: 0.8rem;
   }
 }
+
+// Status tones, shared by the table status, the history pill and the user panel.
+.reply-tone {
+  &--ok    { color: $success-color; }
+  &--good  { color: color.adjust($success-color, $lightness: -12%); }
+  &--warn  { color: $warning-color; }
+  &--bad   { color: $error-color; }
+  &--muted { color: var(--admin-text-muted, #{$text-light}); }
+}
+
+.reply-history__status.reply-tone--ok,
+.reply-history__status.reply-tone--good { background: color-mix(in srgb, #{$success-color} 15%, transparent); }
+.reply-history__status.reply-tone--warn { background: color-mix(in srgb, #{$warning-color} 18%, transparent); }
+.reply-history__status.reply-tone--bad { background: color-mix(in srgb, #{$error-color} 15%, transparent); }
+.reply-history__status.reply-tone--muted { background: var(--admin-bg-subtle, #{$background-dark}); }

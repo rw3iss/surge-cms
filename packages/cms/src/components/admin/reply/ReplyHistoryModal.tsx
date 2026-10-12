@@ -9,6 +9,7 @@ import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import './ReplyModal.scss';
 import './ReplyActions.scss';
+import { EVENT_LABELS, replyStatusView, } from './replyStatus';
 
 export interface ReplyHistoryModalProps {
     source: ReplySourceKey;
@@ -28,6 +29,8 @@ export default function ReplyHistoryModal(props: ReplyHistoryModalProps,) {
     const toggle = (r: ReplyRecord, i: number,) => setOpen(isOpen(r, i,) ? '' : r.id,);
     const recipient = (r: ReplyRecord,) => r.toName ? `${r.toName} <${r.to}>` : r.to;
     const sender = (r: ReplyRecord,) => r.fromName ? `${r.fromName} <${r.fromEmail}>` : r.fromEmail;
+    const view = (r: ReplyRecord,) => replyStatusView(r.status, r.delivery, r.openCount > 0,);
+    const time = (iso: string,) => formatDateTime(iso,);
 
     return (
         <ModalShell open onClose={props.onClose} size="lg" class="reply-modal reply-history" ariaLabel="Replies">
@@ -46,8 +49,8 @@ export default function ReplyHistoryModal(props: ReplyHistoryModalProps,) {
                                 {(r, i,) => (
                                     <article class="reply-history__item" classList={{ 'is-open': isOpen(r, i(),), }}>
                                         <button type="button" class="reply-history__head" onClick={() => toggle(r, i(),)} aria-expanded={isOpen(r, i(),)}>
-                                            <span class="reply-history__status" classList={{ 'reply-history__status--failed': r.status === 'failed', }}>
-                                                {r.status === 'sent' ? 'Sent' : 'Failed'}
+                                            <span class={`reply-history__status reply-tone--${view(r,).tone}`} title={view(r,).hint}>
+                                                {view(r,).label}
                                             </span>
                                             <span class="reply-history__subject">{r.subject || '(no subject)'}</span>
                                             <span class="reply-history__date">{formatDateTime(r.createdAt,)}</span>
@@ -60,7 +63,34 @@ export default function ReplyHistoryModal(props: ReplyHistoryModalProps,) {
                                                 <Show when={r.error}>
                                                     <dt>Error</dt><dd class="reply-history__error">{r.error}</dd>
                                                 </Show>
+                                                <Show when={r.deliveryDetail && r.delivery !== 'delivered'}>
+                                                    <dt>Delivery</dt><dd class="reply-history__error">{r.deliveryDetail}</dd>
+                                                </Show>
                                             </dl>
+                                            <Show when={r.status === 'sent'}>
+                                                <div class="reply-history__stats">
+                                                    <span>Delivered: <strong>{r.deliveredAt ? time(r.deliveredAt,) : '—'}</strong></span>
+                                                    <span title="Approximate. Some mail apps (Apple Mail) load images without the reader; others block images, so a real open is not seen.">
+                                                        Opened: <strong>{r.openCount ? `${r.openCount}× · first ${time(r.firstOpenedAt!,)}` : '—'}</strong> (approx.)
+                                                    </span>
+                                                    <span>Link clicks: <strong>{r.clickCount || '—'}</strong></span>
+                                                </div>
+                                            </Show>
+                                            <Show when={r.events?.length}>
+                                                <ul class="reply-history__timeline" aria-label="Events">
+                                                    <For each={r.events}>
+                                                        {(e,) => (
+                                                            <li>
+                                                                <span class="reply-history__event-time">{time(e.at,)}</span>
+                                                                <strong>{EVENT_LABELS[e.type] ?? e.type}</strong>
+                                                                <Show when={e.detail}>
+                                                                    {' '}<span class="reply-history__event-detail">· {e.detail}</span>
+                                                                </Show>
+                                                            </li>
+                                                        )}
+                                                    </For>
+                                                </ul>
+                                            </Show>
                                             <div class="reply-history__message">{r.message}</div>
                                             <Show when={r.html}>
                                                 <button

@@ -2039,6 +2039,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /replies/:source/preview — the exact HTML a send would deliver."
             },
             {
+                "name": "rotateTrackingWebhook",
+                "signature": "rotateTrackingWebhook(): Promise<ReplyTrackingSettingsResponse>",
+                "summary": "POST /mail-events/settings/rotate — new webhook URL; re-create the SNS subscription afterwards (admin)."
+            },
+            {
                 "name": "send",
                 "signature": "send(source: ReplySourceKey, body: ReplyComposeBody): Promise<ReplySendResponse>",
                 "summary": "POST /replies/:source/send — email the reply."
@@ -2057,6 +2062,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "target",
                 "signature": "target(source: ReplySourceKey, ref: ReplyRef): Promise<ReplyTargetResponse>",
                 "summary": "POST /replies/:source/target — recipient, defaults and available `{{ }}` variables."
+            },
+            {
+                "name": "trackingSettings",
+                "signature": "trackingSettings(): Promise<ReplyTrackingSettingsResponse>",
+                "summary": "GET /mail-events/settings — reply tracking (delivery events, opens, clicks) + the SNS webhook URL (admin)."
+            },
+            {
+                "name": "updateTrackingSettings",
+                "signature": "updateTrackingSettings(body: ReplyTrackingSettingsBody): Promise<ReplyTrackingSettingsResponse>",
+                "summary": "PUT /mail-events/settings — change reply tracking (admin)."
             }
         ]
     },
@@ -2969,4 +2984,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 49;
-export const SDK_METHOD_COUNT = 521;
+export const SDK_METHOD_COUNT = 524;

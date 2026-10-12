@@ -22,7 +22,8 @@ interface EmailOptions {
     headers?: Record<string, string>;
 }
 
-export async function sendEmail(options: EmailOptions,): Promise<void> {
+/** Resolves with the provider's message id when it gives one (SMTP: the Message-ID header sent). */
+export async function sendEmail(options: EmailOptions,): Promise<{ messageId?: string; }> {
     try {
         const provider = getProvider();
         // Every transactional email funnels through here, so this is where the
@@ -37,7 +38,7 @@ export async function sendEmail(options: EmailOptions,): Promise<void> {
         const finalized = finalizeEmail(options.html, config.frontendUrl ?? '',);
         // The caller's sender wins, then the site default, then EMAIL_FROM.
         const sender = await resolveSender({ fromName: options.fromName, fromEmail: options.fromEmail, },);
-        await provider.send({
+        const sent = await provider.send({
             to: options.to,
             fromName: sender.fromName,
             fromEmail: sender.fromEmail,
@@ -48,6 +49,7 @@ export async function sendEmail(options: EmailOptions,): Promise<void> {
             headers: options.headers,
         },);
         logger.info('Email sent', { to: options.to, subject: options.subject, },);
+        return { messageId: sent?.providerId, };
     } catch (error) {
         logger.error('Failed to send email', { error, to: options.to, },);
         throw error;

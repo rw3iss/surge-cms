@@ -55,6 +55,13 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction,)
         return next();
     }
 
+    // Amazon SNS delivering SES events for admin replies. Same reasoning: no
+    // cookie authority; the credential is the path token + the SNS signature
+    // (services/reply/sesEvents.ts).
+    if (req.path.includes('/mail-events/ses/',)) {
+        return next();
+    }
+
     // Skip for RFC 8058 one-click unsubscribe. Gmail/Yahoo/Apple POST to the
     // `List-Unsubscribe` URL directly; a mailbox provider cannot carry our CSRF
     // token, so the check 403'd every attempt — while the email advertised

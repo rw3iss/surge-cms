@@ -1,3 +1,4 @@
+import ReplyTrackingPanel from '../../components/admin/settings/ReplyTrackingPanel';
 import { viewMediaProps, } from '@/stores/mediaViewer';
 import { useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, lazy, onMount, Show, } from 'solid-js';
@@ -1925,6 +1926,8 @@ const AdminSettings: Component = () => {
                                 </FormField>
                             </section>
                             </div>
+
+                            <ReplyTrackingPanel />
 
                             <section class="settings-card">
                                 <h3 class="settings-card__title">Defaults</h3>

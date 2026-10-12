@@ -71,6 +71,24 @@ export interface ReplySendResponse {
 
 export type ReplyStatus = 'sent' | 'failed';
 
+/**
+ * What the mail system said after the relay accepted the message (SES event
+ * publishing → SNS → our webhook). `null` = no event yet (or tracking off).
+ */
+export type ReplyDelivery = 'delivered' | 'delayed' | 'bounced' | 'complained' | 'rejected';
+
+export type ReplyEventType = 'send' | 'delivery' | 'delay' | 'bounce' | 'complaint' | 'reject' | 'open' | 'click';
+
+/** One thing that happened to a sent reply. */
+export interface ReplyEvent {
+    type: ReplyEventType;
+    at: string;
+    /** `ses` (SES event), `pixel` (our open image) or `link` (our click redirect). */
+    via: 'ses' | 'pixel' | 'link';
+    /** Bounce reason, delay type, the clicked URL, or the mail client seen. */
+    detail: string | null;
+}
+
 /** One reply as sent (or attempted). */
 export interface ReplyRecord {
     id: string;
@@ -92,6 +110,18 @@ export interface ReplyRecord {
     error: string | null;
     sentBy: { id: string; name: string; } | null;
     createdAt: string;
+    /** Latest delivery outcome reported by the mail system. */
+    delivery: ReplyDelivery | null;
+    /** Bounce / complaint / delay reason. */
+    deliveryDetail: string | null;
+    deliveredAt: string | null;
+    /** Opens are APPROXIMATE: image proxies can open mail automatically, and blocked images hide real opens. */
+    openCount: number;
+    firstOpenedAt: string | null;
+    lastOpenedAt: string | null;
+    clickCount: number;
+    /** Oldest first. Present on history / item reads. */
+    events?: ReplyEvent[];
 }
 
 /** Per-record roll-up for a table row. */
@@ -100,6 +130,10 @@ export interface ReplySummary {
     sentCount: number;
     lastAt: string;
     lastStatus: ReplyStatus;
+    /** Delivery outcome of the latest reply. */
+    lastDelivery: ReplyDelivery | null;
+    /** The latest reply was opened (approximate). */
+    lastOpened: boolean;
 }
 
 /** GET /replies/:source/summary?ids=a,b — subjectId → summary (ids with no reply are absent). */
@@ -112,3 +146,33 @@ export interface ReplySenderResponse {
     fromName: string;
     fromEmail: string;
 }
+
+// ─── Tracking settings (Settings → General → Reply tracking) ─────────
+
+export interface ReplyTrackingSettings {
+    /** Ask SES for delivery / bounce / complaint events (needs a configuration set + SNS). */
+    deliveryEvents: boolean;
+    /** SES configuration set name, sent as `X-SES-CONFIGURATION-SET`. Empty = rely on the identity's default set. */
+    configurationSet: string;
+    /** Add a 1×1 image to each reply and record when it loads. */
+    trackOpens: boolean;
+    /** Send links through a redirect that records the click. */
+    trackClicks: boolean;
+}
+
+export interface ReplyTrackingStatus extends ReplyTrackingSettings {
+    /** Paste into the SNS subscription (HTTPS). Contains a secret token. */
+    webhookUrl: string;
+    /** The SNS topic that confirmed the subscription; other topics are refused. */
+    topicArn: string | null;
+    subscriptionConfirmedAt: string | null;
+    /** Last SES event received (any type). */
+    lastEventAt: string | null;
+    lastEventType: string | null;
+    /** SES events received in the last 30 days. */
+    eventsLast30Days: number;
+}
+
+/** GET /mail-events/settings · PUT returns the same · POST …/rotate returns the same. */
+export type ReplyTrackingSettingsResponse = ReplyTrackingStatus;
+export type ReplyTrackingSettingsBody = Partial<ReplyTrackingSettings>;

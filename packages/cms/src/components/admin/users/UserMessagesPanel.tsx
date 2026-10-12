@@ -10,6 +10,7 @@ import { useToast, } from '../../common/toast';
 import ReplyHistoryModal from '../reply/ReplyHistoryModal';
 import ReplyModal from '../reply/ReplyModal';
 import '../reply/ReplyActions.scss';
+import { replyStatusView, } from '../reply/replyStatus';
 
 export default function UserMessagesPanel(props: { userId: string; },) {
     const toast = useToast();
@@ -28,9 +29,10 @@ export default function UserMessagesPanel(props: { userId: string; },) {
                     <For each={items()!.slice(0, 5,)}>
                         {(r,) => (
                             <li class="user-messages__item">
-                                <span class="reply-history__status" classList={{ 'reply-history__status--failed': r.status === 'failed', }}>
-                                    {r.status === 'sent' ? 'Sent' : 'Failed'}
-                                </span>
+                                {(() => {
+                                    const v = replyStatusView(r.status, r.delivery, r.openCount > 0,);
+                                    return <span class={`reply-history__status reply-tone--${v.tone}`} title={v.hint}>{v.label}</span>;
+                                })()}
                                 <span class="user-messages__subject">{r.subject || '(no subject)'}</span>
                                 <span class="user-messages__meta">
                                     {formatDateTime(r.createdAt,)}{r.sentBy ? ` · ${r.sentBy.name}` : ''}

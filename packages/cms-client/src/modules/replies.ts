@@ -1,6 +1,6 @@
 import type {
     ReplyComposeBody, ReplyHistoryResponse, ReplyItemResponse, ReplyPreviewResponse, ReplyRef, ReplySendResponse, ReplySenderResponse, ReplySourceKey,
-    ReplySummaryResponse, ReplyTargetResponse,
+    ReplySummaryResponse, ReplyTargetResponse, ReplyTrackingSettingsBody, ReplyTrackingSettingsResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -48,5 +48,20 @@ export class RepliesModule extends ModuleBase {
     /** GET /replies/item/:id — one recorded reply. */
     item(id: string,): Promise<ReplyItemResponse> {
         return this.get<ReplyItemResponse>('/replies/item/:id', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** GET /mail-events/settings — reply tracking (delivery events, opens, clicks) + the SNS webhook URL (admin). */
+    trackingSettings(): Promise<ReplyTrackingSettingsResponse> {
+        return this.get<ReplyTrackingSettingsResponse>('/mail-events/settings', { options: { cache: false, }, },);
+    }
+
+    /** PUT /mail-events/settings — change reply tracking (admin). */
+    updateTrackingSettings(body: ReplyTrackingSettingsBody,): Promise<ReplyTrackingSettingsResponse> {
+        return this.mutate<ReplyTrackingSettingsResponse>('PUT', '/mail-events/settings', { body, },);
+    }
+
+    /** POST /mail-events/settings/rotate — new webhook URL; re-create the SNS subscription afterwards (admin). */
+    rotateTrackingWebhook(): Promise<ReplyTrackingSettingsResponse> {
+        return this.mutate<ReplyTrackingSettingsResponse>('POST', '/mail-events/settings/rotate', {},);
     }
 }

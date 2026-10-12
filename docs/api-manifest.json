@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-12T01:54:21.008Z",
-  "totalModules": 52,
-  "totalRoutes": 524,
+  "generatedAt": "2026-10-12T02:07:11.713Z",
+  "totalModules": 53,
+  "totalRoutes": 530,
   "modules": [
     {
       "module": "admin-channel",
@@ -1348,6 +1348,54 @@
           "absolutePath": "/api/v1/mail-archive/:jobId",
           "auth": "optional",
           "summary": "One sent mail as a web page, resolved for the viewer (signed ?r= recipient token, else the signed-in user)."
+        }
+      ]
+    },
+    {
+      "module": "mail-events",
+      "mountPath": "/api/v1/mail-events",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/ses/:token",
+          "absolutePath": "/api/v1/mail-events/ses/:token",
+          "auth": "public",
+          "summary": "Amazon SNS endpoint for SES events (delivery, bounce, complaint, …) on admin replies. Token + SNS signature + pinned topic."
+        },
+        {
+          "method": "GET",
+          "path": "/o/:token",
+          "absolutePath": "/api/v1/mail-events/o/:token",
+          "auth": "public",
+          "summary": "Open-tracking image for an admin reply (1×1 GIF)."
+        },
+        {
+          "method": "GET",
+          "path": "/c/:token",
+          "absolutePath": "/api/v1/mail-events/c/:token",
+          "auth": "public",
+          "summary": "Click-tracking redirect for a link in an admin reply."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/mail-events/settings",
+          "auth": "admin",
+          "summary": "Reply tracking settings + webhook URL + last SES event."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/mail-events/settings",
+          "auth": "admin",
+          "summary": "Update reply tracking (delivery events, configuration set, opens, clicks)."
+        },
+        {
+          "method": "POST",
+          "path": "/settings/rotate",
+          "absolutePath": "/api/v1/mail-events/settings/rotate",
+          "auth": "admin",
+          "summary": "Issue a new webhook URL (the old one stops working; re-create the SNS subscription)."
         }
       ]
     },

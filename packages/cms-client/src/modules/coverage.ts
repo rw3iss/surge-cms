@@ -318,6 +318,9 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/replies/:source/summary',
     'GET /api/v1/replies/:source/:subjectId/history',
     'GET /api/v1/replies/item/:id',
+    'GET /api/v1/mail-events/settings',
+    'PUT /api/v1/mail-events/settings',
+    'POST /api/v1/mail-events/settings/rotate',
     // ── mail-templates ──
     'GET /api/v1/mail-templates/options',
     'GET /api/v1/mail-templates/:id/revisions',
@@ -580,4 +583,8 @@ export const INTENTIONALLY_UNEXPOSED: string[] = [
     'GET /u/:token',
     'GET /u/:token/resubscribe',
     'GET /lists/:slug/confirm/:token',
+    // Reply tracking: called by Amazon SNS and by mail clients, never by a client app.
+    'POST /api/v1/mail-events/ses/:token',
+    'GET /api/v1/mail-events/o/:token',
+    'GET /api/v1/mail-events/c/:token',
 ];
