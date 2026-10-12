@@ -189,6 +189,12 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         // reaching the slot's edges.
         if (props.block.type === 'group_item') return 'full';
         if (['carousel', 'hero',].includes(props.block.type,)) return 'full';
+        // A component (`template`) is a wrapper around ITS OWN blocks, and each of
+        // those already chooses its column (contained by default, or full-bleed
+        // when the component's author set it). Capping the wrapper too made a
+        // full-width component (e.g. a banner) impossible on a page, while the
+        // component editor — which has no wrapper — showed it full width.
+        if (props.block.type === 'template') return 'full';
         // NOTE: '100%' is the DEFAULT width (BLOCK_STYLE_DEFAULTS.width), not a
         // full-bleed intent — treating it as one made a block with the default
         // saved render differently from an unstyled block. So only a literal
