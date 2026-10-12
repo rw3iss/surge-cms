@@ -216,5 +216,7 @@ export const HelpSdkComponentJs: Component = () => <DocPage doc={COMPONENT_JS_DO
 export const HelpVideo: Component = () => <DocPage doc={VIDEO_DOC} />;
 export const HelpPostTypes: Component = () => <DocPage doc={POST_TYPES_DOC} />;
 export const HelpDiscussions: Component = () => <DocPage doc={DISCUSSIONS_DOC} />;
+/** Placeholder until GALLERY_DOC lands. */
+export const HelpGallery: Component = () => <DocPage doc={DISCUSSIONS_DOC} />;
 
 export default HelpSdkHeadless;

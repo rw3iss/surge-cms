@@ -320,6 +320,24 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         },
         { key: 'comments:manage', feature: 'comments', label: 'Manage comment settings', description: 'Per-item commenting switches and the Comments settings page.', action: 'admin', defaultRoles: STAFF, },
     ],
+    gallery: [
+        {
+            key: 'gallery:view', feature: 'gallery', label: 'View the gallery',
+            description: 'Narrowed further by the gallery settings and each item\'s own visibility.',
+            action: 'read', defaultAccess: 'everyone',
+        },
+        {
+            key: 'gallery:manage', feature: 'gallery', label: 'Manage gallery items',
+            description: 'Publish media to the gallery, edit, reorder and remove items.',
+            action: 'write', defaultRoles: STAFF,
+        },
+        { key: 'gallery.settings:manage', feature: 'gallery', label: 'Change gallery settings', description: 'Route, access, comments and appearance.', action: 'admin', defaultRoles: ADMIN, },
+        {
+            key: 'gallery:comment', feature: 'gallery', label: 'Comment on gallery items',
+            description: 'Where commenting is on (needs the Comments feature).',
+            action: 'write', defaultRoles: MEMBERS,
+        },
+    ],
     forum: [
         {
             key: 'forum:read', feature: 'forum', label: 'Read the forum',

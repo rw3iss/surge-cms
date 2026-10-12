@@ -225,6 +225,32 @@ function discussionDescriptor(kind: 'comment' | 'forum_thread',): EntityTypeDef 
     };
 }
 
+/**
+ * Gallery items (read-only; managed on the Gallery page), served by the
+ * gallery provider (services/gallery/entity.ts). Lets the Gallery block and
+ * entity blocks pick items / build a query with the shared selection modal.
+ * Query knobs: virtual filters `type`, `tag`, `sort`. Records are GalleryItem
+ * objects: `{{gallery_item.media.url}}`, `.title`, `.caption`, `.url`.
+ */
+function galleryItemDescriptor(): EntityTypeDef {
+    const kind = 'gallery_item';
+    return {
+        id: '', key: kind, label: 'Gallery item', labelPlural: 'Gallery items', singularVar: 'gallery_item', pluralVar: 'gallery_items',
+        description: 'A published media item in the Gallery (read-only here; managed on the Gallery page). Query with type, tag, sort.',
+        origin: 'core', internal: true, ownerFeature: 'gallery', tableName: 'gallery_items',
+        hasSlug: false, hasStatus: false, searchable: false, revisioned: false,
+        routing: { detailEnabled: false, detailPrefix: '', indexEnabled: false, indexPrefix: '', },
+        caching: { indexEnabled: false, indexTtlSeconds: 60, recordEnabled: false, recordTtlSeconds: 60, },
+        adminListRoute: '/admin/gallery', adminEditRoute: '',
+        fields: [
+            df(kind, 'title', 'text', 'Title', 0,), df(kind, 'caption', 'longtext', 'Caption', 1,), df(kind, 'url', 'text', 'Page URL', 2,),
+            df(kind, 'tags', 'json', 'Tags', 3,), df(kind, 'media', 'json', 'Media', 4,), df(kind, 'commentCount', 'integer', 'Comments', 5,),
+            df(kind, 'createdAt', 'datetime', 'Added', 6,),
+        ],
+        createdAt: '', updatedAt: '',
+    };
+}
+
 /** All core descriptors (built fresh each call). */
 export function coreDescriptors(): EntityTypeDef[] {
     return [
@@ -246,6 +272,7 @@ export function coreDescriptors(): EntityTypeDef[] {
         contactDescriptor(),
         discussionDescriptor('comment',),
         discussionDescriptor('forum_thread',),
+        galleryItemDescriptor(),
     ].filter((d,): d is EntityTypeDef => d !== null);
 }
 

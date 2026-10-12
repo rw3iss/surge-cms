@@ -30,6 +30,10 @@ export { resolveValueFunction, UNRESOLVED, VALUE_FUNCTION_NAMES } from './valueF
 export {
     commentCountTarget, DISCUSSION_FUNCTION_NAMES, DISCUSSION_LIST_KIND, discussionQueryFor, FORUM_THREAD_KIND,
 } from './discussionFunctions';
+/** `{{gallery(...)}}` call → GalleryQuery + display options (shared with the Gallery block). */
+export {
+    GALLERY_FUNCTION_NAMES, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, galleryDisplayFrom,
+} from './galleryFunctions';
 
 const astCache = new Map<string, Node[]>();
 

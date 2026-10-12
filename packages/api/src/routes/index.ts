@@ -14,6 +14,7 @@ import { eventsRoutes, } from './events';
 import { discussionsRoutes, } from './discussions';
 import { commentsRoutes, } from './comments';
 import { forumRoutes, } from './forum';
+import { galleryRoutes, } from './gallery';
 import { membersRoutes, } from './members';
 import { dashboardRoutes, } from './dashboard';
 import { devRoutes, } from './dev';
@@ -103,6 +104,7 @@ router.use('/events', registerModule('events', eventsRoutes, { mountPath: '/api/
 router.use('/discussions', registerModule('discussions', discussionsRoutes, { mountPath: '/api/v1/discussions', feature: 'discussions', },),);
 router.use('/comments', registerModule('comments', commentsRoutes, { mountPath: '/api/v1/comments', feature: 'comments', },),);
 router.use('/forum', registerModule('forum', forumRoutes, { mountPath: '/api/v1/forum', feature: 'forum', },),);
+router.use('/gallery', registerModule('gallery', galleryRoutes, { mountPath: '/api/v1/gallery', feature: 'gallery', },),);
 router.use('/members', registerModule('members', membersRoutes, { mountPath: '/api/v1/members', },),);
 
 export default router;

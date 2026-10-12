@@ -121,6 +121,13 @@ const AdminCommentsSettings = lazy(() => import('./pages/admin/comments/Comments
 const AdminForum = lazy(() => import('./pages/admin/forum/ForumAdmin'));
 const AdminForumCategories = lazy(() => import('./pages/admin/forum/ForumCategories'));
 const AdminForumSettings = lazy(() => import('./pages/admin/forum/ForumSettings'));
+// Gallery (feature `gallery`): public page at the configurable base URL (default /gallery; a custom one is routed by DynamicPage).
+const GalleryPage = lazy(() => import('./pages/gallery/GalleryPage'));
+const GalleryItemPage = lazy(() => import('./pages/gallery/GalleryItemPage'));
+const AdminGallery = lazy(() => import('./pages/admin/gallery/GalleryAdmin'));
+const AdminGallerySettings = lazy(() => import('./pages/admin/gallery/GallerySettings'));
+const AdminHelpGallery = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpGallery, })));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -181,6 +188,8 @@ const App: Component = () => {
 										<Route path="/forum" component={ForumIndexPage} />
 										<Route path="/forum/:category" component={ForumCategoryPage} />
 										<Route path="/forum/:category/:thread" component={ForumThreadPage} />
+										<Route path="/gallery" component={GalleryPage} />
+										<Route path="/gallery/:id" component={GalleryItemPage} />
 										{/* Video direct links land here when the viewer can't get the plain file. */}
 										<Route path="/watch/:id" component={WatchPage} />
 										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
@@ -213,6 +222,8 @@ const App: Component = () => {
 										<Route path="/forum" component={AdminForum} />
 										<Route path="/forum/categories" component={AdminForumCategories} />
 										<Route path="/forum/settings" component={AdminForumSettings} />
+										<Route path="/gallery" component={AdminGallery} />
+										<Route path="/gallery/settings" component={AdminGallerySettings} />
 										<Route path="/posts/:id/preview" component={AdminPostPreview} />
 										<Route path="/posts/settings" component={AdminPostsSettings} />
 										<Route path="/posts/new" component={AdminPostEditor} />
@@ -279,6 +290,7 @@ const App: Component = () => {
 										<Route path="/help/video" component={AdminHelpVideo} />
 										<Route path="/help/post-types" component={AdminHelpPostTypes} />
 										<Route path="/help/comments-and-forum" component={AdminHelpDiscussions} />
+										<Route path="/help/gallery" component={AdminHelpGallery} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

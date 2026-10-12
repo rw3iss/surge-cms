@@ -12,6 +12,7 @@ export * from './siteHeader';
 export * from './user';
 export * from './plugin';
 export * from './event';
+export * from './gallery';
 export * from './permission';
 export * from './wiki';
 export * from './mailPurposes';

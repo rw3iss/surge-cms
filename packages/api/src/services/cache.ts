@@ -73,6 +73,10 @@ export const CACHE_KEYS = {
     /** Templates bound to no entity type — the reusable "components". */
     contentBlockTemplatesGlobal: 'cbt:global',
 
+    // ── Gallery (anonymous reads only; per-viewer reads are never cached) ──
+    galleryPrefix: 'gallery:',
+    galleryList: (hash: string,) => `gallery:list:${hash}`,
+
     // ── Feed / sitemap ──
     feedRss: 'feed:rss',
     sitemapXml: 'sitemap:xml',
@@ -264,6 +268,13 @@ export async function invalidateMediaConsumersCache(): Promise<void> {
     await invalidatePostCache();
     await invalidateCampaignCache();
     await delPattern('entity:*',);
+    await invalidateGalleryCache();
+}
+
+/** A gallery item, the gallery settings, or media behind an item changed. */
+export async function invalidateGalleryCache(): Promise<void> {
+    await delPattern(`${CACHE_KEYS.galleryPrefix}*`,);
+    await delPattern('entity:gallery_item:*',);
 }
 
 /** A subscription tier changed: drop the cached Stripe price/description catalogue. */
@@ -503,6 +514,7 @@ export const cache = {
     invalidatePostCache,
     invalidateCampaignCache,
     invalidateMediaConsumersCache,
+    invalidateGalleryCache,
     invalidateVideoCache,
     invalidateMembershipCache,
     invalidateDiscussionFeedCache,

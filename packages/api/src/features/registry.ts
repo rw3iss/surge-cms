@@ -12,7 +12,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -125,6 +125,19 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         settingsKeys: ['forum_settings',],
         onUninstall: async (client,) => {
             await client.query(`DELETE FROM comments WHERE target_type = 'forum_thread'`,).catch(() => {},);
+        },
+    },
+    gallery: {
+        key: 'gallery',
+        label: 'Gallery',
+        description: 'Publish media from the library to a public gallery page, with comments, a Gallery content block and {{gallery()}}.',
+        defaultEnabled: false,
+        migrations: ['140_gallery.sql',],
+        tables: ['gallery_items',],
+        settingsKeys: ['gallery_settings',],
+        onUninstall: async (client,) => {
+            await client.query(`DELETE FROM comments WHERE target_type = 'gallery_item'`,).catch(() => {},);
+            await client.query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item'`,).catch(() => {},);
         },
     },
     wiki: {

@@ -129,11 +129,20 @@ export const DEFAULT_EVENTS_SETTINGS: EventsSettings = {
     allowTicketing: false,
 };
 
-/** Paths the events calendar may not take over. */
-export const RESERVED_EVENT_PATHS = [
+/**
+ * Built-in routes a configurable feature route (the events calendar, the
+ * gallery) may not take over — mounting one at `/shop` would silently break
+ * the storefront. A feature may keep its OWN default (`/events`, `/gallery`).
+ */
+export const RESERVED_PUBLIC_PATHS = [
     '/admin', '/api', '/login', '/join', '/profile', '/search', '/shop',
     '/posts', '/donate', '/contact', '/subscribe', '/forms', '/campaigns',
+    '/events', '/gallery', '/forum', '/members', '/mail', '/watch', '/tickets',
+    '/verify', '/setup', '/u', '/lists',
 ];
+
+/** @deprecated use RESERVED_PUBLIC_PATHS. */
+export const RESERVED_EVENT_PATHS = RESERVED_PUBLIC_PATHS;
 
 // ─── Recurrence, registration & ticketing ─────────────────────────
 

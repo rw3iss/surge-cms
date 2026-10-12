@@ -75,4 +75,5 @@ export * from './routes/discussions';
 export * from './routes/comments';
 export * from './routes/discussionsQuery';
 export * from './routes/forum';
+export * from './routes/gallery';
 export * from './routes/members';

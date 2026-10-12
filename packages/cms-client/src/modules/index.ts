@@ -20,6 +20,7 @@ import { UiSettingsModule, } from './ui';
 import { DiscussionsModule, } from './discussions';
 import { CommentsModule, } from './comments';
 import { ForumModule, } from './forum';
+import { GalleryModule, } from './gallery';
 import { MembersModule, } from './members';
 import { ConnectionsModule, } from './connections';
 import { BlockStylesModule, } from './blockStyles';
@@ -71,6 +72,7 @@ export interface CmsModules {
     /** Comments feature: per-item switches + settings. */
     comments: CommentsModule;
     forum: ForumModule;
+    gallery: GalleryModule;
     /** Public member pages. */
     members: MembersModule;
     connections: ConnectionsModule;
@@ -131,6 +133,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.discussions = new DiscussionsModule(core,);
     c.comments = new CommentsModule(core,);
     c.forum = new ForumModule(core,);
+    c.gallery = new GalleryModule(core,);
     c.members = new MembersModule(core,);
     c.connections = new ConnectionsModule(core,);
     c.blockStyles = new BlockStylesModule(core,);

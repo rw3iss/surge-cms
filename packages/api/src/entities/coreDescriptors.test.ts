@@ -5,7 +5,7 @@ describe('coreDescriptors', () => {
     const defs = coreDescriptors();
 
     it('registers the core types adopting existing tables', () => {
-        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'comment', 'contact', 'form', 'forum_thread', 'page', 'post', 'product', 'user',],);
+        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'comment', 'contact', 'form', 'forum_thread', 'gallery_item', 'page', 'post', 'product', 'user',],);
         // Read-only discussion types: served by the discovery provider, owned by their features.
         expect(defs.find((d,) => d.key === 'comment',)!.ownerFeature,).toBe('discussions',);
         expect(defs.find((d,) => d.key === 'forum_thread',)!.ownerFeature,).toBe('forum',);

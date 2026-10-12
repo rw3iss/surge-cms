@@ -9,3 +9,6 @@ import '../comments/notify';
 import './discovery';
 import '../forum/targets';
 import '../forum/notify';
+// Gallery: comments on gallery items + the read-only gallery_item entity type.
+import '../gallery/targets';
+import '../gallery/entity';
