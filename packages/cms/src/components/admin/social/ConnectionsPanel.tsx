@@ -336,7 +336,7 @@ const ConnectionsPanel: Component = () => {
                                             </Show>
                                             <Show when={conn()?.autoPublish}>
                                                 <span class="connection-card__auto-publish">
-                                                    Auto-publish: {conn()?.autoPublishCount ?
+                                                    Auto-sync (every 15 min): {conn()?.autoPublishCount ?
                                                         `last ${conn()?.autoPublishCount}` :
                                                         'all'}
                                                 </span>
@@ -619,10 +619,10 @@ const ConnectionsPanel: Component = () => {
                                     </div>
                                     <div class="form-group">
                                         <span class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
-                                            <Toggle checked={autoPublish()} onChange={setAutoPublish} label="Auto-publish posts" />
+                                            <Toggle checked={autoPublish()} onChange={setAutoPublish} label="Sync posts automatically" />
                                             <Tooltip
-                                                header="Auto-publish posts"
-                                                content="Automatically pull this provider's recent posts into the feed via its read API (up to the count below). Leave off to curate the feed yourself by composing or adding posts manually. Note: X in Free mode ignores this — use Compose / manual capture."
+                                                header="Sync posts automatically"
+                                                content="Pull this provider's new posts into the feed every 15 minutes via its read API (up to the count below), so Social blocks in feed mode stay current. Leave off to curate the feed yourself — Sync posts still pulls on demand. Note: X in Free mode ignores this — use Compose / manual capture."
                                             />
                                         </span>
                                     </div>

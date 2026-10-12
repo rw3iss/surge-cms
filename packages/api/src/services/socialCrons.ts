@@ -7,6 +7,8 @@ import { query, } from '../db';
 import { logger, } from '../utils/logger';
 import { cronRegistry, } from './cron';
 import { getOAuthProvider, isOAuthProvider, } from './oauth';
+import { cache, } from './cache';
+import type { SocialPlatform, } from '@sitesurge/types';
 
 // ─── Provider cron definitions ───
 
@@ -86,9 +88,42 @@ export function unregisterProviderCron(provider: string,): void {
     cronRegistry.unregister(def.name,);
 }
 
+// ─── Background feed sync ───
+
+/**
+ * Pull new posts from every connected, enabled provider whose "Sync posts
+ * automatically" switch (`auto_publish`) is on. Without this the feed only
+ * moved when an admin pressed Sync — a Social block in auto-feed mode then
+ * kept showing yesterday's video. Each provider is synced on its own, so one
+ * failing provider (an expired token) cannot stop the others.
+ */
+export const SOCIAL_SYNC_CRON = {
+    name: 'social-sync',
+    schedule: '*/15 * * * *',
+    description: 'Pulls new posts from providers with automatic sync on (every 15 minutes).',
+    handler: async (): Promise<void> => {
+        const { syncSocialPosts, } = await import('./social.js');
+        const r = await query<{ provider: SocialPlatform; }>(
+            `SELECT provider FROM social_connections WHERE is_connected = true AND is_enabled = true AND auto_publish = true`,
+        ).catch(() => ({ rows: [] as { provider: SocialPlatform; }[], }));
+        let total = 0;
+        for (const { provider, } of r.rows) {
+            try {
+                total += await syncSocialPosts(provider, false,);
+            } catch (err) {
+                logger.warn('social-sync: provider failed', { provider, error: (err as Error).message, },);
+            }
+        }
+        if (total > 0) await cache.invalidateSocialCache();
+    },
+};
+
 // ─── Init: check DB for existing connected providers and register their crons ───
 
 export async function initSocialCrons(): Promise<void> {
+    // Always registered: it checks the connections itself on every run, so a
+    // provider connected later needs no re-registration.
+    cronRegistry.register(SOCIAL_SYNC_CRON,);
     try {
         const result = await query(
             `SELECT provider FROM social_connections WHERE is_connected = true`,
