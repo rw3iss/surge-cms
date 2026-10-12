@@ -587,8 +587,8 @@ function CartGlyph() {
     return (
         <svg
             viewBox="0 0 24 24"
-            width="22"
-            height="22"
+            width="25"
+            height="25"
             fill="none"
             stroke="currentColor"
             stroke-width="1.7"
