@@ -752,7 +752,7 @@ export const shopRoutes = [
         auth: 'optional',
         summary: 'Preview checkout totals (subtotal/shipping/tax) without creating an order.',
         input: { body: checkoutPreviewSchema, },
-        handler: ({ body, },) => checkout.previewCheckout(body,),
+        handler: ({ body, user, },) => checkout.previewCheckout(body, user ?? null,),
     },),
 
     // Place order → order(pending) + items + Stripe PaymentIntent.
@@ -763,8 +763,8 @@ export const shopRoutes = [
         summary:
             'Place an order: validate the cart, create a pending order + Stripe PaymentIntent, return the client secret.',
         input: { body: checkoutSchema, },
-        handler: async ({ body, audit, },) => {
-            const result = await checkout.createCheckout(body, audit(),);
+        handler: async ({ body, audit, user, },) => {
+            const result = await checkout.createCheckout(body, audit(), user ?? null,);
             return reply(result, { status: 201, },);
         },
     },),

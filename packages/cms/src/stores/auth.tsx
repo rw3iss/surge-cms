@@ -65,6 +65,8 @@ export const AuthProvider: ParentComponent = (props,) => {
     // a login unlocks content and a logout cannot replay a subscriber's copy.
     createEffect(on(() => user()?.id ?? null, () => {
         void cms.cache.invalidatePrefix(`${cms.config.namespace}:posts:`,);
+        // Events are viewer-shaped too (members/subscriber-only events + access).
+        void cms.cache.invalidatePrefix(`${cms.config.namespace}:events:`,);
         void import('../services/postsService').then((m,) => m.invalidatePostListCache());
     }, { defer: true, },),);
 

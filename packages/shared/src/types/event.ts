@@ -8,6 +8,26 @@
 
 export type EventStatus = 'draft' | 'published' | 'cancelled';
 
+/**
+ * Who may see / register: everyone, signed-in members, or subscribers from a
+ * tier up (compared by tier RANK, so higher tiers pass). Viewing and
+ * registering are separate rules — an event can be listed and readable by all
+ * while only subscribers may register.
+ */
+export type EventAccess = 'public' | 'members' | 'tier';
+/** An event's own rule; `inherit` = Settings → Events. */
+export type EventAccessOverride = 'inherit' | EventAccess;
+
+/** What THIS viewer may do with an event (attached on public reads). */
+export interface EventViewerAccess {
+    canView: boolean;
+    canRegister: boolean;
+    /** Why registration is refused: sign in, or a (higher) subscription. */
+    registerReason: 'signin' | 'subscribe' | null;
+    /** The tier registration requires, when it is a tier rule. */
+    requiredTier: { id: string; name: string; } | null;
+}
+
 export interface CalendarEvent {
     id: string;
     title: string;
@@ -35,12 +55,20 @@ export interface CalendarEvent {
     registrationFields: string[];
     showRegistrantCount: boolean;
     ticketingEnabled: boolean;
+    /** Who may see the event (listing + page). */
+    viewAccess: EventAccessOverride;
+    viewMinTierId: string | null;
+    /** Who may register / get tickets (never looser than viewing). */
+    registerAccess: EventAccessOverride;
+    registerMinTierId: string | null;
     metadata: Record<string, unknown>;
     createdBy: string | null;
     createdAt: string;
     updatedAt: string;
     /** Attached by the admin detail endpoint. */
     tiers?: EventTicketTier[];
+    /** Attached on public reads: what the viewer may do. */
+    access?: EventViewerAccess;
 }
 
 /** Fields an admin may set when creating/updating an event. */
@@ -62,6 +90,10 @@ export interface CalendarEventInput {
     registrationFields?: string[];
     showRegistrantCount?: boolean;
     ticketingEnabled?: boolean;
+    viewAccess?: EventAccessOverride;
+    viewMinTierId?: string | null;
+    registerAccess?: EventAccessOverride;
+    registerMinTierId?: string | null;
     metadata?: Record<string, unknown>;
     tiers?: EventTicketTierInput[];
 }
@@ -119,6 +151,12 @@ export interface EventsSettings {
      */
     fromName?: string;
     fromAddress?: string;
+    /** Default for every event: who may see events (calendar, listings, pages). */
+    viewAccess: EventAccess;
+    viewMinTierId: string | null;
+    /** Default for every event: who may register / get tickets. */
+    registerAccess: EventAccess;
+    registerMinTierId: string | null;
 }
 
 export const DEFAULT_EVENTS_SETTINGS: EventsSettings = {
@@ -127,6 +165,10 @@ export const DEFAULT_EVENTS_SETTINGS: EventsSettings = {
     eventsUrl: '/events',
     allowRegistration: true,
     allowTicketing: false,
+    viewAccess: 'public',
+    viewMinTierId: null,
+    registerAccess: 'public',
+    registerMinTierId: null,
 };
 
 /**
@@ -169,14 +211,25 @@ export interface EventTicketTier {
     /** null = unlimited. */
     quantityAvailable: number | null;
     position: number;
+    /** Only subscribers of this tier (or higher) may buy this ticket type. */
+    requiredTierId: string | null;
     /** Derived, not stored: tickets already issued for the occurrence. */
     sold?: number;
     remaining?: number | null;
+    /** Derived on public reads: the required tier's name + whether THIS viewer may buy it. */
+    requiredTier?: { id: string; name: string; } | null;
+    canBuy?: boolean;
 }
 
 export type EventTicketTierInput = Omit<
-    EventTicketTier, 'id' | 'eventId' | 'sold' | 'remaining'
-> & { id?: string; };
+    EventTicketTier, 'id' | 'eventId' | 'sold' | 'remaining' | 'requiredTier' | 'canBuy' | 'requiredTierId'
+> & { id?: string; requiredTierId?: string | null; };
+
+/** `error.details` of a 403 `SUBSCRIPTION_REQUIRED` / `SIGN_IN_REQUIRED` from register / tickets / checkout. */
+export interface AccessRequiredDetails {
+    reason: 'signin' | 'subscribe';
+    requiredTier: { id: string; name: string; } | null;
+}
 
 export type EventRegistrationStatus = 'registered' | 'cancelled' | 'waitlist';
 

@@ -5,6 +5,8 @@ export interface TabItem<T extends string = string,> {
     value: T;
     label: string;
     icon?: JSX.Element;
+    /** Show an "unsaved changes" dot after the label (e.g. a tab of a form with edits). */
+    dirty?: boolean;
 }
 
 export interface TabsProps<T extends string = string,> {
@@ -32,6 +34,7 @@ export function Tabs<T extends string = string,>(props: TabsProps<T>,): ReturnTy
                     >
                         {item.icon && <span class="ui-tabs__icon">{item.icon}</span>}
                         <span>{item.label}</span>
+                        {item.dirty && <span class="ui-tabs__dirty" title="Unsaved changes" aria-label="(unsaved changes)" />}
                     </button>
                 )}
             </For>

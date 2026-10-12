@@ -12,6 +12,8 @@ import { query, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
+import { assertCanRegister, } from './access';
+import type { LevelViewer, } from '../access/level';
 import { getByIdOrSlug, } from './crud';
 import { eventUrl, } from './format';
 import { eventSender, getSettings, } from './settings';
@@ -45,8 +47,15 @@ export async function register(input: {
      * two messages for one sign-up read as a mistake.
      */
     sendConfirmation?: boolean;
+    /**
+     * The person registering — given on PUBLIC paths (register route, ticket
+     * purchase), so the event's register rule is enforced. Omitted by the paid
+     * ticket fulfilment, which runs after a checkout that already checked it.
+     */
+    viewer?: LevelViewer;
 },): Promise<EventRegistration> {
     const event = await getByIdOrSlug(input.eventId,);
+    if ('viewer' in input) await assertCanRegister(event, input.viewer,);
     if (!event.registrationEnabled) {
         throw new ValidationError('Registration is not open for this event.',);
     }

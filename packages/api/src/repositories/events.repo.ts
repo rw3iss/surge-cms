@@ -26,7 +26,8 @@ function toIsoFields(row: CalendarEvent,): CalendarEvent {
 const SELECT = `id, title, slug, description, starts_at, ends_at, all_day, location,
     url, featured_image, status, timezone, recurrence_rule, recurrence_until,
     registration_enabled, registration_fields, show_registrant_count,
-    ticketing_enabled, metadata, created_by, created_at, updated_at`;
+    ticketing_enabled, view_access, view_min_tier_id, register_access, register_min_tier_id,
+    metadata, created_by, created_at, updated_at`;
 
 export interface EventFilters {
     /** Inclusive lower bound on starts_at. */
@@ -129,8 +130,9 @@ export async function createEvent(
                              location, url, featured_image, status, timezone,
                              recurrence_rule, recurrence_until, registration_enabled,
                              registration_fields, show_registrant_count,
-                             ticketing_enabled, metadata, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                             ticketing_enabled, metadata, created_by,
+                             view_access, view_min_tier_id, register_access, register_min_tier_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
          RETURNING ${SELECT}`,
         [
             input.title,
@@ -152,6 +154,10 @@ export async function createEvent(
             input.ticketingEnabled ?? false,
             JSON.stringify(input.metadata ?? {},),
             createdBy ?? null,
+            input.viewAccess ?? 'inherit',
+            input.viewAccess === 'tier' ? input.viewMinTierId ?? null : null,
+            input.registerAccess ?? 'inherit',
+            input.registerAccess === 'tier' ? input.registerMinTierId ?? null : null,
         ],
     );
     return toIsoFields(mapRow<CalendarEvent>(res.rows[0],),);
@@ -388,7 +394,7 @@ export async function deleteOverride(eventId: string, occurrenceDate: string,): 
 
 // ─── Ticket tiers ─────────────────────────────────────────────────
 
-const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position`;
+const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position, required_tier_id`;
 
 export async function findTiers(eventId: string,): Promise<EventTicketTier[]> {
     const res = await query(
@@ -414,7 +420,7 @@ export async function replaceTiers(
     eventId: string,
     tiers: Array<{
         id?: string; name: string; priceCents: number; currency: string;
-        quantityAvailable: number | null; position: number;
+        quantityAvailable: number | null; position: number; requiredTierId?: string | null;
     }>,
 ): Promise<EventTicketTier[]> {
     const keptIds = tiers.map((t,) => t.id).filter(Boolean,) as string[];
@@ -430,16 +436,16 @@ export async function replaceTiers(
             await query(
                 `UPDATE event_ticket_tiers
                     SET name = $1, price_cents = $2, currency = $3,
-                        quantity_available = $4, position = $5, updated_at = NOW()
+                        quantity_available = $4, position = $5, required_tier_id = $8, updated_at = NOW()
                   WHERE id = $6 AND event_id = $7`,
-                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId,],
+                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId, t.requiredTierId ?? null,],
             );
         } else {
             await query(
                 `INSERT INTO event_ticket_tiers
-                    (event_id, name, price_cents, currency, quantity_available, position)
-                 VALUES ($1,$2,$3,$4,$5,$6)`,
-                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i,],
+                    (event_id, name, price_cents, currency, quantity_available, position, required_tier_id)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.requiredTierId ?? null,],
             );
         }
     }

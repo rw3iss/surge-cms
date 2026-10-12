@@ -41,6 +41,24 @@ export class ForbiddenError extends AppError {
     }
 }
 
+/**
+ * 403 for a gate the viewer can pass by signing in or subscribing. The client
+ * shows the message + a link (sign in / upgrade) from `details`
+ * (`AccessRequiredDetails`: reason, requiredTier).
+ */
+export class AccessRequiredError extends AppError {
+    constructor(reason: 'signin' | 'subscribe', requiredTier: { id: string; name: string; } | null, message?: string,) {
+        super(
+            403,
+            reason === 'signin' ? 'SIGN_IN_REQUIRED' : 'SUBSCRIPTION_REQUIRED',
+            message ?? (reason === 'signin'
+                ? 'Please sign in to continue.'
+                : `This requires ${requiredTier ? `the ${requiredTier.name} subscription or higher` : 'a subscription'}.`),
+            { reason, requiredTier, },
+        );
+    }
+}
+
 export class ConflictError extends AppError {
     constructor(message: string, details?: Record<string, unknown>,) {
         super(409, 'CONFLICT', message, details,);

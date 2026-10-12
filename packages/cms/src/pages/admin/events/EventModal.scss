@@ -4,31 +4,81 @@
     display: flex;
     flex-direction: column;
     max-height: 90vh;
+    // A little wider than .modal-shell--lg (880px): the tiers table and the
+    // date/time row need the room. `&.modal-shell--lg` out-ranks the shared rule.
+    &.modal-shell--lg { max-width: 960px; }
 
+    // Title, then the tab bar under it; the ✕ (ModalShell) sits top-right.
     &__head {
-        // Right padding leaves room for ModalShell's own ✕ button.
-        padding: 16px 52px 16px 20px;
+        padding: 16px 52px 12px 20px;
         border-bottom: 1px solid var(--admin-border, #{$border-color});
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
 
-        h2 { margin: 0; font-size: $font-size-lg; }
+        h2 {
+            margin: 0;
+            font-size: $font-size-lg;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ui-tabs { align-self: flex-start; }
+    }
+
+    // One titled group of fields inside a tab.
+    &__section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+
+        & + & {
+            padding-top: 16px;
+            border-top: 1px solid var(--admin-border, #{$border-color});
+        }
+    }
+
+    &__section-title {
+        margin: 0;
+        font-size: $font-size-sm;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__section-help {
+        margin: -4px 0 0;
+        font-size: $font-size-sm;
+        color: var(--admin-text-muted, #{$text-light});
     }
 
     // The body scrolls, so the header and the save bar stay reachable on a
     // small screen no matter how many optional sections are open.
     &__body {
-        padding: 16px 20px;
+        padding: 18px 20px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
+        // Keep the modal from jumping in height when switching tabs.
+        min-height: 360px;
     }
 
     &__row {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
+        align-items: start;
 
-        @media (max-width: 560px) { grid-template-columns: 1fr; }
+        // Name takes most of the row, status the rest.
+        &--name { grid-template-columns: minmax(0, 3fr) minmax(140px, 1fr); }
+        &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+        @media (max-width: 560px) {
+            &, &--name, &--3 { grid-template-columns: 1fr; }
+        }
     }
 
     // Date(s) + start time + end time on ONE row: the date half, each time a
@@ -44,30 +94,22 @@
 
     &__when-date { grid-column: span 2; }
 
-    // The switches, then the timezone filling what is left of the row.
     &__toggles {
         display: flex;
-        gap: 12px 24px;
+        gap: 12px 28px;
         flex-wrap: wrap;
         align-items: center;
-    }
-
-    &__timezone {
-        flex: 1 1 220px;
-        min-width: 0;
-        margin-bottom: 0;
     }
 
     // Inputs nested one level inside a field (the slug row, the ticket tiers)
     // are not direct children of .admin-form-field__control, so the canonical
     // admin input style never reached them.
     &__slug input,
-    &__tier input {
+    &__tier input,
+    &__tier select {
         @include admin-input;
         width: 100%;
     }
-
-    &__status { max-width: 150px; }
 
     &__slug {
         display: flex;
@@ -102,10 +144,41 @@
 
     &__tier {
         display: grid;
-        // name / price / quantity / remove
-        grid-template-columns: 2fr 1fr 1fr auto;
-        gap: 6px;
+        // name / price / quantity / requires / remove
+        grid-template-columns: minmax(0, 2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.6fr) 32px;
+        gap: 8px;
         align-items: center;
+
+        &--head span {
+            font-size: $font-size-xs;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--admin-text-muted, #{$text-light});
+        }
+
+        @media (max-width: 640px) {
+            grid-template-columns: 1fr 1fr;
+            &--head { display: none; }
+        }
+    }
+
+    &__tier-remove { padding-inline: 0; justify-content: center; }
+
+    &__tiers-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+        margin-top: 4px;
+
+        .form-help-muted { flex: 1 1 280px; margin: 0; font-size: $font-size-xs; }
+    }
+
+    &__unsaved {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $warning-color;
     }
 
     &__foot {
@@ -120,9 +193,7 @@
 }
 
 .event-registrants {
-    border-top: 1px solid var(--admin-border, #e5e7eb);
-    padding-top: 12px;
-    margin-top: 4px;
+    // Sits in its own .event-modal__section, which draws the divider.
 
     &__head {
         display: flex;

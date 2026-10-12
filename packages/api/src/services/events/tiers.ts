@@ -10,6 +10,8 @@ import { NotFoundError, ValidationError, } from '../../core/errors';
 import * as repo from '../../repositories/events.repo';
 import { logAudit, } from '../audit';
 import type { AuditContext, } from '../types';
+import { assertTierIds, decorateTiers, } from './access';
+import type { LevelViewer, } from '../access/level';
 
 /**
  * Tiers with live sold/remaining counts for one occurrence. Remaining is null
@@ -18,12 +20,14 @@ import type { AuditContext, } from '../types';
 export async function listTiers(
     eventId: string,
     occurrenceDate: string,
+    /** Public reads: attach `requiredTier` + `canBuy` for this viewer. */
+    viewer?: LevelViewer | 'none',
 ): Promise<EventTicketTier[]> {
     const [tiers, sold,] = await Promise.all([
         repo.findTiers(eventId,),
         repo.countSoldByTier(eventId, occurrenceDate,),
     ],);
-    return tiers.map((t,) => {
+    const out = tiers.map((t,) => {
         const used = sold[t.id] ?? 0;
         return {
             ...t,
@@ -33,13 +37,14 @@ export async function listTiers(
                 : Math.max(0, t.quantityAvailable - used,),
         };
     },);
+    return viewer === undefined || viewer === 'none' ? out : decorateTiers(out, viewer,);
 }
 
 export async function replaceTiers(
     eventId: string,
     tiers: Array<{
         id?: string; name: string; priceCents: number; currency: string;
-        quantityAvailable: number | null; position: number;
+        quantityAvailable: number | null; position: number; requiredTierId?: string | null;
     }>,
     ctx: AuditContext,
 ): Promise<EventTicketTier[]> {
@@ -49,6 +54,7 @@ export async function replaceTiers(
         if (!t.name?.trim()) throw new ValidationError('Every ticket tier needs a name',);
         if (t.priceCents < 0) throw new ValidationError('Ticket price cannot be negative',);
     }
+    await assertTierIds(tiers.map((t,) => t.requiredTierId,),);
     const saved = await repo.replaceTiers(eventId, tiers,);
     await logAudit({
         userId: ctx.userId,

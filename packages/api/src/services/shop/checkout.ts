@@ -12,7 +12,8 @@
 import type { ShopAddress, ShopSettings, ShopShippingOption, } from '@sitesurge/types';
 import Stripe from 'stripe';
 import { config, } from '../../config';
-import { ConflictError, ValidationError, } from '../../core/errors';
+import { AccessRequiredError, ConflictError, ValidationError, } from '../../core/errors';
+import type { LevelViewer, } from '../access/level';
 import { query, transaction, } from '../../db';
 import * as ordersRepo from '../../repositories/shop/shopOrders.repo';
 import { logger, } from '../../utils/logger';
@@ -163,7 +164,7 @@ export interface ResolvedLine {
  * quantity above what is left for that date — and returns the authoritative
  * price. Tickets are never shipped, so they add nothing to shipping.
  */
-async function resolveTicketLine(line: CheckoutLineInput,): Promise<ResolvedLine> {
+async function resolveTicketLine(line: CheckoutLineInput, viewer: LevelViewer,): Promise<ResolvedLine> {
     if (!line.eventId || !line.occurrenceDate || !line.tierId || !Number.isInteger(line.qty,) || line.qty < 1) {
         throw new ValidationError('A ticket line needs an event, a date, a ticket type and a quantity',);
     }
@@ -176,7 +177,7 @@ async function resolveTicketLine(line: CheckoutLineInput,): Promise<ResolvedLine
         name: '',
         priceCents: 0,
         currency: '',
-    },],);
+    },], { viewer, },);
     const t = lines[0];
     return {
         variantId: line.variantId,
@@ -215,7 +216,7 @@ async function resolveTicketLine(line: CheckoutLineInput,): Promise<ResolvedLine
  */
 async function resolveLines(
     items: CheckoutLineInput[],
-    opts: { lenient?: boolean; } = {},
+    opts: { lenient?: boolean; viewer?: LevelViewer; } = {},
 ): Promise<{ lines: ResolvedLine[]; unavailable: string[]; }> {
     if (!items || items.length === 0) {
         throw new ValidationError('Cart is empty',);
@@ -228,11 +229,13 @@ async function resolveLines(
     for (const line of items) {
         if (line.kind === 'event_ticket') {
             try {
-                resolved.push(await resolveTicketLine(line,),);
+                resolved.push(await resolveTicketLine(line, opts.viewer ?? null,),);
             } catch (err) {
                 // Sold out / unpublished since it was added: the preview drops
-                // it like a stale variant; the real checkout refuses.
-                if (!opts.lenient) throw err;
+                // it like a stale variant; the real checkout refuses. A sign-in /
+                // subscription gate is never dropped silently — the buyer must
+                // see why (and the upgrade link).
+                if (!opts.lenient || err instanceof AccessRequiredError) throw err;
                 unavailable.push(line.variantId,);
             }
             continue;
@@ -463,7 +466,7 @@ function buildShipping(
 
 async function computeTotals(
     input: CheckoutPreviewInput,
-    opts: { lenient?: boolean; } = {},
+    opts: { lenient?: boolean; viewer?: LevelViewer; } = {},
 ): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
     const settings = await getShopSettings();
     const currency = settings.currency ?? 'usd';
@@ -530,10 +533,11 @@ async function computeTotals(
 
 /** Live-total preview for the checkout page. Validates + computes totals
  *  WITHOUT creating an order or a PaymentIntent. */
-export async function previewCheckout(input: CheckoutPreviewInput,): Promise<CheckoutTotals> {
+/** `viewer` = the buyer (null when signed out): event tickets check their register + tier rules. */
+export async function previewCheckout(input: CheckoutPreviewInput, viewer: LevelViewer = null,): Promise<CheckoutTotals> {
     // Lenient: a stale/removed cart variant is reported (not thrown) so the
     // storefront can prune it instead of the whole preview failing.
-    const { totals, } = await computeTotals(input, { lenient: true, },);
+    const { totals, } = await computeTotals(input, { lenient: true, viewer, },);
     return totals;
 }
 
@@ -543,12 +547,12 @@ export async function previewCheckout(input: CheckoutPreviewInput,): Promise<Che
  * (metadata.orderType='shop'). Returns the client secret for Elements.
  * Guest checkout allowed (ctx.userId may be null → uuidOrNull).
  */
-export async function createCheckout(input: CheckoutInput, ctx: AuditContext,): Promise<CheckoutResult> {
+export async function createCheckout(input: CheckoutInput, ctx: AuditContext, viewer: LevelViewer = null,): Promise<CheckoutResult> {
     if (!input.customerEmail) {
         throw new ValidationError('customerEmail is required',);
     }
 
-    const { lines, totals, } = await computeTotals(input,);
+    const { lines, totals, } = await computeTotals(input, { viewer, },);
     const orderNumber = generateOrderNumber();
 
     // Create the order + item snapshots first (pending), then the

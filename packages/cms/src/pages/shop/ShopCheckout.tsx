@@ -10,6 +10,8 @@ import { useAuth, } from '../../stores/auth';
 import { cartItems, cartSubtotal, clearCart, removeFromCart, } from '../../stores/shopCart';
 import { money, shipBreakdown, } from './shopFormat';
 import ShopStoreGuard from './ShopStoreGuard';
+import AccessRequiredNotice from '../../components/common/AccessRequiredNotice';
+import { accessErrorOf, type AccessRequired, } from '../../utils/accessRequired';
 import './shop.scss';
 
 const ShopCheckoutInner: Component = () => {
@@ -50,6 +52,8 @@ const ShopCheckoutInner: Component = () => {
     const [cardComplete, setCardComplete,] = createSignal(false,);
     const [placing, setPlacing,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
+    /** An event ticket the buyer may not get (sign in / subscription) — shown with its link. */
+    const [accessError, setAccessError,] = createSignal<AccessRequired | null>(null,);
     const [notice, setNotice,] = createSignal('',);
 
     // Two-step flow: 'form' (enter details) → 'confirm' (review + pay).
@@ -133,6 +137,7 @@ const ShopCheckoutInner: Component = () => {
                 shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
             },);
             setTotals(t,);
+            setAccessError(null,);
             // Prune cart lines the server reports as unavailable (e.g. a variant
             // whose id changed on a resync) so they don't wedge checkout.
             const gone = t.unavailableVariantIds ?? [];
@@ -153,8 +158,10 @@ const ShopCheckoutInner: Component = () => {
                 if (g.shippingMethod && !groupMethod()[g.key]) adopt[g.key] = g.shippingMethod;
             }
             if (Object.keys(adopt,).length) setGroupMethod((m,) => ({ ...adopt, ...m, }));
-        } catch {
-            /* keep last totals; final total is authoritative on create */
+        } catch (err) {
+            // Keep last totals (the final total is authoritative on create) —
+            // except a ticket the buyer may not get, which must be said.
+            setAccessError(accessErrorOf(err,),);
         } finally {
             setPreviewing(false,);
         }
@@ -250,6 +257,7 @@ const ShopCheckoutInner: Component = () => {
             if (pm.paymentMethod.card?.brand) setCardBrand(pm.paymentMethod.card.brand,);
             setCardLast4(pm.paymentMethod.card?.last4 ?? '',);
             await runPreview(); // lock in the final shipping quote for this address
+            if (accessError()) return;
             setStep('confirm',);
             window.scrollTo({ top: 0, behavior: 'smooth', },);
         } catch (err) {
@@ -322,7 +330,9 @@ const ShopCheckoutInner: Component = () => {
             }
             setError('Payment did not complete. Please try again.',);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Checkout failed. Please try again.',);
+            const gate = accessErrorOf(err,);
+            if (gate) setAccessError(gate,);
+            else setError(err instanceof Error ? err.message : 'Checkout failed. Please try again.',);
         } finally {
             setPlacing(false,);
         }
@@ -725,6 +735,16 @@ const ShopCheckoutInner: Component = () => {
 
                         <Show when={error()}>
                             <div class="shop-store__error">{error()}</div>
+                        </Show>
+                        <Show when={accessError()}>
+                            {(g,) => (
+                                <AccessRequiredNotice
+                                    reason={g().reason}
+                                    requiredTier={g().requiredTier}
+                                    message={g().message}
+                                    onLoggedIn={() => void runPreview()}
+                                />
+                            )}
                         </Show>
 
                         <Show

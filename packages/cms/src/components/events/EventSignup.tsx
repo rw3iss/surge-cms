@@ -20,6 +20,13 @@ import { featuredImagePath, } from '@sitesurge/types';
  * An all-free selection skips the cart entirely and is claimed straight
  * through `cms.events.purchaseTickets`, which registers the attendee and
  * issues the codes (reducing what is left) in one call.
+ *
+ * Access (Settings → Events + the event's own rule): when `event.access`
+ * says the viewer may not register, the form is replaced by the reason —
+ * "Sign in" (in-page login) or "Upgrade your subscription". A ticket type
+ * that needs a subscription (`tier.canBuy === false`) is shown disabled with
+ * the same link. The server enforces all of it; a 403 SIGN_IN_REQUIRED /
+ * SUBSCRIPTION_REQUIRED from register / purchase is shown the same way.
  */
 import type { CalendarEvent, EventRegistrationField, EventTicketTier, } from '@sitesurge/types';
 import { formatCurrency, } from '@sitesurge/types';
@@ -30,6 +37,8 @@ import { useAuth, } from '../../stores/auth';
 import { addToCart, ticketLineKey, } from '../../stores/shopCart';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import LoginModal from '../auth/LoginModal';
+import AccessRequiredNotice from '../common/AccessRequiredNotice';
+import { accessErrorOf, tierRequirement, type AccessRequired, } from '../../utils/accessRequired';
 import { useToast, } from '../common/toast/Toast';
 import './EventSignup.scss';
 
@@ -53,11 +62,29 @@ export interface EventSignupProps {
     tiers: EventTicketTier[];
     /** Tickets were issued — the host re-reads what is left. */
     onClaimed?: () => void;
+    /** The viewer signed in (or their access may have changed): the host re-reads the event + tiers. */
+    onAccessChanged?: () => void;
 }
 
 const EventSignup: Component<EventSignupProps> = (props,) => {
     const auth = useAuth();
     const toast = useToast();
+
+    /** What this viewer may do (absent on older payloads = allowed). */
+    const access = () => props.event.access;
+    const registerGate = (): AccessRequired | null => {
+        const a = access();
+        if (!a || a.canRegister) return null;
+        const reason = a.registerReason ?? 'subscribe';
+        return {
+            reason,
+            requiredTier: a.requiredTier,
+            message: reason === 'signin'
+                ? 'Sign in to register for this event.'
+                : `Registration requires ${tierRequirement(a.requiredTier,)}.`,
+        };
+    };
+    const canBuy = (t: EventTicketTier,) => t.canBuy !== false;
 
     /** Tickets win when both are on and any tier exists. */
     const mode = (): 'tickets' | 'register' | null => {
@@ -122,6 +149,8 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
     /** Tickets just put in the cart (count), shown in place of the form. */
     const [inCart, setInCart,] = createSignal(0,);
     const [error, setError,] = createSignal('',);
+    /** A sign-in / subscription refusal from the server (shown with its link). */
+    const [accessError, setAccessError,] = createSignal<AccessRequired | null>(null,);
     const [submitting, setSubmitting,] = createSignal(false,);
     const [loginOpen, setLoginOpen,] = createSignal(false,);
 
@@ -145,6 +174,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         e.preventDefault();
         if (submitting()) return;
         setError('',);
+        setAccessError(null,);
         if (mode() === 'tickets' && selected().length === 0) {
             setError('Choose at least one ticket.',);
             return;
@@ -177,6 +207,11 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 setDone(true,);
             }
         } catch (err) {
+            const gate = accessErrorOf(err,);
+            if (gate) {
+                setAccessError(gate,);
+                return;
+            }
             setError(
                 err instanceof Error ?
                     err.message :
@@ -246,13 +281,22 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                     <ul class="event-detail__tiers">
                         <For each={props.tiers}>
                             {(t,) => (
-                                <li class="event-detail__tier">
+                                <li class="event-detail__tier" classList={{ 'event-detail__tier--locked': !canBuy(t,), }}>
                                     <div>
                                         <span class="event-detail__tier-name">{t.name}</span>
                                         <Show when={t.remaining !== null && t.remaining !== undefined}>
                                             <span class="event-detail__tier-left">
                                                 {t.remaining === 0 ? 'Sold out' : `${t.remaining} left`}
                                             </span>
+                                        </Show>
+                                        <Show when={!canBuy(t,) && !registerGate()}>
+                                            <AccessRequiredNotice
+                                                compact
+                                                reason={auth.user ? 'subscribe' : 'signin'}
+                                                requiredTier={t.requiredTier ?? null}
+                                                message={`Requires ${tierRequirement(t.requiredTier,)}.`}
+                                                onLoggedIn={() => props.onAccessChanged?.()}
+                                            />
                                         </Show>
                                     </div>
                                     <span class="event-detail__tier-price">{money(t.priceCents, t.currency,)}</span>
@@ -261,7 +305,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                                         type="number"
                                         min="0"
                                         max={t.remaining ?? undefined}
-                                        disabled={done() || t.remaining === 0}
+                                        disabled={done() || t.remaining === 0 || !canBuy(t,) || Boolean(registerGate(),)}
                                         value={qty()[t.id] ?? 0}
                                         onInput={(e,) => setQ(t.id, Number(e.currentTarget.value,) || 0,)}
                                         aria-label={`Quantity for ${t.name}`}
@@ -319,6 +363,17 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                         </Show>
                     }
                 >
+                    <Show when={registerGate()}>
+                        {(g,) => (
+                            <AccessRequiredNotice
+                                reason={g().reason}
+                                requiredTier={g().requiredTier}
+                                message={g().message}
+                                onLoggedIn={() => props.onAccessChanged?.()}
+                            />
+                        )}
+                    </Show>
+                    <Show when={!registerGate()}>
                     <form onSubmit={submit} class="event-detail__form">
                         <Show when={auth.user}>
                             <p class="event-signup__as">Signing up as:</p>
@@ -373,12 +428,23 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                         <Show when={error()}>
                             <p class="event-detail__error">{error()}</p>
                         </Show>
+                        <Show when={accessError()}>
+                            {(g,) => (
+                                <AccessRequiredNotice
+                                    reason={g().reason}
+                                    requiredTier={g().requiredTier}
+                                    message={g().message}
+                                    onLoggedIn={() => { setAccessError(null,); props.onAccessChanged?.(); }}
+                                />
+                            )}
+                        </Show>
                         <button type="submit" class="btn btn--primary" disabled={submitting()}>
                             {buttonText()}
                         </button>
                     </form>
+                    </Show>
 
-                    <Show when={!auth.user}>
+                    <Show when={!auth.user && !registerGate()}>
                         <p class="event-signup__login">
                             Have an account?{' '}
                             <button type="button" class="event-signup__login-link" onClick={() => setLoginOpen(true,)}>
@@ -391,7 +457,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
             </section>
 
             <Show when={loginOpen()}>
-                <LoginModal onClose={() => setLoginOpen(false,)} />
+                <LoginModal onClose={() => setLoginOpen(false,)} onSuccess={() => props.onAccessChanged?.()} />
             </Show>
         </Show>
     );

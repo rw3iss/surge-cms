@@ -10,6 +10,8 @@ import { registerCommentTarget, type TargetAccess, } from '../discussions/target
 import { isStaffViewer, type Viewer, } from '../discussions/viewer';
 import { gateFor, isHiddenFor, tiersById, viewerRank, } from '../postGate';
 import { getSettings as getEventsSettings, } from '../events/settings';
+import { accessFor as eventAccessFor, } from '../events/access';
+import { findById as getEventById, } from '../../repositories/events.repo';
 import { getSettings as getCommentsSettings, } from './settings';
 import * as threads from './threads';
 
@@ -86,7 +88,15 @@ registerCommentTarget({
         const staff = isStaffViewer(viewer,);
         if (!staff && e.status !== 'published') return null;
         const thread = await threads.get('event', id,);
-        return { title: e.title, url: `${await eventsBase()}/${e.slug}`, canRead: true, ...openFor(thread,), };
+        const base = { title: e.title, url: `${await eventsBase()}/${e.slug}`, };
+        if (!staff) {
+            // Follow the event's view rule: a members-only event's comments are members-only.
+            const full = await getEventById(id,).catch(() => null);
+            if (full && !(await eventAccessFor(full, viewer,)).canView) {
+                return { ...base, canRead: false, canComment: false, allowAnonymous: false, reason: 'Sign in or subscribe to read the comments.', };
+            }
+        }
+        return { ...base, canRead: true, ...openFor(thread,), };
     },
     async summaries(ids,) {
         const base = await eventsBase();

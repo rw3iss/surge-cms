@@ -8,6 +8,8 @@ import * as repo from '../../repositories/events.repo';
 import { logAudit, } from '../audit';
 import type { AuditContext, } from '../types';
 import { expandEvents, } from './occurrences';
+import { filterViewable, } from './access';
+import type { LevelViewer, } from '../access/level';
 
 /**
  * The calendar view: every occurrence falling inside the window, with recurring
@@ -22,6 +24,8 @@ export async function listOccurrences(opts: {
     to: string;
     admin?: boolean;
     search?: string;
+    /** Public reads: only events this viewer may see. */
+    viewer?: LevelViewer;
 },): Promise<EventOccurrence[]> {
     const from = new Date(opts.from,);
     const to = new Date(opts.to,);
@@ -35,8 +39,9 @@ export async function listOccurrences(opts: {
         search: opts.search,
     }, { page: 1, limit: 500, },);
 
-    const overrides = await repo.findOverridesForEvents(data.map((e,) => e.id),);
-    return expandEvents(data, overrides, { from, to, }, { includeCancelled: opts.admin, },);
+    const visible = opts.admin ? data : await filterViewable(data, opts.viewer,);
+    const overrides = await repo.findOverridesForEvents(visible.map((e,) => e.id),);
+    return expandEvents(visible, overrides, { from, to, }, { includeCancelled: opts.admin, },);
 }
 
 /** Cancel (or un-cancel) a single date of a recurring series. */

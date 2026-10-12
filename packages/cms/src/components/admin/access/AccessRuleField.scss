@@ -1,0 +1,9 @@
+// "Who may …" rule picker (+ tier) — side by side, wraps on narrow modals.
+.access-rule {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    // The global admin select style applies (same as every other field); only layout here.
+    select { flex: 1 1 200px; min-width: 0; width: auto; }
+}

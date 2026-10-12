@@ -44,4 +44,14 @@
         display: inline-flex;
         align-items: center;
     }
+
+    // Unsaved-changes marker after a tab's label.
+    &__dirty {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: $warning-color;
+        box-shadow: 0 0 0 2px rgba($warning-color, 0.2);
+        flex: 0 0 auto;
+    }
 }

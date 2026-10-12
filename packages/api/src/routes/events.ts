@@ -47,6 +47,10 @@ const eventBody = z.object({
     registrationFields: z.array(z.string().max(50,),).optional(),
     showRegistrantCount: z.boolean().optional(),
     ticketingEnabled: z.boolean().optional(),
+    viewAccess: z.enum(['inherit', 'public', 'members', 'tier',],).optional(),
+    viewMinTierId: z.string().uuid().nullable().optional(),
+    registerAccess: z.enum(['inherit', 'public', 'members', 'tier',],).optional(),
+    registerMinTierId: z.string().uuid().nullable().optional(),
     metadata: z.record(z.string(), z.unknown(),).optional(),
 },) satisfies z.ZodType<EventsCreateBody>;
 
@@ -93,6 +97,10 @@ export const eventsRoutes = [
                 allowTicketing: z.boolean().optional(),
                 fromName: z.string().trim().max(200,).optional(),
                 fromAddress: z.union([z.string().trim().email(), z.literal('',),],).optional(),
+                viewAccess: z.enum(['public', 'members', 'tier',],).optional(),
+                viewMinTierId: z.string().uuid().nullable().optional(),
+                registerAccess: z.enum(['public', 'members', 'tier',],).optional(),
+                registerMinTierId: z.string().uuid().nullable().optional(),
             },),
         },
         handler: ({ body, audit, },) => events.updateSettings(body, audit(),),
@@ -152,7 +160,7 @@ export const eventsRoutes = [
         },
         handler: async ({ query, user, },) => {
             const admin = isStaffRole(user?.role,);
-            return events.listOccurrences({ ...query, admin, },);
+            return events.listOccurrences({ ...query, admin, viewer: user ?? null, },);
         },
     },),
 
@@ -166,7 +174,7 @@ export const eventsRoutes = [
             params: z.object({ id: z.string().uuid(), },),
             query: z.object({ occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,), },),
         },
-        handler: ({ params, query, },) => events.listTiers(params.id, query.occurrenceDate,),
+        handler: ({ params, query, user, },) => events.listTiers(params.id, query.occurrenceDate, user ?? null,),
     },),
 
     defineRoute({
@@ -185,6 +193,8 @@ export const eventsRoutes = [
                     currency: z.string().length(3,).default('USD',),
                     quantityAvailable: z.number().int().min(0,).nullable(),
                     position: z.number().int().min(0,).default(0,),
+                    // Only subscribers of this tier (or higher) may buy this ticket type.
+                    requiredTierId: z.string().uuid().nullable().optional(),
                 },),),
             },),
         },
@@ -235,6 +245,7 @@ export const eventsRoutes = [
                 // the client's word for it.
                 email: user?.email || body.email,
                 userId: user?.id,
+                viewer: user ?? null,
             },),
         }),
     },),
@@ -315,6 +326,7 @@ export const eventsRoutes = [
                 phone: body.phone,
                 fields: body.fields,
                 userId: user?.id,
+                viewer: user ?? null,
             },),
     },),
 
@@ -327,7 +339,7 @@ export const eventsRoutes = [
         input: { query: listQuery, },
         handler: async ({ query, user, },) => {
             const admin = isStaffRole(user?.role,);
-            const { data, meta, } = await events.list({ ...query, admin, },);
+            const { data, meta, } = await events.list({ ...query, admin, viewer: user ?? null, },);
             return reply(data, { meta, },);
         },
     },),
@@ -338,7 +350,7 @@ export const eventsRoutes = [
         auth: 'optional',
         summary: 'A single event by id or slug.',
         input: { params: z.object({ idOrSlug: z.string().min(1,), },), },
-        handler: ({ params, user, },) => events.getByIdOrSlug(params.idOrSlug, { admin: isStaffRole(user?.role,), },),
+        handler: ({ params, user, },) => events.getByIdOrSlug(params.idOrSlug, { admin: isStaffRole(user?.role,), viewer: user ?? null, },),
     },),
 
     // ─── Writes (staff) ───

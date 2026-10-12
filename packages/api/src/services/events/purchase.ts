@@ -17,6 +17,7 @@ import { sendEmail, } from '../email';
 import { register, } from './registration';
 import { eventSender, getSettings, } from './settings';
 import { issueTickets, resolveTicketLines, } from './tickets';
+import type { LevelViewer, } from '../access/level';
 
 export interface PurchaseResult {
     status: 'confirmed' | 'payment_required';
@@ -33,6 +34,8 @@ export async function purchaseTickets(input: {
     phone?: string;
     fields?: Record<string, unknown>;
     userId?: string;
+    /** The buyer (`{ id, role }`, null when signed out): enforces register + ticket tier rules. */
+    viewer: LevelViewer;
 },): Promise<PurchaseResult> {
     const settings = await getSettings();
     if (!settings.allowTicketing) {
@@ -42,7 +45,7 @@ export async function purchaseTickets(input: {
     if (!isValidEmail(email,)) throw new ValidationError('A valid email address is required',);
     if (!input.lines?.length) throw new ValidationError('No tickets selected.',);
 
-    const { lines, totalCents, } = await resolveTicketLines(input.lines,);
+    const { lines, totalCents, } = await resolveTicketLines(input.lines, { viewer: input.viewer, },);
 
     // Every line must belong to one event: an order spans a single event's
     // registration, and mixing them would leave attendees on the wrong list.
@@ -69,6 +72,7 @@ export async function purchaseTickets(input: {
         fields: input.fields,
         userId: input.userId,
         sendConfirmation: false,
+        viewer: input.viewer,
     },);
     const tickets = await issueTickets(registration.id, lines,);
     await sendTicketConfirmation(lines[0].eventId, email, tickets,);

@@ -11,6 +11,7 @@ import { validatePublicBasePath, } from '../access/publicPath';
 import { config, } from '../../config';
 import { ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
+import { tiersById, } from '../postGate';
 import * as settingsService from '../settings';
 import { isFeatureEnabledServer, } from '../settings';
 import type { AuditContext, } from '../types';
@@ -35,6 +36,16 @@ export async function updateSettings(
 
     if (patch.eventsUrl !== undefined) {
         next.eventsUrl = await validateEventsUrl(patch.eventsUrl,);
+    }
+    // Access defaults: a `tier` rule needs a real tier; other rules carry none.
+    const tiers = await tiersById();
+    for (const [rule, tierKey, label,] of [['viewAccess', 'viewMinTierId', 'viewing events',], ['registerAccess', 'registerMinTierId', 'registering',],] as const) {
+        if (!['public', 'members', 'tier',].includes(next[rule],)) throw new ValidationError(`Unknown access rule for ${label}.`,);
+        if (next[rule] === 'tier') {
+            if (!next[tierKey] || !tiers.has(next[tierKey]!,)) throw new ValidationError(`Choose the subscription tier required for ${label}.`,);
+        } else {
+            next[tierKey] = null;
+        }
     }
     if (patch.allowTicketing && !(await isFeatureEnabledServer('shop',))) {
         throw new ValidationError(
@@ -73,6 +84,10 @@ export async function getPublicSettings(): Promise<EventsSettings> {
         allowRegistration: s.allowRegistration,
         allowTicketing: s.allowTicketing,
         vapidPublicKey: config.webPush.publicKey || s.vapidPublicKey,
+        viewAccess: s.viewAccess,
+        viewMinTierId: s.viewMinTierId,
+        registerAccess: s.registerAccess,
+        registerMinTierId: s.registerMinTierId,
     };
 }
 

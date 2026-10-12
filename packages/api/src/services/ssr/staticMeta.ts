@@ -10,6 +10,7 @@
  * their record — and fall back to the generic tags when the feature's tables
  * do not exist or the record is gone (the SPA then shows its own 404).
  */
+import { eventFloors, } from '../events/access';
 import { DEFAULT_FORUM_SETTINGS, renderMarkdown, stripMarkdown, type ForumSettings, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { buildGenericBody, } from './bodyBuilder';
@@ -157,11 +158,20 @@ async function event(c: StaticMetaCtx, slug: string,): Promise<MetaTags | null> 
     const row = await safe(async () => (await query<{
         title: string; description: string | null; starts_at: string | null; ends_at: string | null; location: string | null;
         featured_image: string | null; url: string | null;
+        view_access: string; view_min_tier_id: string | null; register_access: string; register_min_tier_id: string | null;
     }>(
-        `SELECT title, description, starts_at, ends_at, location, featured_image, url
+        `SELECT title, description, starts_at, ends_at, location, featured_image, url,
+                view_access, view_min_tier_id, register_access, register_min_tier_id
            FROM events WHERE slug = $1 AND status = 'published'`, [slug,],
     )).rows[0] ?? null,);
     if (!row) return null;
+    // A members/subscriber-only event: the page exists (the SPA shows a sign-in
+    // or upgrade prompt) but nothing of it reaches an anonymous crawler.
+    const floors = await safe(() => eventFloors({
+        viewAccess: row.view_access as never, viewMinTierId: row.view_min_tier_id,
+        registerAccess: row.register_access as never, registerMinTierId: row.register_min_tier_id,
+    },),);
+    if (floors && floors.view > -1) return page(c, row.title, `${row.title} — an event from ${c.siteName}.`, { noindex: true, image: c.logo, },);
     const description = clip(row.description,) || `${row.title} — an event from ${c.siteName}.`;
     return page(c, row.title, description, {
         image: row.featured_image || c.logo,

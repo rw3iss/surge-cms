@@ -37,3 +37,10 @@ export function refusalReason(level: number, floor: number,): 'signin' | 'subscr
     if (level >= floor) return null;
     return level < 0 ? (floor <= 0 ? 'signin' : 'subscribe') : 'subscribe';
 }
+
+/** A tier's id + name (for "requires the X subscription"), or null when unknown. */
+export async function tierInfo(tierId: string | null | undefined,): Promise<{ id: string; name: string; } | null> {
+    if (!tierId) return null;
+    const t = (await tiersById()).get(tierId,);
+    return t ? { id: t.id, name: t.name, } : null;
+}

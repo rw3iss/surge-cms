@@ -14,21 +14,28 @@ import * as repo from '../../repositories/events.repo';
 import { logAudit, } from '../audit';
 import type { AuditContext, ListResult, } from '../types';
 import { notifyForEvent, } from './notifications';
+import { accessFor, assertCanView, assertRule, filterViewable, } from './access';
+import type { LevelViewer, } from '../access/level';
 
 export interface ListOpts extends repo.EventFilters {
     page?: number;
     limit?: number;
     /** Staff see drafts; anonymous callers are pinned to `published`. */
     admin?: boolean;
+    /** Non-admin reads drop events this viewer may not see (Settings → Events + the event's rule). */
+    viewer?: LevelViewer;
 }
 
 // ─── Reads ────────────────────────────────────────────────────────
 
 export async function list(opts: ListOpts = {},): Promise<ListResult<CalendarEvent>> {
-    const { page = 1, limit = 100, admin, ...filters } = opts;
+    const { page = 1, limit = 100, admin, viewer, ...filters } = opts;
     // A non-admin must never see drafts, whatever `status` they asked for.
     const status = admin ? filters.status : 'published';
-    const { data, total, } = await repo.findEvents({ ...filters, status, }, { page, limit, },);
+    const { data: rows, total, } = await repo.findEvents({ ...filters, status, }, { page, limit, },);
+    // Access is filtered after the page read (rules are per-event + inherit),
+    // so `total` can over-count gated events by at most this page's share.
+    const data = admin ? rows : await filterViewable(rows, viewer,);
     return {
         data,
         meta: { page, limit, total, totalPages: Math.ceil(total / limit,), },
@@ -37,12 +44,17 @@ export async function list(opts: ListOpts = {},): Promise<ListResult<CalendarEve
 
 export async function getByIdOrSlug(
     idOrSlug: string,
-    opts: { admin?: boolean; } = {},
+    /** `viewer` given (public reads): gate by view access and attach `access`. Omitted = internal read. */
+    opts: { admin?: boolean; viewer?: LevelViewer; } = {},
 ): Promise<CalendarEvent> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug,);
     const found = isUuid ? await repo.findById(idOrSlug,) : await repo.findBySlug(idOrSlug,);
     if (!found) throw new NotFoundError('Event',);
     if (!opts.admin && found.status !== 'published') throw new NotFoundError('Event',);
+    if (!opts.admin && 'viewer' in opts) {
+        await assertCanView(found, opts.viewer,);
+        return withFeaturedMedia({ ...found, access: await accessFor(found, opts.viewer,), },);
+    }
     return withFeaturedMedia(found,);
 }
 
@@ -132,11 +144,17 @@ async function withSlugRetry<T>(write: () => Promise<T>, attempts = 3,): Promise
 
 // ─── Writes ───────────────────────────────────────────────────────
 
+async function assertAccessInput(input: Partial<CalendarEventInput>,): Promise<void> {
+    await assertRule(input.viewAccess, input.viewMinTierId, 'viewing this event',);
+    await assertRule(input.registerAccess, input.registerMinTierId, 'registering',);
+}
+
 export async function create(
     input: CalendarEventInput,
     ctx: AuditContext,
 ): Promise<CalendarEvent> {
     assertValid(input,);
+    await assertAccessInput(input,);
     if (!input.title?.trim()) throw new ValidationError('Title is required',);
     if (!input.startsAt) throw new ValidationError('startsAt is required',);
 
@@ -178,6 +196,11 @@ export async function update(
     const existing = await repo.findById(id,);
     if (!existing) throw new NotFoundError('Event',);
     assertValid(patch,);
+    await assertAccessInput(patch,);
+    // A non-tier rule carries no tier.
+    for (const [rule, tier,] of [['viewAccess', 'viewMinTierId',], ['registerAccess', 'registerMinTierId',],] as const) {
+        if (patch[rule] !== undefined && patch[rule] !== 'tier') (patch as Record<string, unknown>)[tier] = null;
+    }
 
     const dbPatch: Record<string, unknown> = {};
     const map: Record<string, string> = {
@@ -189,6 +212,8 @@ export async function update(
         registrationFields: 'registrationFields',
         showRegistrantCount: 'showRegistrantCount',
         ticketingEnabled: 'ticketingEnabled', metadata: 'metadata',
+        viewAccess: 'viewAccess', viewMinTierId: 'viewMinTierId',
+        registerAccess: 'registerAccess', registerMinTierId: 'registerMinTierId',
     };
     for (const [key, col,] of Object.entries(map,)) {
         let v = (patch as Record<string, unknown>)[key];

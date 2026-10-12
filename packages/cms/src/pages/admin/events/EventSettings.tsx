@@ -4,7 +4,7 @@
  * Ticketing implies registration, and the server enforces that rather than
  * trusting the form; the UI mirrors it so the two can't disagree on screen.
  */
-import type { EventsSettings, } from '@sitesurge/types';
+import type { EventAccess, EventsSettings, SubscriptionTierOption, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
 import Toggle from '../../../components/admin/common/Toggle';
@@ -13,6 +13,7 @@ import { cms, } from '../../../services/cmsClient';
 import './EventSettings.scss';
 import { useToast, } from '../../../components/common/toast';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import { AccessRuleField, } from '../../../components/admin/access/AccessRuleField';
 
 const AdminEventSettings: Component = () => {
     const toast = useToast();
@@ -26,6 +27,11 @@ const AdminEventSettings: Component = () => {
     const [allowTicketing, setAllowTicketing,] = createSignal(false,);
     const [fromName, setFromName,] = createSignal('',);
     const [fromAddress, setFromAddress,] = createSignal('',);
+    const [viewAccess, setViewAccess,] = createSignal<EventAccess>('public',);
+    const [viewTier, setViewTier,] = createSignal<string | null>(null,);
+    const [registerAccess, setRegisterAccess,] = createSignal<EventAccess>('public',);
+    const [registerTier, setRegisterTier,] = createSignal<string | null>(null,);
+    const [tierOptions,] = createResource(() => cms.subscriptionTiers.options().catch(() => [] as SubscriptionTierOption[]),);
 
     const [loaded,] = createResource(async () => {
         try {
@@ -37,6 +43,10 @@ const AdminEventSettings: Component = () => {
             setAllowTicketing(s.allowTicketing,);
             setFromName(s.fromName || '',);
             setFromAddress(s.fromAddress || '',);
+            setViewAccess(s.viewAccess ?? 'public',);
+            setViewTier(s.viewMinTierId ?? null,);
+            setRegisterAccess(s.registerAccess ?? 'public',);
+            setRegisterTier(s.registerMinTierId ?? null,);
             return s;
         } catch {
             return null;
@@ -55,6 +65,10 @@ const AdminEventSettings: Component = () => {
                 allowTicketing: allowTicketing(),
                 fromName: fromName().trim(),
                 fromAddress: fromAddress().trim(),
+                viewAccess: viewAccess(),
+                viewMinTierId: viewAccess() === 'tier' ? viewTier() : null,
+                registerAccess: registerAccess(),
+                registerMinTierId: registerAccess() === 'tier' ? registerTier() : null,
             },);
             toast.success('Event settings saved',);
         } catch (e) {
@@ -101,6 +115,35 @@ const AdminEventSettings: Component = () => {
                         placeholder="/events"
                     />
                 </FormField>
+            </section>
+
+            <section class="admin-section">
+                <header class="admin-section__header">
+                    <h2>Access</h2>
+                </header>
+                <p class="form-help-muted">
+                    Defaults for every event; an event can override both on its General tab. Seeing an event and
+                    registering for it are separate, so events can be listed for everyone while only members or
+                    subscribers may register. Registering is never looser than seeing.
+                </p>
+                <div class="admin-event-settings__access">
+                    <AccessRuleField
+                        label="Who can see events"
+                        tooltip="Who sees events in the calendar and lists, and can open an event's page."
+                        rule={viewAccess()}
+                        tierId={viewTier()}
+                        tiers={tierOptions() ?? []}
+                        onChange={(r, t,) => { setViewAccess(r as EventAccess,); setViewTier(t,); }}
+                    />
+                    <AccessRuleField
+                        label="Who can register"
+                        tooltip="Who can register for events or get tickets. A ticket type can also require its own subscription."
+                        rule={registerAccess()}
+                        tierId={registerTier()}
+                        tiers={tierOptions() ?? []}
+                        onChange={(r, t,) => { setRegisterAccess(r as EventAccess,); setRegisterTier(t,); }}
+                    />
+                </div>
             </section>
 
             <section class="admin-section">

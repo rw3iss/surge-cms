@@ -25,6 +25,8 @@ export interface CommentSwitchesController {
     set: (patch: Partial<{ enabled: boolean; allowAnonymous: boolean; locked: boolean; }>,) => void;
     /** Persist for this item (no-op when the feature is off or nothing changed). */
     save: (id: string,) => Promise<void>;
+    /** Edited since load / last save (a NEW item starting from the site default counts as not edited). */
+    isDirty: () => boolean;
     targetType: string;
     id: () => string | null;
 }
@@ -36,10 +38,13 @@ export function useCommentSwitches(targetType: string, getId: () => string | nul
     const [count, setCount,] = createSignal(0,);
     const [approveAnonymous, setApproveAnonymous,] = createSignal(true,);
     const [dirty, setDirty,] = createSignal(false,);
+    /** User edits only — `dirty` is also set for a new item's default so it saves. */
+    const [edited, setEdited,] = createSignal(false,);
 
     createEffect(on(() => getId() ?? null, async (id,) => {
         if (!isFeatureEnabled('comments',)) return;
         setDirty(false,);
+        setEdited(false,);
         try {
             const s = await cms.comments.settings();
             setApproveAnonymous(s.approveAnonymous,);
@@ -69,7 +74,9 @@ export function useCommentSwitches(targetType: string, getId: () => string | nul
             if (p.allowAnonymous !== undefined) setAllowAnonymous(p.allowAnonymous,);
             if (p.locked !== undefined) setLocked(p.locked,);
             setDirty(true,);
+            setEdited(true,);
         },
+        isDirty: edited,
         save: async (id,) => {
             if (!isFeatureEnabled('comments',) || !dirty()) return;
             const t = await cms.comments.updateThread(targetType, id, {
@@ -77,6 +84,7 @@ export function useCommentSwitches(targetType: string, getId: () => string | nul
             },);
             setCount(t.commentCount,);
             setDirty(false,);
+            setEdited(false,);
         },
     };
 }

@@ -28,6 +28,8 @@ export interface UpgradeToutProps {
     /** `continue`: shown under a sample (softer headline). */
     variant?: 'locked' | 'continue';
     class?: string;
+    /** Signed-in "Upgrade account" target; default the Membership tab. */
+    upgradeHref?: string;
 }
 
 const UpgradeTout: Component<UpgradeToutProps> = (props,) => {
@@ -64,7 +66,7 @@ const UpgradeTout: Component<UpgradeToutProps> = (props,) => {
                             </>
                         }
                     >
-                        <A class="btn upgrade-tout__btn" href={MEMBERSHIP_TAB_URL}>Upgrade account</A>
+                        <A class="btn upgrade-tout__btn" href={props.upgradeHref ?? MEMBERSHIP_TAB_URL}>Upgrade account</A>
                     </Show>
                 </div>
             </div>

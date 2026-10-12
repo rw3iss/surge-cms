@@ -12,6 +12,8 @@ import { ValidationError, } from '../../core/errors';
 import { transaction, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
+import { assertCanBuyTier, assertCanRegister, } from './access';
+import type { LevelViewer, } from '../access/level';
 
 export interface ResolvedTicketLine {
     eventId: string;
@@ -35,7 +37,14 @@ export interface ResolvedTicketLine {
  */
 export async function resolveTicketLines(
     lines: EventTicketCartLine[],
+    /**
+     * `viewer` given (public purchase / checkout): enforce the event's register
+     * rule and each ticket type's required tier. Omitted by the post-payment
+     * fulfilment, which re-resolves lines the checkout already checked.
+     */
+    opts: { viewer?: LevelViewer; } = {},
 ): Promise<{ lines: ResolvedTicketLine[]; totalCents: number; }> {
+    const enforce = 'viewer' in opts;
     const resolved: ResolvedTicketLine[] = [];
 
     for (const line of lines) {
@@ -55,6 +64,10 @@ export async function resolveTicketLines(
         const tier = await repo.findTierById(line.tierId,);
         if (!tier || tier.eventId !== event.id) {
             throw new ValidationError('That ticket type is no longer available.',);
+        }
+        if (enforce) {
+            await assertCanRegister(event, opts.viewer,);
+            await assertCanBuyTier(tier, opts.viewer,);
         }
 
         // Inventory is per OCCURRENCE: week 3 of a series has its own capacity.

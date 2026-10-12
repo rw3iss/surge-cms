@@ -1,0 +1,31 @@
+// Inline sign-in / subscription gate message (see AccessRequiredNotice.tsx).
+.access-required {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--site-primary, #e63946);
+  border-radius: var(--site-radius, 6px);
+  background: color-mix(in srgb, var(--site-primary, #e63946) 8%, transparent);
+  color: var(--site-text, inherit);
+  font-size: 0.9rem;
+  line-height: 1.45;
+
+  &--compact {
+    margin: 0.25rem 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 0.8rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--site-link, var(--site-primary, #e63946));
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}

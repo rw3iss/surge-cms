@@ -12,6 +12,9 @@ import { describeRecurrence, parseRecurrenceRule, renderMarkdown, stripMarkdown,
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
+import UpgradeTout from '../components/content/UpgradeTout';
+import { useAuth, } from '../stores/auth';
+import { accessErrorOf, tierRequirement, upgradeHref, type AccessRequired, } from '../utils/accessRequired';
 import SeoHead from '../components/common/seo/SeoHead';
 import EventSignup from '../components/events/EventSignup';
 import CommentsSection from '../components/discussions/CommentsSection';
@@ -21,18 +24,30 @@ import './EventDetail.scss';
 
 const EventDetailPage: Component = () => {
     const params = useParams<{ slug: string; }>();
+    const auth = useAuth();
 
-    const [event,] = createResource(() => params.slug, async (slug,) => {
-        try {
-            return await cms.events.getOne(slug,) as CalendarEvent;
-        } catch {
-            return null;
-        }
-    },);
+    /**
+     * Keyed on the signed-in user too: the event's access (and a members-only
+     * event itself) depends on who is looking, so signing in re-reads it and
+     * the gate / sign-up card update in place.
+     */
+    const [loaded, { refetch: refetchEvent, },] = createResource(
+        () => ({ slug: params.slug, user: auth.user?.id ?? '', }),
+        async ({ slug, },): Promise<{ event: CalendarEvent | null; gate: AccessRequired | null; }> => {
+            try {
+                return { event: await cms.events.getOne(slug,) as CalendarEvent, gate: null, };
+            } catch (err) {
+                return { event: null, gate: accessErrorOf(err,), };
+            }
+        },
+    );
+    const event = () => loaded()?.event ?? null;
+    const gate = () => loaded()?.gate ?? null;
 
     const [tiers, { refetch: refetchTiers, },] = createResource(
-        () => event()?.id,
-        async (id,) => {
+        () => (event() ? `${event()!.id}|${auth.user?.id ?? ''}` : null),
+        async () => {
+            const id = event()!.id;
             const e = event();
             if (!e || !e.ticketingEnabled) return [] as EventTicketTier[];
             try {
@@ -54,11 +69,33 @@ const EventDetailPage: Component = () => {
 
     return (
         <div class="event-detail page-wrapper">
-            <Show when={!event.loading} fallback={<p class="event-detail__loading">Loading…</p>}>
+            <Show when={loaded() || !loaded.loading} fallback={<p class="event-detail__loading">Loading…</p>}>
                 <Show
                     when={event()}
                     fallback={
-                        <NotFoundPage title="Event not found" message="This event doesn't exist, or it is no longer listed." link={{ href: "/events", label: "Browse events", }} />
+                        <Show
+                            when={gate()}
+                            fallback={
+                                <NotFoundPage title="Event not found" message="This event doesn't exist, or it is no longer listed." link={{ href: "/events", label: "Browse events", }} />
+                            }
+                        >
+                            {(g,) => (
+                                <>
+                                    <Title>Members-only event</Title>
+                                    <A href="/events" class="event-detail__back">← All events</A>
+                                    <UpgradeTout
+                                        class="event-detail__gate"
+                                        title={g().reason === 'signin' ? 'Sign in to see this event' : `Requires ${tierRequirement(g().requiredTier,)}`}
+                                        message={g().message || (g().reason === 'signin'
+                                            ? 'This event is for signed-in members.'
+                                            : `This event requires ${tierRequirement(g().requiredTier,)}.`)}
+                                        requiredTier={g().requiredTier}
+                                        upgradeHref={upgradeHref(g().requiredTier, true,)}
+                                        onLoggedIn={() => void refetchEvent()}
+                                    />
+                                </>
+                            )}
+                        </Show>
                     }
                 >
                     {(ev,) => (
@@ -122,7 +159,12 @@ const EventDetailPage: Component = () => {
 
                             <aside class="event-detail__aside">
                                 {/* Tickets OR registration — see EventSignup. */}
-                                <EventSignup event={ev()} tiers={tiers() ?? []} onClaimed={() => void refetchTiers()} />
+                                <EventSignup
+                                    event={ev()}
+                                    tiers={tiers() ?? []}
+                                    onClaimed={() => void refetchTiers()}
+                                    onAccessChanged={() => { void refetchEvent(); void refetchTiers(); }}
+                                />
                             </aside>
                         </>
                     )}
