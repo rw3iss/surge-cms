@@ -16,8 +16,14 @@
  * Placement: the bar FLOATS over the top of the page content (the first hero)
  * just below the site header, taking no space in the flow — the wrapper is
  * zero-height and the bar is absolutely positioned at the header's bottom
- * edge + a small gap (re-measured on resize and when the header changes
- * size). A header in the normal flow (not floating) simply leaves the gap.
+ * edge + a small gap. It works for every header mode: a header in the page
+ * flow (static/sticky) leaves just the gap; a floating header (absolute or
+ * fixed, over the page) pushes the bar down by the header's height.
+ *
+ * Re-measured whenever that can change: the header's size, its class/style
+ * (a page applies its own header position — e.g. "float" — AFTER the site
+ * header first renders, which moves this block up to the top of the page),
+ * window resize, and a few ticks after mount for late layout.
  *
  * After a signup the fields turn into a success message for `doneMs` (3 s),
  * then the bar fades out. × fades it out the same way.
@@ -100,9 +106,10 @@ export function mount(el, ctx) {
     const nameInput = form && form.elements.name;
 
     const GAP = 12;
+    const findHeader = () => document.querySelector('.layout header.header') || document.querySelector('header.header');
     /** The site header's bottom edge, in document coordinates. */
     const headerBottom = () => {
-        const header = document.querySelector('.layout .header') || document.querySelector('header.header');
+        const header = findHeader();
         if (!header) return 0;
         const h = header.offsetHeight;
         // A fixed header sits at the viewport top; otherwise use its place in
@@ -116,6 +123,8 @@ export function mount(el, ctx) {
     };
     const onResize = () => { if (root.classList.contains('is-shown')) place(); };
     let headerObserver = null;
+    let headerMutations = null;
+    const ticks = [];
 
     const show = () => {
         if (disposed) return;
@@ -126,11 +135,27 @@ export function mount(el, ctx) {
         root.classList.add('is-shown');
         place();
         window.addEventListener('resize', onResize);
-        const header = document.querySelector('.layout .header') || document.querySelector('header.header');
+        window.addEventListener('load', onResize);
+        const header = findHeader();
         if (header && typeof ResizeObserver === 'function') {
             headerObserver = new ResizeObserver(onResize);
             headerObserver.observe(header);
         }
+        // Float / sticky / auto-hide are class and style changes on the header.
+        if (header && typeof MutationObserver === 'function') {
+            headerMutations = new MutationObserver(onResize);
+            headerMutations.observe(header, { attributes: true, attributeFilter: ['class', 'style',], },);
+        }
+        // Late layout (fonts, the page's own header settings, images above).
+        for (const ms of [50, 250, 800, 2000,]) ticks.push(setTimeout(onResize, ms,),);
+    };
+
+    const unwatch = () => {
+        window.removeEventListener('resize', onResize);
+        window.removeEventListener('load', onResize);
+        if (headerObserver) { headerObserver.disconnect(); headerObserver = null; }
+        if (headerMutations) { headerMutations.disconnect(); headerMutations = null; }
+        ticks.splice(0,).forEach(clearTimeout);
     };
 
     /** Fade out and lift, then hide. */
@@ -140,8 +165,7 @@ export function mount(el, ctx) {
         const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
         setTimeout(() => {
             root.classList.remove('is-shown', 'is-leaving');
-            window.removeEventListener('resize', onResize);
-            if (headerObserver) { headerObserver.disconnect(); headerObserver = null; }
+            unwatch();
         }, reduce ? 0 : 320);
     };
 
@@ -217,8 +241,7 @@ export function mount(el, ctx) {
     return () => {
         disposed = true;
         if (timer) clearTimeout(timer);
-        window.removeEventListener('resize', onResize);
-        if (headerObserver) headerObserver.disconnect();
+        unwatch();
         closeBtn && closeBtn.removeEventListener('click', onClose);
         form && form.removeEventListener('submit', onSubmit);
     };
