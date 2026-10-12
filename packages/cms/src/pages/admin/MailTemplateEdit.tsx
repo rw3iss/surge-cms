@@ -5,6 +5,13 @@
  *
  * The block tree is loaded from `GET /mail-templates/:id` and saved
  * via `PUT /mail-templates/:id/blocks` (transactional replace).
+ *
+ * Drafts: unsaved edits are kept in localStorage (`rw-draft:mail-template-draft-<id>`)
+ * — debounced on every change, every 10 s while dirty, and when the page is
+ * left or the tab is hidden/closed. Opening the template again restores a
+ * draft that is NEWER than the saved version (same rule as the page/post
+ * editors); Revert discards it. So leaving never asks "discard changes?" —
+ * nothing is discarded.
  */
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
@@ -21,7 +28,7 @@ import { cms, } from '../../services/cmsClient';
 import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import { useEditorDraft, } from '../../hooks/useEditorDraft';
-import { useNavigationGuard, } from '../../hooks/useNavigationGuard';
+import { useAutoSave, } from '../../hooks/useAutoSave';
 import { buildMailPreviewVariables, setPreviewVariables, } from '../../stores/previewVariables';
 import RevisionsPanel from '../../components/admin/panels/RevisionsPanel';
 import AdminTitle from '../../components/admin/common/AdminTitle';
@@ -90,38 +97,95 @@ const MailTemplateEdit: Component = () => {
 
     const draft = useEditorDraft<FormState>({ current: formState, },);
 
-    /** Saving a NEW template redirects to its own edit URL; guarding that would
-     *  ask the operator to confirm losing changes they just saved. */
-    const guard = useNavigationGuard({
-        isDirty: draft.isDirty,
-        isSelfNavigation: (to,) => to.startsWith('/admin/mail-templates/',),
+    /**
+     * The persisted draft. The key is a GETTER: `/mail-templates/new` and
+     * `/mail-templates/:id` are one route, so saving a new template changes
+     * the id without remounting this page.
+     */
+    /** Set once the saved version is loaded AND any draft restored — before
+     *  that the form is mid-load and must neither write nor clear a draft. */
+    const [ready, setReady,] = createSignal(false,);
+    const autoSave = useAutoSave<FormState>({
+        get key() {
+            return `mail-template-draft-${params.id || 'new'}`;
+        },
+        state: formState,
+        // Only once loaded (the baseline exists) and only while it differs —
+        // a form that matches the saved version has no draft to keep.
+        enabled: () => ready() && draft.isDirty(),
     },);
 
-    /** Put every field back to the state this page was opened with. */
+    // Back to the saved state (typed back, Revert, Save, History restore):
+    // the stored draft is now stale — drop it.
+    createEffect(() => {
+        if (ready() && !draft.isDirty() && autoSave.hasDraft()) autoSave.clear();
+    },);
+
+    /** Write the draft now, if there is anything to keep. */
+    const flushDraft = () => {
+        if (ready() && draft.isDirty()) autoSave.flush();
+    };
+    // Every 10 s while dirty, and when the tab is hidden / closed / reloaded.
+    const interval = setInterval(flushDraft, 10_000,);
+    const onHidden = () => { if (document.visibilityState === 'hidden') flushDraft(); };
+    window.addEventListener('pagehide', flushDraft,);
+    document.addEventListener('visibilitychange', onHidden,);
+    onCleanup(() => {
+        // Leaving the page inside the admin: keep the edits for next time.
+        flushDraft();
+        clearInterval(interval,);
+        window.removeEventListener('pagehide', flushDraft,);
+        document.removeEventListener('visibilitychange', onHidden,);
+    },);
+
+    const applyState = (st: FormState,): void => {
+        setName(st.name ?? '',);
+        setDescription(st.description ?? '',);
+        setIsEnabled(st.isEnabled ?? true,);
+        setSubject(st.subject ?? '',);
+        setPreheader(st.preheader ?? '',);
+        setFromName(st.fromName ?? '',);
+        setFromEmail(st.fromEmail ?? '',);
+        setReplyTo(st.replyTo ?? '',);
+        setBlocks(st.blocks ?? [],);
+    };
+
+    /** Put every field back to the saved version and delete the draft. */
     const revertDraft = (): void => {
         const base = draft.revert();
         setShowRevertConfirm(false,);
+        autoSave.clear();
         if (!base) return;
-        setName(base.name,);
-        setDescription(base.description,);
-        setIsEnabled(base.isEnabled,);
-        setSubject(base.subject,);
-        setPreheader(base.preheader,);
-        setFromName(base.fromName,);
-        setFromEmail(base.fromEmail,);
-        setReplyTo(base.replyTo,);
-        setBlocks(base.blocks,);
+        applyState(base,);
         setSavedBlocks(structuredClone(base.blocks,),);
         toast.info('Reverted to the last saved version.',);
     };
 
+    /**
+     * After the saved version is loaded (and captured as the baseline): put a
+     * stored draft back over it when the draft is NEWER than the saved
+     * template. An older draft means someone saved since — it is discarded.
+     * The baseline stays the saved version, so the header shows Unsaved
+     * changes + Revert, and the per-block bars show what the draft changed.
+     */
+    const restoreDraft = (savedAt: number,): void => {
+        const stored = autoSave.getDraft();
+        if (!stored) return;
+        if (stored.timestamp > savedAt + 1000) {
+            applyState(stored.data,);
+            toast.info('Restored your unsaved draft of this template. Use Revert to discard it.',);
+        } else {
+            autoSave.clear();
+        }
+    };
+
     /** Read the saved template into the form (on open, and after a restore). */
-    const loadTemplate = async (): Promise<void> => {
+    const loadTemplate = async (): Promise<number> => {
         let d: (MailTemplate & { blocks: BackendBlock[]; }) | null = null;
         try {
             d = await cms.mailTemplates.getById(params.id,) as MailTemplate & { blocks: BackendBlock[]; };
         } catch {
-            return;
+            return 0;
         }
         if (d) {
             setName(d.name,);
@@ -136,6 +200,7 @@ const MailTemplateEdit: Component = () => {
             setBlocks(loaded,);
             setSavedBlocks(structuredClone(loaded,),);
         }
+        return d ? new Date(d.updatedAt || 0,).getTime() : 0;
     };
 
     onMount(async () => {
@@ -152,10 +217,14 @@ const MailTemplateEdit: Component = () => {
 
         if (isNew()) {
             draft.capture(formState(),);
+            restoreDraft(0,); // nothing saved yet: any draft is newer
+            setReady(true,);
             return;
         }
-        await loadTemplate();
+        const savedAt = await loadTemplate();
         draft.capture(formState(),);
+        restoreDraft(savedAt,);
+        setReady(true,);
     },);
 
     /**
@@ -172,6 +241,8 @@ const MailTemplateEdit: Component = () => {
     };
 
     const handleSave = async (): Promise<void> => {
+        // The server save takes over from the draft: no competing write.
+        autoSave.cancel();
         setSaving(true,);
         setError(null,);
         try {
@@ -190,15 +261,15 @@ const MailTemplateEdit: Component = () => {
                 if (blocks().length > 0) {
                     await cms.mailTemplates.replaceBlocks(created.id, { blocks: editorToBackend(blocks(),), } as any,);
                 }
-                // Commit BEFORE navigating: the guard would otherwise see a
-                // dirty form and challenge the editor's own redirect.
                 commitSaved();
+                autoSave.clear(); // the `new` draft — the key moves to the id below
                 toast.success('Template saved',);
                 navigate(`/admin/mail-templates/${created.id}`,);
             } else {
                 await cms.mailTemplates.update(params.id, meta as any,);
                 await cms.mailTemplates.replaceBlocks(params.id, { blocks: editorToBackend(blocks(),), } as any,);
                 commitSaved();
+                autoSave.clear();
                 toast.success('Template saved',);
                 // List the new version straight away rather than after the
                 // server's settle delay.
@@ -214,8 +285,9 @@ const MailTemplateEdit: Component = () => {
     const handleDelete = async (): Promise<void> => {
         try {
             await cms.mailTemplates.remove(params.id,);
-            // Clear the baseline first: the row is gone, so the navigation
-            // guard has nothing left to protect and must not challenge it.
+            // The row is gone: drop the draft and stop keeping one.
+            setReady(false,);
+            autoSave.clear();
             draft.reset();
             toast.success('Template deleted',);
             navigate('/admin/mailing-lists',);
@@ -268,27 +340,12 @@ const MailTemplateEdit: Component = () => {
         <div class="mail-template-edit-page mailing-list-edit-page">
             <AdminTitle>{isNew() ? 'New Template' : name() || 'Edit Template'}</AdminTitle>
 
-            {/* Leaving with unsaved edits — the admin's own modal, not a
-                native confirm box that cannot say which editor it came from. */}
-            <ConfirmModal
-                open={guard.pending()}
-                title="Unsaved changes"
-                message={
-                    'This template has changes that have not been saved. Leaving now discards them.'
-                }
-                confirmLabel="Discard and leave"
-                cancelLabel="Stay on this page"
-                danger
-                onConfirm={guard.confirmLeave}
-                onCancel={guard.cancelLeave}
-            />
-
             <ConfirmModal
                 open={showRevertConfirm()}
                 title="Discard draft edits"
                 message={
-                    'This removes every unsaved change to this template and restores the version '
-                    + 'that is currently saved. It cannot be undone.'
+                    'This removes every unsaved change to this template (including the stored draft) and '
+                    + 'restores the version that is currently saved. It cannot be undone.'
                 }
                 confirmLabel="Discard edits"
                 danger
@@ -314,7 +371,12 @@ const MailTemplateEdit: Component = () => {
                         Revert sit with the actions, so one glance answers
                         "is there anything outstanding?" */}
                     <Show when={draft.isDirty()}>
-                        <span class="admin-header__dirty">Unsaved changes</span>
+                        <span
+                            class="admin-header__dirty"
+                            title="Your edits are kept as a draft in this browser and come back when you open this template again."
+                        >
+                            Unsaved changes{autoSave.lastSavedAt() ? ' · draft kept' : ''}
+                        </span>
                         <button
                             type="button"
                             class="ui-button ui-button--ghost ui-button--sm"
@@ -462,6 +524,7 @@ const MailTemplateEdit: Component = () => {
                         entityId={params.id}
                         refreshToken={historyToken()}
                         onRestored={async () => {
+                            autoSave.clear();
                             await loadTemplate();
                             // The restored version IS the saved state now.
                             draft.capture(formState(),);
