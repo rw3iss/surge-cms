@@ -8,6 +8,8 @@
  *                          already delivered locally). Only subscribed when
  *                          CLUSTER_WORKERS > 1.
  *   live:chat:<postId>     list — the last 50 chat messages (newest first)
+ *                          `{ t: viewerKey }` targets one viewer; channel
+ *                          `live:room:*` targets every room
  *   live:viewers:<postId>  hash — `<processId> → "<count>:<updatedAtMs>"`;
  *                          stale fields (a dead worker) are ignored when summed
  *
@@ -41,7 +43,7 @@ export function processId(): string {
 }
 
 /** Subscribe to other workers' room events (clustered only). Never throws. */
-export async function initFanout(id: string, onRemote: (postId: string, event: LiveServerEvent,) => void,): Promise<void> {
+export async function initFanout(id: string, onRemote: (postId: string, event: LiveServerEvent, target?: string,) => void,): Promise<void> {
     selfId = id;
     if (fanout) return;
     try {
@@ -49,9 +51,9 @@ export async function initFanout(id: string, onRemote: (postId: string, event: L
         await subscriber.psubscribe(LIVE_KEYS.channelPattern,);
         subscriber.on('pmessage', (_p, channel, message,) => {
             try {
-                const { o, e, } = JSON.parse(message,) as { o: string; e: LiveServerEvent; };
+                const { o, e, t, } = JSON.parse(message,) as { o: string; e: LiveServerEvent; t?: string; };
                 if (o === selfId) return;
-                onRemote(channel.slice('live:room:'.length,), e,);
+                onRemote(channel.slice('live:room:'.length,), e, t,);
             } catch { /* a bad message must not break the room */ }
         },);
         fanout = true;
@@ -61,10 +63,14 @@ export async function initFanout(id: string, onRemote: (postId: string, event: L
     }
 }
 
-export async function publish(postId: string, event: LiveServerEvent,): Promise<void> {
+/**
+ * `target` = a viewer key: only that viewer's sockets get the event.
+ * `postId` `*` = every room (a ban covers all shows).
+ */
+export async function publish(postId: string, event: LiveServerEvent, target?: string,): Promise<void> {
     if (!fanout) return;
     try {
-        await getRedis().publish(LIVE_KEYS.channel(postId,), JSON.stringify({ o: selfId, e: event, },),);
+        await getRedis().publish(LIVE_KEYS.channel(postId,), JSON.stringify({ o: selfId, e: event, ...(target ? { t: target, } : {}), },),);
     } catch (err) {
         logger.debug('Live rooms: publish failed', { error: (err as Error).message, },);
     }

@@ -117,6 +117,19 @@
     color: var(--admin-text-muted, #{$text-light});
   }
 
+  &__head-btn {
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 999px;
+    background: none;
+    padding: 2px 10px;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    cursor: pointer;
+
+    &:hover { color: var(--admin-text, #{$text-color}); border-color: var(--admin-text-muted, #{$text-light}); }
+    &.is-active { color: var(--admin-text, #{$text-color}); border-color: var(--admin-text, #{$text-color}); }
+  }
+
   &__conn {
     text-transform: capitalize;
 
@@ -273,54 +286,9 @@
     font-weight: 700;
   }
 
-  &__messages {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: 360px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-xs;
-  }
-
-  &__message {
-    position: relative;
-    padding: $spacing-xs $spacing-xl $spacing-xs $spacing-sm;
-    border-radius: $border-radius-sm;
-    background: $background-dark;
-  }
-
-  &__message-head {
-    display: flex;
-    align-items: baseline;
-    gap: $spacing-xs;
-    font-size: $font-size-xs;
-  }
-
-  &__message-role,
-  &__message-time {
-    color: var(--admin-text-muted, #{$text-light});
-  }
-
-  &__message-text {
-    margin: $spacing-2xs 0 0;
-    font-size: $font-size-sm;
-    overflow-wrap: anywhere;
-  }
-
-  &__message-delete {
-    position: absolute;
-    top: $spacing-2xs;
-    right: $spacing-2xs;
-    border: none;
-    background: transparent;
-    color: var(--admin-text-muted, #{$text-light});
-    font-size: $font-size-lg;
-    line-height: 1;
-    cursor: pointer;
-
-    &:hover { color: $error-color; }
+  // The chat itself is the shared LiveChat (components/live/chat); this only bounds it.
+  &__chat {
+    max-height: 520px;
   }
 }
 

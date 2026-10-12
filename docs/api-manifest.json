@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-12T18:45:55.196Z",
+  "generatedAt": "2026-10-12T22:25:35.510Z",
   "totalModules": 54,
-  "totalRoutes": 540,
+  "totalRoutes": 543,
   "modules": [
     {
       "module": "admin-channel",
@@ -2511,6 +2511,27 @@
           "absolutePath": "/api/v1/posts/:id/live/ticket",
           "auth": "optional",
           "summary": "Issue a short-lived signed ticket that live-room commands carry as `token`."
+        },
+        {
+          "method": "GET",
+          "path": "/:id/live/viewers",
+          "absolutePath": "/api/v1/posts/:id/live/viewers",
+          "auth": "staff",
+          "summary": "Everyone connected to a live show (one row per socket) with mute/silence state. Needs `posts.live:moderate_viewers`."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/live/moderate",
+          "absolutePath": "/api/v1/posts/:id/live/moderate",
+          "auth": "staff",
+          "summary": "Mute / silence (>= 5 min) / kick a viewer from this show, or ban / unban them from every live show."
+        },
+        {
+          "method": "GET",
+          "path": "/live/bans",
+          "absolutePath": "/api/v1/posts/live/bans",
+          "auth": "staff",
+          "summary": "Viewers banned from every live show. Needs `posts.live:moderate_viewers`."
         },
         {
           "method": "POST",

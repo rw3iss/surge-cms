@@ -52,6 +52,13 @@ const code = (cmd: LiveClientCommand, id: LiveIdentity, r = room(),) => {
 };
 
 describe('decideCommand', () => {
+    it('react_message needs a signed-in user, a known emoji and an id', () => {
+        expect(code({ type: 'react_message', id: 'm1', emoji: '👍', }, anon,),).toBe('unauthorized',);
+        expect(code({ type: 'react_message', id: 'm1', emoji: '👍', }, member,),).toBe('ok',);
+        expect(code({ type: 'react_message', id: 'm1', emoji: '💩', }, member,),).toBe('invalid',);
+        expect(code({ type: 'react_message', id: '', emoji: '👍', }, member,),).toBe('invalid',);
+        expect(code({ type: 'react_message', id: 'm1', emoji: '👍', }, member, room({ status: 'ended', },),),).toBe('ended',);
+    },);
     it('ping and join are always allowed (ping even when ended)', () => {
         expect(code({ type: 'ping', }, anon, room({ status: 'ended', },),),).toBe('ok',);
         expect(code({ type: 'join', }, anon,),).toBe('ok',);

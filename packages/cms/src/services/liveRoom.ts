@@ -46,10 +46,29 @@ const MIN_REFRESH_DELAY_MS = 5_000;
 
 type OutCommand = DistributiveOmit<LiveClientCommand, 'token'>;
 
+const ANON_ID_KEY = 'sitesurge.live.anonId';
+
+/**
+ * A stable random id for this browser, sent as `?anon=` — the server uses it as
+ * a guest's moderation key (`a:<anonId>`). Created once, kept in localStorage.
+ */
+export function liveAnonId(): string {
+    try {
+        const existing = localStorage.getItem(ANON_ID_KEY,);
+        if (existing) return existing;
+        const id = crypto.randomUUID();
+        localStorage.setItem(ANON_ID_KEY, id,);
+        return id;
+    } catch {
+        // Storage blocked (private mode): a per-page id still works for this visit.
+        return crypto.randomUUID();
+    }
+}
+
 function roomUrl(postId: string,): string {
     const loc = (globalThis as { location?: Location; }).location;
     const proto = loc?.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${loc?.host ?? ''}${LIVE_ROOM_PATH}?post=${encodeURIComponent(postId,)}`;
+    return `${proto}//${loc?.host ?? ''}${LIVE_ROOM_PATH}?post=${encodeURIComponent(postId,)}&anon=${encodeURIComponent(liveAnonId(),)}`;
 }
 
 export function connectLiveRoom(postId: string, opts: LiveRoomOptions,): LiveRoomConnection {

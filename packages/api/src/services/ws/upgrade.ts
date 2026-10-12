@@ -75,13 +75,15 @@ export interface WsUser {
     displayName: string;
     email: string;
     role: string;
+    handle: string | null;
+    avatarUrl: string | null;
 }
 
 /** Load an active, unbanned user by id (null otherwise). */
 export async function loadWsUser(userId: string,): Promise<WsUser | null> {
     try {
         const r = await query<Record<string, unknown>>(
-            `SELECT id, email, display_name, role, is_active, is_banned FROM users WHERE id = $1`,
+            `SELECT id, email, display_name, role, is_active, is_banned, handle, avatar_url FROM users WHERE id = $1`,
             [userId,],
         );
         const row = r.rows[0];
@@ -92,6 +94,8 @@ export async function loadWsUser(userId: string,): Promise<WsUser | null> {
             displayName: (row.display_name as string) || '',
             email: (row.email as string) || '',
             role: row.role as string,
+            handle: (row.handle as string) || null,
+            avatarUrl: (row.avatar_url as string) || null,
         };
     } catch {
         return null;

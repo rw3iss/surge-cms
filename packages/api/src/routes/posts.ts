@@ -19,7 +19,8 @@ import * as postTypes from '../services/postTypes';
 import * as liveRooms from '../services/liveRooms';
 import * as liveShows from '../services/liveShows';
 import * as liveRecordings from '../services/liveRecordings';
-import type { PostLiveRecordingPartUrlBody, PostLiveRecordingStartBody, } from '@sitesurge/types';
+import type { LiveModerateBody, PostLiveRecordingPartUrlBody, PostLiveRecordingStartBody, } from '@sitesurge/types';
+import { LIVE_SILENCE_MIN_MINUTES, } from '@sitesurge/types';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -97,6 +98,13 @@ const recordingParams = z.object({ id: z.string(), rid: z.string().uuid(), },);
 const recordingStartBody = z.object({ mimeType: z.string().min(1,).max(128,), },) satisfies z.ZodType<PostLiveRecordingStartBody>;
 const recordingPartBody = z.object({ partNumber: z.number().int(), },) satisfies z.ZodType<PostLiveRecordingPartUrlBody>;
 const liveTestBody = z.object({ provider: z.string().min(1,).max(32,), },);
+
+const liveModerateBody = z.object({
+    key: z.string().min(3,).max(90,),
+    action: z.enum(['mute', 'unmute', 'silence', 'unsilence', 'kick', 'ban', 'unban',],),
+    minutes: z.number().int().min(LIVE_SILENCE_MIN_MINUTES,).max(7 * 24 * 60,).optional(),
+    reason: z.string().max(500,).optional(),
+},) satisfies z.ZodType<LiveModerateBody>;
 
 /** Staff route + the `posts.live:host` permission. */
 const requireHost = (user: { id?: string; role?: string; } | undefined,) =>
@@ -330,6 +338,26 @@ export const postsRoutes = [
         summary: 'Issue a short-lived signed ticket that live-room commands carry as `token`.',
         input: { params: idParams, },
         handler: ({ params, user, },) => liveRooms.issueTicketFor(params.id, user,),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/viewers', auth: 'staff',
+        summary: 'Everyone connected to a live show (one row per socket) with mute/silence state. Needs `posts.live:moderate_viewers`.',
+        input: { params: idParams, },
+        handler: ({ params, user, },) => liveRooms.listViewers(params.id, user,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/live/moderate', auth: 'staff',
+        summary: 'Mute / silence (>= 5 min) / kick a viewer from this show, or ban / unban them from every live show.',
+        input: { params: idParams, body: liveModerateBody, },
+        handler: ({ params, body, user, },) => liveRooms.moderate(params.id, body, user,),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/live/bans', auth: 'staff',
+        summary: 'Viewers banned from every live show. Needs `posts.live:moderate_viewers`.',
+        handler: ({ user, },) => liveRooms.listBans(user,),
     },),
 
     defineRoute({

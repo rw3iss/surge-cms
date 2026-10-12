@@ -64,7 +64,8 @@ describe('connectLiveRoom', () => {
         conn.send({ type: 'chat', text: 'queued', },);
         await flush();
         const sock = FakeSocket.instances[0]!;
-        expect(sock.url,).toBe('wss://example.test/ws/live?post=post-1',);
+        // `anon` = this browser's guest moderation key (random, kept in localStorage when available).
+        expect(sock.url,).toMatch(/^wss:\/\/example\.test\/ws\/live\?post=post-1&anon=[0-9a-f-]{36}$/,);
         sock.serverOpen();
         conn.send({ type: 'react', emoji: '🔥', },);
         expect(sock.sent,).toEqual([

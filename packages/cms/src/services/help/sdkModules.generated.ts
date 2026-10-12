@@ -1954,6 +1954,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "liveBans",
+                "signature": "liveBans(): Promise<LiveBan[]>",
+                "summary": "GET /posts/live/bans — viewers banned from every live show (staff). Unban with `liveModerate(id, { key, action: 'unban' })`."
+            },
+            {
+                "name": "liveModerate",
+                "signature": "liveModerate(id: string, body: LiveModerateBody): Promise<{ ok: true; state: LiveModerationState; }>",
+                "summary": "POST /posts/:id/live/moderate — mute / silence / kick / ban a viewer by key (staff)."
+            },
+            {
                 "name": "livePlayback",
                 "signature": "livePlayback(id: string): Promise<LivePlaybackInfo>",
                 "summary": "GET /posts/:id/live/playback — how to watch the live stream (WHEP/HLS), for permitted viewers."
@@ -2017,6 +2027,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "liveTicket",
                 "signature": "liveTicket(id: string): Promise<PostLiveTicketResponse>",
                 "summary": "POST /posts/:id/live/ticket — the signed per-room token live commands carry."
+            },
+            {
+                "name": "liveViewers",
+                "signature": "liveViewers(id: string): Promise<LiveViewer[]>",
+                "summary": "GET /posts/:id/live/viewers — who is connected to the live room right now (staff)."
             },
             {
                 "name": "remove",
@@ -3041,4 +3056,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 50;
-export const SDK_METHOD_COUNT = 534;
+export const SDK_METHOD_COUNT = 537;

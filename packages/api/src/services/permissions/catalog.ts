@@ -219,6 +219,14 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             action: 'write',
             defaultRoles: STAFF,
         },
+        {
+            key: 'posts.live:moderate_viewers',
+            feature: 'posts',
+            label: 'Moderate live viewers',
+            description: 'See who is watching a live show, and mute, silence, kick or ban viewers (a ban covers every live show).',
+            action: 'write',
+            defaultRoles: STAFF,
+        },
     ],
     forms: [
         { key: 'forms:read', feature: 'forms', label: 'View forms', action: 'read', defaultRoles: STAFF, },

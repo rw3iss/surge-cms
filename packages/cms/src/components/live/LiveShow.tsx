@@ -25,7 +25,6 @@ import {
     type LiveServerEvent,
     type Post,
 } from '@sitesurge/types';
-import { A, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Match, on, onCleanup, Show, Switch, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { getViewer, hasViewer, type LiveConnectionState, } from '../../services/liveProviders';
@@ -35,6 +34,7 @@ import LoginModal from '../auth/LoginModal';
 import MediaVideo from '../blocks/media/MediaVideo';
 import VideoPlayer from '../blocks/media/VideoPlayer';
 import UpgradeTout, { MEMBERSHIP_TAB_URL, } from '../content/UpgradeTout';
+import LiveChat, { type LiveChatBlock, type LiveChatCommand, } from './chat/LiveChat';
 import './LiveShow.scss';
 
 export interface LiveShowProps {
@@ -52,20 +52,16 @@ const MAX_MESSAGES = 300;
 const MAX_FLOATS = 30;
 const FLOAT_MS = 2600;
 const TOAST_MS = 4000;
-const CHAT_MAX_LENGTH = 500;
 /** Ask for fresh playback info this long after the viewer gave up. */
 const PLAYBACK_RETRY_MS = 5000;
 /** Errors that belong to the chat panel rather than the stage. */
-const CHAT_ERRORS = new Set(['chat_off', 'chat_restricted', 'rate_limited',],);
+const CHAT_ERRORS = new Set(['chat_off', 'chat_restricted', 'rate_limited', 'muted', 'silenced',],);
+/** The server removed this viewer from the room (followed by a 4403 close). */
+const REMOVED_ERRORS = new Set(['kicked', 'banned',],);
 
 function formatEndedDate(value: Date | string | null | undefined,): string {
     const d = value ? new Date(value,) : new Date();
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', },);
-}
-
-function formatTime(at: string,): string {
-    const d = new Date(at,);
-    return Number.isNaN(d.getTime(),) ? '' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', },);
 }
 
 const LiveShow: Component<LiveShowProps> = (props,) => {
@@ -83,11 +79,11 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
     const [toast, setToast,] = createSignal<string | null>(null,);
     /** The server refused our chat because the room is subscribers-only. */
     const [restricted, setRestricted,] = createSignal(false,);
-    const [draft, setDraft,] = createSignal('',);
+    /** Kicked / banned: the reason shown in place of the composer. */
+    const [removed, setRemoved,] = createSignal<string | null>(null,);
     const [loginOpen, setLoginOpen,] = createSignal(false,);
 
     let conn: LiveRoomConnection | null = null;
-    let listEl: HTMLDivElement | undefined;
     let floatSeq = 0;
     let toastTimer: ReturnType<typeof setTimeout> | undefined;
     const floatTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -104,17 +100,6 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         setEnded(true,);
     };
 
-    const scrollChatToEnd = () => {
-        const el = listEl;
-        if (!el) return;
-        // Only follow when the reader is already at (or near) the bottom.
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
-            queueMicrotask(() => {
-                el.scrollTop = el.scrollHeight;
-            },);
-        }
-    };
-
     const addFloat = (emoji: string,) => {
         const f: FloatingReaction = { id: ++floatSeq, emoji, left: 8 + Math.random() * 84, };
         setFloats((prev,) => [...prev.slice(-(MAX_FLOATS - 1),), f,],);
@@ -125,6 +110,24 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         floatTimers.add(t,);
     };
 
+    const applyModeration = (e: Extract<LiveServerEvent, { type: 'moderated'; }>,) => {
+        if (e.action === 'kicked' || e.action === 'banned') {
+            setRemoved(e.message || (e.action === 'banned' ? 'You were banned from live shows.' : 'You were removed from this live show.'),);
+        } else {
+            setYou((y,) => {
+                if (!y) return y;
+                const mod = { muted: false, silencedUntil: null, ...y.moderation, };
+                if (e.action === 'muted') mod.muted = true;
+                if (e.action === 'unmuted') mod.muted = false;
+                if (e.action === 'silenced') mod.silencedUntil = e.until ?? null;
+                if (e.action === 'unsilenced') mod.silencedUntil = null;
+                return { ...y, moderation: mod, };
+            },);
+            setChatError(null,);
+        }
+        if (e.message) showToast(e.message,);
+    };
+
     const onEvent = (e: LiveServerEvent,) => {
         switch (e.type) {
             case 'welcome':
@@ -133,7 +136,6 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                 setMessages(e.history.slice(-MAX_MESSAGES,),);
                 setRestricted(e.state.chatMode === 'subscribers' && !e.you.canChat && !e.you.isHost,);
                 if (e.state.status === 'ended') markEnded(e.state,);
-                scrollChatToEnd();
                 break;
             case 'state':
                 setRoom(e.state,);
@@ -141,7 +143,12 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                 break;
             case 'chat':
                 setMessages((prev,) => [...prev.slice(-(MAX_MESSAGES - 1),), e.message,],);
-                scrollChatToEnd();
+                break;
+            case 'chat_reactions':
+                setMessages((prev,) => prev.map((m,) => (m.id === e.id ? { ...m, reactions: e.reactions, } : m)),);
+                break;
+            case 'moderated':
+                applyModeration(e,);
                 break;
             case 'chat_deleted':
                 setMessages((prev,) => prev.filter((m,) => m.id !== e.id),);
@@ -158,6 +165,8 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
             case 'error':
                 if (e.code === 'ended') {
                     markEnded();
+                } else if (REMOVED_ERRORS.has(e.code,)) {
+                    setRemoved(e.message || 'You were removed from this live show.',);
                 } else if (e.code === 'chat_restricted') {
                     setRestricted(true,);
                     setChatError(e.message,);
@@ -179,6 +188,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         ([isEnded,],) => {
             if (isEnded) return;
             setRestricted(false,);
+            setRemoved(null,);
             const c = connectLiveRoom(props.post.id, { onEvent, onStatus: setConnStatus, },);
             conn = c;
             onCleanup(() => {
@@ -201,7 +211,8 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
     const [playbackNonce, setPlaybackNonce,] = createSignal(0,);
     const [videoEl, setVideoEl,] = createSignal<HTMLVideoElement>();
     const [viewerState, setViewerState,] = createSignal<LiveConnectionState>('idle',);
-    const watchable = () => !ended() && (status() === 'live' || status() === 'paused');
+    // A kicked / banned viewer stops watching too.
+    const watchable = () => !ended() && !removed() && (status() === 'live' || status() === 'paused');
 
     // Fetch how to watch whenever the show becomes watchable, the room
     // (re)connects, the viewer changes (login) or a retry is requested.
@@ -248,6 +259,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
     },),);
 
     const placeholderText = () => {
+        if (removed()) return removed()!;
         if (status() === 'idle') return 'Waiting for the show to start';
         if (watchable() && !playback()) return 'Connecting to the stream…';
         return 'Live video coming soon';
@@ -258,7 +270,8 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
     const replayId = () => settings().recordingMediaId ?? null;
 
     /** Why chat is disabled right now, or null when the viewer may chat. */
-    const chatBlock = (): { kind: 'text' | 'login' | 'upgrade'; text: string; } | null => {
+    const chatBlock = (): LiveChatBlock => {
+        if (removed()) return { kind: 'removed', text: removed()!, };
         const r = room();
         if (!r) return { kind: 'text', text: connStatus() === 'reconnecting' ? 'Reconnecting…' : 'Connecting…', };
         if (r.chatMode === 'off') return { kind: 'text', text: 'Chat is off.', };
@@ -266,17 +279,16 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         if (!auth.isAuthenticated) {
             return { kind: 'login', text: r.chatMode === 'public' ? 'Log in to chat' : 'Chat is for members. Log in to chat', };
         }
-        if (r.chatMode === 'subscribers' && restricted()) return { kind: 'upgrade', text: 'Chat is for subscribers only.', };
+        if (r.chatMode === 'subscribers' && restricted()) {
+            return { kind: 'upgrade', text: 'Chat is for subscribers only.', href: MEMBERSHIP_TAB_URL, };
+        }
         return null;
     };
 
-    const sendChat = (e?: Event,) => {
-        e?.preventDefault();
-        const text = draft().trim();
-        if (!text || chatBlock() || !conn) return;
-        setChatError(null,);
-        conn.send({ type: 'chat', text: text.slice(0, CHAT_MAX_LENGTH,), },);
-        setDraft('',);
+    const sendChat = (cmd: LiveChatCommand,) => {
+        if (!conn) return;
+        if (cmd.type === 'chat') setChatError(null,);
+        conn.send(cmd,);
     };
 
     const react = (emoji: string,) => {
@@ -424,78 +436,25 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                     </Show>
                 </div>
 
-                <aside class="live-show__chat" aria-label="Live chat">
-                    <header class="live-show__chat-head">
-                        <span>Live chat</span>
+                <LiveChat
+                    variant="public"
+                    class="live-show__chat"
+                    messages={messages()}
+                    me={you()}
+                    signedIn={auth.isAuthenticated}
+                    block={chatBlock()}
+                    send={sendChat}
+                    error={chatError()}
+                    onDismissError={() => setChatError(null,)}
+                    onLogin={() => setLoginOpen(true,)}
+                    headerExtra={
                         <Show when={room() && room()!.chatMode !== 'public' && room()!.chatMode !== 'off'}>
                             <span class="live-show__chat-mode">
                                 {room()!.chatMode === 'members' ? 'Members' : 'Subscribers'}
                             </span>
                         </Show>
-                    </header>
-
-                    <div class="live-show__messages" ref={listEl} aria-live="polite">
-                        <Show when={messages().length} fallback={<p class="live-show__empty">No messages yet.</p>}>
-                            <For each={messages()}>
-                                {(m,) => (
-                                    <div class="live-show__message">
-                                        <span class="live-show__message-name">{m.name}</span>
-                                        <span class="live-show__message-time">{formatTime(m.at,)}</span>
-                                        {/* Text node, never innerHTML: chat is visitor-supplied. */}
-                                        <p class="live-show__message-text">{m.text}</p>
-                                    </div>
-                                )}
-                            </For>
-                        </Show>
-                    </div>
-
-                    <Show when={chatError()}>
-                        <p class="live-show__chat-error" role="alert">
-                            {chatError()}
-                            <button type="button" aria-label="Dismiss" onClick={() => setChatError(null,)}>×</button>
-                        </p>
-                    </Show>
-
-                    <Switch>
-                        <Match when={chatBlock()?.kind === 'login'}>
-                            <div class="live-show__chat-gate">
-                                <button type="button" class="btn live-show__chat-login" onClick={() => setLoginOpen(true,)}>
-                                    {chatBlock()!.text}
-                                </button>
-                            </div>
-                        </Match>
-                        <Match when={chatBlock()?.kind === 'upgrade'}>
-                            <div class="live-show__chat-gate live-show__chat-gate--upgrade">
-                                <span>{chatBlock()!.text}</span>
-                                <A href={MEMBERSHIP_TAB_URL}>Upgrade account</A>
-                            </div>
-                        </Match>
-                        <Match when={true}>
-                            <form class="live-show__chat-form" onSubmit={sendChat}>
-                                <input
-                                    type="text"
-                                    class="live-show__chat-input"
-                                    maxLength={CHAT_MAX_LENGTH}
-                                    placeholder={chatBlock()?.text ?? 'Say something…'}
-                                    aria-label="Chat message"
-                                    disabled={!!chatBlock()}
-                                    value={draft()}
-                                    // A chat box is a genuine type-then-send field: the
-                                    // draft is its own state, sent on submit.
-                                    onInput={(e,) => setDraft(e.currentTarget.value,)}
-                                />
-                                <button
-                                    type="submit"
-                                    class="btn live-show__chat-send"
-                                    disabled={!!chatBlock() || !draft().trim()}
-                                    title={chatBlock()?.text}
-                                >
-                                    Send
-                                </button>
-                            </form>
-                        </Match>
-                    </Switch>
-                </aside>
+                    }
+                />
 
                 <Show when={loginOpen()}>
                     <LoginModal title="Log in to chat" onClose={() => setLoginOpen(false,)} />

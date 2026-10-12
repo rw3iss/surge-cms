@@ -10,7 +10,11 @@
  *   react                  anyone (anonymous too) while the show is live and
  *                          reactions are on; emoji from LIVE_REACTIONS only
  *   host commands          signed in + `posts.live:host`
+ *   react_message          signed in; toggles an emoji on a chat message
  *   delete_message         signed in + `posts.live:chat_moderate`
+ *
+ * Moderation (mute / silence / kick / ban — `moderation.ts`) is checked by the
+ * server AFTER this matrix, since it needs Redis.
  *
  * An ended show accepts nothing but `ping`.
  */
@@ -91,6 +95,10 @@ export function decideCommand(cmd: LiveClientCommand, id: LiveIdentity, room: Li
             if (!room.reactionsEnabled) return deny('forbidden', 'Reactions are off',);
             if (room.status !== 'live') return deny('not_live', 'The show is not live',);
             return OK;
+        case 'react_message':
+            if (!id.userId) return deny('unauthorized', 'Sign in to react to messages',);
+            if (!(LIVE_REACTIONS as readonly string[]).includes(cmd.emoji,)) return deny('invalid', 'Unknown reaction',);
+            return typeof cmd.id === 'string' && cmd.id ? OK : deny('invalid', 'id is required',);
         case 'delete_message':
             if (!id.userId) return deny('unauthorized', 'Sign in to moderate',);
             if (!id.canModerate) return deny('forbidden', 'Only a moderator can delete messages',);

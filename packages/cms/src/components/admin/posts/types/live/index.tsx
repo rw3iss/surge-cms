@@ -37,6 +37,9 @@ import {
 } from '../../../../../services/liveRecording';
 import ConfirmModal from '../../../common/ConfirmModal';
 import LiveRecordings from './LiveRecordings';
+import LiveChat, { type LiveChatMe, } from '../../../../live/chat/LiveChat';
+import type { MentionCandidate, } from '../../../../live/chat/mentions';
+import LiveViewers from './LiveViewers';
 import Toggle from '../../../common/Toggle';
 import { FormField, } from '../../../forms';
 import { useToast, } from '../../../../common/toast';
@@ -219,6 +222,11 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
     const [conn, setConn,] = createSignal<ConnStatus>('closed',);
     const [viewers, setViewers,] = createSignal(0,);
     const [messages, setMessages,] = createStore<LiveChatMessage[]>([],);
+    /** Who the console is connected as (from `welcome`) — the chat posts under this name. */
+    const [chatMe, setChatMe,] = createSignal<LiveChatMe | null>(null,);
+    /** Right-column panel: show settings, or the Viewers list (opened from the header count). */
+    const [panel, setPanel,] = createSignal<'settings' | 'viewers'>('settings',);
+    const [viewerMentions, setViewerMentions,] = createSignal<MentionCandidate[]>([],);
     const [confirmEnd, setConfirmEnd,] = createSignal(false,);
     const [endedAt, setEndedAt,] = createSignal<string | null>(null,);
     let send: ((cmd: HostCommand,) => void) | null = null;
@@ -233,6 +241,7 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                 setRoom(e.state,);
                 setViewers(e.state.viewers,);
                 setMessages(reconcile(e.history ?? [], { key: 'id', },),);
+                setChatMe({ ...e.you, canModerate: e.you.canModerate ?? e.you.isHost, },);
                 if (!e.you.isHost) toast.error('You are connected as a viewer — host controls need the posts:write permission.',);
                 break;
             case 'state':
@@ -247,6 +256,9 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                 break;
             case 'chat_deleted':
                 setMessages(reconcile(messages.filter((m,) => m.id !== e.id), { key: 'id', },),);
+                break;
+            case 'chat_reactions':
+                setMessages((m,) => m.id === e.id, 'reactions', e.reactions,);
                 break;
             case 'ended':
                 setRoom(e.state,);
@@ -534,9 +546,25 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                     {roomStatus() === 'ended' ? endedLabel() : STATUS_LABEL[roomStatus()]}
                 </span>
                 <Show when={canHost()}>
-                    <span class="live-console__viewers" title="Viewers connected now">
+                    <button
+                        type="button"
+                        class="live-console__viewers live-console__head-btn"
+                        classList={{ 'is-active': panel() === 'viewers', }}
+                        title="Viewers connected now — click to see who is watching"
+                        aria-pressed={panel() === 'viewers'}
+                        onClick={() => setPanel(panel() === 'viewers' ? 'settings' : 'viewers',)}
+                    >
                         {viewers()} {viewers() === 1 ? 'viewer' : 'viewers'}
-                    </span>
+                    </button>
+                    <button
+                        type="button"
+                        class="live-console__head-btn"
+                        classList={{ 'is-active': panel() === 'settings', }}
+                        aria-pressed={panel() === 'settings'}
+                        onClick={() => setPanel('settings',)}
+                    >
+                        Settings
+                    </button>
                     <span class={`live-console__conn live-console__conn--${conn()}`}>{conn()}</span>
                 </Show>
             </header>
@@ -724,7 +752,14 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
 
                 {/* ─── Settings + host controls ─── */}
                 <div class="live-console__side">
-                    <div class="live-console__card">
+                    <Show when={panel() === 'viewers' && canHost()}>
+                        <LiveViewers
+                            postId={props.postId!}
+                            onClose={() => setPanel('settings',)}
+                            onList={(rows,) => setViewerMentions(rows.filter((v,) => !v.anonymous && v.userId,).map((v,) => ({ key: v.userId!, name: v.name, handle: v.handle, }),),)}
+                        />
+                    </Show>
+                    <div class="live-console__card" hidden={panel() === 'viewers' && canHost()}>
                         <h3 class="live-console__card-title">Show settings</h3>
                         <Toggle
                             checked={settings().archiveVideo}
@@ -819,34 +854,17 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                     </div>
 
                     <Show when={canHost()}>
-                        <div class="live-console__card live-console__chat">
-                            <h3 class="live-console__card-title">Chat ({messages.length})</h3>
-                            <Show when={messages.length} fallback={<p class="form-help-muted">No messages yet.</p>}>
-                                <ul class="live-console__messages">
-                                    <For each={messages}>
-                                        {(m,) => (
-                                            <li class="live-console__message">
-                                                <div class="live-console__message-head">
-                                                    <strong>{m.name}</strong>
-                                                    <Show when={m.role}><span class="live-console__message-role">{m.role}</span></Show>
-                                                    <span class="live-console__message-time">{new Date(m.at,).toLocaleTimeString()}</span>
-                                                </div>
-                                                <p class="live-console__message-text">{m.text}</p>
-                                                <button
-                                                    type="button"
-                                                    class="live-console__message-delete"
-                                                    title="Delete message"
-                                                    aria-label="Delete message"
-                                                    onClick={() => command({ type: 'delete_message', id: m.id, },)}
-                                                >
-                                                    ×
-                                                </button>
-                                            </li>
-                                        )}
-                                    </For>
-                                </ul>
-                            </Show>
-                        </div>
+                        <LiveChat
+                            variant="host"
+                            class="live-console__chat"
+                            title={<>Chat ({messages.length})</>}
+                            messages={messages}
+                            me={chatMe()}
+                            mentionCandidates={viewerMentions()}
+                            signedIn
+                            block={conn() === 'open' ? null : { kind: 'text', text: conn() === 'reconnecting' ? 'Reconnecting…' : 'Connecting to the live room…', }}
+                            send={command}
+                        />
                     </Show>
                 </div>
             </div>

@@ -5,7 +5,7 @@ import type {
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
     PostBulkBody, PostBulkResponse, PostRevisionListResponse, PostRevisionResponse,
-    PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse,
+    PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse, LiveBan, LiveModerateBody, LiveModerationState, LiveViewer,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -48,6 +48,21 @@ export class PostsModule extends ModuleBase {
     /** GET /posts/types — registered post types (built-in + site-defined). */
     types(): Promise<PostTypesResponse> {
         return this.get<PostTypesResponse>('/posts/types',);
+    }
+
+    /** GET /posts/:id/live/viewers — who is connected to the live room right now (staff). */
+    liveViewers(id: string,): Promise<LiveViewer[]> {
+        return this.get<LiveViewer[]>('/posts/:id/live/viewers', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** POST /posts/:id/live/moderate — mute / silence / kick / ban a viewer by key (staff). */
+    liveModerate(id: string, body: LiveModerateBody,): Promise<{ ok: true; state: LiveModerationState; }> {
+        return this.mutate<{ ok: true; state: LiveModerationState; }>('POST', '/posts/:id/live/moderate', { params: { id, }, body, },);
+    }
+
+    /** GET /posts/live/bans — viewers banned from every live show (staff). Unban with `liveModerate(id, { key, action: 'unban' })`. */
+    liveBans(): Promise<LiveBan[]> {
+        return this.get<LiveBan[]>('/posts/live/bans', { options: { cache: false, }, },);
     }
 
     /** POST /posts/:id/live/ticket — the signed per-room token live commands carry. */

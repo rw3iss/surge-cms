@@ -15,20 +15,26 @@
  *
  * Fan-out: events go to this process's sockets directly and to other workers
  * through Redis (`store.ts`).
+ *
+ * Moderation (`moderation.ts`): each socket has a viewer KEY (`u:<userId>` or
+ * `a:<anonId>` from `?anon=`). A banned (every show) or kicked (this show)
+ * viewer is refused at connect with 4403; a muted one cannot chat, a
+ * silenced one cannot chat or react. Staff are never refused.
  */
 import { randomUUID, } from 'crypto';
 import type { Server, } from 'http';
 import type { Socket, } from 'net';
 import { WebSocket, WebSocketServer, } from 'ws';
 import type { LiveChatMessage, LiveClientCommand, LiveCommandType, LiveErrorCode, LiveServerEvent, } from '@sitesurge/types';
-import { LIVE_ROOM_PATH, } from '@sitesurge/types';
+import { isStaffRole, LIVE_ROOM_PATH, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { logger, } from '../../utils/logger';
-import { registerUpgrade, userFromUpgrade, } from '../ws/upgrade';
+import { registerUpgrade, userFromUpgrade, type WsUser, } from '../ws/upgrade';
 import { identityFor, isHost, viewAccess, } from './access';
-import { chatDecision, decideCommand, HOST_COMMANDS, parseCommand, validateChatText, } from './authz';
+import { chatDecision, decideCommand, HOST_COMMANDS, type LiveIdentity, parseCommand, validateChatText, } from './authz';
 import { chatLimiter, reactionLimiter, } from './rateLimit';
 import { applyHostCommand, effectiveStatus, loadLivePost, toState, type LivePostRow, } from './state';
+import * as mod from './moderation';
 import * as store from './store';
 import { verifyTicket, } from './tickets';
 
@@ -38,6 +44,8 @@ interface Conn {
     id: string;
     ws: WebSocket & { isAlive?: boolean; };
     postId: string;
+    /** Viewer key (`u:<userId>` / `a:<anonId>`) — what moderation acts on. */
+    key: string;
 }
 
 let wss: WebSocketServer | null = null;
@@ -68,8 +76,24 @@ function sendError(ws: WebSocket, code: LiveErrorCode, message: string, command?
     send(ws, { type: 'error', code, message, ...(command ? { command, } : {}), },);
 }
 
-/** Deliver to this process's sockets in the room (no Redis). */
-function deliverLocal(postId: string, event: LiveServerEvent,): void {
+/**
+ * Deliver to this process's sockets in the room (no Redis). `target` = only
+ * that viewer key's sockets; postId `*` = every room.
+ */
+function deliverLocal(postId: string, event: LiveServerEvent, target?: string,): void {
+    if (target) {
+        const targets = postId === '*' ? [...rooms.values(),] : [rooms.get(postId,) ?? new Set<Conn>(),];
+        const payload = JSON.stringify(event,);
+        const closes = event.type === 'moderated' && (event.action === 'kicked' || event.action === 'banned');
+        for (const room of targets) {
+            for (const c of [...room,]) {
+                if (c.key !== target || c.ws.readyState !== WebSocket.OPEN) continue;
+                c.ws.send(payload,);
+                if (closes) c.ws.close(CLOSE.forbidden, event.action,);
+            }
+        }
+        return;
+    }
     const room = rooms.get(postId,);
     if (!room) return;
     const payload = JSON.stringify(event,);
@@ -86,6 +110,28 @@ function deliverLocal(postId: string, event: LiveServerEvent,): void {
 async function broadcast(postId: string, event: LiveServerEvent,): Promise<void> {
     deliverLocal(postId, event,);
     await store.publish(postId, event,);
+}
+
+/** Send to one viewer's sockets on every process (`postId` `*` = every room). */
+export async function notifyViewer(postId: string, key: string, event: LiveServerEvent,): Promise<void> {
+    deliverLocal(postId, event, key,);
+    await store.publish(postId, event, key,);
+}
+
+/** History with each message's current reaction counts. */
+async function historyWithReactions(postId: string,): Promise<LiveChatMessage[]> {
+    const [history, reactions,] = await Promise.all([store.getHistory(postId,), mod.messageReactions(postId,),],);
+    return history.map((m,) => {
+        const r = reactions.get(m.id,);
+        return r ? { ...m, reactions: r, } : m;
+    },);
+}
+
+/** Refusal when the sender is muted/silenced in this show (staff exempt). */
+async function moderationBlock(conn: Conn, userId: string | null, staff: boolean, what: 'chat' | 'react',): Promise<mod.ModRefusal> {
+    if (staff) return null;
+    const entries = await Promise.all(mod.keysFor(conn.key, userId,).map((k,) => mod.getMod(conn.postId, k,)),);
+    return mod.moderationRefusal(entries, what,);
 }
 
 /** Recount viewers (debounced per room) and tell every process's sockets. */
@@ -127,41 +173,53 @@ async function handleCommand(conn: Conn, raw: string,): Promise<void> {
     const decision = decideCommand(cmd, identity, { status, chatMode: policy.chatMode, reactionsEnabled: policy.reactionsEnabled, },);
     if (!decision.ok) return sendError(conn.ws, decision.code, decision.message, cmd.type,);
 
+    const staff = identity.isHost || identity.canModerate;
     switch (cmd.type) {
         case 'join': {
-            const history = await store.getHistory(conn.postId,);
-            send(conn.ws, {
-                type: 'welcome',
-                state: toState(row, await store.totalViewers(conn.postId,),),
-                history,
-                you: {
-                    userId: identity.userId,
-                    name: user?.displayName || null,
-                    isHost: identity.isHost,
-                    canChat: chatDecision(identity, { status, chatMode: policy.chatMode, reactionsEnabled: policy.reactionsEnabled, },).ok,
-                },
-            },);
+            send(conn.ws, await welcomeEvent(row, conn.key, user, identity,),);
             return;
         }
         case 'chat': {
             const v = validateChatText(cmd.text,);
             if (!v.ok) return sendError(conn.ws, 'invalid', v.message, 'chat',);
+            const blocked = await moderationBlock(conn, identity.userId, staff, 'chat',);
+            if (blocked) return sendError(conn.ws, blocked.code, blocked.message, 'chat',);
             if (!chatRate.take(identity.userId!,)) return sendError(conn.ws, 'rate_limited', 'Slow down', 'chat',);
+            let replyTo: LiveChatMessage['replyTo'] = null;
+            if (typeof cmd.replyTo === 'string' && cmd.replyTo) {
+                const orig = (await store.getHistory(conn.postId,)).find((m,) => m.id === cmd.replyTo);
+                if (orig) replyTo = { id: orig.id, name: orig.name, text: orig.text.slice(0, 140,), };
+            }
             const message: LiveChatMessage = {
                 id: randomUUID(),
                 userId: identity.userId,
-                name: user?.displayName || 'Member',
+                name: user?.displayName || user?.handle || 'Member',
+                handle: user?.handle ?? null,
                 role: user?.role ?? null,
                 text: v.text,
                 at: new Date().toISOString(),
+                ...(replyTo ? { replyTo, } : {}),
             };
             await store.pushHistory(conn.postId, message,);
             await broadcast(conn.postId, { type: 'chat', message, },);
             return;
         }
         case 'react': {
+            const blocked = await moderationBlock(conn, identity.userId, staff, 'react',);
+            if (blocked) return sendError(conn.ws, blocked.code, blocked.message, 'react',);
             if (!reactRate.take(identity.userId ?? `anon:${conn.id}`,)) return sendError(conn.ws, 'rate_limited', 'Slow down', 'react',);
             await broadcast(conn.postId, { type: 'reaction', emoji: cmd.emoji, userId: identity.userId, },);
+            return;
+        }
+        case 'react_message': {
+            const blocked = await moderationBlock(conn, identity.userId, staff, 'react',);
+            if (blocked) return sendError(conn.ws, blocked.code, blocked.message, 'react_message',);
+            if (!reactRate.take(identity.userId!,)) return sendError(conn.ws, 'rate_limited', 'Slow down', 'react_message',);
+            if (!(await store.getHistory(conn.postId,)).some((m,) => m.id === cmd.id)) {
+                return sendError(conn.ws, 'not_found', 'That message is gone', 'react_message',);
+            }
+            const reactions = await mod.toggleMessageReaction(conn.postId, cmd.id, cmd.emoji, identity.userId!,);
+            await broadcast(conn.postId, { type: 'chat_reactions', id: cmd.id, reactions, },);
             return;
         }
         case 'delete_message': {
@@ -184,8 +242,32 @@ async function handleCommand(conn: Conn, raw: string,): Promise<void> {
     }
 }
 
-function onConnection(ws: Conn['ws'], postId: string, welcome: LiveServerEvent,): void {
-    const conn: Conn = { id: randomUUID(), ws, postId, };
+async function welcomeEvent(row: LivePostRow, key: string, user: WsUser | null, identity: LiveIdentity,): Promise<LiveServerEvent> {
+    const state = toState(row, await store.totalViewers(row.id,),);
+    const staff = identity.isHost || identity.canModerate;
+    const entries = await Promise.all(mod.keysFor(key, identity.userId,).map((k,) => mod.getMod(row.id, k,)),);
+    const moderation = staff ? { muted: false, silencedUntil: null, } : mod.modState({
+        muted: entries.some((e,) => e.muted),
+        silencedUntil: Math.max(0, ...entries.map((e,) => e.silencedUntil ?? 0),) || null,
+    },);
+    return {
+        type: 'welcome',
+        state,
+        history: await historyWithReactions(row.id,),
+        you: {
+            userId: identity.userId,
+            name: user?.displayName || null,
+            handle: user?.handle ?? null,
+            isHost: identity.isHost,
+            canModerate: identity.canModerate,
+            canChat: chatDecision(identity, state,).ok && !moderation.muted && !moderation.silencedUntil,
+            moderation,
+        },
+    };
+}
+
+function onConnection(ws: Conn['ws'], postId: string, connId: string, key: string, welcome: LiveServerEvent, entry: mod.PresenceEntry,): void {
+    const conn: Conn = { id: connId, ws, postId, key, };
     let room = rooms.get(postId,);
     if (!room) rooms.set(postId, (room = new Set()),);
     room.add(conn,);
@@ -193,6 +275,7 @@ function onConnection(ws: Conn['ws'], postId: string, welcome: LiveServerEvent,)
     ws.on('pong', () => { ws.isAlive = true; },);
     send(ws, welcome,);
     scheduleViewers(postId,);
+    void mod.putPresence(postId, entry,);
 
     ws.on('message', (data,) => {
         void handleCommand(conn, data.toString(),).catch((err,) => {
@@ -205,6 +288,7 @@ function onConnection(ws: Conn['ws'], postId: string, welcome: LiveServerEvent,)
         if (!r?.delete(conn,)) return;
         if (r.size === 0) rooms.delete(postId,);
         scheduleViewers(postId,);
+        void mod.dropPresence(postId, conn.id,);
     };
     ws.on('close', leave,);
     ws.on('error', leave,);
@@ -230,6 +314,7 @@ function startHeartbeat(): void {
             }
         }
         void store.refreshViewers();
+        void mod.refreshPresence();
         chatRate.prune();
         reactRate.prune();
     }, 15_000,);
@@ -265,20 +350,34 @@ export function attachLiveRooms(server: Server,): void {
                     if (effectiveStatus(row,) === 'ended') {
                         return rejectAfterHandshake(ws, CLOSE.ended, { type: 'ended', state: toState(row, viewers,), },);
                     }
-                    const { identity, } = await identityFor(user?.id ?? null,);
-                    const state = toState(row, viewers,);
-                    const welcome: LiveServerEvent = {
-                        type: 'welcome',
-                        state,
-                        history: await store.getHistory(row.id,),
-                        you: {
-                            userId: user?.id ?? null,
-                            name: user?.displayName || null,
-                            isHost: user ? await isHost(user,) : false,
-                            canChat: chatDecision(identity, state,).ok,
-                        },
-                    };
-                    onConnection(ws as Conn['ws'], row.id, welcome,);
+                    const connId = randomUUID();
+                    const key = mod.viewerKey(user?.id ?? null, url.searchParams.get('anon',), connId,);
+                    const ipHash = mod.ipHashOf(req,);
+                    const staffUser = !!user && isStaffRole(user.role,);
+                    if (!staffUser) {
+                        if (await mod.isBanned(key, ipHash,)) {
+                            return rejectAfterHandshake(ws, CLOSE.forbidden, { type: 'error', code: 'banned', message: 'You have been banned from live shows', },);
+                        }
+                        if ((await mod.getMod(row.id, key,)).kicked) {
+                            return rejectAfterHandshake(ws, CLOSE.forbidden, { type: 'error', code: 'kicked', message: 'A moderator removed you from this show', },);
+                        }
+                    }
+                    const { identity, user: full, } = await identityFor(user?.id ?? null,);
+                    const welcome = await welcomeEvent(row, key, full, identity,);
+                    if (welcome.type === 'welcome' && user) welcome.you.isHost = await isHost(user,);
+                    onConnection(ws as Conn['ws'], row.id, connId, key, welcome, {
+                        connId,
+                        key,
+                        userId: user?.id ?? null,
+                        name: full?.displayName || full?.handle || (user ? 'Member' : mod.guestName(key,)),
+                        handle: full?.handle ?? null,
+                        role: full?.role ?? null,
+                        avatarUrl: full?.avatarUrl ?? null,
+                        anonymous: !user,
+                        connectedAt: new Date().toISOString(),
+                        ipHash,
+                        at: Date.now(),
+                    },);
                 })().catch((err,) => {
                     logger.warn('Live room connect failed', { error: (err as Error).message, },);
                     try { ws.close(1011, 'server_error',); } catch { /* gone */ }
