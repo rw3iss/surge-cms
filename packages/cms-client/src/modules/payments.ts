@@ -1,4 +1,5 @@
 import type {
+    MembershipCardResponse, MembershipCardSetupResponse,
     PaymentsCreateCustomerResponse, PaymentsDonateBody, PaymentsDonateResponse,
     PaymentsSubscribeBody, PaymentsSubscribeResponse, PaymentsUnsubscribeResponse,
     PaymentsSubscriptionsResponse, PaymentsTransactionsQuery, PaymentsTransactionsResponse,
@@ -146,6 +147,21 @@ export class PaymentsModule extends ModuleBase {
     }
 
     /** POST /payments/membership/resume — undo a scheduled cancellation. */
+    /** POST /payments/membership/cancel — cancel at the end of the paid period. */
+    cancelMembership(): Promise<MembershipChangeResponse> {
+        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/cancel', { invalidates: ['payments',], },);
+    }
+
+    /** POST /payments/membership/card/setup — SetupIntent secret; confirm it with the new card. */
+    membershipCardSetup(): Promise<MembershipCardSetupResponse> {
+        return this.mutate<MembershipCardSetupResponse>('POST', '/payments/membership/card/setup', {},);
+    }
+
+    /** POST /payments/membership/card — save the confirmed card; retries a past-due invoice. */
+    updateMembershipCard(paymentMethodId: string,): Promise<MembershipCardResponse> {
+        return this.mutate<MembershipCardResponse>('POST', '/payments/membership/card', { body: { paymentMethodId, }, invalidates: ['payments',], },);
+    }
+
     resumeMembership(): Promise<MembershipChangeResponse> {
         return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/resume', { invalidates: ['payments',], },);
     }

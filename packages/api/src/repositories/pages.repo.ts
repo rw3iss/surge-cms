@@ -160,8 +160,8 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
                         meta_keywords, og_image, status, is_homepage, show_title,
                         apply_page_padding, apply_site_gutter, header_style, header_position,
                         background_color, custom_css,
-                        show_in_nav, nav_order, is_private, access_level, created_by, publish_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+                        show_in_nav, nav_order, is_private, access_level, created_by, publish_at, open_access)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
      RETURNING *`,
         [
             data.slug,
@@ -193,6 +193,7 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
             // system) become NULL.
             uuidOrNull(userId,),
             data.publishAt || null,
+            data.openAccess === true,
         ],
     );
 

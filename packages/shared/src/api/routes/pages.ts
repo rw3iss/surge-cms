@@ -205,6 +205,8 @@ export interface PageCreateBody {
     navOrder?: number;
     isPrivate?: boolean;
     accessLevel?: ContentAccessLevel;
+    /** Subscription-required mode: open to members without a subscription. */
+    openAccess?: boolean;
 }
 
 /** POST /pages (201) — the created page with blocks. */

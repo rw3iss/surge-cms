@@ -152,3 +152,15 @@
     &:hover { transform: none; }
   }
 }
+
+// Subscription-required mode: the signed-in member is walled until they subscribe.
+.subscribe-page__required {
+  max-width: 48rem;
+  margin: 0 auto 1.5rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--site-radius, 8px);
+  background: color-mix(in srgb, var(--site-primary, #e63946) 10%, transparent);
+  color: var(--site-text, #111);
+  text-align: center;
+}
+

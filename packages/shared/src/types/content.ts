@@ -19,6 +19,8 @@ export interface Page {
     navOrder: number;
     isPrivate: boolean;
     accessLevel?: ContentAccessLevel;
+    /** Subscription-required mode: open to members without a subscription (Users → Settings). */
+    openAccess?: boolean;
     blocks: Block[];
     /** When true (default), the public renderer prints the page title
      *  as an `<h1>` above the content blocks. When false, the title
@@ -479,6 +481,9 @@ export interface SiteSettings {
     /** Editable SEO copy (Settings → SEO). Public so the SPA composes the same
      *  `<title>` the SSR head emitted — see `utils/pageTitle`. */
     seo?: SiteSeoSettings;
+    /** Subscription-required mode (Users → Settings). `openPaths` = pages a
+     *  member without an active subscription may still open. */
+    membership?: { required: boolean; openPaths: string[]; };
 }
 
 /**

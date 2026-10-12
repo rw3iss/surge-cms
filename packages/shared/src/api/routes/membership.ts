@@ -24,6 +24,8 @@ export interface MembershipTierOption {
     interval: string;
     intervalCount: number;
     isCurrent: boolean;
+    /** Tier rank (price order; Free = 0). */
+    rank?: number;
 }
 
 export interface MembershipCurrent {
@@ -45,7 +47,15 @@ export interface MembershipCurrent {
 export interface MembershipResponse {
     current: MembershipCurrent;
     tiers: MembershipTierOption[];
+    /** Subscription-required mode: Free is not offered; cancelling ends access. */
+    subscriptionRequired?: boolean;
 }
+
+/** POST /payments/membership/card/setup — a SetupIntent to confirm with the new card. */
+export interface MembershipCardSetupResponse { clientSecret: string; }
+export interface MembershipCardBody { paymentMethodId: string; }
+/** POST /payments/membership/card — card saved; `paid` when an open invoice was retried and paid. */
+export interface MembershipCardResponse { current: MembershipCurrent; paid: boolean; }
 
 export interface MembershipChangeBody {
     tierId: string;
@@ -88,4 +98,6 @@ export interface MembershipPublicTiersResponse {
     /** Any tier other than free exists (else the site is completely free). */
     paidAvailable: boolean;
     signedIn: boolean;
+    /** Subscription-required mode: only paid tiers at/above the minimum are listed. */
+    subscriptionRequired?: boolean;
 }

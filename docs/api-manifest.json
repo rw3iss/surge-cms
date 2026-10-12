@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-11T23:58:24.252Z",
+  "generatedAt": "2026-10-12T01:37:57.422Z",
   "totalModules": 52,
-  "totalRoutes": 517,
+  "totalRoutes": 521,
   "modules": [
     {
       "module": "admin-channel",
@@ -86,7 +86,14 @@
           "path": "/register",
           "absolutePath": "/api/v1/auth/register",
           "auth": "public",
-          "summary": "Public member self-registration (gated behind the `users` feature). No auto-login."
+          "summary": "Public member self-registration (gated behind the `users` feature). No auto-login — except in subscription-required mode, where the new account is signed in RESTRICTED so it can pay."
+        },
+        {
+          "method": "POST",
+          "path": "/resend-verification",
+          "absolutePath": "/api/v1/auth/resend-verification",
+          "auth": "user",
+          "summary": "Send a fresh email-verification link to the signed-in, unverified member."
         },
         {
           "method": "POST",
@@ -1928,6 +1935,27 @@
           "absolutePath": "/api/v1/payments/membership/confirm",
           "auth": "user",
           "summary": "Activate a new subscription after the browser confirmed its first payment."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/cancel",
+          "absolutePath": "/api/v1/payments/membership/cancel",
+          "auth": "user",
+          "summary": "Cancel the paid subscription at the end of the paid period (subscription-required mode hides Free, so this replaces \"switch to free\")."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/card/setup",
+          "absolutePath": "/api/v1/payments/membership/card/setup",
+          "auth": "user",
+          "summary": "Start a payment-card change: a Stripe SetupIntent client secret to confirm with the new card."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/card",
+          "absolutePath": "/api/v1/payments/membership/card",
+          "auth": "user",
+          "summary": "Save the confirmed card as the default for the membership; retries a past-due invoice."
         },
         {
           "method": "POST",

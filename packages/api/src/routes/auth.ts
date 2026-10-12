@@ -26,6 +26,8 @@ import type {
     AuthVerifyEmailBody,
 } from '@sitesurge/types';
 import { config, } from '../config';
+import { accessState, getPolicy as getSubscriptionPolicy, } from '../services/subscriptionAccess';
+import { resendVerification, } from '../services/mail/verification';
 import { defineRoute, } from '../api/defineRoute';
 import { AppError, ForbiddenError, UnauthorizedError, } from '../core/errors';
 import {
@@ -263,16 +265,17 @@ export const authRoutes = [
                 refreshMaxAge: body.rememberMe ? REFRESH_COOKIE_REMEMBER_MS : REFRESH_COOKIE_MAX_AGE_MS,
             },);
 
-            return authResponse;
+            // Subscription-required mode: tell the SPA at once where this member stands.
+            return { ...authResponse, access: await accessState(authResponse.user,), };
         },
     },),
 
     defineRoute({
         method: 'post', path: '/register', auth: 'public',
-        summary: 'Public member self-registration (gated behind the `users` feature). No auto-login.',
+        summary: 'Public member self-registration (gated behind the `users` feature). No auto-login — except in subscription-required mode, where the new account is signed in RESTRICTED so it can pay.',
         pre: [loginLimiter,],
         input: { body: registerSchema, },
-        handler: async ({ body, req, },) => {
+        handler: async ({ body, req, res, },) => {
             if (!(await isFeatureEnabledServer('users',))) {
                 throw new ForbiddenError('Public registration is not enabled.',);
             }
@@ -280,10 +283,30 @@ export const authRoutes = [
             const ipAddress = clientIp(req.headers, req.ip,);
             const userAgent = req.headers['user-agent'];
 
-            return registerMember(
+            const result = await registerMember(
                 { name: body.name, email: body.email, password: body.password, },
                 { ipAddress, userAgent, },
             );
+            // Subscription-required mode: sign the account in now (restricted
+            // until it pays — and verifies, when that is on) so the Join page
+            // can take the plan + payment. A failed payment leaves it restricted.
+            const policy = await getSubscriptionPolicy();
+            if (!policy.required) return result;
+            const { accessToken, refreshToken, expiresAt, } = generateTokens(result.userId, 'member',);
+            await createSession(result.userId, accessToken, refreshToken, expiresAt, ipAddress, userAgent,);
+            setAuthCookies(res, { accessToken, refreshToken, },);
+            return { ...result, signedIn: true, subscriptionRequired: true, };
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/resend-verification', auth: 'user',
+        summary: 'Send a fresh email-verification link to the signed-in, unverified member.',
+        pre: [loginLimiter,],
+        handler: async ({ user, },) => {
+            if (!user) throw new UnauthorizedError('Not authenticated',);
+            const sent = await resendVerification(user.id,);
+            return { sent, };
         },
     },),
 
@@ -458,7 +481,7 @@ export const authRoutes = [
         handler: async ({ user, },) => {
             // An account created before handles existed gets one on first read.
             if (user && !user.handle) user.handle = await ensureHandle(user.id,).catch(() => null);
-            return { user, };
+            return { user, access: await accessState(user,), };
         },
     },),
 

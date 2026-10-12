@@ -21,7 +21,7 @@ import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import './MembershipPanel.scss';
 
-type View = 'overview' | 'choose' | 'confirm';
+type View = 'overview' | 'choose' | 'confirm' | 'card';
 
 const longDate = (iso: string | null,) => (iso ? new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'long', },) : '');
 
@@ -40,6 +40,9 @@ const MembershipPanel: Component = () => {
     onCleanup(() => card?.destroy(),);
 
     const current = () => data()?.current;
+    /** Subscription-required mode: Free is not offered; "no plan" means no access. */
+    const required = () => Boolean(data()?.subscriptionRequired,);
+    const noPlan = () => !current()?.tier || Boolean(current()?.tier?.isFree,);
     const tiers = () => data()?.tiers ?? [];
     const currentTier = () => tiers().find((t,) => t.isCurrent,) ?? tiers().find((t,) => t.isFree,) ?? null;
     const chosen = () => tiers().find((t,) => t.id === selected(),) ?? null;
@@ -47,12 +50,15 @@ const MembershipPanel: Component = () => {
     const direction = () => {
         const to = chosen();
         const from = currentTier();
-        if (!to || !from || to.id === from.id) return 'same';
+        if (!to) return 'same';
+        if (!from) return 'upgrade'; // no current tier on offer (e.g. Free hidden): a new subscription
+        if (to.id === from.id) return 'same';
         return to.priceCents > from.priceCents ? 'upgrade' : 'downgrade';
     };
     const actionLabel = () => {
         const to = chosen();
         if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my subscription' : 'No change';
+        if (!currentTier() || noPlan()) return `Subscribe to ${to.name}`;
         return `${direction() === 'upgrade' ? 'Upgrade' : 'Downgrade'} to ${to.name} tier`;
     };
 
@@ -143,6 +149,42 @@ const MembershipPanel: Component = () => {
         }
     };
 
+    /** Subscription-required mode: cancel without "switching to Free" (it is hidden). */
+    const cancelPlan = async () => {
+        if (!window.confirm('Cancel your subscription? You keep access until the end of the period you paid for, then you will need to subscribe again.')) return;
+        setBusy(true,);
+        setError('',);
+        try {
+            const res = await cms.payments.cancelMembership();
+            await finish(res.current.currentPeriodEnd
+                ? `Your subscription will end on ${longDate(res.current.currentPeriodEnd,)}. You won't be charged again.`
+                : 'Your subscription is cancelled.',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not cancel.',);
+        } finally {
+            setBusy(false,);
+        }
+    };
+
+    /** Replace the card on file (a SetupIntent, so nothing is charged — except a past-due invoice, retried at once). */
+    const saveCard = async () => {
+        setBusy(true,);
+        setError('',);
+        try {
+            if (!stripe || !card) throw new Error('Enter your card details.',);
+            const { clientSecret, } = await cms.payments.membershipCardSetup();
+            const res = await stripe.confirmCardSetup(clientSecret, { payment_method: { card, }, },);
+            if (res.error) throw new Error(res.error.message || 'Your card was declined.',);
+            const pm = res.setupIntent?.payment_method;
+            const saved = await cms.payments.updateMembershipCard(typeof pm === 'string' ? pm : pm!.id,);
+            await finish(saved.paid ? 'Card updated and the outstanding payment went through.' : 'Card updated.',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'The card could not be saved.',);
+        } finally {
+            setBusy(false,);
+        }
+    };
+
     const resume = async () => {
         setBusy(true,);
         setError('',);
@@ -167,11 +209,11 @@ const MembershipPanel: Component = () => {
                         <span class="profile__label">Your subscription</span>
                         <div class="membership__current">
                             <div>
-                                <div class="membership__tier-name">{current()!.tier?.name ?? 'Free'}</div>
+                                <div class="membership__tier-name">{required() && noPlan() ? 'No active subscription' : current()!.tier?.name ?? 'Free'}</div>
                                 <Markdown class="membership__desc" text={current()!.tier?.description} />
                             </div>
                             <div class="membership__price">
-                                {current()!.interval ? `${money(current()!.priceCents, current()!.currency,)} / ${current()!.interval}` : 'Free'}
+                                {current()!.interval ? `${money(current()!.priceCents, current()!.currency,)} / ${current()!.interval}` : required() ? '—' : 'Free'}
                             </div>
                         </div>
                         <dl class="membership__facts">
@@ -192,12 +234,24 @@ const MembershipPanel: Component = () => {
                             </p>
                         </Show>
                         <div class="membership__actions">
-                            <button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change subscription</button>
+                            <Show
+                                when={required() && noPlan()}
+                                fallback={<button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change subscription</button>}
+                            >
+                                <button type="button" class="btn" onClick={openChooser} disabled={tiers().length < 1}>Choose a plan</button>
+                            </Show>
+                            <Show when={current()!.card || current()!.source === 'stripe'}>
+                                <button type="button" class="btn btn--outline-neutral" onClick={() => { setError('',); setNotice('',); setView('card',); }}>
+                                    Update payment method
+                                </button>
+                            </Show>
                             <Show when={!current()!.tier?.isFree && !current()!.cancelAtPeriodEnd}>
                                 <button
                                     type="button"
                                     class="btn btn--outline"
+                                    disabled={busy()}
                                     onClick={() => {
+                                        if (required()) { void cancelPlan(); return; }
                                         setSelected(tiers().find((t,) => t.isFree,)?.id ?? null,);
                                         void toConfirm();
                                     }}
@@ -317,6 +371,19 @@ const MembershipPanel: Component = () => {
                             <button type="button" class="btn" disabled={busy()} onClick={confirm}>
                                 {busy() ? 'Working…' : preview()!.direction === 'cancel' ? 'Confirm cancellation' : 'Confirm'}
                             </button>
+                        </div>
+                    </Show>
+
+                    {/* ── Update payment method ── */}
+                    <Show when={view() === 'card'}>
+                        <span class="profile__label">New card</span>
+                        <p class="profile__muted">
+                            The new card is used for your next charges. If a payment is overdue, it is retried with this card now.
+                        </p>
+                        <div class="membership__card" ref={(el,) => void mountCard(el,)} />
+                        <div class="membership__actions">
+                            <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => setView('overview',)}>Cancel</button>
+                            <button type="button" class="btn" disabled={busy()} onClick={saveCard}>{busy() ? 'Saving…' : 'Save card'}</button>
                         </div>
                     </Show>
 

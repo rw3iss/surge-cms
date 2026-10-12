@@ -6,6 +6,23 @@ export type UserRole = BuiltinRole | (string & {});
 
 export type AuthProvider = 'patreon' | 'email';
 
+/**
+ * Where a signed-in member stands under subscription-required mode
+ * (Users → Settings). `restricted` = may only use the subscribe / membership /
+ * account pages and pages marked "Open without a subscription".
+ */
+export interface MemberAccessState {
+    subscriptionRequired: boolean;
+    /** Active subscription at the minimum tier or above. */
+    subscribed: boolean;
+    emailVerified: boolean;
+    restricted: boolean;
+    /** First blocker: pay, then verify the email. */
+    reason: 'subscription' | 'verify_email' | null;
+    /** Had a paid subscription that is no longer active (renew wording). */
+    lapsed: boolean;
+}
+
 export interface User {
     id: string;
     email: string;

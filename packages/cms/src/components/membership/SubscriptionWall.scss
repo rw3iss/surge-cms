@@ -1,0 +1,45 @@
+// The "subscription required" wall (public site). Site tokens only.
+.subscription-wall {
+  display: flex;
+  justify-content: center;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+
+  &__card {
+    width: 100%;
+    max-width: 34rem;
+    padding: 2rem;
+    text-align: center;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 10px);
+    background: var(--site-bg, #fff);
+
+    h1 { margin: 0 0 0.75rem; }
+    p { color: var(--site-text-muted, #6b7280); line-height: 1.55; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 1.5rem 0 1rem;
+  }
+
+  &__note { font-size: 0.9rem; }
+
+  &__foot {
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+  }
+
+  &__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--site-link, var(--site-primary, #e63946));
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}

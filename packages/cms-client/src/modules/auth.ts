@@ -92,6 +92,12 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
     }
 
     /** GET /auth/me — session probe; never cached (always fresh). */
+    /** POST /auth/resend-verification — a fresh verification link for the
+     *  signed-in, unverified member. `sent:false` when already verified. */
+    resendVerification(): Promise<{ sent: boolean; }> {
+        return this.mutate<{ sent: boolean; }>('POST', '/auth/resend-verification', {},);
+    }
+
     me(): Promise<AuthMeResponse> {
         return this.get<AuthMeResponse>('/auth/me', { options: { cache: false, }, },);
     }

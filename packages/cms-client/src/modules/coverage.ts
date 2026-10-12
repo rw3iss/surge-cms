@@ -328,6 +328,10 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/payments/membership/change',
     'POST /api/v1/payments/membership/confirm',
     'POST /api/v1/payments/membership/resume',
+    'POST /api/v1/payments/membership/cancel',
+    'POST /api/v1/payments/membership/card/setup',
+    'POST /api/v1/payments/membership/card',
+    'POST /api/v1/auth/resend-verification',
     // ── roles + subscription tiers ──
     'GET /api/v1/roles',
     'POST /api/v1/roles',

@@ -1,3 +1,4 @@
+import { siteSettings, } from '../../stores/siteSettings';
 import { NotFoundError, } from '@sitesurge/client';
 import { buildBlockTree, type Page, } from '@sitesurge/types';
 import { useNavigate, } from '@solidjs/router';
@@ -98,6 +99,8 @@ const AdminPageEditor: Component = () => {
         ((editor.appearance() as { codeTabWidth?: '4' | '2' | 'tab'; } | null)?.codeTabWidth) ?? '4';
     const [status, setStatus,] = createSignal('draft',);
     const [accessLevel, setAccessLevel,] = createSignal('public',);
+    /** Subscription-required mode: members without a subscription may still open this page. */
+    const [openAccess, setOpenAccess,] = createSignal(false,);
     // Whether this page is the site's homepage. The slug stays a normal
     // string (still required, still URL-safe) — we use this flag rather
     // than overloading the slug to mean "/" or empty. Only one page can
@@ -170,6 +173,7 @@ const AdminPageEditor: Component = () => {
             slug: slug(),
             status: status(),
             accessLevel: accessLevel(),
+            openAccess: openAccess(),
             isHomepage: isHomepage(),
             showTitle: showTitle(),
             applyPagePadding: applyPagePadding(),
@@ -191,6 +195,7 @@ const AdminPageEditor: Component = () => {
                 slug: slug(),
                 status: status(),
                 accessLevel: accessLevel(),
+                openAccess: openAccess(),
                 isHomepage: isHomepage(),
                 showTitle: showTitle(),
                 applyPagePadding: applyPagePadding(),
@@ -238,6 +243,7 @@ const AdminPageEditor: Component = () => {
         if (d.slug != null) setSlug(d.slug,);
         if (d.status != null) setStatus(d.status,);
         if (d.accessLevel != null) setAccessLevel(d.accessLevel,);
+        if (d.openAccess != null) setOpenAccess(d.openAccess === true,);
         if (d.showTitle != null) setShowTitle(d.showTitle !== false,);
         if (d.applyPagePadding != null) setApplyPagePadding(d.applyPagePadding !== false,);
         if (d.applySiteGutter != null) setApplySiteGutter(d.applySiteGutter !== false,);
@@ -258,6 +264,7 @@ const AdminPageEditor: Component = () => {
         setSlug(p.slug || '',);
         setStatus(p.status || 'draft',);
         setAccessLevel(p.accessLevel || 'public',);
+        setOpenAccess(p.openAccess === true,);
         // Default true preserves prior behavior for legacy rows saved
         // before this column existed (mapRow returns `undefined` for
         // missing columns).
@@ -555,6 +562,16 @@ const AdminPageEditor: Component = () => {
                             <option value="patron">Patrons Only</option>
                         </select>
                     </FormField>
+                    <Show when={siteSettings()?.membership?.required}>
+                        <div class="form-group">
+                            <Toggle
+                                checked={openAccess()}
+                                onChange={(v,) => { setOpenAccess(v,); editor.markDirty(); }}
+                                label="Open without a subscription"
+                                hint="A subscription is required on this site (Users → Settings). Members without one can still open this page — use it for landing, about or legal pages."
+                            />
+                        </div>
+                    </Show>
                     <div class="form-group page-editor__homepage-section">
                         <Toggle
                             checked={isHomepage()}

@@ -1,5 +1,5 @@
 import { UnauthorizedError, } from '@sitesurge/client';
-import { type Contact, isAdminRole, type User, } from '@sitesurge/types';
+import { type Contact, isAdminRole, type MemberAccessState, type User, } from '@sitesurge/types';
 import { createContext, createEffect, createSignal, on, ParentComponent, useContext, } from 'solid-js';
 import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
 import { isFeatureEnabled, } from './siteSettings';
@@ -15,6 +15,12 @@ interface AuthState {
      * a "session expired" modal instead of a hard redirect.
      */
     sessionExpired: boolean;
+    /**
+     * Subscription-required mode (Users → Settings): where the signed-in member
+     * stands. `restricted` → the public Layout walls every route except the
+     * subscribe / membership / account pages. Null when signed out.
+     */
+    access: MemberAccessState | null;
 }
 
 interface AuthContextValue extends AuthState {
@@ -45,11 +51,13 @@ export const AuthProvider: ParentComponent = (props,) => {
     const [user, setUser,] = createSignal<User | null>(null,);
     const [isLoading, setIsLoading,] = createSignal(true,);
     const [sessionExpired, setSessionExpired,] = createSignal(false,);
+    const [access, setAccess,] = createSignal<MemberAccessState | null>(null,);
     const [contactPrompt, setContactPrompt,] = createSignal<Contact | null>(null,);
     // Guards the one-shot contact-match check per signed-in session.
     let contactChecked = false;
 
     const isAuthenticated = () => !!user();
+    createEffect(on(user, (u,) => { if (!u) setAccess(null,); }, { defer: true, },),);
 
     // Post responses are shaped per viewer (subscription gating: a sample for
     // one, the full article for another), but the SDK's local cache is keyed
@@ -111,6 +119,7 @@ export const AuthProvider: ParentComponent = (props,) => {
             const res = await suppressUnauthorized(() => cms.auth.me(),);
             if (res?.user) {
                 setUser(res.user,);
+                setAccess(res.access ?? null,);
             } else if (!await tryAutologin()) {
                 setUser(null,);
             }
@@ -141,6 +150,8 @@ export const AuthProvider: ParentComponent = (props,) => {
             contactChecked = false;
             setContactPrompt(null,);
             setUser(res.user,);
+            // The login response carries the access state (subscription-required mode).
+            setAccess((res as { access?: MemberAccessState; }).access ?? null,);
         } finally {
             setIsLoading(false,);
         }
@@ -188,6 +199,7 @@ export const AuthProvider: ParentComponent = (props,) => {
             const res = await suppressUnauthorized(() => cms.auth.me(),);
             if (res?.user) {
                 setUser(res.user,);
+                setAccess(res.access ?? null,);
                 setSessionExpired(false,);
                 return true;
             }
@@ -295,6 +307,9 @@ export const AuthProvider: ParentComponent = (props,) => {
         },
         get sessionExpired() {
             return sessionExpired();
+        },
+        get access() {
+            return access();
         },
         login,
         loginWithPatreon,

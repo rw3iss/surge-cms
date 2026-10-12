@@ -6,13 +6,17 @@
  */
 import type { ForumSettings, } from '@sitesurge/types';
 import { viewerRank, } from '../postGate';
+import { getPolicy as getSubscriptionPolicy, } from '../subscriptionAccess';
 import { isStaffViewer, type Viewer, } from '../discussions/viewer';
 
 export async function viewerLevel(v: Viewer,): Promise<number> {
     if (!v.id) return -1;
     if (isStaffViewer(v,)) return Infinity;
     const rank = await viewerRank(v as never,).catch(() => null);
-    return Math.max(0, rank ?? 0,);
+    if (rank !== null) return Math.max(0, rank,);
+    // No tier: an ordinary signed-in member (Free = 0) — unless subscription-
+    // required mode is on, where Free does not count and they are treated as a visitor.
+    return (await getSubscriptionPolicy()).required ? -1 : 0;
 }
 
 /** The forum-wide read floor as a level. */

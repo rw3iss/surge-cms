@@ -74,6 +74,10 @@ export interface AuthRegisterResponse {
      *  created UNVERIFIED and a verification email was sent. The Join form
      *  shows a "check your inbox" state instead of prompting for login. */
     verificationRequired?: boolean;
+    /** Subscription-required mode: the new account was signed in (restricted)
+     *  so it can choose a plan and pay; the Join page continues to payment. */
+    signedIn?: boolean;
+    subscriptionRequired?: boolean;
 }
 
 // ─── POST /auth/verify-email ──────────────────────────────────────
@@ -136,6 +140,8 @@ export interface AuthAutologinResponse {
 /** GET /auth/me — the currently-authenticated user, wrapped. */
 export interface AuthMeResponse {
     user: User;
+    /** Subscription-required mode state (always present; `restricted:false` when the mode is off). */
+    access?: import('../../types/user').MemberAccessState;
 }
 
 // ─── PUT /auth/me ─────────────────────────────────────────────────

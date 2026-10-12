@@ -112,7 +112,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "me",
                 "signature": "me(): Promise<AuthMeResponse>",
-                "summary": "GET /auth/me — session probe; never cached (always fresh)."
+                "summary": ""
             },
             {
                 "name": "onChange",
@@ -148,6 +148,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "removeAvatar",
                 "signature": "removeAvatar(): Promise<AuthAvatarResponse>",
                 "summary": "DELETE /auth/me/avatar — remove the caller's own avatar (also deletes the stored file from the CDN)."
+            },
+            {
+                "name": "resendVerification",
+                "signature": "resendVerification(): Promise<{ sent: boolean; }>",
+                "summary": "POST /auth/resend-verification — a fresh verification link for the signed-in, unverified member. `sent:false` when already verified."
             },
             {
                 "name": "resetPassword",
@@ -1611,6 +1616,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/admin/user/:userId/transactions — one user's transactions (admin)."
             },
             {
+                "name": "cancelMembership",
+                "signature": "cancelMembership(): Promise<MembershipChangeResponse>",
+                "summary": "POST /payments/membership/cancel — cancel at the end of the paid period."
+            },
+            {
                 "name": "cancelRecurringDonation",
                 "signature": "cancelRecurringDonation(id: string): Promise<RecurringDonation>",
                 "summary": "POST /payments/recurring-donations/:id/cancel — stop it now."
@@ -1651,6 +1661,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/membership — current tier (incl. free) + the tiers to switch to."
             },
             {
+                "name": "membershipCardSetup",
+                "signature": "membershipCardSetup(): Promise<MembershipCardSetupResponse>",
+                "summary": "POST /payments/membership/card/setup — SetupIntent secret; confirm it with the new card."
+            },
+            {
                 "name": "membershipTiers",
                 "signature": "membershipTiers(): Promise<MembershipPublicTiersResponse>",
                 "summary": "GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page."
@@ -1678,7 +1693,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "resumeMembership",
                 "signature": "resumeMembership(): Promise<MembershipChangeResponse>",
-                "summary": "POST /payments/membership/resume — undo a scheduled cancellation."
+                "summary": ""
             },
             {
                 "name": "subscribe",
@@ -1699,6 +1714,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "unsubscribe",
                 "signature": "unsubscribe(): Promise<PaymentsUnsubscribeResponse>",
                 "summary": "POST /payments/unsubscribe — cancels at period end."
+            },
+            {
+                "name": "updateMembershipCard",
+                "signature": "updateMembershipCard(paymentMethodId: string): Promise<MembershipCardResponse>",
+                "summary": "POST /payments/membership/card — save the confirmed card; retries a past-due invoice."
             },
             {
                 "name": "updatePlan",
@@ -2897,4 +2917,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 48;
-export const SDK_METHOD_COUNT = 508;
+export const SDK_METHOD_COUNT = 512;

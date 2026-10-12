@@ -1,0 +1,83 @@
+// Join when a subscription is required: Plan → Account → Payment.
+.subscription-signup {
+  max-width: 64rem;
+  margin: 0 auto;
+
+  &__steps {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.25rem 0 1.5rem;
+    padding: 0;
+    list-style: none;
+    color: var(--site-text-muted, #6b7280);
+    font-size: 0.9rem;
+
+    li { display: flex; align-items: center; gap: 0.4rem; }
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.6rem;
+      height: 1.6rem;
+      border-radius: 999px;
+      border: 1px solid var(--site-border, #d1d5db);
+      font-weight: 600;
+    }
+
+    .is-active { color: var(--site-text, #111); font-weight: 600; }
+    .is-active span, .is-done span {
+      background: var(--site-primary, #e63946);
+      border-color: var(--site-primary, #e63946);
+      color: var(--site-button-text, #fff);
+    }
+  }
+
+  &__form {
+    max-width: 28rem;
+    margin: 0 auto;
+  }
+
+  &__plan, &__hint {
+    color: var(--site-text-muted, #6b7280);
+    font-size: 0.9rem;
+  }
+
+  &__change {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--site-link, var(--site-primary, #e63946));
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  &__summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 8px);
+
+    div { display: flex; flex-direction: column; gap: 0.15rem; }
+    span { color: var(--site-text-muted, #6b7280); font-size: 0.85rem; }
+  }
+
+  &__card {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--site-border, #d1d5db);
+    border-radius: var(--site-radius, 6px);
+    background: var(--site-bg, #fff);
+  }
+
+  &__login {
+    margin-top: 1.5rem;
+    text-align: center;
+    color: var(--site-text-muted, #6b7280);
+  }
+}

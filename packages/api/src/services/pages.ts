@@ -179,6 +179,8 @@ export async function getPublicBySlug(
 export async function create(data: Record<string, unknown>, ctx: AuditContext,): Promise<Page> {
     const page = await repo.createPage(data, ctx.userId,);
     await cache.invalidatePageCache();
+    // The public settings carry the "open without a subscription" page paths.
+    if (data.openAccess) await cache.invalidateSettingsCache();
     await logAudit({
         userId: ctx.userId,
         action: 'create',
@@ -198,6 +200,8 @@ export async function update(
 ): Promise<Page> {
     const page = await repo.updatePage(id, patch,);
     await cache.invalidatePageCache(id,);
+    // Open-page paths ride on the public settings (subscription-required mode).
+    if ('openAccess' in patch || 'slug' in patch || 'status' in patch || 'isHomepage' in patch) await cache.invalidateSettingsCache();
     // Snapshot AFTER the writes settle, not before this one. A save is many
     // requests (this update plus a call per block); snapshotting here would
     // capture the page mid-save and miss the blocks entirely.

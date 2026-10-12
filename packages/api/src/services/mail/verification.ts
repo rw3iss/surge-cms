@@ -50,3 +50,21 @@ export async function sendVerificationEmail(
         force: true,
     },);
 }
+
+/**
+ * A new verification link for a signed-in member who has not verified yet
+ * (subscription-required mode lets them in restricted). False when already
+ * verified — nothing to send.
+ */
+export async function resendVerification(userId: string,): Promise<boolean> {
+    const { query, } = await import('../../db/index.js');
+    const r = await query<{ email: string; display_name: string | null; email_verified: boolean | null; }>(
+        `SELECT email, display_name, email_verified FROM users WHERE id = $1`, [userId,],
+    );
+    const u = r.rows[0];
+    if (!u || u.email_verified !== false) return false;
+    const token = generateVerificationToken();
+    await query(`UPDATE users SET verification_token = $2, updated_at = NOW() WHERE id = $1`, [userId, token,],);
+    await sendVerificationEmail({ email: u.email, name: u.display_name ?? undefined, }, token,);
+    return true;
+}

@@ -18,6 +18,7 @@
  */
 import type Stripe from 'stripe';
 import type {
+    MembershipCardResponse, MembershipCardSetupResponse,
     MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
@@ -31,6 +32,7 @@ import { subscriptionPeriod, } from './payment/stripeCompat';
 import { createCustomer, } from './payments';
 import { ENTITLED_STATUSES, } from './permissions';
 import { listTiers, stripePrices, syncUserRole, userSubscription, } from './subscriptionTiers';
+import { getPolicy as getSubscriptionPolicy, type SubscriptionPolicy, } from './subscriptionAccess';
 
 // ─── Tier catalogue (with Stripe amounts) ────────────────────────────────
 
@@ -91,6 +93,7 @@ async function tierOptions(currentTierId: string | null,): Promise<MembershipTie
             interval: p?.interval ?? t.interval,
             intervalCount: p?.intervalCount ?? 1,
             isCurrent: t.id === currentTierId,
+            rank: t.sortOrder,
         },);
     }
     return out.sort((a, b,) => Number(b.isFree,) - Number(a.isFree,) || a.priceCents - b.priceCents);
@@ -109,8 +112,19 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
             currentId = (await userSubscription(userId,)).tier?.id ?? null;
         } catch { /* signed-in but no tier row → free */ }
     }
-    const tiers = await tierOptions(currentId,);
-    return { tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, };
+    const policy = await getSubscriptionPolicy();
+    const tiers = offered(await tierOptions(currentId,), policy,);
+    return { tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required, };
+}
+
+/**
+ * The tiers a member may CHOOSE. Subscription-required mode hides Free (kept,
+ * still usable to cancel) and paid tiers below the minimum — except the
+ * member's current tier, so they can still see what they have.
+ */
+function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy,): MembershipTierOption[] {
+    if (!policy.required) return tiers;
+    return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.rank ?? 0) >= policy.minimumRank);
 }
 
 // ─── Current ─────────────────────────────────────────────────────────────
@@ -169,7 +183,8 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
 
 export async function overview(userId: string,): Promise<MembershipResponse> {
     const cur = await current(userId,);
-    return { current: cur, tiers: await tierOptions(cur.tier?.id ?? null,), };
+    const policy = await getSubscriptionPolicy();
+    return { current: cur, tiers: offered(await tierOptions(cur.tier?.id ?? null,), policy,), subscriptionRequired: policy.required, };
 }
 
 // ─── Preview ─────────────────────────────────────────────────────────────
@@ -179,6 +194,12 @@ async function targetTier(userId: string, tierId: string,) {
     const tiers = await tierOptions(cur.tier?.id ?? null,);
     const to = tiers.find((t,) => t.id === tierId,);
     if (!to) throw new NotFoundError('Subscription',);
+    // Subscription-required mode: below-minimum paid tiers are not for sale
+    // (Free stays reachable — it is how a member cancels).
+    const policy = await getSubscriptionPolicy();
+    if (policy.required && !to.isFree && !to.isCurrent && (to.rank ?? 0) < policy.minimumRank) {
+        throw new ValidationError('That subscription level is not available.',);
+    }
     if (!to.isFree && !to.isCurrent) {
         const row = await query<{ stripe_price_id: string | null; }>(`SELECT stripe_price_id FROM subscription_plans WHERE id = $1`, [tierId,],);
         if (!row.rows[0]?.stripe_price_id) throw new ValidationError('That subscription is not available to buy yet.',);
@@ -277,7 +298,10 @@ export async function change(userId: string, tierId: string,): Promise<Membershi
             await stripe.subscriptions.update(local.stripe_subscription_id, { cancel_at_period_end: true, },);
             await query(`UPDATE subscriptions SET cancel_at_period_end = true, updated_at = NOW() WHERE id = $1`, [local.id,],);
             const ends = local.current_period_end ? new Date(local.current_period_end,).toLocaleDateString('en-US', { dateStyle: 'long', },) : 'the end of the period';
-            await email(userId, from, to, `Your ${from?.name ?? ''} subscription stays active until ${ends}, then your account moves to the free plan. You will not be charged again.`,);
+            const required = (await getSubscriptionPolicy()).required;
+            await email(userId, from, to, required
+                ? `Your ${from?.name ?? ''} subscription stays active until ${ends}. You will not be charged again; after that date you will need to subscribe again to keep access.`
+                : `Your ${from?.name ?? ''} subscription stays active until ${ends}, then your account moves to the free plan. You will not be charged again.`,);
             return { result: 'cancel_scheduled', current: await current(userId,), };
         }
         if (local) {
@@ -378,3 +402,75 @@ export async function resume(userId: string,): Promise<MembershipChangeResponse>
     await query(`UPDATE subscriptions SET cancel_at_period_end = false, updated_at = NOW() WHERE id = $1`, [local.id,],);
     return { result: 'changed', current: await current(userId,), };
 }
+
+// ─── Cancel (subscription-required mode hides Free, so it gets its own call) ──
+
+/** Cancel the paid subscription at the end of the period already paid for. */
+export async function cancel(userId: string,): Promise<MembershipChangeResponse> {
+    const free = await query<{ id: string; }>(`SELECT id FROM subscription_plans WHERE is_free = true ORDER BY sort_order LIMIT 1`,);
+    if (!free.rows[0]) throw new ValidationError('There is no plan to move to.',);
+    return change(userId, free.rows[0].id,);
+}
+
+// ─── Payment card ────────────────────────────────────────────────────────
+
+/** The member's Stripe customer: from their membership subscription, else a new one. */
+async function customerFor(userId: string,): Promise<string> {
+    const r = await query<{ stripe_customer_id: string | null; }>(
+        `SELECT stripe_customer_id FROM subscriptions WHERE user_id = $1 AND stripe_customer_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`,
+        [userId,],
+    );
+    return r.rows[0]?.stripe_customer_id ?? (await createCustomer(userId,)).customerId;
+}
+
+/** Step 1 of a card change: a SetupIntent the browser confirms with the new card. */
+export async function cardSetup(userId: string,): Promise<MembershipCardSetupResponse> {
+    const stripe = getStripeClient('default',);
+    if (!stripe) throw new ValidationError('Payments are not configured.',);
+    const intent = await stripe.setupIntents.create({
+        customer: await customerFor(userId,), usage: 'off_session', payment_method_types: ['card',], metadata: { userId, type: 'membership_card', },
+    },);
+    return { clientSecret: intent.client_secret!, };
+}
+
+/**
+ * Step 2: make the confirmed card the default for the customer and the
+ * subscription, and — when the subscription is past due — retry its open
+ * invoice now, so a member locked out by a declined card is back at once.
+ */
+export async function updateCard(userId: string, paymentMethodId: string,): Promise<MembershipCardResponse> {
+    const stripe = getStripeClient('default',);
+    if (!stripe) throw new ValidationError('Payments are not configured.',);
+    const customer = await customerFor(userId,);
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId,);
+    if (pm.customer && pm.customer !== customer) throw new ValidationError('That card belongs to another account.',);
+    if (!pm.customer) await stripe.paymentMethods.attach(paymentMethodId, { customer, },);
+    await stripe.customers.update(customer, { invoice_settings: { default_payment_method: paymentMethodId, }, },);
+
+    // The latest membership subscription, entitled or not (a lapsed one is what needs paying).
+    const sub = (await query<{ id: string; stripe_subscription_id: string | null; }>(
+        `SELECT id, stripe_subscription_id FROM subscriptions WHERE user_id = $1 AND stripe_subscription_id IS NOT NULL
+          ORDER BY created_at DESC LIMIT 1`, [userId,],
+    )).rows[0];
+    let paid = false;
+    if (sub?.stripe_subscription_id) {
+        try {
+            const s = await stripe.subscriptions.update(sub.stripe_subscription_id, { default_payment_method: paymentMethodId, },);
+            if (s.status === 'past_due' || s.status === 'unpaid') {
+                const inv = typeof s.latest_invoice === 'string' ? await stripe.invoices.retrieve(s.latest_invoice,) : s.latest_invoice;
+                if (inv && inv.status === 'open') {
+                    const r = await stripe.invoices.pay(inv.id!, { payment_method: paymentMethodId, },);
+                    paid = r.status === 'paid';
+                }
+                const fresh = await stripe.subscriptions.retrieve(s.id,);
+                await query(`UPDATE subscriptions SET status = $2, updated_at = NOW() WHERE id = $1`, [sub.id, fresh.status,],);
+                await syncUserRole(userId,);
+            }
+        } catch (e) {
+            // The card is saved either way; report the retry failure.
+            throw new ValidationError(`Your card was saved, but the payment failed: ${(e as Error).message}`,);
+        }
+    }
+    return { current: await current(userId,), paid, };
+}
+

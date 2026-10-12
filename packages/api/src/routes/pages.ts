@@ -41,6 +41,8 @@ const pageSchema = z.object({
     navOrder: z.number().int().optional(),
     isPrivate: z.boolean().optional(),
     accessLevel: z.enum(['public', 'member', 'patron',],).optional(),
+    /** Subscription-required mode: reachable by members without a subscription. */
+    openAccess: z.boolean().optional(),
 },) satisfies z.ZodType<PageCreateBody>;
 
 const blockSchema = z.object({

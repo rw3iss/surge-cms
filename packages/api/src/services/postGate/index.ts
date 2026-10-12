@@ -11,6 +11,7 @@
  * the sample blocks (when the post shows a sample) or no body at all. Hidden
  * posts are excluded in SQL (`hiddenClause`), so list totals stay right.
  */
+import { getPolicy as getSubscriptionPolicy, } from '../subscriptionAccess';
 import type { Post, PostGate, PostGateTier, User, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
 import { query, } from '../../db';
@@ -47,7 +48,11 @@ export async function viewerRank(user: Pick<User, 'id' | 'role'> | null | undefi
     if (isStaffRole(user.role,)) return Infinity;
     const planId = await activePlanId(user.id,);
     if (!planId) return null;
-    return (await tiersById()).get(planId,)?.sortOrder ?? null;
+    const rank = (await tiersById()).get(planId,)?.sortOrder ?? null;
+    // Subscription-required mode: the Free tier (rank 0) is switched off — a
+    // member without a paid tier passes no gate, exactly like a visitor.
+    if (rank === 0 && (await getSubscriptionPolicy()).required) return null;
+    return rank;
 }
 
 type GateFields = Pick<Post, 'requiredTierId' | 'gateHidden' | 'gateShowSample' | 'gateSamplePercent'>;

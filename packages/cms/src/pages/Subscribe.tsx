@@ -38,10 +38,16 @@ const SubscribePage: Component = () => {
     const signedIn = () => !!auth.user;
     const tiers = () => data()?.tiers ?? [];
     const current = () => tiers().find((t,) => t.isCurrent) ?? (signedIn() ? tiers().find((t,) => t.isFree) : undefined);
+    /** A signed-in member walled by subscription-required mode. */
+    const walled = () => Boolean(auth.access?.restricted && auth.access.reason === 'subscription',);
     const paidAvailable = () => !!data()?.paidAvailable;
+
+    /** Subscription-required mode: Free is hidden and a new visitor signs up WITH a plan. */
+    const required = () => Boolean(data()?.subscriptionRequired,);
 
     const choose = (t: MembershipTierOption,) => {
         const target = membershipUrl(t.id,);
+        if (!signedIn() && required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}`,);
         navigate(signedIn() ? target : loginUrl(target,),);
     };
 
@@ -59,11 +65,20 @@ const SubscribePage: Component = () => {
                 canonical={`${window.location.origin}/subscribe`}
             />
 
+            <Show when={walled()}>
+                <div class="subscribe-page__required" role="status">
+                    {auth.access?.lapsed
+                        ? 'Your membership has ended. Choose a plan to renew — or update your payment method in your profile.'
+                        : 'A subscription is required to use your account. Choose a plan below.'}
+                </div>
+            </Show>
             <header class="subscribe-page__header">
                 <h1>Membership</h1>
                 <p class="subscribe-page__lead">
                     <Show when={paidAvailable()} fallback={`Everything on ${siteName()} is free to read.`}>
-                        Support {siteName()} and get more — choose the plan that fits you.
+                        <Show when={required()} fallback={<>Support {siteName()} and get more — choose the plan that fits you.</>}>
+                            Membership to {siteName()} requires a subscription — choose the plan that fits you.
+                        </Show>
                     </Show>
                 </p>
             </header>
@@ -92,11 +107,15 @@ const SubscribePage: Component = () => {
                             <section class="subscribe-page__tout">
                                 <div>
                                     <strong>Already a member?</strong>
-                                    <span>Log in to see your plan, or create a free account to get started.</span>
+                                    <span>
+                                        {required()
+                                            ? 'Log in to manage your plan, or choose a plan below to join.'
+                                            : 'Log in to see your plan, or create a free account to get started.'}
+                                    </span>
                                 </div>
                                 <div class="subscribe-page__actions">
                                     <A href={loginUrl('/subscribe',)} class="btn btn--outline">Log in</A>
-                                    <A href="/join" class="btn btn--primary">Create an account</A>
+                                    <Show when={!required()}><A href="/join" class="btn btn--primary">Create an account</A></Show>
                                 </div>
                             </section>
                         }
@@ -104,7 +123,7 @@ const SubscribePage: Component = () => {
                         <section class="subscribe-page__tout subscribe-page__tout--current">
                             <div>
                                 <span class="subscribe-page__eyebrow">Your plan</span>
-                                <strong>{current()?.name ?? 'Free'}</strong>
+                                <strong>{current()?.name ?? (required() ? 'No active subscription' : 'Free')}</strong>
                                 <Show when={current() && !current()!.isFree}>
                                     <span>{money(current()!.priceCents, current()!.currency,)}{per(current()!,)}</span>
                                 </Show>

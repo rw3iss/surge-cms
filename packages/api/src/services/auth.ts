@@ -280,7 +280,10 @@ export async function authenticateWithEmail(
     if (dbUser.role === 'member' && dbUser.email_verified === false) {
         const usersSettings = await getUsersSettings();
     const { requireEmailVerification, } = usersSettings;
-        if (requireEmailVerification) {
+        // Subscription-required mode lets an unverified member sign in: they
+        // land restricted (pay, then verify), so a sign-up interrupted before
+        // the verification email can still finish.
+        if (requireEmailVerification && usersSettings.requireSubscription !== true) {
             throw new Error(
                 'Please verify your email address before logging in. Check your inbox for the verification link.',
             );

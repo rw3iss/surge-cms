@@ -2,7 +2,8 @@ import { A, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
-import { isFeatureEnabled, isPatreonEnabled, siteName, } from '../stores/siteSettings';
+import { isFeatureEnabled, isPatreonEnabled, siteName, siteSettings, } from '../stores/siteSettings';
+import SubscriptionSignup from '../components/membership/SubscriptionSignup';
 import './Join.scss';
 
 const Join: Component = () => {
@@ -61,6 +62,11 @@ const Join: Component = () => {
             />
 
             <div class="join__container">
+                {/* Users → Settings → "Require a paid subscription": plan → account → payment. */}
+                <Show when={siteSettings()?.membership?.required && isFeatureEnabled('users',)}>
+                    <SubscriptionSignup />
+                </Show>
+                <Show when={!(siteSettings()?.membership?.required && isFeatureEnabled('users',))}>
                 <Show
                     when={!success()}
                     fallback={
@@ -291,6 +297,7 @@ const Join: Component = () => {
                         <span>Already have an account?</span>
                         <A href="/login" class="join__login-link">Sign In</A>
                     </div>
+                </Show>
                 </Show>
             </div>
         </div>

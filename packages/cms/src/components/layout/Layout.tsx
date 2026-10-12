@@ -10,6 +10,8 @@ import { appearanceCssVars, appearanceGlobalCss, pageBackgroundStyle, } from '..
 import { activePageBackground, setRouteScope, } from '../../stores/headerStyle';
 import { useLocation, } from '@solidjs/router';
 import { ContactMatchModal, } from '../auth/ContactMatchModal';
+import SubscriptionWall, { isOpenPath, } from '../membership/SubscriptionWall';
+import { useAuth, } from '../../stores/auth';
 import { Footer, } from './Footer';
 import { Header, } from './Header';
 import type { SiteHeaderSettings, } from './Header';
@@ -33,6 +35,16 @@ export const Layout: ParentComponent = (props,) => {
 
     const [settings,] = createResource(async () => {
         return await loadSiteSettings();
+    },);
+
+    // Subscription-required mode: a restricted member (no active subscription,
+    // or not yet verified) sees the wall instead of any page that is not open.
+    const auth = useAuth();
+    const walled = createMemo(() => {
+        const access = auth.access;
+        const m = settings()?.membership;
+        if (!access?.restricted || !m?.required) return null;
+        return isOpenPath(location.pathname, m.openPaths ?? [],) ? null : access;
     },);
 
     const [headerSettings,] = createResource(async () => {
@@ -199,7 +211,9 @@ export const Layout: ParentComponent = (props,) => {
             />
 
             <main class="layout__main">
-                {props.children}
+                <Show when={walled()} fallback={props.children}>
+                    {(access,) => <SubscriptionWall access={access()} />}
+                </Show>
             </main>
 
             {/* One-time CRM contact-match prompt (member side); self-gates on the

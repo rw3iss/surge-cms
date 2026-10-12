@@ -229,6 +229,20 @@ export async function computePublicFeatures(
  * per-role branching. There is no admin bypass, so the single cache
  * entry is safe to serve to everyone (anonymous, member, admin, key).
  */
+/**
+ * Subscription-required mode, for the SPA's route wall: the switch + the
+ * paths of pages marked "Open without a subscription". Read from the rows
+ * already loaded (no extra settings query); the page list is one small query.
+ */
+async function publicMembershipPolicy(settings: Record<string, unknown>,): Promise<NonNullable<SiteSettings['membership']>> {
+    const users = (settings[USERS_SETTINGS.key] ?? {}) as { requireSubscription?: boolean; };
+    if (users.requireSubscription !== true) return { required: false, openPaths: [], };
+    const r = await query<{ slug: string; is_homepage: boolean; }>(
+        `SELECT slug, is_homepage FROM pages WHERE open_access = true AND status = 'published'`,
+    ).catch(() => ({ rows: [] as { slug: string; is_homepage: boolean; }[], }));
+    return { required: true, openPaths: r.rows.map((p,) => (p.is_homepage ? '/' : `/${p.slug}`)), };
+}
+
 export async function getPublicSettings(): Promise<SiteSettings> {
     const cacheKey = cache.CACHE_KEYS.settingsPublic;
 
@@ -282,6 +296,7 @@ export async function getPublicSettings(): Promise<SiteSettings> {
         // operator wrote in Settings → SEO.
         seo: (settings.seo as SiteSettings['seo']) || {},
         features,
+        membership: await publicMembershipPolicy(settings,),
     };
 
     // Include Shopify config if configured (storefront tokens are public)
@@ -597,6 +612,8 @@ export async function getUsersSettings(): Promise<import('@sitesurge/types').Use
         autoAddContacts: raw?.autoAddContacts !== false,
         autoSubscribe: raw?.autoSubscribe === true,
         autoSubscribeListId: raw?.autoSubscribeListId ?? null,
+        requireSubscription: raw?.requireSubscription === true,
+        minimumTierId: raw?.minimumTierId ?? null,
     };
 }
 export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);

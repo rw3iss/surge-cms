@@ -39,7 +39,7 @@ import { defineRoute, reply, } from '../api/defineRoute';
 import * as payments from '../services/payments';
 import { stripeCredentials, } from '../services/payment/credentials';
 import * as membership from '../services/membership';
-import type { MembershipChangeBody, MembershipConfirmBody, } from '@sitesurge/types';
+import type { MembershipCardBody, MembershipChangeBody, MembershipConfirmBody, } from '@sitesurge/types';
 
 const publishableKeyQuery = z.object({
     context: z.enum(['default', 'shop', 'donations',],).optional(),
@@ -133,6 +133,22 @@ export const paymentsRoutes = [
         summary: "Activate a new subscription after the browser confirmed its first payment.",
         input: { body: z.object({ subscriptionId: z.string().max(255,), },) satisfies z.ZodType<MembershipConfirmBody>, },
         handler: ({ body, userId, },) => membership.confirm(userId!, body.subscriptionId,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/cancel', auth: 'user',
+        summary: 'Cancel the paid subscription at the end of the paid period (subscription-required mode hides Free, so this replaces "switch to free").',
+        handler: ({ userId, },) => membership.cancel(userId!,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/card/setup', auth: 'user',
+        summary: 'Start a payment-card change: a Stripe SetupIntent client secret to confirm with the new card.',
+        handler: ({ userId, },) => membership.cardSetup(userId!,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/card', auth: 'user',
+        summary: 'Save the confirmed card as the default for the membership; retries a past-due invoice.',
+        input: { body: z.object({ paymentMethodId: z.string().min(3,).max(255,), },) satisfies z.ZodType<MembershipCardBody>, },
+        handler: ({ body, userId, },) => membership.updateCard(userId!, body.paymentMethodId,),
     },),
     defineRoute({
         method: 'post', path: '/membership/resume', auth: 'user',

@@ -3,6 +3,7 @@ import { rm, } from 'fs/promises';
 import multer from 'multer';
 import { tmpdir, } from 'os';
 import { z, } from 'zod';
+import { assertPurchasableMinimum, } from '../services/subscriptionAccess';
 import { defineRoute, } from '../api/defineRoute';
 import { ForbiddenError, ValidationError, } from '../core/errors';
 import * as backup from '../services/backup';
@@ -643,9 +644,15 @@ export const settingsRoutes = [
                 autoAddContacts: z.boolean().optional(),
                 autoSubscribe: z.boolean().optional(),
                 autoSubscribeListId: z.string().nullish(),
+                requireSubscription: z.boolean().optional(),
+                minimumTierId: z.string().uuid().nullish(),
             },),
         },
-        handler: ({ body, audit, },) => settings.setUsersSettings(body, audit(),),
+        handler: async ({ body, audit, },) => {
+            // Turning the requirement on needs something to buy.
+            if (body.requireSubscription) await assertPurchasableMinimum(body.minimumTierId ?? null,);
+            return settings.setUsersSettings(body, audit(),);
+        },
     },),
 
     defineRoute({

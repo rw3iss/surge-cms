@@ -1,0 +1,253 @@
+/**
+ * Join, when a paid subscription is required (Users → Settings).
+ *
+ *   1 Plan     — the tiers at or above the minimum (the /subscribe cards)
+ *   2 Account  — name / email / password. The account is created HERE and
+ *                signed in RESTRICTED, so it can pay; nothing else opens yet.
+ *   3 Payment  — card → a Stripe subscription, confirmed in the browser.
+ *   4 Done     — access opens (or: "verify your email", when that is on).
+ *
+ * If payment fails the account stays, still restricted: the member can retry
+ * here, or later from the wall / Profile → Membership.
+ */
+import type { MembershipTierOption, } from '@sitesurge/types';
+import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
+import { A, useSearchParams, } from '@solidjs/router';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
+import Markdown from '../common/Markdown';
+import { cms, } from '../../services/cmsClient';
+import { useAuth, } from '../../stores/auth';
+import { siteName, } from '../../stores/siteSettings';
+import { freq, money, per, } from '../../utils/membershipFormat';
+import '../../pages/Subscribe.scss';
+import './SubscriptionSignup.scss';
+
+type Step = 'plan' | 'account' | 'payment' | 'done';
+
+const STEPS: { key: Step; label: string; }[] = [
+    { key: 'plan', label: 'Plan', },
+    { key: 'account', label: 'Account', },
+    { key: 'payment', label: 'Payment', },
+];
+
+const SubscriptionSignup: Component = () => {
+    const auth = useAuth();
+    const [params,] = useSearchParams<{ tier?: string; }>();
+    const [tiers,] = createResource(() => cms.payments.membershipTiers().then((r,) => r.tiers.filter((t,) => !t.isFree)).catch(() => [] as MembershipTierOption[]),);
+    const [step, setStep,] = createSignal<Step>('plan',);
+    const [tierId, setTierId,] = createSignal<string | null>(params.tier ?? null,);
+    const tier = () => tiers()?.find((t,) => t.id === tierId(),) ?? null;
+    const [error, setError,] = createSignal('',);
+    const [busy, setBusy,] = createSignal(false,);
+
+    // Already signed in (e.g. came back after a failed payment): skip the account step.
+    createEffect(() => {
+        if (step() === 'account' && auth.user) setStep('payment',);
+    },);
+
+    // ─── Account ───
+    const [name, setName,] = createSignal('',);
+    const [email, setEmail,] = createSignal('',);
+    const [password, setPassword,] = createSignal('',);
+    const [confirmPassword, setConfirmPassword,] = createSignal('',);
+
+    const createAccount = async (e: Event,) => {
+        e.preventDefault();
+        setError('',);
+        if (password() !== confirmPassword()) return setError('Passwords do not match',);
+        if (password().length < 8) return setError('Password must be at least 8 characters',);
+        setBusy(true,);
+        try {
+            const res = await cms.auth.register({ name: name().trim(), email: email().trim(), password: password(), },);
+            if (!res.signedIn) throw new Error('Your account was created. Sign in to finish choosing your plan.',);
+            await auth.refreshUser();
+            setStep('payment',);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Registration failed',);
+        } finally {
+            setBusy(false,);
+        }
+    };
+
+    // ─── Payment ───
+    let stripe: Stripe | null = null;
+    let card: StripeCardElement | null = null;
+    onCleanup(() => card?.destroy(),);
+    const mountCard = async (el: HTMLDivElement,) => {
+        try {
+            let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+            const res = await cms.payments.publishableKey('default',).catch(() => null);
+            if (res?.publishableKey) key = res.publishableKey;
+            if (!key) return setError('Payments are not configured yet. Please try again later.',);
+            stripe = await loadStripe(key,);
+            if (!stripe) return setError('Could not load the payment form.',);
+            card?.destroy();
+            card = stripe.elements().create('card', { style: { base: { fontSize: '16px', }, }, },);
+            card.mount(el,);
+        } catch {
+            setError('Could not load the payment form.',);
+        }
+    };
+
+    const pay = async () => {
+        const t = tier();
+        if (!t) return setStep('plan',);
+        setError('',);
+        setBusy(true,);
+        try {
+            const res = await cms.payments.changeMembership(t.id,);
+            if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
+                if (!stripe || !card) throw new Error('Enter your card details.',);
+                const r = await stripe.confirmCardPayment(res.clientSecret, { payment_method: { card, }, },);
+                if (r.error) throw new Error(r.error.message || 'Your card was declined.',);
+                const done = await cms.payments.confirmMembership(res.subscriptionId,);
+                if (done.result !== 'changed') throw new Error('Your payment is still processing — check back in a minute from your profile.',);
+            } else if (res.result !== 'changed' && res.result !== 'unchanged') {
+                throw new Error('The subscription could not be started.',);
+            }
+            await auth.refreshUser();
+            setStep('done',);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'The payment did not go through.',);
+        } finally {
+            setBusy(false,);
+        }
+    };
+
+    const stepIndex = () => STEPS.findIndex((s,) => s.key === step(),);
+
+    return (
+        <div class="subscription-signup">
+            <h1 class="join__title">Join {siteName()}</h1>
+            <p class="join__subtitle">Membership requires a subscription. Choose a plan, create your account, and pay — that's it.</p>
+
+            <Show when={step() !== 'done'}>
+                <ol class="subscription-signup__steps" aria-label="Sign-up steps">
+                    <For each={STEPS}>
+                        {(s, i,) => (
+                            <li classList={{ 'is-active': step() === s.key, 'is-done': i() < stepIndex(), }}>
+                                <span>{i() + 1}</span>{s.label}
+                            </li>
+                        )}
+                    </For>
+                </ol>
+            </Show>
+
+            <Show when={error()}><div class="join__error">{error()}</div></Show>
+
+            {/* 1 · Plan */}
+            <Show when={step() === 'plan'}>
+                <Show when={!tiers.loading} fallback={<p>Loading plans…</p>}>
+                    <Show when={(tiers() ?? []).length} fallback={<p>No plans are available right now. Please check back soon.</p>}>
+                        <section class="subscribe-page__grid" aria-label="Plans">
+                            <For each={tiers()}>
+                                {(t,) => (
+                                    <article class="subscribe-card subscribe-card--paid" classList={{ 'subscribe-card--current': tierId() === t.id, }}>
+                                        <header class="subscribe-card__head"><h2 class="subscribe-card__name">{t.name}</h2></header>
+                                        <div class="subscribe-card__price">
+                                            <span class="subscribe-card__amount">{money(t.priceCents, t.currency,)}</span>
+                                            <span class="subscribe-card__per">{per(t,)}</span>
+                                        </div>
+                                        <span class="subscribe-card__freq">{freq(t,)}</span>
+                                        <Markdown class="subscribe-card__desc" text={t.description} />
+                                        <button
+                                            type="button"
+                                            class="btn btn--primary subscribe-card__cta"
+                                            onClick={() => { setTierId(t.id,); setError('',); setStep(auth.user ? 'payment' : 'account',); }}
+                                        >
+                                            Choose {t.name}
+                                        </button>
+                                    </article>
+                                )}
+                            </For>
+                        </section>
+                    </Show>
+                </Show>
+                <p class="subscription-signup__login">Already a member? <A href="/login">Sign in</A></p>
+            </Show>
+
+            {/* 2 · Account */}
+            <Show when={step() === 'account'}>
+                <form class="join__form subscription-signup__form" onSubmit={createAccount}>
+                    <p class="subscription-signup__plan">
+                        Plan: <strong>{tier()?.name}</strong> · {tier() ? `${money(tier()!.priceCents, tier()!.currency,)}${per(tier()!,)}` : ''}{' '}
+                        <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
+                    </p>
+                    <div class="join__field">
+                        <label for="ss-name" class="join__label">Name</label>
+                        <input id="ss-name" class="join__input" type="text" required autocomplete="name" value={name()} onInput={(e,) => setName(e.currentTarget.value,)} />
+                    </div>
+                    <div class="join__field">
+                        <label for="ss-email" class="join__label">Email</label>
+                        <input id="ss-email" class="join__input" type="email" required autocomplete="email" value={email()} onInput={(e,) => setEmail(e.currentTarget.value,)} />
+                    </div>
+                    <div class="join__field">
+                        <label for="ss-password" class="join__label">Password</label>
+                        <input id="ss-password" class="join__input" type="password" required minLength={8} autocomplete="new-password" value={password()} onInput={(e,) => setPassword(e.currentTarget.value,)} />
+                    </div>
+                    <div class="join__field">
+                        <label for="ss-confirm" class="join__label">Confirm password</label>
+                        <input id="ss-confirm" class="join__input" type="password" required minLength={8} autocomplete="new-password" value={confirmPassword()} onInput={(e,) => setConfirmPassword(e.currentTarget.value,)} />
+                    </div>
+                    <button type="submit" class="join__btn join__btn--primary" disabled={busy()}>
+                        {busy() ? 'Creating your account…' : 'Continue to payment'}
+                    </button>
+                </form>
+            </Show>
+
+            {/* 3 · Payment */}
+            <Show when={step() === 'payment'}>
+                <div class="subscription-signup__form">
+                    <Show when={tier()} fallback={<p>Choose a plan first. <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>See plans</button></p>}>
+                        {(t,) => (
+                            <>
+                                <div class="subscription-signup__summary">
+                                    <div>
+                                        <strong>{t().name}</strong>
+                                        <span>{freq(t(),)}</span>
+                                    </div>
+                                    <strong>{money(t().priceCents, t().currency,)}{per(t(),)}</strong>
+                                </div>
+                                <p class="subscription-signup__hint">
+                                    You are charged {money(t().priceCents, t().currency,)} now, then{per(t(),)} until you cancel.{' '}
+                                    <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change plan</button>
+                                </p>
+                                <label class="join__label">Card</label>
+                                <div class="subscription-signup__card" ref={(el,) => void mountCard(el,)} />
+                                <button type="button" class="join__btn join__btn--primary" disabled={busy()} onClick={pay}>
+                                    {busy() ? 'Processing…' : `Pay & start my membership`}
+                                </button>
+                                <p class="subscription-signup__hint">
+                                    Your account is created. If the payment does not go through, sign in any time to finish from your profile.
+                                </p>
+                            </>
+                        )}
+                    </Show>
+                </div>
+            </Show>
+
+            {/* 4 · Done */}
+            <Show when={step() === 'done'}>
+                <div class="join__success">
+                    <h2>Welcome to {siteName()}!</h2>
+                    <Show
+                        when={auth.access?.reason === 'verify_email'}
+                        fallback={
+                            <>
+                                <p>Your membership is active.</p>
+                                <A href="/" class="join__btn join__btn--primary">Start exploring</A>
+                            </>
+                        }
+                    >
+                        <p>
+                            Your membership is active. One last step: we sent a verification link to <strong>{auth.user?.email}</strong> —
+                            open it to finish setting up your account.
+                        </p>
+                    </Show>
+                </div>
+            </Show>
+        </div>
+    );
+};
+
+export default SubscriptionSignup;

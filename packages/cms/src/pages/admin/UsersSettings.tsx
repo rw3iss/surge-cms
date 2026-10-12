@@ -14,6 +14,7 @@
  */
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
+import type { SubscriptionTierOption, } from '@sitesurge/types';
 import type { UsersSettings, } from '@sitesurge/types';
 import type { MailingList, } from '@sitesurge/types';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
@@ -43,6 +44,10 @@ const AdminUsersSettings: Component = () => {
     const setSection = (key: Section,) => setParams({ tab: key === 'general' ? undefined : key, },);
 
     const [requireVerification, setRequireVerification,] = createSignal(true,);
+    // Subscription-required mode.
+    const [requireSubscription, setRequireSubscription,] = createSignal(false,);
+    const [minimumTierId, setMinimumTierId,] = createSignal('',);
+    const [paidTiers, setPaidTiers,] = createSignal<SubscriptionTierOption[]>([],);
     const [purposes, setPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
     const [autoAddContacts, setAutoAddContacts,] = createSignal(true,);
     const [autoSubscribe, setAutoSubscribe,] = createSignal(false,);
@@ -59,6 +64,12 @@ const AdminUsersSettings: Component = () => {
                 cms.settings.getMailPurposes() as Promise<Record<string, PurposeConfig>>,
             ],);
             setRequireVerification(s.requireEmailVerification !== false,);
+            setRequireSubscription(s.requireSubscription === true,);
+            setMinimumTierId(s.minimumTierId ?? '',);
+            try {
+                const opts = await cms.subscriptionTiers.options();
+                setPaidTiers(opts.filter((t,) => !t.isFree && t.isActive),);
+            } catch { /* non-fatal: the picker just stays on "cheapest" */ }
             setAutoAddContacts(s.autoAddContacts !== false,);
             setAutoSubscribe(s.autoSubscribe === true,);
             setAutoSubscribeListId(s.autoSubscribeListId ?? '',);
@@ -91,6 +102,8 @@ const AdminUsersSettings: Component = () => {
             await Promise.all([
                 cms.settings.usersSettings({
                     requireEmailVerification: requireVerification(),
+                    requireSubscription: requireSubscription(),
+                    minimumTierId: minimumTierId() || null,
                     autoAddContacts: autoAddContacts(),
                     autoSubscribe: autoSubscribe(),
                     // Null rather than '' so the backend stores an absent value
@@ -143,6 +156,38 @@ const AdminUsersSettings: Component = () => {
                 </div>
 
                 <Show when={section() === 'general'}>
+                    <section class="admin-section">
+                        <header class="admin-section__header"><h2>Subscription required</h2></header>
+                        <div class="form-section">
+                            <FormField label="Require a paid subscription to register and to use the site" inline>
+                                <Toggle
+                                    checked={requireSubscription()}
+                                    onChange={setRequireSubscription}
+                                    ariaLabel="Require a paid subscription"
+                                />
+                            </FormField>
+                            <p class="form-help-muted">
+                                Sign-up becomes Plan → Account → Payment, and the Free tier is hidden (it is kept, not deleted).
+                                A member without an active subscription can still log in, but sees only the Membership page,
+                                their profile, and pages marked <strong>Open without a subscription</strong> (Page editor → Access) —
+                                everything else asks them to subscribe, renew or update their card. Staff are never affected.
+                            </p>
+                            <Show when={requireSubscription()}>
+                                <FormField label="Minimum subscription" hint="Tiers below this are not offered and do not count.">
+                                    <select value={minimumTierId()} onChange={(e,) => setMinimumTierId(e.currentTarget.value,)}>
+                                        <option value="">The cheapest paid tier</option>
+                                        <For each={paidTiers()}>{(t,) => <option value={t.id}>{t.name} or higher</option>}</For>
+                                    </select>
+                                </FormField>
+                                <Show when={!paidTiers().length}>
+                                    <p class="form-help-muted">
+                                        There is no paid tier yet — add one with a Stripe price under <strong>Subscriptions</strong> first.
+                                    </p>
+                                </Show>
+                            </Show>
+                        </div>
+                    </section>
+
                     <section class="admin-section">
                         <header class="admin-section__header"><h2>Email verification</h2></header>
                         <div class="form-section">

@@ -6,6 +6,9 @@
   &__container {
     width: 100%;
     max-width: 480px;
+
+    // The subscription sign-up shows a row of plan cards — give it room.
+    &:has(.subscription-signup) { max-width: 64rem; }
   }
 
   &__title {

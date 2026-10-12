@@ -97,6 +97,8 @@ const Profile: Component = () => {
         if (t === 'orders' && showOrders()) return 'orders';
         if (t === 'donations' && showDonations()) return 'donations';
         if (t === 'messages' && showMessages()) return 'messages';
+        // A member walled by subscription-required mode lands on Membership.
+        if (!t && auth.access?.restricted && auth.access.reason === 'subscription') return 'membership';
         return 'profile';
     };
     const tab = (): Tab => validTab(searchParams.tab,);

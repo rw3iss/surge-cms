@@ -323,6 +323,17 @@ export interface UsersSettings {
     autoSubscribe?: boolean;
     /** Which list. Required for `autoSubscribe` to do anything. */
     autoSubscribeListId?: string | null;
+    /**
+     * Require a PAID subscription to register and to use the site. On: the
+     * Free tier is hidden (kept, not deleted) and no longer counts as a tier;
+     * sign-up asks for a plan + payment; a signed-in member without an active
+     * subscription at `minimumTierId` or above sees only the subscribe /
+     * membership pages and pages marked "Open without a subscription".
+     * Staff are never affected. Default false.
+     */
+    requireSubscription?: boolean;
+    /** Lowest tier that counts (null = the cheapest paid tier). */
+    minimumTierId?: string | null;
 }
 
 /** GET /settings/users (admin) — the stored users settings (or defaults). */
