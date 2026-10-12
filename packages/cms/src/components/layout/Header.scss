@@ -178,9 +178,13 @@
     color: inherit;
     text-decoration: none;
 
+    // Line-drawn cart (CartGlyph) in the site's primary/brand colour.
     &-icon {
-      font-size: 1.25rem;
-      line-height: 1;
+      display: inline-flex;
+      line-height: 0;
+      color: var(--site-primary, #{$primary-color});
+
+      svg { display: block; }
     }
 
     &-badge {
@@ -478,8 +482,11 @@
   }
 
   &__cart-icon {
-    font-size: 1.2rem;
-    line-height: 1;
+    display: inline-flex;
+    line-height: 0;
+    color: var(--site-primary, #{$primary-color});
+
+    svg { display: block; }
   }
 
   // The count rides on the icon's corner instead of sitting beside it, so a

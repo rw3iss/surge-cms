@@ -569,11 +569,36 @@ function CartLink(props: { class?: string; onClick?: () => void; },) {
             aria-label={`Cart (${cartCount()} item${cartCount() === 1 ? '' : 's'})`}
             onClick={() => props.onClick?.()}
         >
-            <span class="header__cart-icon" aria-hidden="true">🛒</span>
+            <span class="header__cart-icon" aria-hidden="true"><CartGlyph /></span>
             <Show when={cartCount() > 0}>
                 <span class="header__cart-badge">{cartCount()}</span>
             </Show>
         </A>
+    );
+}
+
+/**
+ * Minimal line cart: handle, basket, two wheels — strokes only, drawn in the
+ * site's primary colour (`.header__cart-icon` sets `color`). Created per render
+ * (a shared JSX constant would be ONE DOM node, moving between the desktop and
+ * mobile cart links).
+ */
+function CartGlyph() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
+            <path d="M2.5 3.5h2.2l2.3 10.6a1.6 1.6 0 0 0 1.6 1.3h8.6a1.6 1.6 0 0 0 1.6-1.2l1.7-7.2H5.6" />
+            <circle cx="9.5" cy="19.6" r="1.4" />
+            <circle cx="17" cy="19.6" r="1.4" />
+        </svg>
     );
 }
 
