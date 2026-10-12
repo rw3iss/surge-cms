@@ -1785,6 +1785,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "summary": "/plugins namespace — admin plugin management + the inherent public read.",
         "methods": [
             {
+                "name": "action",
+                "signature": "action<T = unknown>(name: string, action: string, payload?: Record<string, unknown>): Promise<T>",
+                "summary": "POST /plugins/:name/action/:action — invoke a plugin-defined backend action."
+            },
+            {
                 "name": "disable",
                 "signature": "disable(name: string): Promise<PluginToggleResponse>",
                 "summary": "POST /plugins/:name/disable."
@@ -2779,6 +2784,38 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "ui",
+        "className": "UiSettingsModule",
+        "summary": "",
+        "methods": [
+            {
+                "name": "all",
+                "signature": "all(): Record<string, unknown>",
+                "summary": "Every stored setting (a copy)."
+            },
+            {
+                "name": "get",
+                "signature": "get<T = unknown,>(name: string, fallback?: T): T | undefined",
+                "summary": "The stored value for `name`, or `fallback`."
+            },
+            {
+                "name": "merge",
+                "signature": "merge<T extends Record<string, unknown>,>(name: string, patch: Partial<T>): T",
+                "summary": "Shallow-merge an object value (e.g. `{ dismissedAt }` into a component's record)."
+            },
+            {
+                "name": "remove",
+                "signature": "remove(name: string): void",
+                "summary": ""
+            },
+            {
+                "name": "set",
+                "signature": "set(name: string, value: unknown): void",
+                "summary": "Store a JSON-serialisable value."
+            }
+        ]
+    },
+    {
         "namespace": "users",
         "className": "UsersModule",
         "summary": "/users namespace (all admin) — user CRUD, avatar upload, bans.",
@@ -2916,5 +2953,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 48;
-export const SDK_METHOD_COUNT = 512;
+export const SDK_MODULE_COUNT = 49;
+export const SDK_METHOD_COUNT = 518;

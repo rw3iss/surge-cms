@@ -1,0 +1,144 @@
+<style>
+/* Newsletter signup banner — see newsletter-signup-banner.js.
+   A slim full-width bar: lede · email · name (optional) · Sign up · ×.
+   Hidden until the script decides this visitor should see it (signed up
+   already, or dismissed → never painted at all, so there is no flash). */
+
+.nl-banner { display: none; }
+.nl-banner.is-shown { display: block; }
+
+.nl-banner {
+  overflow: hidden;
+  background: #111;
+  color: #fff;
+  /* Collapse animation (script): height → 0 + fade. */
+  transition: height .38s cubic-bezier(.4,0,.2,1), opacity .3s ease, margin .38s ease;
+}
+
+.nl-banner__inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: var(--site-max-width, 1200px);
+  margin: 0 auto;
+  padding: 12px 56px 12px 20px; /* right: room for the × */
+  box-sizing: border-box;
+}
+
+.nl-banner__lede {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: .95rem;
+  line-height: 1.35;
+}
+.nl-banner__lede strong { font-weight: 800; }
+
+.nl-banner__form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  margin: 0;
+}
+
+.nl-banner__input {
+  width: 220px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: .95rem;
+}
+.nl-banner__input--name { width: 170px; }
+.nl-banner__input:focus {
+  outline: none;
+  border-color: var(--site-primary, #ED2024);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--site-primary, #ED2024) 35%, transparent);
+}
+.nl-banner--invalid .nl-banner__input:invalid { border-color: #ff6b6b; }
+
+.nl-banner__submit {
+  flex: 0 0 auto;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--site-primary, #ED2024);
+  color: var(--site-button-text, #fff);
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+.nl-banner__submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.nl-banner__submit:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.nl-banner__submit:disabled { opacity: .7; cursor: default; transform: none; }
+
+/* Replaces the form after a signup (and shows validation errors). */
+.nl-banner__msg {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.nl-banner__msg--error { color: #ff8a8a; flex: 0 1 auto; font-weight: 600; font-size: .9rem; }
+.nl-banner--done .nl-banner__lede,
+.nl-banner--done .nl-banner__form { display: none; }
+
+.nl-banner__close {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: rgba(255,255,255,.75);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nl-banner__close:hover { background: rgba(255,255,255,.12); color: #fff; }
+.nl-banner__close:focus-visible { outline: 3px solid var(--site-primary, #ED2024); outline-offset: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nl-banner { transition: none; }
+}
+
+/* Phones: lede on its own line, then the fields stacked full width. */
+@media (max-width: 768px) {
+  .nl-banner__inner { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 48px 14px 16px; }
+  .nl-banner__close { top: 10px; transform: none; }
+  .nl-banner__form { flex-wrap: wrap; }
+  .nl-banner__input, .nl-banner__input--name { flex: 1 1 100%; width: auto; }
+  .nl-banner__submit { flex: 1 1 100%; }
+}
+</style>
+
+<!-- Config: data-list = mailing-list slug, data-dismiss-days = how long a
+     dismissal lasts (0 = for good), data-done-ms = how long the success
+     message shows before the banner closes. Block settings override these. -->
+<div class="nl-banner" data-list="newsletter" data-dismiss-days="0" data-done-ms="3000" role="region" aria-label="Newsletter signup">
+  <div class="nl-banner__inner">
+    <p class="nl-banner__lede"><strong>Get Surge in your inbox.</strong> The day's headlines, free — unsubscribe any time.</p>
+    <form class="nl-banner__form" novalidate>
+      <input class="nl-banner__input" type="email" name="email" required autocomplete="email" placeholder="Email address" aria-label="Email address" />
+      <input class="nl-banner__input nl-banner__input--name" type="text" name="name" autocomplete="name" placeholder="Name (optional)" aria-label="Name (optional)" />
+      <button type="submit" class="nl-banner__submit">Sign up</button>
+    </form>
+    <p class="nl-banner__msg" role="status" hidden></p>
+    <button type="button" class="nl-banner__close" aria-label="Hide the newsletter banner">&times;</button>
+  </div>
+</div>

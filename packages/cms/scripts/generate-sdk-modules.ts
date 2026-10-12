@@ -162,7 +162,7 @@ function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
     while (i < to) {
         const line = lines[i];
         // A member sits at exactly one indent level inside the class body.
-        const m = /^    (?!(?:protected|private|readonly|static)\b)(?:async\s+)?([A-Za-z][\w]*)\s*\(/.exec(line,);
+        const m = /^    (?!(?:protected|private|readonly|static)\b)(?:async\s+)?([A-Za-z][\w]*)\s*(?:<.*>\s*)?\(/.exec(line,);
         if (!m || SKIP.has(m[1],)) { i++; continue; }
 
         // Cut at the body brace, not at the last `)`: a one-line body
@@ -255,7 +255,8 @@ function readClasses(): Map<string, SdkModuleDoc> {
         const lines = readFileSync(join(MODULES_DIR, file,), 'utf8',).split('\n',);
 
         for (let i = 0; i < lines.length; i++) {
-            const m = /^export class ([A-Za-z][\w]*)\s+extends\s+ModuleBase\b[^{]*\{/.exec(lines[i],);
+            // Network modules extend ModuleBase; a local one (cms.ui) is a plain class.
+            const m = /^export class ([A-Za-z][\w]*)(?:\s+extends\s+ModuleBase\b)?[^{]*\{/.exec(lines[i],);
             if (!m) continue;
 
             // Find the end of the class body.

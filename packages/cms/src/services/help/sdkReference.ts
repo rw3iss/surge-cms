@@ -496,6 +496,7 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                         ['cms.entities', 'read records of any entity type (product, contact, custom)',],
                         ['cms.campaigns', 'campaign details and donation flows',],
                         ['cms.mailingLists', 'subscribe an address to a list',],
+                        ['cms.ui', 'remember UI choices in this browser (a dismissed banner): get / set / merge / remove — one localStorage store',],
                         ['cms.search', 'site-wide search',],
                         ['cms.auth', 'the current session; login / register',],
                         ['cms.settings', 'public settings and appearance',],

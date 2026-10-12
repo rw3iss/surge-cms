@@ -16,6 +16,7 @@ import { AuthModule, } from './auth';
 import { ApiKeysModule, } from './apiKeys';
 import { PermissionsModule, } from './permissions';
 import { WikiModule, } from './wiki';
+import { UiSettingsModule, } from './ui';
 import { DiscussionsModule, } from './discussions';
 import { CommentsModule, } from './comments';
 import { ForumModule, } from './forum';
@@ -63,6 +64,8 @@ export interface CmsModules {
     apiKeys: ApiKeysModule;
     permissions: PermissionsModule;
     wiki: WikiModule;
+    /** Browser-local UI preferences (localStorage): `cms.ui.get/set/merge/remove`. */
+    ui: UiSettingsModule;
     /** Comment engine (Comments + Forum): CRUD, reactions, reports, moderation. */
     discussions: DiscussionsModule;
     /** Comments feature: per-item switches + settings. */
@@ -124,6 +127,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.apiKeys = new ApiKeysModule(core,);
     c.permissions = new PermissionsModule(core,);
     c.wiki = new WikiModule(core,);
+    c.ui = new UiSettingsModule(core,);
     c.discussions = new DiscussionsModule(core,);
     c.comments = new CommentsModule(core,);
     c.forum = new ForumModule(core,);
