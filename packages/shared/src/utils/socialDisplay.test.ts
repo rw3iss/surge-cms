@@ -7,7 +7,7 @@
  * (rounded panel, square videos, or the reverse) impossible to state.
  */
 import { describe, expect, it, } from 'vitest';
-import { resolveSocialItemBox, resolveSocialItemRadius, resolveSocialTitleAlign, } from './socialDisplay';
+import { isSocialAutoFeed, resolveSocialItemBox, resolveSocialItemRadius, resolveSocialTitleAlign, } from './socialDisplay';
 
 describe('resolveSocialItemRadius', () => {
     it('returns the stored value', () => {
@@ -101,3 +101,15 @@ describe('resolveSocialTitleAlign', () => {
         expect(resolveSocialTitleAlign({ titleAlign: 'right', },),).toBe('right',);
     });
 });
+
+describe('isSocialAutoFeed (pin only when "Specific posts" is on)', () => {
+    it('auto-feeds when the switch is off/unset, whatever the slots hold', () => {
+        expect(isSocialAutoFeed({},),).toBe(true,);
+        expect(isSocialAutoFeed({ usePinned: undefined, items: [{ postId: 'herWsb5WltI', },], },),).toBe(true,);
+        expect(isSocialAutoFeed({ usePinned: false, items: [{ postId: 'x', },], },),).toBe(true,);
+    },);
+    it('pins only when explicitly on', () => {
+        expect(isSocialAutoFeed({ usePinned: true, items: [{ postId: 'x', },], },),).toBe(false,);
+        expect(isSocialAutoFeed({ usePinned: 'true', },),).toBe(false,);
+    },);
+},);

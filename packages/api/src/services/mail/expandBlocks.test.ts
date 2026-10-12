@@ -285,11 +285,16 @@ describe('social auto-feed resolution', () => {
         expect(listPlatformPosts,).not.toHaveBeenCalled();
     },);
 
-    it('treats filled slots on a legacy block as pinned', async () => {
-        // Blocks predating the `usePinned` flag imply it from having slots;
-        // without that an existing hand-curated block would start auto-feeding.
-        const legacy = socialBlock({ items: [{ postId: 'OLD', },], },);
-        await expandDynamicBlocks([legacy,],);
+    it('auto-feeds when "Specific posts" is off, even with a leftover filled slot', async () => {
+        // Leftover slot data used to imply pinning, which froze a block whose
+        // panel said "Specific posts: Off" on a stale post. Only the switch pins.
+        const leftover = socialBlock({ items: [{ postId: 'OLD', },], },);
+        await expandDynamicBlocks([leftover,],);
+        expect(listPlatformPosts,).toHaveBeenCalled();
+    },);
+
+    it('pins when "Specific posts" is on', async () => {
+        await expandDynamicBlocks([socialBlock({ usePinned: true, items: [{ postId: 'OLD', },], },),],);
         expect(listPlatformPosts,).not.toHaveBeenCalled();
     },);
 

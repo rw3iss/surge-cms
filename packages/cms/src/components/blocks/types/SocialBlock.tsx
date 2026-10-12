@@ -5,6 +5,7 @@
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
 import {
+    isSocialAutoFeed,
     resolveSocialCount,
     resolveSocialDisplay,
     resolveSocialItemBox,
@@ -176,17 +177,8 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
      */
     const display = () => resolveSocialDisplay(settings() as never,);
 
-    /**
-     * Pinning is explicit now (`usePinned`), not inferred from whether any slot
-     * happens to be filled. Inferring meant a half-filled slot list silently
-     * switched the block out of auto-feed mode.
-     *
-     * Legacy blocks predate the flag, so filled slots still imply pinning for
-     * them — otherwise an existing hand-curated block would start auto-feeding.
-     */
-    const usePinned = () => (settings().usePinned === undefined ?
-        filledItems().length > 0 :
-        Boolean(settings().usePinned,));
+    /** Pinned only when "Specific posts" is on — the shared rule (isSocialAutoFeed). */
+    const usePinned = () => !isSocialAutoFeed(settings() as never,);
     const useAutoFeed = () => !usePinned();
 
     const [posts,] = createResource(

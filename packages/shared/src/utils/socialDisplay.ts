@@ -130,24 +130,22 @@ export function resolveSocialCount(
 }
 
 /**
- * Is this social block showing an AUTO-FEED (recent posts) rather than pinned
+ * Is this social block showing an AUTO-FEED (latest posts) rather than pinned
  * slots?
  *
  * Shared so the web renderer, the admin panel and the email expansion agree.
- * The rule has a legacy arm: `usePinned` is explicit now, but blocks predating
- * the flag imply pinning from having filled slots — without that, an existing
- * hand-curated block would silently start auto-feeding.
+ * Pinned ONLY when "Specific posts" is explicitly on (`usePinned === true`).
+ * Slot data is ignored otherwise: the old rule ALSO treated an unset flag plus
+ * any filled slot as pinned — so a block whose panel showed "Specific posts:
+ * Off" silently froze on a stale video (a slot left over from an earlier pick).
+ * Turning the switch off saves the flag as `undefined`, which made that state
+ * common, not legacy.
  */
 export function isSocialAutoFeed(
     settings: { usePinned?: unknown; items?: unknown; } | null | undefined,
 ): boolean {
-    const raw = settings ?? {};
-    if (raw.usePinned !== undefined) return !raw.usePinned;
-    const filled = Array.isArray(raw.items,) ?
-        (raw.items as Array<{ postId?: unknown; postUrl?: unknown; }>)
-            .filter((i,) => i && (i.postId || i.postUrl)).length :
-        0;
-    return filled === 0;
+    const v = (settings ?? {}).usePinned;
+    return !(v === true || v === 'true');
 }
 
 /**
