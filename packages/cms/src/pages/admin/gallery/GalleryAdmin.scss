@@ -39,15 +39,31 @@
 
   &__empty { padding: $spacing-xl; text-align: center; }
 
+  // State rings are BOX-SHADOWS, not outlines: the card is focusable
+  // (tabindex), and the global "no click ring" rule
+  // (`*:focus:not(:focus-visible) { outline: none }`, styles/global.scss)
+  // stripped an outline from the card just clicked — so a newly selected card
+  // showed no highlight until focus moved elsewhere.
   &__card {
+    --card-ring: transparent;
     position: relative;
-    outline: 2px solid transparent;
-    outline-offset: -2px;
-    transition: outline-color $transition-fast, opacity $transition-fast, transform $transition-fast;
+    transition: opacity $transition-fast, transform $transition-fast;
 
-    &.is-selected { outline-color: var(--site-primary, #{$primary-color}); }
-    &.is-new { box-shadow: inset 0 0 0 1px $success-color, $shadow-sm; }
-    &.is-drag-over { transform: translateX(6px); outline-color: $warning-color; }
+    // The ring sits on an overlay ABOVE the thumbnail (an inset shadow on the
+    // card itself paints beneath its children, so the image hid most of it).
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 2px var(--card-ring);
+      pointer-events: none;
+      z-index: 2;
+      transition: box-shadow $transition-fast;
+    }
+    &.is-new { --card-ring: #{$success-color}; }
+    &.is-selected { --card-ring: var(--site-primary, #{$primary-color}); }
+    &.is-drag-over { transform: translateX(6px); --card-ring: #{$warning-color}; }
     &.is-missing .gallery-admin__preview { background: $background-dark; }
 
     &.is-removed {
@@ -56,7 +72,7 @@
       .media-grid__name { text-decoration: line-through; }
     }
 
-    &:focus-visible { outline-color: var(--site-primary, #{$primary-color}); }
+    // Keyboard focus keeps the standard ring (global :focus-visible outline).
   }
 
   &__preview {
