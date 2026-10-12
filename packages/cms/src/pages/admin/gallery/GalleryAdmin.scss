@@ -1,0 +1,222 @@
+// Admin → Gallery (GalleryAdmin.tsx + GalleryItemPanel.tsx). Cards reuse the
+// Media library's `.media-grid` styles; this adds draft states, badges and
+// the options side panel.
+.gallery-admin {
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  &__count {
+    margin-left: $spacing-sm;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__hint {
+    margin-left: auto;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: $spacing-lg;
+    align-items: start;
+
+    &.has-panel { grid-template-columns: minmax(0, 1fr) 360px; }
+
+    @media (max-width: 960px) {
+      &.has-panel { grid-template-columns: minmax(0, 1fr); }
+    }
+  }
+
+  &__grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+  &__empty { padding: $spacing-xl; text-align: center; }
+
+  &__card {
+    position: relative;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    transition: outline-color $transition-fast, opacity $transition-fast, transform $transition-fast;
+
+    &.is-selected { outline-color: var(--site-primary, #{$primary-color}); }
+    &.is-new { box-shadow: inset 0 0 0 1px $success-color, $shadow-sm; }
+    &.is-drag-over { transform: translateX(6px); outline-color: $warning-color; }
+    &.is-missing .gallery-admin__preview { background: $background-dark; }
+
+    &.is-removed {
+      opacity: 0.5;
+
+      .media-grid__name { text-decoration: line-through; }
+    }
+
+    &:focus-visible { outline-color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__preview {
+    position: relative;
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &__badges {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    pointer-events: none;
+  }
+
+  &__badge {
+    padding: 1px 6px;
+    border-radius: $border-radius-full;
+    background: rgba(0, 0, 0, 0.65);
+    color: $background;
+    font-size: 11px;
+    font-weight: 600;
+
+    &--vis { background: var(--site-primary, #{$primary-color}); }
+    &--pending { background: $warning-color; }
+    &--new { background: $success-color; }
+  }
+
+  &__progress {
+    position: absolute;
+    inset: auto 6px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: $border-radius-sm;
+    background: rgba(0, 0, 0, 0.65);
+    color: $background;
+    font-size: 11px;
+
+    .video-progress { flex: 1; }
+  }
+}
+
+// ─── Options side panel ───────────────────────────────────────────
+.gallery-panel {
+  position: sticky;
+  top: calc(var(--admin-header-height, 64px) + #{$spacing-md});
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: $spacing-md;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+  background: $background;
+  box-shadow: $shadow-sm;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+
+    h3 {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1rem;
+    }
+  }
+
+  &__close {
+    border: 0;
+    background: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: $text-light;
+    cursor: pointer;
+  }
+
+  &__removed {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    p { margin: 0; }
+  }
+
+  &__facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px $spacing-sm;
+    margin: 0;
+    font-size: $font-size-xs;
+
+    dt { color: var(--admin-text-muted, #{$text-light}); font-weight: 600; }
+    dd { margin: 0; word-break: break-word; }
+  }
+
+  &__links { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+  &__pending { margin: 0; font-size: $font-size-xs; color: $warning-color; }
+  &__missing { margin: 0; font-size: $font-size-sm; color: $error-color; }
+  &__comments { margin: 0; font-size: $font-size-xs; color: var(--admin-text-muted, #{$text-light}); }
+
+  &__foot {
+    margin-top: $spacing-sm;
+    padding-top: $spacing-sm;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+  }
+}
+
+// Tags as chips (GalleryItemPanel).
+.gallery-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-sm;
+  background: $background;
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 4px 1px 8px;
+    border-radius: $border-radius-full;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font-size: $font-size-xs;
+
+    button {
+      border: 0;
+      background: none;
+      line-height: 1;
+      cursor: pointer;
+      color: $text-light;
+    }
+  }
+
+  // Doubled class: beats the admin form input rules without !important.
+  & &__input,
+  &__input.gallery-tags__input {
+    flex: 1;
+    min-width: 90px;
+    border: 0;
+    box-shadow: none;
+    padding: 4px;
+    background: transparent;
+  }
+}

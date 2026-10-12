@@ -1,0 +1,287 @@
+/**
+ * ONE view for a list of gallery items, used by the /gallery page, the Gallery
+ * content block and `{{gallery(...)}}`. Settings are GalleryBlockSettings
+ * (desktop + mobile layout options — mobile ≤768px falls back to desktop per
+ * key; see galleryLayout.resolveLayout).
+ *
+ * Layouts:
+ *   grid      fixed `columns`, else auto-fill at `thumbSize` px; `rows` pages it
+ *   masonry   CSS columns (page only)
+ *   row       horizontal track: itemsPerPage, scrollBy, gap, arrows, dots, autoplay
+ *   column    vertical list; `rows` (or itemsPerPage) per page with paging
+ *   carousel  one-up slides (a row with one per page)
+ *   stage     the selected item large, a thumbnail strip below
+ * Click: lightbox (default), the item's page, or nothing.
+ */
+import type { GalleryItem, } from '@sitesurge/types';
+import { Component, createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
+import MediaVideo from '../blocks/media/MediaVideo';
+import { activePage, aspectRatio, type GalleryViewSettings, nextStart, pageStarts, prevStart, resolveLayout, } from './galleryLayout';
+import GalleryLightbox from './GalleryLightbox';
+import GalleryTile from './GalleryTile';
+import { useIsMobile, } from './useIsMobile';
+import './GalleryView.scss';
+
+export type { GalleryViewSettings, };
+
+export interface GalleryViewProps {
+    items: GalleryItem[];
+    settings: GalleryViewSettings;
+    /** Grid min column width (px) when no `columns` is set. Default 220. */
+    thumbSize?: number;
+    hoverZoom?: boolean;
+    videoBadge?: boolean;
+    class?: string;
+    /** Shown when there are no items. */
+    empty?: string;
+}
+
+const GalleryView: Component<GalleryViewProps> = (props,) => {
+    let root: HTMLDivElement | undefined;
+    const isMobile = useIsMobile(() => root,);
+    const L = createMemo(() => resolveLayout(props.settings.desktop, props.settings.mobile, isMobile(),),);
+    const items = () => props.items.filter((i,) => i.media,);
+    const count = () => items().length;
+    const open = () => props.settings.open ?? 'lightbox';
+    const loop = () => props.settings.loop !== false;
+
+    const [lightbox, setLightbox,] = createSignal<number | null>(null,);
+    const tileProps = (item: GalleryItem, index: number,) => ({
+        item,
+        aspect: aspectRatio(L().aspect,),
+        fit: L().fit,
+        height: L().itemHeight,
+        showTitle: Boolean(props.settings.showTitles,),
+        showCaption: Boolean(props.settings.showCaptions,),
+        videoBadge: props.videoBadge,
+        href: open() === 'page' ? item.url : null,
+        onOpen: open() === 'lightbox' ? () => setLightbox(index,) : undefined,
+    });
+
+    // ─── Paging (row / carousel / column / paged grid / stage) ───
+    const isRowLike = () => L().layout === 'row' || L().layout === 'carousel';
+    /** Items per page for the current layout. */
+    const perPage = () => {
+        const l = L();
+        if (l.layout === 'carousel') return 1;
+        if (l.layout === 'row') return Math.min(count() || 1, l.itemsPerPage,);
+        if (l.layout === 'column') return l.rows ?? l.itemsPerPage;
+        if (l.layout === 'grid' && l.rows && l.columns) return l.rows * l.columns;
+        return count() || 1;
+    };
+    const step = () => {
+        const l = L();
+        if (l.layout === 'carousel') return 1;
+        if (l.layout === 'row') return l.scrollBy;
+        return perPage(); // grid/column page by whole pages
+    };
+    const paged = () => count() > perPage() && L().layout !== 'masonry' && L().layout !== 'stage';
+    const [start, setStart,] = createSignal(0,);
+    createEffect(() => {
+        // Keep in range when the layout / breakpoint changes.
+        const max = Math.max(0, count() - perPage(),);
+        if (start() > max) setStart(max,);
+    },);
+    const starts = () => pageStarts(count(), perPage(), step(),);
+    const next = () => setStart(nextStart(start(), step(), count(), perPage(), loop(),),);
+    const prev = () => setStart(prevStart(start(), step(), count(), perPage(), loop(),),);
+
+    // Stage: the selected item.
+    const [selected, setSelected,] = createSignal(0,);
+    createEffect(() => {
+        if (selected() >= count()) setSelected(0,);
+    },);
+
+    // Autoplay (row / carousel / column / stage), paused on hover and while the lightbox is open.
+    const [hover, setHover,] = createSignal(false,);
+    createEffect(() => {
+        const on = props.settings.autoplay && count() > 1 && lightbox() === null
+            && (paged() || L().layout === 'stage') && !(props.settings.pauseOnHover !== false && hover());
+        if (!on) return;
+        const ms = Math.max(1, Number(props.settings.autoplayInterval,) || 5,) * 1000;
+        const t = setInterval(() => {
+            if (L().layout === 'stage') setSelected((s,) => (s + 1) % count(),);
+            else next();
+        }, ms,);
+        onCleanup(() => clearInterval(t,),);
+    },);
+
+    // Swipe on row-like tracks.
+    let touchX = 0;
+    const onTouchStart = (e: TouchEvent,) => { touchX = e.touches[0]?.clientX ?? 0; };
+    const onTouchEnd = (e: TouchEvent,) => {
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX;
+        if (Math.abs(dx,) > 40) (dx < 0 ? next : prev)();
+    };
+
+    const rootStyle = () => {
+        const s: Record<string, string> = { '--gv-gap': L().gap, };
+        if (props.settings.radius) s['--gv-radius'] = props.settings.radius;
+        return s;
+    };
+
+    // Row track geometry: each item (100% - (n-1)·gap)/n wide (or a fixed itemWidth); translate by start.
+    const itemBasis = () => L().itemWidth || `calc((100% - (${perPage()} - 1) * var(--gv-gap)) / ${perPage()})`;
+    const trackTransform = () => {
+        if (L().itemWidth) return `translateX(calc(-${start()} * (${L().itemWidth} + var(--gv-gap))))`;
+        return `translateX(calc(-${start()} * ((100% - (${perPage()} - 1) * var(--gv-gap)) / ${perPage()} + var(--gv-gap))))`;
+    };
+
+    const arrows = () => (
+        <Show when={paged() && props.settings.showArrows !== false}>
+            <button type="button" class="gallery-view__arrow gallery-view__arrow--prev" aria-label="Previous" onClick={prev}>‹</button>
+            <button type="button" class="gallery-view__arrow gallery-view__arrow--next" aria-label="Next" onClick={next}>›</button>
+        </Show>
+    );
+    const dots = () => (
+        <Show when={paged() && props.settings.showDots !== false && starts().length > 1}>
+            <div class="gallery-view__dots" role="tablist">
+                <For each={starts()}>
+                    {(s, i,) => (
+                        <button
+                            type="button"
+                            class="gallery-view__dot"
+                            classList={{ 'is-active': activePage(starts(), start(),) === i(), }}
+                            aria-label={`Page ${i() + 1}`}
+                            onClick={() => setStart(s,)}
+                        />
+                    )}
+                </For>
+            </div>
+        </Show>
+    );
+    /** Items on the current page (slice-paged layouts). */
+    const pageItems = () => (paged() ? items().slice(start(), start() + perPage(),) : items());
+
+    return (
+        <div
+            ref={root}
+            class={`gallery-view gallery-view--${L().layout}${props.hoverZoom ? ' gallery-view--zoom' : ''}${props.class ? ` ${props.class}` : ''}`}
+            style={rootStyle()}
+            onMouseEnter={() => setHover(true,)}
+            onMouseLeave={() => setHover(false,)}
+        >
+            <Show when={count() > 0} fallback={props.empty ? <p class="gallery-view__empty">{props.empty}</p> : null}>
+                <Switch>
+                    <Match when={isRowLike()}>
+                        <div class="gallery-view__viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+                            <div class="gallery-view__track" style={{ transform: trackTransform(), }}>
+                                <For each={items()}>
+                                    {(item, i,) => (
+                                        <div class="gallery-view__slide" style={{ flex: `0 0 ${itemBasis()}`, }}>
+                                            <GalleryTile {...tileProps(item, i(),)} />
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                            {arrows()}
+                        </div>
+                        {dots()}
+                    </Match>
+                    <Match when={L().layout === 'stage'}>
+                        <Show when={items()[selected()]}>
+                            {(cur,) => (
+                                <div class="gallery-view__stage">
+                                    <Show
+                                        when={cur().media?.type === 'video'}
+                                        fallback={
+                                            <button
+                                                type="button"
+                                                class="gallery-view__stage-hit"
+                                                disabled={open() !== 'lightbox'}
+                                                onClick={() => open() === 'lightbox' && setLightbox(selected(),)}
+                                            >
+                                                <img src={cur().media?.url} alt={cur().media?.alt || cur().title || ''} style={{ 'object-fit': L().fit, }} />
+                                            </button>
+                                        }
+                                    >
+                                        <Show when={cur().media!.id} keyed>
+                                            {(id,) => <MediaVideo mediaId={id} fallbackSrc={cur().media?.url} />}
+                                        </Show>
+                                    </Show>
+                                    <Show when={(props.settings.showTitles && cur().title) || (props.settings.showCaptions && cur().caption)}>
+                                        <div class="gallery-view__stage-meta">
+                                            <Show when={props.settings.showTitles && cur().title}><strong>{cur().title}</strong></Show>
+                                            <Show when={props.settings.showCaptions && cur().caption}><span>{cur().caption}</span></Show>
+                                            <Show when={open() === 'page'}><a href={cur().url}>Open</a></Show>
+                                        </div>
+                                    </Show>
+                                </div>
+                            )}
+                        </Show>
+                        <div class="gallery-view__strip">
+                            <For each={items()}>
+                                {(item, i,) => (
+                                    <button
+                                        type="button"
+                                        class="gallery-view__thumb"
+                                        classList={{ 'is-active': selected() === i(), }}
+                                        aria-label={item.title || `Item ${i() + 1}`}
+                                        onClick={() => setSelected(i(),)}
+                                    >
+                                        <GalleryTile item={item} aspect="1 / 1" fit="cover" videoBadge={props.videoBadge} />
+                                    </button>
+                                )}
+                            </For>
+                        </div>
+                    </Match>
+                    <Match when={L().layout === 'masonry'}>
+                        <div class="gallery-view__masonry" style={{ 'column-width': `${props.thumbSize ?? 220}px`, }}>
+                            <For each={items()}>
+                                {(item, i,) => <GalleryTile {...tileProps(item, i(),)} aspect={undefined} class="gallery-view__masonry-item" />}
+                            </For>
+                        </div>
+                    </Match>
+                    <Match when={L().layout === 'column'}>
+                        <div class="gallery-view__column">
+                            <For each={pageItems()}>
+                                {(item,) => <GalleryTile {...tileProps(item, items().indexOf(item,),)} />}
+                            </For>
+                        </div>
+                        <Show when={paged()}>
+                            <div class="gallery-view__pager">
+                                <Show when={props.settings.showArrows !== false}>
+                                    <button type="button" class="gallery-view__page-btn" aria-label="Previous" onClick={prev}>↑</button>
+                                </Show>
+                                {dots()}
+                                <Show when={props.settings.showArrows !== false}>
+                                    <button type="button" class="gallery-view__page-btn" aria-label="Next" onClick={next}>↓</button>
+                                </Show>
+                            </div>
+                        </Show>
+                    </Match>
+                    <Match when={true}>
+                        <div
+                            class="gallery-view__grid"
+                            style={{
+                                'grid-template-columns': L().columns
+                                    ? `repeat(${L().columns}, minmax(0, 1fr))`
+                                    : `repeat(auto-fill, minmax(min(${props.thumbSize ?? 220}px, 100%), 1fr))`,
+                            }}
+                        >
+                            <For each={pageItems()}>
+                                {(item,) => <GalleryTile {...tileProps(item, items().indexOf(item,),)} />}
+                            </For>
+                        </div>
+                        <Show when={paged()}>
+                            <div class="gallery-view__pager">
+                                <Show when={props.settings.showArrows !== false}>
+                                    <button type="button" class="gallery-view__page-btn" aria-label="Previous" onClick={prev}>‹</button>
+                                </Show>
+                                {dots()}
+                                <Show when={props.settings.showArrows !== false}>
+                                    <button type="button" class="gallery-view__page-btn" aria-label="Next" onClick={next}>›</button>
+                                </Show>
+                            </div>
+                        </Show>
+                    </Match>
+                </Switch>
+            </Show>
+            <Show when={lightbox() !== null}>
+                <GalleryLightbox items={items()} index={lightbox()!} onClose={() => setLightbox(null,)} />
+            </Show>
+        </div>
+    );
+};
+
+export default GalleryView;

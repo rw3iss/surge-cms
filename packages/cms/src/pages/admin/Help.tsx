@@ -43,6 +43,11 @@ const TOPICS: HelpTopic[] = [
         desc: 'Comments on posts and events, the members\' forum, moderation, member pages + activity counts, and showing latest / hottest discussions anywhere.',
     },
     {
+        path: '/admin/help/gallery',
+        title: 'Gallery',
+        desc: 'Publish media to a public gallery: drafts + Publish, item visibility and comments, settings and appearance, the Gallery block, {{gallery()}} and the SDK.',
+    },
+    {
         path: '/admin/help/video',
         title: 'Video hosting',
         desc: 'Upload large videos, how encoding works, public vs private videos and teasers, using a video in a block, and server setup.',

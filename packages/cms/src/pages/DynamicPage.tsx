@@ -10,11 +10,13 @@ import { contentPaddingStyle, } from '../utils/appearanceStyle';
 import PageCustomCss from '../components/common/PageCustomCss';
 import { setActiveHeaderPosition, setActivePageBackground, setActiveHeaderStyle, } from '../stores/headerStyle';
 import { useAuth, } from '../stores/auth';
-import { siteName, } from '../stores/siteSettings';
+import { isFeatureEnabled, siteName, } from '../stores/siteSettings';
+import { baseSlug, loadGalleryRoute, } from '../components/gallery/galleryConfig';
 import { buildBreadcrumb, buildWebPage, stripHtml, truncateText, } from '../utils/schema';
 import './DynamicPage.scss';
 
 const NotFoundPage = lazy(() => import('./NotFound'));
+const GalleryPage = lazy(() => import('./gallery/GalleryPage'));
 
 interface LockedContent {
     accessLevel: ContentAccessLevel;
@@ -40,7 +42,7 @@ export type DynamicPageProps = Partial<RouteSectionProps> & {
     slugOverride?: string;
 };
 
-const DynamicPage: Component<DynamicPageProps> = (props,) => {
+const DynamicPageContent: Component<DynamicPageProps> = (props,) => {
     const params = useParams();
     const location = useLocation();
     const navigate = useNavigate();
@@ -198,6 +200,29 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
                 </Show>
             </Show>
         </div>
+    );
+};
+
+/**
+ * The `/:slug` catch-all. When the Gallery feature is on and its base URL is a
+ * CUSTOM path (not the static /gallery route), that slug renders the gallery
+ * instead of a CMS page. The gallery route is loaded once per page load and
+ * only while the feature is on, so other sites pay nothing.
+ */
+const DynamicPage: Component<DynamicPageProps> = (props,) => {
+    const params = useParams();
+    const location = useLocation();
+    const slug = () => (props.slugOverride || params.slug || location.pathname.replace(/^\//, '',)).toLowerCase();
+    const galleryOn = () => !props.slugOverride && isFeatureEnabled('gallery',);
+    const [route,] = createResource(() => (galleryOn() ? 'gallery' : null), () => loadGalleryRoute(),);
+    const ready = () => !galleryOn() || route.state === 'ready' || route.state === 'errored';
+    const isGallery = () => galleryOn() && !!route() && baseSlug(route()!.baseUrl,) === slug() && slug() !== 'gallery';
+    return (
+        <Show when={ready()}>
+            <Show when={isGallery()} fallback={<DynamicPageContent {...props} />}>
+                <GalleryPage />
+            </Show>
+        </Show>
     );
 };
 

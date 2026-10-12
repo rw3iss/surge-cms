@@ -33,6 +33,7 @@ import { HTMLBlock, } from './types/HTMLBlock';
 import { CarouselBlockRenderer, } from './types/CarouselBlock';
 import { TemplateBlock, } from './types/TemplateBlock';
 import { EntityBlock, } from './types/EntityBlock';
+import { GalleryBlock, } from './types/GalleryBlock';
 import { GroupBlock, GroupItemBlock, } from './types/GroupBlock';
 import './BlockRenderer.scss';
 
@@ -330,14 +331,10 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     <Match when={props.block.type === 'group_item'}>
                         <GroupItemBlock block={props.block} ctx={props.templateContext} />
                     </Match>
-                    {/* Removed block types render a polite fallback on the
-                        public site so an old page doesn't go blank.
-                        Gallery is removed; legacy `post` blocks still
-                        have a renderer (above) until Phase 4 removes them. */}
+                    {/* Gallery (feature `gallery`) — published media items. The
+                        legacy `gallery` rows were deleted by migration 027. */}
                     <Match when={props.block.type === 'gallery'}>
-                        <div class="block--legacy" style={{ padding: '0.75rem', color: 'var(--site-text-muted, #6b7280)', 'font-size': '0.875rem', 'font-style': 'italic', }}>
-                            (Gallery blocks are no longer supported — please update this page.)
-                        </div>
+                        <GalleryBlock block={props.block} />
                     </Match>
                 </Switch>
             </div>

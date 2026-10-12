@@ -100,7 +100,7 @@ export function buildEmailResponsiveCss(
             const keys = Object.keys(decls,);
             if (!keys.length) continue;
 
-            const isImage = b.blockType === 'image' || b.blockType === 'gallery';
+            const isImage = b.blockType === 'image';
             const cellDecls: string[] = [];
             const imgDecls: string[] = [];
             for (const k of keys) {

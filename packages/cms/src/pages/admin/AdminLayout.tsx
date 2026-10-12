@@ -81,6 +81,8 @@ const NAV_ITEMS: NavItem[] = [
     // Discussions: the comment moderation queue + the forum's own section.
     { path: '/admin/comments', label: 'Comments', icon: 'messages', feature: 'comments', },
     { path: '/admin/forum', label: 'Forum', icon: 'messages', feature: 'forum', },
+    // Published media (feature `gallery`).
+    { path: '/admin/gallery', label: 'Gallery', icon: 'media', feature: 'gallery', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     // Wiki sits directly above Users, per the module's design.
     { path: '/admin/wiki', label: 'Wiki', icon: 'pages', feature: 'wiki', },

@@ -17,6 +17,9 @@ import {
     DISCUSSION_LIST_KIND,
     type DiscussionItem,
     FORUM_THREAD_KIND,
+    GALLERY_ITEM_KIND,
+    GALLERY_LIST_KIND,
+    type GalleryItem,
     buildSiteVariables,
     entityRef,
     hasTemplateSyntax,
@@ -30,6 +33,7 @@ import { config, } from '../../config';
 import { getPublicSettings, } from '../settings';
 import { escapeHtml, } from './blocks/_util';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
+import { galleryFiguresHtml, galleryItemHtml, } from '../gallery/render';
 import {
     type AsyncMemo,
     buildBackendRuntime,
@@ -111,6 +115,11 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
             return discussionListHtml(data as unknown as DiscussionItem[],);
         case FORUM_THREAD_KIND:
             return forumThreadHtml(data,);
+        // `{{gallery(...)}}` — indexable figures (image / video poster + caption + link).
+        case GALLERY_LIST_KIND:
+            return galleryFiguresHtml(data as unknown as GalleryItem[], config.frontendUrl ?? '',);
+        case GALLERY_ITEM_KIND:
+            return galleryItemHtml(data as unknown as GalleryItem, config.frontendUrl ?? '',);
         default: {
             // Generic entity (custom type, no bespoke serializer): emit a title
             // + a short indexable field dump so crawlers see real words.

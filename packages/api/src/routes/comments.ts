@@ -29,9 +29,11 @@ export const commentsRoutes = [
         method: 'get', path: '/threads/:targetType/:targetId', auth: 'optional',
         summary: 'An item\'s comment switches + count (defaults when never set).',
         input: { params: threadParams, },
-        handler: ({ params, },) => {
+        handler: async ({ params, },) => {
             assertCommentType(params.targetType,);
-            return threads.get(params.targetType, params.targetId,);
+            const stored = await threads.get(params.targetType, params.targetId,);
+            const target = allTargets().find((t,) => t.type === params.targetType,);
+            return target?.resolveThread ? target.resolveThread(params.targetId, stored,) : stored;
         },
     },),
 

@@ -22,6 +22,7 @@
 // We now import + re-export it so the many admin call sites that pull
 // `BlockType` from this registry keep working, with ZERO drift risk.
 import type { BlockType, } from '@sitesurge/types';
+import { DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
 export type { BlockType, };
 
 /**
@@ -34,7 +35,7 @@ export type BlockCategory = 'text' | 'media' | 'blocks' | 'layout';
 /** Site-feature flag keys (mirror of SiteFeatures in @sitesurge/types). When
  *  a block type sets `gating`, it's only shown in the AddBlockMenu when
  *  that feature is enabled in site settings. */
-export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon';
+export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon' | 'gallery';
 
 /** Source of a "recent items" submenu, when applicable. The menu
  *  fetches the last N entries from this source on hover and lets the
@@ -105,6 +106,15 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
     // ─── Media ────────────────────────────────────────────
     { type: 'image', label: 'Image', icon: '◧', category: 'media', },
     { type: 'video', label: 'Video', icon: '▶', category: 'media', },
+    {
+        type: 'gallery',
+        label: 'Gallery',
+        description: 'Items from the Gallery — picked, or a live query — as a grid, row, column, carousel or stage.',
+        icon: '▦',
+        category: 'media',
+        gating: 'gallery',
+        defaultData: () => structuredClone(DEFAULT_GALLERY_BLOCK_SETTINGS,) as unknown as Record<string, unknown>,
+    },
     { type: 'document', label: 'Document', icon: '📄', category: 'media', },
 
     // ─── Blocks ───────────────────────────────────────────
@@ -189,12 +199,10 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
     // ─── Hidden / legacy ──────────────────────────────────
     // 'text' is the legacy plain-text type; new content uses rich_text.
     { type: 'text', label: 'Text', enabled: false, },
-    // 'post' (single embed) and 'gallery' are removed in favor of the
-    // unified Posts block (post_list) and the multi-image upgrade to
-    // 'image'. Existing rows render via legacy fallbacks; the picker
-    // doesn't surface them.
+    // 'post' (single embed) is removed in favor of the unified Posts block
+    // (post_list). Existing rows render via a legacy fallback; the picker
+    // doesn't surface it. ('gallery' was reused for the Gallery feature's block.)
     { type: 'post', label: 'Post Embed (legacy)', enabled: false, },
-    { type: 'gallery', label: 'Gallery (legacy)', enabled: false, },
     // group_item is created automatically when a group is added or its
     // columns count changes — never picked from the menu directly.
     { type: 'group_item', label: 'Group Slot', enabled: false, composite: true, },

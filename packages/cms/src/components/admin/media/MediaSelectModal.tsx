@@ -27,6 +27,20 @@ interface MediaSelectModalProps {
     types?: string[];
     onSelect: (media: MediaItem,) => void;
     onClose: () => void;
+    /**
+     * Multi-select: each card's button toggles it into a selection kept across
+     * pages and searches; a footer button hands the whole set to `onSelectMany`
+     * (`onSelect` is then unused).
+     */
+    multiple?: boolean;
+    onSelectMany?: (media: MediaItem[],) => void;
+    /** Media that cannot be picked (e.g. already in the gallery) — shown with `disabledLabel`. */
+    disabledIds?: string[];
+    disabledLabel?: string;
+    /** Header text (default "Select Media"). */
+    title?: string;
+    /** Footer button text in multi-select mode (default "Add selected"). */
+    confirmLabel?: string;
 }
 
 const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
@@ -39,6 +53,15 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
     const [showUpload, setShowUpload,] = createSignal(false,);
     /** Item open in the full-size lightbox (selecting still needs the Select button). */
     const [viewing, setViewing,] = createSignal<MediaItem | null>(null,);
+    /** Multi-select: picked items by id, in pick order. */
+    const [picked, setPicked,] = createSignal<MediaItem[]>([],);
+    const isPicked = (id: string,) => picked().some((m,) => m.id === id,);
+    const isDisabled = (id: string,) => (props.disabledIds ?? []).includes(id,);
+    const choose = (item: MediaItem,) => {
+        if (isDisabled(item.id,)) return;
+        if (!props.multiple) return props.onSelect(item,);
+        setPicked((cur,) => (cur.some((m,) => m.id === item.id,) ? cur.filter((m,) => m.id !== item.id,) : [...cur, item,]));
+    };
 
     /** Kinds this picker may show: the caller's `types`, else all four. */
     const allowedKinds = (): MediaKind[] => {
@@ -151,7 +174,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
             dismissOnEscape={!viewing() && !showUpload()}
         >
                 <div class="media-select-modal__header">
-                    <h2>Select Media</h2>
+                    <h2>{props.title ?? 'Select Media'}</h2>
                     <button class="media-select-modal__close" onClick={props.onClose}>&times;</button>
                 </div>
 
@@ -205,6 +228,10 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                                     {(item,) => (
                                         <div
                                             class="media-select-modal__card media-select-modal__card--item"
+                                            classList={{
+                                                'media-select-modal__card--picked': isPicked(item.id,),
+                                                'media-select-modal__card--disabled': isDisabled(item.id,),
+                                            }}
                                             title={item.title || item.originalName}
                                             role="button"
                                             tabindex="0"
@@ -262,12 +289,17 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                                                 </span>
                                                 <button
                                                     class="media-select-modal__select-btn"
+                                                    classList={{ 'media-select-modal__select-btn--picked': isPicked(item.id,), }}
+                                                    disabled={isDisabled(item.id,)}
+                                                    aria-pressed={props.multiple ? isPicked(item.id,) : undefined}
                                                     onClick={(e,) => {
                                                         e.stopPropagation();
-                                                        props.onSelect(item,);
+                                                        choose(item,);
                                                     }}
                                                 >
-                                                    Select
+                                                    {isDisabled(item.id,)
+                                                        ? (props.disabledLabel ?? 'Unavailable')
+                                                        : props.multiple ? (isPicked(item.id,) ? '✓ Selected' : 'Select') : 'Select'}
                                                 </button>
                                             </div>
                                         </div>
@@ -296,6 +328,26 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                             disabled={page() >= totalPages()}
                         >
                             Next
+                        </button>
+                    </div>
+                </Show>
+
+                <Show when={props.multiple}>
+                    <div class="media-select-modal__footer">
+                        <span class="media-select-modal__footer-count">
+                            {picked().length ? `${picked().length} selected` : 'Select one or more items'}
+                        </span>
+                        <Show when={picked().length}>
+                            <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={() => setPicked([],)}>Clear</button>
+                        </Show>
+                        <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={props.onClose}>Cancel</button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--primary ui-button--sm"
+                            disabled={!picked().length}
+                            onClick={() => props.onSelectMany?.(picked(),)}
+                        >
+                            {props.confirmLabel ?? 'Add selected'}{picked().length ? ` (${picked().length})` : ''}
                         </button>
                     </div>
                 </Show>

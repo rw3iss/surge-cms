@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-12T02:07:11.713Z",
-  "totalModules": 53,
-  "totalRoutes": 530,
+  "generatedAt": "2026-10-12T03:37:14.023Z",
+  "totalModules": 54,
+  "totalRoutes": 540,
   "modules": [
     {
       "module": "admin-channel",
@@ -1226,6 +1226,82 @@
           "absolutePath": "/api/v1/forum/threads/:id/:action",
           "auth": "user",
           "summary": "Pin / lock / approve / hide / restore / delete a thread (moderators; authors may delete an unanswered thread)."
+        }
+      ]
+    },
+    {
+      "module": "gallery",
+      "mountPath": "/api/v1/gallery",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/config",
+          "absolutePath": "/api/v1/gallery/config",
+          "auth": "optional",
+          "summary": "Gallery title, route, appearance and whether THIS viewer may open it."
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/gallery",
+          "auth": "optional",
+          "summary": "Query gallery items visible to the viewer (type, tag, search, ids, sort, limit, page)."
+        },
+        {
+          "method": "GET",
+          "path": "/items/:id",
+          "absolutePath": "/api/v1/gallery/items/:id",
+          "auth": "optional",
+          "summary": "One gallery item (404 when missing, its media is gone, or the viewer may not see it)."
+        },
+        {
+          "method": "GET",
+          "path": "/admin/items",
+          "absolutePath": "/api/v1/gallery/admin/items",
+          "auth": "staff",
+          "summary": "Every gallery item in order, including ones whose media was deleted."
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/items",
+          "absolutePath": "/api/v1/gallery/admin/items",
+          "auth": "staff",
+          "summary": "Publish the gallery draft: ordered items to keep (existing by id, new by mediaId) + removals (optionally deleting media)."
+        },
+        {
+          "method": "PATCH",
+          "path": "/admin/items/:id",
+          "absolutePath": "/api/v1/gallery/admin/items/:id",
+          "auth": "staff",
+          "summary": "Edit one gallery item (title/caption overrides, tags, visibility, comments)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/items/:id",
+          "absolutePath": "/api/v1/gallery/admin/items/:id",
+          "auth": "staff",
+          "summary": "Remove a gallery item; `?deleteMedia=true` also deletes its media from the library."
+        },
+        {
+          "method": "GET",
+          "path": "/admin/media-links",
+          "absolutePath": "/api/v1/gallery/admin/media-links",
+          "auth": "staff",
+          "summary": "Which of these media ids are already in the gallery (media id → item id)."
+        },
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/gallery/settings",
+          "auth": "staff",
+          "summary": "Gallery settings (route, access, comments, appearance)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/gallery/settings",
+          "auth": "admin",
+          "summary": "Update gallery settings."
         }
       ]
     },

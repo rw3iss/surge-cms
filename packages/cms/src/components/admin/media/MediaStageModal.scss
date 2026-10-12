@@ -1,0 +1,140 @@
+// Multi-file picker that stages files for a later upload (MediaStageModal.tsx).
+.media-stage-modal {
+  background: $background;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xl;
+  width: 100%;
+  max-width: 860px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+
+    h2 { margin: 0; font-size: 1.1rem; }
+  }
+
+  &__close {
+    border: 0;
+    background: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: $text-light;
+    cursor: pointer;
+  }
+
+  &__body {
+    padding: $spacing-lg;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: $spacing-xl $spacing-lg;
+    border: 2px dashed $border-color;
+    border-radius: $border-radius-md;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color $transition-fast, background $transition-fast;
+
+    &:hover,
+    &:focus-visible,
+    &.is-dragging {
+      border-color: var(--site-primary, #{$primary-color});
+      background: $background-dark;
+      outline: none;
+    }
+  }
+
+  &__hint { font-size: $font-size-xs; color: $text-light; }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: $spacing-sm;
+  }
+
+  &__tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: $font-size-xs;
+  }
+
+  &__preview {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: $border-radius-sm;
+    background: $background-dark;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img,
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &__play {
+    position: absolute;
+    color: $background;
+    font-size: 1.4rem;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+
+  &__icon { font-size: 2rem; }
+
+  &__name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  &__meta { color: $text-light; }
+
+  &__remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: $background;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-lg;
+    border-top: 1px solid $border-color;
+  }
+
+  &__count {
+    margin-right: auto;
+    font-size: $font-size-sm;
+    color: $text-light;
+  }
+}

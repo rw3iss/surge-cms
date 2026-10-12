@@ -1,8 +1,13 @@
-import { DISCUSSION_LIST_KIND, type DiscussionItem, FORUM_THREAD_KIND, featuredImagePath, } from '@sitesurge/types';
+import {
+    DISCUSSION_LIST_KIND, type DiscussionItem, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
+    type GalleryItem,
+} from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, For, Match, Show, Switch, } from 'solid-js';
 import DiscussionList from '../discussions/DiscussionList';
+import GalleryView from '../gallery/GalleryView';
+import MediaVideo from './media/MediaVideo';
 import FormRenderer from '../forms/FormRenderer';
 import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
@@ -53,6 +58,32 @@ const TemplateEntity: Component<{
             </Match>
             <Match when={props.kind === FORUM_THREAD_KIND}>
                 <DiscussionList items={[{ kind: 'thread', ...props.data, } as unknown as DiscussionItem,]} excerpts={props.options?.excerpts !== false} />
+            </Match>
+            {/* `{{gallery(...)}}` — a list through the shared GalleryView (render options = the call's named args), or one item's media. */}
+            <Match when={props.kind === GALLERY_LIST_KIND}>
+                <GalleryView items={(props.data as unknown as GalleryItem[]) ?? []} settings={galleryDisplayFrom(props.options,)} videoBadge />
+            </Match>
+            <Match when={props.kind === GALLERY_ITEM_KIND}>
+                {(() => {
+                    const item = props.data as unknown as GalleryItem;
+                    return (
+                        <Show when={item.media}>
+                            {(m,) => (
+                                <figure class="template-entity template-entity--gallery-item">
+                                    <Show when={m().type === 'video'} fallback={<img src={m().url} alt={m().alt || item.title || ''} loading="lazy" />}>
+                                        <MediaVideo mediaId={m().id} fallbackSrc={m().url} />
+                                    </Show>
+                                    <Show when={props.options?.caption !== false && (item.caption || props.options?.title === true)}>
+                                        <figcaption>
+                                            <Show when={props.options?.title === true}><strong>{item.title}</strong> </Show>
+                                            {item.caption}
+                                        </figcaption>
+                                    </Show>
+                                </figure>
+                            )}
+                        </Show>
+                    );
+                })()}
             </Match>
             <Match when={props.kind === 'form'}>
                 <FormRenderer

@@ -124,6 +124,8 @@ const AdminForumSettings = lazy(() => import('./pages/admin/forum/ForumSettings'
 // Gallery (feature `gallery`): public page at the configurable base URL (default /gallery; a custom one is routed by DynamicPage).
 const GalleryPage = lazy(() => import('./pages/gallery/GalleryPage'));
 const GalleryItemPage = lazy(() => import('./pages/gallery/GalleryItemPage'));
+// `/<custom gallery base>/:id` — renders the 404 page for any other first segment.
+const GalleryCustomItemRoute = lazy(() => import('./pages/gallery/GalleryItemPage').then((m) => ({ default: m.GalleryCustomItemRoute, })));
 const AdminGallery = lazy(() => import('./pages/admin/gallery/GalleryAdmin'));
 const AdminGallerySettings = lazy(() => import('./pages/admin/gallery/GallerySettings'));
 const AdminHelpGallery = lazy(() =>
@@ -196,6 +198,7 @@ const App: Component = () => {
 										<Route path="/mail" component={MailArchivePage} />
 										<Route path="/mail/:jobId" component={MailViewPage} />
 										<Route path="/:slug" component={DynamicPage} />
+										<Route path="/:slug/:id" component={GalleryCustomItemRoute} />
 										{/* Catch-all 404 lives INSIDE Layout so the
 											public Header/Footer + theme tokens
 											(--site-primary, etc.) apply. Multi-

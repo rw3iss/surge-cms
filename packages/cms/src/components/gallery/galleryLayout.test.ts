@@ -1,0 +1,58 @@
+import { describe, expect, it, } from 'vitest';
+import { DEFAULT_GALLERY_APPEARANCE, } from '@sitesurge/types';
+import {
+    activePage, aspectRatio, entityQueryToGalleryQuery, galleryQueryToEntityQuery, maxStart, nextStart, pageStarts, pageStyle, prevStart, resolveLayout,
+} from './galleryLayout';
+
+describe('resolveLayout', () => {
+    it('mobile values win per key on mobile only', () => {
+        const d = { layout: 'row' as const, itemsPerPage: 4, gap: '20px', };
+        const m = { itemsPerPage: 1, };
+        expect(resolveLayout(d, m, false,),).toMatchObject({ layout: 'row', itemsPerPage: 4, gap: '20px', },);
+        expect(resolveLayout(d, m, true,),).toMatchObject({ layout: 'row', itemsPerPage: 1, gap: '20px', },);
+    },);
+    it('defaults: grid, square, cover, carousel = 1 per page', () => {
+        expect(resolveLayout(undefined, undefined, false,),).toMatchObject({ layout: 'grid', aspect: 'square', fit: 'cover', columns: null, },);
+        expect(resolveLayout({ layout: 'carousel', }, undefined, false,).itemsPerPage,).toBe(1,);
+    },);
+},);
+
+describe('paging', () => {
+    it('snaps to the last full page before wrapping', () => {
+        // 11 items, 3 per page, step 3 → starts 0,3,6,8
+        expect(maxStart(11, 3,),).toBe(8,);
+        expect(nextStart(6, 3, 11, 3, true,),).toBe(8,);
+        expect(nextStart(8, 3, 11, 3, true,),).toBe(0,);
+        expect(nextStart(8, 3, 11, 3, false,),).toBe(8,);
+        expect(prevStart(0, 3, 11, 3, true,),).toBe(8,);
+        expect(pageStarts(11, 3, 3,),).toEqual([0, 3, 6, 8,],);
+        expect(activePage([0, 3, 6, 8,], 7,),).toBe(2,);
+    },);
+    it('fewer items than a page = one page', () => {
+        expect(pageStarts(2, 4, 1,),).toEqual([0,],);
+    },);
+},);
+
+describe('aspect + page style', () => {
+    it('maps aspects', () => {
+        expect(aspectRatio('16:9',),).toBe('16 / 9',);
+        expect(aspectRatio('original',),).toBeUndefined();
+    },);
+    it('site tokens by default, custom values when chosen', () => {
+        expect(pageStyle(DEFAULT_GALLERY_APPEARANCE,)['padding-inline'],).toBe('var(--site-gutter, 16px)',);
+        const s = pageStyle({ ...DEFAULT_GALLERY_APPEARANCE, gutter: 'custom', customGutter: '40px', maxWidth: 'custom', customMaxWidth: '', },);
+        expect(s['padding-inline'],).toBe('40px',);
+        expect(s['max-width'],).toBeUndefined();
+    },);
+},);
+
+describe('entity query ↔ gallery query', () => {
+    it('maps virtual filters, search and limit', () => {
+        expect(entityQueryToGalleryQuery({ search: ' cats ', filter: { type: { op: 'eq', value: 'video', }, tag: ['a', 'b',], sort: 'newest', }, }, 8,),)
+            .toEqual({ type: 'video', sort: 'newest', tag: 'a,b', search: 'cats', limit: 8, },);
+    },);
+    it('round-trips', () => {
+        const q = { type: 'image' as const, tag: 'x', sort: 'random' as const, limit: 5, };
+        expect(entityQueryToGalleryQuery(galleryQueryToEntityQuery(q,),),).toEqual(q,);
+    },);
+},);

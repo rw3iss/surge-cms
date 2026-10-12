@@ -14,7 +14,8 @@ import { DEFAULT_FORUM_SETTINGS, renderMarkdown, stripMarkdown, type ForumSettin
 import { query, } from '../../db';
 import { buildGenericBody, } from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
-import { buildBreadcrumbSchema, buildWebPageSchema, stripHtml, truncateText, } from './schema';
+import { buildBreadcrumbSchema, buildCollectionPageSchema, buildWebPageSchema, stripHtml, truncateText, } from './schema';
+import { galleryFiguresHtml, galleryItemHtml, previewUrl, absUrl, } from '../gallery/render';
 
 export interface StaticMetaCtx {
     path: string;
@@ -345,6 +346,77 @@ async function forumThread(c: StaticMetaCtx, category: string, slug: string,): P
  * Meta for an app route / SPA-rendered detail page, or null when the path is
  * none of them (the caller then 404s or uses its own fallthrough).
  */
+// ─── Gallery ────────────────────────────────────────────────────────
+
+/**
+ * `<baseUrl>` and `<baseUrl>/<item id>` (default /gallery), resolved
+ * authoritatively while the Gallery feature is on: a missing item, or one
+ * whose media was deleted, is a real 404 (null → nothing matches → notFound).
+ * A gated gallery / item (not visible to an anonymous crawler) is a real page
+ * the SPA gates with a sign-in prompt, so it answers `noindex` with no body —
+ * the forum's rule.
+ */
+async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> {
+    const on = await safe(async () => {
+        const r = await query<{ value: unknown; }>(`SELECT value FROM site_settings WHERE key = 'gallery_enabled'`,);
+        const v = r.rows[0]?.value;
+        return v === true || v === 'true' ? true : null;
+    },);
+    if (!on) return undefined;
+    const g = await import('../gallery/index.js');
+    const s = await g.getSettings().catch(() => null);
+    if (!s) return undefined;
+    const base = (s.baseUrl || '/gallery').replace(/\/+$/, '',);
+    const path = c.path.toLowerCase();
+    const isIndex = path === base.toLowerCase();
+    // baseUrl is validated to one `[a-z0-9-]` segment, so it is regex-safe as is.
+    const m = new RegExp(`^${base.toLowerCase()}/([0-9a-f-]{36})$`,).exec(path,);
+    if (!isIndex && !m) return undefined; // not a gallery route
+
+    const cfg = await g.publicConfig(null,).catch(() => null);
+    const publicGallery = Boolean(cfg?.canView,);
+    const title = s.title || 'Gallery';
+    const gated = { noindex: true, jsonLd: undefined, body: undefined, } as const;
+
+    if (isIndex) {
+        const description = clip(s.description,) || `${title} — ${c.siteName}.`;
+        if (!publicGallery) return page(c, title, description, gated,);
+        const items = await g.list({ limit: 60, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
+        const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
+        return page(c, title, description, {
+            image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,
+            jsonLd: [
+                buildCollectionPageSchema({ name: title, description, url: c.url, itemCount: items.length, },),
+                buildBreadcrumbSchema([{ name: 'Home', url: c.siteUrl, }, { name: title, url: c.url, },],),
+            ],
+            body: `<main class="ssr-gallery-page"><h1>${esc(title,)}</h1>`
+                + (s.description ? `<div>${renderMarkdown(s.description,)}</div>` : '')
+                + galleryFiguresHtml(items, c.siteUrl,) + '</main>',
+        },);
+    }
+
+    const { item, gated: exists, } = await g.getForViewer(m![1], null,).catch(() => ({ item: null, gated: false, }),);
+    if (!item) {
+        if (!exists) return null; // unknown, or its media is gone → 404
+        return page(c, title, `${title} — ${c.siteName}.`, gated,);
+    }
+    const name = item.title || (item.media?.type === 'video' ? 'Video' : 'Image');
+    const description = clip(item.caption,) || `${name} — ${title} on ${c.siteName}.`;
+    const img = item.media?.accessLevel === 'public' ? absUrl(previewUrl(item,), c.siteUrl,) : '';
+    return page(c, name, description, {
+        image: img || c.logo,
+        imageAlt: item.media?.alt || name,
+        jsonLd: [
+            buildWebPageSchema({ name, description, url: c.url, publisherName: c.siteName, },),
+            buildBreadcrumbSchema([
+                { name: 'Home', url: c.siteUrl, }, { name: title, url: `${c.siteUrl}${base}`, }, { name, url: c.url, },
+            ],),
+        ],
+        body: `<main class="ssr-gallery-item"><h1>${esc(name,)}</h1>${galleryItemHtml(item, c.siteUrl,)}`
+            + (item.caption ? `<p>${esc(item.caption,)}</p>` : '') + '</main>',
+    },);
+}
+
 export async function resolveStaticMeta(c: StaticMetaCtx,): Promise<MetaTags | null> {
     const { path, } = c;
     const entry = ROUTES[path];
@@ -373,5 +445,8 @@ export async function resolveStaticMeta(c: StaticMetaCtx,): Promise<MetaTags | n
     if (m) return forumCategory(c, m[1],);
     m = /^\/forum\/([a-z0-9-]+)\/([a-z0-9-]+)$/i.exec(path,);
     if (m) return forumThread(c, m[1], m[2],);
+    // Gallery: the route is configurable, so it is matched against the settings.
+    const g = await gallery(c,);
+    if (g !== undefined) return g;
     return null;
 }

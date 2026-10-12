@@ -130,6 +130,12 @@ export interface BackendRuntimeOptions {
      *  (SSR collections/counts/`user`/generic; mail generic-single). Return
      *  `undefined` for an unresolved name. */
     resolveExtra?: (name: string, args: unknown[], memo: AsyncMemo,) => Promise<unknown>;
+    /**
+     * Who `{{gallery(...)}}` resolves for: `site` (SSR — the anonymous
+     * visitor, gated items hidden) or `email` (public MEDIA only, ignoring the
+     * in-site gate). Default `site`.
+     */
+    galleryAudience?: 'site' | 'email';
 }
 
 /**
@@ -168,6 +174,13 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
         if ((DISCUSSION_FUNCTION_NAMES as readonly string[]).includes(name,)) {
             const { resolveDiscussionFunction, } = await import('../discussions/templateFunctions.js');
             const r = await resolveDiscussionFunction(name, args, named, memo,);
+            if (r !== UNRESOLVED) return r;
+        }
+
+        // Gallery items (`gallery(...)`) — audience-shaped (see galleryAudience).
+        if (name === 'gallery') {
+            const { resolveGalleryFunction, } = await import('../gallery/serverRender.js');
+            const r = await resolveGalleryFunction(name, args, named, memo, opts.galleryAudience ?? 'site',);
             if (r !== UNRESOLVED) return r;
         }
 

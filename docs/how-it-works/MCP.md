@@ -263,7 +263,7 @@ Full field detail is in `describe_block_types`. Summary:
 | `group_item` | settings | **page-only** — one slot; `width`/`height`/`alignSelf` |
 | `spacer` | settings | `height` (default `60px`) |
 | `post` | settings | **deprecated** — use `post_list` with one pinned id |
-| `gallery` | settings | **deprecated** — use multi-image `image` |
+| `gallery` | settings | `source` (`items`/`query`), `itemIds`, `query` (`{ type, tag, search, sort, limit }`), `desktop`/`mobile` layout (`layout` grid/row/column/carousel/stage, `columns`, `itemsPerPage`, …), `autoplay`, `open` — needs the `gallery` feature |
 
 Container: `content` = fields go in the HTML body; `settings` = fields go in the
 block's settings (pages) / `data` bag (posts). Deprecated types cannot be created.
@@ -424,7 +424,7 @@ Footer items do not support `children` (footer links are flat).
   `isError: true` and a JSON payload: `{ error, message, code?, status?, details?,
   cascade? }`. `ValidationError` carries `details.errors[]`; `FeatureCascadeError`
   carries the plan on `cascade` — the agent can self-correct from these.
-- **Deprecated / page-only blocks are rejected:** `post`/`gallery` can't be
+- **Deprecated / page-only blocks are rejected:** `post` can't be
   created; `group`/`group_item` are rejected on post targets.
 - **`path` xor `url`** — `upload_media` and `upload_font` require **exactly one** of
   `path` or `url`. Same for `get_page`/`get_post` (`id` xor `slug`).

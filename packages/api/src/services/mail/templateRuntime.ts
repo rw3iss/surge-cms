@@ -22,7 +22,11 @@ import {
     DISCUSSION_LIST_KIND,
     type DiscussionItem,
     FORUM_THREAD_KIND,
+    GALLERY_ITEM_KIND,
+    GALLERY_LIST_KIND,
+    type GalleryItem,
     entityRef,
+    galleryDisplayFrom,
     hasTemplateSyntax,
     renderTemplateToString,
     type TemplateRuntime,
@@ -31,6 +35,7 @@ import { logger, } from '../../utils/logger';
 import { escapeHtml, } from './blocks/_util';
 import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
+import { galleryEmailHtml, } from '../gallery/render';
 
 /** Site origin for absolute links in email (`https://site`), no trailing slash. */
 const siteBase = (): string => String(config.frontendUrl ?? '',).replace(/\/+$/, '',);
@@ -54,7 +59,7 @@ const MAIL_SINGLE_KINDS: ReadonlySet<string> = new Set([
 /** Flatten a whole-entity ref (`{{campaign('id')}}` with no property) to a
  *  small inline HTML fragment. Emails aren't interactive, so a title +
  *  short blurb is all we can meaningfully render. */
-function entityToMailHtml(kind: string, data: Rec | null,): string {
+function entityToMailHtml(kind: string, data: Rec | null, options?: Record<string, unknown>,): string {
     if (!data) return '';
     const g = (k: string,): string => escapeHtml(String(data[k] ?? '',),);
     switch (kind) {
@@ -79,6 +84,18 @@ function entityToMailHtml(kind: string, data: Rec | null,): string {
             return discussionListHtml(data as unknown as DiscussionItem[], siteBase(),);
         case FORUM_THREAD_KIND:
             return forumThreadHtml(data, siteBase(),);
+        // `{{gallery(...)}}` — an email-safe table grid of PUBLIC media
+        // (the runtime resolves with the `email` audience).
+        case GALLERY_LIST_KIND:
+        case GALLERY_ITEM_KIND: {
+            const items = kind === GALLERY_ITEM_KIND ? [data as unknown as GalleryItem,] : (data as unknown as GalleryItem[]);
+            const d = galleryDisplayFrom(options ?? {},);
+            return galleryEmailHtml(items, siteBase(), {
+                // Email default is 3 across (the block default of 4 is cramped in a 600px inbox).
+                columns: kind === GALLERY_ITEM_KIND ? 1 : (options?.columns != null ? (d.desktop?.columns ?? 3) : 3),
+                showTitles: d.showTitles, showCaptions: d.showCaptions, radius: d.radius,
+            },);
+        }
         default: {
             const title = g('title',) || g('name',);
             return title ? `<strong>${title}</strong>` : '';
@@ -98,7 +115,7 @@ function buildMailRuntime(context: Rec,): TemplateRuntime {
         return entityRef(name, data, ref,);
     };
 
-    return buildBackendRuntime({ context, singleKinds: MAIL_SINGLE_KINDS, resolveExtra, },);
+    return buildBackendRuntime({ context, singleKinds: MAIL_SINGLE_KINDS, resolveExtra, galleryAudience: 'email', },);
 }
 
 /**
@@ -113,7 +130,7 @@ export async function resolveMailTemplate(
     if (!src || !hasTemplateSyntax(src,)) return src ?? '';
     try {
         const rt = buildMailRuntime(context,);
-        return await renderTemplateToString(src, rt, (kind, data,) => entityToMailHtml(kind, data as Rec | null,),);
+        return await renderTemplateToString(src, rt, (kind, data, options,) => entityToMailHtml(kind, data as Rec | null, options,),);
     } catch (e) {
         logger.warn('Mail template resolution failed', { error: (e as Error).message, },);
         return src;

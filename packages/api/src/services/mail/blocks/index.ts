@@ -19,6 +19,7 @@ import { applyInlineRules, planCustomCss, } from './customCss';
 import { renderDocument, } from './document';
 import { renderEvent, } from './event';
 import { renderForm, } from './form';
+import { renderGallery, } from './gallery';
 import { renderGroup, } from './group';
 import { renderHero, } from './hero';
 import { renderHtml, } from './html';
@@ -107,8 +108,9 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     // group_item is rendered inline by the parent group; calling it
     // directly is a no-op.
     group_item: () => '',
-    // gallery is legacy (folded into image). Try the image renderer.
-    gallery: renderImage,
+    // Gallery block: a table grid of PUBLIC media, resolved ahead of time by
+    // `expandDynamicBlocks` (the emitter is synchronous).
+    gallery: renderGallery,
     // `entity` and `template` don't carry content of their own — they point at
     // a content-block template (and, for `entity`, the record to bind). That
     // needs DB reads, which this synchronous emitter cannot do, so

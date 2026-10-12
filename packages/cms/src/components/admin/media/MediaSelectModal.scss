@@ -276,6 +276,46 @@
     }
   }
 
+  // Multi-select: picked / unavailable cards + the select button states.
+  &__card--picked {
+    outline: 2px solid var(--site-primary, #{$primary-color});
+    outline-offset: -2px;
+  }
+
+  &__card--disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &__select-btn--picked {
+    background: $success-color;
+
+    &:hover {
+      background: color-mix(in srgb, #{$success-color} 88%, black);
+    }
+  }
+
+  &__select-btn:disabled {
+    background: $background-dark;
+    color: $text-light;
+    cursor: default;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-lg;
+    border-top: 1px solid $border-color;
+    flex-shrink: 0;
+  }
+
+  &__footer-count {
+    margin-right: auto;
+    font-size: $font-size-sm;
+    color: $text-light;
+  }
+
   &__pagination {
     display: flex;
     align-items: center;

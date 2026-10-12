@@ -10,6 +10,7 @@ import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import EntityBlockEdit from './types/EntityBlock';
+import GalleryBlockEdit from './types/GalleryBlockEdit';
 import TemplateBlockEdit from './types/TemplateBlock';
 import DocumentBlock from './types/DocumentBlock';
 import FormBlock from './types/FormBlock';
@@ -456,7 +457,7 @@ const BlockContentForm: Component<{
             <PostListBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'gallery'}>
-            <ReferenceBlockEdit data={props.block.data} onUpdate={props.onUpdate} label="Gallery" idField="galleryId" />
+            <GalleryBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
         </Match>
         <Match when={props.block.type === 'spacer'}>
             <SpacerBlockEdit data={props.block.data} onUpdate={props.onUpdate} />

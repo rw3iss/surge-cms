@@ -1,0 +1,66 @@
+// Public gallery page + item page (pages/gallery/*).
+.gallery-page {
+  &__head {
+    margin-bottom: 20px;
+
+    h1 { margin: 0 0 8px; }
+  }
+
+  &__intro { color: var(--site-text-muted, #6b7280); max-width: 70ch; }
+  &__loading { color: var(--site-text-muted, #6b7280); }
+  &__gate { margin: 24px 0; }
+
+  &__more {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+}
+
+.gallery-item-page {
+  &__nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: .9rem;
+
+    a { color: var(--site-link, var(--site-primary, #e63946)); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  }
+
+  &__pn { display: inline-flex; gap: 16px; }
+
+  &__figure {
+    margin: 0;
+
+    > img {
+      display: block;
+      max-width: 100%;
+      max-height: 80vh;
+      margin: 0 auto;
+      border-radius: var(--site-radius, 8px);
+    }
+  }
+
+  &__meta {
+    max-width: 70ch;
+    margin: 16px auto 0;
+
+    h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  }
+
+  &__caption { margin: 0 0 6px; }
+  &__credits { margin: 0; font-size: .85rem; font-style: italic; color: var(--site-text-muted, #6b7280); }
+  &__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+
+  &__tag {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: var(--site-border, #eee);
+    font-size: .8rem;
+  }
+
+  &__comments { max-width: 760px; margin: 32px auto 0; }
+}

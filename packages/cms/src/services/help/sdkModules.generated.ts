@@ -1018,6 +1018,63 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "gallery",
+        "className": "GalleryModule",
+        "summary": "/gallery — published media (feature `gallery`; 404s when it is off). Public reads are gated per viewer: the gallery's access rule and each item's own visibility. `list()` takes the shared GalleryQuery (type, tag, search, ids, sort, limit, page) — the same query `{{gallery(...)}}` and the Gallery content block use.",
+        "methods": [
+            {
+                "name": "admin.items",
+                "signature": "admin.items(): Promise<GalleryAdminItemsResponse>",
+                "summary": "Every item in gallery order, incl. ones whose media was deleted (`media: null`)."
+            },
+            {
+                "name": "admin.mediaLinks",
+                "signature": "admin.mediaLinks(mediaIds: string[]): Promise<Record<string, string>>",
+                "summary": "Which of these media are already in the gallery: media id → item id."
+            },
+            {
+                "name": "admin.publish",
+                "signature": "admin.publish(body: GallerySyncBody): Promise<GallerySyncResponse>",
+                "summary": "Publish the draft: ordered items to keep (existing `id` / new `mediaId`) + removals (`deleteMedia` also deletes the media)."
+            },
+            {
+                "name": "admin.remove",
+                "signature": "admin.remove(id: string, opts: { deleteMedia?: boolean; } = {}): Promise<GalleryRemoveResponse>",
+                "summary": "Remove an item; `deleteMedia: true` also deletes its media from the library."
+            },
+            {
+                "name": "admin.update",
+                "signature": "admin.update(id: string, body: GalleryItemUpdateBody): Promise<GalleryItem>",
+                "summary": ""
+            },
+            {
+                "name": "config",
+                "signature": "config(): Promise<GalleryPublicConfig>",
+                "summary": "GET /gallery/config — title, route, appearance, and whether THIS viewer may open the gallery."
+            },
+            {
+                "name": "item",
+                "signature": "item(id: string): Promise<GalleryItem>",
+                "summary": "GET /gallery/items/:id — one item (404 when hidden from the viewer or its media is gone)."
+            },
+            {
+                "name": "list",
+                "signature": "list(query: GalleryQuery = {}): Promise<GalleryListResult>",
+                "summary": "GET /gallery — items visible to the viewer. `ids` keeps the given order."
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<GallerySettings>",
+                "summary": "GET /gallery/settings (staff)."
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: GallerySettingsBody): Promise<GallerySettings>",
+                "summary": "PUT /gallery/settings (admin, `gallery.settings:manage`)."
+            }
+        ]
+    },
+    {
         "namespace": "health",
         "className": "HealthModule",
         "summary": "/health namespace (public) — liveness/readiness probes. All probes pass `cache: false` so they always reflect the live process state. `detailed` and `ready` answer 503 when degraded; read the HTTP status for liveness.",
@@ -2983,5 +3040,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 49;
-export const SDK_METHOD_COUNT = 524;
+export const SDK_MODULE_COUNT = 50;
+export const SDK_METHOD_COUNT = 534;

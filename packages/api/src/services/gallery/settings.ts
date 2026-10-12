@@ -84,6 +84,7 @@ export async function updateSettings(patch: Partial<GallerySettings>, ctx: Audit
     };
     await settingsService.set(SETTINGS_KEY, next, ctx,);
     await cache.invalidateGalleryCache();
+    await cache.invalidateSitemapCache();
     return next;
 }
 

@@ -5,7 +5,7 @@
  * is how gated content can never leak through its comments.
  */
 import type { PoolClient, } from 'pg';
-import type { CommentTargetRef, } from '@sitesurge/types';
+import type { CommentTargetRef, CommentThreadSettings, } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../../core/errors';
 import type { FeatureKey, } from '../../features/registry';
 import { isFeatureEnabledServer, } from '../settings';
@@ -43,6 +43,12 @@ export interface CommentTarget {
     onCountChange?(client: PoolClient, targetId: string, delta: number, comment: { isOpening: boolean; createdAt: Date; authorId: string | null; },): Promise<void>;
     /** Nightly: recompute the target's counters from the comment rows. */
     reconcile?(): Promise<void>;
+    /**
+     * The item's EFFECTIVE switches, for a target whose on/anonymous rule is
+     * not the `comment_threads` row (e.g. a gallery item: its own switch, else
+     * the gallery default). Receives the stored row (counts, lock).
+     */
+    resolveThread?(targetId: string, stored: CommentThreadSettings,): Promise<CommentThreadSettings>;
 }
 
 const registry = new Map<string, CommentTarget>();

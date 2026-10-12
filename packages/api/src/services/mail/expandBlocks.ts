@@ -21,6 +21,7 @@ import * as contentBlockTemplates from '../../repositories/contentBlockTemplates
 import * as socialFeed from '../socialFeed';
 import * as entitiesService from '../entities';
 import { logger, } from '../../utils/logger';
+import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
 
 /** The flat block shape the mail renderer's tree builder consumes. */
@@ -249,7 +250,7 @@ export async function expandDynamicBlocks(
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social')
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social' || b.blockType === 'gallery')
             && !done.has(b.id,),
     );
     if (pending.length === 0) return blocks;
@@ -293,6 +294,12 @@ export async function expandDynamicBlocks(
                     const idx = out.findIndex((b,) => b.id === block.id);
                     if (idx >= 0) out[idx] = { ...out[idx], settings: resolved, };
                 }
+            } else if (block.blockType === 'gallery') {
+                // Not an expansion either: the block's items (public media only —
+                // the in-site gate never applies to an inbox) ride on its settings.
+                const items = await resolveGalleryBlockItems(block.settings as never, 'email',);
+                const idx = out.findIndex((b,) => b.id === block.id);
+                if (idx >= 0) out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
             } else if (block.blockType === 'template') {
                 const templateId = block.settings.templateId as string | undefined;
                 if (!templateId) continue;

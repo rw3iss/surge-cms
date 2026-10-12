@@ -9,7 +9,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -42,6 +42,7 @@ export const FEATURES: FeatureConfig[] = [
     { key: 'discussions',   label: 'Discussions (engine)', description: 'Shared engine for Comments and the Forum.', requires: ['users',], hidden: true, },
     { key: 'comments',      label: 'Comments',      description: 'Comments on posts and events: replies, reactions, editing, moderation; optional anonymous comments.', requires: ['discussions',], },
     { key: 'forum',         label: 'Forum',         description: 'A members\' forum: categories, threads and replies, with its own admin section and settings.', requires: ['discussions',], },
+    { key: 'gallery',       label: 'Gallery',       description: 'Publish media from the library to a public gallery page, with comments, a Gallery content block and {{gallery()}}.', },
     { key: 'video',         label: 'Video hosting', description: 'Large video uploads to object storage, adaptive HLS encoding, teasers, private (encrypted) playback.', },
 ];
 

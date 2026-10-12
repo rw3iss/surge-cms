@@ -270,6 +270,7 @@ export async function update(id: string, patch: GalleryItemPatch, ctx: AuditCont
         if (!r.rowCount) throw new NotFoundError('Gallery item',);
     }
     await cache.invalidateGalleryCache();
+    await cache.invalidateSitemapCache();
     await logAudit({ userId: ctx.userId, action: 'gallery_item_update', entityType: 'gallery_item', entityId: id, newValues: p as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     const item = await get(id, { audience: 'admin', },);
     if (!item) throw new NotFoundError('Gallery item',);
@@ -284,6 +285,7 @@ export async function remove(id: string, deleteMedia: boolean, ctx: AuditContext
     let mediaDeleted = false;
     if (deleteMedia && r.rows[0].media_id) mediaDeleted = await deleteMediaQuietly(r.rows[0].media_id, ctx,);
     await cache.invalidateGalleryCache();
+    await cache.invalidateSitemapCache();
     await logAudit({ userId: ctx.userId, action: 'gallery_item_remove', entityType: 'gallery_item', entityId: id, newValues: { deleteMedia, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return { removed: true, mediaDeleted, };
 }
@@ -371,6 +373,7 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
     let mediaDeleted = 0;
     for (const id of mediaToDelete) if (await deleteMediaQuietly(id, ctx,)) mediaDeleted += 1;
     await cache.invalidateGalleryCache();
+    await cache.invalidateSitemapCache();
     await logAudit({
         userId: ctx.userId, action: 'gallery_publish', entityType: 'gallery', entityId: undefined,
         newValues: { added, updated, removed: removedCount, mediaDeleted, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,

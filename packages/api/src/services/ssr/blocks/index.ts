@@ -21,6 +21,7 @@ import { renderDocument, } from './document';
 import { renderUrlLink, } from './urlLink';
 import { renderEventBlock, } from './event';
 import { renderVideo, } from './video';
+import { renderGalleryBlock, } from './gallery';
 
 export interface SsrBlockInput {
     type: string;
@@ -85,7 +86,9 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     social: notIndexable,
     post_list: notIndexable,
     carousel: notIndexable,
-    gallery: notIndexable,
+    // Figures of the items resolved for the anonymous visitor by the SSR
+    // pre-pass (preResolveGalleryBlocks in ssr/routes).
+    gallery: renderGalleryBlock,
     campaign: notIndexable,
     // An events block carries title/date/location — strong local-relevance
     // signal, so it IS indexed rather than treated as a dynamic shell.

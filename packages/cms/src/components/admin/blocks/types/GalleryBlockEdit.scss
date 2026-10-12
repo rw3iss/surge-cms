@@ -1,0 +1,118 @@
+// Gallery block editor (components/admin/blocks/types/GalleryBlockEdit.tsx).
+.gallery-block-edit {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__source {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: .85rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm $spacing-md;
+  }
+
+  &__picked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__chip {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    overflow: hidden;
+    background: var(--admin-bg-subtle, #{$background-dark});
+
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+
+  &__missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: .7rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__chip-actions {
+    position: absolute;
+    inset: auto 0 0;
+    display: flex;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, .55);
+    opacity: 0;
+    transition: opacity .15s ease;
+
+    button {
+      flex: 1;
+      padding: 2px 0;
+      border: 0;
+      background: none;
+      color: #fff;
+      cursor: pointer;
+
+      &:disabled { opacity: .3; cursor: default; }
+    }
+  }
+
+  &__chip:hover &__chip-actions,
+  &__chip:focus-within &__chip-actions { opacity: 1; }
+
+  &__bp {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+
+    button {
+      padding: 6px 14px;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-size: .85rem;
+      cursor: pointer;
+
+      &.is-active { background: $primary-color; color: #fff; }
+    }
+  }
+
+  &__bp-hint { margin: -8px 0 0; font-size: .8rem; }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: $spacing-sm $spacing-md;
+  }
+
+  &__section-title {
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__toggles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm $spacing-lg;
+  }
+}

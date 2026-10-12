@@ -66,6 +66,31 @@ async function forumSitemapRows(): Promise<Array<{ slug: string; c_slug: string;
     }
 }
 
+/**
+ * Public gallery URLs (index + items), or null when the gallery is off or not
+ * publicly readable. Items come from the ANONYMOUS list, so gated items and
+ * items whose media is gone are never listed.
+ */
+async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url: string; updatedAt: string; }>; } | null> {
+    try {
+        const on = await query<{ value: unknown; }>(`SELECT value FROM site_settings WHERE key = 'gallery_enabled'`,);
+        const v = on.rows[0]?.value;
+        if (!(v === true || v === 'true')) return null;
+        const g = await import('./gallery/index.js');
+        const cfg = await g.publicConfig(null,);
+        if (!cfg.canView) return null;
+        const items: Array<{ url: string; updatedAt: string; }> = [];
+        for (let page = 1; page <= 25; page += 1) {
+            const r = await g.list({ limit: 200, page, }, { viewer: null, },);
+            items.push(...r.items.map((i,) => ({ url: i.url, updatedAt: i.updatedAt, })),);
+            if (r.items.length < 200) break;
+        }
+        return { base: cfg.baseUrl, items, };
+    } catch {
+        return null;
+    }
+}
+
 export async function buildSitemap(): Promise<string> {
     const [pagesResult, postsResult, campaignsResult, formsResult,] = await Promise.all([
         query<SitemapRow>(
@@ -137,6 +162,13 @@ export async function buildSitemap(): Promise<string> {
     if (forum) {
         addUrl(`${SITE_URL}/forum`, undefined, 'daily', 0.6,);
         for (const t of forum) addUrl(`${SITE_URL}/forum/${t.c_slug}/${t.slug}`, t.updated_at, 'weekly', 0.5,);
+    }
+
+    // Gallery: only when on and publicly readable (anonymous list).
+    const gallery = await gallerySitemapRows();
+    if (gallery) {
+        addUrl(`${SITE_URL}${gallery.base}`, undefined, 'weekly', 0.5,);
+        for (const i of gallery.items) addUrl(`${SITE_URL}${i.url}`, i.updatedAt, 'monthly', 0.4,);
     }
 
     xml += '</urlset>';

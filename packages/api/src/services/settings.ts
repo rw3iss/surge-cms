@@ -219,6 +219,7 @@ export async function computePublicFeatures(
         discussions: { enabled: featureOn('discussions',), },
         comments: { enabled: featureOn('comments',), },
         forum: { enabled: featureOn('forum',), },
+        gallery: { enabled: featureOn('gallery',), },
     };
 }
 

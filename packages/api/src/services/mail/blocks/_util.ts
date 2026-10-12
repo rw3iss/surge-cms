@@ -103,7 +103,7 @@ export function cellStyleFromBlock(
     // the cell for other block types.)
     if (s.width) out.width = String(s.width,);
     if (s.height) out.height = String(s.height,);
-    if (s.maxWidth && node.blockType !== 'image' && node.blockType !== 'gallery') {
+    if (s.maxWidth && node.blockType !== 'image') {
         out['max-width'] = String(s.maxWidth,);
     }
 

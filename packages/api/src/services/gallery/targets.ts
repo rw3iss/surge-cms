@@ -44,6 +44,12 @@ registerCommentTarget({
         const s = await getCommentsSettings();
         return s.approveAll || (isGuest && s.approveAnonymous);
     },
+    async resolveThread(id, stored,) {
+        const item = await get(id, { audience: 'admin', },);
+        if (!item || !(await isFeatureEnabledServer('gallery',))) return { ...stored, enabled: false, allowAnonymous: false, };
+        const s = await getSettings();
+        return { ...stored, enabled: pick(item.comments, s.commentsEnabled,), allowAnonymous: pick(item.anonymousComments, s.allowAnonymousComments,), };
+    },
     onCountChange: (client, id, delta,) => threads.bump(client, 'gallery_item', id, delta,),
     reconcile: () => threads.reconcile('gallery_item',),
 },);

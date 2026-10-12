@@ -98,7 +98,7 @@ describe('add_page_block', () => {
 
     it('rejects a deprecated block type', async () => {
         const { ctx, } = mockCtx();
-        await expect(call(tool('add_page_block',), { pageId: 'p1', type: 'gallery', }, ctx,),).rejects.toThrow(/deprecated/,);
+        await expect(call(tool('add_page_block',), { pageId: 'p1', type: 'post', }, ctx,),).rejects.toThrow(/deprecated/,);
     },);
 },);
 

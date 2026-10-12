@@ -1063,4 +1063,188 @@ const room = await cms.posts.liveState(id);               // live room state`,
     ],
 };
 
+export const GALLERY_DOC: SdkDoc = {
+    id: 'gallery',
+    path: '/admin/help/gallery',
+    title: 'Gallery',
+    lead:
+        'Publish images and videos from the Media library to a public gallery page, with comments, a Gallery content '
+        + 'block and the {{gallery()}} template function. A gallery item is a published media item: one item per '
+        + 'media, and removing an item never deletes the media unless you ask it to.',
+    sections: [
+        {
+            heading: 'Turn it on',
+            blocks: [
+                {
+                    list: [
+                        'Settings → Features → Gallery. A Gallery item appears in the admin sidebar.',
+                        'The public page is at /gallery (change it in Gallery → Settings → Route). Each item has its own page at /gallery/<item id>.',
+                        'Commenting on items needs the Comments feature as well.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Managing items (draft, then Publish)',
+            blocks: [
+                {
+                    list: [
+                        'Gallery shows every item in a media grid, in gallery order. Drag to reorder.',
+                        'Add existing media: pick images (and videos, when videos are on) from the Media library.',
+                        'Upload new: choose one or more files. They show at once as local previews; the upload happens when you Publish, '
+                        + 'and every uploaded file is added to the Media library AND to the gallery.',
+                        'Every change — added, removed, reordered, edited — is a DRAFT until you press Publish. Leave without publishing '
+                        + 'and nothing changes on the site.',
+                        'Removing an item asks whether to also delete the media from the library. By default the media stays.',
+                        'If a media item is deleted from the library, its gallery item stays in the admin (marked "media missing") '
+                        + 'but is hidden from the public (404) until you remove it.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Item options',
+            blocks: [
+                {
+                    table: [
+                        ['Option', 'Values', 'Default',],
+                        ['Title / Caption', 'Your own text, or empty to use the media\'s title / description', 'The media\'s',],
+                        ['Tags', 'Free words — query by them in the block and {{gallery(tag=...)}}', 'None',],
+                        ['Visibility', 'Inherit · Public · Members (signed in) · Tier (a subscription tier and above)', 'Inherit (the gallery\'s access)',],
+                        ['Comments', 'Inherit · On · Off', 'Inherit (Gallery settings)',],
+                        ['Anonymous comments', 'Inherit · On · Off', 'Inherit (Gallery settings)',],
+                    ],
+                },
+                {
+                    p: 'An item\'s own visibility REPLACES the gallery default for that item — a Public item in a members-only '
+                        + 'gallery can still be shown in a Gallery block on a public page. Staff always see everything.',
+                },
+            ],
+        },
+        {
+            heading: 'Settings',
+            blocks: [
+                {
+                    list: [
+                        'General: title, description (Markdown), route (one path segment; reserved routes and existing page slugs are refused).',
+                        'Access: Public · Members · Tier (with the tier). This is who may open the gallery page, and the default for items.',
+                        'Videos: allow videos in the gallery (on by default). Off hides video items from the public and from the picker.',
+                        'Comments: on/off and anonymous comments by default (each item can override). Approval follows Comments → Settings.',
+                        'Appearance: layout (grid, masonry, carousel, stage), what a click does (lightbox, the item page, nothing), '
+                        + 'thumbnail size, spacing, aspect ratio, fit, corner radius, page gutter / padding / max width (the site\'s or your own), '
+                        + 'titles, captions, hover zoom, items per page, video badge.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'The Gallery content block',
+            blocks: [
+                {
+                    list: [
+                        'Add block → Media → Gallery (shown while the Gallery feature is on).',
+                        'Source: specific items (pick them; their order is kept) or a query (type, tag, sort, limit) — the same '
+                        + 'select / configure-query modal entity blocks use.',
+                        'Layouts: grid, row (horizontal carousel), column (vertical list), carousel, stage (a large item over a strip).',
+                        'Per layout: columns, items per page, scroll by, gap, item width / height, aspect, fit, rows. Mobile (≤768px) '
+                        + 'has its own values; each falls back to the desktop value when empty.',
+                        'Row / carousel: autoplay with an interval (seconds), pause on hover, loop, arrows, dots.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: '{{gallery(...)}} in content',
+            blocks: [
+                {
+                    code: `{{gallery('<item id>')}}                       one item (the image or video)
+{{gallery('<item id>').media.url}}             one property of it
+{{gallery(8)}}                                 the first 8 items, as a grid
+{{gallery('video', 4)}}                        4 videos
+{{gallery(type='image', tag='featured', sort='newest', limit=12)}}
+{{gallery(layout='grid', columns=4, gap='8px', aspect='square', mobileColumns=2)}}
+{{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4, mobileItemsPerPage=1)}}
+{{gallery(limit=6, titles=true, captions=true, open='page')}}
+
+{{for gallery(tag='events', limit=6) as g}}
+  <a href="{{g.url}}"><img src="{{g.media.thumbnailUrl}}" alt="{{g.title}}"></a>
+{{endfor}}`,
+                },
+                {
+                    table: [
+                        ['Query args', 'Display args',],
+                        ['type (image | video | all), tag, search, sort (order | newest | oldest | title | random), limit, page, ids',
+                            'layout (grid | row | column | carousel | stage), columns, itemsPerPage, scrollBy, rows, gap, itemWidth, itemHeight, '
+                            + 'aspect, fit, autoplay, interval, loop, arrows, dots, titles, captions, open (lightbox | page | none), radius, '
+                            + 'and mobile* versions of the layout keys (mobileLayout, mobileColumns, mobileItemsPerPage, …)',],
+                    ],
+                },
+                {
+                    p: 'Item properties: id, title, caption, url (its page), tags, commentCount, createdAt, and media.{url, thumbnailUrl, '
+                        + 'type, width, height, alt, credits, accessLevel}. Always quote ids and strings.',
+                },
+            ],
+        },
+        {
+            heading: 'Email and other public places',
+            blocks: [
+                {
+                    note: 'Visibility gates the SITE (the gallery page, blocks, {{gallery()}} on pages). In an EMAIL — a newsletter, a '
+                        + 'mail template — a gallery item shows whenever its MEDIA is public, using the media\'s own CDN URL, even if '
+                        + 'the item itself is members-only. Private media (private videos) never appears in an email.',
+                },
+                {
+                    p: 'In email a gallery renders as a table grid (3 across by default; a Gallery block uses its layout: grid columns, '
+                        + 'row/carousel items per page side by side, column/stage one per row). A video shows its poster image linked to '
+                        + 'its page with "▶ Watch". There is no autoplay, lightbox or arrows in an inbox.',
+                },
+            ],
+        },
+        {
+            heading: 'SDK',
+            blocks: [
+                {
+                    code: `const cfg = await cms.gallery.config();            // title, route, appearance, canView for this viewer
+const { items, total } = await cms.gallery.list({ type: 'image', tag: 'featured', sort: 'newest', limit: 12 });
+const item = await cms.gallery.item(id);
+
+// staff (gallery:manage)
+const all = await cms.gallery.admin.items();           // incl. items whose media is gone (media: null)
+await cms.gallery.admin.publish({
+  items: [{ id: 'existing-id' }, { mediaId: 'new-media-id', tags: ['featured'] }],   // in gallery order
+  remove: [{ id: 'old-id', deleteMedia: false }],
+});
+await cms.gallery.admin.update(id, { visibility: 'members', comments: 'on' });
+await cms.gallery.admin.remove(id, { deleteMedia: true });
+const links = await cms.gallery.admin.mediaLinks(mediaIds); // media id → item id
+
+// admin (gallery.settings:manage)
+await cms.gallery.updateSettings({ baseUrl: '/photos', access: 'members', allowVideos: true });`,
+                },
+                {
+                    p: 'gallery_item is also a read-only entity type, so entity blocks and carousel entity items can render gallery '
+                        + 'items through a content-block template ({{gallery_item.media.url}}), queried by type, tag and sort.',
+                },
+            ],
+        },
+        {
+            heading: 'Permissions',
+            blocks: [
+                {
+                    table: [
+                        ['Permission', 'What', 'Default',],
+                        ['gallery:view', 'View the gallery (then the gallery / item access rules apply)', 'Everyone',],
+                        ['gallery:manage', 'Publish media, edit, reorder and remove items', 'Staff',],
+                        ['gallery.settings:manage', 'Route, access, comments and appearance', 'Admins',],
+                        ['gallery:comment', 'Comment on items where commenting is on', 'Members',],
+                    ],
+                },
+                {
+                    p: 'Guest comments also need comments:anonymous (Comments feature). Deleting media from the gallery also needs media:write.',
+                },
+            ],
+        },
+    ],
+};
+
 export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

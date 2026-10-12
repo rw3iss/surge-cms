@@ -22,6 +22,7 @@ import {
     truncateText,
 } from './schema';
 import { resolveContentForSsr, } from './templateRuntime';
+import { preResolveGalleryBlocks, } from '../gallery/serverRender';
 import { resolveStaticMeta, } from './staticMeta';
 import { gateFor, isHiddenFor, tiersById, } from '../postGate/index';
 import { samplePostContent, } from '../postGate/samples';
@@ -250,6 +251,8 @@ async function loadPageBlocks(
         ...b,
         content: await resolveContentForSsr(b.content, templateEntity,),
     })),);
+    // Gallery blocks: resolve their items (anonymous view) for the sync emitter.
+    flatBlocks = await preResolveGalleryBlocks(flatBlocks, 'site',);
     return assembleSsrBlockTree(flatBlocks,);
 }
 
@@ -305,10 +308,11 @@ async function loadPostBlocks(
         return [];
     }
 
-    return Promise.all(flat.map(async (b,) => ({
+    const resolved = await Promise.all(flat.map(async (b,) => ({
         ...b,
         content: await resolveContentForSsr(b.content, templateEntity,),
     })),);
+    return preResolveGalleryBlocks(resolved, 'site',);
 }
 
 /**
@@ -706,6 +710,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                 ...b,
                 content: await resolveContentForSsr(b.content, { page, },),
             })),);
+            flatBlocks = await preResolveGalleryBlocks(flatBlocks, 'site',);
             // Assemble the flat list into a tree so container blocks recurse.
             const blocks = assembleSsrBlockTree(flatBlocks,);
 

@@ -9,7 +9,7 @@
  */
 import {
     commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, FORUM_THREAD_KIND,
-    resolveValueFunction, UNRESOLVED,
+    GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
 } from '@sitesurge/types';
 import { cms, } from '../cmsClient';
 import { entityRef, type TemplateRuntime, } from './index';
@@ -157,6 +157,33 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
                 }
             });
             return entityRef(DISCUSSION_LIST_KIND, items as unknown as Record<string, unknown>);
+        }
+
+        // ── gallery(...) ── one item by id, or a query (type/tag/sort/limit …);
+        // render options (layout, columns, autoplay …) ride on the ref's
+        // `options` and are read by TemplatedContent. Gated to THIS viewer
+        // server-side. Feature off / error → empty.
+        const gc = galleryCallFor(name, args, named);
+        if (gc) {
+            if (gc.single) {
+                const id = gc.query.ids![0]!;
+                const item = await memo(`galleryItem:${id}`, async () => {
+                    try {
+                        return await cms.gallery.item(id);
+                    } catch {
+                        return null as GalleryItem | null;
+                    }
+                });
+                return entityRef(GALLERY_ITEM_KIND, item as unknown as Record<string, unknown> | null, id);
+            }
+            const items = await memo(`gallery:${JSON.stringify(gc.query)}`, async () => {
+                try {
+                    return (await cms.gallery.list(gc.query)).items ?? [];
+                } catch {
+                    return [] as GalleryItem[];
+                }
+            });
+            return entityRef(GALLERY_LIST_KIND, items as unknown as Record<string, unknown>);
         }
 
         switch (name) {
