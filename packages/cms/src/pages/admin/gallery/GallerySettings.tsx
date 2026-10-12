@@ -57,7 +57,8 @@ const GallerySettingsPage: Component = () => {
     const a = () => draft.s.appearance;
     const set = <K extends keyof GallerySettings,>(k: K, v: GallerySettings[K],) => setDraft('s', k as never, v as never,);
     const setA = <K extends keyof GalleryAppearance,>(k: K, v: GalleryAppearance[K],) => setDraft('s', 'appearance', k as never, v as never,);
-    const dirty = createMemo(() => !!loaded() && JSON.stringify(unwrap(draft.s,),) !== JSON.stringify(loaded(),));
+    // Stringify the store PROXY: `unwrap` reads the raw object WITHOUT tracking, so the memo never re-ran and Save stayed disabled.
+    const dirty = createMemo(() => !!loaded() && JSON.stringify(draft.s,) !== JSON.stringify(loaded(),));
     const commentsOn = () => isFeatureEnabled('comments',);
 
     onMount(async () => {

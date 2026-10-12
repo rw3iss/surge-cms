@@ -81,7 +81,8 @@ const GalleryAdmin: Component = () => {
     // ─── Draft persistence (localStorage) ───
     const autoSave = useAutoSave<DraftItem[]>({
         key: 'gallery-draft',
-        state: () => persistableDraft(JSON.parse(JSON.stringify(unwrap(draft.rows,),),),),
+        // Stringify the store PROXY (not unwrap) so every row field is tracked and edits trigger a save.
+        state: () => persistableDraft(JSON.parse(JSON.stringify(draft.rows,),),),
         enabled: () => ready() && dirty(),
     },);
     createEffect(() => {
