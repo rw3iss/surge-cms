@@ -4,6 +4,14 @@
     flex-wrap: wrap;
     gap: 8px;
 
-    // The global admin select style applies (same as every other field); only layout here.
-    select { flex: 1 1 200px; min-width: 0; width: auto; }
+    // These selects sit one level below .admin-form-field__control, so the
+    // canonical `> select` rule (forms.scss) misses them — apply the same two
+    // mixins so they match every other admin dropdown (e.g. Status).
+    > select {
+        @include admin-input;
+        @include admin-select-arrow;
+        flex: 1 1 200px;
+        min-width: 0;
+        width: auto;
+    }
 }
