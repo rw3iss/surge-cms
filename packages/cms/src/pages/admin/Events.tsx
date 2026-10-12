@@ -9,7 +9,7 @@
  */
 import type { CalendarEvent, EventOccurrence, } from '@sitesurge/types';
 import { A, useLocation, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createMemo, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import { MONTHS, yearOptions, } from '../../components/common/calendar/calendarGrid';
 import CalendarPage from '../../components/common/calendar/CalendarPage';
 import { cms, } from '../../services/cmsClient';
@@ -143,6 +143,10 @@ const AdminEvents: Component = () => {
         },);
     };
 
+    // Public calendar path (Settings → Events), for the "View Events" link.
+    const [eventsSettings,] = createResource(() => cms.events.settings().catch(() => null),);
+    const publicEventsUrl = () => eventsSettings()?.eventsUrl || '/events';
+
     return (
         <div class="admin-events admin-full-bleed">
             <AdminTitle>Events</AdminTitle>
@@ -150,6 +154,7 @@ const AdminEvents: Component = () => {
             <div class="admin-header">
                 <h1>Events</h1>
                 <div class="admin-header__actions">
+                    <a class="ui-button ui-button--ghost" href={publicEventsUrl()} target="_blank" rel="noopener">View Events ↗</a>
                     <A href="/admin/events/settings" class="ui-button ui-button--secondary">Event Settings</A>
                     <button
                         type="button"
