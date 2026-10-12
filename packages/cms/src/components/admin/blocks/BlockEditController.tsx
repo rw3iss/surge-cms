@@ -1,4 +1,4 @@
-import { batch, Component, createSignal, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { batch, Component, createSignal, ErrorBoundary, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
 import { clearStyleDraft, setStyleDraft, } from '../../../stores/blockStyleDraft';
 import Toggle from '../common/Toggle';
@@ -411,11 +411,30 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     );
 };
 
-/** Routes to the correct edit form based on block type */
+/**
+ * Routes to the correct edit form based on block type.
+ *
+ * Wrapped in an ErrorBoundary: if a type's form throws while rendering (e.g.
+ * settings it does not expect), Solid would otherwise leave the PREVIOUS
+ * type's fields on screen with no sign of the failure — the "stuck" panel.
+ * The boundary shows what failed instead, and resets when the type changes
+ * (the panel is keyed on id + type).
+ */
 const BlockContentForm: Component<{
     block: BlockData;
     onUpdate: (data: Record<string, any>,) => void;
 }> = (props,) => (
+    <ErrorBoundary
+        fallback={(err,) => {
+            console.error('[BlockEditController] edit form failed', props.block.type, err,);
+            return (
+                <div class="alert alert--error">
+                    The {props.block.type} options could not be shown: {err instanceof Error ? err.message : String(err,)}. Try
+                    changing the block type again, or reload the page.
+                </div>
+            );
+        }}
+    >
     <Switch>
         <Match when={props.block.type === 'text' || props.block.type === 'rich_text'}>
             <TextBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
@@ -478,6 +497,7 @@ const BlockContentForm: Component<{
             />
         </Match>
     </Switch>
+    </ErrorBoundary>
 );
 
 export default BlockEditController;

@@ -115,6 +115,9 @@ const blockEquals = (a: BlockData | undefined, b: BlockData | undefined,): boole
         JSON.stringify({ d: b.data, s: b.styleRef, },);
 };
 
+/** Types whose data holds editable text `content` (carried over on a type change). */
+const TEXT_TYPES = new Set<BlockType>(['rich_text', 'text', 'html',],);
+
 const BlockEditor: Component<BlockEditorProps> = (props,) => {
     const [selectedBlockId, setSelectedBlockId,] = createSignal<string | null>(null,);
     const [flyoutSide, setFlyoutSide,] = createSignal<'left' | 'right'>('right',);
@@ -453,14 +456,24 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
 
     const blockTypes = () => props.blockTypes || getEnabledBlockTypeOptions();
 
+    /**
+     * Change a block's type. The block gets the NEW type's defaults (the same
+     * `createBlockDefaultData` a freshly inserted block gets) — previously its
+     * data was emptied to `{ content? }`, so e.g. an Entity Template block
+     * started with no configuration at all. Only text `content` carries over,
+     * and only into a type that edits text. The edit panel is keyed on
+     * id + type, so it re-mounts and shows the new type's options.
+     */
     const changeBlockType = (id: string, newType: BlockType,) => {
         emitBlocks(props.blocks.map(b => {
             if (b.id !== id) return b;
-            // Try to carry over compatible data
             const oldData = b.data || {};
-            const newData: Record<string, any> = {};
-            // Copy content if both types support it
-            if (oldData.content) newData.content = oldData.content;
+            const newData: Record<string, any> = { ...createBlockDefaultData(newType,), };
+            if (oldData.content && TEXT_TYPES.has(newType,)) newData.content = oldData.content;
+            // Block-level switches that are not type-specific survive the change.
+            for (const k of ['useDefaultPadding', 'disabled', '__styleRef',]) {
+                if (oldData[k] !== undefined) newData[k] = oldData[k];
+            }
             return { ...b, type: newType, data: newData, };
         },),);
     };
@@ -943,7 +956,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                     ''
             }`}>
                 {/* Inline flyout on the LEFT — keyed by block ID to force re-mount on switch */}
-                <Show when={selectedBlock() && flyoutMode() === 'inline' && flyoutSide() === 'left' ? selectedBlockId() : null} keyed>
+                <Show when={selectedBlock() && flyoutMode() === 'inline' && flyoutSide() === 'left' ? `${selectedBlockId()}:${selectedBlock()?.type}` : null} keyed>
                     {(_blockId,) => renderEditPanel()}
                 </Show>
 
@@ -1036,13 +1049,13 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                 </div>
 
                 {/* Inline flyout on the RIGHT — keyed by block ID */}
-                <Show when={selectedBlock() && flyoutMode() === 'inline' && flyoutSide() === 'right' ? selectedBlockId() : null} keyed>
+                <Show when={selectedBlock() && flyoutMode() === 'inline' && flyoutSide() === 'right' ? `${selectedBlockId()}:${selectedBlock()?.type}` : null} keyed>
                     {(_blockId,) => renderEditPanel()}
                 </Show>
             </div>
 
             {/* ─── Floating flyout (only when in float mode) — keyed by block ID ─── */}
-            <Show when={selectedBlock() && flyoutMode() === 'float' ? selectedBlockId() : null} keyed>
+            <Show when={selectedBlock() && flyoutMode() === 'float' ? `${selectedBlockId()}:${selectedBlock()?.type}` : null} keyed>
                 {(_blockId,) => renderEditPanel()}
             </Show>
         </div>
