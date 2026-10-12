@@ -63,7 +63,7 @@ vi.mock('../mailTemplates', () => ({
 }),);
 const audit = vi.fn();
 vi.mock('../audit', () => ({ logAudit: (...a: unknown[]) => audit(...a,), }),);
-vi.mock('../../utils/logger', () => ({ logger: { warn: vi.fn(), debug: vi.fn(), }, }),);
+vi.mock('../../utils/logger', () => ({ logger: { warn: vi.fn(), debug: vi.fn(), error: vi.fn(), info: vi.fn(), }, }),);
 
 const svc = await import('./index');
 const CTX = { userId: 'u1', ipAddress: '', userAgent: '', };
@@ -115,7 +115,7 @@ describe('donation source', () => {
         const res = await svc.send('donation', { ref: DREF, subject: 'Hello', message: 'Thank you', }, CTX,);
         expect(queries[0],).toEqual([D, C,],);
         expect(sent[0],).toMatchObject({ to: 'donor@x.co', subject: 'Hello', },);
-        expect(res,).toEqual({ sent: true, to: 'donor@x.co', },);
+        expect(res,).toMatchObject({ sent: true, to: 'donor@x.co', },);
         expect(audit,).toHaveBeenCalledWith(expect.objectContaining({ action: 'donation_reply', entityId: D, },),);
     },);
 

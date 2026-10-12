@@ -10,6 +10,8 @@ import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, getUserStatusBadge, } from '../../utils/badges';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import ExportMenu from '../../components/admin/common/ExportMenu';
+import ReplyActions from '../../components/admin/reply/ReplyActions';
+import { useReplySummaries, } from '../../components/admin/reply/useReplySummaries';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -39,6 +41,7 @@ const AdminUsers: Component = () => {
             sortOrder: sortOrder(),
         }),
     },);
+    const messages = useReplySummaries('user', () => (list.items() as any[]).map((u,) => u.id as string),);
 
     createEffect(() => {
         searchParams.search;
@@ -240,6 +243,23 @@ const AdminUsers: Component = () => {
                             >
                                 Manage
                             </button>
+                        ),
+                    },
+                    {
+                        header: 'Message',
+                        cell: (user: any,) => (
+                            // Stop the row's navigate — including clicks inside the
+                            // (portalled) modals, which bubble through this span.
+                            <span onClick={(e,) => e.stopPropagation()}>
+                                <ReplyActions
+                                    source="user"
+                                    subjectId={user.id}
+                                    record={{ userId: user.id, }}
+                                    summary={messages.get(user.id,)}
+                                    onChanged={messages.refetch}
+                                    kind="message"
+                                />
+                            </span>
                         ),
                     },
                 ]}

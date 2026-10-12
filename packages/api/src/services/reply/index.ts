@@ -22,8 +22,10 @@
  * The typed message may use `{{ }}` too ("Hi {{donation.name}}").
  */
 import { buildSiteVariables, } from '@sitesurge/types';
-import type { ReplyComposeBody, ReplySourceKey, ReplyTargetResponse, } from '@sitesurge/types';
-import { ValidationError, } from '../../core/errors';
+import type { ReplyComposeBody, ReplyRecord, ReplySourceKey, ReplySummaryResponse, ReplyTargetResponse, } from '@sitesurge/types';
+import { NotFoundError, ValidationError, } from '../../core/errors';
+import { query, } from '../../db';
+import { uuidOrNull, } from '../../utils/uuid';
 import { escapeHtml, } from '../../utils/html';
 import { logger, } from '../../utils/logger';
 import { logAudit, } from '../audit';
@@ -163,6 +165,11 @@ export async function send(sourceKey: string, input: ReplyComposeBody, ctx: Audi
             if (attempt < 2) await sleep(800,);
         }
     }
+    // Recorded either way: a failed reply is history too ("we tried, it bounced").
+    // Store who it actually came from (the default sender when none was typed).
+    const sender = msg.fromName && msg.fromEmail ? null : await defaultSender().catch(() => null);
+    const recorded = { ...msg, fromName: msg.fromName ?? sender?.fromName, fromEmail: msg.fromEmail ?? sender?.fromEmail, };
+    const replyId = await record(source.key, t, input, recorded, lastErr ? (lastErr as Error).message || 'mail server error' : null, ctx.userId,);
     if (lastErr) throw new Error(`The reply could not be sent: ${(lastErr as Error).message || 'mail server error'}`,);
     await logAudit({
         userId: ctx.userId,
@@ -173,7 +180,97 @@ export async function send(sourceKey: string, input: ReplyComposeBody, ctx: Audi
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
-    return { sent: true as const, to: t.to, };
+    return { sent: true as const, to: t.to, replyId, };
+}
+
+// ─── Tracking ─────────────────────────────────────────────────────────────
+
+/** Store one reply attempt. Never throws — a failed insert must not hide a sent email. */
+async function record(
+    source: string, t: ReplyTarget, input: ReplyComposeBody,
+    msg: { subject: string; html: string; fromName?: string; fromEmail?: string; }, error: string | null, userId?: string,
+): Promise<string> {
+    try {
+        const r = await query<{ id: string; }>(
+            `INSERT INTO replies (source, subject_id, ref, recipient_email, recipient_name, subject, message, body_html,
+                                  template_id, from_name, from_email, status, error, sent_by)
+             VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+            [
+                source, t.audit.entityId, JSON.stringify(input.ref ?? {},), t.to, t.toName, msg.subject, input.message ?? '', msg.html,
+                input.templateId ?? null, msg.fromName ?? null, msg.fromEmail ?? null, error ? 'failed' : 'sent', error, uuidOrNull(userId,),
+            ],
+        );
+        return r.rows[0].id;
+    } catch (err) {
+        logger.error('reply: could not record the reply', { source, error: (err as Error).message, },);
+        return '';
+    }
+}
+
+interface ReplyRow {
+    id: string; source: string; subject_id: string; ref: Record<string, string>; recipient_email: string; recipient_name: string | null;
+    subject: string; message: string; body_html: string; template_id: string | null; from_name: string | null; from_email: string | null;
+    status: 'sent' | 'failed'; error: string | null; sent_by: string | null; sent_by_name: string | null; created_at: Date;
+}
+
+const ROW_SELECT = `SELECT r.*, u.display_name AS sent_by_name FROM replies r LEFT JOIN users u ON u.id = r.sent_by`;
+
+function mapReply(r: ReplyRow,): ReplyRecord {
+    return {
+        id: r.id,
+        source: r.source as ReplyRecord['source'],
+        subjectId: r.subject_id,
+        ref: r.ref ?? {},
+        to: r.recipient_email,
+        toName: r.recipient_name,
+        subject: r.subject,
+        message: r.message,
+        html: r.body_html,
+        templateId: r.template_id,
+        fromName: r.from_name,
+        fromEmail: r.from_email,
+        status: r.status,
+        error: r.error,
+        sentBy: r.sent_by ? { id: r.sent_by, name: r.sent_by_name ?? 'Staff', } : null,
+        createdAt: new Date(r.created_at,).toISOString(),
+    };
+}
+
+const UUID = /^[0-9a-f-]{36}$/i;
+
+/** Per-record roll-up for a page of table rows (ids with no reply are absent). */
+export async function summaries(sourceKey: string, ids: string[],): Promise<ReplySummaryResponse> {
+    getSource(sourceKey,);
+    const clean = [...new Set(ids.filter((i,) => UUID.test(i,)),),].slice(0, 500,);
+    if (!clean.length) return {};
+    const r = await query<{ subject_id: string; count: number; sent_count: number; last_at: Date; last_status: 'sent' | 'failed'; }>(
+        `SELECT subject_id, COUNT(*)::int AS count, COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
+                MAX(created_at) AS last_at,
+                (ARRAY_AGG(status ORDER BY created_at DESC))[1] AS last_status
+           FROM replies WHERE source = $1 AND subject_id = ANY($2::uuid[]) GROUP BY subject_id`,
+        [sourceKey, clean,],
+    );
+    const out: ReplySummaryResponse = {};
+    for (const row of r.rows) {
+        out[row.subject_id] = { count: row.count, sentCount: row.sent_count, lastAt: new Date(row.last_at,).toISOString(), lastStatus: row.last_status, };
+    }
+    return out;
+}
+
+/** Every reply to one record, newest first. */
+export async function history(sourceKey: string, subjectId: string,): Promise<ReplyRecord[]> {
+    getSource(sourceKey,);
+    if (!UUID.test(subjectId,)) throw new ValidationError('Invalid id.',);
+    const r = await query<ReplyRow>(`${ROW_SELECT} WHERE r.source = $1 AND r.subject_id = $2 ORDER BY r.created_at DESC`, [sourceKey, subjectId,],);
+    return r.rows.map(mapReply,);
+}
+
+/** One reply (for its permission check, the caller reads `.source`). */
+export async function getReply(id: string,): Promise<ReplyRecord> {
+    if (!UUID.test(id,)) throw new NotFoundError('Reply',);
+    const r = await query<ReplyRow>(`${ROW_SELECT} WHERE r.id = $1`, [id,],);
+    if (!r.rows[0]) throw new NotFoundError('Reply',);
+    return mapReply(r.rows[0],);
 }
 
 /** Permission key for a source — the route checks it before anything else. */

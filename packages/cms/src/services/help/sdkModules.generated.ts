@@ -2021,8 +2021,18 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     {
         "namespace": "replies",
         "className": "RepliesModule",
-        "summary": "replies namespace (staff) — the generic \"Reply by email\" procedure for a record someone submitted: a campaign `donation` (`ref: { campaignId, donationId }`) or a form `submission` (`ref: { formId, submissionId }`). The recipient is always the record's stored address.",
+        "summary": "replies namespace (staff) — the generic \"Reply by email\" procedure for a record someone submitted: a campaign `donation` (`ref: { campaignId, donationId }`) or a form `submission` (`ref: { formId, submissionId }`). The recipient is always the record's stored address. Every send (or failed send) is recorded: `summary` / `history` / `item` read that record.",
         "methods": [
+            {
+                "name": "history",
+                "signature": "history(source: ReplySourceKey, subjectId: string): Promise<ReplyHistoryResponse>",
+                "summary": "GET /replies/:source/:subjectId/history — every reply sent for one record, newest first."
+            },
+            {
+                "name": "item",
+                "signature": "item(id: string): Promise<ReplyItemResponse>",
+                "summary": "GET /replies/item/:id — one recorded reply."
+            },
             {
                 "name": "preview",
                 "signature": "preview(source: ReplySourceKey, body: ReplyComposeBody): Promise<ReplyPreviewResponse>",
@@ -2037,6 +2047,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "sender",
                 "signature": "sender(): Promise<ReplySenderResponse>",
                 "summary": "GET /replies/sender — the sender a reply starts with."
+            },
+            {
+                "name": "summary",
+                "signature": "summary(source: ReplySourceKey, ids: string[]): Promise<ReplySummaryResponse>",
+                "summary": "GET /replies/:source/summary?ids= — reply count + last status per subject id (max 500)."
             },
             {
                 "name": "target",
@@ -2954,4 +2969,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 49;
-export const SDK_METHOD_COUNT = 518;
+export const SDK_METHOD_COUNT = 521;

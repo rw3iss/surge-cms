@@ -1,5 +1,6 @@
 import type {
-    ReplyComposeBody, ReplyPreviewResponse, ReplyRef, ReplySendResponse, ReplySenderResponse, ReplySourceKey, ReplyTargetResponse,
+    ReplyComposeBody, ReplyHistoryResponse, ReplyItemResponse, ReplyPreviewResponse, ReplyRef, ReplySendResponse, ReplySenderResponse, ReplySourceKey,
+    ReplySummaryResponse, ReplyTargetResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -7,7 +8,8 @@ import { ModuleBase, } from './base';
  * replies namespace (staff) — the generic "Reply by email" procedure for a
  * record someone submitted: a campaign `donation` (`ref: { campaignId,
  * donationId }`) or a form `submission` (`ref: { formId, submissionId }`).
- * The recipient is always the record's stored address.
+ * The recipient is always the record's stored address. Every send (or failed
+ * send) is recorded: `summary` / `history` / `item` read that record.
  */
 export class RepliesModule extends ModuleBase {
     protected readonly module = 'replies';
@@ -30,5 +32,21 @@ export class RepliesModule extends ModuleBase {
     /** POST /replies/:source/send — email the reply. */
     send(source: ReplySourceKey, body: ReplyComposeBody,): Promise<ReplySendResponse> {
         return this.mutate<ReplySendResponse>('POST', '/replies/:source/send', { params: { source, }, body, },);
+    }
+
+    /** GET /replies/:source/summary?ids= — reply count + last status per subject id (max 500). */
+    summary(source: ReplySourceKey, ids: string[],): Promise<ReplySummaryResponse> {
+        if (!ids.length) return Promise.resolve({},);
+        return this.get<ReplySummaryResponse>('/replies/:source/summary', { params: { source, }, query: { ids: ids.join(',',), }, options: { cache: false, }, },);
+    }
+
+    /** GET /replies/:source/:subjectId/history — every reply sent for one record, newest first. */
+    history(source: ReplySourceKey, subjectId: string,): Promise<ReplyHistoryResponse> {
+        return this.get<ReplyHistoryResponse>('/replies/:source/:subjectId/history', { params: { source, subjectId, }, options: { cache: false, }, },);
+    }
+
+    /** GET /replies/item/:id — one recorded reply. */
+    item(id: string,): Promise<ReplyItemResponse> {
+        return this.get<ReplyItemResponse>('/replies/item/:id', { params: { id, }, options: { cache: false, }, },);
     }
 }

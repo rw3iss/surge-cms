@@ -7,6 +7,7 @@ import { isFeatureEnabled, } from '../../stores/siteSettings';
 import './UserDetail.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import UserSubscriptionPanel from '../../components/admin/subscriptions/UserSubscriptionPanel';
+import UserMessagesPanel from '../../components/admin/users/UserMessagesPanel';
 
 const AdminUserDetail: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -394,6 +395,8 @@ const AdminUserDetail: Component = () => {
                         </div>
                     </Show>
                 </div>
+
+                <UserMessagesPanel userId={params.id} />
 
                 {/* ─── Actions Panel ─── */}
                 <div class="user-detail__panel user-detail__panel--actions">

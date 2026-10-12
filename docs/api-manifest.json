@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-12T01:42:37.421Z",
+  "generatedAt": "2026-10-12T01:54:21.008Z",
   "totalModules": 52,
-  "totalRoutes": 521,
+  "totalRoutes": 524,
   "modules": [
     {
       "module": "admin-channel",
@@ -2505,6 +2505,27 @@
           "absolutePath": "/api/v1/replies/:source/send",
           "auth": "staff",
           "summary": "Email the reply. The recipient is the record's own stored address."
+        },
+        {
+          "method": "GET",
+          "path": "/:source/summary",
+          "absolutePath": "/api/v1/replies/:source/summary",
+          "auth": "staff",
+          "summary": "Reply counts / last status for a page of records (`ids` = comma-separated donation / submission / user ids)."
+        },
+        {
+          "method": "GET",
+          "path": "/:source/:subjectId/history",
+          "absolutePath": "/api/v1/replies/:source/:subjectId/history",
+          "auth": "staff",
+          "summary": "Every reply sent to one record (with what was typed + the exact email), newest first."
+        },
+        {
+          "method": "GET",
+          "path": "/item/:id",
+          "absolutePath": "/api/v1/replies/item/:id",
+          "auth": "staff",
+          "summary": "One recorded reply."
         }
       ]
     },

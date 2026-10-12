@@ -315,6 +315,9 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/replies/:source/target',
     'POST /api/v1/replies/:source/preview',
     'POST /api/v1/replies/:source/send',
+    'GET /api/v1/replies/:source/summary',
+    'GET /api/v1/replies/:source/:subjectId/history',
+    'GET /api/v1/replies/item/:id',
     // ── mail-templates ──
     'GET /api/v1/mail-templates/options',
     'GET /api/v1/mail-templates/:id/revisions',

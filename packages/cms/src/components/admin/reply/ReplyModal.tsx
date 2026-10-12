@@ -42,6 +42,7 @@ const GROUP_LABELS: Record<string, string> = {
     campaign: 'the campaign it was given to',
     submission: 'the form submission — every field of this form',
     form: 'the form it was sent through',
+    user: 'the user you are writing to',
     site: 'your site',
 };
 

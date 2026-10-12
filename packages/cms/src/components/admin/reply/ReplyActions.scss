@@ -1,0 +1,140 @@
+// Reply status + links in a table row, and the reply history modal.
+.reply-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.8rem;
+
+  &__status {
+    color: $success-color;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--failed { color: $error-color; }
+  }
+
+  &__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--admin-link, #{$primary-color});
+    font: inherit;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+    &:focus-visible { outline: 2px solid $primary-color; outline-offset: 2px; }
+  }
+}
+
+.reply-history {
+  &__item {
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+
+    &.is-open { box-shadow: $shadow-sm; }
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__status {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, #{$success-color} 15%, transparent);
+    color: $success-color;
+    font-size: 0.75rem;
+    font-weight: 700;
+
+    &--failed {
+      background: color-mix(in srgb, #{$error-color} 15%, transparent);
+      color: $error-color;
+    }
+  }
+
+  &__subject {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  &__date {
+    flex: 0 0 auto;
+    font-size: 0.8rem;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 0;
+    padding: 10px 12px 0;
+    font-size: 0.85rem;
+
+    dt { color: var(--admin-text-muted, #{$text-light}); font-weight: 600; }
+    dd { margin: 0; word-break: break-word; }
+  }
+
+  &__error { color: $error-color; }
+
+  &__message {
+    margin: 10px 12px;
+    padding: 10px 12px;
+    border-left: 3px solid $border-color;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+  }
+
+  &__item > .reply-actions__link { margin: 0 12px 10px; }
+  &__item > .reply-modal__preview { display: block; width: calc(100% - 24px); margin: 0 12px 12px; }
+}
+
+// User detail → Messages panel.
+.user-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 $spacing-md;
+  padding: 0;
+  list-style: none;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: 0.85rem;
+  }
+
+  &__subject {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  &__meta {
+    flex: 0 0 auto;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 0.8rem;
+  }
+}

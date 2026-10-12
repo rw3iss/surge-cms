@@ -7,7 +7,8 @@
 import { formatCurrency, formatDate, } from '@sitesurge/types';
 import type { CampaignAdminDonationsResponse, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
-import ReplyModal from '../../components/admin/reply/ReplyModal';
+import ReplyActions from '../../components/admin/reply/ReplyActions';
+import { useReplySummaries, } from '../../components/admin/reply/useReplySummaries';
 import ExportMenu from '../../components/admin/common/ExportMenu';
 import Pagination from '../../components/admin/common/Pagination';
 import { useToast, } from '../../components/common/toast';
@@ -27,7 +28,6 @@ const COLUMNS: { key: SortBy; label: string; }[] = [
 const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string; }> = (props,) => {
     const toast = useToast();
     /** The donation being replied to (opens the reply modal). */
-    const [replying, setReplying,] = createSignal<Row | null>(null,);
     const [searchInput, setSearchInput,] = createSignal('',);
     const [search, setSearch,] = createSignal('',); // debounced value that drives the query
     const [page, setPage,] = createSignal(1,);
@@ -57,6 +57,7 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
     );
 
     const rows = () => result()?.data ?? [];
+    const replies = useReplySummaries('donation', () => rows().map((d,) => d.id),);
     const meta = () => result()?.meta;
 
     // Click a header → sort by it; click the active header → toggle direction.
@@ -150,13 +151,13 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
                                             <td>{formatDate(d.createdAt,)}</td>
                                             <td class="campaign-donations__actions">
                                                 <Show when={d.donorEmail}>
-                                                    <button
-                                                        type="button"
-                                                        class="ui-button ui-button--sm ui-button--secondary"
-                                                        onClick={() => setReplying(d,)}
-                                                    >
-                                                        Reply
-                                                    </button>
+                                                    <ReplyActions
+                                                        source="donation"
+                                                        subjectId={d.id}
+                                                        record={{ campaignId: props.campaignId, donationId: d.id, }}
+                                                        summary={replies.get(d.id,)}
+                                                        onChanged={replies.refetch}
+                                                    />
                                                 </Show>
                                             </td>
                                         </tr>
@@ -176,14 +177,6 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
                         />
                     </Show>
                 </Show>
-            </Show>
-            <Show when={replying()}>
-                <ReplyModal
-                    source="donation"
-                    record={{ campaignId: props.campaignId, donationId: replying()!.id, }}
-                    onClose={() => setReplying(null,)}
-                    onSent={(to,) => toast.success(`Reply sent to ${to}.`,)}
-                />
             </Show>
         </div>
     );

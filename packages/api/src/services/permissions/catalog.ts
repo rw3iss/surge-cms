@@ -78,6 +78,14 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'users:message',
+        feature: 'core',
+        label: 'Email users from the admin',
+        description: 'Send a message to a user (Users table / user detail). Every message is recorded.',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'shop.providers:read',
         feature: 'shop',
         label: 'View shop providers',

@@ -5,13 +5,15 @@
  */
 import { z, } from 'zod';
 import type {
-    ReplyComposeBody, ReplyPreviewResponse, ReplySendResponse, ReplySenderResponse, ReplyTargetBody, ReplyTargetResponse,
+    ReplyComposeBody, ReplyHistoryResponse, ReplyItemResponse, ReplyPreviewResponse, ReplySendResponse, ReplySenderResponse,
+    ReplySummaryResponse, ReplyTargetBody, ReplyTargetResponse,
 } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import * as permissions from '../services/permissions';
 import * as reply from '../services/reply';
 
-const sourceParams = z.object({ source: z.enum(['donation', 'submission',],), },);
+const SOURCE_KEYS = ['donation', 'submission', 'user',] as const;
+const sourceParams = z.object({ source: z.enum(SOURCE_KEYS,), },);
 const ref = z.record(z.string(), z.string().max(64,),);
 const compose = z.object({
     ref,
@@ -62,6 +64,38 @@ export const repliesRoutes = [
         handler: async ({ params, body, user, audit, },): Promise<ReplySendResponse> => {
             await can(user, params.source,);
             return reply.send(params.source, body, audit(),);
+        },
+    },),
+
+    // ─── Tracking (every reply sent from the admin is recorded) ───
+    defineRoute({
+        method: 'get', path: '/:source/summary', auth: 'staff',
+        summary: 'Reply counts / last status for a page of records (`ids` = comma-separated donation / submission / user ids).',
+        input: { params: sourceParams, query: z.object({ ids: z.string().max(20_000,), },), },
+        handler: async ({ params, query, user, },): Promise<ReplySummaryResponse> => {
+            await can(user, params.source,);
+            return reply.summaries(params.source, query.ids.split(',',).map((x,) => x.trim()),);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:source/:subjectId/history', auth: 'staff',
+        summary: 'Every reply sent to one record (with what was typed + the exact email), newest first.',
+        input: { params: z.object({ source: z.enum(SOURCE_KEYS,), subjectId: z.string().uuid(), },), },
+        handler: async ({ params, user, },): Promise<ReplyHistoryResponse> => {
+            await can(user, params.source,);
+            return reply.history(params.source, params.subjectId,);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/item/:id', auth: 'staff',
+        summary: 'One recorded reply.',
+        input: { params: z.object({ id: z.string().uuid(), },), },
+        handler: async ({ params, user, },): Promise<ReplyItemResponse> => {
+            const r = await reply.getReply(params.id,);
+            await can(user, r.source,);
+            return r;
         },
     },),
 ];

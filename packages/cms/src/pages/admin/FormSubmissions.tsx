@@ -5,7 +5,10 @@ import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import SubmissionViewModal from '../../components/admin/forms/SubmissionViewModal';
+import ReplyActions from '../../components/admin/reply/ReplyActions';
+import ReplyHistoryModal from '../../components/admin/reply/ReplyHistoryModal';
 import ReplyModal from '../../components/admin/reply/ReplyModal';
+import { useReplySummaries, } from '../../components/admin/reply/useReplySummaries';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
@@ -80,10 +83,12 @@ const FormSubmissions: Component = () => {
     const [viewing, setViewing,] = createSignal<{ sub: any; index: number; } | null>(null,);
     /** The submission being replied to (opens the reply modal). */
     const [replyingTo, setReplyingTo,] = createSignal<string | null>(null,);
+    const [repliesOf, setRepliesOf,] = createSignal<string | null>(null,);
 
     const allSubs = createMemo(() => (submissions() || []) as any[],);
     const totalPages = createMemo(() => Math.max(1, Math.ceil(allSubs().length / PAGE_SIZE,),),);
     const pageSubs = createMemo(() => allSubs().slice((page() - 1) * PAGE_SIZE, page() * PAGE_SIZE,),);
+    const replies = useReplySummaries('submission', () => pageSubs().map((s: any,) => s.id as string),);
 
     const toggle = (id: string,) =>
         setSelected((prev,) => { const n = new Set(prev,); n.has(id,) ? n.delete(id,) : n.add(id,); return n; },);
@@ -326,14 +331,15 @@ const FormSubmissions: Component = () => {
                                             >
                                                 View
                                             </button>
-                                            <button
-                                                class="ui-button ui-button--secondary ui-button--sm"
-                                                title="Reply to this submission by email"
-                                                style={{ 'margin-right': '6px', }}
-                                                onClick={() => setReplyingTo(sub.id,)}
-                                            >
-                                                Reply
-                                            </button>
+<span style={{ 'margin-right': '6px', }}>
+                                                <ReplyActions
+                                                    source="submission"
+                                                    subjectId={sub.id}
+                                                    record={{ formId: params.id ?? '', submissionId: sub.id, }}
+                                                    summary={replies.get(sub.id,)}
+                                                    onChanged={replies.refetch}
+                                                />
+                                            </span>
                                             <button
                                                 class="ui-button ui-button--danger ui-button--sm"
                                                 title="Delete submission"
@@ -367,14 +373,25 @@ const FormSubmissions: Component = () => {
                 onClose={() => setViewing(null,)}
                 onDelete={(id,) => setPending({ type: 'single', id, },)}
                 onReply={(id,) => setReplyingTo(id,)}
+                replyCount={viewing() ? replies.get(viewing()!.sub.id,)?.count ?? 0 : 0}
+                onViewReplies={(id,) => setRepliesOf(id,)}
             />
+
+            <Show when={repliesOf()}>
+                <ReplyHistoryModal
+                    source="submission"
+                    subjectId={repliesOf()!}
+                    onClose={() => setRepliesOf(null,)}
+                    onReplyAgain={() => { setReplyingTo(repliesOf(),); setRepliesOf(null,); }}
+                />
+            </Show>
 
             <Show when={replyingTo()}>
                 <ReplyModal
                     source="submission"
                     record={{ formId: params.id ?? '', submissionId: replyingTo()!, }}
                     onClose={() => setReplyingTo(null,)}
-                    onSent={(to,) => toast.success(`Reply sent to ${to}.`,)}
+                    onSent={(to,) => { toast.success(`Reply sent to ${to}.`,); replies.refetch(); }}
                 />
             </Show>
 

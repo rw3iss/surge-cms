@@ -17,7 +17,8 @@
  * `submission` + `form`) and `site.*`.
  */
 
-export type ReplySourceKey = 'donation' | 'submission';
+/** donation (campaign donor) · submission (form respondent) · user (any account — Users / user detail). */
+export type ReplySourceKey = 'donation' | 'submission' | 'user';
 
 /** Identifies the record being replied to, within its source. */
 export type ReplyRef = Record<string, string>;
@@ -62,7 +63,50 @@ export type ReplySendBody = ReplyComposeBody;
 export interface ReplySendResponse {
     sent: true;
     to: string;
+    /** The recorded reply (see GET /replies/item/:id). */
+    replyId: string;
 }
+
+// ─── Tracking: every reply sent from the admin is recorded ──────────
+
+export type ReplyStatus = 'sent' | 'failed';
+
+/** One reply as sent (or attempted). */
+export interface ReplyRecord {
+    id: string;
+    source: ReplySourceKey;
+    /** The record replied to — the donation / submission / user id. */
+    subjectId: string;
+    ref: ReplyRef;
+    to: string;
+    toName: string | null;
+    subject: string;
+    /** What the admin typed (before the template). */
+    message: string;
+    /** The exact email HTML that was sent. */
+    html: string;
+    templateId: string | null;
+    fromName: string | null;
+    fromEmail: string | null;
+    status: ReplyStatus;
+    error: string | null;
+    sentBy: { id: string; name: string; } | null;
+    createdAt: string;
+}
+
+/** Per-record roll-up for a table row. */
+export interface ReplySummary {
+    count: number;
+    sentCount: number;
+    lastAt: string;
+    lastStatus: ReplyStatus;
+}
+
+/** GET /replies/:source/summary?ids=a,b — subjectId → summary (ids with no reply are absent). */
+export type ReplySummaryResponse = Record<string, ReplySummary>;
+/** GET /replies/:source/:subjectId/history — newest first. */
+export type ReplyHistoryResponse = ReplyRecord[];
+export type ReplyItemResponse = ReplyRecord;
 
 export interface ReplySenderResponse {
     fromName: string;

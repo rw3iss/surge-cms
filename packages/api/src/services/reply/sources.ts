@@ -155,7 +155,47 @@ const submission: ReplySource = {
     },
 };
 
-export const SOURCES: Record<ReplySourceKey, ReplySource> = { donation, submission, };
+// ─── user (any account — Users table / user detail "Send message") ─────────
+const user: ReplySource = {
+    key: 'user',
+    permission: 'users:message',
+    feature: 'users',
+    async load(ref,) {
+        const userId = need(ref, 'userId',);
+        const res = await query(
+            `SELECT id, email, display_name, first_name, last_name, role, handle, created_at FROM users WHERE id = $1`,
+            [userId,],
+        );
+        const row = res.rows[0];
+        if (!row) throw new NotFoundError('User',);
+        const email = String(row.email ?? '',).trim();
+        if (!email) throw new ValidationError('This user has no email address.',);
+        const name = (row.display_name as string | null) ?? null;
+        return {
+            to: email,
+            toName: name,
+            title: 'Message user',
+            defaultSubject: '',
+            defaultMessage: greeting(name,),
+            vars: {
+                user: {
+                    id: row.id,
+                    email,
+                    name: name ?? '',
+                    displayName: name ?? '',
+                    firstName: row.first_name ?? '',
+                    lastName: row.last_name ?? '',
+                    role: row.role,
+                    handle: row.handle ?? '',
+                    createdAt: row.created_at,
+                },
+            },
+            audit: { entityType: 'user', entityId: userId, details: {}, },
+        };
+    },
+};
+
+export const SOURCES: Record<ReplySourceKey, ReplySource> = { donation, submission, user, };
 
 export function getSource(key: string,): ReplySource {
     const s = (SOURCES as Record<string, ReplySource | undefined>)[key];

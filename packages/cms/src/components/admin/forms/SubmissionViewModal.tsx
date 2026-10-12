@@ -40,6 +40,9 @@ export interface SubmissionViewModalProps {
     onDelete?: (id: string,) => void;
     /** Shows a Reply button that opens the reply modal for this submission. */
     onReply?: (id: string,) => void;
+    /** Replies already sent for this submission — shows "View replies (n)" when > 0. */
+    replyCount?: number;
+    onViewReplies?: (id: string,) => void;
 }
 
 /** Answers arrive as string | string[] | number | boolean. */
@@ -167,13 +170,22 @@ const SubmissionViewModal: Component<SubmissionViewModalProps> = (props,) => {
                 >
                     Close
                 </button>
+                <Show when={props.onViewReplies && props.submission && (props.replyCount ?? 0) > 0}>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--secondary ui-button--sm"
+                        onClick={() => props.onViewReplies!(props.submission!.id,)}
+                    >
+                        View replies ({props.replyCount})
+                    </button>
+                </Show>
                 <Show when={props.onReply && props.submission}>
                     <button
                         type="button"
                         class="ui-button ui-button--primary ui-button--sm"
                         onClick={() => props.onReply!(props.submission!.id,)}
                     >
-                        Reply
+                        {(props.replyCount ?? 0) > 0 ? 'Reply again' : 'Reply'}
                     </button>
                 </Show>
             </footer>
