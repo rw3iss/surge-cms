@@ -220,3 +220,28 @@
     gap: 0.5rem;
     margin-top: 1rem;
 }
+
+// Handle field: input + hint in one column beside the label.
+.user-detail__handle-col {
+    display: flex;
+    flex-direction: column;
+}
+
+// "@" prefix + the input.
+.user-detail__handle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.user-detail__handle-prefix {
+    color: var(--admin-text-muted, #{$text-light});
+    font-weight: 600;
+}
+
+.user-detail__handle-hint {
+    display: block;
+    margin-top: 3px;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+}

@@ -22,6 +22,8 @@ import { cache, } from './cache';
 import { resolveStorageProvider, } from './storage';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 import { assertRoleExists, } from './subscriptionTiers';
+import { setHandle, } from './handles';
+import { NotFoundError, } from '../core/errors';
 
 export type { UserFilters, UserWithSubscription, } from '../repositories/users.repo';
 
@@ -130,7 +132,15 @@ export async function update(
     ctx: AuditContext,
 ): Promise<User> {
     if (typeof patch.role === 'string') await assertRoleExists(patch.role,);
-    const user = await repo.updateUser(id, patch,);
+    // Handle first (same rule as the member's own profile): a taken or invalid
+    // handle (409/400) must not half-apply the rest of the update.
+    const { handle, ...rest } = patch;
+    if (typeof handle === 'string') {
+        const current = await query<{ handle: string | null; }>(`SELECT handle FROM users WHERE id = $1`, [id,],);
+        if (handle.trim().toLowerCase() !== (current.rows[0]?.handle ?? '').toLowerCase()) await setHandle(id, handle,);
+    }
+    const user = Object.keys(rest,).length ? await repo.updateUser(id, rest,) : await getById(id,);
+    if (!user) throw new NotFoundError('User',);
     await cache.invalidateUserCache(id,);
     await logAudit({
         userId: ctx.userId,

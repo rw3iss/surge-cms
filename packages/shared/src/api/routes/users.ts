@@ -131,6 +131,8 @@ export interface UserUpdateBody {
     role?: UserRole;
     isActive?: boolean;
     avatarUrl?: string | null;
+    /** Public member handle (`/members/:handle`); validated + unique (409 when taken). */
+    handle?: string;
 }
 
 /** PUT /users/:id — the updated user. */

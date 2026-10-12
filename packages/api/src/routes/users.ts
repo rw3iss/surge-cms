@@ -50,6 +50,7 @@ const updateUserSchema = z.object({
     role: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,).optional(),
     isActive: z.boolean().optional(),
     avatarUrl: z.string().optional().nullable(),
+    handle: z.string().trim().min(1,).max(40,).optional(),
 },) satisfies z.ZodType<UserUpdateBody>;
 
 const createUserSchema = z.object({

@@ -31,6 +31,8 @@ const AdminUserDetail: Component = () => {
 
     // Editable fields
     const [displayName, setDisplayName,] = createSignal('',);
+    /** Public member handle (/members/:handle). */
+    const [handle, setHandle,] = createSignal('',);
     const [role, setRole,] = createSignal('member',);
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
     const [isActive, setIsActive,] = createSignal(true,);
@@ -58,6 +60,7 @@ const AdminUserDetail: Component = () => {
         if (!data?.user) return;
         const u = data.user;
         setDisplayName(u.displayName || '',);
+        setHandle(u.handle || '',);
         setRole(u.role || 'member',);
         setIsActive(u.isActive ?? true,);
     },);
@@ -75,6 +78,9 @@ const AdminUserDetail: Component = () => {
                 displayName: displayName(),
                 role: role(),
                 isActive: isActive(),
+                // Only sent when set: an empty field must not blank a handle
+                // (the server validates format + uniqueness; 409 when taken).
+                ...(handle().trim() ? { handle: handle().trim(), } : {}),
             } as any,);
             setSuccess('Profile updated.',);
             refetch();
@@ -247,6 +253,28 @@ const AdminUserDetail: Component = () => {
                                     value={displayName()}
                                     onInput={(e,) => setDisplayName(e.currentTarget.value,)}
                                 />
+                            </div>
+                            <div class="settings-field">
+                                <label class="settings-field__label">Handle</label>
+                                <div class="user-detail__handle-col">
+                                <div class="user-detail__handle">
+                                    <span class="user-detail__handle-prefix">@</span>
+                                    <input
+                                        class="settings-field__input"
+                                        style={{ width: '208px', }}
+                                        type="text"
+                                        maxLength={40}
+                                        value={handle()}
+                                        placeholder="member-handle"
+                                        onInput={(e,) => setHandle(e.currentTarget.value,)}
+                                        aria-describedby="user-handle-hint"
+                                    />
+                                </div>
+                                <span id="user-handle-hint" class="user-detail__handle-hint">
+                                    3–40 characters: lowercase letters, numbers, - and _. Public page:{' '}
+                                    <Show when={handle().trim()} fallback={'—'}>/members/{handle().trim().toLowerCase()}</Show>
+                                </span>
+                                </div>
                             </div>
                             <div class="settings-field">
                                 <label class="settings-field__label">Role</label>
