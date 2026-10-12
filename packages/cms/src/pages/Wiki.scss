@@ -207,8 +207,9 @@
     position: sticky;
     // Sticks while the article scrolls — on a long page the tree would
     // otherwise be far above the reader when they want to move on.
-    top: $spacing-lg;
-    max-height: calc(100vh - #{$spacing-2xl});
+    top: calc(var(--site-header-offset, 0px) + #{$spacing-lg});
+    max-height: calc(100vh - var(--site-header-offset, 0px) - #{$spacing-2xl});
+    transition: top 0.25s ease;
     overflow-y: auto;
 
     @media (max-width: $breakpoint-md) {

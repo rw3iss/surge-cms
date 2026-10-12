@@ -640,7 +640,9 @@
         border-radius: var(--site-radius, 8px);
         padding: $spacing-lg;
         position: sticky;
-        top: $spacing-lg;
+        // Below the site header in every header mode (Header publishes the offset).
+        top: calc(var(--site-header-offset, 0px) + #{$spacing-lg});
+        transition: top 0.25s ease;
 
         h2 { margin-top: 0; font-size: $font-size-lg; }
     }
@@ -880,7 +882,8 @@
             // ShopIndex (see the onMount that tracks the header's bottom edge);
             // 0 is the right fallback for a page with no sticky header.
             position: sticky;
-            top: var(--shop-filter-top, 0px);
+            top: var(--site-header-offset, 0px);
+            transition: top 0.25s ease;
             z-index: 5;
             // Opaque background: the products scroll UNDER this, and a
             // transparent bar would show them through it.
@@ -912,7 +915,8 @@
         flex-direction: column;
         gap: $spacing-md;
         position: sticky;
-        top: $spacing-lg;
+        top: calc(var(--site-header-offset, 0px) + #{$spacing-lg});
+        transition: top 0.25s ease;
 
         // Replaced by `__mobile-filter` below the breakpoint, so the same
         // links aren't offered twice.

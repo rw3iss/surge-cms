@@ -671,6 +671,65 @@ export const Header: Component<HeaderProps> = (props,) => {
         onCleanup(() => window.removeEventListener('scroll', onScroll,),);
     },);
 
+    /**
+     * `--site-header-offset` (on <html>): how much of the viewport top the site
+     * header covers RIGHT NOW — its live bottom edge, clamped at 0. Anything
+     * that sticks to the top (checkout summary, shop filters, wiki nav) uses
+     * `top: calc(var(--site-header-offset, 0px) + gap)` so it parks BELOW the
+     * header in every mode: sticky / fixed-float → the header height; a static
+     * header scrolled past → 0; auto-hidden → 0 once it slides away. Pages
+     * without this header (admin) never set it, so the 0px fallback applies.
+     */
+    let headerEl: HTMLElement | undefined;
+    onMount(() => {
+        const root = document.documentElement;
+        let raf = 0;
+        let last = -1;
+        const publish = () => {
+            raf = 0;
+            const bottom = headerEl ? Math.max(0, Math.round(headerEl.getBoundingClientRect().bottom,),) : 0;
+            if (bottom === last) return;
+            last = bottom;
+            root.style.setProperty('--site-header-offset', `${bottom}px`,);
+        };
+        const schedule = () => { if (!raf) raf = requestAnimationFrame(publish,); };
+        // An auto-hide slide interrupted mid-way (scroll up, then down) never
+        // fires transitionend, so scrolling also arms a short trailing re-read
+        // (~600 ms, then stops — nothing runs at rest).
+        let settle = 0;
+        let settleUntil = 0;
+        const onScroll = () => {
+            schedule();
+            settleUntil = performance.now() + 600;
+            if (!settle) {
+                settle = window.setInterval(() => {
+                    publish();
+                    if (performance.now() >= settleUntil) { window.clearInterval(settle,); settle = 0; }
+                }, 50,);
+            }
+        };
+        publish();
+        window.addEventListener('scroll', onScroll, { passive: true, },);
+        window.addEventListener('resize', schedule, { passive: true, },);
+        // Height changes (fonts, menus, breakpoints) and the auto-hide slide.
+        const ro = typeof ResizeObserver === 'function' && headerEl ? new ResizeObserver(schedule,) : null;
+        if (ro && headerEl) ro.observe(headerEl,);
+        headerEl?.addEventListener('transitionend', schedule,);
+        // Mode switches (float / sticky / auto-hidden) are class changes.
+        const mo = typeof MutationObserver === 'function' && headerEl ? new MutationObserver(schedule,) : null;
+        if (mo && headerEl) mo.observe(headerEl, { attributes: true, attributeFilter: ['class', 'style',], },);
+        onCleanup(() => {
+            if (raf) cancelAnimationFrame(raf,);
+            if (settle) window.clearInterval(settle,);
+            window.removeEventListener('scroll', onScroll,);
+            window.removeEventListener('resize', schedule,);
+            ro?.disconnect();
+            mo?.disconnect();
+            headerEl?.removeEventListener('transitionend', schedule,);
+            root.style.removeProperty('--site-header-offset',);
+        },);
+    },);
+
     // Publish the site default header position (from `headerPosition`, or the
     // legacy `floatHeader` boolean) so routes without their own pick it up.
     createEffect(() => {
@@ -814,7 +873,7 @@ export const Header: Component<HeaderProps> = (props,) => {
 
     return (
         <>
-            <header class={headerClass()} style={headerStyle()}>
+            <header ref={(el,) => { headerEl = el; }} class={headerClass()} style={headerStyle()}>
                 <div class="header__container" style={containerStyle()}>
                     {/* Non-custom: logo always visible */}
                     <Show when={!hasCustomHeader()}>
