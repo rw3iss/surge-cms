@@ -107,9 +107,7 @@ const SubscribePage: Component = () => {
                 <h1>Membership</h1>
                 <p class="subscribe-page__lead">
                     <Show when={paidAvailable()} fallback={`Everything on ${siteName()} is free to read.`}>
-                        <Show when={required()} fallback={<>Support {siteName()} and get more — choose the plan that fits you.</>}>
-                            Membership to {siteName()} requires payment — choose the plan that fits you.
-                        </Show>
+                        Join the movement by choosing a plan that best fits you.
                     </Show>
                 </p>
             </header>
