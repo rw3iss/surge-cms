@@ -37,11 +37,15 @@ describe('getMailingListsSettings', () => {
             defaultFromName: 'Frank Scales, Surge Media',
             defaultFromEmail: 'newsletter@lists.surgemedia.us',
             defaultReplyTo: 'hello@surgemedia.us',
+            signupNotifyEnabled: false,
+            signupNotifyTemplateId: '11111111-1111-4111-8111-111111111111',
         },);
         expect(await getMailingListsSettings(),).toEqual({
             defaultFromName: 'Frank Scales, Surge Media',
             defaultFromEmail: 'newsletter@lists.surgemedia.us',
             defaultReplyTo: 'hello@surgemedia.us',
+            signupNotifyEnabled: false,
+            signupNotifyTemplateId: '11111111-1111-4111-8111-111111111111',
         },);
     },);
 
@@ -63,6 +67,9 @@ describe('getMailingListsSettings', () => {
             defaultFromName: undefined,
             defaultFromEmail: undefined,
             defaultReplyTo: undefined,
+            // The new-subscriber notice is ON unless turned off.
+            signupNotifyEnabled: true,
+            signupNotifyTemplateId: null,
         },);
     },);
 

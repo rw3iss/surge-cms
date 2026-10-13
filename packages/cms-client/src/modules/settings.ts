@@ -274,6 +274,12 @@ export class SettingsModule extends ModuleBase {
         },);
     }
 
+    /** POST /settings/mailing-lists/signup-notice/preview (admin) — the "you've been
+     *  subscribed" notice rendered with a template (null = the Default Template). */
+    previewListSignupNotice(templateId: string | null,): Promise<{ subject: string; html: string; }> {
+        return this.mutate<{ subject: string; html: string; }>('POST', '/settings/mailing-lists/signup-notice/preview', { body: { templateId, }, },);
+    }
+
     /** GET /settings/mail-purposes (admin) — per-purpose email overrides.
      *  An absent key means "registry defaults", not "off". */
     getMailPurposes(): Promise<Record<string, unknown>> {

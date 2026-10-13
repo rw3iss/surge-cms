@@ -15,6 +15,7 @@ import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
 import { escapeHtml, } from '../utils/html';
 import { verifyUnsubscribeToken, } from './mail/unsubscribe';
+import { sendListSignupNotice, } from './mail/listSignupNotice';
 
 /** What the route needs to render: an HTTP status + a full HTML page. */
 export interface UnsubscribeResult {
@@ -68,6 +69,7 @@ export async function resubscribe(token: string,): Promise<UnsubscribeResult> {
     }
     const target = list.doubleOptIn ? 'pending_confirmation' : 'subscribed';
     await subs.setStatus(sub.id, target,);
+    if (target === 'subscribed' && sub.status !== 'subscribed') void sendListSignupNotice(list.id, sub.id,);
     return {
         status: 200,
         html: page('Resubscribed', `
@@ -89,6 +91,8 @@ export async function confirm(slug: string, token: string,): Promise<Unsubscribe
     }
     await subs.setStatus(sub.id, 'subscribed',);
     await subs.clearConfirmationToken(sub.id,);
+    // Confirmed = joined: the "you've been subscribed" notice (setting, default on).
+    if (sub.status !== 'subscribed') void sendListSignupNotice(list.id, sub.id,);
     return {
         status: 200,
         html: page('Confirmed', `

@@ -640,6 +640,9 @@ export async function getMailingListsSettings(): Promise<import('@sitesurge/type
         defaultFromName: clean(raw?.defaultFromName,),
         defaultFromEmail: clean(raw?.defaultFromEmail,),
         defaultReplyTo: clean(raw?.defaultReplyTo,),
+        // ON unless the operator turned it off.
+        signupNotifyEnabled: raw?.signupNotifyEnabled !== false,
+        signupNotifyTemplateId: clean(raw?.signupNotifyTemplateId ?? undefined,) ?? null,
     };
 }
 export const setMailingListsSettings = (value: unknown, ctx: AuditContext,) =>

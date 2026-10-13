@@ -9,6 +9,7 @@ import { randomBytes, } from 'crypto';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
+import { sendListSignupNotice, } from './mail/listSignupNotice';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { sendEmail, } from './email';
@@ -113,11 +114,18 @@ export function listSubscribers(
     return subs.list({ listId, limit: opts.limit, offset: opts.offset, search: opts.search, status: opts.status, },);
 }
 
-/** Admin add — force confirmed. Idempotent: re-add reactivates. */
-export async function addSubscriber(listId: string, input: SubscriberAdminInput,) {
+/**
+ * Admin add — force confirmed. Idempotent: re-add reactivates. `notify` sends
+ * the "you've been subscribed" notice (self-service callers such as sign-up
+ * auto-subscribe pass it; an admin adding someone by hand does not).
+ */
+export async function addSubscriber(listId: string, input: SubscriberAdminInput, opts: { notify?: boolean; } = {},) {
     const existing = await subs.findByEmail(listId, input.email,);
     if (existing) {
-        if (existing.status !== 'subscribed') await subs.setStatus(existing.id, 'subscribed',);
+        if (existing.status !== 'subscribed') {
+            await subs.setStatus(existing.id, 'subscribed',);
+            if (opts.notify) void sendListSignupNotice(listId, existing.id,);
+        }
         return { subscriber: existing, created: false, };
     }
     const created = await subs.create({
@@ -128,6 +136,7 @@ export async function addSubscriber(listId: string, input: SubscriberAdminInput,
         customFields: input.customFields,
         status: 'subscribed',
     },);
+    if (opts.notify) void sendListSignupNotice(listId, created.id,);
     return { subscriber: created, created: true, };
 }
 
@@ -247,6 +256,8 @@ export async function publicSubscribe(
             return { status: 'subscribed' as const, already: true, };
         }
         await subs.setStatus(existing.id, targetStatus,);
+        // Re-joining after unsubscribing counts as joining.
+        if (targetStatus === 'subscribed') void sendListSignupNotice(list.id, existing.id,);
         return { status: targetStatus, already: true, };
     }
 
@@ -290,6 +301,10 @@ export async function publicSubscribe(
             console.warn('Failed to send double-opt-in confirmation', mailErr,);
         }
     }
+
+    // "You've been subscribed" (setting, default on). A double-opt-in sign-up
+    // gets it on confirmation instead.
+    if (created.status === 'subscribed') void sendListSignupNotice(list.id, created.id,);
 
     return { status: created.status, id: created.id, };
 }

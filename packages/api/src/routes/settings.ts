@@ -616,9 +616,24 @@ export const settingsRoutes = [
                 // it carries something.
                 defaultFromEmail: z.string().max(320,).optional(),
                 defaultReplyTo: z.string().max(320,).optional(),
+                signupNotifyEnabled: z.boolean().optional(),
+                signupNotifyTemplateId: z.string().uuid().nullable().optional(),
             },),
         },
         handler: ({ body, audit, },) => settings.setMailingListsSettings(body, audit(),),
+    },),
+
+    defineRoute({
+        method: 'post',
+        path: '/mailing-lists/signup-notice/preview',
+        auth: 'admin',
+        summary: 'Preview the "you\'ve been subscribed" notice with a template (or the default) — first list, sample subscriber.',
+        input: { body: z.object({ templateId: z.string().uuid().nullable().optional(), },), },
+        handler: async ({ body, },) => {
+            const { previewSignupNotice, } = await import('../services/mail/listSignupNotice.js');
+            const out = await previewSignupNotice(body.templateId ?? null,);
+            return { subject: out.subject, html: out.html, };
+        },
     },),
 
     defineRoute({

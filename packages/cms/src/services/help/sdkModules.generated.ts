@@ -2364,6 +2364,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /settings/payment-credentials?context= (admin) — masked key status."
             },
             {
+                "name": "previewListSignupNotice",
+                "signature": "previewListSignupNotice(templateId: string | null): Promise<{ subject: string; html: string; }>",
+                "summary": "POST /settings/mailing-lists/signup-notice/preview (admin) — the \"you've been subscribed\" notice rendered with a template (null = the Default Template)."
+            },
+            {
                 "name": "replaceSwatches",
                 "signature": "replaceSwatches(body: SettingsSiteColorsBody): Promise<SettingsSiteColorsReplaceResponse>",
                 "summary": "PUT /settings/site-colors (admin) — replace the whole palette."
@@ -3113,4 +3118,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 547;
+export const SDK_METHOD_COUNT = 548;

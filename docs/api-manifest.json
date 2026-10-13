@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-13T04:05:07.705Z",
+  "generatedAt": "2026-10-13T20:50:57.945Z",
   "totalModules": 55,
-  "totalRoutes": 553,
+  "totalRoutes": 554,
   "modules": [
     {
       "module": "admin-channel",
@@ -3044,6 +3044,13 @@
           "absolutePath": "/api/v1/settings/mailing-lists",
           "auth": "admin",
           "summary": "Update mailing-list sender defaults."
+        },
+        {
+          "method": "POST",
+          "path": "/mailing-lists/signup-notice/preview",
+          "absolutePath": "/api/v1/settings/mailing-lists/signup-notice/preview",
+          "auth": "admin",
+          "summary": "Preview the \"you've been subscribed\" notice with a template (or the default) — first list, sample subscriber."
         },
         {
           "method": "GET",

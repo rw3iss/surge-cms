@@ -362,6 +362,12 @@ export interface MailingListsSettings {
     defaultFromEmail?: string;
     /** Where replies go. Falls back to the From email. */
     defaultReplyTo?: string;
+    /** Email "You've been subscribed to {{list.name}}" to people who join a
+     *  list (self-service sign-ups only). Default ON. */
+    signupNotifyEnabled?: boolean;
+    /** Mail Template for that notice ({{content}} = the message); null/empty =
+     *  the built-in Default Template. */
+    signupNotifyTemplateId?: string | null;
 }
 
 /** GET /settings/mailing-lists (admin). */

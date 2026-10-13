@@ -337,6 +337,7 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/mail-events/settings/rotate',
     // ── mail-templates ──
     'GET /api/v1/mail-templates/options',
+    'POST /api/v1/settings/mailing-lists/signup-notice/preview',
     'GET /api/v1/mail-templates/:id/revisions',
     'POST /api/v1/mail-templates/:id/revisions',
     'GET /api/v1/mail-templates/:id/revisions/:version',

@@ -151,7 +151,7 @@ export async function captureAudience(
                     email,
                     name: input.name ?? undefined,
                     phone: input.phone ?? undefined,
-                },);
+                }, { notify: true, },);
                 result.subscribed = true;
                 result.subscriptionCreated = created;
             }

@@ -770,3 +770,11 @@ tr.is-paused {
         &:hover:not(:disabled) { color: $error-color; }
     }
 }
+
+.mailing-lists-settings__template-row {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+
+  > select { flex: 1; min-width: 0; }
+}
