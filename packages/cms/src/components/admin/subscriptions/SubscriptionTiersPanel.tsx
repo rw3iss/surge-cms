@@ -5,7 +5,7 @@
  */
 import { A, } from '@solidjs/router';
 import { createResource, createSignal, For, Show, type Component, } from 'solid-js';
-import type { PermissionWithGrants, RoleDef, SubscriptionTier, } from '@sitesurge/types';
+import type { PermissionWithGrants, RoleDef, StripeSubscriptionPrice, SubscriptionTier, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
@@ -20,11 +20,21 @@ const money = (t: SubscriptionTier,) =>
                 : '')
         : '— (no Stripe price)';
 
+/** "$250.00 / year", "$1,500.00 every 2 weeks". */
+const stripePriceText = (p: StripeSubscriptionPrice,) =>
+    `${p.unitAmount !== null ? `$${(p.unitAmount / 100).toFixed(2,)}` : 'custom'}${p.intervalCount > 1 ? ` every ${p.intervalCount} ${p.interval}s` : ` / ${p.interval}`}`;
+
 const SubscriptionTiersPanel: Component = () => {
     const toast = useToast();
     const [tiers, { refetch, },] = createResource(() => cms.subscriptionTiers.list().catch(() => [] as SubscriptionTier[]),);
     const [roles,] = createResource(() => cms.roles.list().catch(() => [] as RoleDef[]),);
     const [perms,] = createResource(() => cms.permissions.list().catch(() => [] as PermissionWithGrants[]),);
+    // The other prices on each level's Stripe product (members choose between them).
+    const [stripePrices,] = createResource(() => cms.subscriptionTiers.stripePrices().then((r,) => r.prices,).catch(() => [] as StripeSubscriptionPrice[]),);
+    const otherPrices = (t: SubscriptionTier,) =>
+        t.stripeProductId && t.stripePriceId
+            ? (stripePrices() ?? []).filter((p,) => p.productId === t.stripeProductId && p.priceId !== t.stripePriceId,)
+            : [];
     const [editing, setEditing,] = createSignal<SubscriptionTier | 'new' | null>(null,);
     const [deleting, setDeleting,] = createSignal<SubscriptionTier | null>(null,);
 
@@ -81,7 +91,15 @@ const SubscriptionTiersPanel: Component = () => {
                                         </Show>
                                     </td>
                                     <td>{roleLabel(t.role,)}</td>
-                                    <td>{money(t,)}</td>
+                                    <td>
+                                        {money(t,)}
+                                        <Show when={otherPrices(t,).length}>
+                                            {' '}
+                                            <span class="tier-panel__more-prices" title={`Also: ${otherPrices(t,).map(stripePriceText,).join(', ',)}`}>
+                                                +{otherPrices(t,).length} more
+                                            </span>
+                                        </Show>
+                                    </td>
                                     <td>{t.permissions.length || '—'}</td>
                                     <td>{t.subscriberCount}</td>
                                     <td><span class={`badge ${t.isActive ? 'badge--success' : 'badge--muted'}`}>{t.isActive ? 'Active' : 'Inactive'}</span></td>

@@ -131,14 +131,14 @@ export class PaymentsModule extends ModuleBase {
         return this.get<MembershipResponse>('/payments/membership', { options: { cache: false, }, },);
     }
 
-    /** POST /payments/membership/preview — cost now + when a change takes effect. */
-    previewMembership(tierId: string,): Promise<MembershipPreviewResponse> {
-        return this.mutate<MembershipPreviewResponse>('POST', '/payments/membership/preview', { body: { tierId, }, },);
+    /** POST /payments/membership/preview — cost now + when a change takes effect. `priceId` = one of the level's `prices` (default when omitted). */
+    previewMembership(tierId: string, priceId?: string | null,): Promise<MembershipPreviewResponse> {
+        return this.mutate<MembershipPreviewResponse>('POST', '/payments/membership/preview', { body: { tierId, ...(priceId ? { priceId, } : {}), }, },);
     }
 
     /** POST /payments/membership/change — `payment_required` → confirm the card with `clientSecret`, then `confirmMembership`. */
-    changeMembership(tierId: string,): Promise<MembershipChangeResponse> {
-        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/change', { body: { tierId, }, invalidates: ['payments', 'auth',], },);
+    changeMembership(tierId: string, priceId?: string | null,): Promise<MembershipChangeResponse> {
+        return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/change', { body: { tierId, ...(priceId ? { priceId, } : {}), }, invalidates: ['payments', 'auth',], },);
     }
 
     /** POST /payments/membership/confirm — activate after the first payment. */

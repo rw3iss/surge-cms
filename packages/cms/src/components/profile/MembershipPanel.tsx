@@ -15,8 +15,9 @@ import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe
 import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
 import { useSearchParams, } from '@solidjs/router';
 import { ApplicationPayment, ApplyModal, } from '../membership/MembershipApplication';
+import PriceChoice from '../membership/PriceChoice';
 import Markdown from '../common/Markdown';
-import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
+import { defaultPriceId, freq, money, per, priceOptionFreq, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
 import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -31,12 +32,15 @@ const MembershipPanel: Component = () => {
     const [data, { refetch, },] = createResource<MembershipResponse | null>(() => cms.payments.membership().catch(() => null),);
     const [view, setView,] = createSignal<View>('overview',);
     const [selected, setSelected,] = createSignal<string | null>(null,);
+    /** The chosen price on the chosen level (one of its `prices`; null = its default). */
+    const [priceSel, setPriceSel,] = createSignal<string | null>(null,);
     const [preview, setPreview,] = createSignal<MembershipPreviewResponse | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
     const [notice, setNotice,] = createSignal('',);
     /** A level that requires approval: the application modal. */
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
+    const [applyingPrice, setApplyingPrice,] = createSignal<string | null>(null,);
     const pending = () => data()?.pendingApplication ?? null;
     /** Finish an application submitted without a card. */
     const [addingCard, setAddingCard,] = createSignal(false,);
@@ -52,42 +56,80 @@ const MembershipPanel: Component = () => {
     const tiers = () => data()?.tiers ?? [];
     const currentTier = () => tiers().find((t,) => t.isCurrent,) ?? tiers().find((t,) => t.isFree,) ?? null;
     const chosen = () => tiers().find((t,) => t.id === selected(),) ?? null;
+    /** The price the member pays on their current level (default when unknown). */
+    const currentPrice = () => {
+        const t = currentTier();
+        return t ? t.currentPriceId ?? defaultPriceId(t,) : null;
+    };
+    /** The chosen level's chosen price id (its default when none picked). */
+    const chosenPrice = () => {
+        const t = chosen();
+        return t ? priceSel() ?? defaultPriceId(t,) : null;
+    };
+    /** The price to SEND: omitted when it is the level's default. */
+    const priceArg = () => {
+        const t = chosen();
+        const p = chosenPrice();
+        return t && p && p !== defaultPriceId(t,) ? p : undefined;
+    };
+    /** Monthly-equivalent cents, so $250 / year compares fairly with $25 / month. */
+    const perMonth = (t: MembershipTierOption,) => {
+        const months = ({ day: 1 / 30, week: 12 / 52, month: 1, year: 12, } as Record<string, number>)[t.interval] ?? 1;
+        return t.priceCents / (months * Math.max(1, t.intervalCount || 1,));
+    };
 
     const direction = () => {
         const to = chosen();
         const from = currentTier();
         if (!to) return 'same';
         if (!from) return 'upgrade'; // no current tier on offer (e.g. Free hidden): a new subscription
-        if (to.id === from.id) return 'same';
-        return to.priceCents > from.priceCents ? 'upgrade' : 'downgrade';
+        if (to.id === from.id) return chosenPrice() === currentPrice() ? 'same' : 'billing';
+        return perMonth(tierAtPrice(to, chosenPrice(),),) > perMonth(tierAtPrice(from, currentPrice(),),) ? 'upgrade' : 'downgrade';
     };
     const actionLabel = () => {
         const to = chosen();
         if (to?.isPending) return 'Application pending';
         if (to?.requiresApproval && !to.isCurrent) return `Apply for ${to.name}`;
         if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my membership' : 'No change';
+        if (direction() === 'billing') {
+            const p = (to.prices ?? []).find((x,) => x.priceId === chosenPrice(),);
+            return p ? `Switch to ${priceOptionFreq(p,).toLowerCase()} billing` : 'Switch billing';
+        }
         if (!currentTier() || noPlan()) return `Join ${to.name}`;
         return `${direction() === 'upgrade' ? 'Upgrade' : 'Downgrade'} to ${to.name} tier`;
     };
 
+    /** Pick a level (its current price when it is theirs, else its default). */
+    const pickTier = (t: MembershipTierOption,) => {
+        if (selected() === t.id) return;
+        setSelected(t.id,);
+        setPriceSel(t.isCurrent ? currentPrice() : defaultPriceId(t,),);
+    };
+
     // `/profile?tab=membership&tier=<id>` (from /subscribe): open the chooser
     // with that tier picked, once the tiers are loaded.
-    const [params,] = useSearchParams<{ tier?: string; }>();
+    // `&price=<priceId>` picks one of that level's prices (e.g. yearly).
+    const [params,] = useSearchParams<{ tier?: string; price?: string; }>();
     let preselected = false;
     createEffect(() => {
         const want = params.tier;
         if (preselected || !want || tiers().length === 0) return;
         preselected = true;
-        if (tiers().some((t,) => t.id === want && !t.isCurrent)) {
-            openChooser();
-            setSelected(want,);
-        }
+        const t = tiers().find((x,) => x.id === want,);
+        if (!t) return;
+        const price = params.price && (t.prices ?? []).some((p,) => p.priceId === params.price,) ? params.price : null;
+        // Their own level at the price they pay already is no change — stay on the overview.
+        if (t.isCurrent && (!price || price === currentPrice())) return;
+        openChooser();
+        setSelected(t.id,);
+        setPriceSel(price ?? (t.isCurrent ? currentPrice() : defaultPriceId(t,)),);
     },);
 
     const openChooser = () => {
         setError('',);
         setNotice('',);
         setSelected(currentTier()?.id ?? null,);
+        setPriceSel(currentPrice(),);
         setView('choose',);
     };
 
@@ -114,7 +156,7 @@ const MembershipPanel: Component = () => {
         setError('',);
         setBusy(true,);
         try {
-            setPreview(await cms.payments.previewMembership(to.id,),);
+            setPreview(await cms.payments.previewMembership(to.id, priceArg(),),);
             setView('confirm',);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Could not prepare that change.',);
@@ -146,7 +188,7 @@ const MembershipPanel: Component = () => {
                 if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
                 paymentMethod = pm.paymentMethod.id;
             }
-            const res = await cms.payments.changeMembership(to.id,);
+            const res = await cms.payments.changeMembership(to.id, priceArg(),);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
                 if (!stripe || !paymentMethod) throw new Error('Enter your card details.',);
                 const pay = await stripe.confirmCardPayment(res.clientSecret, { payment_method: paymentMethod, },);
@@ -157,7 +199,11 @@ const MembershipPanel: Component = () => {
             } else if (res.result === 'cancel_scheduled') {
                 await finish(`Your membership will end on ${longDate(res.current.currentPeriodEnd,)}; after that you're on the free plan.`,);
             } else {
-                await finish(to.isFree ? "You're on the free plan." : `You're now on the ${to.name} tier.`,);
+                await finish(to.isFree
+                    ? "You're on the free plan."
+                    : preview()?.direction === 'billing'
+                    ? `Your ${to.name} billing is now ${preview()!.to.interval ? `${per(preview()!.to,).replace(/^ \/ /, 'per ',).trim()}` : 'updated'}.`
+                    : `You're now on the ${to.name} tier.`,);
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'The change could not be completed.',);
@@ -328,6 +374,9 @@ const MembershipPanel: Component = () => {
                             >
                                 <button type="button" class="btn" onClick={openChooser} disabled={tiers().length < 1}>Choose a plan</button>
                             </Show>
+                            <Show when={!current()!.cancelAtPeriodEnd && (currentTier()?.prices?.length ?? 0) > 1 && !currentTier()?.isFree}>
+                                <button type="button" class="membership__link" onClick={openChooser}>Change billing</button>
+                            </Show>
                             <Show when={current()!.card || current()!.source === 'stripe'}>
                                 <button type="button" class="btn btn--outline-neutral" onClick={() => { setError('',); setNotice('',); setView('card',); }}>
                                     Update payment method
@@ -341,6 +390,7 @@ const MembershipPanel: Component = () => {
                                     onClick={() => {
                                         if (required()) { void cancelPlan(); return; }
                                         setSelected(tiers().find((t,) => t.isFree,)?.id ?? null,);
+                                        setPriceSel(null,);
                                         void toConfirm();
                                     }}
                                 >
@@ -364,11 +414,12 @@ const MembershipPanel: Component = () => {
                                         aria-checked={selected() === t.id}
                                         class="membership__tout"
                                         classList={{ 'is-selected': selected() === t.id, 'is-current': t.isCurrent, }}
-                                        onClick={() => setSelected(t.id,)}
+                                        onClick={() => pickTier(t,)}
                                         onKeyDown={(e,) => {
+                                            if (e.target !== e.currentTarget) return; // a price button inside handles its own keys
                                             if (e.key === ' ' || e.key === 'Enter') {
                                                 e.preventDefault();
-                                                setSelected(t.id,);
+                                                pickTier(t,);
                                             }
                                         }}
                                     >
@@ -379,10 +430,16 @@ const MembershipPanel: Component = () => {
                                             <Show when={t.requiresApproval && !t.isPending && !t.isCurrent}><span class="membership__badge membership__badge--apply">By application</span></Show>
                                         </span>
                                         <span class="membership__tout-price">
-                                            {t.isFree ? 'Free' : money(shown(t,).priceCents, t.currency,)}<small>{per(shown(t,),)}</small>
+                                            <PriceChoice
+                                                tier={t}
+                                                perClass="membership__tout-per"
+                                                selected={selected() === t.id ? chosenPrice() : (t.isCurrent ? currentPrice() : null)}
+                                                onSelect={(t.prices?.length ?? 0) > 1 ? (id,) => { setSelected(t.id,); setPriceSel(id,); } : undefined}
+                                            />
                                         </span>
-                                        <span class="membership__tout-freq">{freq(t,)}</span>
-                                        <Show when={billedNote(t,)}><span class="membership__tout-billed">{billedNote(t,)}</span></Show>
+                                        <span class="membership__tout-freq">
+                                            {freq(selected() === t.id ? tierAtPrice(t, chosenPrice(),) : t.isCurrent ? tierAtPrice(t, currentPrice(),) : t,)}
+                                        </span>
                                         <Markdown class="membership__tout-desc" text={t.description} />
                                     </div>
                                 )}
@@ -396,7 +453,7 @@ const MembershipPanel: Component = () => {
                                 disabled={busy() || direction() === 'same' || !!chosen()?.isPending || (!!chosen()?.requiresApproval && !!pending())}
                                 onClick={() => {
                                     const to = chosen();
-                                    if (to?.requiresApproval && !to.isCurrent) { setApplying(to,); return; }
+                                    if (to?.requiresApproval && !to.isCurrent) { setApplyingPrice(chosenPrice(),); setApplying(to,); return; }
                                     void toConfirm();
                                 }}
                             >
@@ -447,7 +504,16 @@ const MembershipPanel: Component = () => {
                                 fallback={
                                     <Show
                                         when={preview()!.direction === 'new'}
-                                        fallback={<>Your current plan is cancelled now and replaced by {preview()!.to.name}. Unused time on it is credited against the new price.</>}
+                                        fallback={
+                                            <Show
+                                                when={preview()!.direction === 'billing'}
+                                                fallback={<>Your current plan is cancelled now and replaced by {preview()!.to.name}. Unused time on it is credited against the new price.</>}
+                                            >
+                                                Your {preview()!.to.name} membership switches from{' '}
+                                                {preview()!.from ? freq(preview()!.from!,).toLowerCase() : 'its current'} to {freq(preview()!.to,).toLowerCase()} billing today.
+                                                Unused time on your current billing is credited against the new price.
+                                            </Show>
+                                        }
                                     >
                                         Your {preview()!.to.name} membership starts today and renews automatically. You can cancel any time.
                                     </Show>
@@ -493,6 +559,7 @@ const MembershipPanel: Component = () => {
             <Show when={applying()}>
                 <ApplyModal
                     tier={applying()!}
+                    priceId={applyingPrice()}
                     onClose={() => setApplying(null,)}
                     onApplied={() => { setView('overview',); void refetch(); }}
                 />

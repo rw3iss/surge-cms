@@ -25,7 +25,8 @@ import {
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
-import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
+import { billedNote, defaultPriceId, freq, money, per, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
+import PriceChoice from './PriceChoice';
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
 
@@ -45,11 +46,28 @@ const APPLY_STEPS: { key: Step; label: string; }[] = [
 
 const SubscriptionSignup: Component = () => {
     const auth = useAuth();
-    const [params,] = useSearchParams<{ tier?: string; }>();
+    const [params,] = useSearchParams<{ tier?: string; price?: string; }>();
     const [tiers,] = createResource(() => cms.payments.membershipTiers().then((r,) => r.tiers.filter((t,) => !t.isFree)).catch(() => [] as MembershipTierOption[]),);
     const [step, setStep,] = createSignal<Step>('plan',);
     const [tierId, setTierId,] = createSignal<string | null>(params.tier ?? null,);
     const tier = () => tiers()?.find((t,) => t.id === tierId(),) ?? null;
+    /** The billing price picked per level (`?price=` from /subscribe seeds it); absent = default. */
+    const [picks, setPicks,] = createSignal<Record<string, string>>(params.tier && params.price ? { [params.tier]: params.price, } : {},);
+    const chosenFor = (t: MembershipTierOption,): string | null => {
+        const p = picks()[t.id];
+        return p && t.prices?.some((x,) => x.priceId === p,) ? p : defaultPriceId(t,);
+    };
+    const pick = (t: MembershipTierOption, id: string,) => setPicks({ ...picks(), [t.id]: id, },);
+    /** The chosen level re-priced to the chosen billing price. */
+    const chosenTier = (): MembershipTierOption | null => (tier() ? tierAtPrice(tier()!, chosenFor(tier()!,),) : null);
+    /** The chosen price when it is NOT the default (what the server is sent). */
+    const altPrice = (): string | null => {
+        const t = tier();
+        if (!t) return null;
+        const c = chosenFor(t,);
+        return c && c !== defaultPriceId(t,) ? c : null;
+    };
+    const hasChoice = () => (tier()?.prices?.length ?? 0) > 1;
     const [error, setError,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
     /** The application sent in the Application step (plans that require approval). */
@@ -119,7 +137,7 @@ const SubscriptionSignup: Component = () => {
             if (!stripe || !card) throw new Error('Enter your card details.',);
             const pm = await stripe.createPaymentMethod({ type: 'card', card, },);
             if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
-            const res = await cms.payments.changeMembership(t.id,);
+            const res = await cms.payments.changeMembership(t.id, altPrice(),);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
                 const r = await stripe.confirmCardPayment(res.clientSecret, { payment_method: pm.paymentMethod.id, },);
                 if (r.error) throw new Error(r.error.message || 'Your card was declined.',);
@@ -168,11 +186,15 @@ const SubscriptionSignup: Component = () => {
                                     <article class="subscribe-card subscribe-card--paid" classList={{ 'subscribe-card--current': tierId() === t.id, }}>
                                         <header class="subscribe-card__head"><h2 class="subscribe-card__name">{t.name}</h2></header>
                                         <div class="subscribe-card__price">
-                                            <span class="subscribe-card__amount">{money(shown(t,).priceCents, t.currency,)}</span>
-                                            <span class="subscribe-card__per">{per(shown(t,),)}</span>
+                                            <PriceChoice
+                                                tier={t}
+                                                selected={chosenFor(t,)}
+                                                onSelect={(id,) => pick(t, id,)}
+                                                amountClass="subscribe-card__amount"
+                                                perClass="subscribe-card__per"
+                                            />
                                         </div>
-                                        <span class="subscribe-card__freq">{freq(t,)}</span>
-                                        <Show when={billedNote(t,)}><span class="subscribe-card__billed">{billedNote(t,)}</span></Show>
+                                        <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosenFor(t,),),)}</span>
                                         <Markdown class="subscribe-card__desc" text={t.description} />
                                         <button
                                             type="button"
@@ -198,16 +220,22 @@ const SubscriptionSignup: Component = () => {
             <Show when={step() === 'application' && tier()}>
                 <div class="subscription-signup__form">
                     <p class="subscription-signup__plan">
-                        Applying for <strong>{tier()!.name}</strong> · {shownPrice(tier()!,)}{' '}
+                        Applying for <strong>{tier()!.name}</strong> · {shownPrice(chosenTier()!,)}{' '}
                         <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
                     </p>
+                    <Show when={hasChoice()}>
+                        <div class="subscription-signup__billing">
+                            <span class="join__label">Billing</span>
+                            <PriceChoice tier={tier()!} selected={chosenFor(tier()!,)} onSelect={(id,) => pick(tier()!, id,)} />
+                        </div>
+                    </Show>
                     <p class="subscription-signup__hint">This membership requires approval. Tell us about yourself — you will not be charged unless you are approved.</p>
                     <ApplicationQuestions
                         tier={tier()!}
                         prefill={{ name: auth.user?.displayName ?? name(), email: auth.user?.email ?? email(), }}
                         onCollected={async (answers: FormAnswer[], form,) => {
                             // Sent NOW (signed in or not): the team is emailed and will call.
-                            setSubmitted(await submitApplication(tier()!, answers,),);
+                            setSubmitted(await submitApplication(tier()!, answers, chosenFor(tier()!,),),);
                             const who = applicantFrom(form, answers,);
                             if (!name()) setName(who.name,);
                             if (!email()) setEmail(who.email,);
@@ -232,7 +260,7 @@ const SubscriptionSignup: Component = () => {
             <Show when={step() === 'account'}>
                 <form class="join__form subscription-signup__form" onSubmit={createAccount}>
                     <p class="subscription-signup__plan">
-                        Plan: <strong>{tier()?.name}</strong> · {tier() ? shownPrice(tier()!,) : ''}{' '}
+                        Plan: <strong>{tier()?.name}</strong> · {chosenTier() ? shownPrice(chosenTier()!,) : ''}{' '}
                         <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
                     </p>
                     <div class="join__field">
@@ -272,9 +300,15 @@ const SubscriptionSignup: Component = () => {
             {/* 3 · Payment */}
             <Show when={step() === 'payment' && !needsApproval()}>
                 <div class="subscription-signup__form">
-                    <Show when={tier()} fallback={<p>Choose a plan first. <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>See plans</button></p>}>
+                    <Show when={chosenTier()} fallback={<p>Choose a plan first. <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>See plans</button></p>}>
                         {(t,) => (
                             <>
+                                <Show when={hasChoice()}>
+                                    <div class="subscription-signup__billing">
+                                        <span class="join__label">Billing</span>
+                                        <PriceChoice tier={tier()!} selected={chosenFor(tier()!,)} onSelect={(id,) => pick(tier()!, id,)} />
+                                    </div>
+                                </Show>
                                 <div class="subscription-signup__summary">
                                     <div>
                                         <strong>{t().name}</strong>

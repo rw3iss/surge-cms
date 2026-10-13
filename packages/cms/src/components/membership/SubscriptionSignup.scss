@@ -39,6 +39,14 @@
     margin: 0 auto;
   }
 
+  // Billing choice (alternative prices) on the application + payment steps.
+  &__billing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0 0 1rem;
+  }
+
   &__plan, &__hint {
     color: var(--site-text-muted, #6b7280);
     font-size: 0.9rem;

@@ -30,7 +30,7 @@ import { logAudit, } from './audit';
 import type { AuditContext, } from './types';
 import { sendEmail, } from './email';
 import * as forms from './forms';
-import { pendingApplicationFor, startApprovedMembership, } from './membership';
+import { assertTierPrice, pendingApplicationFor, startApprovedMembership, } from './membership';
 import { notify, } from './notifications';
 import { getStripeClient, } from './payment/stripe';
 
@@ -169,11 +169,12 @@ async function assertCanApply(userId: string, tier: TierRow,): Promise<void> {
 export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,): Promise<MembershipApplySubmitResponse> {
     const tier = await loadTier(body.tierId,);
     if (ctx.userId) await assertCanApply(ctx.userId, tier,);
+    await assertTierPrice(tier.id, body.priceId,);
     const c = await collectAnswers(tier, body.answers, ctx,);
     const ins = await query<{ id: string; created_at: Date; }>(
-        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
-        [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email,],
+        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email, price_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
+        [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email, body.priceId ?? null,],
     ).catch((e,) => {
         if ((e as { code?: string; }).code === '23505') throw new ConflictError('You already have an application waiting for review.',);
         throw e;
@@ -234,7 +235,7 @@ export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { use
     const tier = await loadTier(body.tierId,);
     await assertCanApply(ctx.userId, tier,);
     await verifyCard(ctx.userId, body.paymentMethodId,);
-    const s = await submit({ tierId: body.tierId, answers: body.answers, }, ctx,);
+    const s = await submit({ tierId: body.tierId, priceId: body.priceId, answers: body.answers, }, ctx,);
     return attachCard(ctx.userId, { applicationId: s.application.id, paymentMethodId: body.paymentMethodId, },);
 }
 
@@ -314,8 +315,8 @@ export async function get(id: string,): Promise<MembershipApplication> {
 }
 
 async function loadPending(id: string,) {
-    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; payment_method_id: string | null; }>(
-        `SELECT id, user_id, plan_id, status, payment_method_id FROM membership_applications WHERE id = $1`, [id,],
+    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; payment_method_id: string | null; price_id: string | null; }>(
+        `SELECT id, user_id, plan_id, status, payment_method_id, price_id FROM membership_applications WHERE id = $1`, [id,],
     );
     const a = r.rows[0];
     if (!a) throw new NotFoundError('Application',);
@@ -328,7 +329,7 @@ export async function approve(id: string, note: string | undefined, ctx: AuditCo
     const a = await loadPending(id,);
     if (!a.user_id) throw new ValidationError('The applicant has not created their account yet — approve once they have signed up and added a card.',);
     try {
-        await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id,);
+        await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id, a.price_id,);
     } catch (e) {
         const message = (e as Error).message;
         await query(`UPDATE membership_applications SET error = $2, updated_at = NOW() WHERE id = $1`, [id, message,],);

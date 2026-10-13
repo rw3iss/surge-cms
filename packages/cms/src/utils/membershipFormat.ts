@@ -46,3 +46,26 @@ export function billedNote(t: Priced,): string {
     if (t.isFree || !t.display) return '';
     return `Billed ${money(t.priceCents, t.currency,)}${per(t,)}`;
 }
+
+// ─── Alternative prices (one level, several Stripe prices: monthly / yearly …) ──
+
+type PriceOpt = { priceId: string; amount: number; currency: string; interval: string; intervalCount: number; isDefault: boolean; };
+
+/** "$250 / year", "$25 / month". */
+export const priceOptionLabel = (p: PriceOpt,): string => `${money(p.amount, p.currency,)}${per({ isFree: false, interval: p.interval, intervalCount: p.intervalCount, },)}`;
+
+/** Short frequency for a price chip: "Monthly", "Yearly", "Every 2 weeks". */
+export const priceOptionFreq = (p: PriceOpt,): string => freqOf({ isFree: false, interval: p.interval, intervalCount: p.intervalCount, },);
+
+/** The level re-priced to one of its prices (client twin of the server's `withPrice`). */
+export function tierAtPrice(t: MembershipTierOption, priceId?: string | null,): MembershipTierOption {
+    const prices = t.prices ?? [];
+    if (t.isFree || !prices.length || !priceId) return t;
+    const p = prices.find((x,) => x.priceId === priceId,);
+    if (!p) return t;
+    return { ...t, priceCents: p.amount, currency: p.currency, interval: p.interval, intervalCount: p.intervalCount, selectedPriceId: p.priceId, display: p.isDefault ? t.display : null, };
+}
+
+/** The level's default price id (what "no choice" means). */
+export const defaultPriceId = (t: MembershipTierOption,): string | null =>
+    (t.prices ?? []).find((p,) => p.isDefault,)?.priceId ?? t.selectedPriceId ?? null;

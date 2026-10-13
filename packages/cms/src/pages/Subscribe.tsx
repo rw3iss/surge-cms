@@ -23,7 +23,8 @@ import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
-import { billedNote, freq, money, per, shown, shownPrice, } from '../utils/membershipFormat';
+import PriceChoice from '../components/membership/PriceChoice';
+import { defaultPriceId, freq, shownPrice, tierAtPrice, } from '../utils/membershipFormat';
 import './Subscribe.scss';
 
 const membershipUrl = (tierId?: string,) => `/profile?tab=membership${tierId ? `&tier=${encodeURIComponent(tierId,)}` : ''}`;
@@ -35,6 +36,15 @@ const SubscribePage: Component = () => {
     const [data, setData,] = createSignal<MembershipPublicTiersResponse | null>(null,);
     const [failed, setFailed,] = createSignal(false,);
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
+    /** The price the visitor picked per level (absent = the level's default). */
+    const [picked, setPicked,] = createSignal<Record<string, string>>({},);
+    const chosen = (t: MembershipTierOption,): string | null => picked()[t.id] ?? defaultPriceId(t,);
+    /** The chosen price when it is NOT the default — only then does it travel in URLs. */
+    const altPrice = (t: MembershipTierOption,): string | null => {
+        const c = chosen(t,);
+        return c && c !== defaultPriceId(t,) ? c : null;
+    };
+    const priceParam = (t: MembershipTierOption,) => (altPrice(t,) ? `&price=${encodeURIComponent(altPrice(t,)!,)}` : '');
     const load = () => cms.payments.membershipTiers().then(setData,).catch(() => setFailed(true,),);
 
     // Reload when the viewer signs in/out (their "current" tier changes).
@@ -53,12 +63,14 @@ const SubscribePage: Component = () => {
     const pending = () => data()?.pendingApplication ?? null;
 
     // Back from log-in with `?apply=<tierId>`: open that application.
-    const [search, setSearch,] = useSearchParams<{ apply?: string; }>();
+    const [search, setSearch,] = useSearchParams<{ apply?: string; price?: string; }>();
     createEffect(() => {
         const id = search.apply;
         if (!id || !signedIn() || !data()) return;
         const t = tiers().find((x,) => x.id === id && x.requiresApproval && !x.isPending,);
-        setSearch({ apply: undefined, },);
+        const price = search.price;
+        setSearch({ apply: undefined, price: undefined, },);
+        if (t && price && t.prices?.some((p,) => p.priceId === price,)) setPicked({ ...picked(), [t.id]: price, },);
         if (t && !pending()) setApplying(t,);
     },);
 
@@ -66,11 +78,11 @@ const SubscribePage: Component = () => {
         if (t.isPending) return;
         if (t.requiresApproval) {
             if (signedIn()) return setApplying(t,);
-            if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}`,);
-            return navigate(loginUrl(`/subscribe?apply=${encodeURIComponent(t.id,)}`,),);
+            if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
+            return navigate(loginUrl(`/subscribe?apply=${encodeURIComponent(t.id,)}${priceParam(t,)}`,),);
         }
-        const target = membershipUrl(t.id,);
-        if (!signedIn() && required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}`,);
+        const target = `${membershipUrl(t.id,)}${priceParam(t,)}`;
+        if (!signedIn() && required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
         navigate(signedIn() ? target : loginUrl(target,),);
     };
 
@@ -176,11 +188,16 @@ const SubscribePage: Component = () => {
                                         </Show>
                                     </header>
                                     <div class="subscribe-card__price">
-                                        <span class="subscribe-card__amount">{t.isFree ? 'Free' : money(shown(t,).priceCents, t.currency,)}</span>
-                                        <Show when={!t.isFree}><span class="subscribe-card__per">{per(shown(t,),)}</span></Show>
+                                        {/* Default price large; other billing periods as small chips beside it (pick one, then Join). */}
+                                        <PriceChoice
+                                            tier={t}
+                                            selected={chosen(t,)}
+                                            onSelect={(id,) => setPicked({ ...picked(), [t.id]: id, },)}
+                                            amountClass="subscribe-card__amount"
+                                            perClass="subscribe-card__per"
+                                        />
                                     </div>
-                                    <span class="subscribe-card__freq">{freq(t,)}</span>
-                                    <Show when={billedNote(t,)}><span class="subscribe-card__billed">{billedNote(t,)}</span></Show>
+                                    <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosen(t,),),)}</span>
                                     <Markdown class="subscribe-card__desc" text={t.description} />
                                     <button
                                         type="button"
@@ -197,7 +214,12 @@ const SubscribePage: Component = () => {
                 </Show>
             </Show>
             <Show when={applying()}>
-                <ApplyModal tier={applying()!} onClose={() => setApplying(null,)} onApplied={() => void load()} />
+                <ApplyModal
+                    tier={applying()!}
+                    priceId={chosen(applying()!,)}
+                    onClose={() => setApplying(null,)}
+                    onApplied={() => void load()}
+                />
             </Show>
         </div>
     );

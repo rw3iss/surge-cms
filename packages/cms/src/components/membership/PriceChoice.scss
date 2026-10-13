@@ -1,0 +1,54 @@
+// A level's price + its alternative prices (PriceChoice.tsx). Site tokens: it
+// renders on /subscribe, sign-up and the profile.
+.price-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+
+  &__main { display: inline-flex; align-items: baseline; gap: 0.25rem; }
+
+  &__alts {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__alt {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    color: var(--site-text-muted, #6b7280);
+    white-space: nowrap;
+  }
+
+  // Selectable: every price is a button; the chosen one is outlined.
+  &__opt {
+    font: inherit;
+    background: none;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  &__main.price-choice__opt {
+    padding: 0.15rem 0.5rem;
+    border: 2px solid transparent;
+    border-radius: 8px;
+  }
+
+  &__opt.is-selected {
+    border-color: var(--site-primary, #e63946);
+    color: var(--site-text, #111);
+  }
+
+  &__opt:not(.is-selected):hover { border-color: var(--site-text-muted, #6b7280); }
+
+  &__billed {
+    flex-basis: 100%;
+    font-size: 0.78rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+}

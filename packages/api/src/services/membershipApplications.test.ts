@@ -11,6 +11,7 @@ vi.mock('./forms', () => ({ getById: vi.fn(), submit: vi.fn(), }),);
 const startApproved = vi.fn();
 vi.mock('./membership', () => ({
     pendingApplicationFor: vi.fn(async () => null,),
+    assertTierPrice: vi.fn(async () => undefined,),
     startApprovedMembership: (...a: unknown[]) => startApproved(...a),
 }),);
 const stripe = { paymentMethods: { retrieve: vi.fn(), }, };

@@ -1736,7 +1736,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "changeMembership",
-                "signature": "changeMembership(tierId: string): Promise<MembershipChangeResponse>",
+                "signature": "changeMembership(tierId: string, priceId?: string | null): Promise<MembershipChangeResponse>",
                 "summary": "POST /payments/membership/change — `payment_required` → confirm the card with `clientSecret`, then `confirmMembership`."
             },
             {
@@ -1786,8 +1786,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "previewMembership",
-                "signature": "previewMembership(tierId: string): Promise<MembershipPreviewResponse>",
-                "summary": "POST /payments/membership/preview — cost now + when a change takes effect."
+                "signature": "previewMembership(tierId: string, priceId?: string | null): Promise<MembershipPreviewResponse>",
+                "summary": "POST /payments/membership/preview — cost now + when a change takes effect. `priceId` = one of the level's `prices` (default when omitted)."
             },
             {
                 "name": "publishableKey",

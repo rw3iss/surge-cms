@@ -62,3 +62,27 @@ describe('settleOpenAttempts', () => {
         expect(stripe.subscriptions.cancel,).toHaveBeenCalledWith('sub_x',);
     },);
 },);
+
+describe('withPrice', async () => {
+    const { withPrice, } = await import('./membership');
+    const tier = {
+        id: 't', slug: 'm', name: 'Membership', description: null, isFree: false, isCurrent: false,
+        priceCents: 2500, currency: 'usd', interval: 'month', intervalCount: 1,
+        display: { priceCents: 2000, interval: 'month' as const, intervalCount: 1, },
+        prices: [
+            { priceId: 'p_month', amount: 2500, currency: 'usd', interval: 'month', intervalCount: 1, isDefault: true, },
+            { priceId: 'p_year', amount: 25000, currency: 'usd', interval: 'year', intervalCount: 1, isDefault: false, },
+        ],
+        selectedPriceId: 'p_month',
+    };
+    it('defaults to the level\'s own price', () => {
+        expect(withPrice(tier,).selectedPriceId,).toBe('p_month',);
+    },);
+    it('re-prices to an alternative and drops the custom display (it describes the default)', () => {
+        const y = withPrice(tier, 'p_year',);
+        expect(y,).toMatchObject({ priceCents: 25000, interval: 'year', selectedPriceId: 'p_year', display: null, },);
+    },);
+    it('refuses a price that is not on the level', () => {
+        expect(() => withPrice(tier, 'p_other',),).toThrow(/not available/,);
+    },);
+},);

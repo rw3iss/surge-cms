@@ -14,6 +14,18 @@ import type { TierDisplayPrice, } from './subscriptions';
  *     (`resume` undoes it until then).
  */
 
+/** One Stripe price a membership level can be bought at (e.g. $25 / month, $250 / year). */
+export interface MembershipPriceOption {
+    priceId: string;
+    /** Cents per period. */
+    amount: number;
+    currency: string;
+    interval: string;
+    intervalCount: number;
+    /** The level's own price (shown first). */
+    isDefault: boolean;
+}
+
 export interface MembershipTierOption {
     id: string;
     slug: string;
@@ -28,6 +40,17 @@ export interface MembershipTierOption {
     /** Shown to members instead of the billing price/interval above (which
      *  stay the real Stripe charge). Null = show the billing price. */
     display?: TierDisplayPrice | null;
+    /**
+     * Every price the level can be bought at — its default first, then the
+     * other active recurring prices on the same Stripe product. The fields
+     * above (`priceCents`/`interval`…) describe the SELECTED one: the default,
+     * or the price this option was built for (`selectedPriceId`).
+     */
+    prices?: MembershipPriceOption[];
+    /** The price the fields above describe. */
+    selectedPriceId?: string | null;
+    /** On the member's current level: the price they pay now. */
+    currentPriceId?: string | null;
     /** Joining needs an admin's approval: the button reads "Apply". */
     requiresApproval?: boolean;
     /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */
@@ -60,6 +83,8 @@ export interface MembershipCurrent {
     cancelAtPeriodEnd: boolean;
     /** Saved card for a Stripe subscription, when known. */
     card: { brand: string; last4: string; } | null;
+    /** The Stripe price they pay now (one of the level's `prices`), when known. */
+    priceId?: string | null;
 }
 
 /** The member's latest membership payment that never completed (no active membership). */
@@ -90,10 +115,13 @@ export interface MembershipCardResponse { current: MembershipCurrent; paid: bool
 
 export interface MembershipChangeBody {
     tierId: string;
+    /** One of the level's `prices` (e.g. the yearly one); omitted = its default price. */
+    priceId?: string;
 }
 
 export interface MembershipPreviewResponse {
-    direction: 'upgrade' | 'downgrade' | 'same' | 'cancel' | 'new';
+    /** `billing` = same level, another price (e.g. monthly → yearly). */
+    direction: 'upgrade' | 'downgrade' | 'same' | 'cancel' | 'new' | 'billing';
     from: MembershipTierOption | null;
     to: MembershipTierOption;
     /** Charged now (cents) — the prorated difference, or the first period. */

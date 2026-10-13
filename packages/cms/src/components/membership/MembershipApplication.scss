@@ -75,3 +75,18 @@
   h3 { margin: 0; }
   p { margin: 0; }
 }
+
+// Billing choice (alternative prices) above the application questions.
+.membership-apply__billing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.membership-apply__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--site-text-muted, #6b7280);
+}

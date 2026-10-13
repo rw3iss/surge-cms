@@ -22,7 +22,8 @@ import { Component, createResource, createSignal, onCleanup, onMount, Show, } fr
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
-import { billedNote, shownPrice, } from '../../utils/membershipFormat';
+import { billedNote, defaultPriceId, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
+import PriceChoice from './PriceChoice';
 import { mountStripeCard, saveCardForLater, type MountedCard, } from '../../utils/stripeCard';
 import FormRenderer from '../forms/FormRenderer';
 import { Portal, } from 'solid-js/web';
@@ -101,7 +102,13 @@ export const ApplicationQuestions: Component<{
 const PENDING_KEY = 'sitesurge.membership.application';
 
 /** The application submitted from this browser (to claim after sign-up). */
-export interface SubmittedApplication { id: string; token: string | null; tierId: string; }
+export interface SubmittedApplication {
+    id: string;
+    token: string | null;
+    tierId: string;
+    /** The price chosen when it was submitted (null = the level's default) — approval bills it. */
+    priceId?: string | null;
+}
 
 export function rememberedApplication(tierId: string,): SubmittedApplication | null {
     try {
@@ -113,9 +120,13 @@ export function rememberedApplication(tierId: string,): SubmittedApplication | n
 }
 
 /** Step 1: send the answers now (the team is emailed and will call). */
-export async function submitApplication(tier: MembershipTierOption, answers: FormAnswer[],): Promise<SubmittedApplication> {
-    const res: MembershipApplySubmitResponse = await cms.payments.submitMembershipApplication({ tierId: tier.id, answers, },);
-    const saved = { id: res.application.id, token: res.token, tierId: tier.id, };
+export async function submitApplication(tier: MembershipTierOption, answers: FormAnswer[], priceId?: string | null,): Promise<SubmittedApplication> {
+    // Only a NON-default price is sent (the server treats "omitted" as the default).
+    const alt = priceId && priceId !== defaultPriceId(tier,) ? priceId : null;
+    const res: MembershipApplySubmitResponse = await cms.payments.submitMembershipApplication({
+        tierId: tier.id, answers, ...(alt ? { priceId: alt, } : {}),
+    },);
+    const saved = { id: res.application.id, token: res.token, tierId: tier.id, priceId: alt, };
     try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(saved,),); } catch { /* private mode */ }
     return saved;
 }
@@ -178,8 +189,8 @@ export const ApplicationPayment: Component<{
     return (
         <div class="membership-apply__payment">
             <p class="membership-apply__summary">
-                <strong>{props.tier.name}</strong> · {shownPrice(props.tier,)}
-                <Show when={billedNote(props.tier,)}> <small>({billedNote(props.tier,)})</small></Show>
+                <strong>{props.tier.name}</strong> · {shownPrice(tierAtPrice(props.tier, props.application.priceId,),)}
+                <Show when={billedNote(tierAtPrice(props.tier, props.application.priceId,),)}> <small>({billedNote(tierAtPrice(props.tier, props.application.priceId,),)})</small></Show>
             </p>
             <p class="membership-apply__note">
                 Add the card for your membership. <strong>You will not be charged now</strong> — billing starts only if your application is approved.
@@ -210,8 +221,16 @@ export const ApplicationDone: Component<{ tierName: string; }> = (props,) => (
 );
 
 /** Apply for a level, signed in: questions → card → done. */
-export const ApplyModal: Component<{ tier: MembershipTierOption; onClose: () => void; onApplied: () => void; }> = (props,) => {
+export const ApplyModal: Component<{
+    tier: MembershipTierOption;
+    /** The price picked on the card (null = the default); changeable here before submitting. */
+    priceId?: string | null;
+    onClose: () => void;
+    onApplied: () => void;
+}> = (props,) => {
     const auth = useAuth();
+    // Billing is chosen BEFORE the answers are sent: the application records it.
+    const [price, setPrice,] = createSignal<string | null>(props.priceId ?? defaultPriceId(props.tier,),);
     const [step, setStep,] = createSignal<'questions' | 'submitted' | 'payment' | 'done'>('questions',);
     const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     // Esc closes (the backdrop does not: an application is easy to lose by a stray click).
@@ -227,12 +246,18 @@ export const ApplyModal: Component<{ tier: MembershipTierOption; onClose: () => 
                 <button type="button" class="membership-apply__close" aria-label="Close" onClick={() => props.onClose()}>×</button>
                 <h2 class="membership-apply__title">Apply for {props.tier.name}</h2>
                 <Show when={step() === 'questions'}>
+                    <Show when={(props.tier.prices?.length ?? 0) > 1}>
+                        <div class="membership-apply__billing">
+                            <span class="membership-apply__label">Billing</span>
+                            <PriceChoice tier={props.tier} selected={price()} onSelect={setPrice} />
+                        </div>
+                    </Show>
                     <p class="membership-apply__muted">This membership requires approval. Tell us about yourself:</p>
                     <ApplicationQuestions
                         tier={props.tier}
                         prefill={{ name: auth.user?.displayName, email: auth.user?.email, }}
                         onCollected={async (a,) => {
-                            setSubmitted(await submitApplication(props.tier, a,),);
+                            setSubmitted(await submitApplication(props.tier, a, price(),),);
                             setStep('submitted',);
                             void auth.refreshUser();
                             props.onApplied();

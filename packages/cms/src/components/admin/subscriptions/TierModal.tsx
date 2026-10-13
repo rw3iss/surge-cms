@@ -26,8 +26,14 @@ export interface TierModalProps {
 
 const slugify = (s: string,) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-',).replace(/^-|-$/g, '',).slice(0, 63,);
 
+/** "$250.00 / year". */
+function priceAmount(p: StripeSubscriptionPrice,): string {
+    const amt = p.unitAmount !== null ? `$${(p.unitAmount / 100).toFixed(2,)}` : 'custom amount';
+    return `${amt}${p.intervalCount > 1 ? ` every ${p.intervalCount} ${p.interval}s` : ` / ${p.interval}`}`;
+}
+
 function priceLabel(p: StripeSubscriptionPrice,): string {
-    const amt = p.unitAmount != null ? `${(p.unitAmount / 100).toFixed(2,)} ${p.currency.toUpperCase()}` : 'custom amount';
+    const amt = p.unitAmount !== null ? `${(p.unitAmount / 100).toFixed(2,)} ${p.currency.toUpperCase()}` : 'custom amount';
     const every = p.intervalCount > 1 ? `${p.intervalCount} ${p.interval}s` : p.interval;
     return `${p.productName}${p.nickname ? ` — ${p.nickname}` : ''} · ${amt} / ${every}`;
 }
@@ -69,6 +75,13 @@ const TierModal: Component<TierModalProps> = (props,) => {
         window.addEventListener('focus', onFocus,);
         onCleanup(() => window.removeEventListener('focus', onFocus,),);
     },);
+
+    /** The other recurring prices on the selected price's Stripe product. */
+    const otherPricesOf = (priceId: string,) => {
+        const all = stripe()?.prices ?? [];
+        const sel = all.find((p,) => p.priceId === priceId,);
+        return sel ? all.filter((p,) => p.productId === sel.productId && p.priceId !== priceId,) : [];
+    };
 
     /** Roles a subscription may give: everything but staff and anonymous. */
     const roleOptions = () => props.roles.filter((r,) => !isStaffRole(r.key,) && r.key !== 'anonymous',);
@@ -194,6 +207,13 @@ const TierModal: Component<TierModalProps> = (props,) => {
                                 {stripe.loading ? 'Loading…' : 'Refresh'}
                             </button>
                             </div>
+                            <Show when={otherPricesOf(form.stripePriceId,).length}>
+                                <p class="tier-modal__note tier-modal__other-prices">
+                                    Also available: {otherPricesOf(form.stripePriceId,).map(priceAmount,).join(' · ',)}
+                                    <br />
+                                    <span class="form-help-muted">Members choose between these on the plans page; this price stays the default.</span>
+                                </p>
+                            </Show>
                             <Show when={!stripe()?.connected}>
                                 <p class="tier-modal__note">
                                     Membership products are defined in Stripe, and Stripe must be connected in the{' '}

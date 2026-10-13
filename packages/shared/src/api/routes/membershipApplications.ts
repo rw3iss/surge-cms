@@ -59,6 +59,7 @@ export interface MembershipApplication {
 /** POST /payments/membership/apply */
 export interface MembershipApplyBody {
     tierId: string;
+    priceId?: string;
     /** The tier's form: answers by question id. Built-in form: by field id (name/email/phone/occupation). */
     answers: Array<{ questionId: string; value: unknown; }>;
     /** A card confirmed with a SetupIntent (`membershipCardSetup`); charged only on approval. */
@@ -68,6 +69,8 @@ export interface MembershipApplyBody {
 /** POST /payments/membership/apply/submit — step 1, the answers only. */
 export interface MembershipApplySubmitBody {
     tierId: string;
+    /** The chosen price (one of the level's `prices`); omitted = the default. */
+    priceId?: string;
     answers: Array<{ questionId: string; value: unknown; }>;
 }
 

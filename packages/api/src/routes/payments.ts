@@ -121,14 +121,14 @@ export const paymentsRoutes = [
     defineRoute({
         method: 'post', path: '/membership/preview', auth: 'user',
         summary: 'What a tier change would cost now (Stripe proration preview) and when it takes effect.',
-        input: { body: z.object({ tierId: z.string().uuid(), },) satisfies z.ZodType<MembershipChangeBody>, },
-        handler: ({ body, userId, },) => membership.preview(userId!, body.tierId,),
+        input: { body: z.object({ tierId: z.string().uuid(), priceId: z.string().max(255,).optional(), },) satisfies z.ZodType<MembershipChangeBody>, },
+        handler: ({ body, userId, },) => membership.preview(userId!, body.tierId, body.priceId,),
     },),
     defineRoute({
         method: 'post', path: '/membership/change', auth: 'user',
         summary: 'Change tier: free→paid returns a clientSecret to confirm; paid→paid switches now with proration; →free cancels at period end.',
-        input: { body: z.object({ tierId: z.string().uuid(), },) satisfies z.ZodType<MembershipChangeBody>, },
-        handler: ({ body, userId, },) => membership.change(userId!, body.tierId,),
+        input: { body: z.object({ tierId: z.string().uuid(), priceId: z.string().max(255,).optional(), },) satisfies z.ZodType<MembershipChangeBody>, },
+        handler: ({ body, userId, },) => membership.change(userId!, body.tierId, { priceId: body.priceId, },),
     },),
     defineRoute({
         method: 'post', path: '/membership/confirm', auth: 'user',
@@ -142,6 +142,7 @@ export const paymentsRoutes = [
         input: {
             body: z.object({
                 tierId: z.string().uuid(),
+                priceId: z.string().max(255,).optional(),
                 answers: z.array(z.object({ questionId: z.string().max(100,), value: z.unknown(), },),).max(100,),
                 paymentMethodId: z.string().min(3,).max(255,),
             },),
@@ -157,6 +158,7 @@ export const paymentsRoutes = [
         input: {
             body: z.object({
                 tierId: z.string().uuid(),
+                priceId: z.string().max(255,).optional(),
                 answers: z.array(z.object({ questionId: z.string().max(100,), value: z.unknown(), },),).max(100,),
             },),
         },
