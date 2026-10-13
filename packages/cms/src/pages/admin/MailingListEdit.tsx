@@ -7,7 +7,7 @@
  */
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import {
-    Component, createResource, createSignal, For, onMount, Show,
+    Component, createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show,
 } from 'solid-js';
 import type { MailingList, MailingListSubscriber, } from '@sitesurge/types';
 import { FormField, FormSection, } from '../../components/admin/forms';
@@ -101,8 +101,20 @@ const MailingListEdit: Component = () => {
 
     // ─── Subscribers ───────────────────────────────────────────────
 
+    // The box updates `search` per keystroke (search-as-you-type); the list
+    // refetches once typing pauses (`query`). Reads below use `.latest`, which
+    // never triggers the route's Suspense — reading `subscribers()` while it
+    // reloaded swapped the page for the fallback and the box lost focus.
+    const [query, setQuery,] = createSignal('',);
+    let searchTimer: ReturnType<typeof setTimeout> | undefined;
+    createEffect(on(search, (v,) => {
+        clearTimeout(searchTimer,);
+        searchTimer = setTimeout(() => setQuery(v.trim(),), 300,);
+    }, { defer: true, },),);
+    onCleanup(() => clearTimeout(searchTimer,),);
+
     const [subscribers, { refetch: refetchSubs, },] = createResource(
-        () => isNew() ? null : { id: params.id, search: search(), },
+        () => isNew() ? null : { id: params.id, search: query(), },
         async (args,) => {
             if (!args) return null;
             try {
@@ -227,7 +239,7 @@ const MailingListEdit: Component = () => {
             <Show when={!isNew()}>
                 <section class="admin-section admin-section--wide">
                     <header class="admin-section__header">
-                        <h2>Subscribers ({subscribers()?.total ?? 0})</h2>
+                        <h2>Subscribers ({subscribers.latest?.total ?? 0})</h2>
                         <div class="admin-section__actions">
                             <input
                                 type="search"
@@ -251,9 +263,9 @@ const MailingListEdit: Component = () => {
                         </div>
                     </header>
 
-                    <Show when={!subscribers.loading} fallback={<p>Loading…</p>}>
+                    <Show when={subscribers.latest !== undefined} fallback={<p>Loading…</p>}>
                         <Show
-                            when={(subscribers()?.items ?? []).length > 0}
+                            when={(subscribers.latest?.items ?? []).length > 0}
                             fallback={<div class="empty-state"><em>No subscribers match.</em></div>}
                         >
                             <div class="admin-table-container">
@@ -270,7 +282,7 @@ const MailingListEdit: Component = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <For each={subscribers()?.items ?? []}>
+                                        <For each={subscribers.latest?.items ?? []}>
                                             {(s,) => (
                                                 <tr>
                                                     <td>
