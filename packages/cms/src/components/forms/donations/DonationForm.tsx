@@ -122,6 +122,18 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
         setLoading(true,);
 
         try {
+            // Check + tokenise the card FIRST: a typo or a rejected card shows
+            // here and creates no payment in Stripe (an abandoned "incomplete"
+            // payment per attempt otherwise).
+            const pm = await stripeInstance.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+                billing_details: { name: donorName() || undefined, email: donorEmail(), },
+            },);
+            if (pm.error) {
+                setError(pm.error.message || 'Check your card details.',);
+                return;
+            }
             const { clientSecret, } = await cms.payments.donate({
                 amountCents,
                 campaignId: props.campaignId,
@@ -132,15 +144,7 @@ const DonationForm: Component<DonationFormProps> = (props,) => {
                 ...(isRecurring() ? { recurringInterval: interval(), } : {}),
             },);
 
-            const result = await stripeInstance.confirmCardPayment(clientSecret, {
-                payment_method: {
-                    card: cardElement,
-                    billing_details: {
-                        name: donorName() || undefined,
-                        email: donorEmail(),
-                    },
-                },
-            },);
+            const result = await stripeInstance.confirmCardPayment(clientSecret, { payment_method: pm.paymentMethod.id, },);
 
             if (result.error) {
                 setError(result.error.message || 'Payment failed',);

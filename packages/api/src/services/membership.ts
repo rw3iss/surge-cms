@@ -18,7 +18,7 @@
  */
 import type Stripe from 'stripe';
 import type {
-    MembershipCardResponse, MembershipCardSetupResponse, MembershipPendingApplication,
+    MembershipCardResponse, MembershipCardSetupResponse, MembershipFailedAttempt, MembershipPendingApplication,
     MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
@@ -28,7 +28,7 @@ import { sendPurposeMail, } from './mail/purposes';
 import { getPaymentProvider, } from './payment';
 import { getStripeClient, } from './payment/stripe';
 import { cache, CACHE_KEYS, } from './cache';
-import { subscriptionPeriod, } from './payment/stripeCompat';
+import { invoiceClientSecret, subscriptionPeriod, } from './payment/stripeCompat';
 import { createCustomer, } from './payments';
 import { ENTITLED_STATUSES, } from './permissions';
 import { listTiers, stripePrices, syncUserRole, userSubscription, } from './subscriptionTiers';
@@ -220,6 +220,7 @@ export async function overview(userId: string,): Promise<MembershipResponse> {
     return {
         current: cur, tiers: offered(await tierOptions(cur.tier?.id ?? null, pending?.tierId ?? null,), policy,),
         subscriptionRequired: policy.required, pendingApplication: pending,
+        lastFailedAttempt: cur.tier && !cur.tier.isFree ? null : await lastFailedAttempt(userId,),
     };
 }
 
@@ -357,8 +358,14 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
     if (!stripe) throw new ValidationError('Payments are not configured.',);
     const priceId = (await query<{ stripe_price_id: string; }>(`SELECT stripe_price_id FROM subscription_plans WHERE id = $1`, [to.id,],)).rows[0]!.stripe_price_id;
 
-    // free (or hand-assigned) → paid: a new Stripe subscription.
+    // free (or hand-assigned) → paid: a new Stripe subscription — after settling
+    // earlier unpaid attempts (reuse the same level's, cancel the rest).
     if (!local?.stripe_subscription_id) {
+        const open = await settleOpenAttempts(userId, { tierId: to.id, priceId, },);
+        if (open.activated) return confirm(userId, open.activated,);
+        if (open.reuse) {
+            return { result: 'payment_required', clientSecret: open.reuse.clientSecret, subscriptionId: open.reuse.subscriptionId, current: cur, };
+        }
         const { customerId, } = await createCustomer(userId,);
         const sub = await getPaymentProvider().createSubscription({
             customerId, priceId, metadata: { userId, planId: to.id, type: 'membership', fromPlanId: from?.id ?? '', },
@@ -454,6 +461,84 @@ export async function cancel(userId: string,): Promise<MembershipChangeResponse>
     return change(userId, free.rows[0].id,);
 }
 
+// ─── Earlier unfinished attempts ─────────────────────────────────────────
+
+/**
+ * Before a NEW paid membership starts, settle the member's earlier attempts
+ * that never got paid (Stripe `incomplete`: the card was never confirmed).
+ * Each click on "Pay" used to create another Stripe subscription, so a member
+ * who retried after a card typo left several open invoices behind.
+ *
+ *   paid in the meantime            → `activated` (the caller confirms it)
+ *   same level, still incomplete    → `reuse`: its invoice is paid with the new card
+ *   anything else still incomplete  → cancelled in Stripe (its invoice is voided)
+ *   expired / cancelled in Stripe   → the local row follows
+ */
+export async function settleOpenAttempts(
+    userId: string,
+    target: { tierId: string; priceId: string; } | null,
+): Promise<{ reuse?: { subscriptionId: string; clientSecret: string; }; activated?: string; }> {
+    const stripe = getStripeClient('default',);
+    if (!stripe) return {};
+    const rows = await query<{ id: string; plan_id: string; stripe_subscription_id: string; }>(
+        `SELECT id, plan_id, stripe_subscription_id FROM subscriptions
+          WHERE user_id = $1 AND status = 'incomplete' AND stripe_subscription_id IS NOT NULL
+          ORDER BY created_at DESC`,
+        [userId,],
+    );
+    const out: { reuse?: { subscriptionId: string; clientSecret: string; }; activated?: string; } = {};
+    for (const row of rows.rows) {
+        let sub: Stripe.Subscription;
+        try {
+            sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id, { expand: ['latest_invoice.payment_intent',], },);
+        } catch (e) {
+            logger.warn('membership: could not read an earlier attempt', { subscriptionId: row.stripe_subscription_id, error: (e as Error).message, },);
+            continue;
+        }
+        if ((sub.status === 'active' || sub.status === 'trialing') && !out.activated) {
+            out.activated = sub.id;
+            continue;
+        }
+        const samePrice = !!target && row.plan_id === target.tierId && sub.items.data[0]?.price?.id === target.priceId;
+        if (sub.status === 'incomplete' && samePrice && !out.reuse) {
+            const secret = sub.latest_invoice && typeof sub.latest_invoice !== 'string' ? invoiceClientSecret(sub.latest_invoice,) : undefined;
+            if (secret) {
+                out.reuse = { subscriptionId: sub.id, clientSecret: secret, };
+                continue;
+            }
+        }
+        if (sub.status === 'incomplete') {
+            try {
+                await stripe.subscriptions.cancel(sub.id,);
+            } catch (e) {
+                logger.warn('membership: could not cancel an earlier attempt', { subscriptionId: sub.id, error: (e as Error).message, },);
+                continue;
+            }
+            // `incomplete_expired`, not `cancelled`: it was never a membership (the
+            // wall's "your membership has ended" wording counts only paid ones).
+            await query(`UPDATE subscriptions SET status = 'incomplete_expired', cancelled_at = NOW(), updated_at = NOW() WHERE id = $1`, [row.id,],);
+            logger.info('membership: cancelled an unpaid earlier attempt', { userId, subscriptionId: sub.id, },);
+        } else if (sub.status !== 'active' && sub.status !== 'trialing') {
+            await query(`UPDATE subscriptions SET status = $2, updated_at = NOW() WHERE id = $1`, [row.id, sub.status,],);
+        }
+    }
+    return out;
+}
+
+/** The member's latest unpaid attempt (no active membership), for the "your payment did not go through" notices. */
+export async function lastFailedAttempt(userId: string,): Promise<MembershipFailedAttempt | null> {
+    const r = await query<{ plan_id: string; name: string; status: string; created_at: Date; }>(
+        `SELECT s.plan_id, p.name, s.status, s.created_at FROM subscriptions s JOIN subscription_plans p ON p.id = s.plan_id
+          WHERE s.user_id = $1 AND p.is_free = false AND s.status IN ('incomplete', 'incomplete_expired', 'unpaid', 'past_due')
+            AND s.created_at > NOW() - INTERVAL '60 days'
+            AND NOT EXISTS (SELECT 1 FROM subscriptions a WHERE a.user_id = s.user_id AND a.status IN ('active', 'trialing'))
+          ORDER BY s.created_at DESC LIMIT 1`,
+        [userId,],
+    ).catch(() => ({ rows: [], }),);
+    const a = r.rows[0];
+    return a ? { tierId: a.plan_id, tierName: a.name, status: a.status, createdAt: new Date(a.created_at,).toISOString(), } : null;
+}
+
 // ─── Approved application → start billing ────────────────────────────────
 
 /**
@@ -473,6 +558,8 @@ export async function startApprovedMembership(userId: string, tierId: string, pa
 
     const { to, from, } = await targetTier(userId, tierId, { approved: true, },);
     if (to.isCurrent) return { result: 'unchanged', current: await current(userId,), };
+    // An approval starts billing off-session: earlier unpaid attempts are cancelled first.
+    await settleOpenAttempts(userId, null,);
     const stripe = getStripeClient('default',);
     if (!stripe) throw new ValidationError('Payments are not configured.',);
     const priceId = (await query<{ stripe_price_id: string; }>(`SELECT stripe_price_id FROM subscription_plans WHERE id = $1`, [to.id,],)).rows[0]!.stripe_price_id;

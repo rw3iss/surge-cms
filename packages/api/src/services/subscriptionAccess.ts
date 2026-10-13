@@ -64,14 +64,15 @@ export async function accessState(user: { id: string; role?: string | null; emai
     };
     if (!user?.id) return base;
     // A pending application is reported in every mode (UI: "waiting for approval").
-    const { pendingApplicationFor, } = await import('./membership.js');
+    const { lastFailedAttempt, pendingApplicationFor, } = await import('./membership.js');
     base.pendingApplication = await pendingApplicationFor(user.id,);
     if (!policy.required || isStaffRole(user.role ?? undefined,)) return base;
     const [subscribed, row,] = await Promise.all([
         hasQualifyingSubscription(user.id, policy.minimumRank,),
         query<{ email_verified: boolean | null; ever: boolean; }>(
             `SELECT u.email_verified, EXISTS (SELECT 1 FROM subscriptions s JOIN subscription_plans p ON p.id = s.plan_id
-                                               WHERE s.user_id = u.id AND p.is_free = false) AS ever
+                                               WHERE s.user_id = u.id AND p.is_free = false
+                                                 AND s.status NOT IN ('incomplete', 'incomplete_expired')) AS ever
                FROM users u WHERE u.id = $1`, [user.id,],
         ),
     ],);
@@ -79,7 +80,14 @@ export async function accessState(user: { id: string; role?: string | null; emai
     const reason: AccessReason | null = !subscribed
         ? (base.pendingApplication ? 'pending_approval' : 'subscription')
         : !emailVerified ? 'verify_email' : null;
-    return { ...base, subscribed, emailVerified, restricted: reason !== null, reason, lapsed: !subscribed && Boolean(row.rows[0]?.ever,), };
+    // A payment that never went through (e.g. a card error): the wall says so and how to fix it.
+    const failedAttempt = !subscribed && !base.pendingApplication ? await lastFailedAttempt(user.id,) : null;
+    return {
+        ...base, subscribed, emailVerified, restricted: reason !== null, reason, failedAttempt,
+        // "ever" counts only memberships that were PAID at some point — an
+        // attempt that never went through is not a lapsed membership.
+        lapsed: !subscribed && Boolean(row.rows[0]?.ever,),
+    };
 }
 
 /** The tier a member must reach must exist and be buyable. */

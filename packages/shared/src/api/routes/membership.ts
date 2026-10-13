@@ -58,6 +58,15 @@ export interface MembershipCurrent {
     card: { brand: string; last4: string; } | null;
 }
 
+/** The member's latest membership payment that never completed (no active membership). */
+export interface MembershipFailedAttempt {
+    tierId: string;
+    tierName: string;
+    /** Stripe status: incomplete (card never confirmed), incomplete_expired, past_due, unpaid. */
+    status: string;
+    createdAt: string;
+}
+
 export interface MembershipResponse {
     current: MembershipCurrent;
     tiers: MembershipTierOption[];
@@ -65,6 +74,8 @@ export interface MembershipResponse {
     subscriptionRequired?: boolean;
     /** The member's open application, if any. */
     pendingApplication?: MembershipPendingApplication | null;
+    /** A recent membership payment that did not go through (guide the member to retry). */
+    lastFailedAttempt?: MembershipFailedAttempt | null;
 }
 
 /** POST /payments/membership/card/setup — a SetupIntent to confirm with the new card. */

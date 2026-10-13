@@ -113,10 +113,15 @@ const SubscriptionSignup: Component = () => {
         setError('',);
         setBusy(true,);
         try {
+            // Check + tokenise the card FIRST: a typo or a rejected card shows
+            // here and creates nothing in Stripe (each server call used to leave
+            // an "incomplete" subscription behind).
+            if (!stripe || !card) throw new Error('Enter your card details.',);
+            const pm = await stripe.createPaymentMethod({ type: 'card', card, },);
+            if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
             const res = await cms.payments.changeMembership(t.id,);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
-                if (!stripe || !card) throw new Error('Enter your card details.',);
-                const r = await stripe.confirmCardPayment(res.clientSecret, { payment_method: { card, }, },);
+                const r = await stripe.confirmCardPayment(res.clientSecret, { payment_method: pm.paymentMethod.id, },);
                 if (r.error) throw new Error(r.error.message || 'Your card was declined.',);
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('Your payment is still processing — check back in a minute from your profile.',);

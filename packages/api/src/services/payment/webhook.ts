@@ -354,7 +354,9 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
             }
 
             await query(
-                `UPDATE subscriptions SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+                // A never-paid attempt stays `incomplete_expired` (it was not a membership).
+                `UPDATE subscriptions SET status = CASE WHEN status IN ('incomplete', 'incomplete_expired') THEN 'incomplete_expired' ELSE 'cancelled' END,
+                        cancelled_at = NOW(), updated_at = NOW()
                  WHERE stripe_subscription_id = $1`,
                 [subscription.id,],
             );

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, } from '@solidjs/router';
 import { Component, } from 'solid-js';
 import LoginForm from '../components/auth/LoginForm';
 import SeoHead from '../components/common/seo/SeoHead';
+import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import './Login.scss';
 
@@ -10,6 +11,22 @@ import './Login.scss';
 const Login: Component = () => {
     const [searchParams,] = useSearchParams();
     const navigate = useNavigate();
+    const auth = useAuth();
+
+    /**
+     * Where to go after signing in. A member who must still get (or fix) a
+     * membership goes straight to Profile → Membership — where an unfinished
+     * payment is explained and retried — unless they were on their way to the
+     * plans page.
+     */
+    const afterLogin = (role: string | undefined,): string => {
+        const target = returnTarget();
+        const a = auth.access;
+        if (a?.restricted && a.reason === 'subscription' && !isAdminRole(role,)) {
+            return target.startsWith('/subscribe',) ? target : '/profile?tab=membership';
+        }
+        return target || (isAdminRole(role,) ? '/admin' : '/');
+    };
 
     /** Post-login destination from `?redirect=` or `?return=` (either works).
      *  A bare name (`profile`) is normalized to an absolute path (`/profile`);
@@ -42,7 +59,7 @@ const Login: Component = () => {
                 <LoginForm
                     initialError={authError()}
                     returnTo={returnTarget() || undefined}
-                    onSuccess={(user,) => navigate(returnTarget() || (isAdminRole(user?.role,) ? '/admin' : '/'),)}
+                    onSuccess={(user,) => navigate(afterLogin(user?.role,),)}
                 />
             </div>
         </div>

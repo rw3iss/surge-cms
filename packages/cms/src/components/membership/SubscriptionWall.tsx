@@ -66,16 +66,49 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
                     when={props.access.reason === 'verify_email'}
                     fallback={
                         <Show when={props.access.reason !== 'pending_approval'}>
-                            <h1 id="subscription-wall-title">{props.access.lapsed ? 'Your membership has ended' : 'A membership is required'}</h1>
-                            <p>
-                                {props.access.lapsed
-                                    ? 'Renew your membership — or update your payment method if a payment failed — to get back to everything.'
-                                    : 'Choose a membership plan to get access. It only takes a minute.'}
-                            </p>
-                            <div class="subscription-wall__actions">
-                                <A href="/subscribe" class="btn btn--primary">{props.access.lapsed ? 'Renew my membership' : 'Choose a plan'}</A>
-                                <A href="/profile?tab=membership" class="btn btn--outline">Manage membership &amp; payment</A>
-                            </div>
+                            <Show
+                                when={props.access.failedAttempt}
+                                fallback={
+                                    <>
+
+                                    <h1 id="subscription-wall-title">{props.access.lapsed ? 'Your membership has ended' : 'A membership is required'}</h1>
+                                    <p>
+                                        {props.access.lapsed
+                                            ? 'Renew your membership — or update your payment method if a payment failed — to get back to everything.'
+                                            : 'Choose a membership plan to get access. It only takes a minute.'}
+                                    </p>
+                                    <div class="subscription-wall__actions">
+                                        <A href="/subscribe" class="btn btn--primary">{props.access.lapsed ? 'Renew my membership' : 'Choose a plan'}</A>
+                                        <A href="/profile?tab=membership" class="btn btn--outline">Manage membership &amp; payment</A>
+                                    </div>
+                                
+                                    </>
+                                }
+                            >
+                                {(f,) => (
+                                    <>
+                                        <h1 id="subscription-wall-title">Your payment didn't go through</h1>
+                                        <Show
+                                            when={f().status === 'incomplete' || f().status === 'incomplete_expired'}
+                                            fallback={
+                                                <p>
+                                                    The latest payment for your <strong>{f().tierName}</strong> membership failed. Update your card to
+                                                    pay it and get back to everything.
+                                                </p>
+                                            }
+                                        >
+                                            <p>
+                                                Your <strong>{f().tierName}</strong> membership was not started, and <strong>you were not charged</strong> —
+                                                the card was not accepted. Enter your card again to finish; there is nothing else to undo.
+                                            </p>
+                                        </Show>
+                                        <div class="subscription-wall__actions">
+                                            <A href={`/profile?tab=membership&tier=${encodeURIComponent(f().tierId,)}`} class="btn btn--primary">Finish my membership</A>
+                                            <A href="/subscribe" class="btn btn--outline">See all plans</A>
+                                        </div>
+                                    </>
+                                )}
+                            </Show>
                         </Show>
                     }
                 >

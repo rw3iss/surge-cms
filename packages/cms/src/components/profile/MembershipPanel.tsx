@@ -137,10 +137,19 @@ const MembershipPanel: Component = () => {
         setError('',);
         setBusy(true,);
         try {
+            // Check + tokenise the card FIRST (when this change needs one): a typo
+            // or a rejected card shows here and creates nothing in Stripe.
+            let paymentMethod: string | null = null;
+            if (preview()?.requiresPayment) {
+                if (!stripe || !card) throw new Error('Enter your card details.',);
+                const pm = await stripe.createPaymentMethod({ type: 'card', card, },);
+                if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
+                paymentMethod = pm.paymentMethod.id;
+            }
             const res = await cms.payments.changeMembership(to.id,);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
-                if (!stripe || !card) throw new Error('Enter your card details.',);
-                const pay = await stripe.confirmCardPayment(res.clientSecret, { payment_method: { card, }, },);
+                if (!stripe || !paymentMethod) throw new Error('Enter your card details.',);
+                const pay = await stripe.confirmCardPayment(res.clientSecret, { payment_method: paymentMethod, },);
                 if (pay.error) throw new Error(pay.error.message || 'Your card was declined.',);
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('The payment is still processing — check back in a minute.',);
@@ -212,6 +221,26 @@ const MembershipPanel: Component = () => {
                 <Show when={data()} fallback={<p class="profile__muted">Membership details are unavailable right now.</p>}>
                     <Show when={notice()}><div class="membership__notice">{notice()}</div></Show>
 
+                    <Show when={!pending() && data()?.lastFailedAttempt && view() === 'overview'}>
+                        <div class="membership__pending membership__pending--failed" role="status">
+                            <Show
+                                when={data()!.lastFailedAttempt!.status === 'incomplete' || data()!.lastFailedAttempt!.status === 'incomplete_expired'}
+                                fallback={<>The latest payment for your <strong>{data()!.lastFailedAttempt!.tierName}</strong> membership failed. Update your card to pay it.{' '}</>}
+                            >
+                                Your <strong>{data()!.lastFailedAttempt!.tierName}</strong> payment did not go through, so the membership was not started — <strong>you were not charged</strong>.{' '}
+                            </Show>
+                            <button
+                                type="button"
+                                class="membership__link"
+                                onClick={() => {
+                                    const id = data()!.lastFailedAttempt!.tierId;
+                                    if (tiers().some((t,) => t.id === id,)) { openChooser(); setSelected(id,); } else openChooser();
+                                }}
+                            >
+                                Try again
+                            </button>
+                        </div>
+                    </Show>
                     <Show when={pending()}>
                         <div class="membership__pending" role="status">
                             Your application for <strong>{pending()!.tierName}</strong> is waiting for approval (sent {longDate(pending()!.createdAt,)}).{' '}

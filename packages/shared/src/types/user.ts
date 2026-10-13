@@ -23,6 +23,8 @@ export interface MemberAccessState {
     lapsed: boolean;
     /** An application waiting for an admin (any mode, signed-in members). */
     pendingApplication?: import('../api/routes/membershipApplications').MembershipPendingApplication | null;
+    /** Restricted because a membership payment did not go through (retry with a card). */
+    failedAttempt?: import('../api/routes/membership').MembershipFailedAttempt | null;
 }
 
 export interface User {
