@@ -136,7 +136,7 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         feature: 'users',
         audience: 'user',
         defaultEnabled: true,
-        defaultSubject: "You're now a {{roles}} on {{site.name}}",
+        defaultSubject: 'New role on {{site.name}}: {{roles}}',
         variables: [
             ...USER_VARS,
             { name: 'roles', description: 'The roles added, by name.', example: 'Ambassador', },

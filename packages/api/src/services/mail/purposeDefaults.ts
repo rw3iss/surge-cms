@@ -98,7 +98,7 @@ export async function defaultPurposeHtml(
 
         case 'user_role_added': {
             const roles = pick(ctx, 'roles',);
-            body = H(`You're now a ${escapeHtml(roles || 'new role',)}`,)
+            body = H(`New role: ${roles || 'member'}`,)
                 + greeting(name,)
                 + P(`Your ${escapeHtml(siteName,)} account now has the <strong>${escapeHtml(roles,)}</strong> role. Sign in as usual to use it.`,)
                 + button(pick(ctx, 'login_url',), 'Sign in',);
