@@ -63,3 +63,25 @@
     color: var(--admin-text-muted, #{$text-light});
   }
 }
+
+.users-pending-pill--quiet { opacity: 0.85; }
+
+// Pending applications from people who have not signed up yet (Users page).
+.users-no-account {
+  margin: 0 0 $spacing-md;
+  padding: $spacing-md;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: $border-radius-md;
+
+  h3 { margin: 0 0 $spacing-xs; font-size: $font-size-base; }
+  ul { list-style: none; margin: $spacing-sm 0 0; padding: 0; }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-xs 0;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+  }
+}

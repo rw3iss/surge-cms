@@ -19,7 +19,9 @@ import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import Markdown from '../common/Markdown';
-import { applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, } from './MembershipApplication';
+import {
+    applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, ApplicationSubmitted, submitApplication, type SubmittedApplication,
+} from './MembershipApplication';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
@@ -27,7 +29,7 @@ import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/me
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
 
-type Step = 'plan' | 'application' | 'account' | 'payment' | 'done';
+type Step = 'plan' | 'application' | 'submitted' | 'account' | 'payment' | 'done';
 
 const STEPS: { key: Step; label: string; }[] = [
     { key: 'plan', label: 'Plan', },
@@ -50,8 +52,8 @@ const SubscriptionSignup: Component = () => {
     const tier = () => tiers()?.find((t,) => t.id === tierId(),) ?? null;
     const [error, setError,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
-    /** Application answers (plans that require approval). */
-    const [appAnswers, setAppAnswers,] = createSignal<FormAnswer[]>([],);
+    /** The application sent in the Application step (plans that require approval). */
+    const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     const [applied, setApplied,] = createSignal(false,);
     const needsApproval = () => !!tier()?.requiresApproval;
     const steps = () => (needsApproval() ? APPLY_STEPS : STEPS);
@@ -130,7 +132,7 @@ const SubscriptionSignup: Component = () => {
         }
     };
 
-    const stepIndex = () => steps().findIndex((s,) => s.key === step(),);
+    const stepIndex = () => steps().findIndex((s,) => s.key === (step() === 'submitted' ? 'application' : step()),);
 
     return (
         <div class="subscription-signup">
@@ -198,13 +200,25 @@ const SubscriptionSignup: Component = () => {
                     <ApplicationQuestions
                         tier={tier()!}
                         prefill={{ name: auth.user?.displayName ?? name(), email: auth.user?.email ?? email(), }}
-                        onCollected={(answers, form,) => {
-                            setAppAnswers(answers,);
+                        onCollected={async (answers: FormAnswer[], form,) => {
+                            // Sent NOW (signed in or not): the team is emailed and will call.
+                            setSubmitted(await submitApplication(tier()!, answers,),);
                             const who = applicantFrom(form, answers,);
                             if (!name()) setName(who.name,);
                             if (!email()) setEmail(who.email,);
-                            setStep(auth.user ? 'payment' : 'account',);
+                            setStep('submitted',);
                         }}
+                    />
+                </div>
+            </Show>
+
+            {/* 1c · Submitted — then the account (if needed) and the card */}
+            <Show when={step() === 'submitted' && tier()}>
+                <div class="subscription-signup__form">
+                    <ApplicationSubmitted
+                        tierName={tier()!.name}
+                        signedIn={!!auth.user}
+                        onContinue={() => setStep(auth.user ? 'payment' : 'account',)}
                     />
                 </div>
             </Show>
@@ -239,15 +253,14 @@ const SubscriptionSignup: Component = () => {
             </Show>
 
             {/* 3 · Card — an application saves it (no charge) */}
-            <Show when={step() === 'payment' && needsApproval() && tier()}>
+            <Show when={step() === 'payment' && needsApproval() && tier() && submitted()}>
                 <div class="subscription-signup__form">
                     <ApplicationPayment
                         tier={tier()!}
-                        answers={appAnswers()}
-                        onBack={() => setStep('application',)}
+                        application={submitted()!}
                         onDone={() => { setApplied(true,); void auth.refreshUser(); setStep('done',); }}
                     />
-                    <p class="subscription-signup__hint">Your account is created. You can sign in any time to check your application.</p>
+                    <p class="subscription-signup__hint">Your account is created and your application is in. You can sign in any time to add the card or check its status.</p>
                 </div>
             </Show>
 

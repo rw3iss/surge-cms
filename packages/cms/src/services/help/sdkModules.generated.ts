@@ -1710,6 +1710,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /payments/membership/apply — apply for a level that requires approval: the application answers + a card confirmed with a SetupIntent (`membershipCardSetup`). Nothing is charged until an admin approves."
             },
             {
+                "name": "attachMembershipApplicationCard",
+                "signature": "attachMembershipApplicationCard(body: MembershipApplyCardBody): Promise<MembershipApplyResponse>",
+                "summary": "POST /payments/membership/apply/card — step 2 (signed in): claim the application and save the card; no charge."
+            },
+            {
                 "name": "cancelMembership",
                 "signature": "cancelMembership(): Promise<MembershipChangeResponse>",
                 "summary": "POST /payments/membership/cancel — cancel at the end of the paid period."
@@ -1788,6 +1793,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "resumeMembership",
                 "signature": "resumeMembership(): Promise<MembershipChangeResponse>",
                 "summary": ""
+            },
+            {
+                "name": "submitMembershipApplication",
+                "signature": "submitMembershipApplication(body: MembershipApplySubmitBody): Promise<MembershipApplySubmitResponse>",
+                "summary": "POST /payments/membership/apply/submit — step 1: the answers (signed in or not); the team is emailed now."
             },
             {
                 "name": "subscribe",
@@ -3103,4 +3113,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 545;
+export const SDK_METHOD_COUNT = 547;

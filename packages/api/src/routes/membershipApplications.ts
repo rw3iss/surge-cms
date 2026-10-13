@@ -24,6 +24,7 @@ export const membershipApplicationsRoutes = [
             query: z.object({
                 status: z.enum(['pending', 'approved', 'rejected', 'withdrawn',],).optional(),
                 userId: z.string().uuid().optional(),
+                withoutAccount: z.coerce.boolean().optional(),
                 page: z.coerce.number().int().min(1,).default(1,),
                 limit: z.coerce.number().int().min(1,).max(200,).default(50,),
             },),

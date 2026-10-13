@@ -6,7 +6,9 @@
  * and waits. An admin reviews: approve → the Stripe subscription is created and
  * billed now; reject → nothing is charged.
  *
- *   POST /payments/membership/apply          member applies (SDK cms.payments.applyMembership)
+ *   POST /payments/membership/apply/submit   step 1, answers (signed in or not) — the team is emailed now
+ *   POST /payments/membership/apply/card     step 2, signed in: claim + save the card (no charge)
+ *   POST /payments/membership/apply          both in one call (SDK cms.payments.applyMembership)
  *   GET  /membership-applications             admin list (?status=pending)
  *   GET  /membership-applications/summary     { pending } for the Users header
  *   GET  /membership-applications/:id         one application (review modal)
@@ -32,7 +34,10 @@ export const DEFAULT_APPLICATION_FIELDS = [
 
 export interface MembershipApplication {
     id: string;
-    userId: string;
+    /** Null until the applicant creates their account (submitted signed out). */
+    userId: string | null;
+    /** The email given in the application (or the account's). */
+    contactEmail: string | null;
     user: { id: string; email: string; displayName: string; handle: string | null; } | null;
     tierId: string;
     tierName: string;
@@ -60,6 +65,26 @@ export interface MembershipApplyBody {
     paymentMethodId: string;
 }
 
+/** POST /payments/membership/apply/submit — step 1, the answers only. */
+export interface MembershipApplySubmitBody {
+    tierId: string;
+    answers: Array<{ questionId: string; value: unknown; }>;
+}
+
+export interface MembershipApplySubmitResponse {
+    application: MembershipApplyResponse['application'];
+    /** Signed handle to claim an application submitted while signed out (null when signed in). */
+    token: string | null;
+}
+
+/** POST /payments/membership/apply/card — step 2, signed in. */
+export interface MembershipApplyCardBody {
+    applicationId: string;
+    /** From the submit response, when it was submitted signed out. */
+    token?: string | null;
+    paymentMethodId: string;
+}
+
 export interface MembershipApplyResponse {
     application: { id: string; tierId: string; tierName: string; status: MembershipApplicationStatus; createdAt: string; };
 }
@@ -70,15 +95,23 @@ export interface MembershipPendingApplication {
     tierId: string;
     tierName: string;
     createdAt: string;
+    /** The card is saved (needed before it can be approved). */
+    hasCard: boolean;
 }
 
 export interface MembershipApplicationsListQuery {
     status?: MembershipApplicationStatus;
     userId?: string;
+    /** Only applications submitted before the applicant created an account. */
+    withoutAccount?: boolean;
     page?: number;
     limit?: number;
 }
 
-export interface MembershipApplicationsSummaryResponse { pending: number; }
+export interface MembershipApplicationsSummaryResponse {
+    pending: number;
+    /** Pending applications submitted before the applicant created an account. */
+    withoutAccount: number;
+}
 
 export interface MembershipApplicationDecisionBody { note?: string; }

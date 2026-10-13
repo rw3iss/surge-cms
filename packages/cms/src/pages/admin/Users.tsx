@@ -50,8 +50,16 @@ const AdminUsers: Component = () => {
     },);
 
     // Membership applications waiting for review (header pill).
-    const [pending, { refetch: refetchPending, },] = createResource(
-        () => cms.membershipApplications.summary().then((r,) => r.pending,).catch(() => 0),
+    const [summary, { refetch: refetchPending, },] = createResource(
+        () => cms.membershipApplications.summary().catch(() => ({ pending: 0, withoutAccount: 0, })),
+    );
+    const pending = () => summary()?.pending ?? 0;
+    // Applications sent before the applicant signed up have no user row, so the
+    // table cannot show them — list them separately.
+    const [noAccountOpen, setNoAccountOpen,] = createSignal(false,);
+    const [noAccount, { refetch: refetchNoAccount, },] = createResource(
+        noAccountOpen,
+        () => cms.membershipApplications.list({ status: 'pending', withoutAccount: true, limit: 100, },).then((r,) => r.data,).catch(() => []),
     );
     const togglePendingFilter = () =>
         setSearchParams({ approval: searchParams.approval === 'pending' ? undefined : 'pending', },);
@@ -191,6 +199,17 @@ const AdminUsers: Component = () => {
                         {pending()} pending application{pending() === 1 ? '' : 's'}
                     </button>
                 </Show>
+                <Show when={(summary()?.withoutAccount ?? 0) > 0}>
+                    <button
+                        type="button"
+                        class="users-pending-pill users-pending-pill--quiet"
+                        classList={{ 'is-active': noAccountOpen(), }}
+                        title="Applications sent before the applicant created an account"
+                        onClick={() => setNoAccountOpen(!noAccountOpen(),)}
+                    >
+                        {summary()!.withoutAccount} not signed up yet
+                    </button>
+                </Show>
                 </div>
                 <div class="admin-header__actions">
                     <A href="/admin/users/settings" class="ui-button ui-button--secondary">Settings</A>
@@ -306,6 +325,27 @@ const AdminUsers: Component = () => {
                     />
                 </div>
             </div>
+
+            <Show when={noAccountOpen()}>
+                <section class="users-no-account">
+                    <h3>Applications from people without an account yet</h3>
+                    <p class="form-help-muted">They applied before signing up. You can read and reject them now; approve once they create their account and add a card.</p>
+                    <Show when={!noAccount.loading} fallback={<p class="form-help-muted">Loading…</p>}>
+                        <Show when={(noAccount() ?? []).length} fallback={<p class="form-help-muted">None.</p>}>
+                            <ul>
+                                <For each={noAccount()}>
+                                    {(a,) => (
+                                        <li>
+                                            <span><strong>{a.contactEmail ?? 'No email'}</strong> · {a.tierName} · {new Date(a.createdAt,).toLocaleDateString()}</span>
+                                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setReviewId(a.id,)}>Review</button>
+                                        </li>
+                                    )}
+                                </For>
+                            </ul>
+                        </Show>
+                    </Show>
+                </section>
+            </Show>
 
             <DataTable
                 items={list.items()}
@@ -438,7 +478,7 @@ const AdminUsers: Component = () => {
                 <ReviewApplicationModal
                     applicationId={reviewId()!}
                     onClose={() => setReviewId(null,)}
-                    onDecided={() => { setReviewId(null,); list.refetch(); void refetchPending(); }}
+                    onDecided={() => { setReviewId(null,); list.refetch(); void refetchPending(); if (noAccountOpen()) void refetchNoAccount(); }}
                 />
             </Show>
 

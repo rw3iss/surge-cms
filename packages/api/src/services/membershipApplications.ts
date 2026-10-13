@@ -15,12 +15,14 @@
  * `users.approval_status` mirrors the member's latest application so the
  * Users table can filter "pending approval".
  */
+import { createHmac, timingSafeEqual, } from 'crypto';
 import type Stripe from 'stripe';
 import type {
     MembershipApplication, MembershipApplicationAnswer, MembershipApplicationsListQuery, MembershipApplicationStatus,
-    MembershipApplyBody, MembershipApplyResponse,
+    MembershipApplyBody, MembershipApplyCardBody, MembershipApplyResponse, MembershipApplySubmitBody, MembershipApplySubmitResponse,
 } from '@sitesurge/types';
 import { DEFAULT_APPLICATION_FIELDS, } from '@sitesurge/types';
+import { config, } from '../config';
 import { ConflictError, NotFoundError, ValidationError, } from '../core/errors';
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
@@ -62,67 +64,64 @@ async function setUserApproval(userId: string, status: MembershipApplicationStat
 }
 
 // ─── Apply ───────────────────────────────────────────────────────────────
+//
+// Two steps, so a visitor's request reaches the team AT ONCE (they get a call)
+// even before they have an account:
+//   submit  the answers (anonymous allowed) → form pipeline / notification,
+//           a pending row, and a signed `token` for an account-less row;
+//   card    signed in: claim the row (token) and save the card (no charge).
+// `apply` does both in one call (signed in) for API/SDK callers.
 
-export interface ApplyContext { userId: string; email: string; ipAddress: string; userAgent?: string; }
+export interface ApplyContext { userId: string | null; email: string | null; ipAddress: string; userAgent?: string; }
 
-export async function apply(body: MembershipApplyBody, ctx: ApplyContext,): Promise<MembershipApplyResponse> {
-    const tier = await loadTier(body.tierId,);
-    if (await pendingApplicationFor(ctx.userId,)) throw new ConflictError('You already have an application waiting for review.',);
-    const active = await query(
-        `SELECT 1 FROM subscriptions WHERE user_id = $1 AND plan_id = $2 AND status IN ('active', 'trialing', 'past_due') LIMIT 1`,
-        [ctx.userId, tier.id,],
-    );
-    if (active.rows.length) throw new ValidationError(`You already have ${tier.name}.`,);
+const TOKEN_TTL_SEC = 7 * 86400;
 
-    // The saved card (SetupIntent) — verified to belong to this member's customer.
-    const stripe = getStripeClient('default',);
-    if (!stripe) throw new ValidationError('Payments are not configured.',);
-    let pm: Stripe.PaymentMethod;
-    try {
-        pm = await stripe.paymentMethods.retrieve(body.paymentMethodId,);
-    } catch {
-        throw new ValidationError('Your card could not be found — please enter it again.',);
-    }
-    // The card must sit on THIS member's Stripe customer (the SetupIntent from
-    // `membershipCardSetup` attaches it there), never on someone else's.
-    const owned = await query<{ customer: string; }>(
-        `SELECT stripe_customer_id AS customer FROM users WHERE id = $1 AND stripe_customer_id IS NOT NULL
-         UNION SELECT stripe_customer_id FROM subscriptions WHERE user_id = $1 AND stripe_customer_id IS NOT NULL`,
-        [ctx.userId,],
-    );
-    const pmCustomer = typeof pm.customer === 'string' ? pm.customer : pm.customer?.id ?? null;
-    if (!pmCustomer || !owned.rows.some((r,) => r.customer === pmCustomer,)) {
-        throw new ValidationError('Please enter your card again — it was not saved to your account.',);
-    }
+/** Signed handle for an account-less application: `<id>.<exp>.<sig>`. */
+function applicationToken(id: string, now = Date.now(),): string {
+    const exp = Math.floor(now / 1000,) + TOKEN_TTL_SEC;
+    const sig = createHmac('sha256', config.jwt.secret ?? '',).update(`membership-application:${id}:${exp}`,).digest('base64url',);
+    return `${id}.${exp}.${sig}`;
+}
 
-    // Answers: the tier's form (normal Forms pipeline) or the built-in form.
+function verifyApplicationToken(token: string, now = Date.now(),): string | null {
+    const [id, exp, sig,] = token.split('.',);
+    if (!id || !exp || !sig || Number(exp,) * 1000 < now) return null;
+    const want = createHmac('sha256', config.jwt.secret ?? '',).update(`membership-application:${id}:${exp}`,).digest('base64url',);
+    const a = Buffer.from(sig,);
+    const b = Buffer.from(want,);
+    return a.length === b.length && timingSafeEqual(a, b,) ? id : null;
+}
+
+/** Validate + label the answers; a Forms-entity application is submitted through the Forms pipeline. */
+async function collectAnswers(tier: TierRow, raw: MembershipApplyBody['answers'], ctx: ApplyContext,) {
     let answers: MembershipApplicationAnswer[];
     let formId: string | null = null;
     let submissionId: string | null = null;
+    let email: string | null = null;
     if (tier.application_form_id) {
         const form = await forms.getById(tier.application_form_id,);
         if (!form || form.status !== 'published') throw new ValidationError('The application form is not available. Please contact us.',);
         const res = await forms.submit({
             slug: form.slug,
-            answers: body.answers,
+            answers: raw,
             userId: ctx.userId,
-            userEmail: ctx.email,
-            hasUser: true,
+            userEmail: ctx.email ?? undefined,
+            hasUser: !!ctx.userId,
             ipAddress: ctx.ipAddress,
             userAgent: ctx.userAgent,
         },);
-        // A duplicate (a member re-applying after a rejection) still records the
+        // A duplicate (re-applying after a rejection) still records the
         // application — the earlier submission stays in the Forms inbox.
         if ('error' in res && res.error !== 'duplicate') throw new ValidationError('The application could not be submitted.',);
         formId = form.id;
         submissionId = 'ok' in res ? res.submissionId ?? null : null;
-        const byId = new Map(body.answers.map((a,) => [a.questionId, a.value,]),);
-        answers = form.questions
-            .slice()
-            .sort((a, b,) => a.order - b.order)
-            .map((q,) => ({ label: q.question, value: answerText(byId.get(q.id,),), }));
+        const byId = new Map(raw.map((a,) => [a.questionId, a.value,]),);
+        const sorted = form.questions.slice().sort((a, b,) => a.order - b.order);
+        answers = sorted.map((q,) => ({ label: q.question, value: answerText(byId.get(q.id,),), }));
+        const emailQ = sorted.find((q,) => q.type === 'email',);
+        email = emailQ ? answerText(byId.get(emailQ.id,),) || null : null;
     } else {
-        const byId = new Map(body.answers.map((a,) => [a.questionId, answerText(a.value,),]),);
+        const byId = new Map(raw.map((a,) => [a.questionId, answerText(a.value,),]),);
         answers = DEFAULT_APPLICATION_FIELDS.map((f,) => {
             const value = byId.get(f.id,) ?? '';
             if (f.required && !value) throw new ValidationError(`${f.label} is required.`,);
@@ -130,38 +129,113 @@ export async function apply(body: MembershipApplyBody, ctx: ApplyContext,): Prom
             if (value.length > 500) throw new ValidationError(`${f.label} is too long.`,);
             return { label: f.label, value, };
         },);
+        email = byId.get('email',) || null;
     }
+    return { answers, formId, submissionId, email: ctx.email || (email && EMAIL_RE.test(email,) ? email : null), };
+}
 
+/** The card must sit on THIS member's Stripe customer (the `membershipCardSetup` SetupIntent puts it there). */
+async function verifyCard(userId: string, paymentMethodId: string,): Promise<{ pmId: string; customer: string; }> {
+    const stripe = getStripeClient('default',);
+    if (!stripe) throw new ValidationError('Payments are not configured.',);
+    let pm: Stripe.PaymentMethod;
+    try {
+        pm = await stripe.paymentMethods.retrieve(paymentMethodId,);
+    } catch {
+        throw new ValidationError('Your card could not be found — please enter it again.',);
+    }
+    const owned = await query<{ customer: string; }>(
+        `SELECT stripe_customer_id AS customer FROM users WHERE id = $1 AND stripe_customer_id IS NOT NULL
+         UNION SELECT stripe_customer_id FROM subscriptions WHERE user_id = $1 AND stripe_customer_id IS NOT NULL`,
+        [userId,],
+    );
+    const pmCustomer = typeof pm.customer === 'string' ? pm.customer : pm.customer?.id ?? null;
+    if (!pmCustomer || !owned.rows.some((r,) => r.customer === pmCustomer,)) {
+        throw new ValidationError('Please enter your card again — it was not saved to your account.',);
+    }
+    return { pmId: pm.id, customer: pmCustomer, };
+}
+
+async function assertCanApply(userId: string, tier: TierRow,): Promise<void> {
+    if (await pendingApplicationFor(userId,)) throw new ConflictError('You already have an application waiting for review.',);
+    const active = await query(
+        `SELECT 1 FROM subscriptions WHERE user_id = $1 AND plan_id = $2 AND status IN ('active', 'trialing', 'past_due') LIMIT 1`,
+        [userId, tier.id,],
+    );
+    if (active.rows.length) throw new ValidationError(`You already have ${tier.name}.`,);
+}
+
+/** Step 1 — the answers (signed in or not). Emails the team at once. */
+export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,): Promise<MembershipApplySubmitResponse> {
+    const tier = await loadTier(body.tierId,);
+    if (ctx.userId) await assertCanApply(ctx.userId, tier,);
+    const c = await collectAnswers(tier, body.answers, ctx,);
     const ins = await query<{ id: string; created_at: Date; }>(
-        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, stripe_customer_id, payment_method_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
-        [ctx.userId, tier.id, formId, submissionId, JSON.stringify(answers,), pmCustomer, pm.id,],
+        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
+        [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email,],
     ).catch((e,) => {
         if ((e as { code?: string; }).code === '23505') throw new ConflictError('You already have an application waiting for review.',);
         throw e;
     },);
-    await setUserApproval(ctx.userId, 'pending',);
+    const id = ins.rows[0].id;
+    if (ctx.userId) await setUserApproval(ctx.userId, 'pending',);
 
-    const rows = answers.map((a,) => `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">${esc(a.label,)}</td><td style="padding:4px 0">${esc(a.value,)}</td></tr>`,).join('',);
+    const rows = c.answers.map((a,) => `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">${esc(a.label,)}</td><td style="padding:4px 0">${esc(a.value,)}</td></tr>`,).join('',);
     // The tier's own form already emails per its settings; the built-in form uses
     // the "Membership application" notification (Settings → Notifications).
-    if (!formId) {
+    if (!c.formId) {
         void notify('membership_application', {
             subject: `Membership application: ${tier.name}`,
-            html: `<h2>New membership application</h2><p><strong>${esc(tier.name,)}</strong> — ${esc(ctx.email,)}</p>`
+            html: `<h2>New membership application</h2><p><strong>${esc(tier.name,)}</strong>${c.email ? ` — ${esc(c.email,)}` : ''}</p>`
                 + `<table>${rows}</table><p><a href="/admin/users?approval=pending">Review in the admin</a></p>`,
         },);
     }
-    void sendEmail({
-        to: ctx.email,
-        subject: `We received your ${tier.name} application`,
-        html: `<p>Thank you for applying for <strong>${esc(tier.name,)}</strong>.</p>`
-            + `<p>Our team will review your application. Your card is saved but <strong>you will not be charged unless your application is approved</strong>. We will email you when it is reviewed.</p>`,
-    },).catch((e: unknown,) => logger.warn('application receipt email failed', { error: (e as Error).message, },),);
-
+    if (c.email) {
+        void sendEmail({
+            to: c.email,
+            subject: `We received your ${tier.name} application`,
+            html: `<p>Thank you for applying for <strong>${esc(tier.name,)}</strong>. Your request has been submitted, and someone from our team will call you soon.</p>`
+                + `<p>If you have not finished yet, create your account and add your card — <strong>you will not be charged unless your application is approved</strong>.</p>`,
+        },).catch((e: unknown,) => logger.warn('application receipt email failed', { error: (e as Error).message, },),);
+    }
     return {
-        application: { id: ins.rows[0].id, tierId: tier.id, tierName: tier.name, status: 'pending', createdAt: new Date(ins.rows[0].created_at,).toISOString(), },
+        application: { id, tierId: tier.id, tierName: tier.name, status: 'pending', createdAt: new Date(ins.rows[0].created_at,).toISOString(), },
+        // Only an account-less application needs a handle to claim it later.
+        token: ctx.userId ? null : applicationToken(id,),
     };
+}
+
+/** Step 2 — signed in: claim the application (token, when submitted signed out) and save the card. */
+export async function attachCard(userId: string, body: MembershipApplyCardBody,): Promise<MembershipApplyResponse> {
+    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; created_at: Date; name: string; }>(
+        `SELECT a.id, a.user_id, a.plan_id, a.status, a.created_at, p.name FROM membership_applications a
+           JOIN subscription_plans p ON p.id = a.plan_id WHERE a.id = $1`,
+        [body.applicationId,],
+    );
+    const a = r.rows[0];
+    if (!a || a.status !== 'pending') throw new NotFoundError('Application',);
+    if (a.user_id && a.user_id !== userId) throw new NotFoundError('Application',);
+    if (!a.user_id) {
+        if (!body.token || verifyApplicationToken(body.token,) !== a.id) throw new NotFoundError('Application',);
+        await assertCanApply(userId, (await query<TierRow>(`SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0]!,);
+    }
+    const card = await verifyCard(userId, body.paymentMethodId,);
+    await query(
+        `UPDATE membership_applications SET user_id = $2, stripe_customer_id = $3, payment_method_id = $4, updated_at = NOW() WHERE id = $1`,
+        [a.id, userId, card.customer, card.pmId,],
+    );
+    await setUserApproval(userId, 'pending',);
+    return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: 'pending', createdAt: new Date(a.created_at,).toISOString(), }, };
+}
+
+/** Both steps in one call (signed in). */
+export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { userId: string; },): Promise<MembershipApplyResponse> {
+    const tier = await loadTier(body.tierId,);
+    await assertCanApply(ctx.userId, tier,);
+    await verifyCard(ctx.userId, body.paymentMethodId,);
+    const s = await submit({ tierId: body.tierId, answers: body.answers, }, ctx,);
+    return attachCard(ctx.userId, { applicationId: s.application.id, paymentMethodId: body.paymentMethodId, },);
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────
@@ -179,7 +253,8 @@ const SELECT = `
 function mapApp(r: Record<string, unknown>, card: MembershipApplication['card'] = null,): MembershipApplication {
     return {
         id: String(r.id,),
-        userId: String(r.user_id,),
+        userId: (r.user_id as string | null) ?? null,
+        contactEmail: (r.contact_email as string | null) ?? (r.user_email as string | null) ?? null,
         user: r.user_email ? { id: String(r.user_id,), email: String(r.user_email,), displayName: String(r.user_name ?? '',), handle: (r.user_handle as string | null) ?? null, } : null,
         tierId: String(r.plan_id,),
         tierName: String(r.tier_name ?? '',),
@@ -202,6 +277,7 @@ export async function list(q: MembershipApplicationsListQuery,): Promise<{ data:
     const params: unknown[] = [];
     if (q.status) { params.push(q.status,); where.push(`a.status = $${params.length}`,); }
     if (q.userId) { params.push(q.userId,); where.push(`a.user_id = $${params.length}`,); }
+    if (q.withoutAccount) where.push('a.user_id IS NULL',);
     const w = where.length ? `WHERE ${where.join(' AND ',)}` : '';
     const limit = Math.min(Math.max(q.limit ?? 50, 1,), 200,);
     const offset = (Math.max(q.page ?? 1, 1,) - 1) * limit;
@@ -212,9 +288,11 @@ export async function list(q: MembershipApplicationsListQuery,): Promise<{ data:
     return { data: rows.rows.map((r,) => mapApp(r,),), total: count.rows[0]?.n ?? 0, };
 }
 
-export async function summary(): Promise<{ pending: number; }> {
-    const r = await query<{ n: number; }>(`SELECT COUNT(*)::int AS n FROM membership_applications WHERE status = 'pending'`,);
-    return { pending: r.rows[0]?.n ?? 0, };
+export async function summary(): Promise<{ pending: number; withoutAccount: number; }> {
+    const r = await query<{ n: number; anon: number; }>(
+        `SELECT COUNT(*)::int AS n, (COUNT(*) FILTER (WHERE user_id IS NULL))::int AS anon FROM membership_applications WHERE status = 'pending'`,
+    );
+    return { pending: r.rows[0]?.n ?? 0, withoutAccount: r.rows[0]?.anon ?? 0, };
 }
 
 async function cardOf(pmId: string | null,): Promise<MembershipApplication['card']> {
@@ -236,7 +314,7 @@ export async function get(id: string,): Promise<MembershipApplication> {
 }
 
 async function loadPending(id: string,) {
-    const r = await query<{ id: string; user_id: string; plan_id: string; status: string; payment_method_id: string | null; }>(
+    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; payment_method_id: string | null; }>(
         `SELECT id, user_id, plan_id, status, payment_method_id FROM membership_applications WHERE id = $1`, [id,],
     );
     const a = r.rows[0];
@@ -248,8 +326,9 @@ async function loadPending(id: string,) {
 /** Approve: start the membership and charge the saved card now. */
 export async function approve(id: string, note: string | undefined, ctx: AuditContext,): Promise<MembershipApplication> {
     const a = await loadPending(id,);
+    if (!a.user_id) throw new ValidationError('The applicant has not created their account yet — approve once they have signed up and added a card.',);
     try {
-        await startApprovedMembership(a.user_id, a.plan_id, a.payment_method_id,);
+        await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id,);
     } catch (e) {
         const message = (e as Error).message;
         await query(`UPDATE membership_applications SET error = $2, updated_at = NOW() WHERE id = $1`, [id, message,],);
@@ -259,7 +338,7 @@ export async function approve(id: string, note: string | undefined, ctx: AuditCo
         `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [id, note?.trim() || null, ctx.userId || null,],
     );
-    await setUserApproval(a.user_id, 'approved',);
+    await setUserApproval(a.user_id!, 'approved',);
     await logAudit({ userId: ctx.userId, action: 'approve', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return get(id,);
 }
@@ -271,12 +350,12 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
         `UPDATE membership_applications SET status = 'rejected', note = $2, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [id, note?.trim() || null, ctx.userId || null,],
     );
-    await setUserApproval(a.user_id, 'rejected',);
+    if (a.user_id) await setUserApproval(a.user_id, 'rejected',);
     await logAudit({ userId: ctx.userId, action: 'reject', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     const app = await get(id,);
-    if (app.user) {
+    if (app.contactEmail) {
         void sendEmail({
-            to: app.user.email,
+            to: app.contactEmail,
             subject: `Your ${app.tierName} application`,
             html: `<p>Thank you for applying for <strong>${esc(app.tierName,)}</strong>. We are not able to approve your application at this time.</p>`
                 + (note?.trim() ? `<p>${esc(note.trim(),)}</p>` : '')

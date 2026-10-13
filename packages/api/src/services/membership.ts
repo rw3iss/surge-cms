@@ -85,14 +85,14 @@ async function applicationFormSlugs(ids: string[],): Promise<Map<string, string>
 /** A member's open (pending) membership application, if any. */
 export async function pendingApplicationFor(userId: string | null,): Promise<MembershipPendingApplication | null> {
     if (!userId) return null;
-    const r = await query<{ id: string; plan_id: string; name: string; created_at: Date; }>(
-        `SELECT a.id, a.plan_id, p.name, a.created_at FROM membership_applications a
+    const r = await query<{ id: string; plan_id: string; name: string; created_at: Date; has_card: boolean; }>(
+        `SELECT a.id, a.plan_id, p.name, a.created_at, (a.payment_method_id IS NOT NULL) AS has_card FROM membership_applications a
            JOIN subscription_plans p ON p.id = a.plan_id
           WHERE a.user_id = $1 AND a.status = 'pending' LIMIT 1`,
         [userId,],
     ).catch(() => ({ rows: [], }),);
     const a = r.rows[0];
-    return a ? { id: a.id, tierId: a.plan_id, tierName: a.name, createdAt: new Date(a.created_at,).toISOString(), } : null;
+    return a ? { id: a.id, tierId: a.plan_id, tierName: a.name, createdAt: new Date(a.created_at,).toISOString(), hasCard: a.has_card, } : null;
 }
 
 async function tierOptions(currentTierId: string | null, pendingTierId: string | null = null,): Promise<MembershipTierOption[]> {

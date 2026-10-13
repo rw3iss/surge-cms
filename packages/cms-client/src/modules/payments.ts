@@ -1,5 +1,5 @@
 import type {
-    MembershipApplyBody, MembershipApplyResponse, MembershipCardResponse, MembershipCardSetupResponse,
+    MembershipApplyBody, MembershipApplyCardBody, MembershipApplyResponse, MembershipApplySubmitBody, MembershipApplySubmitResponse, MembershipCardResponse, MembershipCardSetupResponse,
     PaymentsCreateCustomerResponse, PaymentsDonateBody, PaymentsDonateResponse,
     PaymentsSubscribeBody, PaymentsSubscribeResponse, PaymentsUnsubscribeResponse,
     PaymentsSubscriptionsResponse, PaymentsTransactionsQuery, PaymentsTransactionsResponse,
@@ -159,6 +159,16 @@ export class PaymentsModule extends ModuleBase {
      */
     applyMembership(body: MembershipApplyBody,): Promise<MembershipApplyResponse> {
         return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply', { body, invalidates: ['payments', 'auth',], },);
+    }
+
+    /** POST /payments/membership/apply/submit — step 1: the answers (signed in or not); the team is emailed now. */
+    submitMembershipApplication(body: MembershipApplySubmitBody,): Promise<MembershipApplySubmitResponse> {
+        return this.mutate<MembershipApplySubmitResponse>('POST', '/payments/membership/apply/submit', { body, invalidates: ['payments', 'auth',], },);
+    }
+
+    /** POST /payments/membership/apply/card — step 2 (signed in): claim the application and save the card; no charge. */
+    attachMembershipApplicationCard(body: MembershipApplyCardBody,): Promise<MembershipApplyResponse> {
+        return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply/card', { body, invalidates: ['payments', 'auth',], },);
     }
 
     /** POST /payments/membership/apply/withdraw — withdraw your pending application. */

@@ -14,7 +14,7 @@
 import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
 import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
 import { useSearchParams, } from '@solidjs/router';
-import { ApplyModal, } from '../membership/MembershipApplication';
+import { ApplicationPayment, ApplyModal, } from '../membership/MembershipApplication';
 import Markdown from '../common/Markdown';
 import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
 import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
@@ -38,6 +38,8 @@ const MembershipPanel: Component = () => {
     /** A level that requires approval: the application modal. */
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
     const pending = () => data()?.pendingApplication ?? null;
+    /** Finish an application submitted without a card. */
+    const [addingCard, setAddingCard,] = createSignal(false,);
 
     let stripe: Stripe | null = null;
     let card: StripeCardElement | null = null;
@@ -212,8 +214,16 @@ const MembershipPanel: Component = () => {
 
                     <Show when={pending()}>
                         <div class="membership__pending" role="status">
-                            Your application for <strong>{pending()!.tierName}</strong> is waiting for approval (sent {longDate(pending()!.createdAt,)}).
-                            Your card is saved and will be charged only if it is approved.{' '}
+                            Your application for <strong>{pending()!.tierName}</strong> is waiting for approval (sent {longDate(pending()!.createdAt,)}).{' '}
+                            <Show
+                                when={pending()!.hasCard}
+                                fallback={<>Add the card for your membership so it can start once approved — you will not be charged before then.{' '}</>}
+                            >
+                                Your card is saved and will be charged only if it is approved.{' '}
+                            </Show>
+                            <Show when={!pending()!.hasCard && !addingCard()}>
+                                <button type="button" class="membership__link" onClick={() => setAddingCard(true,)}>Add my card</button>{' · '}
+                            </Show>
                             <button
                                 type="button"
                                 class="membership__link"
@@ -234,6 +244,14 @@ const MembershipPanel: Component = () => {
                             >
                                 Withdraw application
                             </button>
+                            <Show when={addingCard() && tiers().find((t,) => t.id === pending()!.tierId,)}>
+                                <ApplicationPayment
+                                    tier={tiers().find((t,) => t.id === pending()!.tierId,)!}
+                                    application={{ id: pending()!.id, token: null, tierId: pending()!.tierId, }}
+                                    onBack={() => setAddingCard(false,)}
+                                    onDone={() => { setAddingCard(false,); void refetch(); }}
+                                />
+                            </Show>
                         </div>
                     </Show>
 

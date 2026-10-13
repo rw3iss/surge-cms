@@ -70,8 +70,13 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 <div>
                                     <dt>Applicant</dt>
                                     <dd>
-                                        <A href={`/admin/users/${a().userId}`}>{a().user?.displayName || a().user?.email || 'Unknown user'}</A>
-                                        <Show when={a().user?.email}><div class="form-help-muted">{a().user!.email}</div></Show>
+                                        <Show
+                                            when={a().userId}
+                                            fallback={<span>No account yet <div class="form-help-muted">{a().contactEmail ?? 'No email given'} — applied before signing up</div></span>}
+                                        >
+                                            <A href={`/admin/users/${a().userId}`}>{a().user?.displayName || a().user?.email || 'Unknown user'}</A>
+                                            <Show when={a().user?.email}><div class="form-help-muted">{a().user!.email}</div></Show>
+                                        </Show>
                                     </dd>
                                 </div>
                                 <div><dt>Membership level</dt><dd><strong>{a().tierName}</strong></dd></div>
@@ -125,7 +130,13 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 <div class="review-application__footer">
                                     <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose} disabled={busy()}>Close</button>
                                     <button type="button" class="ui-button ui-button--danger" onClick={() => setConfirm('reject',)} disabled={busy()}>Reject</button>
-                                    <button type="button" class="ui-button ui-button--primary" onClick={() => setConfirm('approve',)} disabled={busy()}>
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--primary"
+                                        onClick={() => setConfirm('approve',)}
+                                        disabled={busy() || !a().userId || !a().card}
+                                        title={!a().userId ? 'The applicant has not created their account yet' : !a().card ? 'The applicant has not saved a card yet' : undefined}
+                                    >
                                         Approve &amp; start billing
                                     </button>
                                 </div>

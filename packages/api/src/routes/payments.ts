@@ -1,5 +1,5 @@
 import * as applications from '../services/membershipApplications';
-import type { MembershipApplyBody, } from '@sitesurge/types';
+import type { MembershipApplyBody, MembershipApplySubmitBody, } from '@sitesurge/types';
 /**
  * Payment routes (Stripe). Thin shell over `services/payments.ts`.
  *
@@ -150,6 +150,32 @@ export const paymentsRoutes = [
             const a = audit();
             return applications.apply(body as MembershipApplyBody, { userId: user!.id, email: user!.email, ipAddress: a.ipAddress ?? '', userAgent: a.userAgent, },);
         },
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/apply/submit', auth: 'optional',
+        summary: 'Step 1 of applying: the answers, signed in or not. The team is emailed now; a signed-out applicant gets a token to claim it after creating an account.',
+        input: {
+            body: z.object({
+                tierId: z.string().uuid(),
+                answers: z.array(z.object({ questionId: z.string().max(100,), value: z.unknown(), },),).max(100,),
+            },),
+        },
+        handler: async ({ body, user, audit, },) => {
+            const a = audit();
+            return applications.submit(body as MembershipApplySubmitBody, { userId: user?.id ?? null, email: user?.email ?? null, ipAddress: a.ipAddress ?? '', userAgent: a.userAgent, },);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/apply/card', auth: 'user',
+        summary: 'Step 2 of applying: claim the application (token) and save the card — no charge until approved.',
+        input: {
+            body: z.object({
+                applicationId: z.string().uuid(),
+                token: z.string().max(300,).nullable().optional(),
+                paymentMethodId: z.string().min(3,).max(255,),
+            },),
+        },
+        handler: ({ body, userId, },) => applications.attachCard(userId!, body,),
     },),
     defineRoute({
         method: 'post', path: '/membership/apply/withdraw', auth: 'user',

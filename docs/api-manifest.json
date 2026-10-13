@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-13T03:35:38.104Z",
+  "generatedAt": "2026-10-13T04:05:07.705Z",
   "totalModules": 55,
-  "totalRoutes": 551,
+  "totalRoutes": 553,
   "modules": [
     {
       "module": "admin-channel",
@@ -2107,6 +2107,20 @@
           "absolutePath": "/api/v1/payments/membership/apply",
           "auth": "user",
           "summary": "Apply for a membership level that requires approval: the answers + a card saved with a SetupIntent (charged only on approval)."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/apply/submit",
+          "absolutePath": "/api/v1/payments/membership/apply/submit",
+          "auth": "optional",
+          "summary": "Step 1 of applying: the answers, signed in or not. The team is emailed now; a signed-out applicant gets a token to claim it after creating an account."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/apply/card",
+          "absolutePath": "/api/v1/payments/membership/apply/card",
+          "auth": "user",
+          "summary": "Step 2 of applying: claim the application (token) and save the card — no charge until approved."
         },
         {
           "method": "POST",

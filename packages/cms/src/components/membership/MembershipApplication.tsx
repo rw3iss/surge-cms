@@ -5,18 +5,23 @@
  *                         built-in Name / Email / Phone / Occupation form, in
  *                         FormRenderer's COLLECT mode — the answers travel with
  *                         the application instead of being submitted alone.
+ *   submitApplication     sends the answers AT ONCE (signed in or not) — the
+ *                         team is emailed and will call; a signed-out applicant
+ *                         gets a token (kept in sessionStorage) to claim it.
+ *   ApplicationSubmitted  "Your request has been submitted… expect a call".
  *   ApplicationPayment    a card saved with a SetupIntent (NOT charged), then
- *                         `cms.payments.applyMembership`. Billing starts only
+ *                         `attachMembershipApplicationCard`. Billing starts only
  *                         when an admin approves.
  *   ApplyModal            both, for a signed-in member (/subscribe, profile).
  *
  * The sign-up flow (SubscriptionSignup) uses the two parts as its own steps.
  */
-import type { Form, FormAnswer, MembershipApplyResponse, MembershipTierOption, } from '@sitesurge/types';
+import type { Form, FormAnswer, MembershipApplyResponse, MembershipApplySubmitResponse, MembershipTierOption, } from '@sitesurge/types';
 import { DEFAULT_APPLICATION_FIELDS, } from '@sitesurge/types';
 import { Component, createResource, createSignal, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
+import { siteName, } from '../../stores/siteSettings';
 import { billedNote, shownPrice, } from '../../utils/membershipFormat';
 import { mountStripeCard, saveCardForLater, type MountedCard, } from '../../utils/stripeCard';
 import FormRenderer from '../forms/FormRenderer';
@@ -63,7 +68,8 @@ export function applicantFrom(form: Form | undefined, answers: FormAnswer[],): {
 
 export const ApplicationQuestions: Component<{
     tier: MembershipTierOption;
-    onCollected: (answers: FormAnswer[], form: Form,) => void;
+    /** May be async: a thrown error shows on the form. */
+    onCollected: (answers: FormAnswer[], form: Form,) => void | Promise<void>;
     submitLabel?: string;
     prefill?: { name?: string | null; email?: string | null; };
 }> = (props,) => {
@@ -92,9 +98,56 @@ export const ApplicationQuestions: Component<{
     );
 };
 
+const PENDING_KEY = 'sitesurge.membership.application';
+
+/** The application submitted from this browser (to claim after sign-up). */
+export interface SubmittedApplication { id: string; token: string | null; tierId: string; }
+
+export function rememberedApplication(tierId: string,): SubmittedApplication | null {
+    try {
+        const v = JSON.parse(sessionStorage.getItem(PENDING_KEY,) ?? 'null',) as SubmittedApplication | null;
+        return v && v.tierId === tierId ? v : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Step 1: send the answers now (the team is emailed and will call). */
+export async function submitApplication(tier: MembershipTierOption, answers: FormAnswer[],): Promise<SubmittedApplication> {
+    const res: MembershipApplySubmitResponse = await cms.payments.submitMembershipApplication({ tierId: tier.id, answers, },);
+    const saved = { id: res.application.id, token: res.token, tierId: tier.id, };
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(saved,),); } catch { /* private mode */ }
+    return saved;
+}
+
+export function forgetApplication(): void {
+    try { sessionStorage.removeItem(PENDING_KEY,); } catch { /* ignore */ }
+}
+
+/** Shown right after the answers are sent. */
+export const ApplicationSubmitted: Component<{ tierName: string; signedIn: boolean; onContinue: () => void; }> = (props,) => (
+    <div class="membership-apply__submitted" role="status">
+        <h3>Your request has been submitted</h3>
+        <p>
+            Thank you for applying for <strong>{props.tierName}</strong>. Expect a phone call from someone from {siteName()} soon.
+        </p>
+        <p class="membership-apply__muted">
+            {props.signedIn
+                ? 'Next, add the card for your membership — you will not be charged unless your application is approved.'
+                : 'Next, create your account and add your card — you will not be charged unless your application is approved.'}
+        </p>
+        <div class="membership-apply__actions">
+            <button type="button" class="btn btn--primary" onClick={() => props.onContinue()}>
+                {props.signedIn ? 'Add my card' : 'Create my account'}
+            </button>
+        </div>
+    </div>
+);
+
 export const ApplicationPayment: Component<{
     tier: MembershipTierOption;
-    answers: FormAnswer[];
+    /** The application submitted in step 1. */
+    application: SubmittedApplication;
     onDone: (res: MembershipApplyResponse,) => void;
     onBack?: () => void;
 }> = (props,) => {
@@ -111,7 +164,10 @@ export const ApplicationPayment: Component<{
         setBusy(true,);
         try {
             const paymentMethodId = await saveCardForLater(mounted,);
-            const res = await cms.payments.applyMembership({ tierId: props.tier.id, answers: props.answers, paymentMethodId, },);
+            const res = await cms.payments.attachMembershipApplicationCard({
+                applicationId: props.application.id, token: props.application.token, paymentMethodId,
+            },);
+            forgetApplication();
             props.onDone(res,);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Your application could not be sent.',);
@@ -135,7 +191,7 @@ export const ApplicationPayment: Component<{
                     <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => props.onBack!()}>Back</button>
                 </Show>
                 <button type="button" class="btn btn--primary" disabled={busy()} onClick={() => void submit()}>
-                    {busy() ? 'Sending…' : 'Submit application'}
+                    {busy() ? 'Saving…' : 'Save card & finish'}
                 </button>
             </div>
         </div>
@@ -145,10 +201,10 @@ export const ApplicationPayment: Component<{
 /** "Thanks — pending approval" (shared by the modal and the sign-up flow). */
 export const ApplicationDone: Component<{ tierName: string; }> = (props,) => (
     <div class="membership-apply__done">
-        <h3>Application received</h3>
+        <h3>You're all set</h3>
         <p>
-            Thank you for applying for <strong>{props.tierName}</strong>. Our team will review it and email you.
-            Your card is saved but <strong>will not be charged unless your application is approved</strong>.
+            Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
+            we will also email you once it is reviewed. Your card is saved but <strong>will not be charged unless your application is approved</strong>.
         </p>
     </div>
 );
@@ -156,8 +212,8 @@ export const ApplicationDone: Component<{ tierName: string; }> = (props,) => (
 /** Apply for a level, signed in: questions → card → done. */
 export const ApplyModal: Component<{ tier: MembershipTierOption; onClose: () => void; onApplied: () => void; }> = (props,) => {
     const auth = useAuth();
-    const [step, setStep,] = createSignal<'questions' | 'payment' | 'done'>('questions',);
-    const [answers, setAnswers,] = createSignal<FormAnswer[]>([],);
+    const [step, setStep,] = createSignal<'questions' | 'submitted' | 'payment' | 'done'>('questions',);
+    const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     // Esc closes (the backdrop does not: an application is easy to lose by a stray click).
     onMount(() => {
         const onKey = (e: KeyboardEvent,) => { if (e.key === 'Escape') props.onClose(); };
@@ -175,14 +231,21 @@ export const ApplyModal: Component<{ tier: MembershipTierOption; onClose: () => 
                     <ApplicationQuestions
                         tier={props.tier}
                         prefill={{ name: auth.user?.displayName, email: auth.user?.email, }}
-                        onCollected={(a,) => { setAnswers(a,); setStep('payment',); }}
+                        onCollected={async (a,) => {
+                            setSubmitted(await submitApplication(props.tier, a,),);
+                            setStep('submitted',);
+                            void auth.refreshUser();
+                            props.onApplied();
+                        }}
                     />
                 </Show>
-                <Show when={step() === 'payment'}>
+                <Show when={step() === 'submitted'}>
+                    <ApplicationSubmitted tierName={props.tier.name} signedIn onContinue={() => setStep('payment',)} />
+                </Show>
+                <Show when={step() === 'payment' && submitted()}>
                     <ApplicationPayment
                         tier={props.tier}
-                        answers={answers()}
-                        onBack={() => setStep('questions',)}
+                        application={submitted()!}
                         onDone={() => { setStep('done',); void auth.refreshUser(); props.onApplied(); }}
                     />
                 </Show>

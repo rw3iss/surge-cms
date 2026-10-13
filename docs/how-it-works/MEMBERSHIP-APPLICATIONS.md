@@ -18,6 +18,23 @@ so that form's own settings apply: **Save submission**, **Email** the submission
 (`actionConfig.emailTo`), **Add submitter as Contact**. With the built-in form, the
 **Membership application** notification (Settings → Notifications) emails the admins.
 
+## Two steps: submit first, then account + card
+
+Applying is split so the request reaches the team **at once** — someone calls the
+applicant, even if they never finish signing up:
+
+1. **Submit** (`POST /payments/membership/apply/submit`, signed in or not): the answers
+   go through the form pipeline (or the notification) now. The member sees
+   *"Your request has been submitted. Expect a phone call from someone from <site> soon."*
+   A signed-out applicant gets a signed **token** (kept in `sessionStorage`) to claim it.
+2. **Account + card** (`POST /payments/membership/apply/card`, signed in): creates the
+   account if needed, claims the application (token) and saves the card — no charge.
+
+An application without an account (`user_id` NULL, migration 146) shows on /admin/users
+under **"N not signed up yet"**; it can be read and rejected, and approved only once the
+applicant has an account and a card. A signed-in member who closed the dialog before
+adding a card gets **Add my card** in Profile → Membership.
+
 ## What the member sees
 
 | Where | Flow |
