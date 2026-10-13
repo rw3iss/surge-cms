@@ -48,11 +48,31 @@
   > :where(p) { margin: 4px 0 0; }
 }
 
-// Fields side by side: equal columns, aligned to the top, wrapping on narrow
-// screens.
+// Fields side by side: equal columns, aligned to the TOP — labels on one line,
+// inputs on one line, and a field's hint below its own input (pushing only what
+// is under it). Never `align-items: end` on a row of fields: a field with a hint
+// is taller, so bottom alignment lifts its label + input above the others.
+// A button in the row goes in <FormRowAction> (a label-height spacer above it).
 :where(.admin-form-row) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: $spacing-md;
   align-items: start;
+}
+
+// <FormRowAction>: column = invisible label (same metrics as a field label)
+// + the buttons, so they sit level with the inputs.
+:where(.admin-form-row__action) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px; // same as .admin-form-field
+
+  > .admin-form-field__label { visibility: hidden; }
+}
+
+:where(.admin-form-row__action-buttons) {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  min-height: 2.5rem; // an input's height, so a short button centres on it
 }

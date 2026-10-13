@@ -111,7 +111,8 @@ spacing from `pages/admin/styles/_sections.scss` — never from page-local margi
 
 Rules:
 - Put rows DIRECTLY in the section (or in one `.admin-section__body`; a legacy `.form-section` wrapper inside a section is treated the same — its own margin/padding/divider are dropped). Don't wrap each field in its own `<div>` with a margin, and don't add `margin-bottom` to fields.
-- Side-by-side fields go in `.admin-form-row` (not a hand-rolled flex row), so they align to the top. In a narrow side panel (block editor, properties) use the existing `.admin-form-row-2` (130px columns) instead.
+- Side-by-side fields go in `.admin-form-row` (not a hand-rolled flex row), so they align to the TOP: every label on one line, every input on one line, and a field's hint BELOW its own input (it pushes only what is under it). **Never `align-items: end` (or `flex-end`) on a row of fields** — a field with a hint is taller, so bottom alignment lifts its label and input above the rest.
+- A button in a row of fields goes in `<FormRowAction>` (`components/admin/forms`): it renders an invisible label-height spacer, so the button sits level with the inputs. (Bottom alignment is fine only for a toolbar of controls WITHOUT hints, e.g. filter dropdowns.) In a narrow side panel (block editor, properties) use the existing `.admin-form-row-2` (130px columns) instead.
 - The rules are `:where()` (specificity 0): a page that genuinely needs different spacing overrides them locally — but a NEW page should need nothing.
 - Check a new page at a glance: each section heading has clear air above it, and every label has a small gap above it.
 

@@ -111,7 +111,8 @@
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr auto;
     gap: $spacing-sm;
-    align-items: end;
+    // Top: labels + inputs line up; the Key hint hangs below its input.
+    align-items: start;
     margin-top: $spacing-md;
 
     @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }

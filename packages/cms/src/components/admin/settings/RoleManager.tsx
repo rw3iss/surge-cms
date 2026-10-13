@@ -11,7 +11,7 @@ import { isStaffRole, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
-import { FormField, } from '../forms';
+import { FormField, FormRowAction, } from '../forms';
 import '../subscriptions/Subscriptions.scss';
 
 const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
@@ -121,14 +121,14 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
                 <FormField label="Description">
                     <input type="text" value={draft.description} onBlur={(e,) => setDraft('description', e.currentTarget.value,)} />
                 </FormField>
-                <div class="u-flex-row u-gap-sm">
+                <FormRowAction>
                     <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={submit} disabled={busy()}>
                         {editingKey() ? 'Save role' : '+ Add role'}
                     </button>
                     <Show when={editingKey()}>
                         <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={reset}>Cancel</button>
                     </Show>
-                </div>
+                </FormRowAction>
             </div>
 
             <ConfirmModal

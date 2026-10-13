@@ -31,4 +31,5 @@ export { default as FormCheck, } from './FormCheck';
 export type { FormCheckProps, } from './FormCheck';
 
 export { default as FormSection, } from './FormSection';
+export { default as FormRowAction, } from './FormRowAction';
 export type { FormSectionProps, } from './FormSection';
