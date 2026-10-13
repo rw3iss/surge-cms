@@ -115,6 +115,19 @@ Rules:
 - The rules are `:where()` (specificity 0): a page that genuinely needs different spacing overrides them locally — but a NEW page should need nothing.
 - Check a new page at a glance: each section heading has clear air above it, and every label has a small gap above it.
 
+## Modals — padding
+
+`ModalShell` (`components/admin/common/ModalShell`) draws the frame, backdrop
+and close button only — **it adds no inner padding**. Every modal's root
+content element sets `padding: $spacing-lg` (24px) itself and stacks its rows
+with `gap: $spacing-md`, e.g.
+
+```scss
+.my-modal { padding: $spacing-lg; display: flex; flex-direction: column; gap: $spacing-md; }
+```
+
+A modal whose title touches the frame's edge is missing this.
+
 ## Sticky page header
 
 Every edit/list page's `.admin-header` (the title + Save/manage actions row) is

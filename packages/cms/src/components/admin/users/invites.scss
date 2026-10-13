@@ -1,5 +1,7 @@
 // Users page: invite modal + invites panel.
 .invite-user-modal {
+  // ModalShell has no inner padding — each modal's content supplies it.
+  padding: $spacing-lg;
   display: flex;
   flex-direction: column;
   gap: $spacing-md;

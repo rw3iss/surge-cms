@@ -184,9 +184,11 @@ const AdminMailingListsSettings: Component = () => {
 
             <Show when={preview()}>
                 <ModalShell open onClose={() => setPreview(null,)} size="lg" showClose ariaLabel="Notification preview">
-                    <h2 style={{ margin: '0 0 0.25rem', }}>Preview</h2>
-                    <p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>Subject: {preview()!.subject} · first list, sample subscriber</p>
-                    <EmailFrame html={preview()!.html} height="65vh" title="Notification preview" />
+                    <div style={{ padding: '1.5rem', }}>
+                        <h2 style={{ margin: '0 0 0.25rem', }}>Preview</h2>
+                        <p class="form-help-muted" style={{ margin: '0 0 0.75rem', }}>Subject: {preview()!.subject} · first list, sample subscriber</p>
+                        <EmailFrame html={preview()!.html} height="65vh" title="Notification preview" />
+                    </div>
                 </ModalShell>
             </Show>
         </div>

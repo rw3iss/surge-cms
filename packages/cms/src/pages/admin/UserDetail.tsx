@@ -1,6 +1,7 @@
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
-import { assignableRoles, } from '../../components/admin/users/assignableRoles';
+import { roleLabel, } from '../../components/admin/users/assignableRoles';
+import UserRolesPanel from '../../components/admin/users/UserRolesPanel';
 import Toggle from '../../components/admin/common/Toggle';
 import { cms, } from '../../services/cmsClient';
 import { getRoleBadgeClass, } from '../../utils/badges';
@@ -39,8 +40,6 @@ const AdminUserDetail: Component = () => {
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
     /** Additional roles (`users.extra_roles`) — kept when the membership changes. */
     const [extraRoles, setExtraRoles,] = createSignal<string[]>([],);
-    const toggleExtra = (key: string, on: boolean,) =>
-        setExtraRoles(on ? [...new Set([...extraRoles(), key,],),] : extraRoles().filter((k,) => k !== key,),);
     const [isActive, setIsActive,] = createSignal(true,);
 
     // Password change
@@ -85,7 +84,6 @@ const AdminUserDetail: Component = () => {
                 displayName: displayName(),
                 role: role(),
                 isActive: isActive(),
-                extraRoles: extraRoles().filter((r,) => r !== role(),),
                 // Only sent when set: an empty field must not blank a handle
                 // (the server validates format + uniqueness; 409 when taken).
                 ...(handle().trim() ? { handle: handle().trim(), } : {}),
@@ -236,6 +234,9 @@ const AdminUserDetail: Component = () => {
                         <div class="user-detail__badges">
                             <span class={`badge ${statusInfo().cls}`}>{statusInfo().label}</span>
                             <span class={`badge ${roleBadge(user()?.role || '',)}`}>{user()?.role}</span>
+                            <For each={user()?.extraRoles ?? []}>
+                                {(r,) => <span class="badge badge--info" title="Additional role">+ {roleLabel(roles(), r,)}</span>}
+                            </For>
                             <Show when={user()?.authProvider}>
                                 <span class="badge badge--muted">{user()?.authProvider}</span>
                             </Show>
@@ -295,18 +296,6 @@ const AdminUserDetail: Component = () => {
                                     {/* Built-in + custom roles (Settings → Permissions → Roles). */}
                                     <For each={roles() ?? []}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
                                 </select>
-                            </div>
-                            <div class="settings-field">
-                                <label class="settings-field__label">Additional roles</label>
-                                <div class="user-detail__extra-roles">
-                                    <For
-                                        each={assignableRoles(roles(),).filter((r,) => r.key !== role(),)}
-                                        fallback={<span class="form-help-muted">No member-level roles yet (Settings → Permissions → Roles).</span>}
-                                    >
-                                        {(r,) => <Toggle label={r.label} checked={extraRoles().includes(r.key,)} onChange={(v,) => toggleExtra(r.key, v,)} />}
-                                    </For>
-                                    <span class="form-help-muted">Kept when their membership changes (memberships set the main role). Saved with Save Profile.</span>
-                                </div>
                             </div>
                             <div class="settings-field">
                                 <label class="settings-field__label">Active</label>
@@ -390,6 +379,13 @@ const AdminUserDetail: Component = () => {
                     </div>
                 </div>
 
+                <UserRolesPanel
+                    userId={params.id}
+                    role={user()?.role || 'member'}
+                    extraRoles={extraRoles()}
+                    roles={roles()}
+                    onChanged={() => refetch()}
+                />
                 <UserSubscriptionPanel userId={params.id} onChanged={() => refetch()} />
 
                 <UserApplicationsPanel userId={params.id} onChanged={() => refetch()} />
