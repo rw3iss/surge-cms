@@ -8,6 +8,7 @@ import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
 import { addToCart, } from '../../stores/shopCart';
 import ShopStoreGuard from './ShopStoreGuard';
+import SoldOutOverlay from './SoldOutOverlay';
 import StarRating from './StarRating';
 import { money, ratingLabel, stockLabel, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
@@ -199,6 +200,8 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
     /** Units in stock for the chosen variant, or the whole product until one is chosen. */
     const stockQty = () => resolvedVariant()?.inventoryQty
         ?? variants().reduce((sum, v,) => sum + Math.max(0, v.inventoryQty || 0,), 0,);
+    /** Every variant is out of stock → "SOLD OUT!" over the gallery image. */
+    const soldOut = () => variants().length > 0 && variants().every((v,) => (v.inventoryQty ?? 0) <= 0,);
     const showStock = () => !!shopCfg()?.appearance?.showInventory && variants().length > 0;
 
     // Shipping display for the selected variant.
@@ -331,6 +334,9 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
                                     <video src={m().url} controls />
                                 </Show>
                             )}
+                        </Show>
+                        <Show when={soldOut()}>
+                            <SoldOutOverlay />
                         </Show>
                     </div>
                     <Show when={visibleMedia().length > 1}>

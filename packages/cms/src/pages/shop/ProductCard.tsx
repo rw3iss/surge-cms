@@ -1,6 +1,7 @@
 import { A, } from '@solidjs/router';
 import type { ShopProduct, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
+import SoldOutOverlay from './SoldOutOverlay';
 import StarRating from './StarRating';
 import { money, stockLabel, } from './shopFormat';
 
@@ -41,6 +42,10 @@ const ProductCard: Component<ProductCardProps> = (props,) => {
                     fallback={<div class="shop-card__media-placeholder" aria-hidden="true">🛍</div>}
                 >
                     <img src={props.image!} alt={props.product.title} loading="lazy" />
+                </Show>
+                {/* Every variant is out of stock (shown whatever the inventory-count setting). */}
+                <Show when={props.product.inventoryTotal === 0}>
+                    <SoldOutOverlay />
                 </Show>
             </div>
             <div class="shop-card__body">

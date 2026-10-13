@@ -709,3 +709,35 @@ html:not([data-active-outlines='show']) {
     }
   }
 }
+
+// "SOLD OUT!" stamp over a product image (shop cards, product page, and any
+// entity/component template: `<div class="sold-out-overlay"><span>SOLD OUT!</span></div>`).
+// The image's container must be `position: relative`. Global (not shop.scss)
+// because templates render outside the shop pages.
+.sold-out-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  // The stamp sizes from the IMAGE's width (cqi), not the viewport's.
+  container-type: inline-size;
+
+  > span {
+    padding: 0.35em 0.9em;
+    border: 3px solid $error-color;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.85);
+    color: $error-color;
+    font-size: clamp(0.9rem, 9cqi, 2.5rem);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    white-space: nowrap;
+    transform: rotate(-12deg);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+}

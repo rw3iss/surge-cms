@@ -122,6 +122,7 @@
     }
 
     &__media {
+        position: relative;
         aspect-ratio: 1 / 1;
         background: var(--site-bg-subtle, #f3f4f6);
         display: flex;
@@ -248,6 +249,7 @@
     &__breadcrumb-sep { color: var(--site-text-muted, #6b7280); }
 
     &__gallery-main {
+        position: relative;
         aspect-ratio: 1 / 1;
         background: var(--site-bg-subtle, #f3f4f6);
         border-radius: var(--site-radius, 8px);
