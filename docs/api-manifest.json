@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-13T20:50:57.945Z",
+  "generatedAt": "2026-10-13T21:29:02.576Z",
   "totalModules": 55,
-  "totalRoutes": 554,
+  "totalRoutes": 560,
   "modules": [
     {
       "module": "admin-channel",
@@ -87,6 +87,20 @@
           "absolutePath": "/api/v1/auth/register",
           "auth": "public",
           "summary": "Public member self-registration (gated behind the `users` feature). No auto-login — except in subscription-required mode, where the new account is signed in RESTRICTED so it can pay."
+        },
+        {
+          "method": "GET",
+          "path": "/invites/:token",
+          "absolutePath": "/api/v1/auth/invites/:token",
+          "auth": "public",
+          "summary": "An account invite: the email, name and roles to show on the account form (404 / expired / used)."
+        },
+        {
+          "method": "POST",
+          "path": "/invites/:token/accept",
+          "absolutePath": "/api/v1/auth/invites/:token/accept",
+          "auth": "public",
+          "summary": "Create the invited account (name, email, password), give it the invite's roles, and sign it in."
         },
         {
           "method": "POST",
@@ -3889,6 +3903,34 @@
           "absolutePath": "/api/v1/users/ban-ip",
           "auth": "admin",
           "summary": "Ban an IP address."
+        },
+        {
+          "method": "GET",
+          "path": "/invites",
+          "absolutePath": "/api/v1/users/invites",
+          "auth": "admin",
+          "summary": "Account invites (pending / accepted / expired / revoked), newest first."
+        },
+        {
+          "method": "POST",
+          "path": "/invites",
+          "absolutePath": "/api/v1/users/invites",
+          "auth": "admin",
+          "summary": "Invite someone to create an account with roles (3-day link) — or, when the address already has an account, add the roles to it."
+        },
+        {
+          "method": "POST",
+          "path": "/invites/:inviteId/resend",
+          "absolutePath": "/api/v1/users/invites/:inviteId/resend",
+          "auth": "admin",
+          "summary": "Send a fresh invite link (new token, 3 more days); the old link stops working."
+        },
+        {
+          "method": "DELETE",
+          "path": "/invites/:inviteId",
+          "absolutePath": "/api/v1/users/invites/:inviteId",
+          "auth": "admin",
+          "summary": "Revoke a pending invite."
         },
         {
           "method": "POST",

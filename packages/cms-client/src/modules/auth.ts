@@ -1,3 +1,4 @@
+import type { UserInviteAcceptBody, UserInvitePublic, } from '@sitesurge/types';
 import type {
     AuthResponse, LoginCredentials, AuthPatreonResponse,
     AuthLogoutAllResponse, AuthMeResponse, AuthPatreonSyncResponse, AuthAutologinResponse,
@@ -56,6 +57,16 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
      *  auto-login (no tokens minted); the caller signs in via login()
      *  afterwards. 403 when the `users` feature is disabled; 409 on a
      *  duplicate email. */
+    /** GET /auth/invites/:token — the invite to show on the account form. */
+    invite(token: string,): Promise<UserInvitePublic> {
+        return this.get<UserInvitePublic>('/auth/invites/:token', { params: { token, }, options: { cache: false, }, },);
+    }
+
+    /** POST /auth/invites/:token/accept — create the invited account and sign it in. */
+    acceptInvite(token: string, body: UserInviteAcceptBody,): Promise<{ userId: string; email: string; signedIn: boolean; }> {
+        return this.mutate<{ userId: string; email: string; signedIn: boolean; }>('POST', '/auth/invites/:token/accept', { params: { token, }, body, },);
+    }
+
     register(body: AuthRegisterBody,): Promise<AuthRegisterResponse> {
         return this.mutate<AuthRegisterResponse>('POST', '/auth/register', { body, },);
     }

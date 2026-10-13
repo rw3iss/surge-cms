@@ -9,6 +9,7 @@
  * re-exports it so `cms.users` keeps working for scripts and plugins.
  */
 import type { PatreonMembership, User, } from '@sitesurge/types';
+import { isStaffRole, } from '@sitesurge/types';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { nanoid, } from '../utils/nanoid';
@@ -135,7 +136,8 @@ export async function update(
     if (typeof patch.role === 'string') await assertRoleExists(patch.role,);
     // Handle first (same rule as the member's own profile): a taken or invalid
     // handle (409/400) must not half-apply the rest of the update.
-    const { handle, ...rest } = patch;
+    const { handle, extraRoles, ...rest } = patch;
+    if (Array.isArray(extraRoles,)) await setExtraRoles(id, extraRoles as string[],);
     if (typeof handle === 'string') {
         const current = await query<{ handle: string | null; }>(`SELECT handle FROM users WHERE id = $1`, [id,],);
         if (handle.trim().toLowerCase() !== (current.rows[0]?.handle ?? '').toLowerCase()) await setHandle(id, handle,);
@@ -153,6 +155,32 @@ export async function update(
         userAgent: ctx.userAgent,
     },);
     return user;
+}
+
+/**
+ * Replace a user's ADDITIONAL roles. Only member-level roles (never staff or
+ * anonymous: those are primary-role decisions, made with the Role field), each
+ * must exist, and the primary role is not repeated.
+ */
+export async function setExtraRoles(id: string, roles: string[],): Promise<string[]> {
+    const wanted = [...new Set(roles.map((r,) => r.trim(),).filter(Boolean,),),];
+    for (const r of wanted) {
+        if (isStaffRole(r,) || r === 'anonymous') throw new ValidationError(`"${r}" cannot be an additional role — set it as the user's role instead.`,);
+        await assertRoleExists(r,);
+    }
+    const cur = await query<{ role: string; }>(`SELECT role FROM users WHERE id = $1`, [id,],);
+    if (!cur.rows[0]) throw new NotFoundError('User',);
+    const list = wanted.filter((r,) => r !== cur.rows[0].role,);
+    await query(`UPDATE users SET extra_roles = $2, updated_at = NOW() WHERE id = $1`, [id, list,],);
+    const { invalidateUserRoles, } = await import('./permissions/index.js');
+    invalidateUserRoles(id,);
+    return list;
+}
+
+/** Add roles to a user's additional roles (invites; keeps what is there). */
+export async function addExtraRoles(id: string, roles: string[],): Promise<string[]> {
+    const cur = await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [id,],);
+    return setExtraRoles(id, [...(cur.rows[0]?.extra_roles ?? []), ...roles,],);
 }
 
 /**

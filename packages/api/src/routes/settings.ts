@@ -661,6 +661,7 @@ export const settingsRoutes = [
                 autoSubscribeListId: z.string().nullish(),
                 requireSubscription: z.boolean().optional(),
                 minimumTierId: z.string().uuid().nullish(),
+                accessRoles: z.array(z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,),).max(50,).optional(),
             },),
         },
         handler: async ({ body, audit, },) => {

@@ -62,7 +62,8 @@ export async function findUsers(
     }
     if (filters.role) {
         params.push(filters.role,);
-        whereClause += ` AND u.role = $${params.length}`;
+        // The primary role OR an additional one (e.g. ambassadors who also subscribe).
+        whereClause += ` AND (u.role = $${params.length} OR $${params.length} = ANY(u.extra_roles))`;
     }
     if (filters.status === 'active') {
         whereClause += ` AND u.is_active = true AND u.is_banned = false`;

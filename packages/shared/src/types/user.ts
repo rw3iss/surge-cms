@@ -23,6 +23,8 @@ export interface MemberAccessState {
     lapsed: boolean;
     /** An application waiting for an admin (any mode, signed-in members). */
     pendingApplication?: import('../api/routes/membershipApplications').MembershipPendingApplication | null;
+    /** Let in by a role allowed without a membership (Users → Settings), not by a membership. */
+    viaRole?: boolean;
     /** Restricted because a membership payment did not go through (retry with a card). */
     failedAttempt?: import('../api/routes/membership').MembershipFailedAttempt | null;
 }
@@ -51,6 +53,9 @@ export interface User {
     patreonTier?: string;
     isActive: boolean;
     isBanned: boolean;
+    /** Additional roles assigned by an admin / invite (e.g. `ambassador`) — kept when
+     *  the membership (which sets `role`) changes. Permissions combine both. */
+    extraRoles?: string[];
     /** Latest membership application: pending / approved / rejected (null = never applied). */
     approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
     lastLoginAt?: Date;

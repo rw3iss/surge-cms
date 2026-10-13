@@ -1,0 +1,34 @@
+// Users page: invite modal + invites panel.
+.invite-user-modal {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm $spacing-lg;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+  }
+}
+
+.users-invites {
+  margin-bottom: $spacing-xl;
+
+  &__actions {
+    display: flex;
+    gap: $spacing-xs;
+    justify-content: flex-end;
+    white-space: nowrap;
+  }
+}
+
+// "member + Ambassador" in the users table.
+.users-extra-role {
+  margin-left: 4px;
+}

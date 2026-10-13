@@ -1,3 +1,5 @@
+import * as invites from '../services/userInvites';
+import type { UserInviteBody, } from '@sitesurge/types';
 import fs from 'fs/promises';
 import multer from 'multer';
 import { nanoid, } from '../utils/nanoid';
@@ -51,6 +53,7 @@ const updateUserSchema = z.object({
     isActive: z.boolean().optional(),
     avatarUrl: z.string().optional().nullable(),
     handle: z.string().trim().min(1,).max(40,).optional(),
+    extraRoles: z.array(z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,),).max(20,).optional(),
 },) satisfies z.ZodType<UserUpdateBody>;
 
 const createUserSchema = z.object({
@@ -154,6 +157,49 @@ export const usersRoutes = [
             if (!body.ipAddress) throw new AppError(400, 'BAD_REQUEST', 'IP address is required',);
             await users.banIp(body.ipAddress, { reason: body.reason, expiresAt: body.expiresAt, }, audit(),);
             return { message: 'IP address banned', };
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/invites', auth: 'admin',
+        summary: 'Account invites (pending / accepted / expired / revoked), newest first.',
+        handler: async ({ user, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'users:invite',);
+            return invites.list();
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/invites', auth: 'admin',
+        summary: 'Invite someone to create an account with roles (3-day link) — or, when the address already has an account, add the roles to it.',
+        input: {
+            body: z.object({
+                email: z.string().trim().max(320,),
+                name: z.string().trim().max(200,).optional(),
+                roles: z.array(z.string().regex(/^[a-z][a-z0-9_]{1,31}$/,),).min(1,).max(10,),
+            },) satisfies z.ZodType<UserInviteBody>,
+        },
+        handler: async ({ body, user, audit, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'users:invite',);
+            return invites.invite(body, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/invites/:inviteId/resend', auth: 'admin',
+        summary: 'Send a fresh invite link (new token, 3 more days); the old link stops working.',
+        input: { params: z.object({ inviteId: z.string().uuid(), },), },
+        handler: async ({ params, user, audit, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'users:invite',);
+            return invites.resend(params.inviteId, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'delete', path: '/invites/:inviteId', auth: 'admin',
+        summary: 'Revoke a pending invite.',
+        input: { params: z.object({ inviteId: z.string().uuid(), },), },
+        handler: async ({ params, user, audit, },) => {
+            await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'users:invite',);
+            await invites.revoke(params.inviteId, audit(),);
+            return { ok: true, };
         },
     },),
 

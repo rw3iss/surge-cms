@@ -615,6 +615,7 @@ export async function getUsersSettings(): Promise<import('@sitesurge/types').Use
         autoSubscribeListId: raw?.autoSubscribeListId ?? null,
         requireSubscription: raw?.requireSubscription === true,
         minimumTierId: raw?.minimumTierId ?? null,
+        accessRoles: Array.isArray(raw?.accessRoles,) ? raw!.accessRoles!.filter((r,) => typeof r === 'string',) : [],
     };
 }
 export const setUsersSettings = (value: unknown, ctx: AuditContext,) => setKeyed(USERS_SETTINGS, value, ctx,);

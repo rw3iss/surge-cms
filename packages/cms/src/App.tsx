@@ -31,6 +31,7 @@ const ProfilePage = lazy(() => import('./pages/Profile'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const SetupPage = lazy(() => import('./pages/setup/Setup'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmail'));
+const AcceptInvitePage = lazy(() => import('./pages/AcceptInvite'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPassword'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPassword'));
 
@@ -157,6 +158,7 @@ const App: Component = () => {
 										<Route path="/login" component={LoginPage} />
 										<Route path="/join" component={JoinPage} />
 										<Route path="/verify" component={VerifyEmailPage} />
+										<Route path="/invite/:token" component={AcceptInvitePage} />
 										<Route path="/forgot-password" component={ForgotPasswordPage} />
 										<Route path="/reset-password" component={ResetPasswordPage} />
 										<Route path="/posts" component={PostsPage} />

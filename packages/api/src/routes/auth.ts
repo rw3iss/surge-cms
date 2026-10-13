@@ -1,3 +1,5 @@
+import * as invites from '../services/userInvites';
+import type { UserInviteAcceptBody, } from '@sitesurge/types';
 /**
  * Auth routes on the manifest framework.
  *
@@ -296,6 +298,35 @@ export const authRoutes = [
             await createSession(result.userId, accessToken, refreshToken, expiresAt, ipAddress, userAgent,);
             setAuthCookies(res, { accessToken, refreshToken, },);
             return { ...result, signedIn: true, subscriptionRequired: true, };
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/invites/:token', auth: 'public',
+        summary: 'An account invite: the email, name and roles to show on the account form (404 / expired / used).',
+        input: { params: z.object({ token: z.string().min(20,).max(100,), },), },
+        handler: ({ params, },) => invites.publicView(params.token,),
+    },),
+    defineRoute({
+        method: 'post', path: '/invites/:token/accept', auth: 'public',
+        summary: 'Create the invited account (name, email, password), give it the invite\'s roles, and sign it in.',
+        pre: [loginLimiter,],
+        input: {
+            params: z.object({ token: z.string().min(20,).max(100,), },),
+            body: z.object({
+                name: z.string().trim().min(1,).max(200,),
+                email: z.string().trim().email().max(320,),
+                password: z.string().min(8,).max(200,),
+            },) satisfies z.ZodType<UserInviteAcceptBody>,
+        },
+        handler: async ({ params, body, req, res, },) => {
+            const ipAddress = clientIp(req.headers, req.ip,);
+            const userAgent = req.headers['user-agent'];
+            const out = await invites.accept(params.token, body, { ipAddress, userAgent, },);
+            const { accessToken, refreshToken, expiresAt, } = generateTokens(out.userId, out.role,);
+            await createSession(out.userId, accessToken, refreshToken, expiresAt, ipAddress, userAgent,);
+            setAuthCookies(res, { accessToken, refreshToken, },);
+            return { userId: out.userId, email: out.email, signedIn: true, };
         },
     },),
 

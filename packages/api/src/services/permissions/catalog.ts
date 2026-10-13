@@ -36,6 +36,14 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'users:invite',
+        feature: 'core',
+        label: 'Invite users',
+        description: 'Invite someone to create an account with given roles (e.g. Ambassador), or give an existing account those roles.',
+        action: 'admin',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'subscriptions:manage',
         feature: 'core',
         label: 'Manage subscriptions',

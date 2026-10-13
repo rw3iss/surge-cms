@@ -135,6 +135,9 @@ export interface UserUpdateBody {
     avatarUrl?: string | null;
     /** Public member handle (`/members/:handle`); validated + unique (409 when taken). */
     handle?: string;
+    /** Additional roles (e.g. `ambassador`) — replaces the list. Member-level
+     *  roles only; never staff or anonymous. */
+    extraRoles?: string[];
 }
 
 /** PUT /users/:id — the updated user. */
@@ -188,4 +191,51 @@ export interface UserUnbanResponse {
  *  orphaned (not deleted); the action is audit-logged. */
 export interface UserDeleteResponse {
     message: string;
+}
+
+// ─── Invites (/users/invites, /auth/invites/:token) ───────────────
+
+/** POST /users/invites — invite someone to create an account with these roles. */
+export interface UserInviteBody {
+    email: string;
+    name?: string;
+    /** Member-level roles the account gets (e.g. ['ambassador']). */
+    roles: string[];
+}
+
+export interface UserInvite {
+    id: string;
+    email: string;
+    name: string | null;
+    roles: string[];
+    status: 'pending' | 'accepted' | 'expired' | 'revoked';
+    expiresAt: string;
+    createdAt: string;
+    acceptedAt: string | null;
+    acceptedUserId: string | null;
+    /** Admin who sent it (display name). */
+    invitedBy: string | null;
+}
+
+/** `invited` = an email went out; `roles_added` = the address already had an account, the roles were added to it. */
+export interface UserInviteResult {
+    result: 'invited' | 'roles_added';
+    userId: string | null;
+    invite: UserInvite | null;
+}
+
+/** GET /auth/invites/:token — what the account form shows. */
+export interface UserInvitePublic {
+    email: string;
+    name: string;
+    /** Role names, comma-separated. */
+    roles: string;
+    expiresAt: string;
+}
+
+/** POST /auth/invites/:token/accept */
+export interface UserInviteAcceptBody {
+    name: string;
+    email: string;
+    password: string;
 }

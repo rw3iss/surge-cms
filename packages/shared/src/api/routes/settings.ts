@@ -334,6 +334,12 @@ export interface UsersSettings {
     requireSubscription?: boolean;
     /** Lowest tier that counts (null = the cheapest paid tier). */
     minimumTierId?: string | null;
+    /**
+     * Roles that may sign in and use the site WITHOUT a membership when one is
+     * required (e.g. `ambassador`). A user qualifies by their primary role or
+     * any additional role.
+     */
+    accessRoles?: string[];
 }
 
 /** GET /settings/users (admin) — the stored users settings (or defaults). */

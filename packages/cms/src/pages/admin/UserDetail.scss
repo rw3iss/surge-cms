@@ -245,3 +245,10 @@
     font-size: $font-size-xs;
     color: var(--admin-text-muted, #{$text-light});
 }
+
+// Additional roles: one switch per role, then the hint.
+.user-detail__extra-roles {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}

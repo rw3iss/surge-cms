@@ -816,6 +816,8 @@ const SPA_OWNED_PREFIXES: readonly string[] = [
     '/watch/',
     '/tickets/',
     '/mail/',
+    // Account invites (the SPA validates the token).
+    '/invite/',
     // NOT /members/ or /forum/: staticMeta resolves those authoritatively (a
     // disabled forum, an unknown thread or a hidden member page is a real 404).
 ];

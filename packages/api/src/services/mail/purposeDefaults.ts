@@ -85,6 +85,26 @@ export async function defaultPurposeHtml(
                 + rawLink(pick(ctx, 'verification_url',),);
             break;
 
+        case 'user_invite': {
+            const roles = pick(ctx, 'roles',);
+            body = H(`You're invited to ${escapeHtml(siteName,)}`,)
+                + greeting(name,)
+                + P(`You've been invited to create a ${escapeHtml(siteName,)} account${roles ? ` as a <strong>${escapeHtml(roles,)}</strong>` : ''}. Click below to set your name and password.`,)
+                + button(pick(ctx, 'invite_url',), 'Create my account',)
+                + rawLink(pick(ctx, 'invite_url',),)
+                + P(`The link works until ${escapeHtml(pick(ctx, 'expires_at',) || 'it expires in 3 days',)}. If you weren't expecting this, you can ignore it.`,);
+            break;
+        }
+
+        case 'user_role_added': {
+            const roles = pick(ctx, 'roles',);
+            body = H(`You're now a ${escapeHtml(roles || 'new role',)}`,)
+                + greeting(name,)
+                + P(`Your ${escapeHtml(siteName,)} account now has the <strong>${escapeHtml(roles,)}</strong> role. Sign in as usual to use it.`,)
+                + button(pick(ctx, 'login_url',), 'Sign in',);
+            break;
+        }
+
         case 'user_password_reset': {
             const expires = pick(ctx, 'expires_in',) || '1 hour';
             body = H('Reset your password',)

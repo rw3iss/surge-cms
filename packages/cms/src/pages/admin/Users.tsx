@@ -17,6 +17,9 @@ import { approvalBadge, } from '../../components/admin/applications/applicationS
 import '../../components/admin/applications/applications.scss';
 import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
+import InviteUserModal from '../../components/admin/users/InviteUserModal';
+import InvitesPanel from '../../components/admin/users/InvitesPanel';
+import { roleLabel, } from '../../components/admin/users/assignableRoles';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -33,6 +36,10 @@ const AdminUsers: Component = () => {
     const sortOrder = () => currentSort().endsWith('_asc',) ? 'asc' : 'desc';
 
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
+    // Account invites: the modal, and the collapsible list (refreshKey reloads it).
+    const [inviteOpen, setInviteOpen,] = createSignal(false,);
+    const [invitesOpen, setInvitesOpen,] = createSignal(false,);
+    const [invitesKey, setInvitesKey,] = createSignal(0,);
     const [tiers,] = createResource(() => cms.subscriptionTiers.list().catch(() => [],),);
 
     const list = usePaginatedList<any>({
@@ -213,6 +220,10 @@ const AdminUsers: Component = () => {
                 </div>
                 <div class="admin-header__actions">
                     <A href="/admin/users/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <button type="button" class="ui-button ui-button--secondary" onClick={() => setInvitesOpen(!invitesOpen(),)}>
+                        {invitesOpen() ? 'Hide invites' : 'Invites'}
+                    </button>
+                    <button type="button" class="ui-button ui-button--secondary" onClick={() => setInviteOpen(true,)}>Invite</button>
                     <button
                         class="ui-button ui-button--primary"
                         onClick={() => { setShowForm(!showForm(),); if (!showForm()) resetForm(); }}
@@ -326,6 +337,10 @@ const AdminUsers: Component = () => {
                 </div>
             </div>
 
+            <Show when={invitesOpen()}>
+                <InvitesPanel roles={roles() ?? []} refreshKey={invitesKey()} />
+            </Show>
+
             <Show when={noAccountOpen()}>
                 <section class="users-no-account">
                     <h3>Applications from people without an account yet</h3>
@@ -373,7 +388,19 @@ const AdminUsers: Component = () => {
                 columns={[
                     { header: 'Email', sortField: 'email', cell: (user: any,) => user.email, },
                     { header: 'Name', sortField: 'display_name', cell: (user: any,) => user.displayName || '—', },
-                    { header: 'Role', sortField: 'role', cell: (user: any,) => <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>, },
+                    {
+                        header: 'Role',
+                        sortField: 'role',
+                        cell: (user: any,) => (
+                            <>
+                                <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>
+                                {/* Additional roles (kept when the membership changes). */}
+                                <For each={(user.extraRoles ?? []) as string[]}>
+                                    {(r,) => <span class="badge badge--info users-extra-role" title="Additional role">+ {roleLabel(roles(), r,)}</span>}
+                                </For>
+                            </>
+                        ),
+                    },
                     { header: 'Provider', cell: (user: any,) => user.authProvider, },
                     {
                         header: 'Membership',
@@ -479,6 +506,14 @@ const AdminUsers: Component = () => {
                     applicationId={reviewId()!}
                     onClose={() => setReviewId(null,)}
                     onDecided={() => { setReviewId(null,); list.refetch(); void refetchPending(); if (noAccountOpen()) void refetchNoAccount(); }}
+                />
+            </Show>
+
+            <Show when={inviteOpen()}>
+                <InviteUserModal
+                    roles={roles() ?? []}
+                    onClose={() => setInviteOpen(false,)}
+                    onDone={() => { setInviteOpen(false,); setInvitesKey(invitesKey() + 1,); list.refetch(); }}
                 />
             </Show>
 

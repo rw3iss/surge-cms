@@ -14,7 +14,8 @@
  */
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createSignal, For, onMount, Show, } from 'solid-js';
-import type { SubscriptionTierOption, } from '@sitesurge/types';
+import type { RoleDef, SubscriptionTierOption, } from '@sitesurge/types';
+import { assignableRoles, } from '../../components/admin/users/assignableRoles';
 import type { UsersSettings, } from '@sitesurge/types';
 import type { MailingList, } from '@sitesurge/types';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
@@ -48,6 +49,11 @@ const AdminUsersSettings: Component = () => {
     const [requireSubscription, setRequireSubscription,] = createSignal(false,);
     const [minimumTierId, setMinimumTierId,] = createSignal('',);
     const [paidTiers, setPaidTiers,] = createSignal<SubscriptionTierOption[]>([],);
+    /** Roles that may sign in without a membership (e.g. ambassadors). */
+    const [accessRoles, setAccessRoles,] = createSignal<string[]>([],);
+    const [roleDefs, setRoleDefs,] = createSignal<RoleDef[]>([],);
+    const toggleAccessRole = (key: string, on: boolean,) =>
+        setAccessRoles(on ? [...new Set([...accessRoles(), key,],),] : accessRoles().filter((k,) => k !== key,),);
     const [purposes, setPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
     const [autoAddContacts, setAutoAddContacts,] = createSignal(true,);
     const [autoSubscribe, setAutoSubscribe,] = createSignal(false,);
@@ -66,6 +72,8 @@ const AdminUsersSettings: Component = () => {
             setRequireVerification(s.requireEmailVerification !== false,);
             setRequireSubscription(s.requireSubscription === true,);
             setMinimumTierId(s.minimumTierId ?? '',);
+            setAccessRoles(s.accessRoles ?? [],);
+            void cms.roles.list().then((r,) => setRoleDefs(r as RoleDef[],),).catch(() => {},);
             try {
                 const opts = await cms.subscriptionTiers.options();
                 setPaidTiers(opts.filter((t,) => !t.isFree && t.isActive),);
@@ -104,6 +112,7 @@ const AdminUsersSettings: Component = () => {
                     requireEmailVerification: requireVerification(),
                     requireSubscription: requireSubscription(),
                     minimumTierId: minimumTierId() || null,
+                    accessRoles: accessRoles(),
                     autoAddContacts: autoAddContacts(),
                     autoSubscribe: autoSubscribe(),
                     // Null rather than '' so the backend stores an absent value
@@ -184,6 +193,19 @@ const AdminUsersSettings: Component = () => {
                                         There is no paid tier yet — add one with a Stripe price under <strong>Memberships</strong> first.
                                     </p>
                                 </Show>
+                                <FormField
+                                    label="Roles that can sign in without a membership"
+                                    hint="These roles can sign in and use the site even when a membership is required — e.g. brand ambassadors. Checked by the user's main role and any additional role."
+                                >
+                                    <div class="users-settings__access-roles">
+                                        <For
+                                            each={assignableRoles(roleDefs(),)}
+                                            fallback={<span class="form-help-muted">No member-level roles yet (Settings → Permissions → Roles).</span>}
+                                        >
+                                            {(r,) => <Toggle label={r.label} checked={accessRoles().includes(r.key,)} onChange={(v,) => toggleAccessRole(r.key, v,)} />}
+                                        </For>
+                                    </div>
+                                </FormField>
                             </Show>
                         </div>
                     </section>

@@ -24,7 +24,7 @@ import type { AuditContext, } from '../types';
 import { resolveMany, resolvePermission, type PermissionSubject, } from './resolve';
 import { enrich, } from './subjects';
 
-export { invalidatePlan, invalidateRoles, roleChain, activePlanId, ENTITLED_STATUSES, } from './subjects';
+export { invalidatePlan, invalidateRoles, invalidateUserRoles, extraRoles, roleChain, activePlanId, ENTITLED_STATUSES, } from './subjects';
 
 export { resolvePermission, resolveMany, } from './resolve';
 export type { PermissionSubject, } from './resolve';

@@ -1,3 +1,4 @@
+import type { UserInvite, UserInviteBody, UserInviteResult, } from '@sitesurge/types';
 import type {
     UserListQuery, UserListResponse, UserByIdResponse, UserCreateBody,
     UserCreateResponse, UserUpdateBody, UserUpdateResponse, UserAvatarUploadResponse,
@@ -14,6 +15,26 @@ export class UsersModule extends ModuleBase {
     protected readonly module = 'users';
 
     /** GET /users — paginated admin list with search/role/status/sort filters. */
+    /** GET /users/invites — account invites, newest first (needs `users:invite`). */
+    invites(): Promise<UserInvite[]> {
+        return this.get<UserInvite[]>('/users/invites', { options: { cache: false, }, },);
+    }
+
+    /** POST /users/invites — invite (3-day link) or, for an existing account, add the roles now. */
+    invite(body: UserInviteBody,): Promise<UserInviteResult> {
+        return this.mutate<UserInviteResult>('POST', '/users/invites', { body, invalidates: ['users',], },);
+    }
+
+    /** POST /users/invites/:id/resend — a fresh link (the old one stops working). */
+    resendInvite(id: string,): Promise<UserInvite> {
+        return this.mutate<UserInvite>('POST', '/users/invites/:inviteId/resend', { params: { inviteId: id, }, },);
+    }
+
+    /** DELETE /users/invites/:id — revoke a pending invite. */
+    revokeInvite(id: string,): Promise<{ ok: true; }> {
+        return this.mutate<{ ok: true; }>('DELETE', '/users/invites/:inviteId', { params: { inviteId: id, }, },);
+    }
+
     /** POST /users/bulk — one action on many users (skips you, and sysadmins unless you are one). */
     bulk(body: { ids: string[]; action: 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role'; value?: string; },): Promise<{ done: number; skipped: Array<{ id: string; reason: string; }>; }> {
         return this.mutate<{ done: number; skipped: Array<{ id: string; reason: string; }>; }>('POST', '/users/bulk', { body, invalidates: ['users',], },);

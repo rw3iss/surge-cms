@@ -13,7 +13,7 @@ import { useAuth, } from '../../stores/auth';
 import './SubscriptionWall.scss';
 
 /** Routes a restricted member may always use. */
-const ALWAYS_OPEN = ['/subscribe', '/profile', '/login', '/join', '/verify', '/forgot-password', '/reset-password', '/u/', '/lists/',];
+const ALWAYS_OPEN = ['/subscribe', '/profile', '/login', '/join', '/verify', '/invite/', '/forgot-password', '/reset-password', '/u/', '/lists/',];
 
 export function isOpenPath(path: string, openPaths: string[],): boolean {
     const p = path.replace(/\/+$/, '',) || '/';

@@ -376,6 +376,9 @@ export async function refreshTokens(
 export async function registerMember(
     input: { name: string; email: string; password: string; phone?: string; },
     ctx?: { ipAddress?: string; userAgent?: string; },
+    /** Invites: `verified` = the address was proven by the invite link;
+     *  `extraRoles` = roles the invite gives (users.extra_roles). */
+    opts: { verified?: boolean; extraRoles?: string[]; } = {},
 ): Promise<{ userId: string; email: string; verificationRequired: boolean; }> {
     const email = input.email.trim().toLowerCase();
     const name = input.name.trim();
@@ -400,7 +403,7 @@ export async function registerMember(
     // The whole settings object is kept: the contact/mailing-list intake below
     // reads from it too, and one fetch is cheaper than two.
     const registerSettings = await getUsersSettings();
-    const { requireEmailVerification, } = registerSettings;
+    const requireEmailVerification = registerSettings.requireEmailVerification && !opts.verified;
     const token = requireEmailVerification ? generateVerificationToken() : null;
 
     const passwordHash = await bcrypt.hash(input.password, 12,);
@@ -418,6 +421,9 @@ export async function registerMember(
     );
 
     const row = result.rows[0] as { id: string; email: string; };
+    if (opts.extraRoles?.length) {
+        await query(`UPDATE users SET extra_roles = $2 WHERE id = $1`, [row.id, [...new Set(opts.extraRoles,),],],);
+    }
     // Public member page handle (/members/:handle), derived from the name.
     // Best effort — never fail a sign-up over it; /auth/me assigns one lazily.
     await assignHandle(row.id, name,).catch((err,) =>

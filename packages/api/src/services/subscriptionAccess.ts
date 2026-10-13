@@ -67,6 +67,9 @@ export async function accessState(user: { id: string; role?: string | null; emai
     const { lastFailedAttempt, pendingApplicationFor, } = await import('./membership.js');
     base.pendingApplication = await pendingApplicationFor(user.id,);
     if (!policy.required || isStaffRole(user.role ?? undefined,)) return base;
+    // Roles allowed in WITHOUT a membership (Users → Settings), by the primary
+    // role or any additional one — e.g. brand ambassadors.
+    if (await hasAccessRole(user.id, user.role ?? null,)) return { ...base, viaRole: true, };
     const [subscribed, row,] = await Promise.all([
         hasQualifyingSubscription(user.id, policy.minimumRank,),
         query<{ email_verified: boolean | null; ever: boolean; }>(
@@ -88,6 +91,15 @@ export async function accessState(user: { id: string; role?: string | null; emai
         // attempt that never went through is not a lapsed membership.
         lapsed: !subscribed && Boolean(row.rows[0]?.ever,),
     };
+}
+
+/** Does the user hold a role that may use the site without a membership? */
+export async function hasAccessRole(userId: string, role: string | null,): Promise<boolean> {
+    const allowed = (await getUsersSettings()).accessRoles ?? [];
+    if (!allowed.length) return false;
+    if (role && allowed.includes(role,)) return true;
+    const { extraRoles, } = await import('./permissions/index.js');
+    return (await extraRoles(userId,)).some((r,) => allowed.includes(r,),);
 }
 
 /** The tier a member must reach must exist and be buyable. */

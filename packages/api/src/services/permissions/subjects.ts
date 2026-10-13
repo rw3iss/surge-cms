@@ -84,7 +84,37 @@ export async function activePlanId(userId: string | null | undefined,): Promise<
     return planId;
 }
 
+const extraCache = new Map<string, { roles: string[]; at: number; }>();
+
+/** A user's ADDITIONAL roles (`users.extra_roles`), cached like the plan. */
+export async function extraRoles(userId: string | null | undefined,): Promise<string[]> {
+    if (!userId) return [];
+    const hit = extraCache.get(userId,);
+    if (hit && Date.now() - hit.at < PLAN_TTL_MS) return hit.roles;
+    let roles: string[] = [];
+    try {
+        const r = await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [userId,],);
+        roles = r.rows[0]?.extra_roles ?? [];
+    } catch {
+        roles = []; // pre-migration DB
+    }
+    extraCache.set(userId, { roles, at: Date.now(), },);
+    return roles;
+}
+
+export function invalidateUserRoles(userId?: string,): void {
+    if (userId) extraCache.delete(userId,);
+    else extraCache.clear();
+}
+
+/**
+ * The PRIMARY role's chain first (so its explicit grants decide), then each
+ * additional role's chain. Role DEFAULTS look at the whole chain, so an
+ * additional role adds what it allows by default.
+ */
 export async function enrich(subject: { id?: string | null; role?: string | null; },): Promise<EnrichedSubject> {
-    const [chain, planId,] = await Promise.all([roleChain(subject.role,), activePlanId(subject.id,),],);
-    return { id: subject.id, role: subject.role, roleChain: chain, planId, };
+    const [chain, planId, extras,] = await Promise.all([roleChain(subject.role,), activePlanId(subject.id,), extraRoles(subject.id,),],);
+    const all = [...chain,];
+    for (const r of extras) for (const x of await roleChain(r,)) if (!all.includes(x,)) all.push(x,);
+    return { id: subject.id, role: subject.role, roleChain: all, planId, };
 }

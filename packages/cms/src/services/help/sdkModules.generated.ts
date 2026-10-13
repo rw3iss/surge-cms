@@ -70,6 +70,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "summary": "/auth namespace, surfaced as `cms.auth`. The core's request funnel reads `core.auth` for ready/headers/refresh, and the assembled object replaces `core.auth` with THIS module — so the module both adds the HTTP endpoints AND forwards the AuthManager surface the funnel relies on (ready, authHeaders, getTokens, refresh, isAuthenticated, setApiKey, onChange/onExpired). Token lifecycle stays owned by the captured manager; login/logout/refresh delegate to it so persistence is never duplicated. The Patreon/autologin OAuth CALLBACK routes are not exposed.",
         "methods": [
             {
+                "name": "acceptInvite",
+                "signature": "acceptInvite(token: string, body: UserInviteAcceptBody): Promise<{ userId: string; email: string; signedIn: boolean; }>",
+                "summary": "POST /auth/invites/:token/accept — create the invited account and sign it in."
+            },
+            {
                 "name": "authHeaders",
                 "signature": "authHeaders(method: string): Promise<Record<string, string>>",
                 "summary": ""
@@ -88,6 +93,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "getTokens",
                 "signature": "getTokens(): AuthTokens | null",
                 "summary": ""
+            },
+            {
+                "name": "invite",
+                "signature": "invite(token: string): Promise<UserInvitePublic>",
+                "summary": "GET /auth/invites/:token — the invite to show on the account form."
             },
             {
                 "name": "isAuthenticated",
@@ -142,7 +152,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "register",
                 "signature": "register(body: AuthRegisterBody): Promise<AuthRegisterResponse>",
-                "summary": "POST /auth/register — public member self-registration. Does NOT auto-login (no tokens minted); the caller signs in via login() afterwards. 403 when the `users` feature is disabled; 409 on a duplicate email."
+                "summary": ""
             },
             {
                 "name": "removeAvatar",
@@ -3015,6 +3025,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /users/:id — user with their resolved Patreon membership (or null)."
             },
             {
+                "name": "invite",
+                "signature": "invite(body: UserInviteBody): Promise<UserInviteResult>",
+                "summary": "POST /users/invites — invite (3-day link) or, for an existing account, add the roles now."
+            },
+            {
+                "name": "invites",
+                "signature": "invites(): Promise<UserInvite[]>",
+                "summary": "GET /users/invites — account invites, newest first (needs `users:invite`)."
+            },
+            {
                 "name": "list",
                 "signature": "list(query?: UserListQuery): Promise<Paginated<UserListResponse[number]>>",
                 "summary": ""
@@ -3033,6 +3053,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "removeBan",
                 "signature": "removeBan(banId: string): Promise<UserBanDeleteResponse>",
                 "summary": "DELETE /users/banned/:banId — remove a ban row."
+            },
+            {
+                "name": "resendInvite",
+                "signature": "resendInvite(id: string): Promise<UserInvite>",
+                "summary": "POST /users/invites/:id/resend — a fresh link (the old one stops working)."
+            },
+            {
+                "name": "revokeInvite",
+                "signature": "revokeInvite(id: string): Promise<{ ok: true; }>",
+                "summary": "DELETE /users/invites/:id — revoke a pending invite."
             },
             {
                 "name": "setPassword",
@@ -3118,4 +3148,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 548;
+export const SDK_METHOD_COUNT = 554;
