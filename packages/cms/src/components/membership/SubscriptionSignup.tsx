@@ -155,7 +155,7 @@ const SubscriptionSignup: Component = () => {
                                             class="btn btn--primary subscribe-card__cta"
                                             onClick={() => { setTierId(t.id,); setError('',); setStep(auth.user ? 'payment' : 'account',); }}
                                         >
-                                            Choose {t.name}
+                                            Join
                                         </button>
                                     </article>
                                 )}

@@ -54,7 +54,7 @@ const SubscribePage: Component = () => {
     const ctaLabel = (t: MembershipTierOption,) => {
         if (current()?.id === t.id) return 'Your current plan';
         if (t.isFree) return signedIn() ? 'Switch to Free' : 'Join for free';
-        return `Choose ${t.name}`;
+        return 'Join';
     };
 
     return (
