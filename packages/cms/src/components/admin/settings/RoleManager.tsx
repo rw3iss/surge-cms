@@ -114,8 +114,12 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
                     <input type="text" value={draft.label} onBlur={(e,) => setDraft('label', e.currentTarget.value,)} />
                 </FormField>
                 <FormField label="Based on">
-                    <select value={draft.baseRole} onChange={(e,) => setDraft('baseRole', e.currentTarget.value,)}>
-                        <For each={baseOptions()}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
+                    {/* `selected` per option, not just the select's value: clicking Edit
+                        re-renders the options (the edited role drops out) AFTER the value
+                        was set, and the browser then fell back to the first option. */}
+                    <select value={draft.baseRole ?? ''} onChange={(e,) => setDraft('baseRole', e.currentTarget.value,)}>
+                        <option value="" selected={!draft.baseRole}>— none —</option>
+                        <For each={baseOptions()}>{(r,) => <option value={r.key} selected={r.key === draft.baseRole}>{r.label}</option>}</For>
                     </select>
                 </FormField>
                 <FormField label="Description">
