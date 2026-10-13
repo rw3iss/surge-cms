@@ -30,8 +30,17 @@
 
 // Rows: every direct child after the first gets the row gap. Margins (not a
 // flex gap) so buttons and short controls keep their natural width.
-:where(.admin-section, .admin-section__body) > :where(* + *) {
+:where(.admin-section, .admin-section__body, .admin-section > .form-section) > :where(* + *) {
   margin-top: $spacing-md;
+}
+
+// The older `.form-section` wrapper (its own 32px margin + 32px padding +
+// divider) inside a section is just the section's body: no extra spacing, so
+// sections keep the standard $spacing-xl apart instead of ~96px.
+.admin-section > .form-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 :where(.admin-section__header) {

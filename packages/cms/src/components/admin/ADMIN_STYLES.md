@@ -110,7 +110,7 @@ spacing from `pages/admin/styles/_sections.scss` — never from page-local margi
 | Fields on one row | `.admin-form-row` grid, `align-items: start` (labels line up even if one field has a hint) | `$spacing-md` |
 
 Rules:
-- Put rows DIRECTLY in the section (or in one `.admin-section__body`). Don't wrap each field in its own `<div>` with a margin, and don't add `margin-bottom` to fields.
+- Put rows DIRECTLY in the section (or in one `.admin-section__body`; a legacy `.form-section` wrapper inside a section is treated the same — its own margin/padding/divider are dropped). Don't wrap each field in its own `<div>` with a margin, and don't add `margin-bottom` to fields.
 - Side-by-side fields go in `.admin-form-row` (not a hand-rolled flex row), so they align to the top. In a narrow side panel (block editor, properties) use the existing `.admin-form-row-2` (130px columns) instead.
 - The rules are `:where()` (specificity 0): a page that genuinely needs different spacing overrides them locally — but a NEW page should need nothing.
 - Check a new page at a glance: each section heading has clear air above it, and every label has a small gap above it.
