@@ -192,7 +192,13 @@ async function cardFor(stripeSubId: string | null,): Promise<MembershipCurrent['
 export async function current(userId: string,): Promise<MembershipCurrent> {
     const [info, user, local,] = await Promise.all([
         userSubscription(userId,),
-        query<{ role: string; }>(`SELECT role FROM users WHERE id = $1`, [userId,],),
+        query<{ role: string; role_label: string | null; extra: Array<{ key: string; label: string; }> | null; }>(
+            `SELECT u.role, r.label AS role_label,
+                    (SELECT json_agg(json_build_object('key', x.k, 'label', COALESCE(rx.label, x.k)) ORDER BY x.ord)
+                       FROM unnest(u.extra_roles) WITH ORDINALITY AS x(k, ord) LEFT JOIN roles rx ON rx.key = x.k) AS extra
+               FROM users u LEFT JOIN roles r ON r.key = u.role WHERE u.id = $1`,
+            [userId,],
+        ),
         activeLocalSub(userId,),
     ],);
     const tiers = await tierOptions(info.tier?.id ?? null,);
@@ -200,6 +206,8 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
     return {
         tier: info.tier ? { id: info.tier.id, slug: info.tier.slug, name: info.tier.name, description: opt?.description ?? null, isFree: info.tier.isFree, } : null,
         role: user.rows[0]?.role ?? 'member',
+        roleLabel: user.rows[0]?.role_label ?? undefined,
+        extraRoles: user.rows[0]?.extra ?? [],
         status: info.status,
         source: info.source,
         priceCents: opt?.priceCents ?? 0,

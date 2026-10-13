@@ -299,7 +299,13 @@ const MembershipPanel: Component = () => {
                             </div>
                         </div>
                         <dl class="membership__facts">
-                            <div><dt>Account role</dt><dd>{current()!.role}</dd></div>
+                            <div><dt>Account role</dt><dd>{current()!.roleLabel ?? current()!.role}</dd></div>
+                            <Show when={(current()!.extraRoles ?? []).length > 0}>
+                                <div>
+                                    <dt>Also</dt>
+                                    <dd>{current()!.extraRoles!.map((r,) => r.label,).join(', ',)}</dd>
+                                </div>
+                            </Show>
                             <Show when={current()!.status}><div><dt>Status</dt><dd>{current()!.status}</dd></div></Show>
                             <Show when={current()!.currentPeriodEnd}>
                                 <div><dt>{current()!.cancelAtPeriodEnd ? 'Ends on' : 'Renews on'}</dt><dd>{longDate(current()!.currentPeriodEnd,)}</dd></div>

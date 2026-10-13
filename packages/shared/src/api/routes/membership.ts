@@ -43,6 +43,10 @@ export interface MembershipCurrent {
     tier: { id: string; slug: string; name: string; description: string | null; isFree: boolean; } | null;
     /** The user's role right now (a tier gives a role). */
     role: string;
+    /** The main role's display name. */
+    roleLabel?: string;
+    /** Additional roles (e.g. Ambassador) — assigned by an admin or an invite, kept across membership changes. */
+    extraRoles?: Array<{ key: string; label: string; }>;
     status: string | null;
     source: 'stripe' | 'manual' | 'free';
     priceCents: number;
