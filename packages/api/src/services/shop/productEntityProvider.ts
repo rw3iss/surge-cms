@@ -2,7 +2,8 @@
  * Shop's data layer for the `product` entity type. Reads product COLUMNS
  * through the generic repo (so admin schema extensions to `shop_products`
  * automatically appear) and ENRICHES each record with related-table data:
- * `media` (an ordered array from `shop_product_media` → `media`) and `tags`.
+ * `media` (an ordered array from `shop_product_media` → `media`), `tags`,
+ * `variants` (each with `inventory` = units in stock) and `inventory` (the sum).
  *
  * Registered via `registerEntityDataProvider('product', …)` at boot when the
  * shop feature is enabled, so `cms.entities.*` / `{{product(...)}}` / the entity
@@ -84,6 +85,8 @@ interface ProductVariant {
     price: number;
     compareAtPriceCents: number | null;
     inventoryQty: number;
+    /** Units in stock — `{{product.variants[0].inventory}}` (same as inventoryQty). */
+    inventory: number;
     option1: string | null;
     option2: string | null;
     option3: string | null;
@@ -112,6 +115,7 @@ async function loadVariants(productIds: string[],): Promise<Map<string, ProductV
         arr.push({
             id: row.id, sku: row.sku, priceCents: row.price_cents, price: row.price_cents / 100,
             compareAtPriceCents: row.compare_at_price_cents, inventoryQty: row.inventory_qty,
+            inventory: Math.max(0, row.inventory_qty,),
             option1: row.option1, option2: row.option2, option3: row.option3,
             imageId: row.image_id, position: row.position, isDefault: row.is_default,
         },);
@@ -131,6 +135,8 @@ function enrich(
         media: media.get(rec.id,) ?? [],
         tags: tags.get(rec.id,) ?? [],
         variants: variants.get(rec.id,) ?? [],
+        // Units in stock across every variant — `{{product.inventory}}`.
+        inventory: (variants.get(rec.id,) ?? []).reduce((sum, v,) => sum + v.inventory, 0,),
     };
 }
 

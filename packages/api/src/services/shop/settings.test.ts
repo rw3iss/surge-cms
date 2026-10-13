@@ -57,6 +57,7 @@ describe('shop settings service', () => {
         expect(config.appearance,).toEqual({
             gridColumns: 3,
             showRatings: true,
+            showInventory: false,
             cardStyle: 'standard',
         },);
     },);

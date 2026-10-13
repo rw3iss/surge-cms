@@ -286,25 +286,24 @@ const TemplateEditor: Component = () => {
     onCleanup(() => setTemplatePreviewContext(undefined,),);
 
     // Variables present on the loaded sample record but NOT declared as schema
-    // fields — i.e. arrays/objects a data provider enriches onto every record
-    // (e.g. the Shop provider's product.media / product.tags / product.variants).
-    // Derived from real data so it's correct without a hardcoded per-type list.
+    // fields — values a data provider enriches onto every record (e.g. the Shop
+    // provider's product.media / product.tags / product.variants and the scalar
+    // product.inventory). Derived from real data so it's correct without a
+    // hardcoded per-type list.
     const extraVars = () => {
         const rec = sampleRecords()?.[0] as Record<string, unknown> | undefined;
-        if (!rec) return [] as Array<{ key: string; isArray: boolean; subKeys: string[]; }>;
+        if (!rec) return [] as Array<{ key: string; isArray: boolean; subKeys: string[]; type: string; }>;
         const declared = new Set((entityDef()?.fields ?? []).map((f,) => f.key),);
         const managed = new Set(['id', 'slug', 'status', 'createdAt', 'updatedAt',],);
         return Object.entries(rec,)
-            .filter(([k, v,],) =>
-                !declared.has(k,) && !managed.has(k,)
-                && (Array.isArray(v,) || (v != null && typeof v === 'object'))
-            )
+            .filter(([k, v,],) => !declared.has(k,) && !managed.has(k,) && v !== undefined)
             .map(([k, v,],) => {
                 const arr = Array.isArray(v,) ? v : null;
                 const first = arr && arr.length && arr[0] && typeof arr[0] === 'object'
                     ? arr[0] as Record<string, unknown>
                     : null;
-                return { key: k, isArray: !!arr, subKeys: first ? Object.keys(first,) : [], };
+                const type = arr ? 'array' : v === null ? 'value' : typeof v;
+                return { key: k, isArray: !!arr, subKeys: first ? Object.keys(first,) : [], type, };
             });
     };
 
@@ -551,7 +550,7 @@ const TemplateEditor: Component = () => {
 
                     <Show when={extraVars().length > 0}>
                         <p class="form-help-muted" style={{ padding: '0.75rem 1rem 0', }}>
-                            Enriched variables (arrays/objects added to every record by the type's data provider):
+                            Other variables on every record (added by the type's data provider, or columns that are not schema fields):
                         </p>
                         <table class="admin-table">
                             <thead><tr><th>Variable</th><th>Type</th></tr></thead>
@@ -568,7 +567,7 @@ const TemplateEditor: Component = () => {
                                                     </div>
                                                 </Show>
                                             </td>
-                                            <td>{v.isArray ? 'array' : 'object'}</td>
+                                            <td>{v.type}</td>
                                         </tr>
                                     )}
                                 </For>
