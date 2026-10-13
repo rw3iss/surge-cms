@@ -10,6 +10,7 @@ interface Billing { isFree: boolean; interval: string; intervalCount: number; }
 /** " / month", " every 2 weeks", '' for free. */
 export function per(t: Billing,): string {
     if (t.isFree) return '';
+    if (t.interval === 'week' && t.intervalCount === 2) return ' bi-weekly';
     if (t.intervalCount > 1) return ` every ${t.intervalCount} ${t.interval}s`;
     return ` / ${t.interval}`;
 }
@@ -17,6 +18,7 @@ export function per(t: Billing,): string {
 /** "Monthly", "Every 2 weeks", "Free". */
 export function freqOf(t: Billing,): string {
     if (t.isFree) return 'Free';
+    if (t.interval === 'week' && t.intervalCount === 2) return 'Bi-weekly';
     if (t.intervalCount > 1) return `Every ${t.intervalCount} ${t.interval}s`;
     return ({ day: 'Daily', week: 'Weekly', month: 'Monthly', year: 'Yearly', } as Record<string, string>)[t.interval] ?? t.interval;
 }
@@ -69,3 +71,19 @@ export function tierAtPrice(t: MembershipTierOption, priceId?: string | null,): 
 /** The level's default price id (what "no choice" means). */
 export const defaultPriceId = (t: MembershipTierOption,): string | null =>
     (t.prices ?? []).find((p,) => p.isDefault,)?.priceId ?? t.selectedPriceId ?? null;
+
+/**
+ * The price shown BIG (and selected first). Normally the default. But when the
+ * level's custom display price is identical to one of its REAL prices (e.g. a
+ * $3,000/month display over a bi-weekly default, plus a real $3,000/month
+ * price), that real price leads — otherwise two options read the same, and the
+ * default then shows its true billing ("$1,500 every 2 weeks") as a chip.
+ */
+export function leadPriceId(t: MembershipTierOption,): string | null {
+    const d = t.display;
+    if (d) {
+        const twin = (t.prices ?? []).find((p,) => !p.isDefault && p.amount === d.priceCents && p.interval === d.interval && p.intervalCount === d.intervalCount,);
+        if (twin) return twin.priceId;
+    }
+    return defaultPriceId(t,);
+}

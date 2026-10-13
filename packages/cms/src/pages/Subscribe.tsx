@@ -24,7 +24,7 @@ import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import PriceChoice from '../components/membership/PriceChoice';
-import { defaultPriceId, freq, shownPrice, tierAtPrice, } from '../utils/membershipFormat';
+import { defaultPriceId, leadPriceId, freq, shownPrice, tierAtPrice, } from '../utils/membershipFormat';
 import './Subscribe.scss';
 
 const membershipUrl = (tierId?: string,) => `/profile?tab=membership${tierId ? `&tier=${encodeURIComponent(tierId,)}` : ''}`;
@@ -38,7 +38,7 @@ const SubscribePage: Component = () => {
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
     /** The price the visitor picked per level (absent = the level's default). */
     const [picked, setPicked,] = createSignal<Record<string, string>>({},);
-    const chosen = (t: MembershipTierOption,): string | null => picked()[t.id] ?? defaultPriceId(t,);
+    const chosen = (t: MembershipTierOption,): string | null => picked()[t.id] ?? leadPriceId(t,);
     /** The chosen price when it is NOT the default — only then does it travel in URLs. */
     const altPrice = (t: MembershipTierOption,): string | null => {
         const c = chosen(t,);

@@ -22,7 +22,7 @@ import { Component, createResource, createSignal, onCleanup, onMount, Show, } fr
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
-import { billedNote, defaultPriceId, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
+import { billedNote, defaultPriceId, leadPriceId, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
 import PriceChoice from './PriceChoice';
 import { mountStripeCard, saveCardForLater, type MountedCard, } from '../../utils/stripeCard';
 import FormRenderer from '../forms/FormRenderer';
@@ -230,7 +230,7 @@ export const ApplyModal: Component<{
 }> = (props,) => {
     const auth = useAuth();
     // Billing is chosen BEFORE the answers are sent: the application records it.
-    const [price, setPrice,] = createSignal<string | null>(props.priceId ?? defaultPriceId(props.tier,),);
+    const [price, setPrice,] = createSignal<string | null>(props.priceId ?? leadPriceId(props.tier,),);
     const [step, setStep,] = createSignal<'questions' | 'submitted' | 'payment' | 'done'>('questions',);
     const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     // Esc closes (the backdrop does not: an application is easy to lose by a stray click).

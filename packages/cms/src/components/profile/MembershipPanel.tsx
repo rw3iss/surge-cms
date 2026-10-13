@@ -17,7 +17,7 @@ import { useSearchParams, } from '@solidjs/router';
 import { ApplicationPayment, ApplyModal, } from '../membership/MembershipApplication';
 import PriceChoice from '../membership/PriceChoice';
 import Markdown from '../common/Markdown';
-import { defaultPriceId, freq, money, per, priceOptionFreq, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
+import { defaultPriceId, leadPriceId, freq, money, per, priceOptionFreq, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
 import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -64,7 +64,7 @@ const MembershipPanel: Component = () => {
     /** The chosen level's chosen price id (its default when none picked). */
     const chosenPrice = () => {
         const t = chosen();
-        return t ? priceSel() ?? defaultPriceId(t,) : null;
+        return t ? priceSel() ?? (t.isCurrent ? t.currentPriceId ?? defaultPriceId(t,) : leadPriceId(t,)) : null;
     };
     /** The price to SEND: omitted when it is the level's default. */
     const priceArg = () => {
@@ -103,7 +103,7 @@ const MembershipPanel: Component = () => {
     const pickTier = (t: MembershipTierOption,) => {
         if (selected() === t.id) return;
         setSelected(t.id,);
-        setPriceSel(t.isCurrent ? currentPrice() : defaultPriceId(t,),);
+        setPriceSel(t.isCurrent ? currentPrice() : leadPriceId(t,),);
     };
 
     // `/profile?tab=membership&tier=<id>` (from /subscribe): open the chooser
@@ -122,7 +122,7 @@ const MembershipPanel: Component = () => {
         if (t.isCurrent && (!price || price === currentPrice())) return;
         openChooser();
         setSelected(t.id,);
-        setPriceSel(price ?? (t.isCurrent ? currentPrice() : defaultPriceId(t,)),);
+        setPriceSel(price ?? (t.isCurrent ? currentPrice() : leadPriceId(t,)),);
     },);
 
     const openChooser = () => {

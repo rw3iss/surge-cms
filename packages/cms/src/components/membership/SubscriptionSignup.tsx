@@ -25,7 +25,7 @@ import {
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
-import { billedNote, defaultPriceId, freq, money, per, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
+import { billedNote, defaultPriceId, leadPriceId, freq, money, per, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
 import PriceChoice from './PriceChoice';
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
@@ -55,7 +55,7 @@ const SubscriptionSignup: Component = () => {
     const [picks, setPicks,] = createSignal<Record<string, string>>(params.tier && params.price ? { [params.tier]: params.price, } : {},);
     const chosenFor = (t: MembershipTierOption,): string | null => {
         const p = picks()[t.id];
-        return p && t.prices?.some((x,) => x.priceId === p,) ? p : defaultPriceId(t,);
+        return p && t.prices?.some((x,) => x.priceId === p,) ? p : leadPriceId(t,);
     };
     const pick = (t: MembershipTierOption, id: string,) => setPicks({ ...picks(), [t.id]: id, },);
     /** The chosen level re-priced to the chosen billing price. */

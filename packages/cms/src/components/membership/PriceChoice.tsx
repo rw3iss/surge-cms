@@ -9,7 +9,7 @@
  */
 import type { MembershipTierOption, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
-import { billedNote, money, per, priceOptionFreq, priceOptionLabel, shown, } from '../../utils/membershipFormat';
+import { billedNote, leadPriceId, money, per, priceOptionFreq, priceOptionLabel, shown, } from '../../utils/membershipFormat';
 import './PriceChoice.scss';
 
 export interface PriceChoiceProps {
@@ -25,9 +25,14 @@ export interface PriceChoiceProps {
 
 const PriceChoice: Component<PriceChoiceProps> = (props,) => {
     const prices = () => props.tier.prices ?? [];
-    const def = () => prices().find((p,) => p.isDefault,) ?? prices()[0];
+    // The BIG price: normally the default; a real price identical to the custom
+    // display takes its place (see leadPriceId) so no two options read the same.
+    const def = () => prices().find((p,) => p.priceId === leadPriceId(props.tier,),) ?? prices()[0];
     const sel = () => props.selected ?? def()?.priceId ?? null;
-    const alts = () => prices().filter((p,) => !p.isDefault,);
+    const alts = () => prices().filter((p,) => p.priceId !== def()?.priceId,);
+    /** The big price's text: the custom display for the default, else its real billing. */
+    const mainAmount = () => (def() && !def()!.isDefault ? money(def()!.amount, def()!.currency,) : money(shown(props.tier,).priceCents, props.tier.currency,));
+    const mainPer = () => (def() && !def()!.isDefault ? per({ isFree: false, interval: def()!.interval, intervalCount: def()!.intervalCount, },) : per(shown(props.tier,),));
     const pick = (id: string, e: Event,) => {
         e.stopPropagation();
         props.onSelect?.(id,);
@@ -50,8 +55,8 @@ const PriceChoice: Component<PriceChoiceProps> = (props,) => {
                     aria-pressed={sel() === def()!.priceId}
                     onClick={(e,) => pick(def()!.priceId, e,)}
                 >
-                    <span class={props.amountClass}>{money(shown(props.tier,).priceCents, props.tier.currency,)}</span>
-                    <span class={props.perClass}>{per(shown(props.tier,),)}</span>
+                    <span class={props.amountClass}>{mainAmount()}</span>
+                    <span class={props.perClass}>{mainPer()}</span>
                 </button>
             </Show>
             <Show when={alts().length}>
@@ -77,7 +82,7 @@ const PriceChoice: Component<PriceChoiceProps> = (props,) => {
                     </For>
                 </span>
             </Show>
-            <Show when={sel() === def()?.priceId && billedNote(props.tier,)}>
+            <Show when={sel() === def()?.priceId && def()?.isDefault && billedNote(props.tier,)}>
                 <span class="price-choice__billed">{billedNote(props.tier,)}</span>
             </Show>
         </div>
