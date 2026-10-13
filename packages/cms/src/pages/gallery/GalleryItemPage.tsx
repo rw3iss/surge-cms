@@ -64,8 +64,8 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                             <div class="gallery-item-page page-wrapper" style={pageStyle(d().config!.appearance,)}>
                                 <UpgradeTout
                                     requiredTier={d().config!.requiredTier}
-                                    title={d().config!.reason === 'signin' ? 'Members only' : 'Subscriber gallery'}
-                                    message={d().config!.reason === 'signin' ? 'Log in or create an account to view this.' : 'This is for subscribers.'}
+                                    title={d().config!.reason === 'signin' ? 'Members only' : 'Members-only gallery'}
+                                    message={d().config!.reason === 'signin' ? 'Log in or create an account to view this.' : 'This is for members.'}
                                     onLoggedIn={() => void refetch()}
                                 />
                             </div>

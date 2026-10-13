@@ -1,5 +1,5 @@
 import type {
-    MembershipCardResponse, MembershipCardSetupResponse,
+    MembershipApplyBody, MembershipApplyResponse, MembershipCardResponse, MembershipCardSetupResponse,
     PaymentsCreateCustomerResponse, PaymentsDonateBody, PaymentsDonateResponse,
     PaymentsSubscribeBody, PaymentsSubscribeResponse, PaymentsUnsubscribeResponse,
     PaymentsSubscriptionsResponse, PaymentsTransactionsQuery, PaymentsTransactionsResponse,
@@ -150,6 +150,20 @@ export class PaymentsModule extends ModuleBase {
     /** POST /payments/membership/cancel — cancel at the end of the paid period. */
     cancelMembership(): Promise<MembershipChangeResponse> {
         return this.mutate<MembershipChangeResponse>('POST', '/payments/membership/cancel', { invalidates: ['payments',], },);
+    }
+
+    /**
+     * POST /payments/membership/apply — apply for a level that requires
+     * approval: the application answers + a card confirmed with a SetupIntent
+     * (`membershipCardSetup`). Nothing is charged until an admin approves.
+     */
+    applyMembership(body: MembershipApplyBody,): Promise<MembershipApplyResponse> {
+        return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply', { body, invalidates: ['payments', 'auth',], },);
+    }
+
+    /** POST /payments/membership/apply/withdraw — withdraw your pending application. */
+    withdrawMembershipApplication(): Promise<{ ok: true; }> {
+        return this.mutate<{ ok: true; }>('POST', '/payments/membership/apply/withdraw', { invalidates: ['payments', 'auth',], },);
     }
 
     /** POST /payments/membership/card/setup — SetupIntent secret; confirm it with the new card. */

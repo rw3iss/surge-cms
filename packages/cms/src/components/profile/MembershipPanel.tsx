@@ -14,9 +14,10 @@
 import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
 import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
 import { useSearchParams, } from '@solidjs/router';
+import { ApplyModal, } from '../membership/MembershipApplication';
 import Markdown from '../common/Markdown';
 import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
-import type { MembershipPreviewResponse, MembershipResponse, } from '@sitesurge/types';
+import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import './MembershipPanel.scss';
@@ -34,6 +35,9 @@ const MembershipPanel: Component = () => {
     const [busy, setBusy,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
     const [notice, setNotice,] = createSignal('',);
+    /** A level that requires approval: the application modal. */
+    const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
+    const pending = () => data()?.pendingApplication ?? null;
 
     let stripe: Stripe | null = null;
     let card: StripeCardElement | null = null;
@@ -57,8 +61,10 @@ const MembershipPanel: Component = () => {
     };
     const actionLabel = () => {
         const to = chosen();
-        if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my subscription' : 'No change';
-        if (!currentTier() || noPlan()) return `Subscribe to ${to.name}`;
+        if (to?.isPending) return 'Application pending';
+        if (to?.requiresApproval && !to.isCurrent) return `Apply for ${to.name}`;
+        if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my membership' : 'No change';
+        if (!currentTier() || noPlan()) return `Join ${to.name}`;
         return `${direction() === 'upgrade' ? 'Upgrade' : 'Downgrade'} to ${to.name} tier`;
     };
 
@@ -138,7 +144,7 @@ const MembershipPanel: Component = () => {
                 if (done.result !== 'changed') throw new Error('The payment is still processing — check back in a minute.',);
                 await finish(`You're now on the ${to.name} tier.`,);
             } else if (res.result === 'cancel_scheduled') {
-                await finish(`Your subscription will end on ${longDate(res.current.currentPeriodEnd,)}; after that you're on the free plan.`,);
+                await finish(`Your membership will end on ${longDate(res.current.currentPeriodEnd,)}; after that you're on the free plan.`,);
             } else {
                 await finish(to.isFree ? "You're on the free plan." : `You're now on the ${to.name} tier.`,);
             }
@@ -151,14 +157,14 @@ const MembershipPanel: Component = () => {
 
     /** Subscription-required mode: cancel without "switching to Free" (it is hidden). */
     const cancelPlan = async () => {
-        if (!window.confirm('Cancel your subscription? You keep access until the end of the period you paid for, then you will need to subscribe again.')) return;
+        if (!window.confirm('Cancel your membership? You keep access until the end of the period you paid for, then you will need to become a member again.')) return;
         setBusy(true,);
         setError('',);
         try {
             const res = await cms.payments.cancelMembership();
             await finish(res.current.currentPeriodEnd
-                ? `Your subscription will end on ${longDate(res.current.currentPeriodEnd,)}. You won't be charged again.`
-                : 'Your subscription is cancelled.',);
+                ? `Your membership will end on ${longDate(res.current.currentPeriodEnd,)}. You won't be charged again.`
+                : 'Your membership is cancelled.',);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Could not cancel.',);
         } finally {
@@ -190,7 +196,7 @@ const MembershipPanel: Component = () => {
         setError('',);
         try {
             await cms.payments.resumeMembership();
-            await finish('Your subscription will continue.',);
+            await finish('Your membership will continue.',);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Could not resume.',);
         } finally {
@@ -204,12 +210,39 @@ const MembershipPanel: Component = () => {
                 <Show when={data()} fallback={<p class="profile__muted">Membership details are unavailable right now.</p>}>
                     <Show when={notice()}><div class="membership__notice">{notice()}</div></Show>
 
+                    <Show when={pending()}>
+                        <div class="membership__pending" role="status">
+                            Your application for <strong>{pending()!.tierName}</strong> is waiting for approval (sent {longDate(pending()!.createdAt,)}).
+                            Your card is saved and will be charged only if it is approved.{' '}
+                            <button
+                                type="button"
+                                class="membership__link"
+                                disabled={busy()}
+                                onClick={async () => {
+                                    if (!window.confirm('Withdraw your application?',)) return;
+                                    setBusy(true,);
+                                    try {
+                                        await cms.payments.withdrawMembershipApplication();
+                                        await refetch();
+                                        void auth.refreshUser?.();
+                                    } catch (e) {
+                                        setError(e instanceof Error ? e.message : 'Could not withdraw the application.',);
+                                    } finally {
+                                        setBusy(false,);
+                                    }
+                                }}
+                            >
+                                Withdraw application
+                            </button>
+                        </div>
+                    </Show>
+
                     {/* ── Overview ── */}
                     <Show when={view() === 'overview'}>
-                        <span class="profile__label">Your subscription</span>
+                        <span class="profile__label">Your membership</span>
                         <div class="membership__current">
                             <div>
-                                <div class="membership__tier-name">{required() && noPlan() ? 'No active subscription' : current()!.tier?.name ?? 'Free'}</div>
+                                <div class="membership__tier-name">{required() && noPlan() ? 'No active membership' : current()!.tier?.name ?? 'Free'}</div>
                                 <Markdown class="membership__desc" text={current()!.tier?.description} />
                             </div>
                             <div class="membership__price">
@@ -231,14 +264,14 @@ const MembershipPanel: Component = () => {
                         </dl>
                         <Show when={current()!.cancelAtPeriodEnd}>
                             <p class="membership__warning">
-                                Your subscription is cancelled and ends on {longDate(current()!.currentPeriodEnd,)}.{' '}
-                                <button type="button" class="membership__link" disabled={busy()} onClick={resume}>Keep my subscription</button>
+                                Your membership is cancelled and ends on {longDate(current()!.currentPeriodEnd,)}.{' '}
+                                <button type="button" class="membership__link" disabled={busy()} onClick={resume}>Keep my membership</button>
                             </p>
                         </Show>
                         <div class="membership__actions">
                             <Show
                                 when={required() && noPlan()}
-                                fallback={<button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change subscription</button>}
+                                fallback={<button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change membership</button>}
                             >
                                 <button type="button" class="btn" onClick={openChooser} disabled={tiers().length < 1}>Choose a plan</button>
                             </Show>
@@ -258,7 +291,7 @@ const MembershipPanel: Component = () => {
                                         void toConfirm();
                                     }}
                                 >
-                                    Cancel subscription
+                                    Cancel membership
                                 </button>
                             </Show>
                         </div>
@@ -266,7 +299,7 @@ const MembershipPanel: Component = () => {
 
                     {/* ── Choose ── */}
                     <Show when={view() === 'choose'}>
-                        <span class="profile__label">Choose your subscription</span>
+                        <span class="profile__label">Choose your membership</span>
                         <div class="membership__tiers" role="radiogroup">
                             <For each={tiers()}>
                                 {(t,) => (
@@ -289,6 +322,8 @@ const MembershipPanel: Component = () => {
                                         <span class="membership__tout-head">
                                             <strong>{t.name}</strong>
                                             <Show when={t.isCurrent}><span class="membership__badge">Current</span></Show>
+                                            <Show when={t.isPending}><span class="membership__badge membership__badge--pending">Pending approval</span></Show>
+                                            <Show when={t.requiresApproval && !t.isPending && !t.isCurrent}><span class="membership__badge membership__badge--apply">By application</span></Show>
                                         </span>
                                         <span class="membership__tout-price">
                                             {t.isFree ? 'Free' : money(shown(t,).priceCents, t.currency,)}<small>{per(shown(t,),)}</small>
@@ -302,7 +337,16 @@ const MembershipPanel: Component = () => {
                         </div>
                         <div class="membership__actions">
                             <button type="button" class="btn btn--outline" onClick={() => setView('overview',)}>Cancel</button>
-                            <button type="button" class="btn" disabled={busy() || direction() === 'same'} onClick={toConfirm}>
+                            <button
+                                type="button"
+                                class="btn"
+                                disabled={busy() || direction() === 'same' || !!chosen()?.isPending || (!!chosen()?.requiresApproval && !!pending())}
+                                onClick={() => {
+                                    const to = chosen();
+                                    if (to?.requiresApproval && !to.isCurrent) { setApplying(to,); return; }
+                                    void toConfirm();
+                                }}
+                            >
                                 {busy() ? 'Loading…' : actionLabel()}
                             </button>
                         </div>
@@ -352,11 +396,11 @@ const MembershipPanel: Component = () => {
                                         when={preview()!.direction === 'new'}
                                         fallback={<>Your current plan is cancelled now and replaced by {preview()!.to.name}. Unused time on it is credited against the new price.</>}
                                     >
-                                        Your {preview()!.to.name} subscription starts today and renews automatically. You can cancel any time.
+                                        Your {preview()!.to.name} membership starts today and renews automatically. You can cancel any time.
                                     </Show>
                                 }
                             >
-                                Your {preview()!.from?.name} subscription is cancelled. You keep it until{' '}
+                                Your {preview()!.from?.name} membership is cancelled. You keep it until{' '}
                                 {longDate(preview()!.effectiveDate,) || 'the end of the period you paid for'}, then move to the free plan. You won't be charged again.
                             </Show>
                         </p>
@@ -392,6 +436,13 @@ const MembershipPanel: Component = () => {
 
                     <Show when={error()}><div class="membership__error">{error()}</div></Show>
                 </Show>
+            </Show>
+            <Show when={applying()}>
+                <ApplyModal
+                    tier={applying()!}
+                    onClose={() => setApplying(null,)}
+                    onApplied={() => { setView('overview',); void refetch(); }}
+                />
             </Show>
         </div>
     );

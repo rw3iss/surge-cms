@@ -94,7 +94,7 @@ const ForumSettingsPage: Component = () => {
                     <select value={s().readAccess} onChange={(e,) => set({ readAccess: e.currentTarget.value as ForumSettings['readAccess'], },)}>
                         <option value="public">Everyone</option>
                         <option value="members">Signed-in members</option>
-                        <option value="tier">Subscribers of a tier…</option>
+                        <option value="tier">Members of a tier…</option>
                     </select>
                 </FormField>
                 <Show when={s().readAccess === 'tier'}>

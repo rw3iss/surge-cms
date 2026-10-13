@@ -15,6 +15,8 @@ export interface UserFilters {
     status?: string; // 'active' | 'banned' | 'inactive'
     /** A subscription tier slug; `free` = no active paid/assigned tier. */
     subscription?: string;
+    /** Membership application status: pending / approved / rejected. */
+    approval?: string;
     sortBy?: string;
     sortOrder?: string;
 }
@@ -68,6 +70,10 @@ export async function findUsers(
         whereClause += ` AND u.is_banned = true`;
     } else if (filters.status === 'inactive') {
         whereClause += ` AND u.is_active = false`;
+    }
+    if (filters.approval) {
+        params.push(filters.approval,);
+        whereClause += ` AND u.approval_status = $${params.length}`;
     }
     if (filters.subscription) {
         // Same entitlement rule as the permission resolver (active/trialing/past_due).

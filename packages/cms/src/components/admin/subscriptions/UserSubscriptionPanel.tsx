@@ -10,7 +10,7 @@ import type { SubscriptionTier, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 
-const SOURCE: Record<string, string> = { stripe: 'Paid (Stripe)', manual: 'Assigned by an admin', free: 'No paid subscription', };
+const SOURCE: Record<string, string> = { stripe: 'Paid (Stripe)', manual: 'Assigned by an admin', free: 'No paid membership', };
 
 const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void; }> = (props,) => {
     const toast = useToast();
@@ -23,12 +23,12 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
         setBusy(true,);
         try {
             await cms.users.assignSubscription(props.userId, choice() || null,);
-            toast.success('Subscription updated.',);
+            toast.success('Membership updated.',);
             setChoice('',);
             await refetch();
             props.onChanged?.();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Could not change the subscription.',);
+            toast.error(e instanceof Error ? e.message : 'Could not change the membership.',);
         } finally {
             setBusy(false,);
         }
@@ -36,7 +36,7 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
 
     return (
         <div class="user-detail__panel">
-            <h2 class="user-detail__panel-title">Subscription</h2>
+            <h2 class="user-detail__panel-title">Membership</h2>
             <Show when={info()} fallback={<p class="form-help-muted">Loading…</p>}>
                 <div class="user-detail__info-grid">
                     <div class="user-detail__info-item">

@@ -18,7 +18,7 @@
  */
 import type Stripe from 'stripe';
 import type {
-    MembershipCardResponse, MembershipCardSetupResponse,
+    MembershipCardResponse, MembershipCardSetupResponse, MembershipPendingApplication,
     MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
@@ -75,10 +75,32 @@ async function priceDetails(): Promise<Map<string, PriceDetail>> {
 void stripePrices; // (admin listing lives in subscriptionTiers)
 
 /** Free first, then purchasable tiers by price. */
-async function tierOptions(currentTierId: string | null,): Promise<MembershipTierOption[]> {
+/** Published application forms' slugs, by form id (tiers that require approval). */
+async function applicationFormSlugs(ids: string[],): Promise<Map<string, string>> {
+    if (!ids.length) return new Map();
+    const r = await query<{ id: string; slug: string; }>(`SELECT id, slug FROM forms WHERE id = ANY($1) AND status = 'published'`, [ids,],);
+    return new Map(r.rows.map((f,) => [f.id, f.slug,]),);
+}
+
+/** A member's open (pending) membership application, if any. */
+export async function pendingApplicationFor(userId: string | null,): Promise<MembershipPendingApplication | null> {
+    if (!userId) return null;
+    const r = await query<{ id: string; plan_id: string; name: string; created_at: Date; }>(
+        `SELECT a.id, a.plan_id, p.name, a.created_at FROM membership_applications a
+           JOIN subscription_plans p ON p.id = a.plan_id
+          WHERE a.user_id = $1 AND a.status = 'pending' LIMIT 1`,
+        [userId,],
+    ).catch(() => ({ rows: [], }),);
+    const a = r.rows[0];
+    return a ? { id: a.id, tierId: a.plan_id, tierName: a.name, createdAt: new Date(a.created_at,).toISOString(), } : null;
+}
+
+async function tierOptions(currentTierId: string | null, pendingTierId: string | null = null,): Promise<MembershipTierOption[]> {
     const prices = await priceDetails();
     const out: MembershipTierOption[] = [];
-    for (const t of await listTiers()) {
+    const all = await listTiers();
+    const formSlugs = await applicationFormSlugs(all.flatMap((t,) => (t.requiresApproval && t.applicationFormId ? [t.applicationFormId,] : [])),);
+    for (const t of all) {
         if (!t.isActive && t.id !== currentTierId) continue;
         if (!t.isFree && !t.stripePriceId && t.id !== currentTierId) continue; // not purchasable
         const p = t.stripePriceId ? prices.get(t.stripePriceId,) : undefined;
@@ -93,6 +115,9 @@ async function tierOptions(currentTierId: string | null,): Promise<MembershipTie
             interval: p?.interval ?? t.interval,
             intervalCount: p?.intervalCount ?? t.intervalCount ?? 1,
             display: t.isFree ? null : t.displayPrice ?? null,
+            requiresApproval: !t.isFree && t.requiresApproval,
+            applicationFormSlug: t.requiresApproval && t.applicationFormId ? formSlugs.get(t.applicationFormId,) ?? null : null,
+            isPending: !!pendingTierId && t.id === pendingTierId,
             isCurrent: t.id === currentTierId,
             rank: t.sortOrder,
         },);
@@ -114,8 +139,12 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
         } catch { /* signed-in but no tier row → free */ }
     }
     const policy = await getSubscriptionPolicy();
-    const tiers = offered(await tierOptions(currentId,), policy,);
-    return { tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required, };
+    const pending = await pendingApplicationFor(userId,);
+    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null,), policy,);
+    return {
+        tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
+        pendingApplication: pending,
+    };
 }
 
 /**
@@ -187,25 +216,34 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
 export async function overview(userId: string,): Promise<MembershipResponse> {
     const cur = await current(userId,);
     const policy = await getSubscriptionPolicy();
-    return { current: cur, tiers: offered(await tierOptions(cur.tier?.id ?? null,), policy,), subscriptionRequired: policy.required, };
+    const pending = await pendingApplicationFor(userId,);
+    return {
+        current: cur, tiers: offered(await tierOptions(cur.tier?.id ?? null, pending?.tierId ?? null,), policy,),
+        subscriptionRequired: policy.required, pendingApplication: pending,
+    };
 }
 
 // ─── Preview ─────────────────────────────────────────────────────────────
 
-async function targetTier(userId: string, tierId: string,) {
+async function targetTier(userId: string, tierId: string, opts: { approved?: boolean; } = {},) {
     const cur = await current(userId,);
     const tiers = await tierOptions(cur.tier?.id ?? null,);
     const to = tiers.find((t,) => t.id === tierId,);
-    if (!to) throw new NotFoundError('Subscription',);
+    if (!to) throw new NotFoundError('Membership',);
+    // A level that requires approval is joined by APPLYING; only an approval
+    // (startApprovedMembership) moves a member onto it.
+    if (to.requiresApproval && !to.isCurrent && !opts.approved) {
+        throw new ValidationError(`${to.name} requires an application — choose Apply and an admin will review it.`,);
+    }
     // Subscription-required mode: below-minimum paid tiers are not for sale
     // (Free stays reachable — it is how a member cancels).
     const policy = await getSubscriptionPolicy();
     if (policy.required && !to.isFree && !to.isCurrent && (to.rank ?? 0) < policy.minimumRank) {
-        throw new ValidationError('That subscription level is not available.',);
+        throw new ValidationError('That membership level is not available.',);
     }
     if (!to.isFree && !to.isCurrent) {
         const row = await query<{ stripe_price_id: string | null; }>(`SELECT stripe_price_id FROM subscription_plans WHERE id = $1`, [tierId,],);
-        if (!row.rows[0]?.stripe_price_id) throw new ValidationError('That subscription is not available to buy yet.',);
+        if (!row.rows[0]?.stripe_price_id) throw new ValidationError('That membership is not available to buy yet.',);
     }
     return { cur, tiers, to, from: tiers.find((t,) => t.isCurrent,) ?? null, };
 }
@@ -284,8 +322,8 @@ async function email(userId: string, from: MembershipTierOption | null, to: Memb
     },);
 }
 
-export async function change(userId: string, tierId: string,): Promise<MembershipChangeResponse> {
-    const { cur, to, from, } = await targetTier(userId, tierId,);
+export async function change(userId: string, tierId: string, opts: { approved?: boolean; } = {},): Promise<MembershipChangeResponse> {
+    const { cur, to, from, } = await targetTier(userId, tierId, opts,);
     const local = await activeLocalSub(userId,);
     const stripe = getStripeClient('default',);
 
@@ -304,8 +342,8 @@ export async function change(userId: string, tierId: string,): Promise<Membershi
             const ends = local.current_period_end ? new Date(local.current_period_end,).toLocaleDateString('en-US', { dateStyle: 'long', },) : 'the end of the period';
             const required = (await getSubscriptionPolicy()).required;
             await email(userId, from, to, required
-                ? `Your ${from?.name ?? ''} subscription stays active until ${ends}. You will not be charged again; after that date you will need to subscribe again to keep access.`
-                : `Your ${from?.name ?? ''} subscription stays active until ${ends}, then your account moves to the free plan. You will not be charged again.`,);
+                ? `Your ${from?.name ?? ''} membership stays active until ${ends}. You will not be charged again; after that date you will need to become a member again to keep access.`
+                : `Your ${from?.name ?? ''} membership stays active until ${ends}, then your account moves to the free plan. You will not be charged again.`,);
             return { result: 'cancel_scheduled', current: await current(userId,), };
         }
         if (local) {
@@ -357,7 +395,7 @@ export async function change(userId: string, tierId: string,): Promise<Membershi
     );
     await syncUserRole(userId,);
     const direction = to.priceCents > (from?.priceCents ?? 0) ? 'upgraded' : 'changed';
-    await email(userId, from, to, `Your subscription was ${direction} today. Any unused time on your previous plan was credited against the new one.`,);
+    await email(userId, from, to, `Your membership was ${direction} today. Any unused time on your previous plan was credited against the new one.`,);
     return { result: 'changed', current: await current(userId,), };
 }
 
@@ -368,7 +406,7 @@ export async function confirm(userId: string, stripeSubscriptionId: string,): Pr
         [userId, stripeSubscriptionId,],
     );
     const row = r.rows[0];
-    if (!row) throw new NotFoundError('Subscription',);
+    if (!row) throw new NotFoundError('Membership',);
     const stripe = getStripeClient('default',);
     if (!stripe) throw new ValidationError('Payments are not configured.',);
     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId,);
@@ -391,7 +429,7 @@ export async function confirm(userId: string, stripeSubscriptionId: string,): Pr
     if (!wasActive) {
         const tiers = await tierOptions(row.plan_id,);
         const fromId = sub.metadata?.fromPlanId;
-        await email(userId, tiers.find((t,) => t.id === fromId,) ?? tiers.find((t,) => t.isFree,) ?? null, tiers.find((t,) => t.id === row.plan_id,) ?? null, 'Your subscription is active. Thank you for your support!',);
+        await email(userId, tiers.find((t,) => t.id === fromId,) ?? tiers.find((t,) => t.isFree,) ?? null, tiers.find((t,) => t.id === row.plan_id,) ?? null, 'Your membership is active. Thank you for your support!',);
     }
     return { result: 'changed', current: await current(userId,), };
 }
@@ -414,6 +452,63 @@ export async function cancel(userId: string,): Promise<MembershipChangeResponse>
     const free = await query<{ id: string; }>(`SELECT id FROM subscription_plans WHERE is_free = true ORDER BY sort_order LIMIT 1`,);
     if (!free.rows[0]) throw new ValidationError('There is no plan to move to.',);
     return change(userId, free.rows[0].id,);
+}
+
+// ─── Approved application → start billing ────────────────────────────────
+
+/**
+ * An admin approved a membership application: start the membership NOW.
+ *
+ *   already on a paid Stripe subscription → the normal paid→paid switch
+ *     (proration, `error_if_incomplete`);
+ *   otherwise → a new Stripe subscription charged OFF-SESSION to the card the
+ *     applicant saved (`error_if_incomplete`: a declined card or a card that
+ *     needs the member present fails here, and nothing is half-created).
+ * Then `confirm` activates the local row, syncs the role and emails the member.
+ * Throws ValidationError with Stripe's reason on a failed charge.
+ */
+export async function startApprovedMembership(userId: string, tierId: string, paymentMethodId: string | null,): Promise<MembershipChangeResponse> {
+    const local = await activeLocalSub(userId,);
+    if (local?.stripe_subscription_id) return change(userId, tierId, { approved: true, },);
+
+    const { to, from, } = await targetTier(userId, tierId, { approved: true, },);
+    if (to.isCurrent) return { result: 'unchanged', current: await current(userId,), };
+    const stripe = getStripeClient('default',);
+    if (!stripe) throw new ValidationError('Payments are not configured.',);
+    const priceId = (await query<{ stripe_price_id: string; }>(`SELECT stripe_price_id FROM subscription_plans WHERE id = $1`, [to.id,],)).rows[0]!.stripe_price_id;
+    const customer = await customerFor(userId,);
+    let pm = paymentMethodId;
+    if (pm) {
+        const p = await stripe.paymentMethods.retrieve(pm,);
+        if (!p.customer) await stripe.paymentMethods.attach(pm, { customer, },);
+        await stripe.customers.update(customer, { invoice_settings: { default_payment_method: pm, }, },);
+    } else {
+        const c = await stripe.customers.retrieve(customer,);
+        const def = 'deleted' in c ? null : c.invoice_settings?.default_payment_method;
+        pm = typeof def === 'string' ? def : def?.id ?? null;
+    }
+    if (!pm) throw new ValidationError('The applicant has no saved card to charge.',);
+
+    let sub: Stripe.Subscription;
+    try {
+        sub = await stripe.subscriptions.create({
+            customer,
+            items: [{ price: priceId, },],
+            default_payment_method: pm,
+            off_session: true,
+            payment_behavior: 'error_if_incomplete',
+            metadata: { userId, planId: to.id, type: 'membership', fromPlanId: from?.id ?? '', approved: 'true', },
+        },);
+    } catch (e) {
+        throw new ValidationError(`The card could not be charged: ${(e as Error).message}`,);
+    }
+    const period = subscriptionPeriod(sub,);
+    await query(
+        `INSERT INTO subscriptions (user_id, plan_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, to.id, sub.id, customer, sub.status, new Date(period.start * 1000,), new Date(period.end * 1000,),],
+    );
+    return confirm(userId, sub.id,);
 }
 
 // ─── Payment card ────────────────────────────────────────────────────────

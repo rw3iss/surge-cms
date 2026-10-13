@@ -135,11 +135,11 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
                     <option value="inherit">Inherit ({props.defaults.accessLabel})</option>
                     <option value="public">Public</option>
                     <option value="members">Signed-in members</option>
-                    <option value="tier" disabled={!props.tiers.length}>Subscription tier…</option>
+                    <option value="tier" disabled={!props.tiers.length}>Membership tier…</option>
                 </select>
             </FormField>
             <Show when={o().visibility === 'tier'}>
-                <FormField label="Required tier" hint="Subscribers to this tier or a higher one.">
+                <FormField label="Required tier" hint="Members of this tier or a higher one.">
                     <select value={o().minTierId ?? ''} onChange={(e,) => props.onChange({ minTierId: e.currentTarget.value || null, },)}>
                         <option value="">Choose a tier…</option>
                         <For each={props.tiers}>{(t,) => <option value={t.id}>{t.name}</option>}</For>

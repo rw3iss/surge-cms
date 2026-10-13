@@ -47,6 +47,9 @@ const TierModal: Component<TierModalProps> = (props,) => {
         displayPrice: t?.displayPrice ? (t.displayPrice.priceCents / 100).toFixed(2,) : '',
         displayInterval: (t?.displayPrice?.interval ?? 'month') as 'day' | 'week' | 'month' | 'year',
         displayIntervalCount: String(t?.displayPrice?.intervalCount ?? 1,),
+        // Members apply instead of joining; billing starts when an admin approves.
+        requiresApproval: t?.requiresApproval ?? false,
+        applicationFormId: t?.applicationFormId ?? '',
     },);
     const [extra, setExtra,] = createSignal<string[]>(t?.permissions ?? [],);
     const [search, setSearch,] = createSignal('',);
@@ -54,6 +57,11 @@ const TierModal: Component<TierModalProps> = (props,) => {
     const [slugTouched, setSlugTouched,] = createSignal(Boolean(t,),);
 
     const [stripe, { refetch: refetchStripe, },] = createResource(() => cms.subscriptionTiers.stripePrices().catch((): StripeSubscriptionPricesResponse => ({ connected: false, prices: [], })),);
+    // Forms an application can use (all statuses; a draft cannot be submitted).
+    const [formsList,] = createResource(
+        () => cms.forms.list({ limit: 200, },).then((r,) => r.data,).catch(() => [] as Array<{ id: string; title: string; status: string; }>),
+    );
+
     // A price is often created in Stripe WHILE this modal is open (another
     // tab): reload the list when the window regains focus, and on demand.
     onMount(() => {
@@ -97,24 +105,26 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             intervalCount: Math.max(1, Math.round(Number(form.displayIntervalCount,) || 1,),),
                         }
                         : null,
+                    requiresApproval: form.requiresApproval,
+                    applicationFormId: form.requiresApproval ? form.applicationFormId || null : null,
                 }),
                 permissions: extra(),
             };
             if (t) await cms.subscriptionTiers.update(t.id, body,);
             else await cms.subscriptionTiers.create(body,);
-            toast.success('Subscription saved.',);
+            toast.success('Membership level saved.',);
             props.onSaved();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Could not save the subscription.',);
+            toast.error(e instanceof Error ? e.message : 'Could not save the membership level.',);
         } finally {
             setSaving(false,);
         }
     };
 
     return (
-        <ModalShell open onClose={() => !saving() && props.onClose()} size="lg" showClose ariaLabel="Subscription" dismissOnBackdrop={false}>
+        <ModalShell open onClose={() => !saving() && props.onClose()} size="lg" showClose ariaLabel="Membership level" dismissOnBackdrop={false}>
             <div class="tier-modal">
-                <h2>{t ? `Edit subscription: ${t.name}` : 'New subscription'}</h2>
+                <h2>{t ? `Edit membership level: ${t.name}` : 'New membership level'}</h2>
                 <div class="tier-modal__grid">
                     <FormField label="Name">
                         <input
@@ -151,7 +161,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 </FormField>
 
                 <div class="tier-modal__grid">
-                    <FormField label="Role" tooltip="The role subscribers of this tier are given. Its permissions are included below; staff are never moved off their role.">
+                    <FormField label="Role" tooltip="The role members of this tier are given. Its permissions are included below; staff are never moved off their role.">
                         <select value={form.role} onChange={(e,) => setForm('role', e.currentTarget.value,)}>
                             <option value="">— none (keep their role) —</option>
                             <For each={roleOptions()}>{(r,) => <option value={r.key}>{r.label} ({r.key})</option>}</For>
@@ -163,7 +173,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 </div>
 
                 <Show when={!t?.isFree}>
-                    <FormField label="Stripe subscription product">
+                    <FormField label="Stripe membership product (price)">
                         <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
                             <div class="tier-modal__price-row">
                             <select value={form.stripePriceId} onChange={(e,) => setForm('stripePriceId', e.currentTarget.value,)}>
@@ -186,7 +196,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             </div>
                             <Show when={!stripe()?.connected}>
                                 <p class="tier-modal__note">
-                                    Subscription products are defined in Stripe, and Stripe must be connected in the{' '}
+                                    Membership products are defined in Stripe, and Stripe must be connected in the{' '}
                                     <A href="/admin/settings?tab=payments">Payments</A> tab.
                                 </p>
                             </Show>
@@ -236,11 +246,35 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             </FormField>
                         </div>
                     </Show>
+
+                    <Toggle
+                        checked={form.requiresApproval}
+                        onChange={(v,) => setForm('requiresApproval', v,)}
+                        label="Require approval"
+                        hint="Members apply instead of joining. Their card is saved and charged only when an admin approves. Review applications in Users."
+                    />
+                    <Show when={form.requiresApproval}>
+                        <FormField
+                            label="Application form"
+                            hint="Shown when a member applies. The form's own settings (email notification, add as contact) apply to each application."
+                        >
+                            <select value={form.applicationFormId} onChange={(e,) => setForm('applicationFormId', e.currentTarget.value,)}>
+                                <option value="">Built-in form (Name, Email, Phone, Occupation)</option>
+                                <For each={formsList() ?? []}>
+                                    {(f,) => (
+                                        <option value={f.id}>
+                                            {f.title}{f.status !== 'published' ? ' (draft — publish it to use)' : ''}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+                        </FormField>
+                    </Show>
                 </Show>
 
                 <FormField
                     label="Permissions"
-                    hint="Everything the role gives is included. Add extra permissions this subscription unlocks."
+                    hint="Everything the role gives is included. Add extra permissions this membership level unlocks."
                 >
                     <div class="tier-modal__perms">
                         <div class="tier-modal__chips">
@@ -283,7 +317,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 <div class="tier-modal__footer">
                     <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose} disabled={saving()}>Cancel</button>
                     <button type="button" class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
-                        {saving() ? 'Saving…' : 'Save subscription'}
+                        {saving() ? 'Saving…' : 'Save membership level'}
                     </button>
                 </div>
             </div>

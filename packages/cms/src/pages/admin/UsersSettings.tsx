@@ -31,7 +31,7 @@ type Section = 'general' | 'emails' | 'subscriptions';
 const SECTIONS: { key: Section; label: string; }[] = [
     { key: 'general', label: 'General', },
     { key: 'emails', label: 'Email templates', },
-    { key: 'subscriptions', label: 'Subscriptions', },
+    { key: 'subscriptions', label: 'Memberships', },
 ];
 
 const AdminUsersSettings: Component = () => {
@@ -157,23 +157,23 @@ const AdminUsersSettings: Component = () => {
 
                 <Show when={section() === 'general'}>
                     <section class="admin-section">
-                        <header class="admin-section__header"><h2>Subscription required</h2></header>
+                        <header class="admin-section__header"><h2>Membership required</h2></header>
                         <div class="form-section">
-                            <FormField label="Require a paid subscription to register and to use the site" inline>
+                            <FormField label="Require a paid membership to register and to use the site" inline>
                                 <Toggle
                                     checked={requireSubscription()}
                                     onChange={setRequireSubscription}
-                                    ariaLabel="Require a paid subscription"
+                                    ariaLabel="Require a paid membership"
                                 />
                             </FormField>
                             <p class="form-help-muted">
                                 Sign-up becomes Plan → Account → Payment, and the Free tier is hidden (it is kept, not deleted).
-                                A member without an active subscription can still log in, but sees only the Membership page,
-                                their profile, and pages marked <strong>Open without a subscription</strong> (Page editor → Access) —
-                                everything else asks them to subscribe, renew or update their card. Staff are never affected.
+                                A member without an active membership can still log in, but sees only the Membership page,
+                                their profile, and pages marked <strong>Open without a membership</strong> (Page editor → Access) —
+                                everything else asks them to become a member, renew or update their card. Staff are never affected.
                             </p>
                             <Show when={requireSubscription()}>
-                                <FormField label="Minimum subscription" hint="Tiers below this are not offered and do not count.">
+                                <FormField label="Minimum membership" hint="Tiers below this are not offered and do not count.">
                                     <select value={minimumTierId()} onChange={(e,) => setMinimumTierId(e.currentTarget.value,)}>
                                         <option value="">The cheapest paid tier</option>
                                         <For each={paidTiers()}>{(t,) => <option value={t.id}>{t.name} or higher</option>}</For>
@@ -181,7 +181,7 @@ const AdminUsersSettings: Component = () => {
                                 </FormField>
                                 <Show when={!paidTiers().length}>
                                     <p class="form-help-muted">
-                                        There is no paid tier yet — add one with a Stripe price under <strong>Subscriptions</strong> first.
+                                        There is no paid tier yet — add one with a Stripe price under <strong>Memberships</strong> first.
                                     </p>
                                 </Show>
                             </Show>

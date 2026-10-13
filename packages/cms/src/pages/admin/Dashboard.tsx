@@ -189,7 +189,7 @@ const AdminDashboard: Component = () => {
                                     </div>
                                     <div class="stat-card__content">
                                         <span class="stat-card__value">{data().users.activeSubscriptions}</span>
-                                        <span class="stat-card__label">Active Subscriptions</span>
+                                        <span class="stat-card__label">Active Memberships</span>
                                     </div>
                                 </div>
                             </Show>

@@ -1,0 +1,65 @@
+// Membership applications in the Users list + user detail page.
+
+// Users header: title, then the "N pending applications" pill right beside it.
+.admin-header .users-title {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  flex: 1 1 auto;
+  min-width: 0;
+
+  h1 { flex: 0 1 auto; }
+}
+
+.users-pending-pill {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid $warning-color;
+  border-radius: 999px;
+  background: rgba($warning-color, 0.12);
+  color: color.adjust($warning-color, $lightness: -22%);
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: rgba($warning-color, 0.2); }
+
+  &.is-active {
+    background: $warning-color;
+    color: #fff;
+  }
+}
+
+.users-approval-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-sm;
+  white-space: nowrap;
+}
+
+// User detail → Membership application(s).
+.user-applications {
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-sm $spacing-md;
+    padding: $spacing-sm 0;
+
+    & + & { border-top: 1px solid var(--admin-border, #{$border-color}); }
+  }
+
+  &__meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+}

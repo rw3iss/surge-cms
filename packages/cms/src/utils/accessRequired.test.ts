@@ -23,7 +23,7 @@ describe('upgradeHref / tierRequirement', () => {
         expect(upgradeHref(null, true,),).toBe('/profile?tab=membership',);
     },);
     it('names the audience', () => {
-        expect(tierRequirement({ name: 'Gold', },),).toBe('the Gold subscription or higher',);
-        expect(tierRequirement(null,),).toBe('a subscription',);
+        expect(tierRequirement({ name: 'Gold', },),).toBe('the Gold membership or higher',);
+        expect(tierRequirement(null,),).toBe('a membership',);
     },);
 },);

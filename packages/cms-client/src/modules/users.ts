@@ -14,6 +14,11 @@ export class UsersModule extends ModuleBase {
     protected readonly module = 'users';
 
     /** GET /users — paginated admin list with search/role/status/sort filters. */
+    /** POST /users/bulk — one action on many users (skips you, and sysadmins unless you are one). */
+    bulk(body: { ids: string[]; action: 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role'; value?: string; },): Promise<{ done: number; skipped: Array<{ id: string; reason: string; }>; }> {
+        return this.mutate<{ done: number; skipped: Array<{ id: string; reason: string; }>; }>('POST', '/users/bulk', { body, invalidates: ['users',], },);
+    }
+
     list(query?: UserListQuery,): Promise<Paginated<UserListResponse[number]>> {
         return this.getPaged<UserListResponse[number]>('/users', { query: query as Record<string, unknown>, },);
     }

@@ -72,7 +72,7 @@ function rankOf(token: string, rows: TierRow[],): number | null {
 
 export const postSubscriptionFilter: VirtualFilter = {
     key: 'subscription',
-    label: 'Subscription',
+    label: 'Membership',
     description: 'Required subscription level. Levels rank by price: Public = -1, Free = 0, then 1, 2… cheapest first — so "> 0" means paid tiers only.',
     async options() {
         const rows = await tiers();

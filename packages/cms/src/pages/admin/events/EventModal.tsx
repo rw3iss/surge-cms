@@ -249,8 +249,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 ? joinIso(endDate() || startDate(), endTime(), allDay(),)
                 : (endTime() ? joinIso(startDate(), endTime(), false,) : null);
             if (endsAt && new Date(endsAt,) < new Date(startsAt,)) throw new Error('The event cannot end before it starts.',);
-            if (viewAccess() === 'tier' && !viewTier()) throw new Error('Choose the subscription tier that can see this event.',);
-            if (registerAccess() === 'tier' && !registerTier()) throw new Error('Choose the subscription tier that can register.',);
+            if (viewAccess() === 'tier' && !viewTier()) throw new Error('Choose the membership tier that can see this event.',);
+            if (registerAccess() === 'tier' && !registerTier()) throw new Error('Choose the membership tier that can register.',);
 
             const body: CalendarEventInput = {
                 title: title().trim(),
@@ -453,7 +453,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         <h3 class="event-modal__section-title">Access</h3>
                         <p class="event-modal__section-help">
                             Seeing an event and registering for it are separate: an event can be listed for everyone
-                            while only subscribers may register. Inherit follows <a href="/admin/events/settings">Event Settings</a>.
+                            while only members may register. Inherit follows <a href="/admin/events/settings">Event Settings</a>.
                         </p>
                         <div class="event-modal__row">
                             <AccessRuleField
@@ -525,7 +525,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             <Show when={registrationEnabled() && ticketingEnabled()}>
                                 <div class="event-modal__tiers">
                                     <div class="event-modal__tier event-modal__tier--head" aria-hidden="true">
-                                        <span>Ticket type</span><span>Price</span><span>Quantity</span><span>Requires subscription</span><span />
+                                        <span>Ticket type</span><span>Price</span><span>Quantity</span><span>Requires membership</span><span />
                                     </div>
                                     {/*
                                       * <Index> (keyed by POSITION), not <For>: updateTier replaces the
@@ -547,7 +547,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                                     onChange={(e,) => updateTier(i, { quantityAvailable: e.currentTarget.value === '' ? null : Number(e.currentTarget.value,), },)}
                                                 />
                                                 <select
-                                                    aria-label="Requires subscription"
+                                                    aria-label="Requires membership"
                                                     value={tier().requiredTierId ?? ''}
                                                     onChange={(e,) => updateTier(i, { requiredTierId: e.currentTarget.value || null, },)}
                                                 >
@@ -562,7 +562,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                         <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addTier}>+ Add ticket type</button>
                                         <span class="form-help-muted">
                                             Empty quantity = unlimited. A free type with a quantity runs a free event with a capacity.
-                                            A required subscription limits who can buy that type.
+                                            A required membership limits who can buy that type.
                                         </span>
                                     </div>
                                 </div>

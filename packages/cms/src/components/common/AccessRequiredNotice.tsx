@@ -39,16 +39,16 @@ const AccessRequiredNotice: Component<AccessRequiredNoticeProps> = (props,) => {
                 fallback={
                     <Show
                         when={!signedIn()}
-                        fallback={<A class="access-required__link" href={upgradeHref(props.requiredTier, true,)}>Upgrade your subscription</A>}
+                        fallback={<A class="access-required__link" href={upgradeHref(props.requiredTier, true,)}>Upgrade your membership</A>}
                     >
                         <button type="button" class="access-required__link" onClick={() => setLoginOpen(true,)}>Sign in</button>
                         <Show when={props.reason === 'subscribe'}>
-                            {' '}or <A class="access-required__link" href={upgradeHref(props.requiredTier, false,)}>see subscription plans</A>
+                            {' '}or <A class="access-required__link" href={upgradeHref(props.requiredTier, false,)}>see membership plans</A>
                         </Show>
                     </Show>
                 }
             >
-                <A class="access-required__link" href={upgradeHref(props.requiredTier, true,)}>Upgrade your subscription</A>
+                <A class="access-required__link" href={upgradeHref(props.requiredTier, true,)}>Upgrade your membership</A>
             </Show>
             <Show when={loginOpen()}>
                 <LoginModal

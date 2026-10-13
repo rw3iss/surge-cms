@@ -8,6 +8,7 @@ import './UserDetail.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import UserSubscriptionPanel from '../../components/admin/subscriptions/UserSubscriptionPanel';
 import UserMessagesPanel from '../../components/admin/users/UserMessagesPanel';
+import UserApplicationsPanel from '../../components/admin/applications/UserApplicationsPanel';
 
 const AdminUserDetail: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -371,6 +372,8 @@ const AdminUserDetail: Component = () => {
                 </div>
 
                 <UserSubscriptionPanel userId={params.id} onChanged={() => refetch()} />
+
+                <UserApplicationsPanel userId={params.id} onChanged={() => refetch()} />
 
                 {/* ─── Activity (comments + forum) + public member page ─── */}
                 <div class="user-detail__panel user-detail__panel--activity">

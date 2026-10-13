@@ -117,7 +117,7 @@ export async function deleteRole(key: string, ctx: AuditContext,): Promise<void>
     if (existing.isSystem) throw new ValidationError('Built-in roles cannot be deleted.',);
     if ((existing.userCount ?? 0) > 0) throw new ConflictError(`${existing.userCount} user(s) have this role — move them to another role first.`,);
     const used = await query(`SELECT name FROM subscription_plans WHERE role = $1`, [key,],);
-    if (used.rows.length) throw new ConflictError(`The "${used.rows[0].name}" subscription gives this role — change it first.`,);
+    if (used.rows.length) throw new ConflictError(`The "${used.rows[0].name}" membership level gives this role — change it first.`,);
     await transaction(async (c,) => {
         await c.query(`DELETE FROM permission_grants WHERE subject_type = 'role' AND subject_id = $1`, [key,],);
         await c.query(`UPDATE roles SET base_role = 'member' WHERE base_role = $1`, [key,],);
@@ -144,7 +144,8 @@ const TIER_SELECT = `
                 (SELECT COUNT(*) FROM users u
                   WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = u.id AND s.status = ANY($1)))
            ELSE (SELECT COUNT(DISTINCT s.user_id) FROM subscriptions s WHERE s.plan_id = p.id AND s.status = ANY($1))
-           END AS subscriber_count
+           END AS subscriber_count,
+           (SELECT COUNT(*)::int FROM membership_applications ma WHERE ma.plan_id = p.id AND ma.status = 'pending') AS pending_applications
       FROM subscription_plans p`;
 
 function mapTier(r: Record<string, unknown>,): SubscriptionTier {
@@ -164,6 +165,9 @@ function mapTier(r: Record<string, unknown>,): SubscriptionTier {
             interval: (String(r.display_interval ?? 'month',)) as 'day' | 'week' | 'month' | 'year',
             intervalCount: Math.max(1, Number(r.display_interval_count ?? 1,),),
         },
+        requiresApproval: r.requires_approval === true,
+        applicationFormId: (r.application_form_id as string | null) ?? null,
+        pendingApplications: Number(r.pending_applications ?? 0,),
         stripePriceId: (r.stripe_price_id as string | null) ?? null,
         stripeProductId: (r.stripe_product_id as string | null) ?? null,
         sortOrder: Number(r.sort_order ?? 0,),
@@ -194,7 +198,7 @@ export async function tierOptions(): Promise<SubscriptionTierOption[]> {
 
 export async function getTier(id: string,): Promise<SubscriptionTier> {
     const r = await query(`${TIER_SELECT} WHERE p.id = $2`, [ENTITLED_STATUSES, id,],);
-    if (!r.rows[0]) throw new NotFoundError('Subscription',);
+    if (!r.rows[0]) throw new NotFoundError('Membership',);
     return mapTier(r.rows[0],);
 }
 
@@ -203,7 +207,7 @@ async function stripePriceFields(priceId: string,): Promise<{ productId: string;
     const stripe = getStripeClient('default',);
     if (!stripe) throw new ValidationError('Stripe is not connected (Settings → Payments).',);
     const price = await stripe.prices.retrieve(priceId,);
-    if (!price.recurring) throw new ValidationError('That Stripe price is not a recurring (subscription) price.',);
+    if (!price.recurring) throw new ValidationError('That Stripe price is not a recurring (membership) price.',);
     return {
         productId: typeof price.product === 'string' ? price.product : price.product.id,
         amount: price.unit_amount ?? 0,
@@ -259,7 +263,7 @@ async function invalidateGate(): Promise<void> {
 
 export async function saveTier(id: string | null, body: SubscriptionTierBody, ctx: AuditContext,): Promise<SubscriptionTier> {
     if (body.role) await assertRoleExists(body.role,);
-    if (body.role && isStaffRole(body.role,)) throw new ValidationError('A subscription cannot give a staff role.',);
+    if (body.role && isStaffRole(body.role,)) throw new ValidationError('A membership level cannot give a staff role.',);
     const slug = body.slug?.trim().toLowerCase();
     if (slug !== undefined && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug,)) throw new ValidationError('Slug: lowercase letters, digits and dashes.',);
 
@@ -285,17 +289,19 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
             if (!body.name?.trim() || !slug) throw new ValidationError('Name and slug are required.',);
             const r = await c.query(
                 `INSERT INTO subscription_plans (slug, name, description, role, is_active, price_cents, interval, stripe_price_id, stripe_product_id, sort_order,
-                                                 interval_count, display_price_cents, display_interval, display_interval_count)
+                                                 interval_count, display_price_cents, display_interval, display_interval_count,
+                                                 requires_approval, application_form_id)
                  VALUES ($1, $2, $3, $4, COALESCE($5, true), COALESCE($6, 0), COALESCE($7, 'month'), $8, $9, COALESCE($10, 50),
-                         COALESCE($11, 1), $12, $13, $14) RETURNING id`,
+                         COALESCE($11, 1), $12, $13, $14, COALESCE($15, false), $16::uuid) RETURNING id`,
                 [slug, body.name.trim(), body.description ?? null, body.role ?? 'subscriber', body.isActive ?? null,
                     stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,
-                    stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,],
+                    stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
+                    body.requiresApproval ?? null, body.applicationFormId || null,],
             );
             tid = String(r.rows[0].id,);
         } else {
             const cur = await c.query(`SELECT is_free FROM subscription_plans WHERE id = $1`, [tid,],);
-            if (!cur.rows[0]) throw new NotFoundError('Subscription',);
+            if (!cur.rows[0]) throw new NotFoundError('Membership',);
             if (cur.rows[0].is_free && body.stripePriceId) throw new ValidationError('The free tier has no Stripe price.',);
             await c.query(
                 `UPDATE subscription_plans SET
@@ -311,6 +317,8 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     display_price_cents = CASE WHEN $16 THEN $17 ELSE display_price_cents END,
                     display_interval = CASE WHEN $16 THEN $18 ELSE display_interval END,
                     display_interval_count = CASE WHEN $16 THEN $19 ELSE display_interval_count END,
+                    requires_approval = COALESCE($20, requires_approval),
+                    application_form_id = CASE WHEN $21 THEN $22::uuid ELSE application_form_id END,
                     sort_order = COALESCE($14, sort_order),
                     updated_at = NOW()
                   WHERE id = $1`,
@@ -318,14 +326,15 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     body.role !== undefined, body.role ?? null, body.isActive ?? null,
                     stripe !== null, body.stripePriceId || null, stripe?.productId ?? null, stripe?.amount ?? null, stripe?.interval ?? null,
                     body.sortOrder ?? null, stripe?.intervalCount ?? null,
-                    display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,],
+                    display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
+                    body.requiresApproval ?? null, body.applicationFormId !== undefined, body.applicationFormId || null,],
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);
         await c.query(TIER_RANK_SQL,);
         return tid;
     },).catch((e,) => {
-        if ((e as { code?: string; }).code === '23505') throw new ConflictError('Another subscription already uses that slug (or Stripe price).',);
+        if ((e as { code?: string; }).code === '23505') throw new ConflictError('Another membership level already uses that slug (or Stripe price).',);
         throw e;
     },);
 
@@ -342,7 +351,7 @@ export async function deleteTier(id: string, ctx: AuditContext,): Promise<void> 
     const t = await getTier(id,);
     if (t.isFree) throw new ValidationError('The free tier cannot be deleted.',);
     const any = await query(`SELECT 1 FROM subscriptions WHERE plan_id = $1 LIMIT 1`, [id,],);
-    if (any.rows.length) throw new ConflictError('This subscription has (or had) subscribers — deactivate it instead.',);
+    if (any.rows.length) throw new ConflictError('This membership level has (or had) members — deactivate it instead.',);
     await transaction(async (c,) => {
         await c.query(`DELETE FROM permission_grants WHERE subject_type = 'plan' AND subject_id = $1`, [id,],);
         await c.query(`DELETE FROM subscription_plans WHERE id = $1`, [id,],);

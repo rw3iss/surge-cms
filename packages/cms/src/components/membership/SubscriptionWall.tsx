@@ -49,26 +49,39 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
     return (
         <section class="subscription-wall page-wrapper" aria-labelledby="subscription-wall-title">
             <div class="subscription-wall__card">
+                <Show when={props.access.reason === 'pending_approval'}>
+                    <h1 id="subscription-wall-title">Your application is waiting for approval</h1>
+                    <p>
+                        Thank you for applying for <strong>{props.access.pendingApplication?.tierName ?? 'membership'}</strong>. Our team will review it
+                        and email you. Your card is saved but will not be charged unless your application is approved.
+                    </p>
+                    <div class="subscription-wall__actions">
+                        <button type="button" class="btn btn--primary" disabled={checking()} onClick={recheck}>
+                            {checking() ? 'Checking…' : 'Check again'}
+                        </button>
+                        <A href="/profile?tab=membership" class="btn btn--outline">View my application</A>
+                    </div>
+                </Show>
                 <Show
                     when={props.access.reason === 'verify_email'}
                     fallback={
-                        <>
-                            <h1 id="subscription-wall-title">{props.access.lapsed ? 'Your membership has ended' : 'A subscription is required'}</h1>
+                        <Show when={props.access.reason !== 'pending_approval'}>
+                            <h1 id="subscription-wall-title">{props.access.lapsed ? 'Your membership has ended' : 'A membership is required'}</h1>
                             <p>
                                 {props.access.lapsed
-                                    ? 'Renew your subscription — or update your payment method if a payment failed — to get back to everything.'
+                                    ? 'Renew your membership — or update your payment method if a payment failed — to get back to everything.'
                                     : 'Choose a membership plan to get access. It only takes a minute.'}
                             </p>
                             <div class="subscription-wall__actions">
-                                <A href="/subscribe" class="btn btn--primary">{props.access.lapsed ? 'Renew my subscription' : 'Choose a plan'}</A>
+                                <A href="/subscribe" class="btn btn--primary">{props.access.lapsed ? 'Renew my membership' : 'Choose a plan'}</A>
                                 <A href="/profile?tab=membership" class="btn btn--outline">Manage membership &amp; payment</A>
                             </div>
-                        </>
+                        </Show>
                     }
                 >
                     <h1 id="subscription-wall-title">Verify your email</h1>
                     <p>
-                        Your subscription is active. We sent a verification link to <strong>{auth.user?.email}</strong> — open it to finish
+                        Your membership is active. We sent a verification link to <strong>{auth.user?.email}</strong> — open it to finish
                         setting up your account.
                     </p>
                     <div class="subscription-wall__actions">

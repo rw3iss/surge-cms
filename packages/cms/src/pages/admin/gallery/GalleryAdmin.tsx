@@ -62,12 +62,12 @@ const GalleryAdmin: Component = () => {
     const selected = () => draft.rows.find((r,) => r.key === selectedKey(),) ?? null;
     const liveCount = () => draft.rows.filter((r,) => !r.removed,).length;
 
-    const tierName = (id: string | null,) => tiers().find((t,) => t.id === id,)?.name ?? 'Subscribers';
+    const tierName = (id: string | null,) => tiers().find((t,) => t.id === id,)?.name ?? 'Members';
     const galleryDefaults = (): GalleryDefaults => {
         const s = settings();
         const access = s?.access ?? 'public';
         return {
-            accessLabel: access === 'tier' ? `${tierName(s?.minTierId ?? null,)} subscribers` : ACCESS_LABELS[access],
+            accessLabel: access === 'tier' ? `${tierName(s?.minTierId ?? null,)} members` : ACCESS_LABELS[access],
             commentsEnabled: Boolean(s?.commentsEnabled,),
             allowAnonymousComments: Boolean(s?.allowAnonymousComments,),
         };

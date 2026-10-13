@@ -1,3 +1,5 @@
+import * as applications from '../services/membershipApplications';
+import type { MembershipApplyBody, } from '@sitesurge/types';
 /**
  * Payment routes (Stripe). Thin shell over `services/payments.ts`.
  *
@@ -133,6 +135,29 @@ export const paymentsRoutes = [
         summary: "Activate a new subscription after the browser confirmed its first payment.",
         input: { body: z.object({ subscriptionId: z.string().max(255,), },) satisfies z.ZodType<MembershipConfirmBody>, },
         handler: ({ body, userId, },) => membership.confirm(userId!, body.subscriptionId,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/apply', auth: 'user',
+        summary: 'Apply for a membership level that requires approval: the answers + a card saved with a SetupIntent (charged only on approval).',
+        input: {
+            body: z.object({
+                tierId: z.string().uuid(),
+                answers: z.array(z.object({ questionId: z.string().max(100,), value: z.unknown(), },),).max(100,),
+                paymentMethodId: z.string().min(3,).max(255,),
+            },),
+        },
+        handler: async ({ body, user, audit, },) => {
+            const a = audit();
+            return applications.apply(body as MembershipApplyBody, { userId: user!.id, email: user!.email, ipAddress: a.ipAddress ?? '', userAgent: a.userAgent, },);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/apply/withdraw', auth: 'user',
+        summary: 'Withdraw your own pending membership application.',
+        handler: async ({ userId, },) => {
+            await applications.withdraw(userId!,);
+            return { ok: true, };
+        },
     },),
     defineRoute({
         method: 'post', path: '/membership/cancel', auth: 'user',

@@ -168,11 +168,11 @@ const GallerySettingsPage: Component = () => {
                                 <select value={s().access} onChange={(e,) => set('access', e.currentTarget.value as GallerySettings['access'],)}>
                                     <option value="public">Public — everyone</option>
                                     <option value="members">Signed-in members</option>
-                                    <option value="tier" disabled={!tiers().length}>Subscription tier…</option>
+                                    <option value="tier" disabled={!tiers().length}>Membership tier…</option>
                                 </select>
                             </FormField>
                             <Show when={s().access === 'tier'}>
-                                <FormField label="Required tier" hint="Subscribers to this tier or a higher one.">
+                                <FormField label="Required tier" hint="Members of this tier or a higher one.">
                                     <select value={s().minTierId ?? ''} onChange={(e,) => set('minTierId', e.currentTarget.value || null,)}>
                                         <option value="">Choose a tier…</option>
                                         <For each={tiers()}>{(t,) => <option value={t.id}>{t.name}</option>}</For>

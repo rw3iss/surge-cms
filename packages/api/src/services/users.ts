@@ -16,6 +16,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { config, } from '../config';
 import { query, } from '../db';
+import { ValidationError, } from '../core/errors';
 import * as repo from '../repositories/users.repo';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
@@ -344,4 +345,49 @@ export async function removeBan(banId: string, ctx: AuditContext,): Promise<void
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
     },);
+}
+
+// ─── Bulk ─────────────────────────────────────────────────────────
+
+export type UserBulkAction = 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role';
+
+export interface UserBulkResult { done: number; skipped: Array<{ id: string; reason: string; }>; }
+
+/**
+ * Apply one action to many users (Users page bulk mode). Each user goes
+ * through the same single-user function (audit + cache included). Never acts
+ * on the caller themselves, and only a sysadmin may act on a sysadmin.
+ */
+export async function bulk(
+    ids: string[],
+    action: UserBulkAction,
+    value: string | undefined,
+    caller: { id: string; role: string; },
+    ctx: AuditContext,
+): Promise<UserBulkResult> {
+    if (action === 'role') {
+        if (!value) throw new ValidationError('Choose a role.',);
+        if (value === 'sysadmin' && caller.role !== 'sysadmin') throw new ValidationError('Only a sysadmin can grant sysadmin.',);
+    }
+    const rows = await query<{ id: string; role: string; }>(`SELECT id, role FROM users WHERE id = ANY($1::uuid[])`, [ids,],);
+    const found = new Map(rows.rows.map((r,) => [r.id, r.role,]),);
+    const result: UserBulkResult = { done: 0, skipped: [], };
+    for (const id of ids) {
+        const role = found.get(id,);
+        if (!role) { result.skipped.push({ id, reason: 'not found', },); continue; }
+        if (id === caller.id) { result.skipped.push({ id, reason: 'that is you', },); continue; }
+        if (role === 'sysadmin' && caller.role !== 'sysadmin') { result.skipped.push({ id, reason: 'sysadmin', },); continue; }
+        try {
+            if (action === 'delete') await remove(id, ctx,);
+            else if (action === 'ban') await ban(id, { reason: value || 'Banned by an admin', }, ctx,);
+            else if (action === 'unban') await unban(id, ctx,);
+            else if (action === 'activate') await update(id, { isActive: true, }, ctx,);
+            else if (action === 'deactivate') await update(id, { isActive: false, }, ctx,);
+            else if (action === 'role') await update(id, { role: value, }, ctx,);
+            result.done++;
+        } catch (e) {
+            result.skipped.push({ id, reason: (e as Error).message, },);
+        }
+    }
+    return result;
 }

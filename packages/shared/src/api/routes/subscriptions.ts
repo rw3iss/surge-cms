@@ -55,6 +55,12 @@ export interface SubscriptionTier {
     intervalCount: number;
     /** Custom price display (null = show the Stripe price). */
     displayPrice: TierDisplayPrice | null;
+    /** Joining needs an admin's approval (members apply). */
+    requiresApproval: boolean;
+    /** The application form (Forms entity id); null = the built-in form. */
+    applicationFormId: string | null;
+    /** Pending applications for this tier. */
+    pendingApplications: number;
     stripePriceId: string | null;
     stripeProductId: string | null;
     sortOrder: number;
@@ -74,6 +80,8 @@ export interface SubscriptionTierBody {
     stripePriceId?: string | null;
     /** Custom price display; null clears it (show the Stripe price). */
     displayPrice?: TierDisplayPrice | null;
+    requiresApproval?: boolean;
+    applicationFormId?: string | null;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */
     permissions?: string[];

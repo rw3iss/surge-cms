@@ -75,6 +75,7 @@ const listQuery = z.object({
     role: z.string().optional(),
     status: z.string().optional(),
     subscription: z.string().max(64,).optional(),
+    approval: z.enum(['pending', 'approved', 'rejected',],).optional(),
     sortBy: z.string().optional(),
     sortOrder: z.string().optional(),
     page: z.coerce.number().int().min(1,).default(1,),
@@ -115,6 +116,7 @@ export const usersRoutes = [
                     role: query.role,
                     status: query.status,
                     subscription: query.subscription,
+                    approval: query.approval,
                     sortBy: query.sortBy,
                     sortOrder: query.sortOrder,
                 },
@@ -153,6 +155,19 @@ export const usersRoutes = [
             await users.banIp(body.ipAddress, { reason: body.reason, expiresAt: body.expiresAt, }, audit(),);
             return { message: 'IP address banned', };
         },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/bulk', auth: 'admin',
+        summary: 'Bulk action on many users: delete / ban / unban / activate / deactivate / role (value = role key). Skips the caller and, unless the caller is sysadmin, sysadmins.',
+        input: {
+            body: z.object({
+                ids: z.array(z.string().uuid(),).min(1,).max(500,),
+                action: z.enum(['delete', 'ban', 'unban', 'activate', 'deactivate', 'role',],),
+                value: z.string().max(500,).optional(),
+            },),
+        },
+        handler: async ({ body, user, audit, },) => users.bulk(body.ids, body.action, body.value, { id: user!.id, role: user!.role, }, audit(),),
     },),
 
     defineRoute({

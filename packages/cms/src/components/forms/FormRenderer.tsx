@@ -24,6 +24,16 @@ interface FormRendererProps {
     columns?: number;
     /** Override the gap between form fields (any CSS length, e.g. `10px`). */
     gap?: string;
+    /**
+     * COLLECT mode: validate as usual, then hand the answers to the caller
+     * instead of submitting the form (e.g. a membership application, which
+     * submits them together with the application). Throw to show an error.
+     */
+    onCollect?: (answers: FormAnswer[],) => Promise<void> | void;
+    /** Submit button label override (collect mode: e.g. "Continue"). */
+    submitLabel?: string;
+    /** Pre-filled answers by question id (text / email / textarea). */
+    initialAnswers?: Record<string, string>;
 }
 
 /**
@@ -54,7 +64,8 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
     };
     /** Column count for the fields grid (1–8). */
     const cols = (): number => Math.max(1, Math.min(8, Math.trunc(Number(props.columns,) || 1,),),);
-    const [answers, setAnswers,] = createSignal<Record<string, unknown>>({},);
+    const [answers, setAnswers,] = createSignal<Record<string, unknown>>({ ...(props.initialAnswers ?? {}), },);
+    const initial = (id: string,): string => props.initialAnswers?.[id] ?? '';
     const [submitted, setSubmitted,] = createSignal(false,);
     const [submitting, setSubmitting,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
@@ -125,6 +136,10 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                 questionId,
                 value,
             }),) as FormAnswer[];
+            if (props.onCollect) {
+                await props.onCollect(formAnswers,);
+                return;
+            }
             await cms.forms.submit(props.form.slug, { answers: formAnswers, nonce: submissionNonce, },);
             setSubmitted(true,);
             if (props.form.showResults) loadResults();
@@ -194,6 +209,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="text"
                                                 class="form-renderer__input"
+                                                value={initial(q.id,)}
                                                 required={q.isRequired}
                                                 minLength={q.validation?.minLength}
                                                 maxLength={q.validation?.maxLength}
@@ -207,6 +223,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         <Match when={q.type === 'textarea'}>
                                             <textarea
                                                 class="form-renderer__textarea"
+                                                value={initial(q.id,)}
                                                 rows={q.rows ?? 4}
                                                 required={q.isRequired}
                                                 minLength={q.validation?.minLength}
@@ -237,6 +254,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="email"
                                                 class="form-renderer__input"
+                                                value={initial(q.id,)}
                                                 required={q.isRequired}
                                                 inputmode="email"
                                                 autocomplete="email"
@@ -334,7 +352,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                             >
                                 {submitting()
                                     ? 'Submitting...'
-                                    : (props.form.submitButtonText?.trim() || 'Submit')}
+                                    : (props.submitLabel || props.form.submitButtonText?.trim() || 'Submit')}
                             </button>
                         </div>
                     </form>

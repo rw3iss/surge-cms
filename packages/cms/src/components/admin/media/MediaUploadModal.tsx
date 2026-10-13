@@ -206,14 +206,14 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                             </FormField>
                             <Show when={direct() && isVideo()}>
                                 <div class="media-upload-video-options">
-                                    <FormField label="Access" hint="Private videos play in full only for subscribers; everyone else sees the teaser.">
+                                    <FormField label="Access" hint="Private videos play in full only for members; everyone else sees the teaser.">
                                         <select
                                             value={access()}
                                             onChange={(e,) => setAccess(e.currentTarget.value as MediaAccessLevel,)}
                                             disabled={!!queuedId()}
                                         >
                                             <option value="public">Public</option>
-                                            <option value="private">Private (subscribers)</option>
+                                            <option value="private">Private (members)</option>
                                         </select>
                                     </FormField>
                                     <Toggle

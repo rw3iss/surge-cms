@@ -39,7 +39,7 @@ const VideoTile: Component<{ m: Media; }> = (p,) => {
             </Show>
             <div class="media-video-tile__badges">
                 <Show when={p.m.accessLevel === 'private'}>
-                    <span class="media-video-tile__badge" title="Private — full video for subscribers only">&#128274; Private</span>
+                    <span class="media-video-tile__badge" title="Private — full video for members only">&#128274; Private</span>
                 </Show>
                 <Show when={p.m.video?.hasTeaser}>
                     <span class="media-video-tile__badge media-video-tile__badge--teaser">Teaser</span>

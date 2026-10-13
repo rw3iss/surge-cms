@@ -1,0 +1,68 @@
+// Membership application (ApplyModal + the sign-up flow's application steps).
+.membership-apply {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__title { margin: 0; }
+  &__muted { margin: 0; color: var(--site-text-muted, #6b7280); }
+  &__summary { margin: 0; small { color: var(--site-text-muted, #6b7280); } }
+  &__note { margin: 0; font-size: 0.92rem; }
+
+  &__card {
+    padding: 12px;
+    border: 1px solid var(--site-border, #{$border-color});
+    border-radius: var(--site-radius, 8px);
+    background: #fff;
+  }
+
+  &__error { margin: 0; color: $error-color; }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+  }
+
+  &__payment { display: flex; flex-direction: column; gap: $spacing-md; }
+  &__done h3 { margin: 0 0 $spacing-sm; }
+}
+
+// ApplyModal: the public site's modal look (site tokens; the admin ModalShell's
+// styles are not loaded on public pages).
+.membership-apply-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.membership-apply--modal {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-radius: var(--site-radius, 10px);
+  background: var(--site-bg, #fff);
+  color: var(--site-text, #1a1a1a);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.membership-apply__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--site-text-muted, #6b7280);
+  cursor: pointer;
+}

@@ -3,6 +3,7 @@
  * get (a role + extra permissions) and what they buy (a Stripe price). `free`
  * is everyone without a paid subscription.
  */
+import { A, } from '@solidjs/router';
 import { createResource, createSignal, For, Show, type Component, } from 'solid-js';
 import type { PermissionWithGrants, RoleDef, SubscriptionTier, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
@@ -34,7 +35,7 @@ const SubscriptionTiersPanel: Component = () => {
         if (!t) return;
         try {
             await cms.subscriptionTiers.remove(t.id,);
-            toast.success('Subscription deleted.',);
+            toast.success('Membership level deleted.',);
             await refetch();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Could not delete it.',);
@@ -46,21 +47,21 @@ const SubscriptionTiersPanel: Component = () => {
     return (
         <section class="admin-section admin-section--wide subscriptions-panel">
             <header class="admin-section__header">
-                <h2>Subscriptions</h2>
+                <h2>Memberships</h2>
                 <div class="admin-section__actions">
-                    <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={() => setEditing('new',)}>+ New subscription</button>
+                    <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={() => setEditing('new',)}>+ New membership level</button>
                 </div>
             </header>
             <p class="form-help-muted">
-                A subscription gives its subscribers a <strong>role</strong> (and everything that role can do) plus any extra permissions,
-                and is sold through a recurring Stripe price. <strong>Free</strong> is everyone with an account and no paid subscription.
+                A membership level gives its members a <strong>role</strong> (and everything that role can do) plus any extra permissions,
+                and is sold through a recurring Stripe price. <strong>Free</strong> is everyone with an account and no paid membership.
                 Roles are managed in Settings → Permissions.
             </p>
             <div class="admin-table-container">
                 <table class="admin-table">
                     <thead>
                         <tr>
-                            <th>Subscription</th><th>Role</th><th>Price</th><th>Extra permissions</th><th>Subscribers</th><th>Status</th><th />
+                            <th>Membership</th><th>Role</th><th>Price</th><th>Extra permissions</th><th>Members</th><th>Status</th><th />
                         </tr>
                     </thead>
                     <tbody>
@@ -70,6 +71,14 @@ const SubscriptionTiersPanel: Component = () => {
                                     <td>
                                         <strong>{t.name}</strong> <code class="subscriptions-panel__slug">{t.slug}</code>
                                         <Show when={t.description}><div class="form-help-muted">{t.description}</div></Show>
+                                        <Show when={t.requiresApproval}>
+                                            <div class="subscriptions-panel__approval">
+                                                <span class="badge badge--warning">Requires approval</span>
+                                                <Show when={t.pendingApplications > 0}>
+                                                    {' '}<A href="/admin/users?approval=pending">{t.pendingApplications} pending</A>
+                                                </Show>
+                                            </div>
+                                        </Show>
                                     </td>
                                     <td>{roleLabel(t.role,)}</td>
                                     <td>{money(t,)}</td>
@@ -100,8 +109,8 @@ const SubscriptionTiersPanel: Component = () => {
             </Show>
             <ConfirmModal
                 open={deleting() !== null}
-                title="Delete subscription"
-                message={`Delete "${deleting()?.name ?? ''}"? Only a subscription that never had subscribers can be deleted — otherwise deactivate it.`}
+                title="Delete membership level"
+                message={`Delete "${deleting()?.name ?? ''}"? Only a membership level that never had members can be deleted — otherwise deactivate it.`}
                 confirmLabel="Delete"
                 danger
                 onConfirm={doDelete}

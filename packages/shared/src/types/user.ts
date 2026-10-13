@@ -17,10 +17,12 @@ export interface MemberAccessState {
     subscribed: boolean;
     emailVerified: boolean;
     restricted: boolean;
-    /** First blocker: pay, then verify the email. */
-    reason: 'subscription' | 'verify_email' | null;
+    /** First blocker: pay (or wait for approval), then verify the email. */
+    reason: 'subscription' | 'pending_approval' | 'verify_email' | null;
     /** Had a paid subscription that is no longer active (renew wording). */
     lapsed: boolean;
+    /** An application waiting for an admin (any mode, signed-in members). */
+    pendingApplication?: import('../api/routes/membershipApplications').MembershipPendingApplication | null;
 }
 
 export interface User {
@@ -47,6 +49,8 @@ export interface User {
     patreonTier?: string;
     isActive: boolean;
     isBanned: boolean;
+    /** Latest membership application: pending / approved / rejected (null = never applied). */
+    approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
     lastLoginAt?: Date;
     createdAt: Date;
     updatedAt: Date;

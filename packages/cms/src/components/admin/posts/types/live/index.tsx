@@ -82,7 +82,7 @@ const CHAT_OPTIONS: { value: LiveChatMode; label: string; }[] = [
     { value: 'off', label: 'Off', },
     { value: 'public', label: 'Public — anyone signed in', },
     { value: 'members', label: 'Members', },
-    { value: 'subscribers', label: 'Subscribers', },
+    { value: 'subscribers', label: 'Paid members', },
 ];
 
 /** `typeSettings` with the live defaults filled in. */

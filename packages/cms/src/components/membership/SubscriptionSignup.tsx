@@ -7,14 +7,19 @@
  *   3 Payment  — card → a Stripe subscription, confirmed in the browser.
  *   4 Done     — access opens (or: "verify your email", when that is on).
  *
+ * A plan that REQUIRES APPROVAL adds an Application step after Plan (its form,
+ * or the built-in one), and Payment SAVES the card instead of charging it:
+ * the account is created and stays pending until an admin approves.
+ *
  * If payment fails the account stays, still restricted: the member can retry
  * here, or later from the wall / Profile → Membership.
  */
-import type { MembershipTierOption, } from '@sitesurge/types';
+import type { FormAnswer, MembershipTierOption, } from '@sitesurge/types';
 import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import Markdown from '../common/Markdown';
+import { applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, } from './MembershipApplication';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
@@ -22,12 +27,18 @@ import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/me
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
 
-type Step = 'plan' | 'account' | 'payment' | 'done';
+type Step = 'plan' | 'application' | 'account' | 'payment' | 'done';
 
 const STEPS: { key: Step; label: string; }[] = [
     { key: 'plan', label: 'Plan', },
     { key: 'account', label: 'Account', },
     { key: 'payment', label: 'Payment', },
+];
+const APPLY_STEPS: { key: Step; label: string; }[] = [
+    { key: 'plan', label: 'Plan', },
+    { key: 'application', label: 'Application', },
+    { key: 'account', label: 'Account', },
+    { key: 'payment', label: 'Card', },
 ];
 
 const SubscriptionSignup: Component = () => {
@@ -39,6 +50,11 @@ const SubscriptionSignup: Component = () => {
     const tier = () => tiers()?.find((t,) => t.id === tierId(),) ?? null;
     const [error, setError,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
+    /** Application answers (plans that require approval). */
+    const [appAnswers, setAppAnswers,] = createSignal<FormAnswer[]>([],);
+    const [applied, setApplied,] = createSignal(false,);
+    const needsApproval = () => !!tier()?.requiresApproval;
+    const steps = () => (needsApproval() ? APPLY_STEPS : STEPS);
 
     // Already signed in (e.g. came back after a failed payment): skip the account step.
     createEffect(() => {
@@ -103,7 +119,7 @@ const SubscriptionSignup: Component = () => {
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('Your payment is still processing — check back in a minute from your profile.',);
             } else if (res.result !== 'changed' && res.result !== 'unchanged') {
-                throw new Error('The subscription could not be started.',);
+                throw new Error('The membership could not be started.',);
             }
             await auth.refreshUser();
             setStep('done',);
@@ -114,16 +130,16 @@ const SubscriptionSignup: Component = () => {
         }
     };
 
-    const stepIndex = () => STEPS.findIndex((s,) => s.key === step(),);
+    const stepIndex = () => steps().findIndex((s,) => s.key === step(),);
 
     return (
         <div class="subscription-signup">
             <h1 class="join__title">Join {siteName()}</h1>
-            <p class="join__subtitle">Membership requires a subscription. Choose a plan, create your account, and pay — that's it.</p>
+            <p class="join__subtitle">Joining requires payment. Choose a plan, create your account, and pay — that's it.</p>
 
             <Show when={step() !== 'done'}>
                 <ol class="subscription-signup__steps" aria-label="Sign-up steps">
-                    <For each={STEPS}>
+                    <For each={steps()}>
                         {(s, i,) => (
                             <li classList={{ 'is-active': step() === s.key, 'is-done': i() < stepIndex(), }}>
                                 <span>{i() + 1}</span>{s.label}
@@ -154,9 +170,13 @@ const SubscriptionSignup: Component = () => {
                                         <button
                                             type="button"
                                             class="btn btn--primary subscribe-card__cta"
-                                            onClick={() => { setTierId(t.id,); setError('',); setStep(auth.user ? 'payment' : 'account',); }}
+                                            onClick={() => {
+                                                setTierId(t.id,);
+                                                setError('',);
+                                                setStep(t.requiresApproval ? 'application' : auth.user ? 'payment' : 'account',);
+                                            }}
                                         >
-                                            Join
+                                            {t.requiresApproval ? 'Apply' : 'Join'}
                                         </button>
                                     </article>
                                 )}
@@ -165,6 +185,28 @@ const SubscriptionSignup: Component = () => {
                     </Show>
                 </Show>
                 <p class="subscription-signup__login">Already a member? <A href="/login">Sign in</A></p>
+            </Show>
+
+            {/* 1b · Application (plans that require approval) */}
+            <Show when={step() === 'application' && tier()}>
+                <div class="subscription-signup__form">
+                    <p class="subscription-signup__plan">
+                        Applying for <strong>{tier()!.name}</strong> · {shownPrice(tier()!,)}{' '}
+                        <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
+                    </p>
+                    <p class="subscription-signup__hint">This membership requires approval. Tell us about yourself — you will not be charged unless you are approved.</p>
+                    <ApplicationQuestions
+                        tier={tier()!}
+                        prefill={{ name: auth.user?.displayName ?? name(), email: auth.user?.email ?? email(), }}
+                        onCollected={(answers, form,) => {
+                            setAppAnswers(answers,);
+                            const who = applicantFrom(form, answers,);
+                            if (!name()) setName(who.name,);
+                            if (!email()) setEmail(who.email,);
+                            setStep(auth.user ? 'payment' : 'account',);
+                        }}
+                    />
+                </div>
             </Show>
 
             {/* 2 · Account */}
@@ -191,13 +233,26 @@ const SubscriptionSignup: Component = () => {
                         <input id="ss-confirm" class="join__input" type="password" required minLength={8} autocomplete="new-password" value={confirmPassword()} onInput={(e,) => setConfirmPassword(e.currentTarget.value,)} />
                     </div>
                     <button type="submit" class="join__btn join__btn--primary" disabled={busy()}>
-                        {busy() ? 'Creating your account…' : 'Continue to payment'}
+                        {busy() ? 'Creating your account…' : needsApproval() ? 'Continue' : 'Continue to payment'}
                     </button>
                 </form>
             </Show>
 
+            {/* 3 · Card — an application saves it (no charge) */}
+            <Show when={step() === 'payment' && needsApproval() && tier()}>
+                <div class="subscription-signup__form">
+                    <ApplicationPayment
+                        tier={tier()!}
+                        answers={appAnswers()}
+                        onBack={() => setStep('application',)}
+                        onDone={() => { setApplied(true,); void auth.refreshUser(); setStep('done',); }}
+                    />
+                    <p class="subscription-signup__hint">Your account is created. You can sign in any time to check your application.</p>
+                </div>
+            </Show>
+
             {/* 3 · Payment */}
-            <Show when={step() === 'payment'}>
+            <Show when={step() === 'payment' && !needsApproval()}>
                 <div class="subscription-signup__form">
                     <Show when={tier()} fallback={<p>Choose a plan first. <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>See plans</button></p>}>
                         {(t,) => (
@@ -229,7 +284,13 @@ const SubscriptionSignup: Component = () => {
             </Show>
 
             {/* 4 · Done */}
-            <Show when={step() === 'done'}>
+            <Show when={step() === 'done' && applied()}>
+                <div class="join__success">
+                    <ApplicationDone tierName={tier()?.name ?? 'membership'} />
+                    <A href="/profile?tab=membership" class="join__btn join__btn--primary">View my account</A>
+                </div>
+            </Show>
+            <Show when={step() === 'done' && !applied()}>
                 <div class="join__success">
                     <h2>Welcome to {siteName()}!</h2>
                     <Show

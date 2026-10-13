@@ -567,8 +567,8 @@ const AdminPageEditor: Component = () => {
                             <Toggle
                                 checked={openAccess()}
                                 onChange={(v,) => { setOpenAccess(v,); editor.markDirty(); }}
-                                label="Open without a subscription"
-                                hint="A subscription is required on this site (Users → Settings). Members without one can still open this page — use it for landing, about or legal pages."
+                                label="Open without a membership"
+                                hint="A membership is required on this site (Users → Settings). Members without one can still open this page — use it for landing, about or legal pages."
                             />
                         </div>
                     </Show>

@@ -134,7 +134,7 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
             <ConfirmModal
                 open={deleting() !== null}
                 title="Delete role"
-                message={`Delete the "${deleting()?.label ?? ''}" role? Refused while users have it or a subscription gives it.`}
+                message={`Delete the "${deleting()?.label ?? ''}" role? Refused while users have it or a membership level gives it.`}
                 confirmLabel="Delete"
                 danger
                 onConfirm={doDelete}

@@ -149,12 +149,12 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
     },
     {
         key: 'user_subscription_changed',
-        label: 'Subscription changed',
-        description: 'Sent to a member when their subscription changes — an upgrade, a downgrade, or a cancellation back to the free plan.',
+        label: 'Membership changed',
+        description: 'Sent to a member when their membership changes — an upgrade, a downgrade, or a cancellation back to the free plan.',
         feature: 'users',
         audience: 'user',
         defaultEnabled: true,
-        defaultSubject: 'Your {{site.name}} subscription changed',
+        defaultSubject: 'Your {{site.name}} membership changed',
         variables: [
             ...USER_VARS,
             { name: 'subscription.previous.name', description: 'The plan before the change (or "None").', example: 'Free', },
@@ -163,7 +163,7 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
             { name: 'subscription.current.description', description: "The new plan's description.", example: 'Members-only videos and articles.', },
             { name: 'subscription.current.price', description: 'What the new plan costs per period.', example: '9.99 USD', },
             { name: 'subscription.current.frequency', description: 'How often it bills.', example: 'monthly', },
-            { name: 'subscription.note', description: 'When the change takes effect, and what happens to the old plan.', example: 'Your subscription was upgraded today.', },
+            { name: 'subscription.note', description: 'When the change takes effect, and what happens to the old plan.', example: 'Your membership was upgraded today.', },
         ],
     },
     {

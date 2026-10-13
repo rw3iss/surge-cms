@@ -1504,6 +1504,38 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "membershipApplications",
+        "className": "MembershipApplicationsModule",
+        "summary": "membershipApplications namespace (admin + `memberships.applications:review`) — applications for membership levels that require approval. Members apply with `cms.payments.applyMembership`.",
+        "methods": [
+            {
+                "name": "approve",
+                "signature": "approve(id: string, body: MembershipApplicationDecisionBody = {}): Promise<MembershipApplication>",
+                "summary": "POST /membership-applications/:id/approve — start the membership and charge the saved card now."
+            },
+            {
+                "name": "getById",
+                "signature": "getById(id: string): Promise<MembershipApplication>",
+                "summary": "GET /membership-applications/:id — answers, tier and saved card."
+            },
+            {
+                "name": "list",
+                "signature": "list(query: MembershipApplicationsListQuery = {}): Promise<Paginated<MembershipApplication>>",
+                "summary": "GET /membership-applications (?status=pending, ?userId=)"
+            },
+            {
+                "name": "reject",
+                "signature": "reject(id: string, body: MembershipApplicationDecisionBody = {}): Promise<MembershipApplication>",
+                "summary": "POST /membership-applications/:id/reject — nothing is charged; the applicant is emailed."
+            },
+            {
+                "name": "summary",
+                "signature": "summary(): Promise<MembershipApplicationsSummaryResponse>",
+                "summary": "GET /membership-applications/summary — `{ pending }` for the Users header."
+            }
+        ]
+    },
+    {
         "namespace": "messages",
         "className": "MessagesModule",
         "summary": "/messages namespace — public contact-form submit + admin inbox.",
@@ -1673,6 +1705,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /payments/admin/user/:userId/transactions — one user's transactions (admin)."
             },
             {
+                "name": "applyMembership",
+                "signature": "applyMembership(body: MembershipApplyBody): Promise<MembershipApplyResponse>",
+                "summary": "POST /payments/membership/apply — apply for a level that requires approval: the application answers + a card confirmed with a SetupIntent (`membershipCardSetup`). Nothing is charged until an admin approves."
+            },
+            {
                 "name": "cancelMembership",
                 "signature": "cancelMembership(): Promise<MembershipChangeResponse>",
                 "summary": "POST /payments/membership/cancel — cancel at the end of the paid period."
@@ -1786,6 +1823,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "updateRecurringDonation",
                 "signature": "updateRecurringDonation(id: string, body: RecurringDonationUpdateBody): Promise<RecurringDonation>",
                 "summary": "PUT /payments/recurring-donations/:id — change amount and/or frequency (takes effect from the next charge)."
+            },
+            {
+                "name": "withdrawMembershipApplication",
+                "signature": "withdrawMembershipApplication(): Promise<{ ok: true; }>",
+                "summary": "POST /payments/membership/apply/withdraw — withdraw your pending application."
             }
         ]
     },
@@ -2943,6 +2985,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "bulk",
+                "signature": "bulk(body: { ids: string[]; action: 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role'; value?: string; }): Promise<{ done: number; skipped: Array<{ id: string; reason: string; }>; }>",
+                "summary": "POST /users/bulk — one action on many users (skips you, and sysadmins unless you are one)."
+            },
+            {
                 "name": "create",
                 "signature": "create(body: UserCreateBody): Promise<UserCreateResponse>",
                 "summary": ""
@@ -2955,7 +3002,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "list",
                 "signature": "list(query?: UserListQuery): Promise<Paginated<UserListResponse[number]>>",
-                "summary": "GET /users — paginated admin list with search/role/status/sort filters."
+                "summary": ""
             },
             {
                 "name": "listBanned",
@@ -3055,5 +3102,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 50;
-export const SDK_METHOD_COUNT = 537;
+export const SDK_MODULE_COUNT = 51;
+export const SDK_METHOD_COUNT = 545;

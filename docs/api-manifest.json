@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-12T22:25:35.510Z",
-  "totalModules": 54,
-  "totalRoutes": 543,
+  "generatedAt": "2026-10-13T03:35:38.104Z",
+  "totalModules": 55,
+  "totalRoutes": 551,
   "modules": [
     {
       "module": "admin-channel",
@@ -1800,6 +1800,47 @@
       ]
     },
     {
+      "module": "membership-applications",
+      "mountPath": "/api/v1/membership-applications",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/membership-applications",
+          "auth": "admin",
+          "summary": "List membership applications (?status=pending, ?userId=)."
+        },
+        {
+          "method": "GET",
+          "path": "/summary",
+          "absolutePath": "/api/v1/membership-applications/summary",
+          "auth": "admin",
+          "summary": "Count of applications waiting for review (Users page header)."
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "absolutePath": "/api/v1/membership-applications/:id",
+          "auth": "admin",
+          "summary": "One application: the answers, the tier and the saved card."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/approve",
+          "absolutePath": "/api/v1/membership-applications/:id/approve",
+          "auth": "admin",
+          "summary": "Approve: start the membership and charge the saved card now (fails with the card error, leaving it pending)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/reject",
+          "absolutePath": "/api/v1/membership-applications/:id/reject",
+          "auth": "admin",
+          "summary": "Reject: nothing is charged; the applicant is emailed."
+        }
+      ]
+    },
+    {
       "module": "messages",
       "mountPath": "/api/v1/messages",
       "routes": [
@@ -2059,6 +2100,20 @@
           "absolutePath": "/api/v1/payments/membership/confirm",
           "auth": "user",
           "summary": "Activate a new subscription after the browser confirmed its first payment."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/apply",
+          "absolutePath": "/api/v1/payments/membership/apply",
+          "auth": "user",
+          "summary": "Apply for a membership level that requires approval: the answers + a card saved with a SetupIntent (charged only on approval)."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/apply/withdraw",
+          "absolutePath": "/api/v1/payments/membership/apply/withdraw",
+          "auth": "user",
+          "summary": "Withdraw your own pending membership application."
         },
         {
           "method": "POST",
@@ -3813,6 +3868,13 @@
           "absolutePath": "/api/v1/users/ban-ip",
           "auth": "admin",
           "summary": "Ban an IP address."
+        },
+        {
+          "method": "POST",
+          "path": "/bulk",
+          "absolutePath": "/api/v1/users/bulk",
+          "auth": "admin",
+          "summary": "Bulk action on many users: delete / ban / unban / activate / deactivate / role (value = role key). Skips the caller and, unless the caller is sysadmin, sysadmins."
         },
         {
           "method": "GET",

@@ -78,12 +78,12 @@ const GalleryPage: Component = () => {
                                 <UpgradeTout
                                     class="gallery-page__gate"
                                     requiredTier={cfg().requiredTier}
-                                    title={cfg().reason === 'signin' ? 'Members only' : 'Subscriber gallery'}
+                                    title={cfg().reason === 'signin' ? 'Members only' : 'Members-only gallery'}
                                     message={cfg().reason === 'signin'
                                         ? 'Log in or create an account to view the gallery.'
                                         : cfg().requiredTier
-                                        ? <>The gallery is for <strong>{cfg().requiredTier!.name}</strong> subscribers.</>
-                                        : 'The gallery requires a subscription.'}
+                                        ? <>The gallery is for <strong>{cfg().requiredTier!.name}</strong> members.</>
+                                        : 'The gallery requires a membership.'}
                                     onLoggedIn={onLoggedIn}
                                 />
                             }

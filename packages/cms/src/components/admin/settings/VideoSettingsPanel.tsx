@@ -337,7 +337,7 @@ const VideoSettingsPanel: Component = () => {
                                     checked={s().teaserEnabled}
                                     onChange={(v,) => set('teaserEnabled', v,)}
                                     label="Generate a teaser for new uploads"
-                                    hint="A public preview clip — what non-subscribers see of a private video."
+                                    hint="A public preview clip — what non-members see of a private video."
                                 />
                             </div>
                             <Show when={s().teaserEnabled}>

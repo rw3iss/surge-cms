@@ -441,7 +441,7 @@ export async function createSubmission(
     userAgent: string | undefined,
     answers: unknown,
     nonce: string | null = null,
-): Promise<boolean> {
+): Promise<string | null> {
     const result = await query(
         `INSERT INTO form_submissions (form_id, user_id, ip_address, user_agent, answers, nonce)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -450,5 +450,6 @@ export async function createSubmission(
         // user_id is a UUID FK; an api-key/synthetic submitter becomes NULL.
         [formId, uuidOrNull(userId,), ipAddress, userAgent, JSON.stringify(answers,), nonce,],
     );
-    return result.rows.length > 0;
+    // The new row's id; null = the nonce was already used (idempotent re-submit).
+    return (result.rows[0]?.id as string | undefined) ?? null;
 }

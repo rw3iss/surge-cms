@@ -31,6 +31,7 @@ import { mailEventsRoutes, } from './mailEvents';
 import { mailArchiveRoutes, } from './mailArchive';
 import { exportsRoutes, } from './exports';
 import { rolesRoutes, subscriptionTiersRoutes, } from './subscriptions';
+import { membershipApplicationsRoutes, } from './membershipApplications';
 import { mailSchedulesRoutes, } from './mailSchedules';
 import { mediaRoutes, } from './media';
 import { videoRoutes, } from './video';
@@ -87,6 +88,7 @@ router.use('/replies', registerModule('replies', repliesRoutes, { mountPath: '/a
 router.use('/mail-events', registerModule('mail-events', mailEventsRoutes, { mountPath: '/api/v1/mail-events', },),);
 router.use('/roles', registerModule('roles', rolesRoutes, { mountPath: '/api/v1/roles', },),);
 router.use('/subscription-tiers', registerModule('subscription-tiers', subscriptionTiersRoutes, { mountPath: '/api/v1/subscription-tiers', },),);
+router.use('/membership-applications', registerModule('membership-applications', membershipApplicationsRoutes, { mountPath: '/api/v1/membership-applications', },),);
 router.use('/exports', registerModule('exports', exportsRoutes, { mountPath: '/api/v1/exports', },),);
 router.use('/mail-archive', registerModule('mail-archive', mailArchiveRoutes, { mountPath: '/api/v1/mail-archive', feature: 'mailing_lists', },),);
 router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1/mail', },),);

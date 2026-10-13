@@ -113,7 +113,7 @@ const ForumThread: Component = () => {
                                 fallback={<NotFoundPage title="Thread not found" message="This thread does not exist, or it was removed." link={{ href: `/forum/${params.category}`, label: 'Back to the category', }} />}
                             >
                                 <div class="forum__notice">
-                                    <UpgradeTout title="Subscriber forum" message={(r() as Extract<Loaded, { ok: false; }>).message} />
+                                    <UpgradeTout title="Members-only forum" message={(r() as Extract<Loaded, { ok: false; }>).message} />
                                 </div>
                             </Show>
                         }

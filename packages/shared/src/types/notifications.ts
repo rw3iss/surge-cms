@@ -55,6 +55,12 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
         feature: 'users',
     },
     {
+        key: 'membership_application',
+        label: 'Membership application',
+        description: 'When a member applies for a membership level that requires approval (built-in application form; a level with its own form uses that form\'s email settings).',
+        feature: 'users',
+    },
+    {
         key: 'subscription_change',
         label: 'Subscription change',
         description: 'When a member starts, changes, or cancels a subscription.',

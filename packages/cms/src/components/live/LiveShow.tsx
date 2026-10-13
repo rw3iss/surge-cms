@@ -280,7 +280,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
             return { kind: 'login', text: r.chatMode === 'public' ? 'Log in to chat' : 'Chat is for members. Log in to chat', };
         }
         if (r.chatMode === 'subscribers' && restricted()) {
-            return { kind: 'upgrade', text: 'Chat is for subscribers only.', href: MEMBERSHIP_TAB_URL, };
+            return { kind: 'upgrade', text: 'Chat is for paid members only.', href: MEMBERSHIP_TAB_URL, };
         }
         return null;
     };
@@ -360,8 +360,8 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                             <Match when={watchable() && playback()?.reason === 'forbidden'}>
                                 <div class="live-show__locked">
                                     <UpgradeTout
-                                        title="Subscriber live show"
-                                        message="Subscribe to watch this live show."
+                                        title="Members-only live show"
+                                        message="Become a member to watch this live show."
                                         onLoggedIn={() => setPlaybackNonce((n,) => n + 1)}
                                     />
                                 </div>
@@ -450,7 +450,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                     headerExtra={
                         <Show when={room() && room()!.chatMode !== 'public' && room()!.chatMode !== 'off'}>
                             <span class="live-show__chat-mode">
-                                {room()!.chatMode === 'members' ? 'Members' : 'Subscribers'}
+                                {room()!.chatMode === 'members' ? 'Members' : 'Paid members'}
                             </span>
                         </Show>
                     }

@@ -178,7 +178,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                                             <p class="media-video__overlay-text">Processing…</p>
                                         </Show>
                                         <Show when={isLocked()}>
-                                            <p class="media-video__overlay-title">For subscribers</p>
+                                            <p class="media-video__overlay-title">For members</p>
                                             {cta()}
                                         </Show>
                                         <Show when={!isProcessing() && !isLocked()}>

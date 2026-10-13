@@ -40,6 +40,8 @@ export interface UserListQuery {
     status?: string;
     /** Subscription tier slug (`free` = no paid/assigned tier). */
     subscription?: string;
+    /** Membership application status (pending / approved / rejected). */
+    approval?: 'pending' | 'approved' | 'rejected';
     sortBy?: string;
     sortOrder?: string;
     page?: number;

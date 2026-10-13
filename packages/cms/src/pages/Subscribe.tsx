@@ -9,11 +9,16 @@
  * Choosing a tier goes to profile → Membership with that tier picked
  * (`?tab=membership&tier=<id>`), through the login page when signed out —
  * payment and changes happen there, in one place.
+ *
+ * A tier that REQUIRES APPROVAL reads "Apply": signed in → the application
+ * modal here (answers + a saved card, no charge); signed out → sign-up (or log
+ * in) first. A pending application reads "Application pending".
  */
-import { A, useNavigate, } from '@solidjs/router';
+import { A, useNavigate, useSearchParams, } from '@solidjs/router';
 import type { MembershipPublicTiersResponse, MembershipTierOption, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, Show, } from 'solid-js';
 import Markdown from '../components/common/Markdown';
+import { ApplyModal, } from '../components/membership/MembershipApplication';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
@@ -29,11 +34,11 @@ const SubscribePage: Component = () => {
     const navigate = useNavigate();
     const [data, setData,] = createSignal<MembershipPublicTiersResponse | null>(null,);
     const [failed, setFailed,] = createSignal(false,);
+    const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
+    const load = () => cms.payments.membershipTiers().then(setData,).catch(() => setFailed(true,),);
 
     // Reload when the viewer signs in/out (their "current" tier changes).
-    createEffect(on(() => auth.user?.id ?? null, () => {
-        cms.payments.membershipTiers().then(setData,).catch(() => setFailed(true,),);
-    },),);
+    createEffect(on(() => auth.user?.id ?? null, () => { void load(); },),);
 
     const signedIn = () => !!auth.user;
     const tiers = () => data()?.tiers ?? [];
@@ -45,7 +50,25 @@ const SubscribePage: Component = () => {
     /** Subscription-required mode: Free is hidden and a new visitor signs up WITH a plan. */
     const required = () => Boolean(data()?.subscriptionRequired,);
 
+    const pending = () => data()?.pendingApplication ?? null;
+
+    // Back from log-in with `?apply=<tierId>`: open that application.
+    const [search, setSearch,] = useSearchParams<{ apply?: string; }>();
+    createEffect(() => {
+        const id = search.apply;
+        if (!id || !signedIn() || !data()) return;
+        const t = tiers().find((x,) => x.id === id && x.requiresApproval && !x.isPending,);
+        setSearch({ apply: undefined, },);
+        if (t && !pending()) setApplying(t,);
+    },);
+
     const choose = (t: MembershipTierOption,) => {
+        if (t.isPending) return;
+        if (t.requiresApproval) {
+            if (signedIn()) return setApplying(t,);
+            if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}`,);
+            return navigate(loginUrl(`/subscribe?apply=${encodeURIComponent(t.id,)}`,),);
+        }
         const target = membershipUrl(t.id,);
         if (!signedIn() && required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}`,);
         navigate(signedIn() ? target : loginUrl(target,),);
@@ -53,6 +76,8 @@ const SubscribePage: Component = () => {
 
     const ctaLabel = (t: MembershipTierOption,) => {
         if (current()?.id === t.id) return 'Your current plan';
+        if (t.isPending) return 'Application pending';
+        if (t.requiresApproval) return 'Apply';
         if (t.isFree) return signedIn() ? 'Switch to Free' : 'Join for free';
         return 'Join';
     };
@@ -65,11 +90,17 @@ const SubscribePage: Component = () => {
                 canonical={`${window.location.origin}/subscribe`}
             />
 
+            <Show when={pending()}>
+                <div class="subscribe-page__required subscribe-page__pending" role="status">
+                    Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. We will email you when it is reviewed —
+                    your card will not be charged until then.
+                </div>
+            </Show>
             <Show when={walled()}>
                 <div class="subscribe-page__required" role="status">
                     {auth.access?.lapsed
                         ? 'Your membership has ended. Choose a plan to renew — or update your payment method in your profile.'
-                        : 'A subscription is required to use your account. Choose a plan below.'}
+                        : 'A membership is required to use your account. Choose a plan below.'}
                 </div>
             </Show>
             <header class="subscribe-page__header">
@@ -77,7 +108,7 @@ const SubscribePage: Component = () => {
                 <p class="subscribe-page__lead">
                     <Show when={paidAvailable()} fallback={`Everything on ${siteName()} is free to read.`}>
                         <Show when={required()} fallback={<>Support {siteName()} and get more — choose the plan that fits you.</>}>
-                            Membership to {siteName()} requires a subscription — choose the plan that fits you.
+                            Membership to {siteName()} requires payment — choose the plan that fits you.
                         </Show>
                     </Show>
                 </p>
@@ -89,7 +120,7 @@ const SubscribePage: Component = () => {
                     fallback={
                         <section class="subscribe-page__free">
                             <h2>{siteName()} is completely free</h2>
-                            <p>There are no paid subscriptions right now — every article and video is open to everyone.</p>
+                            <p>There are no paid memberships right now — every article and video is open to everyone.</p>
                             <Show when={!signedIn()}>
                                 <p class="subscribe-page__note">Create a free account to comment, get updates and more.</p>
                                 <div class="subscribe-page__actions">
@@ -123,7 +154,7 @@ const SubscribePage: Component = () => {
                         <section class="subscribe-page__tout subscribe-page__tout--current">
                             <div>
                                 <span class="subscribe-page__eyebrow">Your plan</span>
-                                <strong>{current()?.name ?? (required() ? 'No active subscription' : 'Free')}</strong>
+                                <strong>{current()?.name ?? (required() ? 'No active membership' : 'Free')}</strong>
                                 <Show when={current() && !current()!.isFree}>
                                     <span>{shownPrice(current()!,)}</span>
                                 </Show>
@@ -156,7 +187,7 @@ const SubscribePage: Component = () => {
                                     <button
                                         type="button"
                                         class={`btn subscribe-card__cta ${t.isFree ? 'btn--outline' : 'btn--primary'}`}
-                                        disabled={current()?.id === t.id}
+                                        disabled={current()?.id === t.id || !!t.isPending || (!!pending() && !!t.requiresApproval)}
                                         onClick={() => choose(t,)}
                                     >
                                         {ctaLabel(t,)}
@@ -166,6 +197,9 @@ const SubscribePage: Component = () => {
                         </For>
                     </section>
                 </Show>
+            </Show>
+            <Show when={applying()}>
+                <ApplyModal tier={applying()!} onClose={() => setApplying(null,)} onApplied={() => void load()} />
             </Show>
         </div>
     );

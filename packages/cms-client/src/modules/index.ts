@@ -34,6 +34,7 @@ import { RepliesModule, } from './replies';
 import { MailArchiveModule, } from './mailArchive';
 import { ExportsModule, } from './exports';
 import { RolesModule, SubscriptionTiersModule, } from './subscriptions';
+import { MembershipApplicationsModule, } from './membershipApplications';
 import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
@@ -88,6 +89,7 @@ export interface CmsModules {
     exports: ExportsModule;
     roles: RolesModule;
     subscriptionTiers: SubscriptionTiersModule;
+    membershipApplications: MembershipApplicationsModule;
     mailSend: MailSendModule;
     payments: PaymentsModule;
     settings: SettingsModule;
@@ -148,6 +150,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.exports = new ExportsModule(core,);
     c.roles = new RolesModule(core,);
     c.subscriptionTiers = new SubscriptionTiersModule(core,);
+    c.membershipApplications = new MembershipApplicationsModule(core,);
     c.mailSend = new MailSendModule(core,);
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
@@ -173,7 +176,7 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, UtilsModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
-    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MailSendModule, PaymentsModule,
+    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,

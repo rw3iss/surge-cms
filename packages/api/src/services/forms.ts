@@ -199,7 +199,7 @@ export interface SubmitInput {
 }
 
 export type SubmitResult =
-    | { ok: true; message: string; }
+    | { ok: true; message: string; submissionId?: string | null; }
     | { error: 'not_found' | 'unauthorized' | 'duplicate' | 'closed'; };
 
 export async function submit(input: SubmitInput,): Promise<SubmitResult> {
@@ -245,6 +245,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     // persisting a submission row.
     const shouldSave = form.action === 'submit' || form.actionConfig?.saveSubmission === true;
 
+    let submissionId: string | null = null;
     if (shouldSave) {
         const inserted = await repo.createSubmission(
             form.id,
@@ -259,6 +260,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
         if (!inserted) {
             return { ok: true, message: form.successMessage || 'Form submitted successfully', };
         }
+        submissionId = inserted;
         await cache.invalidateFormCache(form.id,);
     }
 
@@ -279,7 +281,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
             + `<p><a href="/admin/forms">View submissions in the admin</a></p>`,
     },);
 
-    return { ok: true, message: form.successMessage || 'Form submitted successfully', };
+    return { ok: true, message: form.successMessage || 'Form submitted successfully', submissionId, };
 }
 
 // ─── Submissions + CSV export ─────────────────────────────────────

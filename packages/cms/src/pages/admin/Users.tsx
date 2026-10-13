@@ -12,9 +12,15 @@ import AdminTitle from '../../components/admin/common/AdminTitle';
 import ExportMenu from '../../components/admin/common/ExportMenu';
 import ReplyActions from '../../components/admin/reply/ReplyActions';
 import { useReplySummaries, } from '../../components/admin/reply/useReplySummaries';
+import ReviewApplicationModal from '../../components/admin/applications/ReviewApplicationModal';
+import { approvalBadge, } from '../../components/admin/applications/applicationStatus';
+import '../../components/admin/applications/applications.scss';
+import { useToast, } from '../../components/common/toast';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
+    const toast = useToast();
     const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
     const currentSort = () => searchParams.sort || 'created_at_desc';
 
@@ -37,10 +43,30 @@ const AdminUsers: Component = () => {
             role: searchParams.role,
             status: searchParams.status,
             subscription: searchParams.subscription,
+            approval: searchParams.approval as 'pending' | 'approved' | 'rejected' | undefined,
             sortBy: sortBy(),
             sortOrder: sortOrder(),
         }),
     },);
+
+    // Membership applications waiting for review (header pill).
+    const [pending, { refetch: refetchPending, },] = createResource(
+        () => cms.membershipApplications.summary().then((r,) => r.pending,).catch(() => 0),
+    );
+    const togglePendingFilter = () =>
+        setSearchParams({ approval: searchParams.approval === 'pending' ? undefined : 'pending', },);
+
+    /** The application open in the review modal. */
+    const [reviewId, setReviewId,] = createSignal<string | null>(null,);
+    const openReview = async (userId: string,) => {
+        try {
+            const r = await cms.membershipApplications.list({ status: 'pending', userId, limit: 1, },);
+            if (r.data[0]) setReviewId(r.data[0].id,);
+            else toast.error('No pending application found for this user.',);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not load the application.',);
+        }
+    };
     const messages = useReplySummaries('user', () => (list.items() as any[]).map((u,) => u.id as string),);
 
     createEffect(() => {
@@ -48,9 +74,61 @@ const AdminUsers: Component = () => {
         searchParams.role;
         searchParams.status;
         searchParams.subscription;
+        searchParams.approval;
         searchParams.sort;
         list.resetPage();
+        setSelected(new Set<string>(),);
     },);
+
+    // ─── Bulk manage ───
+    // Selection is per page/filter: cleared whenever either changes.
+    const [selected, setSelected,] = createSignal(new Set<string>(),);
+    createEffect(() => { list.page(); setSelected(new Set<string>(),); },);
+    const toggleSel = (id: string,) => {
+        const next = new Set(selected(),);
+        if (next.has(id,)) next.delete(id,); else next.add(id,);
+        setSelected(next,);
+    };
+    const allSel = (items: any[],) => items.length > 0 && items.every((u,) => selected().has(u.id,),);
+    const toggleAllSel = (items: any[],) => setSelected(allSel(items,) ? new Set<string>() : new Set(items.map((u,) => u.id as string,),),);
+
+    type BulkAction = 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role';
+    const [bulkAsk, setBulkAsk,] = createSignal<BulkAction | null>(null,);
+    const [bulkBusy, setBulkBusy,] = createSignal(false,);
+    const [banReason, setBanReason,] = createSignal('',);
+    const [bulkRole, setBulkRole,] = createSignal('member',);
+
+    const runBulk = async (action: BulkAction,) => {
+        const ids = [...selected(),];
+        if (!ids.length) return;
+        const value = action === 'ban' ? banReason().trim() || undefined : action === 'role' ? bulkRole() : undefined;
+        setBulkBusy(true,);
+        try {
+            const r = await cms.users.bulk({ ids, action, value, },);
+            const reasons = [...new Set(r.skipped.map((s,) => s.reason,),),];
+            const msg = `Done: ${r.done} · Skipped: ${r.skipped.length}${reasons.length ? ` (${reasons.join('; ',)})` : ''}`;
+            if (r.skipped.length) toast.warning(msg,); else toast.success(msg,);
+            setSelected(new Set<string>(),);
+            setBulkAsk(null,);
+            setBanReason('',);
+            list.refetch();
+            void refetchPending();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'The bulk action failed.',);
+        } finally {
+            setBulkBusy(false,);
+        }
+    };
+    const n = () => selected().size;
+    const people = () => `${n()} user${n() === 1 ? '' : 's'}`;
+    const BULK_TEXT: Record<BulkAction, { title: () => string; message: () => string; label: string; danger?: boolean; }> = {
+        delete: { title: () => `Delete ${people()} permanently?`, message: () => 'Their accounts and data are removed. This cannot be undone.', label: 'Delete permanently', danger: true, },
+        ban: { title: () => `Ban ${people()}?`, message: () => 'They are signed out and cannot sign in until unbanned.', label: 'Ban', danger: true, },
+        deactivate: { title: () => `Deactivate ${people()}?`, message: () => 'They cannot sign in until activated again.', label: 'Deactivate', danger: true, },
+        role: { title: () => `Change the role of ${people()}?`, message: () => 'Their permissions change to those of the new role.', label: 'Change role', },
+        unban: { title: () => `Unban ${people()}?`, message: () => '', label: 'Unban', },
+        activate: { title: () => `Activate ${people()}?`, message: () => '', label: 'Activate', },
+    };
 
     const handleSort = (sort: string,) => setSearchParams({ sort, },);
 
@@ -100,7 +178,20 @@ const AdminUsers: Component = () => {
         <div>
             <AdminTitle>Users</AdminTitle>
             <div class="admin-header">
+                <div class="users-title">
                 <h1>Users</h1>
+                <Show when={(pending() ?? 0) > 0}>
+                    <button
+                        type="button"
+                        class="users-pending-pill"
+                        classList={{ 'is-active': searchParams.approval === 'pending', }}
+                        title={searchParams.approval === 'pending' ? 'Show all users' : 'Show only users waiting for approval'}
+                        onClick={togglePendingFilter}
+                    >
+                        {pending()} pending application{pending() === 1 ? '' : 's'}
+                    </button>
+                </Show>
+                </div>
                 <div class="admin-header__actions">
                     <A href="/admin/users/settings" class="ui-button ui-button--secondary">Settings</A>
                     <button
@@ -188,9 +279,18 @@ const AdminUsers: Component = () => {
                     class="admin-filter-bar__select"
                     onChange={(e,) => setSearchParams({ subscription: e.currentTarget.value || undefined, },)}
                 >
-                    <option value="" selected={!searchParams.subscription}>All subscriptions</option>
+                    <option value="" selected={!searchParams.subscription}>All memberships</option>
                     <For each={tiers() ?? []}>
                         {(t,) => <option value={t.slug} selected={searchParams.subscription === t.slug}>{t.name}</option>}
+                    </For>
+                </select>
+                <select
+                    class="admin-filter-bar__select"
+                    onChange={(e,) => setSearchParams({ approval: e.currentTarget.value || undefined, },)}
+                >
+                    <option value="" selected={!searchParams.approval}>All approvals</option>
+                    <For each={[['pending', 'Pending approval',], ['approved', 'Approved',], ['rejected', 'Rejected',],]}>
+                        {([v, label,],) => <option value={v} selected={searchParams.approval === v}>{label}</option>}
                     </For>
                 </select>
                 {/* Every user matching the current search, filters and sort. */}
@@ -200,6 +300,7 @@ const AdminUsers: Component = () => {
                         query={() => ({
                             search: searchParams.search, role: searchParams.role, status: searchParams.status,
                             subscription: searchParams.subscription,
+                            approval: searchParams.approval,
                             sortBy: sortBy(), sortOrder: sortOrder(),
                         })}
                     />
@@ -212,6 +313,22 @@ const AdminUsers: Component = () => {
                 emptyMessage="No users found."
                 sort={{ current: currentSort(), onSort: handleSort, }}
                 onRowClick={(user: any,) => navigate(`/admin/users/${user.id}`,)}
+                bulk={{
+                    selectedCount: n,
+                    isSelected: (id,) => selected().has(id,),
+                    toggle: toggleSel,
+                    allSelected: allSel,
+                    toggleAll: toggleAllSel,
+                    clear: () => setSelected(new Set<string>(),),
+                    actions: [
+                        { label: 'Ban…', onClick: () => setBulkAsk('ban',), },
+                        { label: 'Unban', onClick: () => void runBulk('unban',), },
+                        { label: 'Activate', onClick: () => void runBulk('activate',), },
+                        { label: 'Deactivate…', onClick: () => setBulkAsk('deactivate',), },
+                        { label: 'Change role…', onClick: () => setBulkAsk('role',), },
+                        { label: 'Delete permanently…', variant: 'danger', onClick: () => setBulkAsk('delete',), },
+                    ],
+                }}
                 pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
                 columns={[
                     { header: 'Email', sortField: 'email', cell: (user: any,) => user.email, },
@@ -219,7 +336,7 @@ const AdminUsers: Component = () => {
                     { header: 'Role', sortField: 'role', cell: (user: any,) => <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>, },
                     { header: 'Provider', cell: (user: any,) => user.authProvider, },
                     {
-                        header: 'Subscription',
+                        header: 'Membership',
                         cell: (user: any,) =>
                             user.subscription
                                 ? (
@@ -228,6 +345,27 @@ const AdminUsers: Component = () => {
                                     </span>
                                 )
                                 : <span class="badge badge--muted">Free</span>,
+                    },
+                    {
+                        header: 'Approval',
+                        cell: (user: any,) => (
+                            <Show when={approvalBadge(user.approvalStatus,)} fallback={<span class="form-help-muted">—</span>}>
+                                {(b,) => (
+                                    <span class="users-approval-cell">
+                                        <span class={b().cls}>{b().label}</span>
+                                        <Show when={user.approvalStatus === 'pending'}>
+                                            <button
+                                                type="button"
+                                                class="ui-button ui-button--primary ui-button--sm"
+                                                onClick={(e,) => { e.stopPropagation(); void openReview(user.id,); }}
+                                            >
+                                                Review
+                                            </button>
+                                        </Show>
+                                    </span>
+                                )}
+                            </Show>
+                        ),
                     },
                     { header: 'Status', cell: (user: any,) => { const s = statusBadge(user,); return <span class={`badge ${s.class}`}>{s.label}</span>; }, },
                     { header: 'Joined', sortField: 'created_at', cell: (user: any,) => formatDate(user.createdAt,), },
@@ -264,6 +402,45 @@ const AdminUsers: Component = () => {
                     },
                 ]}
             />
+
+            <Show when={bulkAsk()}>
+                {(action,) => (
+                    <ConfirmModal
+                        open
+                        title={BULK_TEXT[action()].title()}
+                        message={BULK_TEXT[action()].message() || undefined}
+                        confirmLabel={BULK_TEXT[action()].label}
+                        busyLabel="Working…"
+                        loading={bulkBusy()}
+                        danger={BULK_TEXT[action()].danger}
+                        onConfirm={() => void runBulk(action(),)}
+                        onCancel={() => setBulkAsk(null,)}
+                    >
+                        <Show when={action() === 'ban'}>
+                            <FormField label="Reason (optional)">
+                                <input type="text" maxLength={500} value={banReason()} onBlur={(e,) => setBanReason(e.currentTarget.value,)} />
+                            </FormField>
+                        </Show>
+                        <Show when={action() === 'role'}>
+                            <FormField label="New role">
+                                <select value={bulkRole()} onChange={(e,) => setBulkRole(e.currentTarget.value,)}>
+                                    <For each={(roles() ?? []).filter((r,) => r.key !== 'anonymous',)}>
+                                        {(r,) => <option value={r.key}>{r.label}</option>}
+                                    </For>
+                                </select>
+                            </FormField>
+                        </Show>
+                    </ConfirmModal>
+                )}
+            </Show>
+
+            <Show when={reviewId()}>
+                <ReviewApplicationModal
+                    applicationId={reviewId()!}
+                    onClose={() => setReviewId(null,)}
+                    onDecided={() => { setReviewId(null,); list.refetch(); void refetchPending(); }}
+                />
+            </Show>
 
             <UserPermissionsModal
                 open={permUser() !== null}

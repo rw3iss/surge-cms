@@ -27,6 +27,8 @@ const tierBody = z.object({
         interval: z.enum(['day', 'week', 'month', 'year',],),
         intervalCount: z.number().int().min(1,).max(52,),
     },).nullable().optional(),
+    requiresApproval: z.boolean().optional(),
+    applicationFormId: z.string().uuid().nullable().optional(),
     sortOrder: z.number().int().optional(),
     permissions: z.array(z.string().max(120,),).max(500,).optional(),
 },) satisfies z.ZodType<SubscriptionTierBody>;

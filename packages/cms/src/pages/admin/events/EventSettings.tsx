@@ -124,7 +124,7 @@ const AdminEventSettings: Component = () => {
                 <p class="form-help-muted">
                     Defaults for every event; an event can override both on its General tab. Seeing an event and
                     registering for it are separate, so events can be listed for everyone while only members or
-                    subscribers may register. Registering is never looser than seeing.
+                    members of a paid tier may register. Registering is never looser than seeing.
                 </p>
                 <div class="admin-event-settings__access">
                     <AccessRuleField
@@ -137,7 +137,7 @@ const AdminEventSettings: Component = () => {
                     />
                     <AccessRuleField
                         label="Who can register"
-                        tooltip="Who can register for events or get tickets. A ticket type can also require its own subscription."
+                        tooltip="Who can register for events or get tickets. A ticket type can also require its own membership tier."
                         rule={registerAccess()}
                         tierId={registerTier()}
                         tiers={tierOptions() ?? []}

@@ -1,3 +1,4 @@
+import type { MembershipPendingApplication, } from './membershipApplications';
 import type { TierDisplayPrice, } from './subscriptions';
 /**
  * membership — a signed-in user managing THEIR OWN subscription tier
@@ -27,6 +28,12 @@ export interface MembershipTierOption {
     /** Shown to members instead of the billing price/interval above (which
      *  stay the real Stripe charge). Null = show the billing price. */
     display?: TierDisplayPrice | null;
+    /** Joining needs an admin's approval: the button reads "Apply". */
+    requiresApproval?: boolean;
+    /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */
+    applicationFormSlug?: string | null;
+    /** The viewer has a pending application for this tier. */
+    isPending?: boolean;
     isCurrent: boolean;
     /** Tier rank (price order; Free = 0). */
     rank?: number;
@@ -56,6 +63,8 @@ export interface MembershipResponse {
     tiers: MembershipTierOption[];
     /** Subscription-required mode: Free is not offered; cancelling ends access. */
     subscriptionRequired?: boolean;
+    /** The member's open application, if any. */
+    pendingApplication?: MembershipPendingApplication | null;
 }
 
 /** POST /payments/membership/card/setup — a SetupIntent to confirm with the new card. */
@@ -107,4 +116,6 @@ export interface MembershipPublicTiersResponse {
     signedIn: boolean;
     /** Subscription-required mode: only paid tiers at/above the minimum are listed. */
     subscriptionRequired?: boolean;
+    /** The signed-in viewer's open application, if any. */
+    pendingApplication?: MembershipPendingApplication | null;
 }

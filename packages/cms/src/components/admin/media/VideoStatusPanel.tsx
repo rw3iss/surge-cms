@@ -276,7 +276,7 @@ const VideoStatusPanel: Component<VideoStatusPanelProps> = (props,) => {
                                     onChange={(e,) => setAccess(e.currentTarget.value as MediaAccessLevel,)}
                                 >
                                     <option value="public">Public</option>
-                                    <option value="private">Private (subscribers)</option>
+                                    <option value="private">Private (members)</option>
                                 </select>
                             </FormField>
                             <div>

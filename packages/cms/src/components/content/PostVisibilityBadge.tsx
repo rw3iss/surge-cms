@@ -38,7 +38,7 @@ export function visibilityLabel(gate: PostGate | null | undefined,): { state: Po
     const state = gate?.state ?? 'public';
     const tier = gate?.requiredTier?.name;
     if (state === 'locked') {
-        return { state, label: tier ?? 'Subscribers', title: tier ? `Requires the ${tier} subscription` : 'Requires a subscription', };
+        return { state, label: tier ?? 'Members', title: tier ? `Requires the ${tier} membership` : 'Requires a membership', };
     }
     if (state === 'premium') {
         return { state, label: 'Premium', title: tier ? `Premium content — included in your ${tier} access` : 'Premium content', };

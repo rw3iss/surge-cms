@@ -13,15 +13,15 @@ export type AccessRuleValue = 'inherit' | 'public' | 'members' | 'tier';
 const LABELS: Record<Exclude<AccessRuleValue, 'inherit'>, string> = {
     public: 'Everyone',
     members: 'Signed-in members',
-    tier: 'Subscribers (tier and up)',
+    tier: 'Members (tier and up)',
 };
 
-/** "Everyone" / "Signed-in members" / "Gold subscribers and up" — for summaries and inherit labels. */
+/** "Everyone" / "Signed-in members" / "Gold members and up" — for summaries and inherit labels. */
 export function describeAccessRule(rule: AccessRuleValue, tierId: string | null | undefined, tiers: SubscriptionTierOption[],): string {
     if (rule === 'inherit') return 'Inherit';
     if (rule !== 'tier') return LABELS[rule];
     const t = tiers.find((x,) => x.id === tierId,);
-    return t ? `${t.name} subscribers and up` : 'Subscribers';
+    return t ? `${t.name} members and up` : 'Members';
 }
 
 export interface AccessRuleFieldProps {

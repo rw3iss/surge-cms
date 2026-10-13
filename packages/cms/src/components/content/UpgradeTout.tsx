@@ -36,13 +36,15 @@ const UpgradeTout: Component<UpgradeToutProps> = (props,) => {
     const auth = useAuth();
     const [loginOpen, setLoginOpen,] = createSignal(false,);
     const tier = () => props.requiredTier?.name;
-    const title = () => props.title ?? (props.variant === 'continue' ? 'Subscribe to keep reading' : 'Subscriber content');
+    const title = () => props.title ?? (props.variant === 'continue' ? 'Become a member to keep reading' : 'Members-only content');
     const message = () => props.message ?? (
         tier()
-            ? <>This content requires the <strong>{tier()}</strong> subscription.</>
-            : 'This content requires a subscription.'
+            ? <>This content requires the <strong>{tier()}</strong> membership.</>
+            : 'This content requires a membership.'
     );
     const here = () => `${window.location.pathname}${window.location.search}`;
+    /** The member applied for a level that requires approval: tell them it is pending. */
+    const pending = () => (auth.isAuthenticated ? auth.access?.pendingApplication ?? null : null);
 
     return (
         <aside class={`upgrade-tout upgrade-tout--${props.variant ?? 'locked'}${props.class ? ` ${props.class}` : ''}`}>
@@ -52,6 +54,11 @@ const UpgradeTout: Component<UpgradeToutProps> = (props,) => {
             <div class="upgrade-tout__body">
                 <h3 class="upgrade-tout__title">{title()}</h3>
                 <p class="upgrade-tout__message">{message()}</p>
+                <Show when={pending()}>
+                    <p class="upgrade-tout__message upgrade-tout__pending">
+                        Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. You will get access once it is approved.
+                    </p>
+                </Show>
                 <div class="upgrade-tout__actions">
                     <Show
                         when={auth.isAuthenticated}
@@ -66,7 +73,7 @@ const UpgradeTout: Component<UpgradeToutProps> = (props,) => {
                             </>
                         }
                     >
-                        <A class="btn upgrade-tout__btn" href={props.upgradeHref ?? MEMBERSHIP_TAB_URL}>Upgrade account</A>
+                        <A class="btn upgrade-tout__btn" href={props.upgradeHref ?? MEMBERSHIP_TAB_URL}>{pending() ? 'View my application' : 'Upgrade account'}</A>
                     </Show>
                 </div>
             </div>

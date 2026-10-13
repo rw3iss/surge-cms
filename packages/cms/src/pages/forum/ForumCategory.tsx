@@ -110,7 +110,7 @@ const ForumCategory: Component = () => {
                                             </p>
                                         }
                                     >
-                                        <UpgradeTout title="Subscriber forum" message={(r() as Extract<Loaded, { ok: false; }>).message} />
+                                        <UpgradeTout title="Members-only forum" message={(r() as Extract<Loaded, { ok: false; }>).message} />
                                     </Show>
                                 </div>
                             </Show>

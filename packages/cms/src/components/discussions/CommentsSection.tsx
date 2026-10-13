@@ -116,7 +116,7 @@ const CommentsSection: Component<CommentsSectionProps> = (props,) => {
 
                 <Show
                     when={!forbidden()}
-                    fallback={<UpgradeTout title="Comments are for subscribers" message="Subscribe to read and join the conversation." onLoggedIn={() => void load()} />}
+                    fallback={<UpgradeTout title="Comments are for members" message="Become a member to read and join the conversation." onLoggedIn={() => void load()} />}
                 >
                     <Show when={open()} fallback={<p class="comments-section__closed">Comments are closed.</p>}>
                         <CommentComposer

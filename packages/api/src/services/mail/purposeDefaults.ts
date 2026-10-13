@@ -118,14 +118,14 @@ export async function defaultPurposeHtml(
                     + (desc ? `<br><span style="color:#6b7280;font-size:13px">${escapeHtml(desc,)}</span>` : '')
                     + `</td></tr>`;
             };
-            body = H('Your subscription changed',)
+            body = H('Your membership changed',)
                 + greeting(name,)
-                + P(escapeHtml(pick(ctx, 'subscription.note',) || 'Your subscription was updated.',),)
+                + P(escapeHtml(pick(ctx, 'subscription.note',) || 'Your membership was updated.',),)
                 + `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 16px">`
                 + row('Previous', 'subscription.previous',)
                 + row('New', 'subscription.current',)
                 + `</table>`
-                + button(`${site.siteUrl}/profile?tab=membership`, 'Manage your subscription',)
+                + button(`${site.siteUrl}/profile?tab=membership`, 'Manage your membership',)
                 + MUTED(`If you didn't make this change, contact us right away.`,);
             break;
         }

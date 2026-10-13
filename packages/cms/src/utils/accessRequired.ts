@@ -31,7 +31,7 @@ export function upgradeHref(requiredTier: { id: string; } | null | undefined, si
     return `/profile?tab=membership${requiredTier?.id ? `&tier=${encodeURIComponent(requiredTier.id,)}` : ''}`;
 }
 
-/** "the Gold subscription or higher" / "a subscription" — reads right for any tier name (even "Subscriber"). */
+/** "the Gold membership or higher" / "a membership" — reads right for any tier name (even "Subscriber"). */
 export function tierRequirement(requiredTier: { name: string; } | null | undefined,): string {
-    return requiredTier?.name ? `the ${requiredTier.name} subscription or higher` : 'a subscription';
+    return requiredTier?.name ? `the ${requiredTier.name} membership or higher` : 'a membership';
 }

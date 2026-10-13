@@ -62,7 +62,11 @@ export async function accessState(user: { id: string; role?: string | null; emai
     const base: AccessState = {
         subscriptionRequired: policy.required, subscribed: false, emailVerified: true, restricted: false, reason: null, lapsed: false,
     };
-    if (!user?.id || !policy.required || isStaffRole(user.role ?? undefined,)) return base;
+    if (!user?.id) return base;
+    // A pending application is reported in every mode (UI: "waiting for approval").
+    const { pendingApplicationFor, } = await import('./membership.js');
+    base.pendingApplication = await pendingApplicationFor(user.id,);
+    if (!policy.required || isStaffRole(user.role ?? undefined,)) return base;
     const [subscribed, row,] = await Promise.all([
         hasQualifyingSubscription(user.id, policy.minimumRank,),
         query<{ email_verified: boolean | null; ever: boolean; }>(
@@ -72,7 +76,9 @@ export async function accessState(user: { id: string; role?: string | null; emai
         ),
     ],);
     const emailVerified = !policy.requireEmailVerification || row.rows[0]?.email_verified !== false;
-    const reason: AccessReason | null = !subscribed ? 'subscription' : !emailVerified ? 'verify_email' : null;
+    const reason: AccessReason | null = !subscribed
+        ? (base.pendingApplication ? 'pending_approval' : 'subscription')
+        : !emailVerified ? 'verify_email' : null;
     return { ...base, subscribed, emailVerified, restricted: reason !== null, reason, lapsed: !subscribed && Boolean(row.rows[0]?.ever,), };
 }
 
@@ -87,6 +93,6 @@ export async function assertPurchasableMinimum(minimumTierId: string | null,): P
     if (!Number(r.rows[0]?.n ?? 0,)) {
         throw new ValidationError(minimumTierId
             ? 'The minimum tier must be a paid tier with a Stripe price.'
-            : 'Add a paid subscription tier with a Stripe price first (Users → Settings → Subscriptions).',);
+            : 'Add a paid membership level with a Stripe price first (Users → Settings → Memberships).',);
     }
 }

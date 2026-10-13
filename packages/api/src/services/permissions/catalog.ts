@@ -28,6 +28,14 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'memberships.applications:review',
+        feature: 'core',
+        label: 'Review membership applications',
+        description: 'Read applications for membership levels that require approval, and approve (start billing) or reject them.',
+        action: 'admin',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'subscriptions:manage',
         feature: 'core',
         label: 'Manage subscriptions',
