@@ -128,3 +128,24 @@
   min-height: 5.5rem;
   resize: vertical;
 }
+
+// Stripe price picker + Refresh button on one row.
+.tier-modal__price-row {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+
+  > select { flex: 1; min-width: 0; }
+}
+
+.tier-modal__display { margin-top: $spacing-sm; }
+
+// "every [2] [weeks]" display-frequency control.
+.tier-modal__freq {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+
+  > input { width: 4.5rem; }
+  > select { flex: 1; min-width: 0; }
+}

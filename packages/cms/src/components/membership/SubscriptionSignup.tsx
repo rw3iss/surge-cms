@@ -18,7 +18,7 @@ import Markdown from '../common/Markdown';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { siteName, } from '../../stores/siteSettings';
-import { freq, money, per, } from '../../utils/membershipFormat';
+import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
 
@@ -145,10 +145,11 @@ const SubscriptionSignup: Component = () => {
                                     <article class="subscribe-card subscribe-card--paid" classList={{ 'subscribe-card--current': tierId() === t.id, }}>
                                         <header class="subscribe-card__head"><h2 class="subscribe-card__name">{t.name}</h2></header>
                                         <div class="subscribe-card__price">
-                                            <span class="subscribe-card__amount">{money(t.priceCents, t.currency,)}</span>
-                                            <span class="subscribe-card__per">{per(t,)}</span>
+                                            <span class="subscribe-card__amount">{money(shown(t,).priceCents, t.currency,)}</span>
+                                            <span class="subscribe-card__per">{per(shown(t,),)}</span>
                                         </div>
                                         <span class="subscribe-card__freq">{freq(t,)}</span>
+                                        <Show when={billedNote(t,)}><span class="subscribe-card__billed">{billedNote(t,)}</span></Show>
                                         <Markdown class="subscribe-card__desc" text={t.description} />
                                         <button
                                             type="button"
@@ -170,7 +171,7 @@ const SubscriptionSignup: Component = () => {
             <Show when={step() === 'account'}>
                 <form class="join__form subscription-signup__form" onSubmit={createAccount}>
                     <p class="subscription-signup__plan">
-                        Plan: <strong>{tier()?.name}</strong> · {tier() ? `${money(tier()!.priceCents, tier()!.currency,)}${per(tier()!,)}` : ''}{' '}
+                        Plan: <strong>{tier()?.name}</strong> · {tier() ? shownPrice(tier()!,) : ''}{' '}
                         <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
                     </p>
                     <div class="join__field">
@@ -206,7 +207,8 @@ const SubscriptionSignup: Component = () => {
                                         <strong>{t().name}</strong>
                                         <span>{freq(t(),)}</span>
                                     </div>
-                                    <strong>{money(t().priceCents, t().currency,)}{per(t(),)}</strong>
+                                    <strong>{shownPrice(t(),)}</strong>
+                                    <Show when={billedNote(t(),)}> <small class="subscribe-card__billed">({billedNote(t(),)})</small></Show>
                                 </div>
                                 <p class="subscription-signup__hint">
                                     You are charged {money(t().priceCents, t().currency,)} now, then{per(t(),)} until you cancel.{' '}

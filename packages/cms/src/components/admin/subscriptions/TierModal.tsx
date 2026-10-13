@@ -5,7 +5,7 @@
  * listed read-only, so the operator only adds what is genuinely new.
  */
 import { A, } from '@solidjs/router';
-import { createMemo, createResource, createSignal, For, Show, type Component, } from 'solid-js';
+import { createMemo, createResource, createSignal, For, onCleanup, onMount, Show, type Component, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import type { PermissionWithGrants, RoleDef, StripeSubscriptionPrice, StripeSubscriptionPricesResponse, SubscriptionTier, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
@@ -42,13 +42,25 @@ const TierModal: Component<TierModalProps> = (props,) => {
         role: t?.role ?? (t ? '' : 'subscriber'),
         isActive: t?.isActive ?? true,
         stripePriceId: t?.stripePriceId ?? '',
+        // Custom price display (what members see; Stripe still bills its own price).
+        displayOn: Boolean(t?.displayPrice,),
+        displayPrice: t?.displayPrice ? (t.displayPrice.priceCents / 100).toFixed(2,) : '',
+        displayInterval: (t?.displayPrice?.interval ?? 'month') as 'day' | 'week' | 'month' | 'year',
+        displayIntervalCount: String(t?.displayPrice?.intervalCount ?? 1,),
     },);
     const [extra, setExtra,] = createSignal<string[]>(t?.permissions ?? [],);
     const [search, setSearch,] = createSignal('',);
     const [saving, setSaving,] = createSignal(false,);
     const [slugTouched, setSlugTouched,] = createSignal(Boolean(t,),);
 
-    const [stripe,] = createResource(() => cms.subscriptionTiers.stripePrices().catch((): StripeSubscriptionPricesResponse => ({ connected: false, prices: [], })),);
+    const [stripe, { refetch: refetchStripe, },] = createResource(() => cms.subscriptionTiers.stripePrices().catch((): StripeSubscriptionPricesResponse => ({ connected: false, prices: [], })),);
+    // A price is often created in Stripe WHILE this modal is open (another
+    // tab): reload the list when the window regains focus, and on demand.
+    onMount(() => {
+        const onFocus = () => { if (!stripe.loading) void refetchStripe(); };
+        window.addEventListener('focus', onFocus,);
+        onCleanup(() => window.removeEventListener('focus', onFocus,),);
+    },);
 
     /** Roles a subscription may give: everything but staff and anonymous. */
     const roleOptions = () => props.roles.filter((r,) => !isStaffRole(r.key,) && r.key !== 'anonymous',);
@@ -76,7 +88,16 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 description: form.description || null,
                 role: form.role || null,
                 isActive: form.isActive,
-                ...(t?.isFree ? {} : { stripePriceId: form.stripePriceId || null, }),
+                ...(t?.isFree ? {} : {
+                    stripePriceId: form.stripePriceId || null,
+                    displayPrice: form.displayOn && form.displayPrice.trim() !== ''
+                        ? {
+                            priceCents: Math.round(Math.max(0, Number(form.displayPrice,) || 0,) * 100,),
+                            interval: form.displayInterval,
+                            intervalCount: Math.max(1, Math.round(Number(form.displayIntervalCount,) || 1,),),
+                        }
+                        : null,
+                }),
                 permissions: extra(),
             };
             if (t) await cms.subscriptionTiers.update(t.id, body,);
@@ -143,7 +164,8 @@ const TierModal: Component<TierModalProps> = (props,) => {
 
                 <Show when={!t?.isFree}>
                     <FormField label="Stripe subscription product">
-                        <Show when={!stripe.loading} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
+                        <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
+                            <div class="tier-modal__price-row">
                             <select value={form.stripePriceId} onChange={(e,) => setForm('stripePriceId', e.currentTarget.value,)}>
                                 <option value="">-</option>
                                 <For each={stripe()?.prices ?? []}>{(p,) => <option value={p.priceId}>{priceLabel(p,)}</option>}</For>
@@ -152,6 +174,16 @@ const TierModal: Component<TierModalProps> = (props,) => {
                                     <option value={form.stripePriceId}>{form.stripePriceId} (not found in Stripe)</option>
                                 </Show>
                             </select>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--secondary ui-button--sm"
+                                disabled={stripe.loading}
+                                title="Reload the prices from Stripe"
+                                onClick={() => void refetchStripe()}
+                            >
+                                {stripe.loading ? 'Loading…' : 'Refresh'}
+                            </button>
+                            </div>
                             <Show when={!stripe()?.connected}>
                                 <p class="tier-modal__note">
                                     Subscription products are defined in Stripe, and Stripe must be connected in the{' '}
@@ -163,6 +195,47 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             </Show>
                         </Show>
                     </FormField>
+
+                    <Toggle
+                        checked={form.displayOn}
+                        onChange={(v,) => setForm('displayOn', v,)}
+                        label="Custom price display"
+                        hint="Show members a different price and frequency on /subscribe, sign-up and their profile. Stripe still bills the product's own amount and interval; the cards add a small “Billed …” line with the real charge."
+                    />
+                    <Show when={form.displayOn}>
+                        <div class="tier-modal__grid tier-modal__display">
+                            <FormField label="Display price" hint="In the price's currency, e.g. 3000.00">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={form.displayPrice}
+                                    onBlur={(e,) => setForm('displayPrice', e.currentTarget.value,)}
+                                />
+                            </FormField>
+                            <FormField label="Display frequency">
+                                <div class="tier-modal__freq">
+                                    <span>every</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={52}
+                                        value={form.displayIntervalCount}
+                                        onBlur={(e,) => setForm('displayIntervalCount', e.currentTarget.value,)}
+                                    />
+                                    <select
+                                        value={form.displayInterval}
+                                        onChange={(e,) => setForm('displayInterval', e.currentTarget.value as 'day' | 'week' | 'month' | 'year',)}
+                                    >
+                                        <option value="day">day(s)</option>
+                                        <option value="week">week(s)</option>
+                                        <option value="month">month(s)</option>
+                                        <option value="year">year(s)</option>
+                                    </select>
+                                </div>
+                            </FormField>
+                        </div>
+                    </Show>
                 </Show>
 
                 <FormField

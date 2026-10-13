@@ -84,6 +84,7 @@
   &__tout-head { display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: space-between; }
   &__tout-price { font-size: 1.4rem; font-weight: 700; small { font-size: 0.8rem; font-weight: 400; color: var(--site-text-muted, #6b7280); } }
   &__tout-freq { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+  &__tout-billed { font-size: 0.78rem; color: var(--site-text-muted, #6b7280); }
   &__tout-desc { font-size: 0.9rem; color: var(--site-text-muted, #6b7280); }
   &__badge {
     font-size: 0.7rem;

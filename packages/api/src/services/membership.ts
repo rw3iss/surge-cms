@@ -91,7 +91,8 @@ async function tierOptions(currentTierId: string | null,): Promise<MembershipTie
             priceCents: t.isFree ? 0 : p?.amount ?? t.priceCents,
             currency: p?.currency ?? 'usd',
             interval: p?.interval ?? t.interval,
-            intervalCount: p?.intervalCount ?? 1,
+            intervalCount: p?.intervalCount ?? t.intervalCount ?? 1,
+            display: t.isFree ? null : t.displayPrice ?? null,
             isCurrent: t.id === currentTierId,
             rank: t.sortOrder,
         },);
@@ -175,6 +176,8 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
         priceCents: opt?.priceCents ?? 0,
         currency: opt?.currency ?? 'usd',
         interval: opt && !opt.isFree ? opt.interval : null,
+        intervalCount: opt && !opt.isFree ? opt.intervalCount : undefined,
+        display: opt && !opt.isFree ? opt.display ?? null : null,
         currentPeriodEnd: info.currentPeriodEnd,
         cancelAtPeriodEnd: info.cancelAtPeriodEnd,
         card: await cardFor(local?.stripe_subscription_id ?? null,),
@@ -267,8 +270,9 @@ async function email(userId: string, from: MembershipTierOption | null, to: Memb
     const describe = (t: MembershipTierOption | null,) => t
         ? {
             name: t.name, description: t.description ?? '',
-            price: t.isFree ? 'Free' : `${(t.priceCents / 100).toFixed(2,)} ${t.currency.toUpperCase()}`,
-            frequency: t.isFree ? '' : frequency(t.interval, t.intervalCount,),
+            // The price members were shown (custom display when set).
+            price: t.isFree ? 'Free' : `${((t.display?.priceCents ?? t.priceCents) / 100).toFixed(2,)} ${t.currency.toUpperCase()}`,
+            frequency: t.isFree ? '' : t.display ? frequency(t.display.interval, t.display.intervalCount,) : frequency(t.interval, t.intervalCount,),
         }
         : { name: 'None', description: '', price: '', frequency: '', };
     void sendPurposeMail('user_subscription_changed', {

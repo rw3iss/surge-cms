@@ -1,3 +1,4 @@
+import type { TierDisplayPrice, } from './subscriptions';
 /**
  * membership — a signed-in user managing THEIR OWN subscription tier
  * (`/api/v1/payments/membership/*`, the profile's Membership tab).
@@ -23,6 +24,9 @@ export interface MembershipTierOption {
     currency: string;
     interval: string;
     intervalCount: number;
+    /** Shown to members instead of the billing price/interval above (which
+     *  stay the real Stripe charge). Null = show the billing price. */
+    display?: TierDisplayPrice | null;
     isCurrent: boolean;
     /** Tier rank (price order; Free = 0). */
     rank?: number;
@@ -37,6 +41,9 @@ export interface MembershipCurrent {
     priceCents: number;
     currency: string;
     interval: string | null;
+    intervalCount?: number;
+    /** The tier's custom price display, if set. */
+    display?: TierDisplayPrice | null;
     currentPeriodEnd: string | null;
     /** A scheduled cancellation: the tier ends at `currentPeriodEnd`. */
     cancelAtPeriodEnd: boolean;

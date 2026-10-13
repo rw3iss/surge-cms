@@ -132,6 +132,7 @@
   &__amount { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
   &__per { color: var(--site-text-muted, #6b7280); }
   &__freq { font-size: 0.85rem; color: var(--site-text-muted, #6b7280); }
+  &__billed { font-size: 0.78rem; color: var(--site-text-muted, #6b7280); }
 
   &__desc {
     flex: 1 1 auto;

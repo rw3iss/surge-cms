@@ -18,7 +18,7 @@ import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
-import { freq, money, per, } from '../utils/membershipFormat';
+import { billedNote, freq, money, per, shown, shownPrice, } from '../utils/membershipFormat';
 import './Subscribe.scss';
 
 const membershipUrl = (tierId?: string,) => `/profile?tab=membership${tierId ? `&tier=${encodeURIComponent(tierId,)}` : ''}`;
@@ -125,7 +125,7 @@ const SubscribePage: Component = () => {
                                 <span class="subscribe-page__eyebrow">Your plan</span>
                                 <strong>{current()?.name ?? (required() ? 'No active subscription' : 'Free')}</strong>
                                 <Show when={current() && !current()!.isFree}>
-                                    <span>{money(current()!.priceCents, current()!.currency,)}{per(current()!,)}</span>
+                                    <span>{shownPrice(current()!,)}</span>
                                 </Show>
                             </div>
                             <A href={membershipUrl()} class="btn btn--outline">Manage membership</A>
@@ -147,10 +147,11 @@ const SubscribePage: Component = () => {
                                         </Show>
                                     </header>
                                     <div class="subscribe-card__price">
-                                        <span class="subscribe-card__amount">{t.isFree ? 'Free' : money(t.priceCents, t.currency,)}</span>
-                                        <Show when={!t.isFree}><span class="subscribe-card__per">{per(t,)}</span></Show>
+                                        <span class="subscribe-card__amount">{t.isFree ? 'Free' : money(shown(t,).priceCents, t.currency,)}</span>
+                                        <Show when={!t.isFree}><span class="subscribe-card__per">{per(shown(t,),)}</span></Show>
                                     </div>
                                     <span class="subscribe-card__freq">{freq(t,)}</span>
+                                    <Show when={billedNote(t,)}><span class="subscribe-card__billed">{billedNote(t,)}</span></Show>
                                     <Markdown class="subscribe-card__desc" text={t.description} />
                                     <button
                                         type="button"

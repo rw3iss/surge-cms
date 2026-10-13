@@ -12,7 +12,12 @@ import TierModal from './TierModal';
 import './Subscriptions.scss';
 
 const money = (t: SubscriptionTier,) =>
-    t.isFree ? 'Free' : t.stripePriceId ? `$${(t.priceCents / 100).toFixed(2,)} / ${t.interval}` : '— (no Stripe price)';
+    t.isFree ? 'Free' : t.stripePriceId
+        ? `$${(t.priceCents / 100).toFixed(2,)}${t.intervalCount > 1 ? ` every ${t.intervalCount} ${t.interval}s` : ` / ${t.interval}`}`
+            + (t.displayPrice
+                ? ` (shown as $${(t.displayPrice.priceCents / 100).toFixed(2,)}${t.displayPrice.intervalCount > 1 ? ` every ${t.displayPrice.intervalCount} ${t.displayPrice.interval}s` : ` / ${t.displayPrice.interval}`})`
+                : '')
+        : '— (no Stripe price)';
 
 const SubscriptionTiersPanel: Component = () => {
     const toast = useToast();

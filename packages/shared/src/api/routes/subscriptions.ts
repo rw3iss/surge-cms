@@ -29,6 +29,17 @@ export interface RoleCreateBody {
 }
 export type RoleUpdateBody = Partial<Omit<RoleCreateBody, 'key'>>;
 
+/**
+ * What members SEE for a tier's price, instead of the Stripe billing. Stripe
+ * still bills its own amount and interval (e.g. show $3,000 / month while
+ * Stripe bills $1,500 every 2 weeks).
+ */
+export interface TierDisplayPrice {
+    priceCents: number;
+    interval: 'day' | 'week' | 'month' | 'year';
+    intervalCount: number;
+}
+
 export interface SubscriptionTier {
     id: string;
     slug: string;
@@ -40,6 +51,10 @@ export interface SubscriptionTier {
     isActive: boolean;
     priceCents: number;
     interval: string;
+    /** Stripe's interval count: 2 + `week` = every 2 weeks. */
+    intervalCount: number;
+    /** Custom price display (null = show the Stripe price). */
+    displayPrice: TierDisplayPrice | null;
     stripePriceId: string | null;
     stripeProductId: string | null;
     sortOrder: number;
@@ -57,6 +72,8 @@ export interface SubscriptionTierBody {
     isActive?: boolean;
     /** A recurring Stripe price; its product/amount/interval are copied. Null clears. */
     stripePriceId?: string | null;
+    /** Custom price display; null clears it (show the Stripe price). */
+    displayPrice?: TierDisplayPrice | null;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */
     permissions?: string[];

@@ -158,6 +158,12 @@ function mapTier(r: Record<string, unknown>,): SubscriptionTier {
         isActive: r.is_active !== false,
         priceCents: Number(r.price_cents ?? 0,),
         interval: String(r.interval ?? 'month',),
+        intervalCount: Math.max(1, Number(r.interval_count ?? 1,),),
+        displayPrice: r.display_price_cents == null ? null : {
+            priceCents: Number(r.display_price_cents,),
+            interval: (String(r.display_interval ?? 'month',)) as 'day' | 'week' | 'month' | 'year',
+            intervalCount: Math.max(1, Number(r.display_interval_count ?? 1,),),
+        },
         stripePriceId: (r.stripe_price_id as string | null) ?? null,
         stripeProductId: (r.stripe_product_id as string | null) ?? null,
         sortOrder: Number(r.sort_order ?? 0,),
@@ -193,7 +199,7 @@ export async function getTier(id: string,): Promise<SubscriptionTier> {
 }
 
 /** Copy a Stripe price's product / amount / interval onto a tier patch. */
-async function stripePriceFields(priceId: string,): Promise<{ productId: string; amount: number; interval: string; }> {
+async function stripePriceFields(priceId: string,): Promise<{ productId: string; amount: number; interval: string; intervalCount: number; }> {
     const stripe = getStripeClient('default',);
     if (!stripe) throw new ValidationError('Stripe is not connected (Settings → Payments).',);
     const price = await stripe.prices.retrieve(priceId,);
@@ -202,6 +208,7 @@ async function stripePriceFields(priceId: string,): Promise<{ productId: string;
         productId: typeof price.product === 'string' ? price.product : price.product.id,
         amount: price.unit_amount ?? 0,
         interval: price.recurring.interval,
+        intervalCount: price.recurring.interval_count ?? 1,
     };
 }
 
@@ -226,7 +233,8 @@ WITH monthly AS (
     SELECT id,
            COALESCE(is_free, false) AS free,
            COALESCE(price_cents, 0) * CASE lower(COALESCE("interval", 'month'))
-               WHEN 'year' THEN 1.0 / 12 WHEN 'week' THEN 52.0 / 12 WHEN 'day' THEN 365.0 / 12 ELSE 1 END AS per_month
+               WHEN 'year' THEN 1.0 / 12 WHEN 'week' THEN 52.0 / 12 WHEN 'day' THEN 365.0 / 12 ELSE 1 END
+               / GREATEST(COALESCE(interval_count, 1), 1) AS per_month
       FROM subscription_plans
 ), ranked AS (
     SELECT id, CASE WHEN free THEN 0 ELSE DENSE_RANK() OVER (PARTITION BY free ORDER BY per_month) END AS rank
@@ -255,14 +263,20 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
     const slug = body.slug?.trim().toLowerCase();
     if (slug !== undefined && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug,)) throw new ValidationError('Slug: lowercase letters, digits and dashes.',);
 
-    let stripe: { productId: string | null; amount: number | null; interval: string | null; } | null = null;
+    let stripe: { productId: string | null; amount: number | null; interval: string | null; intervalCount: number | null; } | null = null;
     if (body.stripePriceId !== undefined) {
         if (body.stripePriceId) {
             const f = await stripePriceFields(body.stripePriceId,);
-            stripe = { productId: f.productId, amount: f.amount, interval: f.interval, };
+            stripe = { productId: f.productId, amount: f.amount, interval: f.interval, intervalCount: f.intervalCount, };
         } else {
-            stripe = { productId: null, amount: null, interval: null, };
+            stripe = { productId: null, amount: null, interval: null, intervalCount: null, };
         }
+    }
+    // Custom price display: undefined = unchanged, null = cleared.
+    const display = body.displayPrice;
+    if (display) {
+        if (!['day', 'week', 'month', 'year',].includes(display.interval,)) throw new ValidationError('Display frequency must be day, week, month or year.',);
+        if (!(display.priceCents >= 0)) throw new ValidationError('Display price must be 0 or more.',);
     }
 
     const tierId = await transaction(async (c,) => {
@@ -270,10 +284,13 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
         if (!tid) {
             if (!body.name?.trim() || !slug) throw new ValidationError('Name and slug are required.',);
             const r = await c.query(
-                `INSERT INTO subscription_plans (slug, name, description, role, is_active, price_cents, interval, stripe_price_id, stripe_product_id, sort_order)
-                 VALUES ($1, $2, $3, $4, COALESCE($5, true), COALESCE($6, 0), COALESCE($7, 'month'), $8, $9, COALESCE($10, 50)) RETURNING id`,
+                `INSERT INTO subscription_plans (slug, name, description, role, is_active, price_cents, interval, stripe_price_id, stripe_product_id, sort_order,
+                                                 interval_count, display_price_cents, display_interval, display_interval_count)
+                 VALUES ($1, $2, $3, $4, COALESCE($5, true), COALESCE($6, 0), COALESCE($7, 'month'), $8, $9, COALESCE($10, 50),
+                         COALESCE($11, 1), $12, $13, $14) RETURNING id`,
                 [slug, body.name.trim(), body.description ?? null, body.role ?? 'subscriber', body.isActive ?? null,
-                    stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,],
+                    stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,
+                    stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,],
             );
             tid = String(r.rows[0].id,);
         } else {
@@ -290,13 +307,18 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     stripe_product_id = CASE WHEN $9 THEN $11 ELSE stripe_product_id END,
                     price_cents = CASE WHEN $9 THEN COALESCE($12, 0) ELSE price_cents END,
                     interval = CASE WHEN $9 THEN COALESCE($13, interval) ELSE interval END,
+                    interval_count = CASE WHEN $9 THEN COALESCE($15, 1) ELSE interval_count END,
+                    display_price_cents = CASE WHEN $16 THEN $17 ELSE display_price_cents END,
+                    display_interval = CASE WHEN $16 THEN $18 ELSE display_interval END,
+                    display_interval_count = CASE WHEN $16 THEN $19 ELSE display_interval_count END,
                     sort_order = COALESCE($14, sort_order),
                     updated_at = NOW()
                   WHERE id = $1`,
                 [tid, slug ?? null, body.name?.trim() || null, body.description !== undefined, body.description ?? null,
                     body.role !== undefined, body.role ?? null, body.isActive ?? null,
                     stripe !== null, body.stripePriceId || null, stripe?.productId ?? null, stripe?.amount ?? null, stripe?.interval ?? null,
-                    body.sortOrder ?? null,],
+                    body.sortOrder ?? null, stripe?.intervalCount ?? null,
+                    display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,],
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);

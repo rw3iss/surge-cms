@@ -15,7 +15,7 @@ import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe
 import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
 import { useSearchParams, } from '@solidjs/router';
 import Markdown from '../common/Markdown';
-import { freq, money, per, } from '../../utils/membershipFormat';
+import { billedNote, freq, money, per, shown, shownPrice, } from '../../utils/membershipFormat';
 import type { MembershipPreviewResponse, MembershipResponse, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -213,7 +213,9 @@ const MembershipPanel: Component = () => {
                                 <Markdown class="membership__desc" text={current()!.tier?.description} />
                             </div>
                             <div class="membership__price">
-                                {current()!.interval ? `${money(current()!.priceCents, current()!.currency,)} / ${current()!.interval}` : required() ? '—' : 'Free'}
+                                {current()!.interval
+                                    ? shownPrice({ isFree: false, priceCents: current()!.priceCents, currency: current()!.currency, interval: current()!.interval!, intervalCount: current()!.intervalCount ?? 1, display: current()!.display, },)
+                                    : required() ? '—' : 'Free'}
                             </div>
                         </div>
                         <dl class="membership__facts">
@@ -289,9 +291,10 @@ const MembershipPanel: Component = () => {
                                             <Show when={t.isCurrent}><span class="membership__badge">Current</span></Show>
                                         </span>
                                         <span class="membership__tout-price">
-                                            {t.isFree ? 'Free' : money(t.priceCents, t.currency,)}<small>{per(t,)}</small>
+                                            {t.isFree ? 'Free' : money(shown(t,).priceCents, t.currency,)}<small>{per(shown(t,),)}</small>
                                         </span>
                                         <span class="membership__tout-freq">{freq(t,)}</span>
+                                        <Show when={billedNote(t,)}><span class="membership__tout-billed">{billedNote(t,)}</span></Show>
                                         <Markdown class="membership__tout-desc" text={t.description} />
                                     </div>
                                 )}
@@ -312,13 +315,13 @@ const MembershipPanel: Component = () => {
                             <div class="membership__flow-box">
                                 <small>Current plan</small>
                                 <strong>{preview()!.from?.name ?? 'Free'}</strong>
-                                <span>{preview()!.from && !preview()!.from!.isFree ? `${money(preview()!.from!.priceCents, preview()!.from!.currency,)}${per(preview()!.from!,)}` : 'Free'}</span>
+                                <span>{preview()!.from && !preview()!.from!.isFree ? shownPrice(preview()!.from!,) : 'Free'}</span>
                             </div>
                             <div class="membership__flow-arrow" aria-hidden="true">→</div>
                             <div class="membership__flow-box membership__flow-box--to">
                                 <small>New plan</small>
                                 <strong>{preview()!.to.name}</strong>
-                                <span>{preview()!.to.isFree ? 'Free' : `${money(preview()!.to.priceCents, preview()!.to.currency,)}${per(preview()!.to,)}`}</span>
+                                <span>{preview()!.to.isFree ? 'Free' : shownPrice(preview()!.to,)}</span>
                             </div>
                         </div>
                         <dl class="membership__facts">
