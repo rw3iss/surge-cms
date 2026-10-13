@@ -165,8 +165,23 @@
         font-size: $font-size-sm;
     }
 
+    // Price left, stock right — half the row each.
+    &__price-row {
+        display: flex;
+        align-items: baseline;
+        gap: $spacing-sm;
+    }
+
+    &__price-row > #{&}__price {
+        flex: 1 1 50%;
+        min-width: 0;
+        text-align: left;
+    }
+
     &__stock {
-        margin-top: 2px;
+        flex: 1 1 50%;
+        min-width: 0;
+        text-align: right;
         font-size: $font-size-sm;
         color: var(--site-text-muted, #6b7280);
 

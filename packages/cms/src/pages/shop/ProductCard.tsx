@@ -54,22 +54,25 @@ const ProductCard: Component<ProductCardProps> = (props,) => {
                         />
                     </div>
                 </Show>
-                <div class="shop-card__price">
-                    <Show
-                        when={props.priceCents != null}
-                        fallback={<span class="shop-card__price-cta">View for price</span>}
-                    >
-                        <span class="shop-card__price-from">From</span> {money(props.priceCents!, props.currency,)}
+                {/* Price (left) + stock count (right) share one row, half each. */}
+                <div class="shop-card__price-row">
+                    <div class="shop-card__price">
+                        <Show
+                            when={props.priceCents != null}
+                            fallback={<span class="shop-card__price-cta">View for price</span>}
+                        >
+                            <span class="shop-card__price-from">From</span> {money(props.priceCents!, props.currency,)}
+                        </Show>
+                    </div>
+                    <Show when={props.showInventory && props.product.inventoryTotal != null}>
+                        <div
+                            class="shop-card__stock"
+                            classList={{ 'shop-card__stock--out': !(props.product.inventoryTotal! > 0), }}
+                        >
+                            {stockLabel(props.product.inventoryTotal!,)}
+                        </div>
                     </Show>
                 </div>
-                <Show when={props.showInventory && props.product.inventoryTotal != null}>
-                    <div
-                        class="shop-card__stock"
-                        classList={{ 'shop-card__stock--out': !(props.product.inventoryTotal! > 0), }}
-                    >
-                        {stockLabel(props.product.inventoryTotal!,)}
-                    </div>
-                </Show>
             </div>
         </A>
     );
