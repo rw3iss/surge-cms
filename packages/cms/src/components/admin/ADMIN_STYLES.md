@@ -83,6 +83,38 @@ import { FormField, FormSection } from '../../components/admin/forms';
 - **Do NOT hand-roll a form field with an unstyled `<label>`.** If you catch a
   page doing so (raw labels look large/unstyled), convert it to `FormField`.
 
+## Sections and field rows — MANDATORY spacing
+
+Every admin settings / edit page uses the SAME structure, and gets its vertical
+spacing from `pages/admin/styles/_sections.scss` — never from page-local margins:
+
+```tsx
+<section class="admin-section">
+  <header class="admin-section__header">
+    <h2>Default sender</h2>
+    <p class="form-help-muted">One line of help.</p>
+  </header>
+  <FormField label="From name">…</FormField>        {/* rows stack… */}
+  <Toggle label="…" checked={…} onChange={…} />
+  <div class="admin-form-row">                       {/* …or sit side by side */}
+    <FormField label="Price">…</FormField>
+    <FormField label="Frequency">…</FormField>
+  </div>
+</section>
+```
+
+| Gap | Where | Value |
+|---|---|---|
+| Between sections | `.admin-section + .admin-section` | `$spacing-xl` |
+| Between rows (above each label) | every direct child of `.admin-section` / `.admin-section__body` after the first | `$spacing-md` |
+| Fields on one row | `.admin-form-row` grid, `align-items: start` (labels line up even if one field has a hint) | `$spacing-md` |
+
+Rules:
+- Put rows DIRECTLY in the section (or in one `.admin-section__body`). Don't wrap each field in its own `<div>` with a margin, and don't add `margin-bottom` to fields.
+- Side-by-side fields go in `.admin-form-row` (not a hand-rolled flex row), so they align to the top. In a narrow side panel (block editor, properties) use the existing `.admin-form-row-2` (130px columns) instead.
+- The rules are `:where()` (specificity 0): a page that genuinely needs different spacing overrides them locally — but a NEW page should need nothing.
+- Check a new page at a glance: each section heading has clear air above it, and every label has a small gap above it.
+
 ## Sticky page header
 
 Every edit/list page's `.admin-header` (the title + Save/manage actions row) is

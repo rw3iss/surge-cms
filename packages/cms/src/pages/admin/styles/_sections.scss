@@ -1,0 +1,49 @@
+@use '../../../styles/variables' as *;
+
+// ─── Admin page sections + field rows — THE standard ─────────────────
+//
+// Every admin settings/edit page is built from:
+//
+//   <section class="admin-section">                 a titled group
+//     <header class="admin-section__header">
+//       <h2>Title</h2> <p class="form-help-muted">One-line help</p>
+//     </header>
+//     <FormField …/> <Toggle …/> …                  rows, stacked
+//     <div class="admin-form-row"> <FormField/> <FormField/> </div>   side by side
+//   </section>
+//
+// (`<div class="admin-section__body">` around the rows is optional — it gets
+// the same spacing.) Spacing comes from HERE, so a new page needs no local
+// margins:
+//   - sections:   $spacing-xl between consecutive sections;
+//   - rows:       $spacing-md between consecutive rows (above each label);
+//   - same row:   `.admin-form-row` aligns fields to the TOP, so labels line up
+//                 even when one field has a hint and its neighbour does not.
+//
+// All selectors are wrapped in :where() (specificity 0), so a page's own
+// rules still win when it genuinely needs something different.
+// See components/admin/ADMIN_STYLES.md → "Sections and field rows".
+
+:where(.admin-section) + :where(.admin-section) {
+  margin-top: $spacing-xl;
+}
+
+// Rows: every direct child after the first gets the row gap. Margins (not a
+// flex gap) so buttons and short controls keep their natural width.
+:where(.admin-section, .admin-section__body) > :where(* + *) {
+  margin-top: $spacing-md;
+}
+
+:where(.admin-section__header) {
+  > :where(h2, h3) { margin: 0; }
+  > :where(p) { margin: 4px 0 0; }
+}
+
+// Fields side by side: equal columns, aligned to the top, wrapping on narrow
+// screens.
+:where(.admin-form-row) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $spacing-md;
+  align-items: start;
+}
