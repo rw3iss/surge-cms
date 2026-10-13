@@ -498,7 +498,7 @@ const MembershipPanel: Component = () => {
                                 <div><dt>Then</dt><dd>{money(preview()!.nextAmount, preview()!.currency,)}{per(preview()!.to,)} from {longDate(preview()!.nextDate,)}</dd></div>
                             </Show>
                         </dl>
-                        <p class="membership__explain">
+                        <div class="membership__explain">
                             <Show
                                 when={preview()!.direction === 'cancel'}
                                 fallback={
@@ -509,9 +509,33 @@ const MembershipPanel: Component = () => {
                                                 when={preview()!.direction === 'billing'}
                                                 fallback={<>Your current plan is cancelled now and replaced by {preview()!.to.name}. Unused time on it is credited against the new price.</>}
                                             >
-                                                Your {preview()!.to.name} membership switches from{' '}
-                                                {preview()!.from ? freq(preview()!.from!,).toLowerCase() : 'its current'} to {freq(preview()!.to,).toLowerCase()} billing today.
-                                                Unused time on your current billing is credited against the new price.
+                                                <span class="membership__billing-explain">
+                                                    <strong>How the switch works</strong>
+                                                    <ul>
+                                                        <li>
+                                                            It happens <strong>today</strong> — your {preview()!.to.name} membership simply moves from{' '}
+                                                            {preview()!.from ? freq(preview()!.from!,).toLowerCase() : 'its current'} to {freq(preview()!.to,).toLowerCase()} billing.
+                                                            Nothing is cancelled and your access doesn't change.
+                                                        </li>
+                                                        <li>
+                                                            The unused part of your current {preview()!.from ? freq(preview()!.from!,).toLowerCase() : ''} period
+                                                            {preview()!.from ? <> ({money(preview()!.from!.priceCents, preview()!.from!.currency,)}{per(preview()!.from!,)})</> : ''} is credited (pro-rated by the day).
+                                                        </li>
+                                                        <li>
+                                                            <Show
+                                                                when={preview()!.amountDueNow > 0}
+                                                                fallback={<>That credit covers the first {freq(preview()!.to,).toLowerCase()} period, so nothing is charged today{preview()!.creditAfter > 0 ? <> — the remaining {money(preview()!.creditAfter, preview()!.currency,)} is applied to your next bill</> : ''}.</>}
+                                                            >
+                                                                Today you're charged <strong>{money(preview()!.amountDueNow, preview()!.currency,)}</strong>: the new {freq(preview()!.to,).toLowerCase()} price
+                                                                ({money(preview()!.to.priceCents, preview()!.to.currency,)}) minus that credit.
+                                                            </Show>
+                                                        </li>
+                                                        <li>
+                                                            After that you're billed {money(preview()!.nextAmount, preview()!.currency,)}{per(preview()!.to,)}
+                                                            <Show when={preview()!.nextDate}>, next on {longDate(preview()!.nextDate,)}</Show>, until you change or cancel.
+                                                        </li>
+                                                    </ul>
+                                                </span>
                                             </Show>
                                         }
                                     >
@@ -522,7 +546,7 @@ const MembershipPanel: Component = () => {
                                 Your {preview()!.from?.name} membership is cancelled. You keep it until{' '}
                                 {longDate(preview()!.effectiveDate,) || 'the end of the period you paid for'}, then move to the free plan. You won't be charged again.
                             </Show>
-                        </p>
+                        </div>
 
                         <Show when={preview()!.requiresPayment}>
                             <label class="profile__label">Card</label>

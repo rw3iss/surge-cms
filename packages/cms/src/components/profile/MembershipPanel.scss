@@ -150,3 +150,15 @@
 .membership__badge--apply { background: #e0e7ff; color: #3730a3; }
 
 .membership__pending--failed { border-color: #ef4444; background: #fef2f2; }
+
+// Confirm step → "How the switch works" for a billing-frequency change.
+.membership__billing-explain {
+  display: block;
+
+  ul {
+    margin: 0.4rem 0 0;
+    padding-left: 1.2rem;
+  }
+
+  li { margin: 0.25rem 0; }
+}
