@@ -18,6 +18,8 @@ import { deleteById, updateById, } from '../base.repo';
 const PRODUCT_LIST_EXTRAS = `
     (SELECT MIN(v.price_cents) FROM shop_variants v
          WHERE v.product_id = p.id) AS from_price_cents,
+    (SELECT COALESCE(SUM(GREATEST(v.inventory_qty, 0)), 0)::int FROM shop_variants v
+         WHERE v.product_id = p.id) AS inventory_total,
     (SELECT COALESCE(m.url, spm.external_url) FROM shop_product_media spm
          LEFT JOIN media m ON m.id = spm.media_id
          WHERE spm.product_id = p.id AND spm.kind = 'image'

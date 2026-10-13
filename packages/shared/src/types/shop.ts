@@ -39,6 +39,9 @@ export interface ShopProduct {
     /** Minimum variant price (cents). Populated on list responses
      *  (findPublicProducts / findAllProducts); undefined on other reads. */
     fromPriceCents?: number;
+    /** Units in stock across all variants. Populated on list responses
+     *  (shown on cards when `ShopAppearance.showInventory` is on). */
+    inventoryTotal?: number;
     /** URL of the product's position-0 image. Populated on list responses;
      *  undefined on other reads, null when the product has no image. */
     primaryImageUrl?: string | null;
@@ -338,6 +341,9 @@ export interface ShopSettings {
 export interface ShopAppearance {
     gridColumns: number;
     showRatings: boolean;
+    /** Show the units in stock on product cards and the product page
+     *  ("12 in stock" / "Out of stock"). Default off. */
+    showInventory?: boolean;
     cardStyle: string;
     currencyDisplay?: string;
 }

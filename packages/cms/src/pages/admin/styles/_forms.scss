@@ -164,6 +164,14 @@
     width: 100%;
     max-width: none;
   }
+
+  // A full-width textarea must stay inside its column: a horizontal drag of
+  // the resize grip sets an inline px width that ran under the neighbouring
+  // column (product editor Description). Height stays user-resizable.
+  .admin-form-field__control > textarea {
+    max-width: 100%;
+    resize: vertical;
+  }
 }
 
 // Compact field: keep a short control at a sensible width (Submit button text).

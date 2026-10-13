@@ -54,6 +54,7 @@ const ShopSettingsInner: Component = () => {
     const [appearance, setAppearance,] = createStore<ShopAppearance>({
         gridColumns: 3,
         showRatings: true,
+        showInventory: false,
         cardStyle: 'standard',
         currencyDisplay: 'symbol',
     },);
@@ -256,6 +257,14 @@ const ShopSettingsInner: Component = () => {
                             </FormField>
                             <div class="form-group">
                                 <Toggle label="Show product ratings" checked={appearance.showRatings} onChange={(v,) => setAppearance('showRatings', v,)} />
+                            </div>
+                            <div class="form-group">
+                                <Toggle
+                                    label="Show inventory count"
+                                    hint="Show the units in stock on /shop product cards and beside the price on product pages."
+                                    checked={!!appearance.showInventory}
+                                    onChange={(v,) => setAppearance('showInventory', v,)}
+                                />
                             </div>
                         </Show>
 

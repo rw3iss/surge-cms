@@ -53,6 +53,8 @@ const POSITION_ORDER = 'ORDER BY position ASC NULLS LAST, updated_at DESC';
 const LIST_EXTRAS = `
     (SELECT MIN(v.price_cents) FROM shop_variants v
          WHERE v.product_id = shop_products.id) AS from_price_cents,
+    (SELECT COALESCE(SUM(GREATEST(v.inventory_qty, 0)), 0)::int FROM shop_variants v
+         WHERE v.product_id = shop_products.id) AS inventory_total,
     (SELECT COALESCE(m.url, spm.external_url) FROM shop_product_media spm
          LEFT JOIN media m ON m.id = spm.media_id
          WHERE spm.product_id = shop_products.id AND spm.kind = 'image'

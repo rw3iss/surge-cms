@@ -240,6 +240,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             const shopAppearance = {
                 gridColumns: 3,
                 showRatings: true,
+                showInventory: false,
                 cardStyle: 'standard',
             };
             await client.query(

@@ -265,6 +265,7 @@ const shopSettingsPatch = z.object({
 const shopAppearancePatch = z.object({
     gridColumns: z.number().int().min(1,).max(6,).optional(),
     showRatings: z.boolean().optional(),
+    showInventory: z.boolean().optional(),
     cardStyle: z.string().optional(),
     currencyDisplay: z.string().optional(),
 },);

@@ -2,7 +2,7 @@ import { A, } from '@solidjs/router';
 import type { ShopProduct, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 import StarRating from './StarRating';
-import { money, } from './shopFormat';
+import { money, stockLabel, } from './shopFormat';
 
 interface ProductCardProps {
     product: ShopProduct;
@@ -10,6 +10,8 @@ interface ProductCardProps {
     cardStyle?: string;
     /** appearance: whether to show the star rating */
     showRatings?: boolean;
+    /** appearance: show units in stock (`product.inventoryTotal`) */
+    showInventory?: boolean;
     /** display currency for any price shown */
     currency?: string;
     /** optional starting price (cents). List rows carry this as
@@ -60,6 +62,14 @@ const ProductCard: Component<ProductCardProps> = (props,) => {
                         <span class="shop-card__price-from">From</span> {money(props.priceCents!, props.currency,)}
                     </Show>
                 </div>
+                <Show when={props.showInventory && props.product.inventoryTotal != null}>
+                    <div
+                        class="shop-card__stock"
+                        classList={{ 'shop-card__stock--out': !(props.product.inventoryTotal! > 0), }}
+                    >
+                        {stockLabel(props.product.inventoryTotal!,)}
+                    </div>
+                </Show>
             </div>
         </A>
     );

@@ -9,7 +9,7 @@ import { siteName, } from '../../stores/siteSettings';
 import { addToCart, } from '../../stores/shopCart';
 import ShopStoreGuard from './ShopStoreGuard';
 import StarRating from './StarRating';
-import { money, ratingLabel, } from './shopFormat';
+import { money, ratingLabel, stockLabel, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import './shop.scss';
 
@@ -196,6 +196,10 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
     const inStock = () => (resolvedVariant()?.inventoryQty ?? 0) > 0;
     const price = () => resolvedVariant()?.priceCents;
     const compareAt = () => resolvedVariant()?.compareAtPriceCents;
+    /** Units in stock for the chosen variant, or the whole product until one is chosen. */
+    const stockQty = () => resolvedVariant()?.inventoryQty
+        ?? variants().reduce((sum, v,) => sum + Math.max(0, v.inventoryQty || 0,), 0,);
+    const showStock = () => !!shopCfg()?.appearance?.showInventory && variants().length > 0;
 
     // Shipping display for the selected variant.
     const shippingLabel = (): string => {
@@ -382,6 +386,11 @@ const ProductDetail: Component<{ product: ShopProductDetail; isLoggedIn: boolean
                             <Show when={compareAt() && compareAt()! > price()!}>
                                 <span class="shop-product__price-was">{money(compareAt()!,)}</span>
                             </Show>
+                        </Show>
+                        <Show when={showStock()}>
+                            <span class="shop-product__stock" classList={{ 'shop-product__stock--out': stockQty() <= 0, }}>
+                                {stockLabel(stockQty(),)}
+                            </span>
                         </Show>
                     </div>
 

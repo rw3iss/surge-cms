@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: ShopSettings = {
 const DEFAULT_APPEARANCE: ShopAppearance = {
     gridColumns: 3,
     showRatings: true,
+    showInventory: false,
     cardStyle: 'standard',
 };
 

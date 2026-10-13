@@ -353,6 +353,7 @@ const ShopIndexInner: Component = () => {
                                             product={product}
                                             cardStyle={appearance().cardStyle}
                                             showRatings={appearance().showRatings}
+                                            showInventory={appearance().showInventory}
                                             currency={currency()}
                                             priceCents={product.fromPriceCents}
                                             image={product.primaryImageUrl}
