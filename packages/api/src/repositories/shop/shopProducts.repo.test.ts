@@ -111,7 +111,7 @@ describe('replaceProductStructure matches existing variants by option triple', (
         // its id so carts and order items still resolve.
         expect(inserts,).toHaveLength(0,);
         expect(updates,).toHaveLength(1,);
-        expect(updates[0].params.at(-1,),).toBe('v-existing',);
+        expect(updates[0].params[14],).toBe('v-existing',);
     },);
 
     it('still INSERTs a genuinely new option combination', async () => {

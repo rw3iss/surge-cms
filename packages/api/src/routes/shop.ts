@@ -54,6 +54,7 @@ const variantInputSchema = z.object({
     priceCents: z.number().int().min(0,),
     compareAtPriceCents: z.number().int().min(0,).nullish(),
     inventoryQty: z.number().int().optional(),
+    inventoryManual: z.boolean().optional(),
     weightGrams: z.number().int().nullish(),
     requiresShipping: z.boolean().optional(),
     shippingCents: z.number().int().min(0,).nullish(),

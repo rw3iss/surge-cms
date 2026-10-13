@@ -388,6 +388,9 @@ export interface StructureVariantInput {
     priceCents: number;
     compareAtPriceCents?: number | null;
     inventoryQty?: number;
+    /** Admin hand-set inventory (true) / follow the provider (false);
+     *  undefined = keep the stored flag (a provider sync never sends it). */
+    inventoryManual?: boolean;
     weightGrams?: number | null;
     requiresShipping?: boolean;
     shippingCents?: number | null;
@@ -415,6 +418,14 @@ export interface ProductStructure {
     options?: StructureOptionInput[];
     variants?: StructureVariantInput[];
     media?: StructureMediaInput[];
+    /**
+     * `provider` = a supplier sync (Printify / Apliiq). A variant whose
+     * inventory the admin set by hand (`inventory_manual`) then keeps its
+     * value, lowered only when the provider reports fewer units
+     * (`LEAST(ours, provider)`), so the admin caps how many orders reach the
+     * supplier. Omitted = an admin/API write: the sent quantity is stored.
+     */
+    inventorySource?: 'provider';
 }
 
 /** A product's CMS-added media — imported assets (media_id set), NOT the
@@ -560,6 +571,8 @@ export async function replaceProductStructure(
                     v.isDefault ?? null,
                     v.externalId ?? null,
                 ];
+                const fromProvider = structure.inventorySource === 'provider';
+                const manual = v.inventoryManual ?? null;
                 // external_id wins; the option triple is the fallback. `keptIds`
                 // guards against two incoming variants claiming the same row.
                 const optKey = optionKey(v.option1, v.option2, v.option3,);
@@ -571,12 +584,18 @@ export async function replaceProductStructure(
                 if (existingId) {
                     await c.query(
                         `UPDATE shop_variants SET
-                            sku = $1, price_cents = $2, compare_at_price_cents = $3, inventory_qty = $4,
+                            sku = $1, price_cents = $2, compare_at_price_cents = $3,
+                            inventory_qty = CASE WHEN $16::boolean AND inventory_manual
+                                                 THEN LEAST(inventory_qty, $4) ELSE $4 END,
+                            inventory_manual = COALESCE($17::boolean, inventory_manual),
                             weight_grams = $5, requires_shipping = $6, shipping_cents = $7,
                             option1 = $8, option2 = $9, option3 = $10, image_id = $11, position = $12,
-                            is_default = COALESCE($13, is_default), external_id = $14, updated_at = NOW()
+                            is_default = COALESCE($13, is_default),
+                            -- The admin editor never sends the provider's variant id;
+                            -- keep the stored one (clearing it broke fulfilment).
+                            external_id = COALESCE($14, external_id), updated_at = NOW()
                          WHERE id = $15`,
-                        [...cols, existingId,],
+                        [...cols, existingId, fromProvider, manual,],
                     );
                     keptIds.add(existingId,);
                 } else {
@@ -588,10 +607,11 @@ export async function replaceProductStructure(
                     const ins = await c.query<{ id: string; }>(
                         `INSERT INTO shop_variants (product_id, sku, price_cents, compare_at_price_cents,
                                                     inventory_qty, weight_grams, requires_shipping, shipping_cents,
-                                                    option1, option2, option3, image_id, position, is_default, external_id)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                                                    option1, option2, option3, image_id, position, is_default, external_id,
+                                                    inventory_manual)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, COALESCE($16::boolean, false))
                              RETURNING id`,
-                        [productId, ...insertCols,],
+                        [productId, ...insertCols, manual,],
                     );
                     keptIds.add(ins.rows[0].id,);
                 }

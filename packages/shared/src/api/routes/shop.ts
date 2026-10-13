@@ -47,6 +47,10 @@ export interface ShopVariantInput {
     priceCents: number;
     compareAtPriceCents?: number | null;
     inventoryQty?: number;
+    /** true = the admin set this inventory by hand (a provider sync keeps it,
+     *  only lowering it to the provider's count); false = follow the provider.
+     *  Omitted = keep the stored flag. */
+    inventoryManual?: boolean;
     weightGrams?: number | null;
     requiresShipping?: boolean;
     /** Per-variant flat shipping cost (cents) for flat-fee products. */

@@ -80,6 +80,9 @@ export interface ShopVariant {
     priceCents: number;
     compareAtPriceCents?: number | null;
     inventoryQty: number;
+    /** Inventory set by hand in the admin: a provider sync keeps it and only
+     *  lowers it when the provider reports fewer units. */
+    inventoryManual?: boolean;
     weightGrams?: number | null;
     requiresShipping: boolean;
     /** Per-variant flat shipping cost (cents). Used when the product is flat-fee

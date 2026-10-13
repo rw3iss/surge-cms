@@ -175,6 +175,8 @@ async function upsertOne(p: PrintifyProduct, cfg: PrintifyConfig,): Promise<{ pu
         options,
         variants,
         media: [...media, ...cmsMedia,],
+        // Admin hand-set inventory survives the sync (only lowered to ours).
+        inventorySource: 'provider',
     },);
     // Attribute each provider image to its variant. Done AFTER the structure
     // write because our variant UUIDs don't exist until then; joined through

@@ -11,6 +11,7 @@ import type {
     ShopProductDetail,
     ShopVariantInput,
 } from '@sitesurge/types';
+import Tooltip from '../../../components/admin/common/Tooltip';
 import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
@@ -47,7 +48,11 @@ interface VariantRow {
     sku: string;
     price: string;
     compareAt: string;
+    /** Editable units. On a provider-synced product an EMPTY field means
+     *  "follow the provider"; a number is a hand-set (manual) inventory. */
     inventory: string;
+    /** The stored quantity when loaded — kept when the field is left empty. */
+    storedInventory: number;
     weight: string;
     requiresShipping: boolean;
     /** Per-variant flat shipping cost, as editable dollars. */
@@ -113,6 +118,7 @@ const emptyVariant = (o1: string | null, o2: string | null, o3: string | null,):
     price: '',
     compareAt: '',
     inventory: '0',
+    storedInventory: 0,
     weight: '',
     requiresShipping: true,
     shipping: '',
@@ -193,7 +199,10 @@ const ShopProductEditorInner: Component = () => {
                     sku: v.sku || '',
                     price: centsToDollars(v.priceCents,),
                     compareAt: centsToDollars(v.compareAtPriceCents,),
-                    inventory: String(v.inventoryQty ?? 0,),
+                    // Provider products: show the number only when hand-set;
+                    // empty = follow the provider (shown as the placeholder).
+                    inventory: d.externalProvider && !v.inventoryManual ? '' : String(v.inventoryQty ?? 0,),
+                    storedInventory: v.inventoryQty ?? 0,
                     weight: v.weightGrams != null ? String(v.weightGrams,) : '',
                     requiresShipping: v.requiresShipping,
                     shipping: v.shippingCents != null ? centsToDollars(v.shippingCents,) : '',
@@ -447,6 +456,22 @@ const ShopProductEditorInner: Component = () => {
 
     // ── Save ──────────────────────────────────────────────────────────
 
+    /** A provider-synced product (Printify / Apliiq …). */
+    const isProviderProduct = () => !!loaded()?.externalProvider;
+
+    /**
+     * Inventory for one variant row. Native products store the number as
+     * typed. On a provider product a number marks the inventory MANUAL (a sync
+     * keeps it, only lowering it to the provider's count) and an empty field
+     * hands it back to the provider (stored value kept until the next sync).
+     */
+    const inventoryFields = (v: VariantRow,): Pick<ShopVariantInput, 'inventoryQty' | 'inventoryManual'> => {
+        if (!isProviderProduct()) return { inventoryQty: parseInt(v.inventory || '0', 10,) || 0, };
+        const typed = v.inventory.trim();
+        if (typed === '') return { inventoryQty: v.storedInventory, inventoryManual: false, };
+        return { inventoryQty: Math.max(0, parseInt(typed, 10,) || 0,), inventoryManual: true, };
+    };
+
     const buildPayload = (): ShopProductCreateBody => {
         const optionInputs: ShopOptionInput[] = options
             .filter((o,) => o.name.trim() && parseValues(o.valuesText,).length > 0)
@@ -460,7 +485,7 @@ const ShopProductEditorInner: Component = () => {
             sku: v.sku || null,
             priceCents: dollarsToCents(v.price,),
             compareAtPriceCents: v.compareAt ? dollarsToCents(v.compareAt,) : null,
-            inventoryQty: parseInt(v.inventory || '0', 10,) || 0,
+            ...inventoryFields(v,),
             weightGrams: v.weight ? parseInt(v.weight, 10,) : null,
             requiresShipping: v.requiresShipping,
             // Per-variant flat shipping only matters for flat-fee products not
@@ -979,7 +1004,12 @@ const ShopProductEditorInner: Component = () => {
                                         <th>SKU</th>
                                         <th>Price</th>
                                         <th>Compare at</th>
-                                        <th>Inventory</th>
+                                        <th>
+                                            Inventory
+                                            <Show when={isProviderProduct()}>
+                                                <Tooltip header="Provider inventory" content="Leave empty to follow the provider's stock. Enter a number to set your own: provider syncs keep it and only lower it when the provider has fewer units, and every order still counts it down." />
+                                            </Show>
+                                        </th>
                                         <th>Weight (g)</th>
                                         <th>Ships</th>
                                         <Show when={showVariantShipping()}><th>Shipping ($)</th></Show>
@@ -1060,7 +1090,12 @@ const ShopProductEditorInner: Component = () => {
                                                 <td>
                                                     <input
                                                         type="number"
+                                                        min={0}
                                                         value={v.inventory}
+                                                        placeholder={isProviderProduct() ? `Provider (${v.storedInventory})` : undefined}
+                                                        title={isProviderProduct()
+                                                            ? 'Empty = follow the provider. A number is kept on every sync and only lowered when the provider has fewer.'
+                                                            : undefined}
                                                         onInput={(e,) => setVariants(i(), 'inventory', e.currentTarget.value,)}
                                                     />
                                                 </td>

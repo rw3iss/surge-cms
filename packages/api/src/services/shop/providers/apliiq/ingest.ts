@@ -281,6 +281,7 @@ export async function ingestApliiqProduct(
         options: mergedOptions.length ? mergedOptions : options,
         variants: mergedVariants,
         media: allMedia,
+        inventorySource: 'provider',
     },);
 
     // Link each image to the variant it depicts.
