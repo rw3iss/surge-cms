@@ -11,6 +11,7 @@ import { Component, createSignal, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
+import { choiceTarget, takeChoice, } from '../utils/membershipChoice';
 import './Join.scss';
 
 const VerifyEmail: Component = () => {
@@ -51,7 +52,11 @@ const VerifyEmail: Component = () => {
                         </svg>
                         <h2>Email Verified</h2>
                         <p>Your email address has been confirmed and you're now signed in to {siteName()}.</p>
-                        <button class="join__btn join__btn--primary" onClick={() => window.location.assign('/',)}>
+                        {/* A level chosen on /subscribe before signing up: finish it now. */}
+                        <button
+                            class="join__btn join__btn--primary"
+                            onClick={() => { const c = takeChoice(); window.location.assign(c ? choiceTarget(c,) : '/',); }}
+                        >
                             Continue
                         </button>
                     </div>

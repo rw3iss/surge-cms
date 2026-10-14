@@ -1,9 +1,12 @@
-import { A, } from '@solidjs/router';
-import { Component, createSignal, Show, } from 'solid-js';
+import type { MembershipTierOption, } from '@sitesurge/types';
+import { A, useSearchParams, } from '@solidjs/router';
+import { Component, createResource, createSignal, onMount, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { isFeatureEnabled, isPatreonEnabled, siteName, siteSettings, } from '../stores/siteSettings';
 import SubscriptionSignup from '../components/membership/SubscriptionSignup';
+import { shownPrice, tierAtPrice, } from '../utils/membershipFormat';
+import { loginUrlFor, rememberChoice, type MembershipChoice, } from '../utils/membershipChoice';
 import './Join.scss';
 
 const Join: Component = () => {
@@ -16,6 +19,22 @@ const Join: Component = () => {
     const [isLoading, setIsLoading,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
     const [verifyRequired, setVerifyRequired,] = createSignal(false,);
+
+    // A level chosen on /subscribe (`?tier=&price=[&apply=1]`): shown here, and
+    // remembered so sign-in / email verification lands on it afterwards.
+    const [params,] = useSearchParams<{ tier?: string; price?: string; apply?: string; }>();
+    const choice = (): MembershipChoice | null =>
+        params.tier ? { tier: params.tier, price: params.price ?? null, apply: params.apply === '1', } : null;
+    onMount(() => { const c = choice(); if (c && !siteSettings()?.membership?.required) rememberChoice(c,); },);
+    const [chosenTier,] = createResource(
+        () => params.tier,
+        (id,) => cms.payments.membershipTiers().then((r,) => r.tiers.find((t,) => t.id === id,) ?? null,).catch(() => null,),
+    );
+    const chosenLabel = (t: MembershipTierOption,) => {
+        if (t.priceHidden) return t.name;
+        const priced = tierAtPrice(t, params.price ?? null,);
+        return `${t.name} — ${shownPrice(priced,)}`;
+    };
 
     const handlePatreonJoin = () => {
         window.location.href = '/api/v1/auth/patreon?intent=register';
@@ -92,11 +111,30 @@ const Join: Component = () => {
                                     before signing in.
                                 </p>
                             </Show>
-                            <A href="/login" class="join__btn join__btn--primary">Sign In</A>
+                            <Show when={choice()}>
+                                <p>
+                                    {verifyRequired()
+                                        ? 'After you verify your email, you will be taken to finish your membership.'
+                                        : 'Sign in to finish your membership.'}
+                                </p>
+                            </Show>
+                            <A href={loginUrlFor(choice(),)} class="join__btn join__btn--primary">Sign In</A>
                         </div>
                     }
                 >
                     <h1 class="join__title">Join {siteName()}</h1>
+                    <Show when={chosenTier()}>
+                        {(t,) => (
+                            <div class="join__notice join__chosen">
+                                <span>
+                                    You chose <strong>{chosenLabel(t(),)}</strong>.{' '}
+                                    {choice()?.apply
+                                        ? 'Create your account first; then you can send your application.'
+                                        : 'Create your account first; then you can finish your membership.'}
+                                </span>
+                            </div>
+                        )}
+                    </Show>
                     <Show when={isPatreonEnabled()}>
                         <p class="join__subtitle">Get access to exclusive content and community</p>
                     </Show>
@@ -295,7 +333,7 @@ const Join: Component = () => {
 
                     <div class="join__login-prompt">
                         <span>Already have an account?</span>
-                        <A href="/login" class="join__login-link">Sign In</A>
+                        <A href={loginUrlFor(choice(),)} class="join__login-link">Sign In</A>
                     </div>
                 </Show>
                 </Show>

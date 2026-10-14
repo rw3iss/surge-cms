@@ -5,6 +5,7 @@ import LoginForm from '../components/auth/LoginForm';
 import SeoHead from '../components/common/seo/SeoHead';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
+import { choiceTarget, takeChoice, } from '../utils/membershipChoice';
 import './Login.scss';
 
 /** `/login` — the page frame around the shared `LoginForm`. */
@@ -20,10 +21,12 @@ const Login: Component = () => {
      * plans page.
      */
     const afterLogin = (role: string | undefined,): string => {
-        const target = returnTarget();
+        // A level chosen on /subscribe before signing up (remembered by /join).
+        const chosen = takeChoice();
+        const target = returnTarget() || (chosen ? choiceTarget(chosen,) : '');
         const a = auth.access;
         if (a?.restricted && a.reason === 'subscription' && !isAdminRole(role,)) {
-            return target.startsWith('/subscribe',) ? target : '/profile?tab=membership';
+            return target.startsWith('/subscribe',) || target.startsWith('/profile?tab=membership',) ? target : '/profile?tab=membership';
         }
         return target || (isAdminRole(role,) ? '/admin' : '/');
     };

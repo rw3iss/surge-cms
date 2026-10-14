@@ -25,6 +25,7 @@ import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
 import PriceChoice from '../components/membership/PriceChoice';
 import { defaultPriceId, leadPriceId, freq, shownPrice, tierAtPrice, } from '../utils/membershipFormat';
+import { joinUrl, } from '../utils/membershipChoice';
 import './Subscribe.scss';
 
 const membershipUrl = (tierId?: string,) => `/profile?tab=membership${tierId ? `&tier=${encodeURIComponent(tierId,)}` : ''}`;
@@ -80,14 +81,18 @@ const SubscribePage: Component = () => {
         if (t.isPending) return;
         // Approved for this level: choose billing + pay on the membership tab.
         if (t.isApproved) return navigate(`${membershipUrl(t.id,)}${priceParam(t,)}`,);
+        // Signed out: assume a NEW visitor — /join carries the choice through
+        // sign-up (and offers "Sign in" for an existing account).
         if (t.requiresApproval) {
             if (signedIn()) return setApplying(t,);
             if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
-            return navigate(loginUrl(`/subscribe?apply=${encodeURIComponent(t.id,)}${priceParam(t,)}`,),);
+            return navigate(joinUrl({ tier: t.id, price: altPrice(t,), apply: true, },),);
         }
-        const target = `${membershipUrl(t.id,)}${priceParam(t,)}`;
-        if (!signedIn() && required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
-        navigate(signedIn() ? target : loginUrl(target,),);
+        if (!signedIn()) {
+            if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
+            return navigate(t.isFree ? '/join' : joinUrl({ tier: t.id, price: altPrice(t,), },),);
+        }
+        navigate(`${membershipUrl(t.id,)}${priceParam(t,)}`,);
     };
 
     const ctaLabel = (t: MembershipTierOption,) => {

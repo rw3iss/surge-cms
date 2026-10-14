@@ -127,6 +127,13 @@
     line-height: 1.5;
   }
 
+  // "You chose <level>" (from /subscribe): informational, not a warning.
+  &__chosen {
+    background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 6%, transparent);
+    border-color: var(--site-border, #{$border-color});
+    color: var(--site-text, #{$text-color});
+  }
+
   &__notice-icon {
     width: 20px;
     height: 20px;
