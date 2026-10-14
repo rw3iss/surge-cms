@@ -41,6 +41,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
         description: t?.description ?? '',
         role: t?.role ?? (t ? '' : 'subscriber'),
         isActive: t?.isActive ?? true,
+        devOnly: t?.devOnly ?? false,
         stripePriceId: t?.stripePriceId ?? '',
         // Custom price display (what members see; Stripe still bills its own price).
         displayOn: Boolean(t?.displayPrice,),
@@ -132,6 +133,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 description: form.description || null,
                 role: form.role || null,
                 isActive: form.isActive,
+                devOnly: form.devOnly,
                 ...(t?.isFree ? {} : {
                     stripePriceId: form.stripePriceId || null,
                     // Hidden price: leave the stored custom display untouched.
@@ -200,7 +202,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     />
                 </FormField>
 
-                <div class="tier-modal__grid">
+                <div class="admin-form-row">
                     <FormField label="Role" tooltip="The role members of this tier are given. Its permissions are included below; staff are never moved off their role.">
                         <select value={form.role} onChange={(e,) => setForm('role', e.currentTarget.value,)}>
                             <option value="">— none (keep their role) —</option>
@@ -209,6 +211,9 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     </FormField>
                     <FormField label="Active">
                         <Toggle checked={form.isActive} onChange={(v,) => setForm('isActive', v,)} ariaLabel="Active" />
+                    </FormField>
+                    <FormField label="Dev Only" hint="When on, only signed-in admins see this level on /subscribe, sign-up and the profile.">
+                        <Toggle checked={form.devOnly} onChange={(v,) => setForm('devOnly', v,)} ariaLabel="Dev Only" />
                     </FormField>
                 </div>
 

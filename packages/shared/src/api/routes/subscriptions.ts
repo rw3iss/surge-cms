@@ -62,6 +62,8 @@ export interface SubscriptionTier {
     /** Approval levels only: no prices shown and no card taken until approved;
      *  the approved member then chooses billing and pays. */
     hidePrice: boolean;
+    /** Shown and sold only to admins/sysadmins (testing a level on the live site). */
+    devOnly: boolean;
     /** Pending applications for this tier. */
     pendingApplications: number;
     stripePriceId: string | null;
@@ -86,6 +88,7 @@ export interface SubscriptionTierBody {
     requiresApproval?: boolean;
     applicationFormId?: string | null;
     hidePrice?: boolean;
+    devOnly?: boolean;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */
     permissions?: string[];

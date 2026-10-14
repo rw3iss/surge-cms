@@ -30,6 +30,7 @@ const tierBody = z.object({
     requiresApproval: z.boolean().optional(),
     applicationFormId: z.string().uuid().nullable().optional(),
     hidePrice: z.boolean().optional(),
+    devOnly: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
     permissions: z.array(z.string().max(120,),).max(500,).optional(),
 },) satisfies z.ZodType<SubscriptionTierBody>;

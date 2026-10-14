@@ -57,6 +57,8 @@ export interface MembershipTierOption {
     isApproved?: boolean;
     /** Joining needs an admin's approval: the button reads "Apply". */
     requiresApproval?: boolean;
+    /** Admin-only level (only admins see it). */
+    devOnly?: boolean;
     /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */
     applicationFormSlug?: string | null;
     /** The viewer has a pending application for this tier. */
