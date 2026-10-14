@@ -60,7 +60,9 @@ const AdminUsers: Component = () => {
     const [summary, { refetch: refetchPending, },] = createResource(
         () => cms.membershipApplications.summary().catch(() => ({ pending: 0, withoutAccount: 0, })),
     );
-    const pending = () => summary()?.pending ?? 0;
+    // Only applicants WITH an account appear in the users table this pill filters;
+    // account-less ones are listed under "not signed up yet".
+    const pending = () => Math.max(0, (summary()?.pending ?? 0) - (summary()?.withoutAccount ?? 0),);
     // Applications sent before the applicant signed up have no user row, so the
     // table cannot show them — list them separately.
     const [noAccountOpen, setNoAccountOpen,] = createSignal(false,);
