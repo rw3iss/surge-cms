@@ -452,7 +452,7 @@ const MembershipPanel: Component = () => {
                                             <Show when={t.isCurrent}><span class="membership__badge">Current</span></Show>
                                             <Show when={t.isPending}><span class="membership__badge membership__badge--pending">Pending approval</span></Show>
                                             <Show when={t.isApproved && !t.isCurrent}><span class="membership__badge membership__badge--approved">Approved</span></Show>
-                                            <Show when={t.requiresApproval && !t.isPending && !t.isApproved && !t.isCurrent}><span class="membership__badge membership__badge--apply">By application</span></Show>
+                                            <Show when={t.requiresApproval && !t.isPending && !t.isApproved && !t.isCurrent}><span class="membership__badge membership__badge--apply">Apply</span></Show>
                                         </span>
                                         <span class="membership__tout-price">
                                             <PriceChoice
