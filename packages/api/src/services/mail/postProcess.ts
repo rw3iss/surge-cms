@@ -127,24 +127,6 @@ export function htmlToText(html: string,): string {
  */
 export function finalizeEmail(html: string, siteUrl: string,): { html: string; text: string; } {
     const absolute = absolutiseUrls(html, siteUrl,);
-    // Text first: the anti-trim markers below must never reach the text part.
-    return { html: preventClientTrimming(absolute,), text: htmlToText(absolute,), };
+    return { html: absolute, text: htmlToText(absolute,), };
 }
 
-/**
- * Stop Gmail collapsing parts of a message behind "•••" ("trimmed content").
- *
- * Gmail hides blocks that look IDENTICAL to an earlier message in the same
- * conversation — and transactional mail (same subject, same wording, e.g. two
- * "You're now an Ambassador" emails) threads together, so the second one opens
- * half-hidden. A short random marker, unique to this message, is placed
- * (invisibly) after every paragraph, heading, list item and table cell, so no
- * block repeats. ~40 bytes each — far below Gmail's 102 KB clipping limit.
- */
-export function preventClientTrimming(html: string, token = Math.random().toString(36,).slice(2, 10,),): string {
-    const mark = `<span style="display:none;font-size:0;line-height:0;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${token}</span>`;
-    let out = html.replace(/<\/(p|h[1-6]|li|td)>/gi, (m,) => `${mark}${m}`,);
-    out = out.replace(/<body([^>]*)>/i, `<body$1>${mark}`,);
-    out = /<\/body>/i.test(out,) ? out.replace(/<\/body>/i, `${mark}</body>`,) : `${mark}${out}${mark}`;
-    return out;
-}

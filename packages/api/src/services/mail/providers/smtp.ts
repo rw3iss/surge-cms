@@ -4,6 +4,7 @@
  * SMTP, AWS SES SMTP — so functionally operators have all the major
  * services on day one without us shipping native adapters.
  */
+import { randomUUID, } from 'node:crypto';
 import nodemailer, { Transporter, } from 'nodemailer';
 import type { OutboundMessage, } from '@sitesurge/types';
 import { config, } from '../../../config';
@@ -52,7 +53,11 @@ export class SmtpMailProvider implements MailProvider {
             // mail scores against you on every send.
             text: msg.text,
             replyTo: msg.replyTo,
-            headers: msg.headers,
+            // A unique id per message stops Gmail collapsing repeated wording
+            // (same subject → same thread) behind "•••". It is a HEADER on
+            // purpose: the old way — hidden random text after every block —
+            // looked like phishing "hash-busting" and sent mail to spam.
+            headers: { 'X-Entity-Ref-ID': randomUUID(), ...msg.headers, },
         },);
         return { providerId: info.messageId, };
     }

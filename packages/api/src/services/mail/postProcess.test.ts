@@ -132,14 +132,13 @@ describe('finalizeEmail', () => {
     },);
 },);
 
-describe('preventClientTrimming (Gmail "•••")', () => {
-    it('hides a per-message marker after each block, never in the text part', () => {
+describe('no hidden text (spam / phishing signal)', () => {
+    it('adds no invisible markup to the message body', () => {
+        // Hidden random text after every block made Gmail flag the
+        // verification email as phishing; uniqueness now rides in a header.
         const html = '<html><body><h1>Hi</h1><p>One</p><p>Two</p></body></html>';
         const a = finalizeEmail(html, 'https://x.test',);
-        const b = finalizeEmail(html, 'https://x.test',);
-        expect((a.html.match(/display:none;font-size:0/g,) ?? []).length,).toBe(5,); // h1, 2×p, body start + end
-        expect(a.html,).not.toBe(b.html,); // a new token per message
-        expect(a.text,).not.toMatch(/display:none/,);
-        expect(a.text.replace(/\s+/g, ' ',).trim(),).toBe(htmlToText(html,).replace(/\s+/g, ' ',).trim(),);
+        expect(a.html,).not.toMatch(/display:none/,);
+        expect(a.html,).toBe(finalizeEmail(html, 'https://x.test',).html,);
     },);
 },);
