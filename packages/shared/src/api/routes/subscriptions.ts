@@ -101,6 +101,8 @@ export interface StripeSubscriptionPrice {
     currency: string;
     interval: string;
     intervalCount: number;
+    /** This price is the product's default price in Stripe. */
+    isProductDefault?: boolean;
 }
 
 export interface StripeSubscriptionPricesResponse {

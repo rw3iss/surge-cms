@@ -386,6 +386,8 @@ export async function stripePrices(): Promise<StripeSubscriptionPricesResponse> 
                 currency: p.currency,
                 interval: p.recurring?.interval ?? 'month',
                 intervalCount: p.recurring?.interval_count ?? 1,
+                isProductDefault: Boolean(product && 'default_price' in product && product.default_price
+                    && (typeof product.default_price === 'string' ? product.default_price : product.default_price.id) === p.id,),
             },);
             if (prices.length >= 500) break;
         }

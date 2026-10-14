@@ -32,12 +32,6 @@ function priceAmount(p: StripeSubscriptionPrice,): string {
     return `${amt}${p.intervalCount > 1 ? ` every ${p.intervalCount} ${p.interval}s` : ` / ${p.interval}`}`;
 }
 
-function priceLabel(p: StripeSubscriptionPrice,): string {
-    const amt = p.unitAmount !== null ? `${(p.unitAmount / 100).toFixed(2,)} ${p.currency.toUpperCase()}` : 'custom amount';
-    const every = p.intervalCount > 1 ? `${p.intervalCount} ${p.interval}s` : p.interval;
-    return `${p.productName}${p.nickname ? ` — ${p.nickname}` : ''} · ${amt} / ${every}`;
-}
-
 const TierModal: Component<TierModalProps> = (props,) => {
     const toast = useToast();
     const t = props.tier;
@@ -84,6 +78,32 @@ const TierModal: Component<TierModalProps> = (props,) => {
         const all = stripe()?.prices ?? [];
         const sel = all.find((p,) => p.priceId === priceId,);
         return sel ? all.filter((p,) => p.productId === sel.productId && p.priceId !== priceId,) : [];
+    };
+
+    /**
+     * One entry per Stripe PRODUCT (a level is a product; its prices are the
+     * billing choices members pick from). The entry's price is the one this
+     * level already uses on that product, else the product's Stripe default,
+     * else its first price.
+     */
+    const products = createMemo(() => {
+        const byProduct = new Map<string, StripeSubscriptionPrice[]>();
+        for (const p of stripe()?.prices ?? []) {
+            const list = byProduct.get(p.productId,) ?? [];
+            list.push(p,);
+            byProduct.set(p.productId, list,);
+        }
+        return [...byProduct.entries(),].map(([productId, prices,],) => ({ productId, name: prices[0].productName, prices, }));
+    },);
+    const defaultPriceFor = (productId: string,): StripeSubscriptionPrice | undefined => {
+        const prices = products().find((x,) => x.productId === productId,)?.prices ?? [];
+        return prices.find((p,) => p.priceId === form.stripePriceId,) ?? prices.find((p,) => p.isProductDefault,) ?? prices[0];
+    };
+    const selectedProductId = () => (stripe()?.prices ?? []).find((p,) => p.priceId === form.stripePriceId,)?.productId ?? '';
+    const productLabel = (x: { productId: string; name: string; prices: StripeSubscriptionPrice[]; },) => {
+        const d = defaultPriceFor(x.productId,);
+        const more = x.prices.length - 1;
+        return `${x.name}${d ? ` — ${priceAmount(d,)}` : ''}${more > 0 ? ` (+${more} price${more === 1 ? '' : 's'})` : ''}`;
     };
 
     /** Roles a subscription may give: everything but staff and anonymous. */
@@ -223,15 +243,17 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         </FormField>
                     </Show>
 
-                    <FormField label="Stripe membership product (price)">
+                    <FormField label="Stripe membership product">
                         <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
                             <div class="tier-modal__price-row">
-                            <select value={form.stripePriceId} onChange={(e,) => setForm('stripePriceId', e.currentTarget.value,)}>
-                                <option value="">-</option>
-                                <For each={stripe()?.prices ?? []}>{(p,) => <option value={p.priceId}>{priceLabel(p,)}</option>}</For>
+                            <select onChange={(e,) => setForm('stripePriceId', e.currentTarget.value ? (defaultPriceFor(e.currentTarget.value,)?.priceId ?? '') : '',)}>
+                                <option value="" selected={!form.stripePriceId}>-</option>
+                                <For each={products()}>
+                                    {(x,) => <option value={x.productId} selected={x.productId === selectedProductId()}>{productLabel(x,)}</option>}
+                                </For>
                                 {/* Keep a saved price selectable even if it is no longer listed. */}
-                                <Show when={form.stripePriceId && !(stripe()?.prices ?? []).some((p,) => p.priceId === form.stripePriceId,)}>
-                                    <option value={form.stripePriceId}>{form.stripePriceId} (not found in Stripe)</option>
+                                <Show when={form.stripePriceId && !selectedProductId()}>
+                                    <option value="" selected>{form.stripePriceId} (not found in Stripe)</option>
                                 </Show>
                             </select>
                             <button
@@ -244,13 +266,6 @@ const TierModal: Component<TierModalProps> = (props,) => {
                                 {stripe.loading ? 'Loading…' : 'Refresh'}
                             </button>
                             </div>
-                            <Show when={otherPricesOf(form.stripePriceId,).length}>
-                                <p class="tier-modal__note tier-modal__other-prices">
-                                    Also available: {otherPricesOf(form.stripePriceId,).map(priceAmount,).join(' · ',)}
-                                    <br />
-                                    <span class="form-help-muted">Members choose between these on the plans page; this price stays the default.</span>
-                                </p>
-                            </Show>
                             <Show when={!stripe()?.connected}>
                                 <p class="tier-modal__note">
                                     Membership products are defined in Stripe, and Stripe must be connected in the{' '}
@@ -262,6 +277,22 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             </Show>
                         </Show>
                     </FormField>
+                    <Show when={otherPricesOf(form.stripePriceId,).length}>
+                        <FormField
+                            label="Default price"
+                            hint="Shown first and pre-selected. Members choose between all of this product's prices on the plans page, sign-up and their profile."
+                        >
+                            <select onChange={(e,) => setForm('stripePriceId', e.currentTarget.value,)}>
+                                <For each={products().find((x,) => x.productId === selectedProductId(),)?.prices ?? []}>
+                                    {(p,) => (
+                                        <option value={p.priceId} selected={p.priceId === form.stripePriceId}>
+                                            {priceAmount(p,)}{p.nickname ? ` — ${p.nickname}` : ''}{p.isProductDefault ? ' (Stripe default)' : ''}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+                        </FormField>
+                    </Show>
 
                     <Show when={!hidePrice()}>
                         <Toggle
