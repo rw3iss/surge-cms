@@ -19,7 +19,7 @@ import { sendEmail, } from '../email';
 import { sendPurposeMail, } from '../mail/purposes';
 import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
-import { getNotificationSettings, notify, } from '../notifications';
+import { buildNotification, getNotificationSettings, notify, notifyUser, personLabel, } from '../notifications';
 import { logger, } from '../../utils/logger';
 import { formatCurrency, type ShopAddress, } from '@sitesurge/types';
 import { wrapEmailShell, } from '../mail/shell';
@@ -419,12 +419,16 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
     // fall back to the site contactEmail so the shop owner still gets notified
     // (preserves the pre-Notifications behavior; avoids double-sending).
     try {
-        const mail = buildSellerNotification(order, ctx,);
+        const mail: BuiltEmail & { text?: string; } = await sellerNotice(order, ctx,).catch((err,) => {
+            logger.warn('Shop order notice build failed — using the plain one', { orderNumber: order.orderNumber, error: (err as Error).message, },);
+            return buildSellerNotification(order, ctx,);
+        },);
         void notify('shop_order', {
             purpose: 'shop_order_admin',
             context: purposeContext(order, mail.html,),
             subject: mail.subject,
             html: mail.html,
+            text: mail.text,
         },);
 
         const nset = await getNotificationSettings().catch(() => ({} as Record<string, { email?: { enabled: boolean; addresses: string[]; }; }>));
@@ -448,6 +452,46 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
     } catch (err) {
         logger.error('Failed to send seller order notification', { orderNumber: order.orderNumber, error: err, },);
     }
+}
+
+/**
+ * The seller/admin "new order" notice through the shared notification builder:
+ * the customer (with their account details when they have one), an order
+ * summary, the item table + totals + addresses, and a link to the order.
+ */
+async function sellerNotice(order: OrderDetail, ctx: OrderEmailContext,): Promise<BuiltEmail & { text: string; }> {
+    const person = await notifyUser({ userId: order.userId ?? null, email: order.customerEmail, name: order.customerName ?? null, },);
+    const who = personLabel(person, order.customerEmail,);
+    const itemCount = (order.items ?? []).reduce((n, i,) => n + (i.quantity ?? 0), 0,);
+    return buildNotification({
+        title: `New order ${order.orderNumber}`,
+        subject: `New order ${order.orderNumber} — ${who} (${formatMoney(order.totalCents, order.currency,)})`,
+        intro: `${who} placed and paid for an order.`,
+        person,
+        personHeading: 'Customer',
+        sections: [
+            {
+                heading: 'Order',
+                rows: [
+                    { label: 'Order number', value: order.orderNumber, },
+                    { label: 'Total', value: formatMoney(order.totalCents, order.currency,), },
+                    { label: 'Items', value: itemCount || null, },
+                    { label: 'Status', value: order.status, },
+                    { label: 'Shipping method', value: order.shippingMethod ?? null, },
+                ],
+            },
+            {
+                heading: 'Items',
+                // Trusted: built by this module's own renderers.
+                html: renderItemsTable(order, { grouped: ctx.groupItemsForAdmin !== false, },) + renderTotals(order,) + renderAddresses(order,),
+                text: (order.items ?? []).map((i,) => `${i.quantity} × ${i.title ?? ''}`,).join('\n',),
+            },
+        ],
+        links: [
+            { label: 'View order', url: `/admin/shop/orders/${order.id}`, },
+            ...(person?.adminUrl ? [{ label: 'View customer', url: person.adminUrl, },] : []),
+        ],
+    },);
 }
 
 /** Buyer status-update email. Never throws. */

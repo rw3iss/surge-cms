@@ -23,7 +23,7 @@ vi.mock('./stripe', () => ({
         paymentIntents: { retrieve: async () => ({ latest_charge: 'ch_1', }), },
     }),
 }),);
-vi.mock('../notifications', () => ({ notify: vi.fn(), }),);
+vi.mock('../notifications', () => ({ notify: vi.fn(), notifyWith: vi.fn(), }),);
 vi.mock('../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), }, }),);
 
 const { handleWebhook, } = await import('./webhook');

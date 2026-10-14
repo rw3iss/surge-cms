@@ -31,7 +31,8 @@ import type { AuditContext, } from './types';
 import { sendEmail, } from './email';
 import * as forms from './forms';
 import { assertTierPrice, pendingApplicationFor, startApprovedMembership, } from './membership';
-import { notify, } from './notifications';
+import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
+import { priceLabel, } from './payment/subscriptionNotice';
 import { getStripeClient, } from './payment/stripe';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -165,6 +166,40 @@ async function assertCanApply(userId: string, tier: TierRow,): Promise<void> {
     if (active.rows.length) throw new ValidationError(`You already have ${tier.name}.`,);
 }
 
+/** The team's "new application" notification. */
+async function applicationNotice(
+    applicationId: string,
+    tier: TierRow,
+    priceId: string | null,
+    answers: MembershipApplicationAnswer[],
+    userId: string | null,
+    email: string | null,
+) {
+    const name = answers.find((a,) => /^(full )?name$/i.test(a.label.trim(),),)?.value || null;
+    const person = await notifyUser({ userId, email, name, },);
+    let price = '';
+    const pid = priceId || tier.stripe_price_id;
+    const stripe = pid ? getStripeClient() : null;
+    if (stripe && pid) price = priceLabel(await stripe.prices.retrieve(pid,).catch(() => null) as never,);
+    const who = personLabel(person, email || 'Someone',);
+    return buildNotification({
+        title: 'New membership application',
+        subject: `Membership application — ${who} (${tier.name})`,
+        intro: `${who} applied for ${tier.name}. Nothing is charged until the application is approved.`,
+        person,
+        personHeading: 'Applicant',
+        sections: [
+            { heading: 'Application', rows: [{ label: 'Level', value: tier.name, }, { label: 'Chosen price', value: price, },], },
+            { heading: 'Answers', rows: answers.map((a,) => ({ label: a.label, value: a.value || '—', })), },
+        ],
+        links: [
+            { label: 'Review application', url: `/admin/users?application=${applicationId}`, },
+            { label: 'All pending applications', url: '/admin/users?approval=pending', },
+            ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+        ],
+    },);
+}
+
 /** Step 1 — the answers (signed in or not). Emails the team at once. */
 export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,): Promise<MembershipApplySubmitResponse> {
     const tier = await loadTier(body.tierId,);
@@ -182,14 +217,12 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
     const id = ins.rows[0].id;
     if (ctx.userId) await setUserApproval(ctx.userId, 'pending',);
 
-    const rows = c.answers.map((a,) => `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">${esc(a.label,)}</td><td style="padding:4px 0">${esc(a.value,)}</td></tr>`,).join('',);
     // The tier's own form already emails per its settings; the built-in form uses
     // the "Membership application" notification (Settings → Notifications).
     if (!c.formId) {
-        void notify('membership_application', {
+        void notifyWith('membership_application', () => applicationNotice(id, tier, body.priceId ?? null, c.answers, ctx.userId, c.email,), {
             subject: `Membership application: ${tier.name}`,
-            html: `<h2>New membership application</h2><p><strong>${esc(tier.name,)}</strong>${c.email ? ` — ${esc(c.email,)}` : ''}</p>`
-                + `<table>${rows}</table><p><a href="/admin/users?approval=pending">Review in the admin</a></p>`,
+            text: `New membership application for ${tier.name}${c.email ? ` — ${c.email}` : ''}.`,
         },);
     }
     if (c.email) {

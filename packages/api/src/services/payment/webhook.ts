@@ -15,8 +15,8 @@ import { getStripeClient, } from './stripe';
 import { invoicePaymentIntentId, invoiceSubscriptionId, subscriptionPeriod, } from './stripeCompat';
 import { logger, } from '../../utils/logger';
 import { uuidOrNull, } from '../../utils/uuid';
-import { notify, } from '../notifications';
 import { syncByStripeSubscription, } from '../subscriptionTiers';
+import { notifySubscriptionChange, } from './subscriptionNotice';
 
 const paymentProvider = getPaymentProvider();
 
@@ -288,12 +288,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                 updated: (result.rowCount ?? 0) > 0,
             },);
 
-            void notify('subscription_change', {
-                subject: 'New subscription started',
-                html: `<h2>Subscription started</h2>`
-                    + `<p>A member started a subscription.</p>`
-                    + `<p><strong>Status:</strong> ${subscription.status}</p>`,
-            },);
+            notifySubscriptionChange('created', subscription,);
             break;
         }
 
@@ -332,13 +327,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
             },);
 
-            void notify('subscription_change', {
-                subject: 'Subscription changed',
-                html: `<h2>Subscription changed</h2>`
-                    + `<p>A member's subscription was updated.</p>`
-                    + `<p><strong>Status:</strong> ${localStatus}</p>`
-                    + `<p><strong>Cancel at period end:</strong> ${subscription.cancel_at_period_end ? 'yes' : 'no'}</p>`,
-            },);
+            notifySubscriptionChange('updated', subscription, event.data.previous_attributes as Partial<Stripe.Subscription> | undefined,);
             break;
         }
 
@@ -366,11 +355,7 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
 
             logger.info('Subscription cancelled via webhook', { subscriptionId: subscription.id, },);
 
-            void notify('subscription_change', {
-                subject: 'Subscription cancelled',
-                html: `<h2>Subscription cancelled</h2>`
-                    + `<p>A member's subscription was cancelled.</p>`,
-            },);
+            notifySubscriptionChange('deleted', subscription,);
             break;
         }
 

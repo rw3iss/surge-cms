@@ -38,7 +38,8 @@ const AdminUsers: Component = () => {
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
     // Account invites: the modal, and the collapsible list (refreshKey reloads it).
     const [inviteOpen, setInviteOpen,] = createSignal(false,);
-    const [invitesOpen, setInvitesOpen,] = createSignal(false,);
+    // `?invites=1` (notification-email deep link) opens the invites list.
+    const [invitesOpen, setInvitesOpen,] = createSignal(searchParams.invites === '1',);
     const [invitesKey, setInvitesKey,] = createSignal(0,);
     const [tiers,] = createResource(() => cms.subscriptionTiers.list().catch(() => [],),);
 
@@ -66,6 +67,10 @@ const AdminUsers: Component = () => {
     // Applications sent before the applicant signed up have no user row, so the
     // table cannot show them — list them separately.
     const [noAccountOpen, setNoAccountOpen,] = createSignal(false,);
+    // The "Pending approval" filter (e.g. the "N pending" link on a membership
+    // level) must show EVERY pending application — open the account-less list
+    // too, since those applicants have no row in the table below.
+    createEffect(() => { if (searchParams.approval === 'pending' && (summary()?.withoutAccount ?? 0) > 0) setNoAccountOpen(true,); },);
     const [noAccount, { refetch: refetchNoAccount, },] = createResource(
         noAccountOpen,
         () => cms.membershipApplications.list({ status: 'pending', withoutAccount: true, limit: 100, },).then((r,) => r.data,).catch(() => []),
@@ -73,8 +78,13 @@ const AdminUsers: Component = () => {
     const togglePendingFilter = () =>
         setSearchParams({ approval: searchParams.approval === 'pending' ? undefined : 'pending', },);
 
-    /** The application open in the review modal. */
-    const [reviewId, setReviewId,] = createSignal<string | null>(null,);
+    /** The application open in the review modal; `?application=<id>` (the
+     *  notification email's "Review application" link) opens it directly. */
+    const [reviewId, setReviewIdRaw,] = createSignal<string | null>(typeof searchParams.application === 'string' ? searchParams.application : null,);
+    const setReviewId = (id: string | null,) => {
+        setReviewIdRaw(id,);
+        if (!id && searchParams.application) setSearchParams({ application: undefined, },);
+    };
     const openReview = async (userId: string,) => {
         try {
             const r = await cms.membershipApplications.list({ status: 'pending', userId, limit: 1, },);
@@ -346,7 +356,7 @@ const AdminUsers: Component = () => {
             <Show when={noAccountOpen()}>
                 <section class="users-no-account">
                     <h3>Applications from people without an account yet</h3>
-                    <p class="form-help-muted">They applied before signing up. You can read and reject them now; approve once they create their account and add a card.</p>
+                    <p class="form-help-muted">They applied before signing up. You can read and reject them now. A level with a hidden price can be approved now (they get an email to sign up and pay); other levels can be approved once they create their account and add a card.</p>
                     <Show when={!noAccount.loading} fallback={<p class="form-help-muted">Loading…</p>}>
                         <Show when={(noAccount() ?? []).length} fallback={<p class="form-help-muted">None.</p>}>
                             <ul>
@@ -367,7 +377,9 @@ const AdminUsers: Component = () => {
             <DataTable
                 items={list.items()}
                 loading={list.loading()}
-                emptyMessage="No users found."
+                emptyMessage={searchParams.approval === 'pending' && (summary()?.withoutAccount ?? 0) > 0
+                    ? 'No applicants with an account yet — the pending applications are listed above.'
+                    : 'No users found.'}
                 sort={{ current: currentSort(), onSort: handleSort, }}
                 onRowClick={(user: any,) => navigate(`/admin/users/${user.id}`,)}
                 bulk={{

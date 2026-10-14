@@ -16,7 +16,7 @@ import { logger, } from '../utils/logger';
 import { sanitize, } from '../utils/sanitize';
 import { logAudit, } from './audit';
 import { sendEmail, } from './email';
-import { notify, } from './notifications';
+import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 
 export type { MessageFilters, } from '../repositories/messages.repo';
@@ -101,14 +101,30 @@ export async function submit(input: SubmitMessageInput,): Promise<ContactMessage
 
     // Additive admin notification (separate from the legacy admin email
     // above). Fire-and-forget.
-    void notify('contact_message', {
-        subject: `New contact message: ${subject || 'No Subject'}`,
-        html: `<h2>New contact message</h2>`
-            + `<p><strong>From:</strong> ${name} (${input.email})</p>`
-            + `<p><strong>Subject:</strong> ${subject || 'No Subject'}</p>`
-            + `<p><strong>Message:</strong></p>`
-            + `<p>${message.replace(/\n/g, '<br>',)}</p>`,
+    // Raw input here: the builder escapes every value itself.
+    void notifyWith('contact_message', async () => {
+        const person = await notifyUser({ userId: input.userId ?? null, email: input.email, name: input.name, },);
+        const who = personLabel(person, input.email,);
+        return buildNotification({
+            title: 'New contact message',
+            subject: `New contact message — ${input.subject || 'No subject'} (${who})`,
+            intro: `${who} sent a message through the contact form.`,
+            person,
+            personHeading: 'From',
+            sections: [
+                { heading: 'Message', rows: [{ label: 'Subject', value: input.subject || 'No subject', },], text: input.message, },
+                { rows: [{ label: 'IP address', value: input.ipAddress, },], },
+            ],
+            links: [
+                { label: 'Open message', url: `/admin/messages/${created.id}`, },
+                ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+            ],
+        },);
+    }, {
+        subject: `New contact message: ${input.subject || 'No Subject'}`,
+        text: `From: ${input.name} (${input.email})\nSubject: ${input.subject || 'No Subject'}\n\n${input.message}`,
     },);
+
 
     return created;
 }

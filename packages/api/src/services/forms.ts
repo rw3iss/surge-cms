@@ -21,7 +21,7 @@ import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import { dispatchFormAction, } from './formActions';
-import { notify, } from './notifications';
+import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
 import type { AuditContext, ListResult, PaginationOpts, } from './types';
 
 export type { FormFilters, } from '../repositories/forms.repo';
@@ -272,14 +272,36 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     },);
 
     // Additive admin notification. Fire-and-forget.
-    void notify('form_submission', {
+    void notifyWith('form_submission', async () => {
+        const sorted = questions.slice().sort((x, y,) => x.order - y.order);
+        const byId = new Map(input.answers.map((a,) => [a.questionId, a.value,]),);
+        const rows = sorted.map((q,) => ({ label: q.question, value: formatAnswerValue(byId.get(q.id,),) || '—', }));
+        const emailQ = sorted.find((q,) => q.type === 'email',);
+        const answeredEmail = emailQ ? formatAnswerValue(byId.get(emailQ.id,),).trim() : '';
+        const person = await notifyUser({ userId: input.userId ?? null, email: input.userEmail || answeredEmail || null, },);
+        const who = personLabel(person, 'A visitor',);
+        const msg = await buildNotification({
+            title: `New submission: ${form.title}`,
+            subject: `New form submission — ${form.title} (${who})`,
+            intro: `${who} submitted the form “${form.title}”.`
+                + (submissionId ? '' : ' This form does not save submissions, so this email is the only copy.'),
+            person,
+            personHeading: 'Submitted by',
+            sections: [{ heading: 'Answers', rows, },],
+            links: [
+                ...(submissionId ? [{ label: 'View submissions', url: `/admin/forms/${form.id}/submissions`, },] : []),
+                ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+                { label: 'Edit form', url: `/admin/forms/${form.id}`, },
+            ],
+        },);
+        return { purpose: 'form_submission_admin', context: { form: { title: form.title, slug: form.slug, }, }, ...msg, };
+    }, {
         purpose: 'form_submission_admin',
         context: { form: { title: form.title, slug: form.slug, }, },
-        subject: `New form submission: ${form.title}`,
-        html: `<h2>New form submission</h2>`
-            + `<p>A visitor submitted the form <strong>${form.title}</strong>.</p>`
-            + `<p><a href="/admin/forms">View submissions in the admin</a></p>`,
+        subject: `New form submission — ${form.title}`,
+        text: `A visitor submitted the form "${form.title}".`,
     },);
+
 
     return { ok: true, message: form.successMessage || 'Form submitted successfully', submissionId, };
 }

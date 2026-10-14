@@ -9,12 +9,11 @@
 import { renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
-import { escapeHtml, } from '../../utils/html';
 import { logger, } from '../../utils/logger';
 import { onDiscussionEvent, type DiscussionEvent, } from '../discussions/events';
 import type { CommentRow, } from '../discussions/rows';
 import { sendPurposeMail, } from '../mail/purposes';
-import { notify, } from '../notifications';
+import { buildNotification, hasRecipients, notify, notifyUser, personLabel, } from '../notifications';
 import { threadUrl, } from './forum';
 
 const excerpt = (body: string, max: number,): string => {
@@ -74,25 +73,52 @@ async function sendReplyEmails(row: CommentRow,): Promise<void> {
 }
 
 async function notifyStaff(e: DiscussionEvent,): Promise<void> {
+    const type = e.type === 'created' && e.comment.is_opening ? 'forum_thread_created' : e.type === 'reported' ? 'forum_reported' : null;
+    // Skip the lookups when nobody receives this alert.
+    if (!type || !await hasRecipients(type,)) return;
     const row = e.comment;
     const thread = await threadOf(row.target_id,);
     if (!thread) return;
-    const who = escapeHtml(await nameOf(row.author_id,),);
-    const link = `<a href="${escapeHtml(absolute(thread.url,),)}">${escapeHtml(thread.title,)}</a>`;
-    const quote = `<blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #e5e7eb">${escapeHtml(excerpt(row.body, 500,),)}</blockquote>`;
+    const person = await notifyUser({ userId: row.author_id, email: row.guest_email, name: row.guest_name, },);
+    const who = personLabel(person, await nameOf(row.author_id,),);
+    const reporter = e.type === 'reported' && e.actor?.id ? await nameOf(e.actor.id,) : null;
+    const pending = row.status === 'pending';
+    const postUrl = row.is_opening ? thread.url : `${thread.url}#comment-${row.id}`;
     if (e.type === 'created' && row.is_opening) {
-        const pending = row.status === 'pending';
-        await notify('forum_thread_created', {
-            subject: `${pending ? 'Forum thread awaiting approval' : 'New forum thread'}: ${thread.title}`,
-            html: `<p><strong>${who}</strong> started ${link}${pending ? ' — it is waiting for approval' : ''}.</p>${quote}`
-                + `<p><a href="${escapeHtml(absolute('/admin/forum',),)}">Open the forum admin</a></p>`,
-        },);
+        await notify('forum_thread_created', await buildNotification({
+            title: pending ? 'Forum thread awaiting approval' : 'New forum thread',
+            subject: `${pending ? 'Forum thread awaiting approval' : 'New forum thread'}: ${thread.title} (${who})`,
+            intro: `${who} started “${thread.title}”${pending ? ' — it is waiting for approval' : ''}.`,
+            person,
+            personHeading: 'Author',
+            sections: [
+                { heading: 'Thread', rows: [{ label: 'Title', value: thread.title, }, { label: 'Status', value: pending ? 'Waiting for approval' : 'Published', },], },
+                { heading: 'Opening post', text: excerpt(row.body, 1000,), },
+            ],
+            links: [
+                { label: pending ? 'Review in moderation' : 'View thread', url: pending ? '/admin/comments?scope=forum&status=pending' : thread.url, },
+                ...(pending ? [{ label: 'View thread', url: thread.url, },] : []),
+                { label: 'Forum admin', url: '/admin/forum', },
+                ...(person?.adminUrl ? [{ label: 'View author', url: person.adminUrl, },] : []),
+            ],
+        },),);
     } else if (e.type === 'reported') {
-        await notify('forum_reported', {
-            subject: `Forum post reported in ${thread.title}`,
-            html: `<p>A post by <strong>${who}</strong> in ${link} was reported${e.reason ? `: “${escapeHtml(e.reason,)}”` : ''}.</p>${quote}`
-                + `<p><a href="${escapeHtml(absolute('/admin/comments?scope=forum&status=reported',),)}">Review reported posts</a></p>`,
-        },);
+        await notify('forum_reported', await buildNotification({
+            title: 'Forum post reported',
+            subject: `Forum post reported in ${thread.title} (${who})`,
+            intro: `A post by ${who} in “${thread.title}” was reported.`,
+            person,
+            personHeading: 'Author',
+            sections: [
+                { heading: 'Report', rows: [{ label: 'Reason', value: e.reason || '—', }, { label: 'Reported by', value: reporter, }, { label: 'Thread', value: thread.title, },], },
+                { heading: 'Post', text: excerpt(row.body, 1000,), },
+            ],
+            links: [
+                { label: 'Review reported posts', url: '/admin/comments?scope=forum&status=reported', },
+                { label: 'View post', url: postUrl, },
+                ...(person?.adminUrl ? [{ label: 'View author', url: person.adminUrl, },] : []),
+            ],
+        },),);
     }
 }
 

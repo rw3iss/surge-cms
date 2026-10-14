@@ -12,7 +12,7 @@ import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 import { getUsersSettings, } from './settings';
 import { generateVerificationToken, sendVerificationEmail, } from './mail/verification';
-import { notify, } from './notifications';
+import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
 import { assignHandle, } from './handles';
 
 interface PatreonTokenResponse {
@@ -470,15 +470,31 @@ export async function registerMember(
 
     // Additive admin notification (separate from the member's own
     // verification/welcome email). Fire-and-forget.
-    void notify('user_signup', {
+    void notifyWith('user_signup', async () => {
+        const person = await notifyUser({ userId: row.id, email: row.email, name, },);
+        const who = personLabel(person, row.email,);
+        const msg = await buildNotification({
+            title: 'New member signup',
+            subject: `New member signup — ${who}`,
+            intro: `${who} registered an account.`,
+            person,
+            sections: [{
+                heading: 'Sign-up',
+                rows: [
+                    { label: 'Phone (entered)', value: input.phone && input.phone !== person?.phone ? input.phone : null, },
+                    { label: 'Email verification', value: requireEmailVerification ? 'Required — not verified yet' : 'Not required', },
+                ],
+            },],
+            links: [{ label: 'View member', url: `/admin/users/${row.id}`, },],
+        },);
+        return { purpose: 'user_signup_admin', context: { user: { name, email: row.email, }, }, ...msg, };
+    }, {
         purpose: 'user_signup_admin',
         context: { user: { name, email: row.email, }, },
-        subject: `New user signup: ${name || row.email}`,
-        html: `<h2>New user signup</h2>`
-            + `<p>A new member registered an account.</p>`
-            + `<p><strong>Name:</strong> ${name || '(none)'}</p>`
-            + `<p><strong>Email:</strong> ${row.email}</p>`,
+        subject: `New member signup — ${name || row.email}`,
+        text: `New member signup\nName: ${name || '(none)'}\nEmail: ${row.email}`,
     },);
+
 
     return { userId: row.id, email: row.email, verificationRequired: requireEmailVerification, };
 }

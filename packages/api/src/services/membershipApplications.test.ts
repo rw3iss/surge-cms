@@ -6,7 +6,7 @@ vi.mock('../config', () => ({ config: { jwt: { secret: 'test-secret', }, }, }),)
 vi.mock('../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn(), }, }),);
 vi.mock('./audit', () => ({ logAudit: vi.fn(), }),);
 vi.mock('./email', () => ({ sendEmail: vi.fn(async () => ({}),), }),);
-vi.mock('./notifications', () => ({ notify: vi.fn(), }),);
+vi.mock('./notifications', () => ({ notify: vi.fn(), notifyWith: vi.fn(), }),);
 vi.mock('./forms', () => ({ getById: vi.fn(), submit: vi.fn(), }),);
 const startApproved = vi.fn();
 vi.mock('./membership', () => ({

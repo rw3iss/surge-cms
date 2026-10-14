@@ -14,12 +14,11 @@ import { renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
-import { escapeHtml, } from '../../utils/html';
 import { onDiscussionEvent, type DiscussionEvent, } from '../discussions/events';
 import { targetSummaries, } from '../discussions/moderation';
 import type { CommentRow, } from '../discussions/rows';
 import { sendPurposeMail, } from '../mail/purposes';
-import { notify, } from '../notifications';
+import { buildNotification, hasRecipients, notify, notifyUser, personLabel, } from '../notifications';
 import { COMMENT_TARGETS, replyRecipient, } from './replyRecipient';
 import { getSettings, } from './settings';
 
@@ -73,25 +72,53 @@ async function sendReplyEmail(row: CommentRow,): Promise<void> {
 }
 
 async function notifyStaff(e: DiscussionEvent,): Promise<void> {
+    const type = e.type === 'created' ? 'comment_posted' : e.type === 'reported' ? 'comment_reported' : null;
+    // Skip the lookups when nobody receives this alert.
+    if (!type || !await hasRecipients(type,)) return;
     const row = e.comment;
     const item = await itemFor(row,);
-    const who = escapeHtml(await authorName(row,),);
-    const admin = absolute(`/admin/comments?target=${row.target_type}:${row.target_id}&status=all`,);
-    const quote = `<blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #e5e7eb">${escapeHtml(excerpt(row.body, 500,),)}</blockquote>`;
+    const name = await authorName(row,);
+    const person = await notifyUser({ userId: row.author_id, email: row.guest_email, name, },);
+    const who = personLabel(person, name,);
+    const moderate = `/admin/comments?target=${row.target_type}:${row.target_id}&status=all`;
     if (e.type === 'created') {
         const pending = row.status === 'pending';
-        await notify('comment_posted', {
-            subject: `${pending ? 'Comment awaiting approval' : 'New comment'} on ${item.title}`,
-            html: `<p><strong>${who}</strong> commented on <a href="${escapeHtml(item.url,)}">${escapeHtml(item.title,)}</a>${pending ? ' — it is waiting for approval' : ''}.</p>`
-                + quote + `<p><a href="${escapeHtml(admin,)}">Moderate comments</a></p>`,
-        },);
+        await notify('comment_posted', await buildNotification({
+            title: pending ? 'Comment awaiting approval' : 'New comment',
+            subject: `${pending ? 'Comment awaiting approval' : 'New comment'} on ${item.title} (${who})`,
+            intro: `${who} commented on “${item.title}”${pending ? ' — it is waiting for approval' : ''}.`,
+            person,
+            personHeading: row.author_id ? 'Author' : 'Author (guest)',
+            sections: [
+                { heading: 'Comment', rows: [{ label: 'On', value: item.title, }, { label: 'Status', value: pending ? 'Waiting for approval' : 'Published', }, { label: 'Reply', value: row.parent_id ? 'Yes' : null, },], },
+                { text: excerpt(row.body, 1000,), },
+            ],
+            links: [
+                { label: pending ? 'Review comment' : 'Moderate comments', url: moderate, },
+                { label: 'View comment', url: item.url, },
+                ...(person?.adminUrl ? [{ label: 'View author', url: person.adminUrl, },] : []),
+            ],
+        },),);
     } else if (e.type === 'reported') {
-        await notify('comment_reported', {
-            subject: `Comment reported on ${item.title}`,
-            html: `<p>A comment by <strong>${who}</strong> on <a href="${escapeHtml(item.url,)}">${escapeHtml(item.title,)}</a> was reported`
-                + (e.reason ? `: “${escapeHtml(e.reason,)}”` : '') + `.</p>`
-                + quote + `<p><a href="${escapeHtml(absolute('/admin/comments?status=reported',),)}">Review reported comments</a></p>`,
-        },);
+        const reporter = e.actor?.id
+            ? (await query<{ display_name: string | null; }>(`SELECT display_name FROM users WHERE id = $1`, [e.actor.id,],)).rows[0]?.display_name ?? null
+            : null;
+        await notify('comment_reported', await buildNotification({
+            title: 'Comment reported',
+            subject: `Comment reported on ${item.title} (${who})`,
+            intro: `A comment by ${who} on “${item.title}” was reported.`,
+            person,
+            personHeading: row.author_id ? 'Author' : 'Author (guest)',
+            sections: [
+                { heading: 'Report', rows: [{ label: 'Reason', value: e.reason || '—', }, { label: 'Reported by', value: reporter, }, { label: 'On', value: item.title, },], },
+                { heading: 'Comment', text: excerpt(row.body, 1000,), },
+            ],
+            links: [
+                { label: 'Review reported comments', url: '/admin/comments?status=reported', },
+                { label: 'View comment', url: item.url, },
+                ...(person?.adminUrl ? [{ label: 'View author', url: person.adminUrl, },] : []),
+            ],
+        },),);
     }
 }
 

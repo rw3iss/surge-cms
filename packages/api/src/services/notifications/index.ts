@@ -16,6 +16,10 @@ import { logger, } from '../../utils/logger';
 import { CHANNELS, type NotificationMessage, } from './channels';
 
 export type { NotificationMessage, } from './channels';
+export {
+    absoluteUrl, buildNotification, formatDay, notifyUser, personLabel, renderNotification, siteBaseUrl, subscriptionStatusLabel,
+} from './format';
+export type { NotificationSpec, NotifyLink, NotifyPerson, NotifyRow, NotifySection, } from './format';
 
 const CHANNEL_IDS: NotificationChannelId[] = ['email', 'sms', 'push',];
 
@@ -79,4 +83,33 @@ export async function notify(typeKey: string, msg: NotificationMessage,): Promis
     } catch (err) {
         logger.error('notify() failed', { error: err, type: typeKey, },);
     }
+}
+
+/** True when at least one enabled channel of `typeKey` has a recipient. */
+export async function hasRecipients(typeKey: string,): Promise<boolean> {
+    const cfg = (await getNotificationSettings())[typeKey];
+    return Boolean(cfg,) && CHANNEL_IDS.some((c,) => cfg![c]?.enabled && (cfg![c]?.addresses ?? []).some((a,) => a.trim(),),);
+}
+
+/**
+ * Build a message lazily, then `notify()`. The builder may load the person,
+ * plans, settings… — when it throws, the error is logged and `fallback`
+ * (if any) is sent instead, so a lookup failure never loses the alert.
+ * NEVER throws; callers `void notifyWith(...)`.
+ */
+export async function notifyWith(
+    typeKey: string,
+    build: () => Promise<NotificationMessage>,
+    fallback?: NotificationMessage,
+): Promise<void> {
+    let msg: NotificationMessage | undefined;
+    try {
+        // Skip the lookups when nobody receives this type.
+        if (!await hasRecipients(typeKey,)) return;
+        msg = await build();
+    } catch (err) {
+        logger.error('Notification build failed', { error: err, type: typeKey, },);
+        msg = fallback;
+    }
+    if (msg) await notify(typeKey, msg,);
 }
