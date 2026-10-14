@@ -498,6 +498,11 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
             [userId, to.id, sub.id, customerId, sub.status, sub.currentPeriodStart, sub.currentPeriodEnd,],
         );
         if (sub.status === 'active' || sub.status === 'trialing') return confirm(userId, sub.id,);
+        // Without the secret the browser cannot pay; never let that read as a change.
+        if (!sub.clientSecret) {
+            logger.error('membership: Stripe returned no payment secret for a new subscription', { subscriptionId: sub.id, },);
+            throw new ValidationError('The payment could not be started. Nothing was charged — please try again.',);
+        }
         return { result: 'payment_required', clientSecret: sub.clientSecret, subscriptionId: sub.id, current: cur, };
     }
 
@@ -616,7 +621,7 @@ export async function settleOpenAttempts(
     for (const row of rows.rows) {
         let sub: Stripe.Subscription;
         try {
-            sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id, { expand: ['latest_invoice.payment_intent',], },);
+            sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id, { expand: ['latest_invoice.confirmation_secret',], },);
         } catch (e) {
             logger.warn('membership: could not read an earlier attempt', { subscriptionId: row.stripe_subscription_id, error: (e as Error).message, },);
             continue;

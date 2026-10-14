@@ -199,6 +199,9 @@ const MembershipPanel: Component = () => {
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('The payment is still processing — check back in a minute.',);
                 await finish(`You're now on the ${to.name} tier.`,);
+            } else if (res.result === 'payment_required') {
+                // A payment is needed but could not be started: never report a change.
+                throw new Error('The payment could not be started. Nothing was charged — please try again.',);
             } else if (res.result === 'cancel_scheduled') {
                 await finish(`Your membership will end on ${longDate(res.current.currentPeriodEnd,)}; after that you're on the free plan.`,);
             } else {
