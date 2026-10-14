@@ -515,6 +515,19 @@ export async function completeOAuth(
         new Date(Date.now() + tokenResult.expiresIn * 1000,).toISOString() :
         null;
 
+    // YouTube: a token for a Google account that owns NO channel is useless,
+    // and saving it would replace a working sign-in — every sync then fails.
+    // Check the channel FIRST and keep the previous sign-in on failure.
+    if (provider === 'youtube') {
+        try {
+            await oauthProvider.getUserInfo(tokenResult.accessToken,);
+        } catch (infoError) {
+            const msg = infoError instanceof Error ? infoError.message : 'Could not read the YouTube channel';
+            logger.warn('OAuth youtube: sign-in NOT saved — no channel for this Google account', { error: msg, },);
+            return { kind: 'error', query: encodeURIComponent(`${msg}. Nothing was changed — the previous connection is kept.`,), };
+        }
+    }
+
     // ALWAYS save the token first — getUserInfo can fail (e.g. no FB Page
     // linked) but the token is still valid. If we lose it, the user has to
     // re-authorize from scratch.

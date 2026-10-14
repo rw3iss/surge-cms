@@ -251,7 +251,12 @@ export async function fetchYouTubeVideos(
     // Signed in with Google → the uploads playlist, which includes UNLISTED
     // videos (an API key only ever sees public ones).
     const signedIn = await resolveYouTubeAuth();
-    if (signedIn?.mode === 'oauth') return fetchSignedIn(signedIn, opts, maxResults,);
+    if (signedIn?.mode === 'oauth') {
+        const read = await fetchSignedIn(signedIn, opts, maxResults,);
+        if (read) return read;
+        // The signed-in read failed (e.g. the sign-in is for an account with
+        // no channel): fall back to the API key — public videos only.
+    }
 
     const creds = await resolveCredentials();
     if (!creds) {
@@ -330,7 +335,7 @@ async function fetchSignedIn(
     auth: Extract<YouTubeAuth, { mode: 'oauth'; }>,
     opts: YouTubeFetchOptions,
     maxResults: number,
-): Promise<FetchedPost[]> {
+): Promise<FetchedPost[] | null> {
     const req = authRequest(auth,);
     const playlistId = `UU${auth.channelId.slice(2,)}`;
     const filtered = Boolean(opts.search || opts.kind,);
@@ -388,7 +393,7 @@ async function fetchSignedIn(
         }
         return posts;
     } catch (error) {
-        logger.error('Error fetching YouTube uploads (signed in)', { error, },);
-        return [];
+        logger.error('Error fetching YouTube uploads (signed in) — falling back to the API key', { error: (error as Error).message, channelId: auth.channelId, },);
+        return null;
     }
 }
