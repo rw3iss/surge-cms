@@ -190,7 +190,25 @@ const AdminUserDetail: Component = () => {
         <div class="user-detail">
             <AdminTitle>{user()?.displayName || 'User'}</AdminTitle>
 
-            <A href="/admin/users" class="user-detail__back">&larr; All Users</A>
+            <div class="admin-header">
+                <A href="/admin/users" class="admin-header__back">&larr; All Users</A>
+                <h1>{user()?.displayName || user()?.email || 'User'}</h1>
+                <Show when={user()}>
+                    <div class="admin-header__actions">
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
+                            Delete Account
+                        </button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--primary"
+                            disabled={saving()}
+                            onClick={handleSave}
+                        >
+                            {saving() ? 'Saving...' : 'Save Profile'}
+                        </button>
+                    </div>
+                </Show>
+            </div>
 
             <Show when={success()}>
                 <div class="alert alert--success">{success()}</div>
@@ -229,7 +247,7 @@ const AdminUserDetail: Component = () => {
                         />
                     </div>
                     <div class="user-detail__identity">
-                        <h1>{user()?.displayName || '(no name)'}</h1>
+                        <p class="user-detail__name">{user()?.displayName || '(no name)'}</p>
                         <p class="user-detail__email">{user()?.email}</p>
                         <div class="user-detail__badges">
                             <span class={`badge ${statusInfo().cls}`}>{statusInfo().label}</span>
@@ -304,16 +322,6 @@ const AdminUserDetail: Component = () => {
                                     onChange={setIsActive}
                                     label={isActive() ? 'Enabled' : 'Disabled'}
                                 />
-                            </div>
-                            <div class="settings-field">
-                                <label class="settings-field__label" />
-                                <button
-                                    class="ui-button ui-button--primary ui-button--sm"
-                                    disabled={saving()}
-                                    onClick={handleSave}
-                                >
-                                    {saving() ? 'Saving...' : 'Save Profile'}
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -537,13 +545,6 @@ const AdminUserDetail: Component = () => {
                                     </div>
                                 </Show>
                             </Show>
-                        </div>
-
-                        {/* Delete */}
-                        <div class="user-detail__action-group">
-                            <button class="btn btn--ghost btn--small btn--danger-text" onClick={handleDelete}>
-                                Delete Account
-                            </button>
                         </div>
                     </div>
                 </div>

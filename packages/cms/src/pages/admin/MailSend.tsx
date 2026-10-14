@@ -212,6 +212,26 @@ const MailSend: Component = () => {
             <div class="admin-header">
                 <A href="/admin/mailing-lists" class="admin-header__back">← Mailing Lists</A>
                 <h1>Send a Message — Step {step()} of 2</h1>
+                <Show when={step() === '1' && draft.listId}>
+                    <div class="admin-header__actions">
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary"
+                            onClick={() => setShowPreview(true,)}
+                            disabled={draft.blocks.length === 0}
+                        >
+                            Preview
+                        </button>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--primary"
+                            disabled={!canConfirm()}
+                            onClick={() => setSearchParams({ step: '2', },)}
+                        >
+                            Confirmation →
+                        </button>
+                    </div>
+                </Show>
                 <Show when={step() === '2'}>
                     <div class="admin-header__actions">
                         <button
@@ -356,25 +376,6 @@ const MailSend: Component = () => {
                         blocks={draft.blocks}
                         onBlocksChange={(blocks,) => setDraft('blocks', blocks,)}
                     />
-
-                    <div class="form-actions">
-                        <button
-                            type="button"
-                            class="ui-button ui-button--secondary"
-                            onClick={() => setShowPreview(true,)}
-                            disabled={draft.blocks.length === 0}
-                        >
-                            Preview
-                        </button>
-                        <button
-                            type="button"
-                            class="ui-button ui-button--primary"
-                            disabled={!canConfirm()}
-                            onClick={() => setSearchParams({ step: '2', },)}
-                        >
-                            Confirmation →
-                        </button>
-                    </div>
                 </Show>
             </Show>
 
@@ -419,23 +420,6 @@ const MailSend: Component = () => {
                         />
                     </div>
 
-                    <div class="form-actions">
-                        <button
-                            type="button"
-                            class="ui-button ui-button--secondary"
-                            onClick={() => setSearchParams({ step: '1', },)}
-                        >
-                            ← Back
-                        </button>
-                        <button
-                            type="button"
-                            class="ui-button ui-button--primary"
-                            onClick={handleSend}
-                            disabled={sending()}
-                        >
-                            {sending() ? 'Scheduling…' : `Send to ${selectedList()?.subscriberCount ?? 0} recipients`}
-                        </button>
-                    </div>
                 </section>
             </Show>
 

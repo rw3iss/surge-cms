@@ -11,42 +11,36 @@ export interface EditorSaveBarProps {
     saveLabel?: string;
     cancelLabel?: string;
     deleteLabel?: string;
-    /** Extra buttons rendered after Cancel in the left group (e.g. a per-page
+    /** Extra buttons rendered between Cancel and Save (e.g. a per-page
      *  "Sync from Printify" action). */
     extraActions?: JSX.Element;
 }
 
 /**
- * Standardized save bar for admin edit pages.
- * Renders a Save + Cancel on the left and an optional Delete on the right.
+ * Standard edit-page controls: Delete · Cancel · Save. Place it INSIDE the
+ * sticky page header (`.admin-header__actions`) — every admin edit page keeps
+ * its controls at the top, never at the bottom of a long form.
  */
-const EditorSaveBar: Component<EditorSaveBarProps> = (props,) => {
-    return (
-        <div class="editor-save-bar">
-            <div class="editor-save-bar__main">
-                <button
-                    class="ui-button ui-button--primary"
-                    onClick={() => props.onSave()}
-                    disabled={props.saving || props.canSave === false}
-                >
-                    {props.saving ? 'Saving...' : (props.saveLabel || 'Save')}
-                </button>
-                <button class="ui-button ui-button--secondary" onClick={props.onCancel}>
-                    {props.cancelLabel || 'Cancel'}
-                </button>
-                {props.extraActions}
-            </div>
-            <Show when={props.showDelete !== false && props.onDelete}>
-                <button
-                    class="ui-button ui-button--danger"
-                    onClick={props.onDelete}
-                    disabled={props.deleting}
-                >
-                    {props.deleting ? 'Deleting...' : (props.deleteLabel || 'Delete')}
-                </button>
-            </Show>
-        </div>
-    );
-};
+const EditorSaveBar: Component<EditorSaveBarProps> = (props,) => (
+    <>
+        <Show when={props.showDelete !== false && props.onDelete}>
+            <button type="button" class="ui-button ui-button--danger ui-button--sm" onClick={props.onDelete} disabled={props.deleting}>
+                {props.deleting ? 'Deleting...' : (props.deleteLabel || 'Delete')}
+            </button>
+        </Show>
+        <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={props.onCancel}>
+            {props.cancelLabel || 'Cancel'}
+        </button>
+        {props.extraActions}
+        <button
+            type="button"
+            class="ui-button ui-button--primary ui-button--sm"
+            onClick={() => props.onSave()}
+            disabled={props.saving || props.canSave === false}
+        >
+            {props.saving ? 'Saving...' : (props.saveLabel || 'Save')}
+        </button>
+    </>
+);
 
 export default EditorSaveBar;

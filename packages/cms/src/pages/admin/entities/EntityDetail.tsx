@@ -109,9 +109,11 @@ const EntityDetail: Component = () => {
                     <A href="/admin/entities" class="table-link">Entities</A> / {draft()?.label || params.type}
                 </h1>
                 <Show when={tab() === 'schema' && draft()}>
-                    <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
-                        {saving() ? 'Saving…' : 'Save schema'}
-                    </button>
+                    <div class="admin-header__actions">
+                        <button type="button" class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
+                            {saving() ? 'Saving…' : 'Save schema'}
+                        </button>
+                    </div>
                 </Show>
             </div>
 
@@ -290,12 +292,6 @@ const EntityDetail: Component = () => {
                             fields={draft()!.fields}
                             onChange={(fields,) => patch({ fields, },)}
                         />
-                    </div>
-
-                    <div class="entity-schema__save-bar">
-                        <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
-                            {saving() ? 'Saving…' : 'Save schema'}
-                        </button>
                     </div>
                 </Show>
 

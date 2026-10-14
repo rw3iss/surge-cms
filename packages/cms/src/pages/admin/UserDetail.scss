@@ -1,16 +1,4 @@
 .user-detail {
-    &__back {
-        display: inline-block;
-        font-size: $font-size-sm;
-        color: $text-light;
-        text-decoration: none;
-        margin-bottom: $spacing-lg;
-
-        &:hover {
-            color: var(--site-primary, #{$primary-color});
-        }
-    }
-
     &__loading {
         padding: $spacing-3xl;
         text-align: center;
@@ -92,7 +80,7 @@
         flex: 1;
         min-width: 0;
 
-        h1 {
+        .user-detail__name {
             font-size: $font-size-2xl;
             font-weight: 700;
             margin: 0 0 2px;

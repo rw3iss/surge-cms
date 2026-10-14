@@ -467,6 +467,15 @@ const FormEditor: Component = () => {
                             View Responses ({form()?.submissionCount})
                         </A>
                     </Show>
+                    <EditorSaveBar
+                        onSave={() => handleSubmit()}
+                        onCancel={() => navigate('/admin/forms',)}
+                        onDelete={handleDelete}
+                        saving={saving()}
+                        showDelete={!isNew()}
+                        saveLabel="Save Form"
+                        deleteLabel="Delete Form"
+                    />
                 </div>
             </div>
 
@@ -1092,15 +1101,6 @@ const FormEditor: Component = () => {
                         </Show>
                     </section>
 
-                    <EditorSaveBar
-                        onSave={() => handleSubmit()}
-                        onCancel={() => navigate('/admin/forms',)}
-                        onDelete={handleDelete}
-                        saving={saving()}
-                        showDelete={!isNew()}
-                        saveLabel="Save Form"
-                        deleteLabel="Delete Form"
-                    />
                 </form>
             </Show>
         </div>

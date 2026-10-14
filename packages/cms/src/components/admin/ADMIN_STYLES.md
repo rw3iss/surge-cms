@@ -136,6 +136,11 @@ Every edit/list page's `.admin-header` (the title + Save/manage actions row) is
 `--admin-page-bg`). Just use `<div class="admin-header">…</div>` — no modifier
 needed. Keep primary actions (Save/Delete) in `.admin-header__actions`.
 
+**Edit pages never put their controls at the bottom.** Delete · Cancel · Save go
+in the sticky header, in that order — `<EditorSaveBar>` (`admin/common/EditorSaveBar`)
+renders exactly those buttons for the header. A long form's Save must stay
+reachable without scrolling to the end. Modal footers are the exception.
+
 ## File layout
 
 ```
@@ -162,7 +167,7 @@ frontend/src/pages/admin/
                             / .options-section / .options-list / .option-row
     _collapsible-panel.scss
     _editor-properties.scss ← .editor-brief / .editor-pill / .editor-properties
-                              / .page-editor / .editor-save-bar
+                              / .page-editor
                               / .autosave-indicator / .schedule-field
                               / .revisions-panel
     _block-editor.scss      ← .block-editor / .content-block (incl. hover bar

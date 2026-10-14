@@ -115,7 +115,7 @@ const EntityRecordEdit: Component = () => {
                     </A>{' '}
                     / {heading()}
                 </h1>
-                <div style={{ display: 'flex', gap: '0.5rem', }}>
+                <div class="admin-header__actions">
                     <Show when={isEditing()}>
                         <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || loading()}>
                             {saving() ? 'Saving…' : 'Save'}

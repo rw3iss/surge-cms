@@ -1727,6 +1727,13 @@ const AdminSettings: Component = () => {
             <AdminTitle>Settings</AdminTitle>
             <div class="admin-header">
                 <h1>Settings</h1>
+                <Show when={activeTab() === 'general'}>
+                    <div class="admin-header__actions">
+                        <button type="submit" form="settings-general-form" class="ui-button ui-button--primary" disabled={saving()}>
+                            {saving() ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </div>
+                </Show>
             </div>
 
             <div class="settings-tabs">
@@ -1749,7 +1756,7 @@ const AdminSettings: Component = () => {
                         <div class="alert alert--success">Settings saved successfully.</div>
                     </Show>
 
-                    <form onSubmit={handleSubmit} class="settings-general">
+                    <form id="settings-general-form" onSubmit={handleSubmit} class="settings-general">
                         {/* Two-column layout: site identity on the left,
                             branding on the right. Stacks on narrow widths. */}
                         <div class="settings-grid">
@@ -1968,11 +1975,6 @@ const AdminSettings: Component = () => {
                             </section>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="ui-button ui-button--primary" disabled={saving()}>
-                                {saving() ? 'Saving...' : 'Save Settings'}
-                            </button>
-                        </div>
                     </form>
                 </Show>
 

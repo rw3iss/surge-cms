@@ -233,9 +233,16 @@ export function EntityEditorShell<TEntity,>(
                             </button>
                         </Show>
                     </Show>
-                    <button class="ui-button ui-button--primary ui-button--sm" onClick={e.handleSave} disabled={e.saving()}>
-                        {e.saving() ? 'Saving...' : props.labels.saveLabel}
-                    </button>
+                    <EditorSaveBar
+                        onSave={e.handleSave}
+                        onCancel={() => e.navigate(`/admin/${props.revisionsEntityType}s`,)}
+                        onDelete={() => e.setShowDeleteConfirm(true,)}
+                        saving={e.saving()}
+                        deleting={e.deleting()}
+                        showDelete={!e.isNew() && !e.isDeleted()}
+                        saveLabel={props.labels.saveLabel}
+                        deleteLabel={props.labels.deleteLabel}
+                    />
                 </div>
             </div>
 
@@ -260,16 +267,6 @@ export function EntityEditorShell<TEntity,>(
                 />
             </Show>
 
-            <EditorSaveBar
-                onSave={e.handleSave}
-                onCancel={() => e.navigate(`/admin/${props.revisionsEntityType}s`,)}
-                onDelete={() => e.setShowDeleteConfirm(true,)}
-                saving={e.saving()}
-                deleting={e.deleting()}
-                showDelete={!e.isNew() && !e.isDeleted()}
-                saveLabel={props.labels.saveLabel}
-                deleteLabel={props.labels.deleteLabel}
-            />
 
             <Show when={!e.isNew()}>
                 <RevisionsPanel

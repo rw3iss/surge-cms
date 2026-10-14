@@ -137,7 +137,12 @@ const ShopOrderDetailInner: Component = () => {
                                     <A href="/admin/shop/orders" class="table-link">&larr; Orders</A>
                                     <h1>Order {o().orderNumber}</h1>
                                 </div>
-                                <span class={`badge shop-order__status-badge ${getStatusBadgeClass(o().status,)}`}>{o().status}</span>
+                                <div class="admin-header__actions">
+                                    <span class={`badge shop-order__status-badge ${getStatusBadgeClass(o().status,)}`}>{o().status}</span>
+                                    <button type="button" class="ui-button ui-button--primary" onClick={saveChanges} disabled={busy()}>
+                                        {busy() ? 'Saving...' : 'Save changes'}
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="shop-order__grid">
@@ -231,9 +236,6 @@ const ShopOrderDetailInner: Component = () => {
                                         <FormField label="Notes" class="form-field--block">
                                             <textarea rows={3} value={notes()} onInput={(e,) => setNotes(e.currentTarget.value,)} />
                                         </FormField>
-                                        <button class="ui-button ui-button--primary" onClick={saveChanges} disabled={busy()}>
-                                            {busy() ? 'Saving...' : 'Save changes'}
-                                        </button>
                                     </div>
 
                                     <div class="shop-order__panel">

@@ -81,6 +81,12 @@ const AdminConnectionEditor: Component = () => {
             <AdminTitle>{providerName()} Connection</AdminTitle>
             <div class="admin-header">
                 <h1>{connection() ? 'Edit' : 'Connect'} {providerName()}</h1>
+                <div class="admin-header__actions">
+                    <button type="button" class="ui-button ui-button--secondary" onClick={() => navigate('/admin/connections',)}>Cancel</button>
+                    <button type="button" class="ui-button ui-button--primary" onClick={handleSave}>
+                        {connection() ? 'Save Changes' : 'Connect'}
+                    </button>
+                </div>
             </div>
             <Show when={error()}>
                 <div class="alert alert--error">{error()}</div>
@@ -144,12 +150,6 @@ const AdminConnectionEditor: Component = () => {
                             </Show>
                         </div>
                     </Show>
-                </div>
-                <div class="form-actions">
-                    <button class="ui-button ui-button--primary" onClick={handleSave}>
-                        {connection() ? 'Save Changes' : 'Connect'}
-                    </button>
-                    <button class="ui-button ui-button--secondary" onClick={() => navigate('/admin/connections',)}>Cancel</button>
                 </div>
             </div>
         </div>
