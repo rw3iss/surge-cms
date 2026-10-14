@@ -82,7 +82,7 @@ const SubscriptionTiersPanel: Component = () => {
                                         <strong>{t.name}</strong> <code class="subscriptions-panel__slug">{t.slug}</code>
                                         <Show when={t.description}><div class="form-help-muted">{t.description}</div></Show>
                                         <Show when={t.devOnly}>
-                                            <div class="subscriptions-panel__approval"><span class="badge badge--muted">Dev only — admins see it</span></div>
+                                            <div class="subscriptions-panel__approval"><span class="badge badge--muted">Dev only — admins + developers</span></div>
                                         </Show>
                                         <Show when={t.requiresApproval}>
                                             <div class="subscriptions-panel__approval">

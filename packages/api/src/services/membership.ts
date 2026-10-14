@@ -22,6 +22,9 @@ import type {
     MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { isAdminRole, } from '@sitesurge/types';
+
+/** Role (main or extra) that, like admins, sees "Dev only" levels (migration 152). */
+const DEVELOPER_ROLE = 'developer';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
@@ -222,7 +225,7 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
     }
     const policy = await getSubscriptionPolicy();
     const [pending, approved,] = await Promise.all([pendingApplicationFor(userId,), approvedOfferFor(userId,),],);
-    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy, await isAdminUser(userId,),);
+    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy, await seesDevOnly(userId,),);
     return {
         tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
         pendingApplication: pending, approvedOffer: approved,
@@ -234,19 +237,21 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
  * still usable to cancel) and paid tiers below the minimum — except the
  * member's current tier, so they can still see what they have.
  */
-function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy, isAdmin = false,): MembershipTierOption[] {
-    // "Dev only" levels: admins/sysadmins only (a member already on one still sees it).
-    tiers = tiers.filter((t,) => !t.devOnly || isAdmin || t.isCurrent,);
+function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy, seesDev = false,): MembershipTierOption[] {
+    // "Dev only" levels: admins/sysadmins and developers only (a member already on one still sees it).
+    tiers = tiers.filter((t,) => !t.devOnly || seesDev || t.isCurrent,);
     if (!policy.required) return tiers;
     // A dev-only level (admins testing, often at a token price) is exempt from the minimum.
     return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.devOnly || (t.rank ?? 0) >= policy.minimumRank));
 }
 
-/** Admin or sysadmin — sees "Dev only" levels. */
-async function isAdminUser(userId: string | null,): Promise<boolean> {
+/** Sees "Dev only" levels: an admin/sysadmin, or a `developer` (main or extra role). */
+async function seesDevOnly(userId: string | null,): Promise<boolean> {
     if (!userId) return false;
-    const r = await query<{ role: string; }>(`SELECT role FROM users WHERE id = $1`, [userId,],);
-    return isAdminRole(r.rows[0]?.role ?? '',);
+    const r = await query<{ role: string; extra_roles: string[] | null; }>(`SELECT role, extra_roles FROM users WHERE id = $1`, [userId,],);
+    const u = r.rows[0];
+    if (!u) return false;
+    return isAdminRole(u.role,) || u.role === DEVELOPER_ROLE || (u.extra_roles ?? []).includes(DEVELOPER_ROLE,);
 }
 
 // ─── Current ─────────────────────────────────────────────────────────────
@@ -328,7 +333,7 @@ export async function overview(userId: string,): Promise<MembershipResponse> {
     const tiers = (await tierOptions(cur.tier?.id ?? null, pending?.tierId ?? null, approved?.tierId ?? null,)).map((t,) =>
         t.isCurrent ? { ...t, currentPriceId: cur.priceId ?? t.selectedPriceId ?? null, } : t);
     return {
-        current: cur, tiers: offered(tiers, policy, await isAdminUser(userId,),),
+        current: cur, tiers: offered(tiers, policy, await seesDevOnly(userId,),),
         subscriptionRequired: policy.required, pendingApplication: pending, approvedOffer: approved,
         lastFailedAttempt: cur.tier && !cur.tier.isFree ? null : await lastFailedAttempt(userId,),
     };
@@ -344,7 +349,7 @@ async function targetTier(userId: string, tierId: string, opts: { approved?: boo
     if (!found) throw new NotFoundError('Membership',);
     // An APPROVED application (hide-price levels) is the approval: buying it is allowed.
     if (offer?.tierId === tierId) opts = { ...opts, approved: true, };
-    if (found.devOnly && !found.isCurrent && !opts.approved && !(await isAdminUser(userId,))) throw new NotFoundError('Membership',);
+    if (found.devOnly && !found.isCurrent && !opts.approved && !(await seesDevOnly(userId,))) throw new NotFoundError('Membership',);
     // The chosen price (default when omitted). Same level at ANOTHER price is a
     // change (e.g. monthly → yearly), not "current".
     const priced = withPrice(found, opts.priceId,);

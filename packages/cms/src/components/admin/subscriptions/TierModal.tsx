@@ -212,7 +212,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     <FormField label="Active">
                         <Toggle checked={form.isActive} onChange={(v,) => setForm('isActive', v,)} ariaLabel="Active" />
                     </FormField>
-                    <FormField label="Dev Only" hint="When on, only signed-in admins see this level on /subscribe, sign-up and the profile.">
+                    <FormField label="Dev Only" hint="When on, only signed-in admins and developers (the Developer role, main or extra) see this level on /subscribe, sign-up and the profile.">
                         <Toggle checked={form.devOnly} onChange={(v,) => setForm('devOnly', v,)} ariaLabel="Dev Only" />
                     </FormField>
                 </div>
