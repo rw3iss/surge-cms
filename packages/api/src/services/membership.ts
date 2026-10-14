@@ -238,7 +238,8 @@ function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy, isAd
     // "Dev only" levels: admins/sysadmins only (a member already on one still sees it).
     tiers = tiers.filter((t,) => !t.devOnly || isAdmin || t.isCurrent,);
     if (!policy.required) return tiers;
-    return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.rank ?? 0) >= policy.minimumRank);
+    // A dev-only level (admins testing, often at a token price) is exempt from the minimum.
+    return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.devOnly || (t.rank ?? 0) >= policy.minimumRank));
 }
 
 /** Admin or sysadmin — sees "Dev only" levels. */
@@ -357,7 +358,7 @@ async function targetTier(userId: string, tierId: string, opts: { approved?: boo
     // Subscription-required mode: below-minimum paid tiers are not for sale
     // (Free stays reachable — it is how a member cancels).
     const policy = await getSubscriptionPolicy();
-    if (policy.required && !to.isFree && !to.isCurrent && (to.rank ?? 0) < policy.minimumRank) {
+    if (policy.required && !to.isFree && !to.isCurrent && !to.devOnly && (to.rank ?? 0) < policy.minimumRank) {
         throw new ValidationError('That membership level is not available.',);
     }
     if (!to.isFree && !to.isCurrent) {
