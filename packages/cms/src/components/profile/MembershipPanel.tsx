@@ -380,7 +380,7 @@ const MembershipPanel: Component = () => {
                             <Show when={current()!.card}>
                                 <div><dt>Card</dt><dd>{current()!.card!.brand} ending in {current()!.card!.last4}</dd></div>
                             </Show>
-                            <Show when={current()!.source === 'manual'}><div><dt>Source</dt><dd>Assigned by the site team</dd></div></Show>
+                            <Show when={current()!.source === 'manual'}><div><dt>Source</dt><dd>Assigned by Staff</dd></div></Show>
                         </dl>
                         <Show when={current()!.cancelAtPeriodEnd}>
                             <p class="membership__warning">
@@ -389,14 +389,14 @@ const MembershipPanel: Component = () => {
                             </p>
                         </Show>
                         <div class="membership__actions">
+                            <Show when={!current()!.cancelAtPeriodEnd && (currentTier()?.prices?.length ?? 0) > 1 && !currentTier()?.isFree}>
+                                <button type="button" class="membership__link" onClick={openChooser}>Change billing</button>
+                            </Show>
                             <Show
                                 when={required() && noPlan()}
                                 fallback={<button type="button" class="btn btn--outline-neutral" onClick={openChooser} disabled={tiers().length < 2}>Change membership</button>}
                             >
                                 <button type="button" class="btn" onClick={openChooser} disabled={tiers().length < 1}>Choose a plan</button>
-                            </Show>
-                            <Show when={!current()!.cancelAtPeriodEnd && (currentTier()?.prices?.length ?? 0) > 1 && !currentTier()?.isFree}>
-                                <button type="button" class="membership__link" onClick={openChooser}>Change billing</button>
                             </Show>
                             <Show when={current()!.card || current()!.source === 'stripe'}>
                                 <button type="button" class="btn btn--outline-neutral" onClick={() => { setError('',); setNotice('',); setView('card',); }}>
