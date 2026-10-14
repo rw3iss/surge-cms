@@ -42,6 +42,8 @@ const MembershipPanel: Component = () => {
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
     const [applyingPrice, setApplyingPrice,] = createSignal<string | null>(null,);
     const pending = () => data()?.pendingApplication ?? null;
+    /** Approved for a level that is not started yet: choose billing + pay. */
+    const offer = () => data()?.approvedOffer ?? null;
     /** Finish an application submitted without a card. */
     const [addingCard, setAddingCard,] = createSignal(false,);
 
@@ -89,6 +91,7 @@ const MembershipPanel: Component = () => {
     const actionLabel = () => {
         const to = chosen();
         if (to?.isPending) return 'Application pending';
+        if (to?.isApproved && !to.isCurrent) return `Start ${to.name}`;
         if (to?.requiresApproval && !to.isCurrent) return `Apply for ${to.name}`;
         if (!to || direction() === 'same') return current()?.cancelAtPeriodEnd ? 'Keep my membership' : 'No change';
         if (direction() === 'billing') {
@@ -287,16 +290,34 @@ const MembershipPanel: Component = () => {
                             </button>
                         </div>
                     </Show>
+                    <Show when={offer() && view() === 'overview'}>
+                        <div class="membership__pending membership__pending--offer" role="status">
+                            You're approved for <strong>{offer()!.tierName}</strong>! Choose your billing and start your membership.{' '}
+                            <button
+                                type="button"
+                                class="btn btn--primary btn--sm"
+                                onClick={() => {
+                                    const t = tiers().find((x,) => x.id === offer()!.tierId,);
+                                    openChooser();
+                                    if (t) { setSelected(t.id,); setPriceSel(leadPriceId(t,),); }
+                                }}
+                            >
+                                Choose billing
+                            </button>
+                        </div>
+                    </Show>
                     <Show when={pending()}>
                         <div class="membership__pending" role="status">
                             Your application for <strong>{pending()!.tierName}</strong> is waiting for approval (sent {longDate(pending()!.createdAt,)}).{' '}
                             <Show
-                                when={pending()!.hasCard}
+                                when={pending()!.hasCard || pending()!.noCard}
                                 fallback={<>Add the card for your membership so it can start once approved — you will not be charged before then.{' '}</>}
                             >
-                                Your card is saved and will be charged only if it is approved.{' '}
+                                {pending()!.noCard
+                                    ? 'Once it is approved, you will see the pricing here and choose your billing — nothing is charged before then. '
+                                    : 'Your card is saved and will be charged only if it is approved. '}
                             </Show>
-                            <Show when={!pending()!.hasCard && !addingCard()}>
+                            <Show when={!pending()!.hasCard && !pending()!.noCard && !addingCard()}>
                                 <button type="button" class="membership__link" onClick={() => setAddingCard(true,)}>Add my card</button>{' · '}
                             </Show>
                             <button
@@ -427,7 +448,8 @@ const MembershipPanel: Component = () => {
                                             <strong>{t.name}</strong>
                                             <Show when={t.isCurrent}><span class="membership__badge">Current</span></Show>
                                             <Show when={t.isPending}><span class="membership__badge membership__badge--pending">Pending approval</span></Show>
-                                            <Show when={t.requiresApproval && !t.isPending && !t.isCurrent}><span class="membership__badge membership__badge--apply">By application</span></Show>
+                                            <Show when={t.isApproved && !t.isCurrent}><span class="membership__badge membership__badge--approved">Approved</span></Show>
+                                            <Show when={t.requiresApproval && !t.isPending && !t.isApproved && !t.isCurrent}><span class="membership__badge membership__badge--apply">By application</span></Show>
                                         </span>
                                         <span class="membership__tout-price">
                                             <PriceChoice
@@ -437,7 +459,7 @@ const MembershipPanel: Component = () => {
                                                 onSelect={(t.prices?.length ?? 0) > 1 ? (id,) => { setSelected(t.id,); setPriceSel(id,); } : undefined}
                                             />
                                         </span>
-                                        <span class="membership__tout-freq">
+                                        <span class="membership__tout-freq" hidden={!!t.priceHidden}>
                                             {freq(selected() === t.id ? tierAtPrice(t, chosenPrice(),) : t.isCurrent ? tierAtPrice(t, currentPrice(),) : t,)}
                                         </span>
                                         <Markdown class="membership__tout-desc" text={t.description} />
@@ -450,10 +472,10 @@ const MembershipPanel: Component = () => {
                             <button
                                 type="button"
                                 class="btn"
-                                disabled={busy() || direction() === 'same' || !!chosen()?.isPending || (!!chosen()?.requiresApproval && !!pending())}
+                                disabled={busy() || direction() === 'same' || !!chosen()?.isPending || (!!chosen()?.requiresApproval && !chosen()?.isApproved && !!pending())}
                                 onClick={() => {
                                     const to = chosen();
-                                    if (to?.requiresApproval && !to.isCurrent) { setApplyingPrice(chosenPrice(),); setApplying(to,); return; }
+                                    if (to?.requiresApproval && !to.isCurrent && !to.isApproved) { setApplyingPrice(chosenPrice(),); setApplying(to,); return; }
                                     void toConfirm();
                                 }}
                             >

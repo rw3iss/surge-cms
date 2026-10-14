@@ -53,7 +53,10 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
                     <h1 id="subscription-wall-title">Your application is waiting for approval</h1>
                     <p>
                         Thank you for applying for <strong>{props.access.pendingApplication?.tierName ?? 'membership'}</strong>. Our team will review it
-                        and email you. Your card is saved but will not be charged unless your application is approved.
+                        and email you.{' '}
+                        {props.access.pendingApplication?.noCard
+                            ? 'Once you are approved, you will choose your billing and start your membership — nothing is charged before then.'
+                            : 'Your card is saved but will not be charged unless your application is approved.'}
                     </p>
                     <div class="subscription-wall__actions">
                         <button type="button" class="btn btn--primary" disabled={checking()} onClick={recheck}>
@@ -69,6 +72,9 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
                             <Show
                                 when={props.access.failedAttempt}
                                 fallback={
+                                    <Show
+                                        when={props.access.approvedOffer}
+                                        fallback={
                                     <>
 
                                     <h1 id="subscription-wall-title">{props.access.lapsed ? 'Your membership has ended' : 'A membership is required'}</h1>
@@ -83,6 +89,21 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
                                     </div>
                                 
                                     </>
+                                        }
+                                    >
+                                        {(o,) => (
+                                            <>
+                                                <h1 id="subscription-wall-title">You're approved!</h1>
+                                                <p>
+                                                    Your application for <strong>{o().tierName}</strong> is approved. Choose your billing and start your
+                                                    membership to get access.
+                                                </p>
+                                                <div class="subscription-wall__actions">
+                                                    <A href={`/profile?tab=membership&tier=${encodeURIComponent(o().tierId,)}`} class="btn btn--primary">Choose billing</A>
+                                                </div>
+                                            </>
+                                        )}
+                                    </Show>
                                 }
                             >
                                 {(f,) => (

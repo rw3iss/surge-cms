@@ -171,6 +171,11 @@ export class PaymentsModule extends ModuleBase {
         return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply/card', { body, invalidates: ['payments', 'auth',], },);
     }
 
+    /** POST /payments/membership/apply/claim — attach an application sent before sign-up, without a card ("hide price" levels). */
+    claimMembershipApplication(body: { applicationId: string; token?: string | null; },): Promise<MembershipApplyResponse> {
+        return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply/claim', { body, invalidates: ['payments', 'auth',], },);
+    }
+
     /** POST /payments/membership/apply/withdraw — withdraw your pending application. */
     withdrawMembershipApplication(): Promise<{ ok: true; }> {
         return this.mutate<{ ok: true; }>('POST', '/payments/membership/apply/withdraw', { invalidates: ['payments', 'auth',], },);

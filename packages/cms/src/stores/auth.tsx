@@ -1,6 +1,6 @@
 import { UnauthorizedError, } from '@sitesurge/client';
 import { type Contact, isAdminRole, type MemberAccessState, type User, } from '@sitesurge/types';
-import { createContext, createEffect, createSignal, on, ParentComponent, useContext, } from 'solid-js';
+import { createContext, createEffect, createSignal, on, onCleanup, ParentComponent, useContext, } from 'solid-js';
 import { cms, setUnauthorizedHandler, suppressUnauthorized, } from '../services/cmsClient';
 import { isFeatureEnabled, } from './siteSettings';
 
@@ -296,6 +296,16 @@ export const AuthProvider: ParentComponent = (props,) => {
             }
         },);
     }
+
+    // An application waiting for approval: check every minute, so an approval
+    // is noticed (and the member sent to choose billing) without a reload.
+    createEffect(() => {
+        if (!access()?.pendingApplication || typeof window === 'undefined') return;
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === 'visible' && !sessionExpired()) void refreshUser();
+        }, 60_000,);
+        onCleanup(() => window.clearInterval(timer,),);
+    },);
 
     const contextValue: AuthContextValue = {
         get user() {

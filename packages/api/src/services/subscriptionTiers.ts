@@ -167,6 +167,7 @@ function mapTier(r: Record<string, unknown>,): SubscriptionTier {
         },
         requiresApproval: r.requires_approval === true,
         applicationFormId: (r.application_form_id as string | null) ?? null,
+        hidePrice: r.hide_price === true,
         pendingApplications: Number(r.pending_applications ?? 0,),
         stripePriceId: (r.stripe_price_id as string | null) ?? null,
         stripeProductId: (r.stripe_product_id as string | null) ?? null,
@@ -290,13 +291,13 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
             const r = await c.query(
                 `INSERT INTO subscription_plans (slug, name, description, role, is_active, price_cents, interval, stripe_price_id, stripe_product_id, sort_order,
                                                  interval_count, display_price_cents, display_interval, display_interval_count,
-                                                 requires_approval, application_form_id)
+                                                 requires_approval, application_form_id, hide_price)
                  VALUES ($1, $2, $3, $4, COALESCE($5, true), COALESCE($6, 0), COALESCE($7, 'month'), $8, $9, COALESCE($10, 50),
-                         COALESCE($11, 1), $12, $13, $14, COALESCE($15, false), $16::uuid) RETURNING id`,
+                         COALESCE($11, 1), $12, $13, $14, COALESCE($15, false), $16::uuid, COALESCE($17, false)) RETURNING id`,
                 [slug, body.name.trim(), body.description ?? null, body.role ?? 'subscriber', body.isActive ?? null,
                     stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,
                     stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
-                    body.requiresApproval ?? null, body.applicationFormId || null,],
+                    body.requiresApproval ?? null, body.applicationFormId || null, body.hidePrice ?? null,],
             );
             tid = String(r.rows[0].id,);
         } else {
@@ -319,6 +320,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     display_interval_count = CASE WHEN $16 THEN $19 ELSE display_interval_count END,
                     requires_approval = COALESCE($20, requires_approval),
                     application_form_id = CASE WHEN $21 THEN $22::uuid ELSE application_form_id END,
+                    hide_price = COALESCE($23, hide_price),
                     sort_order = COALESCE($14, sort_order),
                     updated_at = NOW()
                   WHERE id = $1`,
@@ -327,7 +329,8 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     stripe !== null, body.stripePriceId || null, stripe?.productId ?? null, stripe?.amount ?? null, stripe?.interval ?? null,
                     body.sortOrder ?? null, stripe?.intervalCount ?? null,
                     display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
-                    body.requiresApproval ?? null, body.applicationFormId !== undefined, body.applicationFormId || null,],
+                    body.requiresApproval ?? null, body.applicationFormId !== undefined, body.applicationFormId || null,
+                    body.hidePrice ?? null,],
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);

@@ -135,3 +135,17 @@ describe('approve', () => {
         expect(startApproved,).not.toHaveBeenCalled();
     },);
 },);
+
+describe('approve — "hide price" level (no card)', () => {
+    it('makes an OFFER: approved, nothing charged, member emailed', async () => {
+        db([
+            ['FROM membership_applications WHERE id', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'pending', payment_method_id: null, price_id: null, },],],
+            ['SELECT hide_price, name FROM subscription_plans', [{ hide_price: true, name: "Founder's Club", },],],
+            ['FROM membership_applications a', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'approved', tier_name: "Founder's Club", tier_hide_price: true, answers: [], created_at: new Date(), contact_email: 'a@b.co', user_email: 'a@b.co', },],],
+        ],);
+        const app = await approve('app1', undefined, { userId: 'admin', } as never,);
+        expect(startApproved,).not.toHaveBeenCalled();
+        expect(q.mock.calls.some(([sql,],) => String(sql,).includes("status = 'approved'",),),).toBe(true,);
+        expect(app.tierHidePrice,).toBe(true,);
+    },);
+},);

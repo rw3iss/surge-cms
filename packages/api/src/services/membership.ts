@@ -18,7 +18,7 @@
  */
 import type Stripe from 'stripe';
 import type {
-    MembershipCardResponse, MembershipCardSetupResponse, MembershipFailedAttempt, MembershipPendingApplication, MembershipPriceOption,
+    MembershipApprovedOffer, MembershipCardResponse, MembershipCardSetupResponse, MembershipFailedAttempt, MembershipPendingApplication, MembershipPriceOption,
     MembershipChangeResponse, MembershipCurrent, MembershipPreviewResponse, MembershipPublicTiersResponse, MembershipResponse, MembershipTierOption,
 } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
@@ -113,20 +113,43 @@ async function applicationFormSlugs(ids: string[],): Promise<Map<string, string>
     return new Map(r.rows.map((f,) => [f.id, f.slug,]),);
 }
 
+/** Approved for a level that is not started yet (an OFFER: choose billing + pay). */
+export async function approvedOfferFor(userId: string | null,): Promise<MembershipApprovedOffer | null> {
+    if (!userId) return null;
+    const r = await query<{ id: string; plan_id: string; name: string; decided_at: Date | null; }>(
+        `SELECT a.id, a.plan_id, p.name, a.decided_at FROM membership_applications a
+           JOIN subscription_plans p ON p.id = a.plan_id
+          WHERE a.user_id = $1 AND a.status = 'approved' AND a.activated_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = a.user_id AND s.plan_id = a.plan_id AND s.status IN ('active', 'trialing', 'past_due'))
+          ORDER BY a.decided_at DESC NULLS LAST LIMIT 1`,
+        [userId,],
+    ).catch(() => ({ rows: [], }),);
+    const a = r.rows[0];
+    return a ? { applicationId: a.id, tierId: a.plan_id, tierName: a.name, approvedAt: a.decided_at ? new Date(a.decided_at,).toISOString() : null, } : null;
+}
+
+/** The approved application for this level is now STARTED (paid). */
+async function markApplicationStarted(userId: string, planId: string,): Promise<void> {
+    await query(
+        `UPDATE membership_applications SET activated_at = NOW() WHERE user_id = $1 AND plan_id = $2 AND status = 'approved' AND activated_at IS NULL`,
+        [userId, planId,],
+    ).catch(() => {},);
+}
+
 /** A member's open (pending) membership application, if any. */
 export async function pendingApplicationFor(userId: string | null,): Promise<MembershipPendingApplication | null> {
     if (!userId) return null;
-    const r = await query<{ id: string; plan_id: string; name: string; created_at: Date; has_card: boolean; }>(
-        `SELECT a.id, a.plan_id, p.name, a.created_at, (a.payment_method_id IS NOT NULL) AS has_card FROM membership_applications a
+    const r = await query<{ id: string; plan_id: string; name: string; created_at: Date; has_card: boolean; hide_price: boolean; }>(
+        `SELECT a.id, a.plan_id, p.name, a.created_at, (a.payment_method_id IS NOT NULL) AS has_card, p.hide_price FROM membership_applications a
            JOIN subscription_plans p ON p.id = a.plan_id
           WHERE a.user_id = $1 AND a.status = 'pending' LIMIT 1`,
         [userId,],
     ).catch(() => ({ rows: [], }),);
     const a = r.rows[0];
-    return a ? { id: a.id, tierId: a.plan_id, tierName: a.name, createdAt: new Date(a.created_at,).toISOString(), hasCard: a.has_card, } : null;
+    return a ? { id: a.id, tierId: a.plan_id, tierName: a.name, createdAt: new Date(a.created_at,).toISOString(), hasCard: a.has_card, noCard: !!a.hide_price && !a.has_card, } : null;
 }
 
-async function tierOptions(currentTierId: string | null, pendingTierId: string | null = null,): Promise<MembershipTierOption[]> {
+async function tierOptions(currentTierId: string | null, pendingTierId: string | null = null, approvedTierId: string | null = null,): Promise<MembershipTierOption[]> {
     const prices = await priceDetails();
     const out: MembershipTierOption[] = [];
     const all = await listTiers();
@@ -164,6 +187,7 @@ async function tierOptions(currentTierId: string | null, pendingTierId: string |
             display: t.isFree ? null : t.displayPrice ?? null,
             prices: priceList,
             selectedPriceId: t.isFree ? null : t.stripePriceId ?? null,
+            isApproved: !!approvedTierId && t.id === approvedTierId,
             requiresApproval: !t.isFree && t.requiresApproval,
             applicationFormSlug: t.requiresApproval && t.applicationFormId ? formSlugs.get(t.applicationFormId,) ?? null : null,
             isPending: !!pendingTierId && t.id === pendingTierId,
@@ -171,7 +195,14 @@ async function tierOptions(currentTierId: string | null, pendingTierId: string |
             rank: t.sortOrder,
         },);
     }
-    return out.sort((a, b,) => Number(b.isFree,) - Number(a.isFree,) || a.priceCents - b.priceCents);
+    // "Hide price" approval levels: no price anywhere until the viewer is
+    // approved for it (or already on it). Sorted by the real price first so
+    // the order does not change when the price appears.
+    const sorted = out.sort((a, b,) => Number(b.isFree,) - Number(a.isFree,) || a.priceCents - b.priceCents);
+    const hidden = new Set(all.filter((t,) => t.requiresApproval && t.hidePrice,).map((t,) => t.id,),);
+    return sorted.map((o,) => hidden.has(o.id,) && !o.isCurrent && !o.isApproved
+        ? { ...o, priceHidden: true, priceCents: 0, prices: [], display: null, selectedPriceId: null, interval: '', intervalCount: 1, }
+        : o);
 }
 
 /**
@@ -188,11 +219,11 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
         } catch { /* signed-in but no tier row → free */ }
     }
     const policy = await getSubscriptionPolicy();
-    const pending = await pendingApplicationFor(userId,);
-    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null,), policy,);
+    const [pending, approved,] = await Promise.all([pendingApplicationFor(userId,), approvedOfferFor(userId,),],);
+    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy,);
     return {
         tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
-        pendingApplication: pending,
+        pendingApplication: pending, approvedOffer: approved,
     };
 }
 
@@ -281,12 +312,12 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
 export async function overview(userId: string,): Promise<MembershipResponse> {
     const cur = await current(userId,);
     const policy = await getSubscriptionPolicy();
-    const pending = await pendingApplicationFor(userId,);
-    const tiers = (await tierOptions(cur.tier?.id ?? null, pending?.tierId ?? null,)).map((t,) =>
+    const [pending, approved,] = await Promise.all([pendingApplicationFor(userId,), approvedOfferFor(userId,),],);
+    const tiers = (await tierOptions(cur.tier?.id ?? null, pending?.tierId ?? null, approved?.tierId ?? null,)).map((t,) =>
         t.isCurrent ? { ...t, currentPriceId: cur.priceId ?? t.selectedPriceId ?? null, } : t);
     return {
         current: cur, tiers: offered(tiers, policy,),
-        subscriptionRequired: policy.required, pendingApplication: pending,
+        subscriptionRequired: policy.required, pendingApplication: pending, approvedOffer: approved,
         lastFailedAttempt: cur.tier && !cur.tier.isFree ? null : await lastFailedAttempt(userId,),
     };
 }
@@ -295,9 +326,12 @@ export async function overview(userId: string,): Promise<MembershipResponse> {
 
 async function targetTier(userId: string, tierId: string, opts: { approved?: boolean; priceId?: string | null; } = {},) {
     const cur = await current(userId,);
-    const tiers = await tierOptions(cur.tier?.id ?? null,);
+    const offer = await approvedOfferFor(userId,);
+    const tiers = await tierOptions(cur.tier?.id ?? null, null, offer?.tierId ?? null,);
     const found = tiers.find((t,) => t.id === tierId,);
     if (!found) throw new NotFoundError('Membership',);
+    // An APPROVED application (hide-price levels) is the approval: buying it is allowed.
+    if (offer?.tierId === tierId) opts = { ...opts, approved: true, };
     // The chosen price (default when omitted). Same level at ANOTHER price is a
     // change (e.g. monthly → yearly), not "current".
     const priced = withPrice(found, opts.priceId,);
@@ -476,6 +510,7 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
         [local.id, to.id, updated.status, new Date(period.start * 1000,), new Date(period.end * 1000,),],
     );
     await syncUserRole(userId,);
+    await markApplicationStarted(userId, to.id,);
     const direction = to.priceCents > (from?.priceCents ?? 0) ? 'upgraded' : 'changed';
     await email(userId, from, to, billingOnly
         ? `Your ${to.name} billing changed to ${frequency(to.interval, to.intervalCount,)} today. Any unused time on your previous billing was credited.`
@@ -510,6 +545,7 @@ export async function confirm(userId: string, stripeSubscriptionId: string,): Pr
         [row.id, sub.status, new Date(period.start * 1000,), new Date(period.end * 1000,),],
     );
     await syncUserRole(userId,);
+    await markApplicationStarted(userId, row.plan_id,);
     if (!wasActive) {
         const tiers = await tierOptions(row.plan_id,);
         const fromId = sub.metadata?.fromPlanId;

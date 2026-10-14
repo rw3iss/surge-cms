@@ -1,4 +1,4 @@
-import type { MembershipPendingApplication, } from './membershipApplications';
+import type { MembershipApprovedOffer, MembershipPendingApplication, } from './membershipApplications';
 import type { TierDisplayPrice, } from './subscriptions';
 /**
  * membership — a signed-in user managing THEIR OWN subscription tier
@@ -51,6 +51,10 @@ export interface MembershipTierOption {
     selectedPriceId?: string | null;
     /** On the member's current level: the price they pay now. */
     currentPriceId?: string | null;
+    /** Prices are hidden until the viewer is approved for this level (Apply only; no card at apply time). */
+    priceHidden?: boolean;
+    /** The viewer was APPROVED for this level and can now choose billing and start it. */
+    isApproved?: boolean;
     /** Joining needs an admin's approval: the button reads "Apply". */
     requiresApproval?: boolean;
     /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */
@@ -103,6 +107,8 @@ export interface MembershipResponse {
     subscriptionRequired?: boolean;
     /** The member's open application, if any. */
     pendingApplication?: MembershipPendingApplication | null;
+    /** Approved for a level, not started yet: choose billing + pay to start it. */
+    approvedOffer?: MembershipApprovedOffer | null;
     /** A recent membership payment that did not go through (guide the member to retry). */
     lastFailedAttempt?: MembershipFailedAttempt | null;
 }
@@ -161,4 +167,5 @@ export interface MembershipPublicTiersResponse {
     subscriptionRequired?: boolean;
     /** The signed-in viewer's open application, if any. */
     pendingApplication?: MembershipPendingApplication | null;
+    approvedOffer?: MembershipApprovedOffer | null;
 }

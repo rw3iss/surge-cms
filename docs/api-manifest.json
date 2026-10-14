@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-13T23:09:25.426Z",
+  "generatedAt": "2026-10-14T17:53:58.850Z",
   "totalModules": 55,
-  "totalRoutes": 560,
+  "totalRoutes": 561,
   "modules": [
     {
       "module": "admin-channel",
@@ -2135,6 +2135,13 @@
           "absolutePath": "/api/v1/payments/membership/apply/card",
           "auth": "user",
           "summary": "Step 2 of applying: claim the application (token) and save the card — no charge until approved."
+        },
+        {
+          "method": "POST",
+          "path": "/membership/apply/claim",
+          "absolutePath": "/api/v1/payments/membership/apply/claim",
+          "auth": "user",
+          "summary": "Attach an application submitted before the account existed (token) — no card; for levels that hide their price."
         },
         {
           "method": "POST",

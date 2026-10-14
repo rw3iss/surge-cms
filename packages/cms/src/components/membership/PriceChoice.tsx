@@ -37,6 +37,10 @@ const PriceChoice: Component<PriceChoiceProps> = (props,) => {
         e.stopPropagation();
         props.onSelect?.(id,);
     };
+    // A "hide price" level the viewer is not approved for: no prices at all.
+    if (props.tier.priceHidden) {
+        return <div class="price-choice"><span class="price-choice__hidden">Pricing shared after approval</span></div>;
+    }
     return (
         <div class="price-choice" classList={{ 'price-choice--selectable': !!props.onSelect, }}>
             <Show

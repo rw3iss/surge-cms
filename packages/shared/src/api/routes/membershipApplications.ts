@@ -41,6 +41,10 @@ export interface MembershipApplication {
     user: { id: string; email: string; displayName: string; handle: string | null; } | null;
     tierId: string;
     tierName: string;
+    /** The level hides its price: no card is taken; approval makes an offer the member pays for later. */
+    tierHidePrice?: boolean;
+    /** When the approved member started (paid for) the level. */
+    activatedAt?: string | null;
     status: MembershipApplicationStatus;
     formId: string | null;
     formTitle: string | null;
@@ -92,6 +96,14 @@ export interface MembershipApplyResponse {
     application: { id: string; tierId: string; tierName: string; status: MembershipApplicationStatus; createdAt: string; };
 }
 
+/** Approved, not started: the member chooses billing and pays to start the level. */
+export interface MembershipApprovedOffer {
+    applicationId: string;
+    tierId: string;
+    tierName: string;
+    approvedAt: string | null;
+}
+
 /** A member's own open (pending) application, on tier lists + access state. */
 export interface MembershipPendingApplication {
     id: string;
@@ -100,6 +112,8 @@ export interface MembershipPendingApplication {
     createdAt: string;
     /** The card is saved (needed before it can be approved). */
     hasCard: boolean;
+    /** A "hide price" level: no card is asked — billing is chosen after approval. */
+    noCard?: boolean;
 }
 
 export interface MembershipApplicationsListQuery {

@@ -74,8 +74,12 @@ const SubscribePage: Component = () => {
         if (t && !pending()) setApplying(t,);
     },);
 
+    const offer = () => data()?.approvedOffer ?? null;
+
     const choose = (t: MembershipTierOption,) => {
         if (t.isPending) return;
+        // Approved for this level: choose billing + pay on the membership tab.
+        if (t.isApproved) return navigate(`${membershipUrl(t.id,)}${priceParam(t,)}`,);
         if (t.requiresApproval) {
             if (signedIn()) return setApplying(t,);
             if (required()) return navigate(`/join?tier=${encodeURIComponent(t.id,)}${priceParam(t,)}`,);
@@ -89,6 +93,7 @@ const SubscribePage: Component = () => {
     const ctaLabel = (t: MembershipTierOption,) => {
         if (current()?.id === t.id) return 'Your current plan';
         if (t.isPending) return 'Application pending';
+        if (t.isApproved) return 'Start membership';
         if (t.requiresApproval) return 'Apply';
         if (t.isFree) return signedIn() ? 'Switch to Free' : 'Join for free';
         return 'Join';
@@ -105,7 +110,12 @@ const SubscribePage: Component = () => {
             <Show when={pending()}>
                 <div class="subscribe-page__required subscribe-page__pending" role="status">
                     Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. We will email you when it is reviewed —
-                    your card will not be charged until then.
+                    {pending()!.noCard ? ' nothing is charged until you choose your billing after approval.' : ' your card will not be charged until then.'}
+                </div>
+            </Show>
+            <Show when={offer()}>
+                <div class="subscribe-page__required subscribe-page__pending" role="status">
+                    You're approved for <strong>{offer()!.tierName}</strong>! Choose your billing below and start your membership.
                 </div>
             </Show>
             <Show when={walled()}>
@@ -197,12 +207,12 @@ const SubscribePage: Component = () => {
                                             perClass="subscribe-card__per"
                                         />
                                     </div>
-                                    <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosen(t,),),)}</span>
+                                    <Show when={!t.priceHidden}><span class="subscribe-card__freq">{freq(tierAtPrice(t, chosen(t,),),)}</span></Show>
                                     <Markdown class="subscribe-card__desc" text={t.description} />
                                     <button
                                         type="button"
                                         class={`btn subscribe-card__cta ${t.isFree ? 'btn--outline' : 'btn--primary'}`}
-                                        disabled={current()?.id === t.id || !!t.isPending || (!!pending() && !!t.requiresApproval)}
+                                        disabled={current()?.id === t.id || !!t.isPending || (!!pending() && !!t.requiresApproval && !t.isApproved)}
                                         onClick={() => choose(t,)}
                                     >
                                         {ctaLabel(t,)}

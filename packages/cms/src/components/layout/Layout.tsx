@@ -8,7 +8,7 @@ import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteCo
 import { DEFAULT_SITE_NAME, loadSiteSettings, } from '../../stores/siteSettings';
 import { appearanceCssVars, appearanceGlobalCss, pageBackgroundStyle, } from '../../utils/appearanceStyle';
 import { activePageBackground, setRouteScope, } from '../../stores/headerStyle';
-import { useLocation, } from '@solidjs/router';
+import { useLocation, useNavigate, } from '@solidjs/router';
 import { ContactMatchModal, } from '../auth/ContactMatchModal';
 import SubscriptionWall, { isOpenPath, } from '../membership/SubscriptionWall';
 import { useAuth, } from '../../stores/auth';
@@ -45,6 +45,22 @@ export const Layout: ParentComponent = (props,) => {
         const m = settings()?.membership;
         if (!access?.restricted || !m?.required) return null;
         return isOpenPath(location.pathname, m.openPaths ?? [],) ? null : access;
+    },);
+
+    // Just approved for a level that is not started ("hide price"): send the
+    // member — once per session — to choose billing and pay.
+    const navigate = useNavigate();
+    createEffect(() => {
+        const offer = auth.access?.approvedOffer;
+        if (!offer || location.pathname.startsWith('/profile',)) return;
+        const key = `sitesurge.offerRedirected.${offer.applicationId}`;
+        try {
+            if (sessionStorage.getItem(key,)) return;
+            sessionStorage.setItem(key, '1',);
+        } catch {
+            return; // no storage: never risk a redirect loop
+        }
+        navigate(`/profile?tab=membership&tier=${encodeURIComponent(offer.tierId,)}`,);
     },);
 
     const [headerSettings,] = createResource(async () => {

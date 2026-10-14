@@ -7,7 +7,7 @@ import { createResource, createSignal, For, Show, type Component, } from 'solid-
 import type { MembershipApplication, } from '@sitesurge/types';
 import { formatDateTime, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
-import { approvalBadge, } from './applicationStatus';
+import { approvalBadge, offerStatus, } from './applicationStatus';
 import ReviewApplicationModal from './ReviewApplicationModal';
 import './applications.scss';
 
@@ -40,6 +40,7 @@ const UserApplicationsPanel: Component<UserApplicationsPanelProps> = (props,) =>
                                         {' '}· {a.status} {a.decidedBy ? `by ${a.decidedBy} ` : ''}on {formatDateTime(a.decidedAt!,)}
                                     </Show>
                                     <Show when={a.error && a.status === 'pending'}> · last approval failed</Show>
+                                    <Show when={offerStatus(a,)}>{(s,) => <> · {s()}</>}</Show>
                                 </span>
                                 <button
                                     type="button"

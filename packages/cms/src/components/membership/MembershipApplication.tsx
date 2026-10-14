@@ -12,6 +12,9 @@
  *   ApplicationPayment    a card saved with a SetupIntent (NOT charged), then
  *                         `attachMembershipApplicationCard`. Billing starts only
  *                         when an admin approves.
+ *   claimApplication      a "hide price" level instead: no card — the
+ *                         application is attached to the account; on approval
+ *                         the member signs in, sees the pricing and pays then.
  *   ApplyModal            both, for a signed-in member (/subscribe, profile).
  *
  * The sign-up flow (SubscriptionSignup) uses the two parts as its own steps.
@@ -135,21 +138,32 @@ export function forgetApplication(): void {
     try { sessionStorage.removeItem(PENDING_KEY,); } catch { /* ignore */ }
 }
 
+/** "Hide price" levels: attach the sent application to the (new) account — no card. */
+export async function claimApplication(app: SubmittedApplication,): Promise<MembershipApplyResponse> {
+    const res = await cms.payments.claimMembershipApplication({ applicationId: app.id, token: app.token, },);
+    forgetApplication();
+    return res;
+}
+
 /** Shown right after the answers are sent. */
-export const ApplicationSubmitted: Component<{ tierName: string; signedIn: boolean; onContinue: () => void; }> = (props,) => (
+export const ApplicationSubmitted: Component<{ tierName: string; signedIn: boolean; onContinue: () => void; noCard?: boolean; busy?: boolean; }> = (props,) => (
     <div class="membership-apply__submitted" role="status">
         <h3>Your request has been submitted</h3>
         <p>
             Thank you for applying for <strong>{props.tierName}</strong>. Expect a phone call from someone from {siteName()} soon.
         </p>
         <p class="membership-apply__muted">
-            {props.signedIn
+            {props.noCard
+                ? props.signedIn
+                    ? 'Once you are approved, sign in to see the pricing, choose your billing and start your membership.'
+                    : 'Next, create your account. Once you are approved, sign in to see the pricing, choose your billing and start your membership.'
+                : props.signedIn
                 ? 'Next, add the card for your membership — you will not be charged unless your application is approved.'
                 : 'Next, create your account and add your card — you will not be charged unless your application is approved.'}
         </p>
         <div class="membership-apply__actions">
-            <button type="button" class="btn btn--primary" onClick={() => props.onContinue()}>
-                {props.signedIn ? 'Add my card' : 'Create my account'}
+            <button type="button" class="btn btn--primary" disabled={props.busy} onClick={() => props.onContinue()}>
+                {props.noCard ? (props.signedIn ? 'Finish' : 'Create my account') : props.signedIn ? 'Add my card' : 'Create my account'}
             </button>
         </div>
     </div>
@@ -210,13 +224,24 @@ export const ApplicationPayment: Component<{
 };
 
 /** "Thanks — pending approval" (shared by the modal and the sign-up flow). */
-export const ApplicationDone: Component<{ tierName: string; }> = (props,) => (
+export const ApplicationDone: Component<{ tierName: string; noCard?: boolean; }> = (props,) => (
     <div class="membership-apply__done">
         <h3>You're all set</h3>
-        <p>
-            Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
-            we will also email you once it is reviewed. Your card is saved but <strong>will not be charged unless your application is approved</strong>.
-        </p>
+        <Show
+            when={props.noCard}
+            fallback={
+                <p>
+                    Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
+                    we will also email you once it is reviewed. Your card is saved but <strong>will not be charged unless your application is approved</strong>.
+                </p>
+            }
+        >
+            <p>
+                Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
+                we will also email you once it is reviewed. <strong>Nothing is charged now.</strong> When you are approved, sign in to see
+                the pricing, choose your billing and start your membership.
+            </p>
+        </Show>
     </div>
 );
 
@@ -233,6 +258,26 @@ export const ApplyModal: Component<{
     const [price, setPrice,] = createSignal<string | null>(props.priceId ?? leadPriceId(props.tier,),);
     const [step, setStep,] = createSignal<'questions' | 'submitted' | 'payment' | 'done'>('questions',);
     const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
+    const [busy, setBusy,] = createSignal(false,);
+    const [error, setError,] = createSignal('',);
+    /** "Hide price" level: no billing choice and no card — the application is all. */
+    const noCard = () => !!props.tier.priceHidden;
+    const finishNoCard = async () => {
+        const app = submitted();
+        if (!app) return;
+        setBusy(true,);
+        setError('',);
+        try {
+            await claimApplication(app,);
+            setStep('done',);
+            void auth.refreshUser();
+            props.onApplied();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Your application could not be sent.',);
+        } finally {
+            setBusy(false,);
+        }
+    };
     // Esc closes (the backdrop does not: an application is easy to lose by a stray click).
     onMount(() => {
         const onKey = (e: KeyboardEvent,) => { if (e.key === 'Escape') props.onClose(); };
@@ -246,7 +291,7 @@ export const ApplyModal: Component<{
                 <button type="button" class="membership-apply__close" aria-label="Close" onClick={() => props.onClose()}>×</button>
                 <h2 class="membership-apply__title">Apply for {props.tier.name}</h2>
                 <Show when={step() === 'questions'}>
-                    <Show when={(props.tier.prices?.length ?? 0) > 1}>
+                    <Show when={!noCard() && (props.tier.prices?.length ?? 0) > 1}>
                         <div class="membership-apply__billing">
                             <span class="membership-apply__label">Billing</span>
                             <PriceChoice tier={props.tier} selected={price()} onSelect={setPrice} />
@@ -257,7 +302,7 @@ export const ApplyModal: Component<{
                         tier={props.tier}
                         prefill={{ name: auth.user?.displayName, email: auth.user?.email, }}
                         onCollected={async (a,) => {
-                            setSubmitted(await submitApplication(props.tier, a, price(),),);
+                            setSubmitted(await submitApplication(props.tier, a, noCard() ? null : price(),),);
                             setStep('submitted',);
                             void auth.refreshUser();
                             props.onApplied();
@@ -265,7 +310,14 @@ export const ApplyModal: Component<{
                     />
                 </Show>
                 <Show when={step() === 'submitted'}>
-                    <ApplicationSubmitted tierName={props.tier.name} signedIn onContinue={() => setStep('payment',)} />
+                    <ApplicationSubmitted
+                        tierName={props.tier.name}
+                        signedIn
+                        noCard={noCard()}
+                        busy={busy()}
+                        onContinue={() => (noCard() ? void finishNoCard() : setStep('payment',))}
+                    />
+                    <Show when={error()}><p class="membership-apply__error" role="alert">{error()}</p></Show>
                 </Show>
                 <Show when={step() === 'payment' && submitted()}>
                     <ApplicationPayment
@@ -275,7 +327,7 @@ export const ApplyModal: Component<{
                     />
                 </Show>
                 <Show when={step() === 'done'}>
-                    <ApplicationDone tierName={props.tier.name} />
+                    <ApplicationDone tierName={props.tier.name} noCard={noCard()} />
                     <div class="membership-apply__actions">
                         <button type="button" class="btn btn--primary" onClick={() => props.onClose()}>Close</button>
                     </div>

@@ -55,8 +55,11 @@ const TierModal: Component<TierModalProps> = (props,) => {
         displayIntervalCount: String(t?.displayPrice?.intervalCount ?? 1,),
         // Members apply instead of joining; billing starts when an admin approves.
         requiresApproval: t?.requiresApproval ?? false,
+        // No prices shown and no card taken until approval (approval = an offer).
+        hidePrice: t?.hidePrice ?? false,
         applicationFormId: t?.applicationFormId ?? '',
     },);
+    const hidePrice = () => form.requiresApproval && form.hidePrice;
     const [extra, setExtra,] = createSignal<string[]>(t?.permissions ?? [],);
     const [search, setSearch,] = createSignal('',);
     const [saving, setSaving,] = createSignal(false,);
@@ -111,14 +114,18 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 isActive: form.isActive,
                 ...(t?.isFree ? {} : {
                     stripePriceId: form.stripePriceId || null,
-                    displayPrice: form.displayOn && form.displayPrice.trim() !== ''
-                        ? {
-                            priceCents: Math.round(Math.max(0, Number(form.displayPrice,) || 0,) * 100,),
-                            interval: form.displayInterval,
-                            intervalCount: Math.max(1, Math.round(Number(form.displayIntervalCount,) || 1,),),
-                        }
-                        : null,
+                    // Hidden price: leave the stored custom display untouched.
+                    ...(hidePrice() ? {} : {
+                        displayPrice: form.displayOn && form.displayPrice.trim() !== ''
+                            ? {
+                                priceCents: Math.round(Math.max(0, Number(form.displayPrice,) || 0,) * 100,),
+                                interval: form.displayInterval,
+                                intervalCount: Math.max(1, Math.round(Number(form.displayIntervalCount,) || 1,),),
+                            }
+                            : null,
+                    }),
                     requiresApproval: form.requiresApproval,
+                    hidePrice: hidePrice(),
                     applicationFormId: form.requiresApproval ? form.applicationFormId || null : null,
                 }),
                 permissions: extra(),
@@ -186,6 +193,36 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 </div>
 
                 <Show when={!t?.isFree}>
+                    <Toggle
+                        checked={form.requiresApproval}
+                        onChange={(v,) => setForm('requiresApproval', v,)}
+                        label="Require approval"
+                        hint="Members apply instead of joining. Their card is saved and charged only when an admin approves. Review applications in Users."
+                    />
+                    <Show when={form.requiresApproval}>
+                        <Toggle
+                            checked={form.hidePrice}
+                            onChange={(v,) => setForm('hidePrice', v,)}
+                            label="Hide price"
+                            hint="No prices are shown and no card is taken until you approve. Approval sends them a link to choose their billing and pay."
+                        />
+                        <FormField
+                            label="Application form"
+                            hint="Shown when a member applies. The form's own settings (email notification, add as contact) apply to each application."
+                        >
+                            <select value={form.applicationFormId} onChange={(e,) => setForm('applicationFormId', e.currentTarget.value,)}>
+                                <option value="">Built-in form (Name, Email, Phone, Occupation)</option>
+                                <For each={formsList() ?? []}>
+                                    {(f,) => (
+                                        <option value={f.id}>
+                                            {f.title}{f.status !== 'published' ? ' (draft — publish it to use)' : ''}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+                        </FormField>
+                    </Show>
+
                     <FormField label="Stripe membership product (price)">
                         <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
                             <div class="tier-modal__price-row">
@@ -226,69 +263,47 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         </Show>
                     </FormField>
 
-                    <Toggle
-                        checked={form.displayOn}
-                        onChange={(v,) => setForm('displayOn', v,)}
-                        label="Custom price display"
-                        hint="Show members a different price and frequency on /subscribe, sign-up and their profile. Stripe still bills the product's own amount and interval; the cards add a small “Billed …” line with the real charge."
-                    />
-                    <Show when={form.displayOn}>
-                        <div class="tier-modal__grid tier-modal__display">
-                            <FormField label="Display price" hint="In the price's currency, e.g. 3000.00">
-                                <input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.displayPrice}
-                                    onBlur={(e,) => setForm('displayPrice', e.currentTarget.value,)}
-                                />
-                            </FormField>
-                            <FormField label="Display frequency">
-                                <div class="tier-modal__freq">
-                                    <span>every</span>
+                    <Show when={!hidePrice()}>
+                        <Toggle
+                            checked={form.displayOn}
+                            onChange={(v,) => setForm('displayOn', v,)}
+                            label="Custom price display"
+                            hint="Show members a different price and frequency on /subscribe, sign-up and their profile. Stripe still bills the product's own amount and interval; the cards add a small “Billed …” line with the real charge."
+                        />
+                        <Show when={form.displayOn}>
+                            <div class="tier-modal__grid tier-modal__display">
+                                <FormField label="Display price" hint="In the price's currency, e.g. 3000.00">
                                     <input
                                         type="number"
-                                        min={1}
-                                        max={52}
-                                        value={form.displayIntervalCount}
-                                        onBlur={(e,) => setForm('displayIntervalCount', e.currentTarget.value,)}
+                                        min={0}
+                                        step="0.01"
+                                        value={form.displayPrice}
+                                        onBlur={(e,) => setForm('displayPrice', e.currentTarget.value,)}
                                     />
-                                    <select
-                                        value={form.displayInterval}
-                                        onChange={(e,) => setForm('displayInterval', e.currentTarget.value as 'day' | 'week' | 'month' | 'year',)}
-                                    >
-                                        <option value="day">day(s)</option>
-                                        <option value="week">week(s)</option>
-                                        <option value="month">month(s)</option>
-                                        <option value="year">year(s)</option>
-                                    </select>
-                                </div>
-                            </FormField>
-                        </div>
-                    </Show>
-
-                    <Toggle
-                        checked={form.requiresApproval}
-                        onChange={(v,) => setForm('requiresApproval', v,)}
-                        label="Require approval"
-                        hint="Members apply instead of joining. Their card is saved and charged only when an admin approves. Review applications in Users."
-                    />
-                    <Show when={form.requiresApproval}>
-                        <FormField
-                            label="Application form"
-                            hint="Shown when a member applies. The form's own settings (email notification, add as contact) apply to each application."
-                        >
-                            <select value={form.applicationFormId} onChange={(e,) => setForm('applicationFormId', e.currentTarget.value,)}>
-                                <option value="">Built-in form (Name, Email, Phone, Occupation)</option>
-                                <For each={formsList() ?? []}>
-                                    {(f,) => (
-                                        <option value={f.id}>
-                                            {f.title}{f.status !== 'published' ? ' (draft — publish it to use)' : ''}
-                                        </option>
-                                    )}
-                                </For>
-                            </select>
-                        </FormField>
+                                </FormField>
+                                <FormField label="Display frequency">
+                                    <div class="tier-modal__freq">
+                                        <span>every</span>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={52}
+                                            value={form.displayIntervalCount}
+                                            onBlur={(e,) => setForm('displayIntervalCount', e.currentTarget.value,)}
+                                        />
+                                        <select
+                                            value={form.displayInterval}
+                                            onChange={(e,) => setForm('displayInterval', e.currentTarget.value as 'day' | 'week' | 'month' | 'year',)}
+                                        >
+                                            <option value="day">day(s)</option>
+                                            <option value="week">week(s)</option>
+                                            <option value="month">month(s)</option>
+                                            <option value="year">year(s)</option>
+                                        </select>
+                                    </div>
+                                </FormField>
+                            </div>
+                        </Show>
                     </Show>
                 </Show>
 

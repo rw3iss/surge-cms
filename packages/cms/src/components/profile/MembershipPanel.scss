@@ -148,8 +148,10 @@
 
 .membership__badge--pending { background: #fef3c7; color: #92400e; }
 .membership__badge--apply { background: #e0e7ff; color: #3730a3; }
+.membership__badge--approved { background: #dcfce7; color: #166534; }
 
 .membership__pending--failed { border-color: #ef4444; background: #fef2f2; }
+.membership__pending--offer { border-color: #22c55e; background: #f0fdf4; }
 
 // Confirm step → "How the switch works" for a billing-frequency change.
 .membership__billing-explain {

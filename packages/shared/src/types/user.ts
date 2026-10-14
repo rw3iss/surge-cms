@@ -23,6 +23,8 @@ export interface MemberAccessState {
     lapsed: boolean;
     /** An application waiting for an admin (any mode, signed-in members). */
     pendingApplication?: import('../api/routes/membershipApplications').MembershipPendingApplication | null;
+    /** Approved for a level that is not started yet — send them to choose billing + pay. */
+    approvedOffer?: import('../api/routes/membershipApplications').MembershipApprovedOffer | null;
     /** Let in by a role allowed without a membership (Users → Settings), not by a membership. */
     viaRole?: boolean;
     /** Restricted because a membership payment did not go through (retry with a card). */

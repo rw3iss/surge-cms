@@ -180,6 +180,12 @@ export const paymentsRoutes = [
         handler: ({ body, userId, },) => applications.attachCard(userId!, body,),
     },),
     defineRoute({
+        method: 'post', path: '/membership/apply/claim', auth: 'user',
+        summary: 'Attach an application submitted before the account existed (token) — no card; for levels that hide their price.',
+        input: { body: z.object({ applicationId: z.string().uuid(), token: z.string().max(300,).nullable().optional(), },), },
+        handler: ({ body, userId, },) => applications.claim(userId!, body,),
+    },),
+    defineRoute({
         method: 'post', path: '/membership/apply/withdraw', auth: 'user',
         summary: 'Withdraw your own pending membership application.',
         handler: async ({ userId, },) => {

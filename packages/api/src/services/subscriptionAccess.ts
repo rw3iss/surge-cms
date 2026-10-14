@@ -64,8 +64,8 @@ export async function accessState(user: { id: string; role?: string | null; emai
     };
     if (!user?.id) return base;
     // A pending application is reported in every mode (UI: "waiting for approval").
-    const { lastFailedAttempt, pendingApplicationFor, } = await import('./membership.js');
-    base.pendingApplication = await pendingApplicationFor(user.id,);
+    const { approvedOfferFor, lastFailedAttempt, pendingApplicationFor, } = await import('./membership.js');
+    [base.pendingApplication, base.approvedOffer,] = await Promise.all([pendingApplicationFor(user.id,), approvedOfferFor(user.id,),],);
     if (!policy.required || isStaffRole(user.role ?? undefined,)) return base;
     // Roles allowed in WITHOUT a membership (Users → Settings), by the primary
     // role or any additional one — e.g. brand ambassadors.

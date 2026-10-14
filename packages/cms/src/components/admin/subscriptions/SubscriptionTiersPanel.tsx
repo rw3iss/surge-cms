@@ -84,6 +84,9 @@ const SubscriptionTiersPanel: Component = () => {
                                         <Show when={t.requiresApproval}>
                                             <div class="subscriptions-panel__approval">
                                                 <span class="badge badge--warning">Requires approval</span>
+                                                <Show when={t.hidePrice}>
+                                                    {' '}<span class="badge badge--muted">Price hidden until approved</span>
+                                                </Show>
                                                 <Show when={t.pendingApplications > 0}>
                                                     {' '}<A href="/admin/users?approval=pending">{t.pendingApplications} pending</A>
                                                 </Show>

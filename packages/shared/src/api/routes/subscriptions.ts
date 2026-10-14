@@ -59,6 +59,9 @@ export interface SubscriptionTier {
     requiresApproval: boolean;
     /** The application form (Forms entity id); null = the built-in form. */
     applicationFormId: string | null;
+    /** Approval levels only: no prices shown and no card taken until approved;
+     *  the approved member then chooses billing and pays. */
+    hidePrice: boolean;
     /** Pending applications for this tier. */
     pendingApplications: number;
     stripePriceId: string | null;
@@ -82,6 +85,7 @@ export interface SubscriptionTierBody {
     displayPrice?: TierDisplayPrice | null;
     requiresApproval?: boolean;
     applicationFormId?: string | null;
+    hidePrice?: boolean;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */
     permissions?: string[];

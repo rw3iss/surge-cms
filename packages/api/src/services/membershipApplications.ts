@@ -230,6 +230,27 @@ export async function attachCard(userId: string, body: MembershipApplyCardBody,)
     return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: 'pending', createdAt: new Date(a.created_at,).toISOString(), }, };
 }
 
+/**
+ * Signed in: claim an application submitted before the account existed,
+ * WITHOUT a card — for "hide price" levels, where no card is taken at apply time.
+ */
+export async function claim(userId: string, body: { applicationId: string; token?: string | null; },): Promise<MembershipApplyResponse> {
+    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; created_at: Date; name: string; hide_price: boolean; }>(
+        `SELECT a.id, a.user_id, a.plan_id, a.status, a.created_at, p.name, p.hide_price FROM membership_applications a
+           JOIN subscription_plans p ON p.id = a.plan_id WHERE a.id = $1`,
+        [body.applicationId,],
+    );
+    const a = r.rows[0];
+    if (!a || !['pending', 'approved',].includes(a.status,)) throw new NotFoundError('Application',);
+    if (a.user_id && a.user_id !== userId) throw new NotFoundError('Application',);
+    if (!a.user_id) {
+        if (!body.token || verifyApplicationToken(body.token,) !== a.id) throw new NotFoundError('Application',);
+        await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1`, [a.id, userId,],);
+    }
+    await setUserApproval(userId, a.status === 'approved' ? 'approved' : 'pending',);
+    return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: a.status as MembershipApplicationStatus, createdAt: new Date(a.created_at,).toISOString(), }, };
+}
+
 /** Both steps in one call (signed in). */
 export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { userId: string; },): Promise<MembershipApplyResponse> {
     const tier = await loadTier(body.tierId,);
@@ -242,7 +263,7 @@ export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { use
 // ─── Admin ───────────────────────────────────────────────────────────────
 
 const SELECT = `
-    SELECT a.*, p.name AS tier_name, f.title AS form_title,
+    SELECT a.*, p.name AS tier_name, p.hide_price AS tier_hide_price, f.title AS form_title,
            u.email AS user_email, u.display_name AS user_name, u.handle AS user_handle,
            d.display_name AS decided_by_name
       FROM membership_applications a
@@ -259,6 +280,8 @@ function mapApp(r: Record<string, unknown>, card: MembershipApplication['card'] 
         user: r.user_email ? { id: String(r.user_id,), email: String(r.user_email,), displayName: String(r.user_name ?? '',), handle: (r.user_handle as string | null) ?? null, } : null,
         tierId: String(r.plan_id,),
         tierName: String(r.tier_name ?? '',),
+        tierHidePrice: r.tier_hide_price === true,
+        activatedAt: r.activated_at ? new Date(r.activated_at as string,).toISOString() : null,
         status: r.status as MembershipApplicationStatus,
         formId: (r.form_id as string | null) ?? null,
         formTitle: (r.form_title as string | null) ?? null,
@@ -324,9 +347,36 @@ async function loadPending(id: string,) {
     return a;
 }
 
-/** Approve: start the membership and charge the saved card now. */
+/**
+ * Approve. Normally: start the membership and charge the saved card now.
+ * A "hide price" level (no card was taken): approval is an OFFER — the member
+ * is emailed, signs in, chooses billing and pays; nothing is charged here.
+ */
 export async function approve(id: string, note: string | undefined, ctx: AuditContext,): Promise<MembershipApplication> {
     const a = await loadPending(id,);
+    const tier = (await query<{ hide_price: boolean; name: string; }>(`SELECT hide_price, name FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0];
+    if (tier?.hide_price && !a.payment_method_id) {
+        await query(
+            `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [id, note?.trim() || null, ctx.userId || null,],
+        );
+        if (a.user_id) await setUserApproval(a.user_id, 'approved',);
+        await logAudit({ userId: ctx.userId, action: 'approve', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, offer: true, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+        const app = await get(id,);
+        if (app.contactEmail) {
+            const url = `${((config.frontendUrl as string | undefined) ?? '').replace(/\/+$/, '',)}/profile?tab=membership&tier=${encodeURIComponent(a.plan_id,)}`;
+            void sendEmail({
+                to: app.contactEmail,
+                subject: `You're approved for ${tier.name}`,
+                html: `<p>Good news — your application for <strong>${esc(tier.name,)}</strong> was approved.</p>`
+                    + (note?.trim() ? `<p>${esc(note.trim(),)}</p>` : '')
+                    + `<p>${a.user_id ? 'Sign in' : 'Create your account (use the link from your application email) and sign in'} to choose your billing and start your membership:</p>`
+                    + `<p><a href="${esc(url,)}" style="background:#111;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Start my membership</a></p>`
+                    + `<p>Nothing has been charged yet.</p>`,
+            },).catch(() => {},);
+        }
+        return app;
+    }
     if (!a.user_id) throw new ValidationError('The applicant has not created their account yet — approve once they have signed up and added a card.',);
     try {
         await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id, a.price_id,);

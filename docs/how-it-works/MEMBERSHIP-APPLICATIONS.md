@@ -69,11 +69,27 @@ membership sees the wall with the pending message (`access.reason = 'pending_app
 Then the local subscription is activated, the role synced and the member emailed.
 **Reject** charges nothing and emails the member (with the note, if any).
 
+## Hide price (approval levels)
+
+A level that requires approval may also **hide its price** (TierModal → *Hide price*, under
+*Require approval*; the *Custom price display* section shows only when Hide price is off).
+
+| Step | What happens |
+|---|---|
+| Browsing | /subscribe, sign-up and the profile show no price, frequency or billing choice for that level — only **Apply** ("Pricing shared after approval"). |
+| Applying | The answers only — **no card**. A signed-out applicant creates the account afterwards and the application is attached with `POST /payments/membership/apply/claim` (claim token). |
+| Approve | Makes an **offer**: status approved, **nothing charged**, the member is emailed a link to choose billing. |
+| Offer | `access.approvedOffer` (and `isApproved` on the tier). The SPA forwards the member to Profile → Membership once per session; the prices now show, the member picks billing, pays, and the membership starts (`activated_at` set). |
+
+While an application is pending, the SPA re-reads `/auth/me` every 60 s, so a signed-in
+member sees the approval without reloading.
+
 ## Data
 
 | Table / column | Purpose |
 |---|---|
 | `subscription_plans.requires_approval`, `application_form_id` | The level's settings (migration 145). |
+| `subscription_plans.hide_price`, `membership_applications.activated_at` | Hide price + when an approved offer was started (migration 150). |
 | `membership_applications` | One row per application: status `pending / approved / rejected / withdrawn`, the answers snapshot, `submission_id` (Forms), `stripe_customer_id` + `payment_method_id`, `error`, decision. One pending per member (partial unique index). |
 | `users.approval_status` | The latest application's status — the Users table filter. |
 

@@ -20,7 +20,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import Markdown from '../common/Markdown';
 import {
-    applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, ApplicationSubmitted, submitApplication, type SubmittedApplication,
+    applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, ApplicationSubmitted, claimApplication, submitApplication, type SubmittedApplication,
 } from './MembershipApplication';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -42,6 +42,13 @@ const APPLY_STEPS: { key: Step; label: string; }[] = [
     { key: 'application', label: 'Application', },
     { key: 'account', label: 'Account', },
     { key: 'payment', label: 'Card', },
+];
+
+/** A "hide price" level: no card — the application is the whole sign-up. */
+const OFFER_STEPS: { key: Step; label: string; }[] = [
+    { key: 'plan', label: 'Plan', },
+    { key: 'application', label: 'Application', },
+    { key: 'account', label: 'Account', },
 ];
 
 const SubscriptionSignup: Component = () => {
@@ -74,11 +81,34 @@ const SubscriptionSignup: Component = () => {
     const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     const [applied, setApplied,] = createSignal(false,);
     const needsApproval = () => !!tier()?.requiresApproval;
-    const steps = () => (needsApproval() ? APPLY_STEPS : STEPS);
+    /** "Hide price" level: nothing is paid until the member is approved. */
+    const noCard = () => !!tier()?.priceHidden;
+    const steps = () => (noCard() ? OFFER_STEPS : needsApproval() ? APPLY_STEPS : STEPS);
+
+    /** Attach the sent application to the account (no card) and finish. */
+    const finishOffer = async () => {
+        const app = submitted();
+        if (!app) return setStep('plan',);
+        setBusy(true,);
+        setError('',);
+        try {
+            await claimApplication(app,);
+            setApplied(true,);
+            await auth.refreshUser();
+            setStep('done',);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Your application could not be sent.',);
+        } finally {
+            setBusy(false,);
+        }
+    };
 
     // Already signed in (e.g. came back after a failed payment): skip the account step.
     createEffect(() => {
-        if (step() === 'account' && auth.user) setStep('payment',);
+        if (step() === 'account' && auth.user) {
+            if (noCard()) void finishOffer();
+            else setStep('payment',);
+        }
     },);
 
     // ─── Account ───
@@ -97,7 +127,8 @@ const SubscriptionSignup: Component = () => {
             const res = await cms.auth.register({ name: name().trim(), email: email().trim(), password: password(), },);
             if (!res.signedIn) throw new Error('Your account was created. Sign in to finish choosing your plan.',);
             await auth.refreshUser();
-            setStep('payment',);
+            // The effect above moves on (a "hide price" level claims its application there).
+            if (!noCard()) setStep('payment',);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Registration failed',);
         } finally {
@@ -194,7 +225,7 @@ const SubscriptionSignup: Component = () => {
                                                 perClass="subscribe-card__per"
                                             />
                                         </div>
-                                        <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosenFor(t,),),)}</span>
+                                        <Show when={!t.priceHidden}><span class="subscribe-card__freq">{freq(tierAtPrice(t, chosenFor(t,),),)}</span></Show>
                                         <Markdown class="subscribe-card__desc" text={t.description} />
                                         <button
                                             type="button"
@@ -220,22 +251,26 @@ const SubscriptionSignup: Component = () => {
             <Show when={step() === 'application' && tier()}>
                 <div class="subscription-signup__form">
                     <p class="subscription-signup__plan">
-                        Applying for <strong>{tier()!.name}</strong> · {shownPrice(chosenTier()!,)}{' '}
+                        Applying for <strong>{tier()!.name}</strong><Show when={!noCard()}> · {shownPrice(chosenTier()!,)}</Show>{' '}
                         <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
                     </p>
-                    <Show when={hasChoice()}>
+                    <Show when={hasChoice() && !noCard()}>
                         <div class="subscription-signup__billing">
                             <span class="join__label">Billing</span>
                             <PriceChoice tier={tier()!} selected={chosenFor(tier()!,)} onSelect={(id,) => pick(tier()!, id,)} />
                         </div>
                     </Show>
-                    <p class="subscription-signup__hint">This membership requires approval. Tell us about yourself — you will not be charged unless you are approved.</p>
+                    <p class="subscription-signup__hint">
+                        {noCard()
+                            ? 'This membership requires approval. Tell us about yourself — pricing is shared once you are approved, and nothing is charged now.'
+                            : 'This membership requires approval. Tell us about yourself — you will not be charged unless you are approved.'}
+                    </p>
                     <ApplicationQuestions
                         tier={tier()!}
                         prefill={{ name: auth.user?.displayName ?? name(), email: auth.user?.email ?? email(), }}
                         onCollected={async (answers: FormAnswer[], form,) => {
                             // Sent NOW (signed in or not): the team is emailed and will call.
-                            setSubmitted(await submitApplication(tier()!, answers, chosenFor(tier()!,),),);
+                            setSubmitted(await submitApplication(tier()!, answers, noCard() ? null : chosenFor(tier()!,),),);
                             const who = applicantFrom(form, answers,);
                             if (!name()) setName(who.name,);
                             if (!email()) setEmail(who.email,);
@@ -251,7 +286,9 @@ const SubscriptionSignup: Component = () => {
                     <ApplicationSubmitted
                         tierName={tier()!.name}
                         signedIn={!!auth.user}
-                        onContinue={() => setStep(auth.user ? 'payment' : 'account',)}
+                        noCard={noCard()}
+                        busy={busy()}
+                        onContinue={() => (noCard() && auth.user ? void finishOffer() : setStep(auth.user ? 'payment' : 'account',))}
                     />
                 </div>
             </Show>
@@ -260,7 +297,7 @@ const SubscriptionSignup: Component = () => {
             <Show when={step() === 'account'}>
                 <form class="join__form subscription-signup__form" onSubmit={createAccount}>
                     <p class="subscription-signup__plan">
-                        Plan: <strong>{tier()?.name}</strong> · {chosenTier() ? shownPrice(chosenTier()!,) : ''}{' '}
+                        Plan: <strong>{tier()?.name}</strong><Show when={!noCard() && chosenTier()}> · {shownPrice(chosenTier()!,)}</Show>{' '}
                         <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change</button>
                     </p>
                     <div class="join__field">
@@ -286,7 +323,7 @@ const SubscriptionSignup: Component = () => {
             </Show>
 
             {/* 3 · Card — an application saves it (no charge) */}
-            <Show when={step() === 'payment' && needsApproval() && tier() && submitted()}>
+            <Show when={step() === 'payment' && needsApproval() && !noCard() && tier() && submitted()}>
                 <div class="subscription-signup__form">
                     <ApplicationPayment
                         tier={tier()!}
@@ -338,7 +375,7 @@ const SubscriptionSignup: Component = () => {
             {/* 4 · Done */}
             <Show when={step() === 'done' && applied()}>
                 <div class="join__success">
-                    <ApplicationDone tierName={tier()?.name ?? 'membership'} />
+                    <ApplicationDone tierName={tier()?.name ?? 'membership'} noCard={noCard()} />
                     <A href="/profile?tab=membership" class="join__btn join__btn--primary">View my account</A>
                 </div>
             </Show>

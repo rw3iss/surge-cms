@@ -13,7 +13,7 @@ import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
 import ModalShell from '../common/ModalShell';
 import { FormField, } from '../forms';
-import { approvalBadge, } from './applicationStatus';
+import { approvalBadge, offerStatus, } from './applicationStatus';
 import './ReviewApplicationModal.scss';
 
 export interface ReviewApplicationModalProps {
@@ -39,8 +39,10 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
         try {
             const body = note().trim() ? { note: note().trim(), } : {};
             if (action === 'approve') {
-                await cms.membershipApplications.approve(props.applicationId, body,);
-                toast.success('Approved — the membership is active and billing has started.',);
+                const done = await cms.membershipApplications.approve(props.applicationId, body,);
+                toast.success(done.tierHidePrice
+                    ? 'Approved. The applicant was emailed a link to choose their billing and start the membership.'
+                    : 'Approved — the membership is active and billing has started.',);
             } else {
                 await cms.membershipApplications.reject(props.applicationId, body,);
                 toast.success('Application rejected. The applicant was emailed; nothing was charged.',);
@@ -57,6 +59,8 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
         }
     };
 
+    /** A "hide price" application approved without a card = an offer (no charge now). */
+    const offer = () => Boolean(app()?.tierHidePrice && !app()?.card,);
     const card = (a: MembershipApplication,) => a.card ? `${cap(a.card.brand,)} •••• ${a.card.last4}` : 'No card saved';
 
     return (
@@ -85,9 +89,17 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                     <dt>Status</dt>
                                     <dd>
                                         <Show when={approvalBadge(a().status,)}>{(b,) => <span class={b().cls}>{b().label}</span>}</Show>
+                                        <Show when={offerStatus(a(),)}>{(s,) => <div class="form-help-muted">{s()}</div>}</Show>
                                     </dd>
                                 </div>
-                                <div><dt>Saved card</dt><dd>{card(a(),)}<div class="form-help-muted">Charged only on approval.</div></dd></div>
+                                <div>
+                                    <dt>Saved card</dt>
+                                    <dd>
+                                        <Show when={!a().tierHidePrice || a().card} fallback="Not needed — price hidden until approved">
+                                            {card(a(),)}<div class="form-help-muted">Charged only on approval.</div>
+                                        </Show>
+                                    </dd>
+                                </div>
                                 <div>
                                     <dt>Form</dt>
                                     <dd>
@@ -134,10 +146,10 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                         type="button"
                                         class="ui-button ui-button--primary"
                                         onClick={() => setConfirm('approve',)}
-                                        disabled={busy() || !a().userId || !a().card}
-                                        title={!a().userId ? 'The applicant has not created their account yet' : !a().card ? 'The applicant has not saved a card yet' : undefined}
+                                        disabled={busy() || (!offer() && (!a().userId || !a().card))}
+                                        title={offer() ? undefined : !a().userId ? 'The applicant has not created their account yet' : !a().card ? 'The applicant has not saved a card yet' : undefined}
                                     >
-                                        Approve &amp; start billing
+                                        {offer() ? 'Approve' : 'Approve & start billing'}
                                     </button>
                                 </div>
                             </Show>
@@ -145,9 +157,11 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             <ConfirmModal
                                 open={confirm() === 'approve'}
                                 title={`Approve ${a().user?.displayName || 'this applicant'} for ${a().tierName}?`}
-                                message={`This charges the saved card (${card(a(),)}) now and starts the ${a().tierName} membership.`}
-                                confirmLabel="Approve & charge"
-                                busyLabel="Charging…"
+                                message={offer()
+                                    ? 'Nothing is charged now. They get an email to choose their billing and start the membership.'
+                                    : `This charges the saved card (${card(a(),)}) now and starts the ${a().tierName} membership.`}
+                                confirmLabel={offer() ? 'Approve' : 'Approve & charge'}
+                                busyLabel={offer() ? 'Approving…' : 'Charging…'}
                                 loading={busy()}
                                 onConfirm={() => void decide()}
                                 onCancel={() => setConfirm(null,)}
