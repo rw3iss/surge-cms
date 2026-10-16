@@ -102,6 +102,14 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
         // "Click edit to configure" instead of its posts. Configured means a
         // provider is chosen; the feed supplies the rest.
         if (props.block.type === 'social') return !d.provider && !d.platform && !d.socialPlatform;
+        // `gallery` keeps its config flat (`source`, `query`, `itemIds`, layout…),
+        // none of which the generic check knows — so a configured gallery showed
+        // the placeholder instead of its items. A live query always has something
+        // to draw; "selected items" needs at least one. Then the SAME renderer as
+        // the site runs the query with every layout/style setting applied.
+        if (props.block.type === 'gallery') {
+            return d.source === 'items' && !(Array.isArray(d.itemIds,) && d.itemIds.length > 0);
+        }
         // Hero is "empty" only when none of its visual fields are set —
         // title or subtitle alone is enough to render meaningfully.
         if (props.block.type === 'hero') {
