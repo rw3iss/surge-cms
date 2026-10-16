@@ -5,26 +5,35 @@
  * may not get the plain file: a signed-out visitor, a member without
  * `media.private:view`, or a subscriber whose short-lived session cookie had
  * lapsed (this page runs in the SPA, which refreshes the session — so they
- * then get the full video here). Everyone else sees the teaser and the
- * subscribe prompt; a video still encoding shows "Processing…".
+ * then get the full video here). A PRIVATE video this viewer may not watch
+ * goes to the access-denied fallback (`utils/accessDenied` — the login page
+ * with `reason=signin|forbidden`), except a share link (`?t=`), which keeps
+ * the teaser + subscribe prompt. A video still encoding shows "Processing…".
  */
 import NotFoundPage from './NotFound';
 import type { MediaPlayback, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
-import { A, useParams, } from '@solidjs/router';
+import { useNavigate, useParams, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createSignal, on, onCleanup, Show, } from 'solid-js';
 import MediaVideo from '../components/blocks/media/MediaVideo';
 import { cms, } from '../services/cmsClient';
+import { useAuth, } from '../stores/auth';
+import { handleAccessDenied, } from '../utils/accessDenied';
 import './Watch.scss';
 
 const POLL_MS = 15_000;
 
 const WatchPage: Component = () => {
     const params = useParams<{ id: string; }>();
+    const [search,] = useSearchParams();
+    const navigate = useNavigate();
+    const auth = useAuth();
     const [pb, setPb,] = createSignal<MediaPlayback | null>(null,);
     const [missing, setMissing,] = createSignal(false,);
 
-    createEffect(on(() => params.id, (id,) => {
+    // Re-read when the viewer changes (playback is role-shaped); wait for the session check first.
+    createEffect(on(() => [params.id, auth.isLoading, auth.user?.id ?? null,] as const, ([id, loading,],) => {
+        if (loading) return;
         let alive = true;
         let timer: ReturnType<typeof setTimeout> | undefined;
         setPb(null,);
@@ -33,6 +42,11 @@ const WatchPage: Component = () => {
             try {
                 const p = await cms.media.playback(id,);
                 if (!alive) return;
+                // Not this viewer's to watch: the access-denied fallback. A share link keeps the teaser.
+                if (!p.access.full && p.access.reason === 'private' && !search.t) {
+                    handleAccessDenied(navigate, auth.user ? 'forbidden' : 'signin',);
+                    return;
+                }
                 setPb(p,);
                 if (!p.src && !p.teaserSrc && !p.fileSrc && p.status === 'processing') timer = setTimeout(load, POLL_MS,);
             } catch {

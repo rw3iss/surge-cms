@@ -21,3 +21,35 @@ export function videoMimeFor(name: string | null | undefined, mime: string | nul
 
 export const isVideoFile = (name: string | null | undefined, mime: string | null | undefined,): boolean =>
     videoMimeFor(name, mime,) !== null;
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+/** A library video's file/stream URL: `/api/v1/video/<id>/…` (the API) or `/video/<id>/…` (the storage/CDN layout). */
+const LIBRARY_VIDEO_PATH = new RegExp(`^/(?:api/v1/)?video/(${UUID})(?:/|$)`, 'i',);
+
+/** The site page for a library video — `/watch/<mediaId>` (the SPA player page). */
+export const watchPath = (mediaId: string,): string => `/watch/${encodeURIComponent(mediaId,)}`;
+
+/**
+ * The library video id behind a media URL, or null.
+ *
+ * Matches the API's direct link (`/api/v1/video/<id>/file`, `…/master.m3u8`)
+ * and the storage layout on the CDN (`https://cdn…/video/<id>/<encode>/…/1080p.mp4`),
+ * on any host. Used so a link never sends a reader to a raw file.
+ */
+export function libraryVideoIdFromUrl(url: string | null | undefined,): string | null {
+    if (!url) return null;
+    let path = url.trim();
+    const abs = /^[a-z][a-z0-9+.-]*:\/\/[^/]*(\/[^?#]*)?/i.exec(path,);
+    if (abs) path = abs[1] ?? '/';
+    else path = path.split(/[?#]/,)[0];
+    return LIBRARY_VIDEO_PATH.exec(path,)?.[1] ?? null;
+}
+
+/**
+ * A link a reader may follow: a library video's file/CDN URL becomes its watch
+ * page (`/watch/<id>`, site-relative); anything else is returned unchanged.
+ */
+export function siteMediaHref(url: string,): string {
+    const id = libraryVideoIdFromUrl(url,);
+    return id ? watchPath(id,) : url;
+}

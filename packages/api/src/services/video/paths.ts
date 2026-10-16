@@ -13,6 +13,7 @@
  */
 import { customAlphabet, } from '../../utils/nanoid';
 import { config, } from '../../config';
+import { loginUrlForDenied, } from '@sitesurge/types';
 
 const id = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10,);
 const secret = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 24,);
@@ -62,8 +63,12 @@ export const masterUrl = (mediaId: string,): string => `${siteBase()}${API}/${me
 /** The video's direct link: a plain MP4 for viewers who may watch it (this is
  *  `media.url` for a video, so "Copy URL" gives a link that just plays). */
 export const fileUrl = (mediaId: string,): string => `${siteBase()}${API}/${mediaId}/file`;
-/** The site's player page — where a direct link sends a viewer without access. */
+/** The site's player page (a video still encoding, for a viewer who may watch it). */
 export const watchUrl = (mediaId: string,): string => `${siteBase()}/watch/${mediaId}`;
+/** Where a direct link sends a browser WITHOUT access: the login page, which
+ *  explains why (`reason`) and returns to the player page after signing in. */
+export const deniedLoginUrl = (mediaId: string, signedIn: boolean,): string =>
+    `${siteBase()}${loginUrlForDenied(`/watch/${mediaId}`, signedIn ? 'forbidden' : 'signin',)}`;
 export const teaserMasterUrl = (mediaId: string,): string => `${siteBase()}${API}/${mediaId}/teaser.m3u8`;
 export const downloadUrl = (mediaId: string, quality: string,): string =>
     `${siteBase()}${API}/${mediaId}/download?quality=${encodeURIComponent(quality,)}`;

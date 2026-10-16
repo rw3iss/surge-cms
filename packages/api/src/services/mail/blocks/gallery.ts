@@ -31,6 +31,5 @@ export const renderGallery: BlockEmailRenderer = (node, ctx,) => {
         showCaptions: s.showCaptions,
         radius: s.radius,
         textColor: ctx.textColor,
-        linkColor: ctx.linkColor,
     },);
 };

@@ -7,13 +7,15 @@
  * In a collection, the nav links back to the collection AND the gallery, and
  * with "Show collections sidebar" on the collections sidebar sits beside it.
  *
- * Missing, deleted media, or hidden from this viewer → the API 404s; when the
- * whole gallery is closed to the viewer the gallery's gate is shown instead.
+ * Missing or deleted media → the API 404s → the 404 page. An existing item
+ * this viewer may not see (its rule, its collection's, or the whole gallery)
+ * → 403 → the access-denied fallback (`utils/accessDenied`: the login page
+ * with the reason, returning here after signing in).
  */
 import { formatDate, type GalleryCollection, type GalleryItem, type GalleryPublicConfig, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
-import { A, type RouteSectionProps, useParams, } from '@solidjs/router';
-import { Component, createResource, Show, } from 'solid-js';
+import { A, type RouteSectionProps, useNavigate, useParams, } from '@solidjs/router';
+import { Component, createEffect, createResource, Show, } from 'solid-js';
 import MediaVideo from '../../components/blocks/media/MediaVideo';
 import SeoHead from '../../components/common/seo/SeoHead';
 import UpgradeTout from '../../components/content/UpgradeTout';
@@ -23,6 +25,7 @@ import { pageStyle, } from '../../components/gallery/galleryLayout';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { deniedReasonOf, handleAccessDenied, } from '../../utils/accessDenied';
 import NotFoundPage from '../NotFound';
 import { GalleryCollectionsLayout, visibleCollections, } from './GalleryCollections';
 import './gallery.scss';
@@ -33,16 +36,30 @@ export type GalleryItemPageProps = Partial<RouteSectionProps> & { id?: string; }
 const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
     const params = useParams<{ id?: string; }>();
     const auth = useAuth();
+    const navigate = useNavigate();
     const id = () => props.id ?? params.id ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
     const [data, { refetch, },] = createResource(key, async () => {
-        if (!isFeatureEnabled('gallery',)) return { config: null, item: null, };
+        let denied: ReturnType<typeof deniedReasonOf> = null;
+        if (!isFeatureEnabled('gallery',)) return { config: null, item: null, denied, };
         const [config, item,] = await Promise.all([
             cms.gallery.config().catch(() => null as GalleryPublicConfig | null),
-            cms.gallery.item(id(),).catch(() => null as GalleryItem | null),
+            cms.gallery.item(id(),).catch((err,) => {
+                denied = deniedReasonOf(err, Boolean(auth.user,),);
+                return null as GalleryItem | null;
+            }),
         ],);
-        return { config, item, };
+        return { config, item, denied: denied as ReturnType<typeof deniedReasonOf>, };
+    },);
+
+    // Exists but not for this viewer (403 from the API): the access-denied
+    // fallback (login page + reason). Waits for the session check so a
+    // signed-in visitor is never sent to sign in. Missing → the 404 below.
+    createEffect(() => {
+        const d = data();
+        if (!d?.denied || data.loading || auth.isLoading) return;
+        handleAccessDenied(navigate, d.denied.reason, { tierName: d.denied.tierName, },);
     },);
 
     // Neighbours within the item's listing — its collection, else the gallery
@@ -75,7 +92,7 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                 <Show
                     when={d().item}
                     fallback={
-                        <Show when={d().config && !d().config!.canView} fallback={<NotFoundPage />}>
+                        <Show when={!d().denied && d().config && !d().config!.canView} fallback={<Show when={!d().denied}><NotFoundPage /></Show>}>
                             <div class="gallery-item-page page-wrapper" style={pageStyle(d().config!.appearance,)}>
                                 <UpgradeTout
                                     requiredTier={d().config!.requiredTier}

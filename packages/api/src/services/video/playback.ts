@@ -17,7 +17,7 @@ import * as repo from '../../repositories/video.repo';
 import { resolveStorageProvider, isObjectStore, } from '../storage';
 import { canWatchFull, type Viewer, } from './access';
 import { keyBytes, } from './keys';
-import { downloadUrl, masterUrl, teaserMasterUrl, watchUrl, } from './paths';
+import { deniedLoginUrl, downloadUrl, masterUrl, teaserMasterUrl, watchUrl, } from './paths';
 import { verifyShareToken, } from './share';
 import { getVideoSettings, } from './settings';
 
@@ -222,7 +222,8 @@ const BROWSER_PLAYABLE = /^video\/(mp4|webm|ogg)$/i;
 
 export type FileLink =
     | { kind: 'redirect'; url: string; cacheControl: string; }
-    | { kind: 'watch'; url: string; };
+    | { kind: 'watch'; url: string; }
+    | { kind: 'denied'; url: string; reason: 'signin' | 'forbidden'; };
 
 /**
  * The direct link (`/video/:id/file`): a PLAIN video file, not a playlist.
@@ -235,8 +236,10 @@ export type FileLink =
  *              cookie) OR a valid share token (`?t=`).
  *
  * Public videos redirect to the CDN (edge-cached). Private ones redirect to a
- * short-lived signed URL. A viewer without access is sent to the site's
- * player page (teaser + sign-in) — `watch`.
+ * short-lived signed URL. A viewer without access gets `denied`: the login
+ * page with `reason` signin (not signed in) or forbidden (signed in, lacking
+ * the permission), returning to `/watch/:id` after signing in. A permitted
+ * viewer of a video still encoding gets the player page — `watch`.
  */
 export async function fileLink(
     id: string,
@@ -245,7 +248,10 @@ export async function fileLink(
 ): Promise<FileLink> {
     const m = await mediaHead(id,);
     const allowed = verifyShareToken(id, opts.token,) || await canWatchFull(m.accessLevel, viewer,);
-    if (!allowed) return { kind: 'watch', url: watchUrl(id,), };
+    if (!allowed) {
+        const reason = viewer?.id ? 'forbidden' : 'signin';
+        return { kind: 'denied', url: deniedLoginUrl(id, reason === 'forbidden',), reason, };
+    }
 
     const store = await resolveStorageProvider();
     const video = await repo.getVideo(id,).catch(() => null);

@@ -268,15 +268,18 @@ export const videoRoutes = [
     },),
     defineRoute({
         method: 'get', path: '/:id/file', auth: 'optional', raw: true,
-        summary: 'Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → the /watch player page.',
+        summary: 'Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → /login?redirect=/watch/:id&reason=signin|forbidden (browsers) or 403.',
         input: { params: idParams, query: z.object({ quality: z.string().max(16,).optional(), t: z.string().max(80,).optional(), },), },
         handler: async ({ params, query, user, req, res, },) => {
             const link = await play.fileLink(params.id, { quality: query.quality, token: query.t, }, viewer(user,),);
-            if (link.kind === 'watch') {
-                // A browser opening the link gets the player page (teaser +
-                // sign-in); a <video src> / API client gets a plain 403.
+            if (link.kind !== 'redirect') {
+                // A browser opening the link gets a page: the login page when
+                // it lacks access (it says why and comes back to /watch/:id),
+                // the player page ("Processing…") while still encoding. A
+                // <video src> / API client gets a plain 403.
                 if (req.accepts(['html', 'json',],) === 'html') return res.redirect(302, link.url,);
-                res.status(403,).json({ success: false, error: { code: 'CONTENT_LOCKED', message: 'This video is for subscribers.', }, },);
+                const details = link.kind === 'denied' ? { reason: link.reason, } : undefined;
+                res.status(403,).json({ success: false, error: { code: 'CONTENT_LOCKED', message: 'This video is for subscribers.', details, }, },);
                 return;
             }
             res.set('Cache-Control', link.cacheControl,);

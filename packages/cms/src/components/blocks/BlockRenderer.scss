@@ -200,8 +200,10 @@
 }
 
 .video-block {
+  // "Show title" — centred above the video.
   &__title {
-    margin-bottom: $spacing-lg;
+    margin: 0 0 $spacing-md;
+    text-align: center;
   }
 
   // Embedded player (YouTube / Vimeo): 16:9, as wide as the block allows —

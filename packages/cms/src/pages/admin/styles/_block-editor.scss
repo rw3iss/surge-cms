@@ -1233,6 +1233,12 @@
 
 
 .block-video {
+  // "Show title" in the block preview — centred above the video, as on the site.
+  &__title {
+    margin: 0 0 $spacing-md;
+    text-align: center;
+  }
+
   &__preview {
     width: 100%;
 

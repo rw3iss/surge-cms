@@ -1,10 +1,11 @@
 import { isAdminRole, } from '@sitesurge/types';
-import { useNavigate, useSearchParams, } from '@solidjs/router';
-import { Component, } from 'solid-js';
+import { A, useNavigate, useSearchParams, } from '@solidjs/router';
+import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
 import LoginForm from '../components/auth/LoginForm';
 import SeoHead from '../components/common/seo/SeoHead';
 import { useAuth, } from '../stores/auth';
 import { siteName, } from '../stores/siteSettings';
+import { type AccessDeniedReason, deniedMessage, parseDeniedReason, safeReturnPath, shouldRetryAfterSignin, } from '../utils/accessDenied';
 import { choiceTarget, takeChoice, } from '../utils/membershipChoice';
 import './Login.scss';
 
@@ -38,9 +39,36 @@ const Login: Component = () => {
         const raw = (typeof searchParams.redirect === 'string' && searchParams.redirect) ||
             (typeof searchParams.return === 'string' && searchParams.return) ||
             '';
-        if (!raw || raw.startsWith('//',)) return '';
-        return raw.startsWith('/',) ? raw : `/${raw}`;
+        return safeReturnPath(raw,);
     };
+
+    /*
+     * `?reason=` — set by the access-denied fallback (`utils/accessDenied`)
+     * when a link led somewhere this visitor may not go. Signed out: the
+     * reason shows above the form and signing in returns to the item. Signed
+     * in: never bounce back (that would loop) — show why, with an upgrade
+     * link and a way to switch accounts. One exception: `signin` for a
+     * visitor who IS signed in means their session had lapsed when the item
+     * was checked, so they go back once (`shouldRetryAfterSignin`).
+     */
+    const reason = (): AccessDeniedReason | null => parseDeniedReason(searchParams.reason,);
+    const tierName = () => (typeof searchParams.tier === 'string' ? searchParams.tier.slice(0, 80,) : '');
+    const [signinRetryDone, setSigninRetryDone,] = createSignal(false,);
+    createEffect(on(() => [auth.isLoading, auth.user?.id, reason(),] as const, ([loading, uid, r,],) => {
+        if (loading || !uid || r !== 'signin') return;
+        const target = returnTarget();
+        if (target && shouldRetryAfterSignin(target,)) navigate(target, { replace: true, },);
+        else setSigninRetryDone(true,);
+    },),);
+    /** The reason as shown to a SIGNED-IN visitor (`signin` no longer applies to them). */
+    const signedInReason = (): AccessDeniedReason | null => {
+        const r = reason();
+        if (!r || !auth.user) return null;
+        if (r === 'signin') return signinRetryDone() ? 'forbidden' : null;
+        return r;
+    };
+    // Signing out leaves this URL (redirect + reason) in place, so the form shows and leads back to the item.
+    const switchAccount = () => auth.logout();
 
     const authError = () => {
         const errorParam = searchParams.error;
@@ -58,12 +86,33 @@ const Login: Component = () => {
                 nofollow={true}
             />
             <div class="login__container">
-                <h1 class="login__title">Sign In</h1>
-                <LoginForm
-                    initialError={authError()}
-                    returnTo={returnTarget() || undefined}
-                    onSuccess={(user,) => navigate(afterLogin(user?.role,),)}
-                />
+                <Show
+                    when={signedInReason()}
+                    fallback={
+                        <>
+                            <h1 class="login__title">Sign In</h1>
+                            <Show when={reason() && !auth.user}>
+                                <p class="login__reason" role="alert">{deniedMessage(reason()!, tierName(),)}</p>
+                            </Show>
+                            <LoginForm
+                                initialError={authError()}
+                                returnTo={returnTarget() || undefined}
+                                onSuccess={(user,) => navigate(afterLogin(user?.role,),)}
+                            />
+                        </>
+                    }
+                >
+                    {(r,) => (
+                        <div class="login__denied">
+                            <h1 class="login__title">Access restricted</h1>
+                            <p class="login__reason" role="alert">{deniedMessage(r(), tierName(),)}</p>
+                            <A href="/profile?tab=membership" class="login__btn login__btn--primary login__denied-upgrade">Upgrade your membership</A>
+                            <button type="button" class="login__denied-switch" onClick={() => void switchAccount()}>
+                                Sign in with a different account
+                            </button>
+                        </div>
+                    )}
+                </Show>
             </div>
         </div>
     );

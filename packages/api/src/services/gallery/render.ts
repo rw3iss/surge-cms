@@ -14,6 +14,7 @@
  * view; email: public media only).
  */
 import type { GalleryItem, } from '@sitesurge/types';
+import { watchBarCell, } from '../mail/blocks/watchOverlay';
 
 const esc = (s: unknown,): string =>
     String(s ?? '',).replace(/&/g, '&amp;',).replace(/</g, '&lt;',).replace(/>/g, '&gt;',).replace(/"/g, '&quot;',);
@@ -75,8 +76,6 @@ export interface GalleryEmailOptions extends GalleryHtmlOptions {
     gapPx?: number;
     /** Text colour for titles/captions. */
     textColor?: string;
-    /** Link colour for the video "Watch" line. */
-    linkColor?: string;
 }
 
 const safeCss = (v: string | undefined,) => (v && !/[;{}<>"]/.test(v,) ? v : '');
@@ -90,7 +89,6 @@ export function galleryEmailHtml(items: GalleryItem[] | null | undefined, base: 
     const width = `${Math.floor(100 / cols,)}%`;
     const radius = safeCss(opts.radius,);
     const text = safeCss(opts.textColor,) || '#333333';
-    const link = safeCss(opts.linkColor,) || '#1a73e8';
     const imgStyle = `display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;${radius ? `border-radius:${radius};` : ''}`;
 
     const cell = (i: GalleryItem,): string => {
@@ -98,16 +96,19 @@ export function galleryEmailHtml(items: GalleryItem[] | null | undefined, base: 
         const src = absUrl(previewUrl(i,), base,);
         const isVideo = i.media?.type === 'video';
         const alt = esc(i.media?.alt || i.title || (isVideo ? 'Video' : 'Image'),);
-        const visual = src
+        // A video's poster gets the "▶ Watch" bar right under it (a grid cell
+        // has no fixed height, so a layered overlay would crop or stretch):
+        // square bottom corners on the picture, rounded ones on the bar.
+        const videoVisual = isVideo && src
+            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;"><tr><td style="padding:0;"><a href="${href}" style="text-decoration:none;"><img src="${esc(src,)}" alt="${alt}" width="100%" style="${imgStyle.replace(/border-radius:[^;]*;/, '',)}${radius ? `border-radius:${radius} ${radius} 0 0;` : ''}" /></a></td></tr><tr>${watchBarCell(radius || undefined, href,)}</tr></table>`
+            : '';
+        const visual = videoVisual || (src
             ? `<a href="${href}" style="text-decoration:none;"><img src="${esc(src,)}" alt="${alt}" width="100%" style="${imgStyle}" /></a>`
             // A video with no poster: a dark tile that still links to the player.
-            : `<a href="${href}" style="display:block;background:#111111;color:#ffffff;text-align:center;padding:40px 8px;text-decoration:none;font-weight:bold;${radius ? `border-radius:${radius};` : ''}">&#9654; Watch video</a>`;
-        const watch = isVideo && src
-            ? `<div style="padding-top:4px;font-size:13px;"><a href="${href}" style="color:${link};text-decoration:none;font-weight:bold;">&#9654; Watch</a></div>`
-            : '';
+            : `<a href="${href}" style="display:block;background:#111111;color:#ffffff;text-align:center;padding:40px 8px;text-decoration:none;font-weight:bold;${radius ? `border-radius:${radius};` : ''}">&#9654; Watch video</a>`);
         const title = opts.showTitles && i.title ? `<div style="padding-top:4px;font-size:14px;font-weight:bold;color:${text};">${esc(i.title,)}</div>` : '';
         const caption = opts.showCaptions && i.caption ? `<div style="padding-top:2px;font-size:13px;color:${text};">${esc(i.caption,)}</div>` : '';
-        return `<td width="${width}" valign="top" style="width:${width};padding:${pad}px;vertical-align:top;">${visual}${watch}${title}${caption}</td>`;
+        return `<td width="${width}" valign="top" style="width:${width};padding:${pad}px;vertical-align:top;">${visual}${title}${caption}</td>`;
     };
 
     const rows: string[] = [];

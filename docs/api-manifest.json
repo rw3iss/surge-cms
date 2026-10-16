@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T18:54:58.807Z",
+  "generatedAt": "2026-10-16T19:19:13.726Z",
   "totalModules": 55,
   "totalRoutes": 568,
   "modules": [
@@ -1266,7 +1266,7 @@
           "path": "/items/:id",
           "absolutePath": "/api/v1/gallery/items/:id",
           "auth": "optional",
-          "summary": "One gallery item (404 when missing, its media is gone, or the viewer may not see it)."
+          "summary": "One gallery item (404 when missing or its media is gone; 403 SIGN_IN_REQUIRED / SUBSCRIPTION_REQUIRED when the viewer may not see it)."
         },
         {
           "method": "GET",
@@ -1280,7 +1280,7 @@
           "path": "/collections/:id",
           "absolutePath": "/api/v1/gallery/collections/:id",
           "auth": "optional",
-          "summary": "One collection (404 when missing or the viewer fails its access rule)."
+          "summary": "One collection (404 when missing; 403 SIGN_IN_REQUIRED / SUBSCRIPTION_REQUIRED when the viewer fails its access rule)."
         },
         {
           "method": "GET",
@@ -4236,7 +4236,7 @@
           "path": "/:id/file",
           "absolutePath": "/api/v1/video/:id/file",
           "auth": "optional",
-          "summary": "Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → the /watch player page."
+          "summary": "Direct link: redirect to a plain MP4 (?quality=auto|720p|…|original; ?t=share token). No access → /login?redirect=/watch/:id&reason=signin|forbidden (browsers) or 403."
         },
         {
           "method": "POST",

@@ -135,6 +135,9 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                 when={props.mode === 'edit'}
                 fallback={
                     <div class="block-video__preview">
+                        <Show when={props.data.showTitle && (props.data.title || '').trim()}>
+                            <h3 class="block-video__title">{props.data.title.trim()}</h3>
+                        </Show>
                         <Show
                             when={props.data.url || props.data.mediaId}
                             fallback={
@@ -238,6 +241,29 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                         />
                     </FormField>
                 </div>
+                <div class="form-group">
+                    <Toggle
+                        checked={props.data.showTitle === true}
+                        onChange={(next,) => props.onUpdate({ ...props.data, showTitle: next || undefined, },)}
+                        label="Show title"
+                        hint="Centred above the video — on the site and in email."
+                    />
+                </div>
+                {/* A library video shows its media-library title; a linked video has
+                    none, so it takes one here. */}
+                <Show when={props.data.showTitle === true && !props.data.mediaId}>
+                    <FormField label="Title" hint="Shown centred above the video.">
+                        <input
+                            type="text"
+                            value={props.data.title || ''}
+                            onChange={(e,) => {
+                                const title = e.currentTarget.value.trim() || undefined;
+                                if (title !== (props.data.title || undefined)) props.onUpdate({ ...props.data, title, },);
+                            }}
+                            placeholder="Video title"
+                        />
+                    </FormField>
+                </Show>
                 <div class="form-row">
                     <div class="form-group">
                         <Toggle

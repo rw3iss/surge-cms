@@ -69,7 +69,8 @@ describe('galleryEmailHtml', () => {
     it('a video is its poster linked to the item page, with a Watch line', () => {
         const html = galleryEmailHtml([item({ mediaType: 'video', },),], 'https://site', { columns: 1, },);
         expect(html,).toContain('<a href="https://site/gallery/a1"',);
-        expect(html,).toContain('&#9654; Watch',);
+        expect(html,).toContain('class="email-watch-bar"',);
+        expect(html,).toMatch(/>Watch<\/span>/,);
         expect(html,).not.toContain('/api/v1/video/m1/file',);
     },);
     it('titles and captions only when asked', () => {

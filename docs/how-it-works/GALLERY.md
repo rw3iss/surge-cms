@@ -132,8 +132,8 @@ and deletes). Gallery writes also drop the sitemap cache.
 | `GET /config` | optional | Title, route, appearance, `canView` + `reason` for THIS viewer |
 | `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page` |
 | `GET /collections` | optional | Collections visible to the viewer (sort order, name), `itemCount` = items the viewer can see, cover |
-| `GET /collections/:id` | optional | One collection; 404 when missing or the viewer fails its rule |
-| `GET /items/:id` | optional | One item, 404 when gated / missing / media gone |
+| `GET /collections/:id` | optional | One collection; 404 when missing, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when the viewer fails its rule (the page forwards to `/login?redirect=…&reason=…`) |
+| `GET /items/:id` | optional | One item; 404 when missing / media gone, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when gated (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /admin/items` | staff, `gallery:manage` | Every item in order |
 | `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit |
 | `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`) |

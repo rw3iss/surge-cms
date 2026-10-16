@@ -9,6 +9,7 @@
  *   - swatch:{id} refs resolve to literal hex via the palette in
  *     EmailRenderCtx (no `var()` survives — most clients drop it).
  */
+import { siteMediaHref, } from '@sitesurge/types';
 import type { EmailBlockNode, EmailRenderCtx, } from './index';
 
 export { escapeHtml, } from '../../../utils/html';
@@ -250,3 +251,22 @@ export function fitMedia(
  * AND height for Outlook.
  */
 export const VIDEO_MEDIA_SIZE_KEY = '__mediaSize';
+
+/** Settings key the same pre-pass fills with a library video's media TITLE. */
+export const VIDEO_MEDIA_TITLE_KEY = '__mediaTitle';
+
+/**
+ * Corner radius a video poster gets when its block sets none — the value the
+ * admin block preview shows (`.media-video__stage`: `var(--site-radius, 6px)`).
+ */
+export const DEFAULT_VIDEO_RADIUS = '6px';
+
+/**
+ * Where a reader should land for a media link: a library video's file / CDN
+ * URL becomes the site's watch page, absolute (`<site>/watch/<id>`); any other
+ * link is made absolute and otherwise left alone (an operator's own link, a
+ * YouTube / Vimeo page).
+ */
+export function siteMediaLink(siteUrl: string, link: string,): string {
+    return absUrl(siteUrl, siteMediaHref(link,),);
+}

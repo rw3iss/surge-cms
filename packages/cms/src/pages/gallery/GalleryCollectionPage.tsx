@@ -6,15 +6,16 @@
  * "← <gallery>" link goes back; with "Show collections sidebar" on, the
  * collections sidebar sits beside it.
  *
- * A missing collection, or one this viewer fails the access rule of, 404s
- * from the API → the 404 page. When the whole gallery is closed to the viewer
- * the gallery's gate is shown instead. SSR serves the server-side meta
+ * A missing collection 404s from the API → the 404 page. One this viewer
+ * fails the access rule of (or with the whole gallery closed to them) → 403 →
+ * the access-denied fallback (`utils/accessDenied`: the login page with the
+ * reason, returning here after signing in). SSR serves the server-side meta
  * (404 / noindex); the SPA head mirrors it.
  */
 import { type GalleryCollection, type GalleryPublicConfig, isGalleryAccessRuleActive, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
-import { A, type RouteSectionProps, useParams, } from '@solidjs/router';
-import { Component, createResource, Show, } from 'solid-js';
+import { A, type RouteSectionProps, useNavigate, useParams, } from '@solidjs/router';
+import { Component, createEffect, createResource, Show, } from 'solid-js';
 import Markdown from '../../components/common/Markdown';
 import SeoHead from '../../components/common/seo/SeoHead';
 import UpgradeTout from '../../components/content/UpgradeTout';
@@ -24,6 +25,7 @@ import GalleryView from '../../components/gallery/GalleryView';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { deniedReasonOf, handleAccessDenied, } from '../../utils/accessDenied';
 import NotFoundPage from '../NotFound';
 import { GalleryCollectionsLayout, visibleCollections, } from './GalleryCollections';
 import './gallery.scss';
@@ -35,16 +37,30 @@ export type GalleryCollectionPageProps = Partial<RouteSectionProps> & { id?: str
 const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) => {
     const params = useParams<{ id?: string; }>();
     const auth = useAuth();
+    const navigate = useNavigate();
     const id = () => props.id ?? params.id ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
     const [data, { refetch, },] = createResource(key, async () => {
-        if (!isFeatureEnabled('gallery',)) return { config: null, collection: null, };
+        let denied: ReturnType<typeof deniedReasonOf> = null;
+        if (!isFeatureEnabled('gallery',)) return { config: null, collection: null, denied, };
         const [config, collection,] = await Promise.all([
             cms.gallery.config().catch(() => null as GalleryPublicConfig | null),
-            cms.gallery.collection(id(),).catch(() => null as GalleryCollection | null),
+            cms.gallery.collection(id(),).catch((err,) => {
+                denied = deniedReasonOf(err, Boolean(auth.user,),);
+                return null as GalleryCollection | null;
+            }),
         ],);
-        return { config, collection, };
+        return { config, collection, denied: denied as ReturnType<typeof deniedReasonOf>, };
+    },);
+
+    // Exists but not for this viewer (403 from the API): the access-denied
+    // fallback (login page + reason). Waits for the session check so a
+    // signed-in visitor is never sent to sign in. Missing → the 404 below.
+    createEffect(() => {
+        const d = data();
+        if (!d?.denied || data.loading || auth.isLoading) return;
+        handleAccessDenied(navigate, d.denied.reason, { tierName: d.denied.tierName, },);
     },);
 
     const appearance = () => data()?.config?.appearance;
@@ -71,7 +87,7 @@ const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) =>
                 <Show
                     when={d().collection}
                     fallback={
-                        <Show when={d().config && !d().config!.canView} fallback={<NotFoundPage />}>
+                        <Show when={!d().denied && d().config && !d().config!.canView} fallback={<Show when={!d().denied}><NotFoundPage /></Show>}>
                             <div class="gallery-page page-wrapper" style={pageStyle(d().config!.appearance,)}>
                                 <UpgradeTout
                                     requiredTier={d().config!.requiredTier}

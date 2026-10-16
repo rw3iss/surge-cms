@@ -1,4 +1,4 @@
-import { escapeHtml, mediaBox, mediaRadiusCss, } from './_util';
+import { escapeHtml, mediaBox, mediaRadiusCss, siteMediaLink, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 interface ImageEntry {
@@ -8,7 +8,7 @@ interface ImageEntry {
     link?: string;
 }
 
-export const renderImage: BlockEmailRenderer = (node,) => {
+export const renderImage: BlockEmailRenderer = (node, ctx,) => {
     // Support both the multi-image shape (settings.images[]) and the
     // legacy single-image shape (settings.url + sibling fields).
     const imgs: ImageEntry[] = Array.isArray(node.settings.images,) ?
@@ -58,8 +58,10 @@ export const renderImage: BlockEmailRenderer = (node,) => {
         const url = escapeHtml(img.url!,);
         const alt = escapeHtml(img.alt ?? '',);
         const tag = `<img src="${url}" alt="${alt}"${sizeAttrs} style="${imgStyle}" />`;
+        // An operator link is kept, except a library video's file/CDN URL, which
+        // becomes its watch page — a reader never lands on a raw file.
         const wrapped = img.link ?
-            `<a href="${escapeHtml(img.link,)}" style="text-decoration:none">${tag}</a>` :
+            `<a href="${escapeHtml(siteMediaLink(ctx.siteUrl, img.link,),)}" style="text-decoration:none">${tag}</a>` :
             tag;
         const cap = img.caption ?
             `<div style="text-align:center;font-size:13px;color:#666;padding-top:6px">${

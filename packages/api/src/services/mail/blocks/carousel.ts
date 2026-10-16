@@ -1,4 +1,4 @@
-import { escapeHtml, mediaRadiusCss, } from './_util';
+import { escapeHtml, mediaRadiusCss, siteMediaLink, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 interface Slide {
@@ -24,7 +24,7 @@ export const renderCarousel: BlockEmailRenderer = (node, ctx,) => {
             escapeHtml(first.title ?? '',)
         }" width="600" style="display:block;max-width:100%;border:0${radiusCss}" />` :
         '';
-    const link = first.link ? escapeHtml(first.link,) : '#';
+    const link = first.link ? escapeHtml(siteMediaLink(ctx.siteUrl, first.link,),) : '#';
     const wrapped = `<a href="${link}" style="text-decoration:none">${img}</a>`;
     const more = slides.length > 1 ?
         `<div style="text-align:center;padding-top:6px"><a href="${link}" style="color:${ctx.linkColor}">View more →</a></div>` :

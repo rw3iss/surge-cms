@@ -4,7 +4,7 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import type { Block, } from '@sitesurge/types';
+import { type Block, siteMediaHref, } from '@sitesurge/types';
 import { Component, For, Show, createEffect, createSignal, onCleanup, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 
@@ -164,7 +164,8 @@ export const ImageBlock: Component<{ block: Block; }> = (props,) => {
                                 when={item.link}
                                 fallback={imgEl()}
                             >
-                                <a href={item.link} target="_blank" rel="noopener noreferrer">
+                                {/* A library video's file/CDN link opens its watch page instead. */}
+                                <a href={siteMediaHref(item.link!,)} target="_blank" rel="noopener noreferrer">
                                     {imgEl()}
                                 </a>
                             </Show>

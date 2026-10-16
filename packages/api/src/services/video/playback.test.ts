@@ -96,3 +96,23 @@ describe('hlsKey', () => {
         expect((await play.hlsKey(1, { id: 'u', role: 'admin', },)).length,).toBe(16,);
     },);
 },);
+
+describe('fileLink (direct link)', () => {
+    it('sends a signed-out browser to the login page with reason=signin', async () => {
+        const r = await play.fileLink(media.id, {}, null,);
+        expect(r.kind,).toBe('denied',);
+        if (r.kind !== 'denied') return;
+        expect(r.reason,).toBe('signin',);
+        expect(r.url,).toMatch(new RegExp(`/login\\?redirect=%2Fwatch%2F${media.id}&reason=signin$`,),);
+    },);
+    it('tells a signed-in viewer without the permission it is forbidden', async () => {
+        const r = await play.fileLink(media.id, {}, { id: 'u', role: 'member', },);
+        expect(r.kind === 'denied' && r.reason,).toBe('forbidden',);
+        expect(r.kind === 'denied' && r.url,).toMatch(/reason=forbidden$/,);
+    },);
+    it('redirects a permitted viewer to the file', async () => {
+        canMock.mockResolvedValue(true,);
+        const r = await play.fileLink(media.id, {}, { id: 'u', role: 'admin', },);
+        expect(r,).toEqual({ kind: 'redirect', url: 'signed', cacheControl: 'private, no-store', },);
+    },);
+},);

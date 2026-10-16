@@ -16,7 +16,7 @@ import type {
     GalleryRemoveResponse, GallerySettingsBody, GallerySettingsResponse, GallerySyncBody, GallerySyncResponse,
 } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
-import { NotFoundError, } from '../core/errors';
+import { AccessRequiredError, NotFoundError, } from '../core/errors';
 import { viewerOf, } from '../services/discussions/viewer';
 import * as gallery from '../services/gallery';
 import * as permissions from '../services/permissions';
@@ -115,6 +115,15 @@ const need = (user: U, key: string,) => permissions.requirePermission(viewerOf(u
 /** Public reads: anyone with gallery:view (default everyone); staff read everything. */
 const canView = (user: U,) => permissions.can(viewerOf(user,) as never, 'gallery:view',).catch(() => false);
 
+/**
+ * An item / collection that EXISTS but this viewer may not see: 403
+ * `SIGN_IN_REQUIRED` (signed out) or `SUBSCRIPTION_REQUIRED` (signed in), so
+ * the page can forward to the login page with the reason. A missing one stays
+ * 404. Listings are unaffected (they just leave gated rows out).
+ */
+const denied = (user: U, what: string,) =>
+    new AccessRequiredError(user?.id ? 'subscribe' : 'signin', null, user?.id ? `You may not view this gallery ${what}.` : 'Please sign in to view this.',);
+
 export const galleryRoutes = [
     defineRoute({
         method: 'get', path: '/config', auth: 'optional',
@@ -135,12 +144,14 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'get', path: '/items/:id', auth: 'optional',
-        summary: 'One gallery item (404 when missing, its media is gone, or the viewer may not see it).',
+        summary: 'One gallery item (404 when missing or its media is gone; 403 SIGN_IN_REQUIRED / SUBSCRIPTION_REQUIRED when the viewer may not see it).',
         input: { params: idParams, },
         handler: async ({ params, user, },): Promise<GalleryItemResponse> => {
-            const item = (await canView(user,)) ? await gallery.get(params.id, { viewer: viewerOf(user,), },) : null;
-            if (!item) throw new NotFoundError('Gallery item',);
-            return item;
+            const open = await canView(user,);
+            const { item, gated, } = await gallery.getForViewer(params.id, viewerOf(user,),);
+            if (item && open) return item;
+            if (item || gated) throw denied(user, 'item',);
+            throw new NotFoundError('Gallery item',);
         },
     },),
     defineRoute({
@@ -153,12 +164,14 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'get', path: '/collections/:id', auth: 'optional',
-        summary: 'One collection (404 when missing or the viewer fails its access rule).',
+        summary: 'One collection (404 when missing; 403 SIGN_IN_REQUIRED / SUBSCRIPTION_REQUIRED when the viewer fails its access rule).',
         input: { params: idParams, },
         handler: async ({ params, user, },): Promise<GalleryCollectionResponse> => {
-            const c = (await canView(user,)) ? await gallery.getCollection(params.id, viewerOf(user,),) : null;
-            if (!c) throw new NotFoundError('Gallery collection',);
-            return c;
+            const open = await canView(user,);
+            const { collection, gated, } = await gallery.getCollectionForViewer(params.id, viewerOf(user,),);
+            if (collection && open) return collection;
+            if (collection || gated) throw denied(user, 'collection',);
+            throw new NotFoundError('Gallery collection',);
         },
     },),
 
