@@ -257,11 +257,13 @@ items and stashes them on `settings.__galleryItems`
   | `column` | one item per row, full width |
   | `row` / `carousel` / `stage` | wrapped grid: thumbnails flow left-to-right, each row centred; columns = `itemsPerPage` (row) / `columns` else `itemsPerPage` (carousel, stage), or a px `itemWidth` vs the body width |
 
-  Width = the 600px body minus the block's px padding. Each item is a fixed
-  box — `itemHeight` (px), else the `aspect` (`original` = the picture at its
-  natural height) — drawn as a background-image cell of exactly that size
-  (`background-size` = the Fit setting; a VML rect for Outlook), so the crop
-  matches the site. Every item **always links to its gallery item page**
+  Width = the 600px body minus the block's px padding. The box limits are
+  `itemHeight` (px), else the `aspect` (`original` = the picture at its
+  natural height). **Fill (cover)**: the item is that box, a background-image
+  cell (VML rect for Outlook) cropped to fill it. **Fit (contain)**: the item
+  HUGS its media — sized from the media's own `width/height`, fitted inside
+  the box (`galleryContainSize`), placed per the alignment; unknown aspect →
+  the picture scaled down inside the limits. Never a background colour. Every item **always links to its gallery item page**
   (the block's On-click option is ignored — an inbox has no lightbox); a video
   keeps the "▶ Watch" bar (`mail/blocks/watchOverlay.ts`). Gap → half the gap
   as padding around each item.
@@ -294,6 +296,10 @@ On the web it sets `--item-radius` on the gallery view (tiles, the stage
 picture and video; not the lightbox) or the video block (`.vp`,
 `.media-video__stage`, the embed wrapper). In email it is inline
 `border-radius` on each item cell / image and the Watch bar's bottom corners.
+With Fit = contain the radius lands on the media itself — web tiles hug the
+media too (`tileFrame()` in `galleryLayout.ts`: the media's own aspect inside
+the item width / height, no letterbox fill), so a portrait video is a rounded
+portrait, not a rounded box with bars.
 
 ## SSR pages + sitemap
 

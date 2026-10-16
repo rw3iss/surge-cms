@@ -257,22 +257,22 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                             placeholder="Auto"
                         />
                     </FormField>
+                    <FormField
+                        label="Item border radius"
+                        tooltip="Corners of the video, on the site and in email. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square."
+                    >
+                        <input
+                            type="text"
+                            value={props.data.itemRadius ?? ''}
+                            placeholder="site default"
+                            // Commits on change (blur / Enter), never per keystroke.
+                            onChange={(e,) => {
+                                const itemRadius = e.currentTarget.value.trim() || undefined;
+                                if (itemRadius !== (props.data.itemRadius || undefined)) props.onUpdate({ ...props.data, itemRadius, },);
+                            }}
+                        />
+                    </FormField>
                 </div>
-                <FormField
-                    label="Item border radius"
-                    tooltip="Corners of the video, on the site and in email. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square."
-                >
-                    <input
-                        type="text"
-                        value={props.data.itemRadius ?? ''}
-                        placeholder="site default"
-                        // Commits on change (blur / Enter), never per keystroke.
-                        onChange={(e,) => {
-                            const itemRadius = e.currentTarget.value.trim() || undefined;
-                            if (itemRadius !== (props.data.itemRadius || undefined)) props.onUpdate({ ...props.data, itemRadius, },);
-                        }}
-                    />
-                </FormField>
                 <div class="form-group">
                     <Toggle
                         checked={props.data.showTitle === true}

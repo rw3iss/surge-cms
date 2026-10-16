@@ -1,6 +1,10 @@
-/** One gallery item as a tile: image (lazy) or video poster + play badge, optional title/caption. */
+/**
+ * One gallery item as a tile: image (lazy) or video poster + play badge, optional title/caption.
+ * Fit = contain: the tile hugs its media (`tileFrame`), placed by the view's alignment.
+ */
 import type { GalleryItem, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
+import { mediaAspectOf, tileFrame, } from './galleryLayout';
 
 export interface GalleryTileProps {
     item: GalleryItem;
@@ -23,19 +27,30 @@ const GalleryTile: Component<GalleryTileProps> = (props,) => {
     const m = () => props.item.media;
     const isVideo = () => m()?.type === 'video';
     const alt = () => m()?.alt || props.item.title || '';
+    // Fit = contain hugs the media (its own aspect, inside the limits) — no
+    // letterbox fill, the item radius on the visible picture. Cover = the box.
+    const frame = () => tileFrame(props.fit, props.aspect, props.height, mediaAspectOf(m(),),);
+    const boxStyle = () => {
+        const f = frame();
+        if (f.kind === 'hug') return { width: f.width, 'aspect-ratio': f.aspectRatio, };
+        if (f.kind === 'natural') return {};
+        return { 'aspect-ratio': props.height ? undefined : props.aspect, height: props.height ?? undefined, };
+    };
+    const natural = () => frame().kind === 'natural' || (frame().kind === 'box' && !props.aspect && !props.height);
     const media = () => (
-        <div
-            class="gallery-tile__media"
-            style={{ 'aspect-ratio': props.height ? undefined : props.aspect, height: props.height ?? undefined, }}
-        >
+        <div class="gallery-tile__media" style={boxStyle()}>
             <Show when={tileSrc(props.item,)} fallback={<div class="gallery-tile__placeholder" aria-hidden="true">{isVideo() ? '▶' : ''}</div>}>
                 <img
                     src={tileSrc(props.item,)}
                     alt={alt()}
                     loading="lazy"
                     decoding="async"
-                    style={{ 'object-fit': props.fit ?? 'cover', }}
-                    class={!props.aspect && !props.height ? 'gallery-tile__img--natural' : undefined}
+                    style={(() => {
+                        const f = frame();
+                        if (f.kind === 'natural') return { 'max-height': f.maxHeight, };
+                        return { 'object-fit': f.kind === 'hug' ? 'cover' : (props.fit ?? 'cover'), };
+                    })()}
+                    class={natural() ? 'gallery-tile__img--natural' : undefined}
                 />
             </Show>
             <Show when={isVideo() && props.videoBadge !== false}>
@@ -54,7 +69,7 @@ const GalleryTile: Component<GalleryTileProps> = (props,) => {
         </Show>
     );
     return (
-        <figure class={`gallery-tile${isVideo() ? ' gallery-tile--video' : ''}${props.class ? ` ${props.class}` : ''}`}>
+        <figure class={`gallery-tile${isVideo() ? ' gallery-tile--video' : ''}${frame().kind !== 'box' ? ' gallery-tile--hug' : ''}${props.class ? ` ${props.class}` : ''}`}>
             <Show
                 when={props.href}
                 fallback={

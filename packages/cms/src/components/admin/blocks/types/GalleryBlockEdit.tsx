@@ -210,6 +210,18 @@ const GalleryBlockEdit: Component<{
                         <option value="contain">Fit (no crop)</option>
                     </select>
                 </FormField>
+                <FormField
+                    label="Item border radius"
+                    tooltip="Corners of every item — tiles, the stage picture / video and the email thumbnails. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square. Same on desktop and mobile."
+                >
+                    <input
+                        type="text"
+                        value={s().itemRadius ?? s().radius ?? ''}
+                        placeholder="site default"
+                        // Commits on change (blur / Enter). The legacy `radius` key is folded in.
+                        onChange={(e,) => set({ itemRadius: e.currentTarget.value.trim() || undefined, radius: undefined, },)}
+                    />
+                </FormField>
             </div>
 
             <div class="gallery-block-edit__section-title">Behaviour</div>
@@ -246,18 +258,6 @@ const GalleryBlockEdit: Component<{
                         label="Thumbnail carousel in the lightbox"
                     />
                 </Show>
-                <FormField
-                    label="Item border radius"
-                    tooltip="Corners of every item — tiles, the stage picture / video and the email thumbnails. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square."
-                >
-                    <input
-                        type="text"
-                        value={s().itemRadius ?? s().radius ?? ''}
-                        placeholder="site default"
-                        // Commits on change (blur / Enter). The legacy `radius` key is folded in.
-                        onChange={(e,) => set({ itemRadius: e.currentTarget.value.trim() || undefined, radius: undefined, },)}
-                    />
-                </FormField>
             </div>
 
             <Show when={modal()}>

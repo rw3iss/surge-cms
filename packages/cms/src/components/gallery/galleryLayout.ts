@@ -72,6 +72,54 @@ export function aspectRatio(a: GalleryAspect | undefined,): string | undefined {
     }
 }
 
+// ─── Tile frame (Fit) ─────────────────────────────────────────────────────
+
+/** How a tile's media box is drawn. */
+export type TileFrame =
+    /** The fixed box (aspect / height), the picture cropped to fill it — or natural size when neither is set. */
+    | { kind: 'box'; }
+    /** Fit = contain with a known media aspect: the box IS the media, fitted inside the limits. */
+    | { kind: 'hug'; width: string; aspectRatio: string; }
+    /** Fit = contain, media aspect unknown: the picture scaled down inside the limits, no box. */
+    | { kind: 'natural'; maxHeight?: string; };
+
+/** `16 / 9` → 1.777…; anything else → null. */
+export function ratioOf(css: string | undefined,): number | null {
+    const m = /^\s*([\d.]+)\s*\/\s*([\d.]+)\s*$/.exec(css ?? '',);
+    if (!m) return null;
+    const r = Number(m[1],) / Number(m[2],);
+    return Number.isFinite(r,) && r > 0 ? r : null;
+}
+
+/** A media's own aspect (width / height), when known. */
+export function mediaAspectOf(m: { width?: number | null; height?: number | null; } | null | undefined,): number | null {
+    const w = Number(m?.width,);
+    const h = Number(m?.height,);
+    return w > 0 && h > 0 ? w / h : null;
+}
+
+/**
+ * The tile's media frame. Fit = contain no longer letterboxes the media in a
+ * filled box: the tile HUGS the media — its own aspect, as wide as the limits
+ * allow (the tile width; the Item height, or the box aspect's height) — so the
+ * item radius lands on the visible picture. Cover keeps the fixed box.
+ *
+ *   height set   width = min(100%, height × mediaAspect)
+ *   aspect only  width = 100% × min(1, mediaAspect / boxAspect)
+ */
+export function tileFrame(
+    fit: 'cover' | 'contain' | undefined, aspect: string | undefined, height: string | null | undefined, media: number | null,
+): TileFrame {
+    const box = ratioOf(aspect,);
+    if (fit !== 'contain' || (!height && !box)) return { kind: 'box', };
+    if (!media) return { kind: 'natural', maxHeight: height || undefined, };
+    const r = Math.round(media * 10000,) / 10000;
+    const width = height
+        ? `min(100%, calc(${height} * ${r}))`
+        : `${Math.round(Math.min(1, media / box!,) * 10000,) / 100}%`;
+    return { kind: 'hug', width, aspectRatio: String(r,), };
+}
+
 // ─── Item width + alignment ───────────────────────────────────────────────
 
 /**

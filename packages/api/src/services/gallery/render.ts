@@ -134,6 +134,23 @@ export interface GalleryEmailPlan {
     radius: string;
 }
 
+/** A media item's own aspect ratio (width / height), when known. */
+export function mediaAspect(i: GalleryItem,): number | null {
+    const w = Number(i.media?.width,);
+    const h = Number(i.media?.height,);
+    return w > 0 && h > 0 ? w / h : null;
+}
+
+/**
+ * The size, px, of media with aspect `ar` fitted INSIDE a `maxW`×`maxH` box
+ * (Fit = contain): as wide as the box allows without exceeding its height.
+ * The item then hugs its media instead of letterboxing it in the box.
+ */
+export function galleryContainSize(maxW: number, maxH: number, ar: number,): { width: number; height: number; } {
+    const width = Math.max(1, Math.min(maxW, Math.floor(maxH * ar,),),);
+    return { width, height: Math.max(1, Math.round(width / ar,),), };
+}
+
 /** A px length (`12px` / `12`), `0` allowed; anything else → null. */
 const px0 = (v: unknown,): number | null => (String(v ?? '',).trim().match(/^0+(\.0+)?(px)?$/i,) ? 0 : pxValue(v,));
 
@@ -180,10 +197,14 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
 
 /**
  * Email gallery. Items must already be public-media only. Each item is a
- * link to its gallery item page; a fixed box (aspect or Item height) is a
- * background-image cell of that size (background-size = the Fit setting,
- * VML for Outlook) so the crop matches the site; `original` aspect with no
- * height shows the picture at its natural height.
+ * link to its gallery item page. With a fixed box (aspect or Item height):
+ *   cover    a background-image cell of the box's size, cropped (VML for Outlook);
+ *   contain  the item HUGS its media — sized from the media's own aspect,
+ *            fitted inside the box, placed per the alignment (unknown aspect:
+ *            the picture scaled down inside the limits).
+ * `original` aspect with no height shows the picture at its natural height.
+ * Never a background colour; the item radius is on the visible media, and a
+ * video's "▶ Watch" bar spans the media's width.
  */
 export function galleryEmailHtml(
     items: GalleryItem[] | null | undefined, base: string, settings: Partial<GalleryBlockSettings> = {}, env: GalleryEmailEnv = {},
@@ -199,42 +220,69 @@ export function galleryEmailHtml(
     const rowAlign: GalleryEmailAlign = env.align ?? 'center';
     const rowMargin = rowAlign === 'left' ? '0 auto 0 0' : rowAlign === 'right' ? '0 0 0 auto' : '0 auto';
 
+    // Where an item narrower than its slot sits (a contain item hugging its media).
+    const placeMargin = rowMargin;
+
+    /**
+     * The picture as the BACKGROUND of a `bw`×`bh` cell (VML for Outlook), the
+     * radius on that cell, a video's "▶ Watch" bar laid ON its bottom edge.
+     * No background colour: a cell exactly the media's size (contain) has
+     * nothing to fill, and a cover crop fills itself — the block's own
+     * background is all that may show.
+     */
+    const bgCell = (src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain',): string => {
+        const vml = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${bw}px;height:${bh}px;"><v:fill type="frame" src="${src}" aspect="${size === 'cover' ? 'atleast' : 'atmost'}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
+        const content = isVideo
+            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate"><tr><td height="${Math.max(0, bh - WATCH_BAR_HEIGHT,)}" style="height:${Math.max(0, bh - WATCH_BAR_HEIGHT,)}px;font-size:0;line-height:0">&nbsp;</td></tr><tr>${watchBarCell(radius,)}</tr></table>`
+            : `<span style="display:block;height:${bh}px;font-size:0;line-height:0">&nbsp;</span>`;
+        return `<table role="presentation" width="${bw}" cellpadding="0" cellspacing="0" border="0" style="width:${bw}px;max-width:100%;margin:${placeMargin};border-collapse:separate"><tr><td class="gallery-item-media" background="${src}" width="${bw}" height="${bh}" valign="bottom" role="img" aria-label="${alt}" title="${alt}" style="width:${bw}px;height:${bh}px;padding:0;vertical-align:bottom;background-image:url('${src}');background-position:center center;background-size:${size};background-repeat:no-repeat;border-radius:${r}">`
+            + `${vml}<a href="${href}" title="${alt}" style="display:block;text-decoration:none;color:#ffffff">${content}</a><!--[if gte mso 9]></v:textbox></v:rect><![endif]--></td></tr></table>`;
+    };
+
     const visualOf = (i: GalleryItem,): string => {
         const href = esc(absUrl(i.url, base,),);
         const src = esc(absUrl(previewUrl(i,), base,),);
         const isVideo = i.media?.type === 'video';
         const alt = esc(i.media?.alt || i.title || (isVideo ? 'Video' : 'Image'),);
-        const box = `role="presentation" align="center" width="${w}" cellpadding="0" cellspacing="0" border="0" style="width:${w}px;max-width:100%;margin:0 auto;border-collapse:separate"`;
         if (!src) {
             // No picture (a video without a poster): a dark tile that still links to the item.
             const hCss = h ? `height:${h}px;box-sizing:border-box;line-height:${Math.max(0, h - 16,)}px;padding:8px;` : 'padding:40px 8px;';
             return `<a href="${href}" style="display:block;background:#111111;color:#ffffff;text-align:center;${hCss}text-decoration:none;font-weight:bold;border-radius:${r};">&#9654; ${isVideo ? 'Watch video' : 'View'}</a>`;
         }
+        if (h && plan.fit === 'cover') {
+            // Cover: the fixed box, the picture cropped to fill it (the site's object-fit: cover).
+            return bgCell(src, href, alt, isVideo, w, h, 'cover',);
+        }
+        /** The picture scaled to `width` (never stretched), its corners `corners`. */
+        const plain = (width: number, corners: string, height?: number,) =>
+            `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${width}"${height ? ` height="${height}"` : ''} style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:${placeMargin};border-radius:${corners};" />`;
         if (h) {
-            // Fixed box: the picture is the cell BACKGROUND, cropped (cover) or
-            // letterboxed (contain) exactly like the site's object-fit.
-            const bg = isVideo ? '#000000' : '#f1f1f1';
-            const vml = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${w}px;height:${h}px;"><v:fill type="frame" src="${src}" color="${bg}" aspect="${plan.fit === 'cover' ? 'atleast' : 'atmost'}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
-            const content = isVideo
-                ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate"><tr><td height="${Math.max(0, h - WATCH_BAR_HEIGHT,)}" style="height:${Math.max(0, h - WATCH_BAR_HEIGHT,)}px;font-size:0;line-height:0">&nbsp;</td></tr><tr>${watchBarCell(radius,)}</tr></table>`
-                : `<span style="display:block;height:${h}px;font-size:0;line-height:0">&nbsp;</span>`;
-            return `<table ${box}><tr><td background="${src}" bgcolor="${bg}" width="${w}" height="${h}" valign="bottom" role="img" aria-label="${alt}" title="${alt}" style="width:${w}px;height:${h}px;padding:0;vertical-align:bottom;background-color:${bg};background-image:url('${src}');background-position:center center;background-size:${plan.fit};background-repeat:no-repeat;border-radius:${r}">`
-                + `${vml}<a href="${href}" title="${alt}" style="display:block;text-decoration:none;color:#ffffff">${content}</a><!--[if gte mso 9]></v:textbox></v:rect><![endif]--></td></tr></table>`;
+            // Contain: the item IS the media at its own aspect, fitted inside the box.
+            const ar = mediaAspect(i,);
+            if (ar) {
+                const fit = galleryContainSize(w, h, ar,);
+                if (isVideo) return bgCell(src, href, alt, true, fit.width, fit.height, 'cover',);
+                return `<a href="${href}" style="display:block;text-decoration:none;">${plain(fit.width, r, fit.height,)}</a>`;
+            }
+            // Unknown aspect: the picture scaled down inside the limits (no box to letterbox in).
+            const img = `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${w}" style="display:block;width:auto;max-width:${w}px;height:auto;max-height:${h}px;border:0;outline:none;text-decoration:none;`;
+            if (!isVideo) return `<a href="${href}" style="display:block;text-decoration:none;">${img}margin:${placeMargin};border-radius:${r};" /></a>`;
+            // A shrink-wrapped table: the Watch bar is as wide as the picture above it.
+            return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${placeMargin};border-collapse:separate"><tr><td style="padding:0"><a href="${href}" style="text-decoration:none;">${img}border-radius:${r} ${r} 0 0;" /></a></td></tr><tr>${watchBarCell(radius, href,)}</tr></table>`;
         }
         // Natural height: the picture itself, scaled to the item width.
-        const imgStyle = `display:block;width:100%;max-width:${w}px;height:auto;border:0;outline:none;text-decoration:none;`;
         if (isVideo) {
             // A video's poster gets the "▶ Watch" bar right under it (no fixed
             // height to layer on): square bottom corners on the picture, rounded ones on the bar.
-            return `<table ${box}><tr><td style="padding:0"><a href="${href}" style="text-decoration:none;"><img src="${src}" alt="${alt}" width="${w}" style="${imgStyle}border-radius:${r} ${r} 0 0;" /></a></td></tr><tr>${watchBarCell(radius, href,)}</tr></table>`;
+            return `<table role="presentation" width="${w}" cellpadding="0" cellspacing="0" border="0" style="width:${w}px;max-width:100%;margin:${placeMargin};border-collapse:separate"><tr><td style="padding:0"><a href="${href}" style="text-decoration:none;">${plain(w, `${r} ${r} 0 0`,)}</a></td></tr><tr>${watchBarCell(radius, href,)}</tr></table>`;
         }
-        return `<a href="${href}" style="display:block;text-decoration:none;"><img src="${src}" alt="${alt}" width="${w}" style="${imgStyle}margin:0 auto;border-radius:${r};" /></a>`;
+        return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r,)}</a>`;
     };
 
     const cell = (i: GalleryItem, pct: string,): string => {
         const title = settings.showTitles && i.title ? `<div style="padding-top:4px;font-size:14px;font-weight:bold;color:${text};text-align:${align};">${esc(i.title,)}</div>` : '';
         const caption = settings.showCaptions && i.caption ? `<div style="padding-top:2px;font-size:13px;color:${text};text-align:${align};">${esc(i.caption,)}</div>` : '';
-        return `<td width="${slotWidth}" align="center" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${visualOf(i,)}${title}${caption}</td>`;
+        return `<td width="${slotWidth}" align="${rowAlign}" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${visualOf(i,)}${title}${caption}</td>`;
     };
 
     const rows: string[] = [];

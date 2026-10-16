@@ -202,10 +202,16 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                             <button
                                                 type="button"
                                                 class="gallery-view__stage-hit"
+                                                classList={{ 'gallery-view__stage-hit--contain': L().fit === 'contain', }}
                                                 disabled={open() !== 'lightbox'}
                                                 onClick={() => open() === 'lightbox' && setLightbox(selected(),)}
                                             >
-                                                <img src={cur().media?.url} alt={cur().media?.alt || cur().title || ''} style={{ 'object-fit': L().fit, }} />
+                                                <img
+                                                    src={cur().media?.url}
+                                                    alt={cur().media?.alt || cur().title || ''}
+                                                    class={L().fit === 'contain' ? 'gallery-view__stage-img--contain' : undefined}
+                                                    style={{ 'object-fit': L().fit, }}
+                                                />
                                             </button>
                                         }
                                     >

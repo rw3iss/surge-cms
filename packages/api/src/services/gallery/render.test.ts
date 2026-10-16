@@ -5,7 +5,7 @@ import type { GalleryItem, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
 import { horizontalPadding, renderGallery, } from '../mail/blocks/gallery';
 import { GALLERY_RESOLVED_KEY, } from './serverRender';
-import { absUrl, galleryEmailAlign, galleryEmailHtml, galleryEmailPlan, galleryFiguresHtml, previewUrl, } from './render';
+import { absUrl, galleryContainSize, galleryEmailAlign, galleryEmailHtml, galleryEmailPlan, galleryFiguresHtml, previewUrl, } from './render';
 import type { EmailBlockNode, EmailRenderCtx, } from '../mail/blocks/index';
 
 const item = (over: Partial<GalleryItem> & { mediaType?: 'image' | 'video'; thumb?: string | null; } = {},): GalleryItem => ({
@@ -122,12 +122,12 @@ describe('galleryEmailHtml', () => {
         expect(rowTables(html,).length,).toBe(4,);
         expect(html,).toContain('width="600"',);
     },);
-    it('a fixed box is a background cell of that exact size (Outlook attributes + VML), cropped per Fit', () => {
-        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { columns: 2, itemHeight: '150px', fit: 'contain', gap: '0', }, },);
+    it('a cover box is a background cell of that exact size (Outlook attributes + VML), cropped', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { columns: 2, itemHeight: '150px', fit: 'cover', gap: '0', }, },);
         expect(html,).toContain('width="300" height="150"',);
         expect(html,).toContain('width:300px;height:150px',);
-        expect(html,).toContain('background-size:contain',);
-        expect(html,).toContain('aspect="atmost"',);
+        expect(html,).toContain('background-size:cover',);
+        expect(html,).toContain('aspect="atleast"',);
         expect(html,).toContain(`background-image:url('https://site/uploads/a.jpg')`,);
     },);
     it('original aspect with no height shows the picture at its natural height', () => {
@@ -228,5 +228,67 @@ describe('gallery email alignment + size (block style)', () => {
         expect(c,).toEqual([{ td: 'center', align: 'center', width: 368, margin: '0 auto', },],);
         const r = rows(html({ maxWidth: '400px', horizontalAlign: 'right', },),);
         expect(r[0],).toMatchObject({ align: 'right', width: 368, },);
+    },);
+},);
+
+describe('gallery email: contain items hug their media', () => {
+    const portrait = (over = {},) => {
+        const it = item({ mediaType: 'video', ...over, },);
+        it.media = { ...it.media!, width: 1080, height: 1920, };
+        return it;
+    };
+    const landscape = () => {
+        const it = item({ mediaType: 'video', },);
+        it.media = { ...it.media!, width: 1920, height: 1080, };
+        return it;
+    };
+    const s = { desktop: { layout: 'column' as const, itemHeight: '300px', fit: 'contain' as const, gap: '12px', aspect: '16:9' as const, }, itemRadius: '15px', };
+    const mediaCell = (html: string,) => /<td class="gallery-item-media"[^>]*>/.exec(html,)?.[0] ?? '';
+
+    it('galleryContainSize fits the media inside the box', () => {
+        expect(galleryContainSize(588, 300, 1080 / 1920,),).toEqual({ width: 168, height: 299, },);
+        expect(galleryContainSize(588, 300, 16 / 9,),).toEqual({ width: 533, height: 300, },);
+        expect(galleryContainSize(400, 300, 16 / 9,),).toEqual({ width: 400, height: 225, },);
+    },);
+    it('a portrait video is the media size, radius on it, no background colour', () => {
+        const html = galleryEmailHtml([portrait(),], 'https://site', s,);
+        const cell = mediaCell(html,);
+        expect(cell,).toContain('width="168" height="299"',);
+        expect(cell,).toContain('border-radius:15px',);
+        expect(cell,).not.toMatch(/bgcolor|background-color/,);
+        expect(cell,).toContain('background-size:cover',);
+        // The Watch bar sits inside the media-sized cell: its width is the media's.
+        expect(html,).toMatch(/<table role="presentation" width="168"[^>]*>.*email-watch-bar/,);
+        expect(html,).toContain('border-radius:0 0 15px 15px',);
+    },);
+    it('a landscape video fits the height limit', () => {
+        expect(mediaCell(galleryEmailHtml([landscape(),], 'https://site', s,),),).toContain('width="533" height="300"',);
+    },);
+    it('a contain image is an <img> at the media size', () => {
+        const img = item();
+        img.media = { ...img.media!, width: 600, height: 1200, };
+        const html = galleryEmailHtml([img,], 'https://site', s,);
+        expect(html,).toMatch(/<img class="gallery-item-media"[^>]*width="150" height="300"[^>]*border-radius:15px/,);
+        expect(html,).not.toMatch(/bgcolor|background-color|background-image/,);
+    },);
+    it('cover keeps the fixed box, still no background colour', () => {
+        const html = galleryEmailHtml([portrait(),], 'https://site', { ...s, desktop: { ...s.desktop, fit: 'cover', }, },);
+        const cell = mediaCell(html,);
+        expect(cell,).toContain('width="588" height="300"',);
+        expect(cell,).toContain('background-size:cover',);
+        expect(cell,).not.toMatch(/bgcolor|background-color/,);
+    },);
+    it('unknown aspect: the picture scaled inside the limits, no box', () => {
+        const v = item({ mediaType: 'video', },);
+        v.media = { ...v.media!, width: null, height: null, };
+        const html = galleryEmailHtml([v,], 'https://site', s,);
+        expect(html,).not.toContain('background-image',);
+        expect(html,).toMatch(/<img class="gallery-item-media"[^>]*max-height:300px/,);
+        expect(html,).toContain('email-watch-bar',);
+        expect(html,).not.toMatch(/bgcolor="#(?!000000)|background-color:#000000;background-image/,);
+    },);
+    it('a hugging item is placed per the alignment', () => {
+        const html = galleryEmailHtml([portrait(),], 'https://site', s, { align: 'right', },);
+        expect(html,).toMatch(/<table role="presentation" width="168"[^>]*margin:0 0 0 auto/,);
     },);
 },);

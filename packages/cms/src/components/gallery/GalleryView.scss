@@ -156,7 +156,14 @@
       height: var(--gv-stage-height, auto);
       max-height: var(--gv-stage-height, 70vh);
       border-radius: var(--gv-radius);
-      background: #000;
+    }
+
+    // Fit = contain: the picture at its own aspect inside the limits (no
+    // letterbox fill), the radius on the picture itself, placed by the alignment.
+    img.gallery-view__stage-img--contain {
+      width: auto;
+      max-width: 100%;
+      height: auto;
     }
 
     // A video on the stage takes the item radius too.
@@ -172,6 +179,11 @@
     cursor: zoom-in;
 
     &:disabled { cursor: default; }
+
+    &--contain {
+      display: flex;
+      justify-content: var(--gv-justify);
+    }
   }
 
   &__stage-meta {
@@ -244,6 +256,37 @@
     }
 
     img.gallery-tile__img--natural { height: auto; }
+  }
+
+  // Fit = contain: the media box IS the media (its own aspect, fitted inside
+  // the limits — `tileFrame`), placed by the view's alignment. No fill: only
+  // the block's own background shows around it.
+  &--hug {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--gv-justify, center);
+
+    > .gallery-tile__hit {
+      display: flex;
+      flex-direction: column;
+      align-items: inherit;
+      // Explicit, so the media's percentage width resolves against the tile.
+      width: 100%;
+    }
+
+    .gallery-tile__media {
+      flex: 0 0 auto;
+      max-width: 100%;
+      background: none;
+    }
+
+    // Unknown media aspect: the picture at its own size, inside the limits.
+    img.gallery-tile__img--natural {
+      width: auto;
+      max-width: 100%;
+    }
+
+    .gallery-tile__caption { align-self: stretch; }
   }
 
   &__placeholder {
