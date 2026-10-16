@@ -4,6 +4,7 @@ import { Component, createSignal, Match, Show, Switch, type JSX, } from 'solid-j
 import MediaVideo from '../../../blocks/media/MediaVideo';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
 import { startUpload, uploads, usesMultipart, whenComplete, } from '@/stores/uploads';
+import { useVideoTitle, } from '@/hooks/useVideoTitle';
 import { resolveVideoSource, } from '@/utils/resolveVideoSource';
 import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
 import { cms, } from '@/services/cmsClient';
@@ -20,6 +21,12 @@ interface VideoBlockProps {
 const baseName = (name: string,): string => name.replace(/\.[^.]+$/, '',);
 
 const VideoBlock: Component<VideoBlockProps> = (props,) => {
+    // Same title the public block + the email show (media title, else the block's own).
+    const shownTitle = useVideoTitle({
+        enabled: () => props.data.showTitle === true,
+        mediaId: () => props.data.mediaId || undefined,
+        title: () => props.data.title,
+    },);
     const [uploading, setUploading,] = createSignal(false,);
     const [uploadRowId, setUploadRowId,] = createSignal<string | null>(null,);
     const [uploadError, setUploadError,] = createSignal<string | null>(null,);
@@ -135,8 +142,8 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                 when={props.mode === 'edit'}
                 fallback={
                     <div class="block-video__preview">
-                        <Show when={props.data.showTitle && (props.data.title || '').trim()}>
-                            <h3 class="block-video__title">{props.data.title.trim()}</h3>
+                        <Show when={shownTitle()}>
+                            <h3 class="block-video__title">{shownTitle()}</h3>
                         </Show>
                         <Show
                             when={props.data.url || props.data.mediaId}

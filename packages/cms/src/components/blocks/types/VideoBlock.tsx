@@ -8,10 +8,11 @@
  *   3. Any other URL → `VideoPlayer` with the MIME derived from the extension
  *      (`.m3u8` plays as HLS).
  * The URL is `settings.url` (what the admin editor writes), else the legacy
- * `content` column. `settings.showTitle` prints `settings.title` above it, centred.
+ * `content` column. `settings.showTitle` prints the title above it, centred (`useVideoTitle`: media title, else `settings.title` — same order as the email).
  */
 import { type Block, cssLength, } from '@sitesurge/types';
 import { Component, Match, Show, Switch, } from 'solid-js';
+import { useVideoTitle, } from '../../../hooks/useVideoTitle';
 import { resolveVideoSource, } from '../../../utils/resolveVideoSource';
 import MediaVideo from '../media/MediaVideo';
 import VideoPlayer from '../media/VideoPlayer';
@@ -33,9 +34,12 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
         };
     };
 
-    // "Show title": the title (the media's, kept on the block when it is picked;
-    // else the block's own) centred above the video.
-    const title = () => (s().showTitle === true && typeof s().title === 'string' ? s().title.trim() : '');
+    // "Show title": the media's title, else the block's own — centred above the video.
+    const title = useVideoTitle({
+        enabled: () => s().showTitle === true,
+        mediaId: () => mediaId() || undefined,
+        title: () => (typeof s().title === 'string' ? s().title : undefined),
+    },);
 
     return (
         <div class="video-block" style={sizeStyle()}>
