@@ -8,6 +8,7 @@ import { previewBreakpoint, setPreviewBreakpoint, } from '../../../stores/previe
 import { PREVIEW_CONTAINER, } from '@sitesurge/types';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
+import { stableSelection, } from './stableSelection';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
 import FlyoutPanel, { type FlyoutMode, } from '../common/FlyoutPanel';
 import Toggle from '../common/Toggle';
@@ -824,33 +825,39 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
      * `onRevert`, which this unifies. Call inside a `<Show keyed>` so it
      * re-mounts when the selected block changes.
      */
-    const renderEditPanel = () => (
-        // Reference `selectedBlock()` inside the JSX (not captured once) so the
-        // panel's `block` prop stays REACTIVE — when a control updates the
-        // block's data (e.g. the default-padding toggle), the controller
-        // re-reads it. Rendered inside a `<Show keyed>` on selectedBlockId, so
-        // the block is non-null here and only re-mounts on block switch.
-        <FlyoutPanel
-            title={`Edit: ${titleizeBlockType(selectedBlock()?.type || '',)}`}
-            open={true}
-            onClose={deselectBlock}
-            side={flyoutSide()}
-            onSideChange={setFlyoutSide}
-            mode={flyoutMode()}
-            onModeChange={setFlyoutMode}
-        >
-            <BlockEditController
-                block={selectedBlock()!}
-                blockTypes={blockTypes()}
-                onUpdate={updateBlock}
-                onChangeType={changeBlockType}
-                onRemove={(id,) => { removeBlock(id,); deselectBlock(); }}
+    const renderEditPanel = () => {
+        // Bind the panel to ITS block id (captured at mount — the panel is
+        // re-mounted per id via the keyed <Show>) rather than to the live
+        // selection. On deselect the selection goes null BEFORE the panel is
+        // disposed, and the controller's cleanups still read `props.block.id`;
+        // a throw there aborted Solid's disposal and left the editor dead (the
+        // panel stuck open, no block would open its panel again).
+        // `stableSelection` stays reactive to data edits and falls back to the
+        // last-seen block once the id is gone (deleted).
+        const block = stableSelection(selectedBlockId()!, (id,) => storeBlocks.find(b => b.id === id,),);
+        return (
+            <FlyoutPanel
+                title={`Edit: ${titleizeBlockType(block().type || '',)}`}
+                open={true}
                 onClose={deselectBlock}
-                isDirty={selectedBlock() ? isBlockDirty(selectedBlock()!.id,) : false}
-                onRevert={() => { const b = selectedBlock(); if (b) revertBlock(b.id,); }}
-            />
-        </FlyoutPanel>
-    );
+                side={flyoutSide()}
+                onSideChange={setFlyoutSide}
+                mode={flyoutMode()}
+                onModeChange={setFlyoutMode}
+            >
+                <BlockEditController
+                    block={block()}
+                    blockTypes={blockTypes()}
+                    onUpdate={updateBlock}
+                    onChangeType={changeBlockType}
+                    onRemove={(id,) => { removeBlock(id,); deselectBlock(); }}
+                    onClose={deselectBlock}
+                    isDirty={isBlockDirty(block().id,)}
+                    onRevert={() => revertBlock(block().id,)}
+                />
+            </FlyoutPanel>
+        );
+    };
 
     return (
         <div class="block-editor">

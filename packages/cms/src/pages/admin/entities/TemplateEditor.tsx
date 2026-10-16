@@ -274,7 +274,7 @@ const TemplateEditor: Component = () => {
     // the singular var; the whole set binds under the plural var. Cleared on
     // unmount so pages/posts/mail editors are unaffected.
     createEffect(() => {
-        const recs = sampleRecords() ?? [];
+        const recs = sampleRecords.latest ?? [];
         const first = recs[0];
         if (!first) { setTemplatePreviewContext(undefined,); return; }
         const kind = params.type ?? '';
@@ -291,7 +291,7 @@ const TemplateEditor: Component = () => {
     // product.inventory). Derived from real data so it's correct without a
     // hardcoded per-type list.
     const extraVars = () => {
-        const rec = sampleRecords()?.[0] as Record<string, unknown> | undefined;
+        const rec = sampleRecords.latest?.[0] as Record<string, unknown> | undefined;
         if (!rec) return [] as Array<{ key: string; isArray: boolean; subKeys: string[]; type: string; }>;
         const declared = new Set((entityDef()?.fields ?? []).map((f,) => f.key),);
         const managed = new Set(['id', 'slug', 'status', 'createdAt', 'updatedAt',],);
@@ -373,14 +373,14 @@ const TemplateEditor: Component = () => {
                             <div class="template-sample">
                                 <div class="template-sample__chips">
                                     <Show
-                                        when={(sampleRecords() ?? []).length > 0}
+                                        when={(sampleRecords.latest ?? []).length > 0}
                                         fallback={
                                             <span class="form-help-muted">
                                                 {sampleRecords.loading ? 'Loading…' : `No ${pluralVar()} found to preview.`}
                                             </span>
                                         }
                                     >
-                                        <For each={sampleRecords()}>
+                                        <For each={sampleRecords.latest}>
                                             {(r,) => (
                                                 <span class="template-sample__chip" title={String(r.id,)}>
                                                     {recordLabel(r,)}

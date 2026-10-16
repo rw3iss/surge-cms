@@ -1,4 +1,4 @@
-import { batch, Component, createSignal, ErrorBoundary, For, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { batch, Component, createSignal, ErrorBoundary, For, Match, onCleanup, onMount, Show, Switch, untrack, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
 import { clearStyleDraft, setStyleDraft, } from '../../../stores/blockStyleDraft';
 import Toggle from '../common/Toggle';
@@ -157,20 +157,26 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     // that only `BlockPreview` reads, so the preview tracks the controls live
     // while the block tree — and therefore this panel — stays untouched.
     // Without it, choosing a padding or a colour was guesswork until Save.
+    // The panel is mounted per block id (keyed by BlockEditor), so the id is
+    // fixed for this controller's life. Captured once so teardown never reads
+    // `props.block` — a cleanup that throws aborts Solid's disposal and leaves
+    // the whole editor unresponsive.
+    const blockId = untrack(() => props.block.id,);
+
     const publishDraft = (style: BlockStyleData,) => {
         setCurrentStyle(style,);
-        setStyleDraft(props.block.id, style as unknown as Record<string, unknown>,);
+        setStyleDraft(blockId, style as unknown as Record<string, unknown>,);
     };
 
     // Stop previewing: Save has already committed the value to the block, and
     // for Cancel, dropping the draft IS the revert (the preview falls back to
     // the block's saved style).
-    const stopDraft = () => clearStyleDraft(props.block.id,);
+    const stopDraft = () => clearStyleDraft(blockId,);
 
     // A block unmounted mid-edit (deleted, or the editor navigated away) must
     // not leave its draft behind — a later block reusing the id would inherit
     // someone else's in-progress style.
-    onCleanup(() => clearStyleDraft(props.block.id,));
+    onCleanup(() => clearStyleDraft(blockId,));
 
     const handleSaveStyle = () => {
         const style = currentStyle();

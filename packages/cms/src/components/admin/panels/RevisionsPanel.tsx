@@ -9,7 +9,7 @@
  * than left to look like the others.
  */
 import type { Revision, RevisionEntityType, } from '@sitesurge/types';
-import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
@@ -64,6 +64,14 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
         },
     );
 
+    // Read through `.latest`, never `revisions()`. Every save bumps
+    // `refreshToken`, so this refetches; a plain read while refetching
+    // suspends the NEAREST <Suspense> — which is the app-level one around the
+    // admin routes. That swapped the whole admin layout for the page-loading
+    // fallback, collapsed the document and threw the editor back to the top.
+    // `.latest` keeps showing the previous list while the new one loads.
+    const rows = () => revisions.latest ?? [];
+
     /** True for snapshots taken before block trees were captured. */
     const isLegacy = (rev: RevisionRow,) => (rev.snapshotVersion ?? 1) < 2;
 
@@ -109,52 +117,56 @@ const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {
     return (
         <div class="revisions-panel">
             <div class="revisions-panel__header">Revision History</div>
-            <Show
-                when={revisions() && revisions()!.length > 0}
-                fallback={<div class="revisions-panel__empty">No revisions yet.</div>}
-            >
-                <div class="revisions-panel__list">
-                    <For each={revisions()}>
-                        {(rev,) => (
-                            <div class="revisions-panel__item">
-                                <div class="revisions-panel__meta">
-                                    <strong>v{rev.version}</strong>
-                                    <span>
-                                        {formatDate(rev.createdAt,)}
-                                        {rev.authorName ? ` · ${rev.authorName}` : ''}
-                                    </span>
-                                    <Show
-                                        when={!isLegacy(rev,)}
-                                        fallback={
-                                            <em title="Saved before content history existed. Restoring it changes the page details only.">
-                                                details only
+            {/* Local boundary: the FIRST load (no `.latest` yet) must not
+                suspend the app-level <Suspense> either. */}
+            <Suspense fallback={<div class="revisions-panel__empty">Loading…</div>}>
+                <Show
+                    when={rows().length > 0}
+                    fallback={<div class="revisions-panel__empty">No revisions yet.</div>}
+                >
+                    <div class="revisions-panel__list">
+                        <For each={rows()}>
+                            {(rev,) => (
+                                <div class="revisions-panel__item">
+                                    <div class="revisions-panel__meta">
+                                        <strong>v{rev.version}</strong>
+                                        <span>
+                                            {formatDate(rev.createdAt,)}
+                                            {rev.authorName ? ` · ${rev.authorName}` : ''}
+                                        </span>
+                                        <Show
+                                            when={!isLegacy(rev,)}
+                                            fallback={
+                                                <em title="Saved before content history existed. Restoring it changes the page details only.">
+                                                    details only
+                                                </em>
+                                            }
+                                        >
+                                            <em>
+                                                {rev.blockCount ?? 0} block{rev.blockCount === 1 ? '' : 's'}
                                             </em>
-                                        }
+                                        </Show>
+                                        <Show when={rev.summary}>
+                                            <em>{rev.summary}</em>
+                                        </Show>
+                                        <Show when={rev.pinned}>
+                                            <em title="A mailing-list send used this version; it is kept regardless of the history limit.">
+                                                used by a send
+                                            </em>
+                                        </Show>
+                                    </div>
+                                    <button
+                                        class="ui-button ui-button--sm ui-button--secondary"
+                                        onClick={() => setPending(rev,)}
                                     >
-                                        <em>
-                                            {rev.blockCount ?? 0} block{rev.blockCount === 1 ? '' : 's'}
-                                        </em>
-                                    </Show>
-                                    <Show when={rev.summary}>
-                                        <em>{rev.summary}</em>
-                                    </Show>
-                                    <Show when={rev.pinned}>
-                                        <em title="A mailing-list send used this version; it is kept regardless of the history limit.">
-                                            used by a send
-                                        </em>
-                                    </Show>
+                                        Restore
+                                    </button>
                                 </div>
-                                <button
-                                    class="ui-button ui-button--sm ui-button--secondary"
-                                    onClick={() => setPending(rev,)}
-                                >
-                                    Restore
-                                </button>
-                            </div>
-                        )}
-                    </For>
-                </div>
-            </Show>
+                            )}
+                        </For>
+                    </div>
+                </Show>
+            </Suspense>
 
             <ConfirmModal
                 open={pending() !== null}
