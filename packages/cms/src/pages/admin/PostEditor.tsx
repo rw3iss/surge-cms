@@ -558,6 +558,10 @@ const AdminPostEditor: Component = () => {
                                                         }
                                                     }}
                                                 />
+                                                <Tooltip
+                                                    header="Custom Position"
+                                                    content="Any CSS background-position, written as <horizontal> <vertical>. Keywords: left / center / right, then top / center / bottom (e.g. center top, right bottom). Percentages: 0% is the left or top edge, 100% the right or bottom (e.g. 100% center, 50% 30%). Lengths from the edge: left 20px bottom 10px. One value sets the horizontal position and centres vertically (e.g. 25%). An invalid value falls back to center."
+                                                />
                                                 <Show when={bannerImagePositionCustom() && !isValidBannerPositionCustom(bannerImagePositionCustom(),)}>
                                                     <small class="form-help-muted">Not a valid position — the banner stays centred.</small>
                                                 </Show>
