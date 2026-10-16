@@ -1,7 +1,7 @@
 import { describe, expect, it, } from 'vitest';
 import { DEFAULT_GALLERY_APPEARANCE, } from '@sitesurge/types';
 import {
-    activePage, aspectRatio, entityQueryToGalleryQuery, galleryQueryToEntityQuery, maxStart, nextStart, pageStarts, pageStyle, prevStart, resolveLayout,
+    activePage, aspectRatio, entityQueryToGalleryQuery, galleryQueryToEntityQuery, gridTemplateColumns, maxStart, nextStart, pageStarts, pageStyle, prevStart, resolveLayout,
 } from './galleryLayout';
 
 describe('resolveLayout', () => {
@@ -54,5 +54,17 @@ describe('entity query ↔ gallery query', () => {
     it('round-trips', () => {
         const q = { type: 'image' as const, tag: 'x', sort: 'random' as const, limit: 5, };
         expect(entityQueryToGalleryQuery(galleryQueryToEntityQuery(q,),),).toEqual(q,);
+    },);
+},);
+
+describe('gridTemplateColumns', () => {
+    it('unchanged without an item width', () => {
+        expect(gridTemplateColumns(3, null,),).toBe('repeat(3, minmax(0, 1fr))',);
+        expect(gridTemplateColumns(null, null, 180,),).toBe('repeat(auto-fill, minmax(min(180px, 100%), 1fr))',);
+    },);
+    it('an item width caps each column so the grid can be aligned', () => {
+        expect(gridTemplateColumns(3, '200px',),).toBe('repeat(3, minmax(0, 200px))',);
+        // auto-FIT: empty tracks collapse, so a short row can be centred.
+        expect(gridTemplateColumns(null, '200px',),).toBe('repeat(auto-fit, min(200px, 100%))',);
     },);
 },);

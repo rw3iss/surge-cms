@@ -2,6 +2,7 @@
  * Pure layout + paging helpers for the gallery views (GalleryView, the Gallery
  * block, `{{gallery()}}`, the /gallery page). No DOM, no Solid — unit-tested.
  */
+import { cssLength, } from '@sitesurge/types';
 import type {
     GalleryAppearance, GalleryAspect, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryQuery,
 } from '@sitesurge/types';
@@ -52,8 +53,9 @@ export function resolveLayout(
         scrollBy: pos(pick('scrollBy',), 1,)!,
         rows: pos(pick('rows',), null,),
         gap: (pick('gap',) as string | undefined) || '12px',
-        itemWidth: (pick('itemWidth',) as string | undefined) || null,
-        itemHeight: (pick('itemHeight',) as string | undefined) || null,
+        // A bare number is px (`cssLength`), the same reading the email gives it.
+        itemWidth: cssLength(pick('itemWidth',),) ?? null,
+        itemHeight: cssLength(pick('itemHeight',),) ?? null,
         aspect: (pick('aspect',) as GalleryAspect | undefined) ?? 'square',
         fit: (pick('fit',) as 'cover' | 'contain' | undefined) ?? 'cover',
     };
@@ -68,6 +70,28 @@ export function aspectRatio(a: GalleryAspect | undefined,): string | undefined {
         case '16:9': return '16 / 9';
         default: return undefined;
     }
+}
+
+// ─── Item width + alignment ───────────────────────────────────────────────
+
+/**
+ * `grid-template-columns` for the grid layout.
+ *
+ *   columns, no itemWidth   → equal columns filling the width (unchanged)
+ *   columns + itemWidth     → that many columns, each at most `itemWidth`
+ *   itemWidth only          → as many `itemWidth` columns as fit (`auto-fit`,
+ *                             so empty tracks collapse and the row can be
+ *                             aligned by `justify-content`)
+ *   neither                 → auto-fill at `thumbSize` px (unchanged)
+ *
+ * With an itemWidth the grid can be narrower than the block, so the view's
+ * `justify-content` (the block's Horizontal Alignment) places it.
+ */
+export function gridTemplateColumns(columns: number | null, itemWidth: string | null, thumbSize = 220,): string {
+    if (itemWidth) {
+        return columns ? `repeat(${columns}, minmax(0, ${itemWidth}))` : `repeat(auto-fit, min(${itemWidth}, 100%))`;
+    }
+    return columns ? `repeat(${columns}, minmax(0, 1fr))` : `repeat(auto-fill, minmax(min(${thumbSize}px, 100%), 1fr))`;
 }
 
 // ─── Paging (row / carousel / paged grid + column) ────────────────────────

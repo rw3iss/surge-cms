@@ -34,6 +34,8 @@ export interface MediaVideoProps {
     /** Played as a plain file when playback cannot be read. */
     fallbackSrc?: string;
     fallbackType?: string;
+    /** Show the "Download…" menu under the player (when downloads exist). Default true; the Video block passes its `showDownload` setting (default off). */
+    showDownload?: boolean;
 }
 
 type Chosen = 'full' | 'teaser' | 'file' | null;
@@ -139,7 +141,8 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
         <A href={MEMBERSHIP_URL} class="media-video__cta-link">Subscribe to watch the full video</A>
     );
 
-    const hasToolbar = () => canSwitch() || (pb()?.downloads.length ?? 0) > 0;
+    const hasDownloads = () => props.showDownload !== false && (pb()?.downloads.length ?? 0) > 0;
+    const hasToolbar = () => canSwitch() || hasDownloads();
 
     const onDownload = (e: Event & { currentTarget: HTMLSelectElement; },) => {
         const url = e.currentTarget.value;
@@ -220,7 +223,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                     </Show>
                 </div>
 
-                <Show when={canSwitch() || (pb()?.downloads.length ?? 0) > 0}>
+                <Show when={hasToolbar()}>
                     <div class="media-video__toolbar">
                         <Show when={canSwitch()}>
                             <select
@@ -236,7 +239,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                                 <option value="teaser">Teaser</option>
                             </select>
                         </Show>
-                        <Show when={(pb()?.downloads.length ?? 0) > 0}>
+                        <Show when={hasDownloads()}>
                             <select class="media-video__select" aria-label="Download" value="" onChange={onDownload}>
                                 <option value="">Download…</option>
                                 <For each={pb()!.downloads}>

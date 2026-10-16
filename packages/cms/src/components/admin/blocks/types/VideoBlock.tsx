@@ -114,7 +114,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
             <Switch>
                 <Match when={props.data.mediaId}>
                     <div style={style}>
-                        <MediaVideo mediaId={props.data.mediaId} showVariantSwitch fallbackSrc={props.data.url || undefined} />
+                        <MediaVideo mediaId={props.data.mediaId} showVariantSwitch showDownload={props.data.showDownload === true} fallbackSrc={props.data.url || undefined} />
                     </div>
                 </Match>
                 <Match when={props.data.url && resolved().kind === 'embed'}>
@@ -279,6 +279,14 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                         onChange={(next,) => props.onUpdate({ ...props.data, showTitle: next || undefined, },)}
                         label="Show title"
                         hint="Centred above the video — on the site and in email."
+                    />
+                </div>
+                <div class="form-group">
+                    <Toggle
+                        checked={props.data.showDownload === true}
+                        onChange={(next,) => props.onUpdate({ ...props.data, showDownload: next || undefined, },)}
+                        label="Show download"
+                        hint="Show a Download menu under the video."
                     />
                 </div>
                 {/* A library video shows its media-library title; a linked video has

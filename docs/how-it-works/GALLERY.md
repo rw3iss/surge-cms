@@ -266,6 +266,19 @@ items and stashes them on `settings.__galleryItems`
   keeps the "▶ Watch" bar (`mail/blocks/watchOverlay.ts`). Gap → half the gap
   as padding around each item.
 
+### Alignment + size (block style)
+
+The Gallery block takes the block's full inner width; alignment is applied
+inside it. Order: **Horizontal Alignment** → else **Text Align** → else centre.
+It shows when items are narrower than the block — a fixed **Item width**
+(column tiles, grid tracks, unpaged row, stage picture) or a block
+width / max-width. Titles and captions follow **Text Align**. Web: CSS var
+`--gv-justify` (`GalleryView.scss`), `gridTemplateColumns()` in
+`galleryLayout.ts`. Email: block width / max-width minus the cell padding is
+the gallery width; a fixed Item width shrinks each slot to the item; each row
+table gets `align` + margin from `galleryEmailAlign()` (`gallery/render.ts`);
+background, radius, padding stay on the block cell.
+
 ### Item border radius
 
 `itemRadius` (admin: **Item border radius**; any CSS length, a bare number =

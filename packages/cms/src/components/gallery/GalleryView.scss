@@ -1,7 +1,22 @@
 // Gallery views (page, Gallery block, {{gallery()}}) + tile + lightbox.
+
+// The Gallery block's wrapper always takes the block's full inner width: the
+// block inner is a flex column (`align-items` from Text Align), which would
+// otherwise shrink-wrap the gallery to its images' intrinsic width. Alignment
+// happens INSIDE the view (`--gv-justify`), where it can place items.
+.gallery-block {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
 .gallery-view {
   --gv-gap: 12px;
   --gv-radius: var(--item-radius, var(--site-radius, 8px));
+  // Block Horizontal Alignment → else Text Align → else centre. Only visible
+  // when the items are narrower than the view (an Item width is set, or an
+  // unpaged row is short); full-width layouts are unaffected.
+  --gv-justify: var(--block-h-align, var(--block-align-items, center));
   position: relative;
   width: 100%;
 
@@ -11,6 +26,8 @@
   &__grid {
     display: grid;
     gap: var(--gv-gap);
+    // A grid narrower than the view (fixed Item width) is placed by the alignment.
+    justify-content: var(--gv-justify);
   }
 
   &__masonry {
@@ -25,7 +42,14 @@
   &__column {
     display: flex;
     flex-direction: column;
+    align-items: var(--gv-justify);
     gap: var(--gv-gap);
+
+    // Full width unless an Item width is set; then placed by the alignment.
+    > .gallery-tile {
+      width: var(--gv-item-width, 100%);
+      max-width: 100%;
+    }
   }
 
   &__pager {
@@ -65,6 +89,9 @@
     transition: transform .45s cubic-bezier(.4, 0, .2, 1);
     will-change: transform;
   }
+
+  // Unpaged (everything fits): a short row of fixed-width items is aligned.
+  &__track--static { justify-content: var(--gv-justify); }
 
   &__slide { min-width: 0; }
 
@@ -113,7 +140,14 @@
   &__stage {
     display: flex;
     flex-direction: column;
+    align-items: var(--gv-justify);
     gap: 8px;
+
+    // The picture / video: full width, or the Item width placed by the alignment.
+    > :not(.gallery-view__stage-meta) {
+      width: var(--gv-item-width, 100%);
+      max-width: 100%;
+    }
 
     img {
       display: block;
@@ -143,6 +177,9 @@
   &__stage-meta {
     display: flex;
     flex-wrap: wrap;
+    align-self: stretch;
+    // Title / caption follow the block's Text Align (left when unset).
+    justify-content: var(--block-align-items, flex-start);
     gap: 4px 12px;
     align-items: baseline;
     color: var(--site-text-muted, #6b7280);
@@ -242,6 +279,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    // Inherits the block's Text Align (a <figcaption> would anyway; explicit
+    // because the tile may sit inside a button that resets it).
+    text-align: inherit;
     padding-top: 6px;
     font-size: .9rem;
     line-height: 1.35;

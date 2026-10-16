@@ -8,7 +8,7 @@
  *   3. Any other URL → `VideoPlayer` with the MIME derived from the extension
  *      (`.m3u8` plays as HLS).
  * The URL is `settings.url` (what the admin editor writes), else the legacy
- * `content` column. `settings.itemRadius` rounds the video (`--item-radius`; empty = the site radius). `settings.showTitle` prints the title above it, centred (`useVideoTitle`: media title, else `settings.title` — same order as the email).
+ * `content` column. `settings.itemRadius` rounds the video (`--item-radius`; empty = the site radius). `settings.showDownload` (default off) shows the player's Download menu. `settings.showTitle` prints the title above it, centred (`useVideoTitle`: media title, else `settings.title` — same order as the email).
  */
 import { type Block, cssLength, itemRadiusCss, } from '@sitesurge/types';
 import { Component, Match, Show, Switch, } from 'solid-js';
@@ -55,6 +55,7 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
                         mediaId={mediaId()}
                         autoplay={Boolean(s().autoplay,)}
                         fallbackSrc={url() || undefined}
+                        showDownload={s().showDownload === true}
                     />
                 </Match>
                 <Match when={url() && resolved().kind === 'embed'}>

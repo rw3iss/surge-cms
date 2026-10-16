@@ -3,8 +3,10 @@
  */
 import type { GalleryItem, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
-import { horizontalPadding, } from '../mail/blocks/gallery';
-import { absUrl, galleryEmailHtml, galleryEmailPlan, galleryFiguresHtml, previewUrl, } from './render';
+import { horizontalPadding, renderGallery, } from '../mail/blocks/gallery';
+import { GALLERY_RESOLVED_KEY, } from './serverRender';
+import { absUrl, galleryEmailAlign, galleryEmailHtml, galleryEmailPlan, galleryFiguresHtml, previewUrl, } from './render';
+import type { EmailBlockNode, EmailRenderCtx, } from '../mail/blocks/index';
 
 const item = (over: Partial<GalleryItem> & { mediaType?: 'image' | 'video'; thumb?: string | null; } = {},): GalleryItem => ({
     id: over.id ?? 'a1',
@@ -168,5 +170,63 @@ describe('horizontalPadding (Gallery block width in email)', () => {
         expect(horizontalPadding('0 20px',),).toBe(40,);
         expect(horizontalPadding('1px 2px 3px 4px',),).toBe(6,);
         expect(horizontalPadding(undefined,),).toBe(0,);
+    },);
+},);
+
+describe('gallery email alignment + size (block style)', () => {
+    /** Inner row tables with their align + width. */
+    const rows = (html: string,) => [...html.matchAll(/<td align="(\w+)" style="padding:0;"><table role="presentation" align="(\w+)" width="(\d+)"[^>]*margin:([^;]+);/g,),]
+        .map((m,) => ({ td: m[1], align: m[2], width: Number(m[3],), margin: m[4], }));
+
+    it('galleryEmailAlign: Horizontal Alignment, else Text Align, else centre', () => {
+        expect(galleryEmailAlign({ horizontalAlign: 'right', textAlign: 'left', },),).toBe('right',);
+        expect(galleryEmailAlign({ horizontalAlign: 'flex-start', },),).toBe('left',);
+        expect(galleryEmailAlign({ textAlign: 'right', },),).toBe('right',);
+        expect(galleryEmailAlign({ textAlign: 'justify', },),).toBe('center',);
+        expect(galleryEmailAlign({},),).toBe('center',);
+        expect(galleryEmailAlign(undefined,),).toBe('center',);
+    },);
+
+    it('column + fixed item width: each row is the item\'s width, centred / right-aligned', () => {
+        const s = { desktop: { layout: 'column' as const, itemWidth: '450px', gap: '12px', }, };
+        expect(galleryEmailPlan(s,),).toMatchObject({ columns: 1, itemWidth: 450, slotWidth: 462, width: 462, },);
+        const center = rows(galleryEmailHtml(four(), 'https://site', s, { align: 'center', },),);
+        expect(center.length,).toBe(4,);
+        expect(center.every((r,) => r.width === 462 && r.align === 'center' && r.td === 'center' && r.margin === '0 auto'),).toBe(true,);
+        const right = rows(galleryEmailHtml(four(), 'https://site', s, { align: 'right', },),);
+        expect(right.every((r,) => r.align === 'right' && r.td === 'right' && r.margin === '0 0 0 auto'),).toBe(true,);
+    },);
+
+    it('grid narrower than the body (item width) is placed by the alignment', () => {
+        const s = { desktop: { layout: 'grid' as const, columns: 2, itemWidth: '150px', gap: '10px', }, };
+        expect(galleryEmailPlan(s,),).toMatchObject({ columns: 2, slotWidth: 160, width: 320, },);
+        const center = rows(galleryEmailHtml(four(), 'https://site', s,),); // default centre
+        expect(center.map((r,) => [r.align, r.width,]),).toEqual([['center', 320,], ['center', 320,],],);
+        const left = rows(galleryEmailHtml(four(), 'https://site', s, { align: 'left', },),);
+        expect(left.every((r,) => r.align === 'left' && r.margin === '0 auto 0 0'),).toBe(true,);
+    },);
+
+    it('titles follow Text Align', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { showTitles: true, desktop: { layout: 'grid', }, }, { textAlign: 'right', },);
+        expect(html,).toMatch(/font-weight:bold;[^"]*text-align:right;/,);
+        // Unset: a grid stays left.
+        expect(galleryEmailHtml([item(),], 'https://site', { showTitles: true, },),).toMatch(/font-weight:bold;[^"]*text-align:left;/,);
+    },);
+
+    it('Gallery block: style maxWidth sizes the gallery, horizontalAlign places it', () => {
+        const ctx = { siteUrl: 'https://site', siteRadius: '', textColor: '#333333', palette: [], } as unknown as EmailRenderCtx;
+        const node = (style: Record<string, unknown>,): EmailBlockNode => ({
+            id: 'g1', blockType: 'gallery', children: [], style,
+            settings: { desktop: { layout: 'column', gap: '0', }, [GALLERY_RESOLVED_KEY]: [item(),], },
+        });
+        const html = (style: Record<string, unknown>,) => {
+            const out = renderGallery(node(style,), ctx,);
+            return typeof out === 'string' ? out : out.content ?? '';
+        };
+        // max-width 400 − 2 × 16px default padding = 368, one column → a 368px row, centred.
+        const c = rows(html({ maxWidth: '400px', horizontalAlign: 'center', margin: 'auto', },),);
+        expect(c,).toEqual([{ td: 'center', align: 'center', width: 368, margin: '0 auto', },],);
+        const r = rows(html({ maxWidth: '400px', horizontalAlign: 'right', },),);
+        expect(r[0],).toMatchObject({ align: 'right', width: 368, },);
     },);
 },);

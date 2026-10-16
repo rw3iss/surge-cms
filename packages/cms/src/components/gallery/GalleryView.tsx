@@ -12,11 +12,18 @@
  *   carousel  one-up slides (a row with one per page)
  *   stage     the selected item large, a thumbnail strip below
  * Click: lightbox (default), the item's page, or nothing.
+ *
+ * Alignment: inside a block the view reads the block's Horizontal Alignment
+ * (`--block-h-align`), else its Text Align (`--block-align-items`), else
+ * centre, as `--gv-justify` — it places a column of fixed-width items, a grid
+ * narrower than the block, an unpaged row, and the stage picture. Titles /
+ * captions inherit the block's text-align. `itemWidth` → `--gv-item-width`
+ * (column / stage tile width; grid track cap; row slide width).
  */
 import { type GalleryItem, galleryItemRadius, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import MediaVideo from '../blocks/media/MediaVideo';
-import { activePage, aspectRatio, type GalleryViewSettings, nextStart, pageStarts, prevStart, resolveLayout, } from './galleryLayout';
+import { activePage, aspectRatio, type GalleryViewSettings, gridTemplateColumns, nextStart, pageStarts, prevStart, resolveLayout, } from './galleryLayout';
 import GalleryLightbox from './GalleryLightbox';
 import GalleryTile from './GalleryTile';
 import { useIsMobile, } from './useIsMobile';
@@ -120,6 +127,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
         // read by the tiles (`--gv-radius`) and the stage's picture / video.
         const r = galleryItemRadius(props.settings,);
         if (r) s['--item-radius'] = r;
+        if (L().itemWidth) s['--gv-item-width'] = L().itemWidth!;
         return s;
     };
 
@@ -168,7 +176,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                 <Switch>
                     <Match when={isRowLike()}>
                         <div class="gallery-view__viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-                            <div class="gallery-view__track" style={{ transform: trackTransform(), }}>
+                            <div class="gallery-view__track" classList={{ 'gallery-view__track--static': !paged(), }} style={{ transform: trackTransform(), }}>
                                 <For each={items()}>
                                     {(item, i,) => (
                                         <div class="gallery-view__slide" style={{ flex: `0 0 ${itemBasis()}`, }}>
@@ -260,9 +268,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                         <div
                             class="gallery-view__grid"
                             style={{
-                                'grid-template-columns': L().columns
-                                    ? `repeat(${L().columns}, minmax(0, 1fr))`
-                                    : `repeat(auto-fill, minmax(min(${props.thumbSize ?? 220}px, 100%), 1fr))`,
+                                'grid-template-columns': gridTemplateColumns(L().columns, L().itemWidth, props.thumbSize ?? 220,),
                             }}
                         >
                             <For each={pageItems()}>

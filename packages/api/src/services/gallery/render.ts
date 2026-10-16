@@ -11,6 +11,10 @@
  *          thumbnails flow left-to-right, each row centred). Every item links
  *          to its gallery item page (the block's on-click option is ignored —
  *          an inbox has no lightbox); a video keeps the "▶ Watch" bar.
+ *          Rows are placed by the block's Horizontal Alignment (`env.align`,
+ *          default centre) — visible when the gallery is narrower than the
+ *          body (a block width / max-width, or a fixed Item width, which
+ *          shrinks each slot to the item); titles follow its Text Align.
  *
  * Every URL is absolutised against `base` (an inbox has no origin), and the
  * caller passes items already filtered for its audience (SSR: anonymous site
@@ -87,6 +91,29 @@ export interface GalleryEmailEnv {
     textColor?: string;
     /** Width (px) the gallery may use: the email body minus the block's padding. Default 600. */
     width?: number;
+    /** Where rows sit when narrower than `width` (block Horizontal Alignment). Default centre. */
+    align?: GalleryEmailAlign;
+    /** Title / caption alignment (block Text Align). Default: left for a grid, centre when wrapped. */
+    textAlign?: string;
+}
+
+export type GalleryEmailAlign = 'left' | 'center' | 'right';
+
+/**
+ * A block's alignment for email, from its style: Horizontal Alignment, else
+ * Text Align, else centre — the same order the web view reads
+ * (`--block-h-align` → `--block-align-items` → centre).
+ */
+export function galleryEmailAlign(style: { horizontalAlign?: unknown; textAlign?: unknown; } | null | undefined,): GalleryEmailAlign {
+    const map = (v: unknown,): GalleryEmailAlign | null => {
+        switch (String(v ?? '',).trim()) {
+            case 'left': case 'start': case 'flex-start': return 'left';
+            case 'right': case 'end': case 'flex-end': return 'right';
+            case 'center': return 'center';
+            default: return null;
+        }
+    };
+    return map(style?.horizontalAlign,) ?? map(style?.textAlign,) ?? 'center';
 }
 
 /** The pixel geometry of one email gallery. Pure — unit-tested. */
@@ -96,6 +123,8 @@ export interface GalleryEmailPlan {
     columns: number;
     /** Width of one column slot, px (item + its padding). */
     slotWidth: number;
+    /** Width of a full row, px (`columns × slotWidth`) — may be narrower than the body. */
+    width: number;
     /** Padding around each item, px (half the gap). */
     pad: number;
     /** The item box, px. `itemHeight` null = the picture's natural height. */
@@ -129,7 +158,9 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
             ? (n(d.columns,) ?? fromWidth ?? 3)
             : (fromWidth ?? (layout === 'row' ? n(d.itemsPerPage,) : (n(d.columns,) ?? n(d.itemsPerPage,))) ?? 3);
     const columns = Math.min(6, Math.max(1, raw,),);
-    const slotWidth = Math.floor(width / columns,);
+    // A fixed Item width shrinks the slot to the item (+ its padding), so a
+    // column / grid of fixed-width items is a narrower box the alignment places.
+    const slotWidth = Math.min(Math.floor(width / columns,), fixedW ? fixedW + 2 * pad : Infinity,);
     const inner = Math.max(1, slotWidth - 2 * pad,);
     const itemWidth = fixedW ? Math.min(fixedW, inner,) : inner;
     const ratio = ASPECT_RATIOS[d.aspect ?? 'square'] ?? null;
@@ -138,6 +169,7 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
         mode: layout === 'grid' || layout === 'column' ? 'grid' : 'wrap',
         columns,
         slotWidth,
+        width: columns * slotWidth,
         pad,
         itemWidth,
         itemHeight: fixedH ?? (ratio ? Math.round(itemWidth / ratio,) : null),
@@ -162,7 +194,10 @@ export function galleryEmailHtml(
     const { itemWidth: w, itemHeight: h, radius, pad, slotWidth, } = plan;
     const r = esc(radius,);
     const text = safeCss(env.textColor,) || '#333333';
-    const align = plan.mode === 'wrap' ? 'center' : 'left';
+    const ta = String(env.textAlign ?? '',).trim();
+    const align = ['left', 'center', 'right', 'justify',].includes(ta,) ? ta : plan.mode === 'wrap' ? 'center' : 'left';
+    const rowAlign: GalleryEmailAlign = env.align ?? 'center';
+    const rowMargin = rowAlign === 'left' ? '0 auto 0 0' : rowAlign === 'right' ? '0 0 0 auto' : '0 auto';
 
     const visualOf = (i: GalleryItem,): string => {
         const href = esc(absUrl(i.url, base,),);
@@ -213,7 +248,7 @@ export function galleryEmailHtml(
         while (cells.length < n) cells.push(`<td width="${slotWidth}" style="width:${pct};padding:${pad}px;"></td>`,);
         const rowW = n * slotWidth;
         rows.push(
-            `<tr><td align="center" style="padding:0;"><table role="presentation" align="center" width="${rowW}" cellpadding="0" cellspacing="0" border="0" style="width:${rowW}px;max-width:100%;margin:0 auto;border-collapse:collapse;"><tr>${cells.join('',)}</tr></table></td></tr>`,
+            `<tr><td align="${rowAlign}" style="padding:0;"><table role="presentation" align="${rowAlign}" width="${rowW}" cellpadding="0" cellspacing="0" border="0" style="width:${rowW}px;max-width:100%;margin:${rowMargin};border-collapse:collapse;"><tr>${cells.join('',)}</tr></table></td></tr>`,
         );
     }
     return `<table role="presentation" class="gallery-grid gallery-grid--${plan.mode}" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${rows.join('',)}</table>`;

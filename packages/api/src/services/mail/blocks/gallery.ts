@@ -7,9 +7,14 @@
  * its columns, `column` → one per row, `row` / `carousel` / `stage` → a
  * centred wrapped grid. No autoplay, arrows or lightbox; every item links to
  * its gallery item page whatever the block's on-click option says.
+ *
+ * Block style: width / max-width (and the cell padding) size the gallery
+ * (`galleryEmailWidth`); Horizontal Alignment (else Text Align, else centre)
+ * places its rows; Text Align aligns titles / captions; background, radius,
+ * margin and padding stay on the block cell (`cellStyleFromBlock`).
  */
 import type { GalleryBlockSettings, } from '@sitesurge/types';
-import { galleryEmailHtml, } from '../../gallery/render';
+import { galleryEmailAlign, galleryEmailHtml, } from '../../gallery/render';
 import { resolvedItemsOf, } from '../../gallery/serverRender';
 import { cellStyleFromBlock, mediaBox, pxValue, } from './_util';
 import type { BlockEmailRenderer, EmailBlockNode, EmailRenderCtx, } from './index';
@@ -34,5 +39,7 @@ export const renderGallery: BlockEmailRenderer = (node, ctx,) => {
         siteRadius: ctx.siteRadius,
         textColor: ctx.textColor,
         width: galleryEmailWidth(node, ctx,),
+        align: galleryEmailAlign(node.style,),
+        textAlign: typeof node.style?.textAlign === 'string' ? node.style.textAlign : undefined,
     },);
 };
