@@ -80,7 +80,7 @@ export default function MediaStageModal(props: MediaStageModalProps,) {
     };
 
     return (
-        <ModalShell open onClose={props.onClose} size="lg" class="media-stage-modal" ariaLabel={props.title ?? 'Add files'}>
+        <ModalShell open onClose={props.onClose} dismissOnBackdrop={false} dismissOnEscape={false} size="lg" class="media-stage-modal" ariaLabel={props.title ?? 'Add files'}>
             <div class="media-stage-modal__header">
                 <h2>{props.title ?? 'Add files'}</h2>
                 <button type="button" class="media-stage-modal__close" aria-label="Close" onClick={props.onClose}>&times;</button>
