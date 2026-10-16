@@ -18,7 +18,7 @@
  */
 import { z, } from 'zod';
 import type {
-    MediaUploadCreateBody, MediaVideoShareBody, MediaVideoUpdateBody, SettingsVideoBody,
+    MediaUploadCompleteBody, MediaUploadCreateBody, MediaVideoShareBody, MediaVideoUpdateBody, SettingsVideoBody,
 } from '@sitesurge/types';
 import { defineRoute, } from '../api/defineRoute';
 import { requirePermission, } from '../services/permissions';
@@ -38,7 +38,7 @@ const need = (u: U, key: string,) => requirePermission({ id: u?.id, role: u?.rol
 const idParams = z.object({ id: z.string().uuid(), },);
 
 const sessionOptions = z.object({
-    title: z.string().max(500,).optional(),
+    title: z.string().max(255,).optional(),
     alt: z.string().max(1000,).optional(),
     caption: z.string().max(1000,).optional(),
     credits: z.string().max(1000,).optional(),
@@ -56,6 +56,8 @@ const createBody = z.object({
     fingerprint: z.string().min(1,).max(1024,),
     options: sessionOptions.optional(),
 },) satisfies z.ZodType<MediaUploadCreateBody>;
+
+const completeBody = z.object({ title: z.string().max(255,).optional(), },).optional() satisfies z.ZodType<MediaUploadCompleteBody | undefined>;
 
 const partUrlsBody = z.object({ partNumbers: z.array(z.number().int().min(1,).max(10000,),).min(1,).max(50,), },);
 
@@ -125,13 +127,13 @@ export const videoRoutes = [
     },),
     defineRoute({
         method: 'post', path: '/uploads/:id/complete', auth: 'staff',
-        summary: 'Complete an upload: creates the media row (and the encode job for a video).',
-        input: { params: idParams, },
-        handler: ({ params, user, audit, },) => uploads.complete(user?.id ?? '', params.id, audit(),),
+        summary: 'Complete an upload: creates the media row (and the encode job for a video). Optional { title } wins over the create options.',
+        input: { params: idParams, body: completeBody, },
+        handler: ({ params, body, user, audit, },) => uploads.complete(user?.id ?? '', params.id, audit(), body ?? {},),
     },),
     defineRoute({
         method: 'delete', path: '/uploads/:id', auth: 'staff',
-        summary: 'Abort an upload session and discard its parts.',
+        summary: 'Cancel an upload: abort the multipart upload, discard its parts and delete the session.',
         input: { params: idParams, },
         handler: async ({ params, user, },) => {
             await uploads.abort(user?.id ?? '', params.id, { isAdmin: isAdmin(user,), },);

@@ -181,6 +181,8 @@ export async function rotateKey(ctx: AuditContext,): Promise<{ version: number; 
     return { version, repackageQueued: queued, };
 }
 
+const DELETE_WAIT_SECONDS = 15;
+
 /**
  * Storage cleanup for a deleted video: stop its job, then remove every object
  * it owns (renditions, teaser, downloads, poster, sprites, the original and an
@@ -192,9 +194,13 @@ export async function deleteVideoAssets(id: string,): Promise<void> {
     try {
         const video = await repo.getVideo(id,);
         if (!video) return;
+        // The flag reaches the encoder whichever process it runs on: the
+        // worker (cluster primary) polls it every 5 s and kills ffmpeg.
         await repo.requestCancel(id,);
-        // Give a running encoder a moment to notice and stop writing.
-        for (let i = 0; i < 10 && await repo.activeJob(id,); i++) {
+        // Wait for it to stop writing. If it is still busy after this, it
+        // finds the media row gone when it stops and purges again itself
+        // (worker `purgeDeletedMedia`), so nothing is left behind.
+        for (let i = 0; i < DELETE_WAIT_SECONDS && await repo.activeJob(id,); i++) {
             await new Promise((r,) => setTimeout(r, 1000,));
         }
         const store = await resolveStorageProvider();

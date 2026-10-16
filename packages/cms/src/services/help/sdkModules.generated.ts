@@ -1405,6 +1405,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "GET /media/by-url — the library item behind a stored URL (null when the URL is not in the library). Used to preview an assigned image."
             },
             {
+                "name": "discard",
+                "signature": "discard(id: string): Promise<MediaDiscardResponse>",
+                "summary": "POST /media/:id/discard — CANCEL an upload that already made a media row (e.g. a video still encoding): stops the encode (a running ffmpeg is killed), deletes every stored file, the row and any gallery item made from it. Needs `media:write`."
+            },
+            {
                 "name": "getById",
                 "signature": "getById(id: string, options?: { cache?: boolean; }): Promise<MediaByIdResponse>",
                 "summary": "GET /media/:id — the media row. `{ cache: false }` reads fresh (an editor must not start from a stale copy)."
@@ -1436,18 +1441,18 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "upload",
-                "signature": "upload(file: Blob, fields?: MediaUploadFields): Promise<MediaUploadResponse>",
-                "summary": "POST /media — single multipart upload (field \"file\"; optional alt/caption fields)."
+                "signature": "upload(file: Blob, fields?: MediaUploadFields, options?: MutationOptions): Promise<MediaUploadResponse>",
+                "summary": "POST /media — single multipart upload (field \"file\"; optional title/alt/caption fields). `options.signal` cancels the upload (an aborted request creates no media row)."
             },
             {
                 "name": "uploads.abort",
                 "signature": "uploads.abort(id: string): Promise<MediaUploadAbortResponse>",
-                "summary": "DELETE /video/uploads/:id — abort and discard the stored parts."
+                "summary": "DELETE /video/uploads/:id — cancel: abort the multipart upload, discard its parts, delete the session."
             },
             {
                 "name": "uploads.complete",
-                "signature": "uploads.complete(id: string): Promise<MediaUploadCompleteResponse>",
-                "summary": "POST /video/uploads/:id/complete — finish; creates the media row (+ encode job for video)."
+                "signature": "uploads.complete(id: string, body?: MediaUploadCompleteBody): Promise<MediaUploadCompleteResponse>",
+                "summary": "POST /video/uploads/:id/complete — finish; creates the media row (+ encode job for video). `body.title` (optional) wins over the title sent at create."
             },
             {
                 "name": "uploads.create",
@@ -3188,4 +3193,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 562;
+export const SDK_METHOD_COUNT = 563;

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-16T19:19:13.726Z",
+  "generatedAt": "2026-10-16T20:09:47.135Z",
   "totalModules": 55,
-  "totalRoutes": 568,
+  "totalRoutes": 569,
   "modules": [
     {
       "module": "admin-channel",
@@ -1789,7 +1789,7 @@
           "path": "/",
           "absolutePath": "/api/v1/media",
           "auth": "staff",
-          "summary": "Upload a single file (multipart, field \"file\"; optional alt/caption)."
+          "summary": "Upload a single file (multipart, field \"file\"; optional title/alt/caption)."
         },
         {
           "method": "POST",
@@ -1839,6 +1839,13 @@
           "absolutePath": "/api/v1/media/:id",
           "auth": "staff",
           "summary": "Delete a media item (removes files from storage)."
+        },
+        {
+          "method": "POST",
+          "path": "/:id/discard",
+          "absolutePath": "/api/v1/media/:id/discard",
+          "auth": "staff",
+          "summary": "Cancel an upload or a running encode: stop the job, delete every stored file, the media row and gallery items made from it."
         }
       ]
     },
@@ -4117,14 +4124,14 @@
           "path": "/uploads/:id/complete",
           "absolutePath": "/api/v1/video/uploads/:id/complete",
           "auth": "staff",
-          "summary": "Complete an upload: creates the media row (and the encode job for a video)."
+          "summary": "Complete an upload: creates the media row (and the encode job for a video). Optional { title } wins over the create options."
         },
         {
           "method": "DELETE",
           "path": "/uploads/:id",
           "absolutePath": "/api/v1/video/uploads/:id",
           "auth": "staff",
-          "summary": "Abort an upload session and discard its parts."
+          "summary": "Cancel an upload: abort the multipart upload, discard its parts and delete the session."
         },
         {
           "method": "GET",

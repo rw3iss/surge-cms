@@ -1,7 +1,7 @@
 import type {
     MediaUploadFields, MediaUploadResponse, MediaBlockUploadFields, MediaBlockUploadResponse,
     MediaBulkUploadResponse, MediaListQuery, MediaListResponse, MediaByIdResponse, MediaByUrlResponse,
-    MediaUpdateBody, MediaUpdateResponse, MediaDeleteResponse,
+    MediaUpdateBody, MediaUpdateResponse, MediaDeleteResponse, MediaDiscardResponse, MediaUploadCompleteBody,
     MediaUploadCreateBody, MediaUploadCreateResponse, MediaUploadListResponse, MediaUploadGetResponse,
     MediaUploadPartUrlsResponse, MediaUploadCompleteResponse, MediaUploadAbortResponse,
     MediaVideoInfoResponse, MediaVideoJobsQuery, MediaVideoJobsResponse, MediaVideoUpdateBody,
@@ -10,6 +10,7 @@ import type {
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
+import type { MutationOptions, } from '../core/types';
 
 /** Append a Blob/File plus optional string fields onto a FormData. */
 function buildForm(field: string, file: Blob, fields?: Record<string, string | undefined>,): FormData {
@@ -27,9 +28,10 @@ function buildForm(field: string, file: Blob, fields?: Record<string, string | u
 export class MediaModule extends ModuleBase {
     protected readonly module = 'media';
 
-    /** POST /media — single multipart upload (field "file"; optional alt/caption fields). */
-    upload(file: Blob, fields?: MediaUploadFields,): Promise<MediaUploadResponse> {
-        return super.uploadForm<MediaUploadResponse>('/media', buildForm('file', file, fields as Record<string, string | undefined>,), { invalidates: ['media',], },);
+    /** POST /media — single multipart upload (field "file"; optional title/alt/caption fields).
+     *  `options.signal` cancels the upload (an aborted request creates no media row). */
+    upload(file: Blob, fields?: MediaUploadFields, options?: MutationOptions,): Promise<MediaUploadResponse> {
+        return super.uploadForm<MediaUploadResponse>('/media', buildForm('file', file, fields as Record<string, string | undefined>,), { invalidates: ['media',], options, },);
     }
 
     /** POST /media/block-upload — single upload echoing postId/blockId back (field "file"). */
@@ -69,6 +71,14 @@ export class MediaModule extends ModuleBase {
         return this.mutate<MediaDeleteResponse>('DELETE', '/media/:id', { params: { id, }, invalidates: ['media',], },);
     }
 
+    /** POST /media/:id/discard — CANCEL an upload that already made a media
+     *  row (e.g. a video still encoding): stops the encode (a running ffmpeg
+     *  is killed), deletes every stored file, the row and any gallery item
+     *  made from it. Needs `media:write`. */
+    discard(id: string,): Promise<MediaDiscardResponse> {
+        return this.mutate<MediaDiscardResponse>('POST', '/media/:id/discard', { params: { id, }, invalidates: ['media', 'gallery',], },);
+    }
+
     /**
      * Direct (multipart) uploads — the browser sends the bytes straight to
      * object storage with presigned part URLs; the API only signs and records.
@@ -89,10 +99,11 @@ export class MediaModule extends ModuleBase {
         /** POST /video/uploads/:id/part-urls — presigned PUT URLs (≤ 50 parts per call). */
         partUrls: (id: string, partNumbers: number[],): Promise<MediaUploadPartUrlsResponse> =>
             this.mutate<MediaUploadPartUrlsResponse>('POST', '/video/uploads/:id/part-urls', { params: { id, }, body: { partNumbers, }, },),
-        /** POST /video/uploads/:id/complete — finish; creates the media row (+ encode job for video). */
-        complete: (id: string,): Promise<MediaUploadCompleteResponse> =>
-            this.mutate<MediaUploadCompleteResponse>('POST', '/video/uploads/:id/complete', { params: { id, }, invalidates: ['media',], },),
-        /** DELETE /video/uploads/:id — abort and discard the stored parts. */
+        /** POST /video/uploads/:id/complete — finish; creates the media row (+ encode job for video).
+         *  `body.title` (optional) wins over the title sent at create. */
+        complete: (id: string, body?: MediaUploadCompleteBody,): Promise<MediaUploadCompleteResponse> =>
+            this.mutate<MediaUploadCompleteResponse>('POST', '/video/uploads/:id/complete', { params: { id, }, body: body ?? {}, invalidates: ['media',], },),
+        /** DELETE /video/uploads/:id — cancel: abort the multipart upload, discard its parts, delete the session. */
         abort: (id: string,): Promise<MediaUploadAbortResponse> =>
             this.mutate<MediaUploadAbortResponse>('DELETE', '/video/uploads/:id', { params: { id, }, },),
     };

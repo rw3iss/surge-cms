@@ -35,7 +35,17 @@ into `targetId` (must exist, must differ). Publish (`PUT /admin/items`)
 a new item may carry `collectionId` + `access`.
 
 - **Deleting an item never deletes the media** — unless the caller asks
-  (`deleteMedia`, needs `media:write`).
+  (`deleteMedia`, needs `media:write`). Deleting the media of a video that is
+  still encoding stops the encode first (the same path as Cancel below).
+- **Upload titles + Cancel.** Upload new (`MediaStageModal`) shows a title
+  input per file, prefilled with the file name without its extension; the
+  staged tile keeps it editable until its upload finishes on Publish (the
+  latest value is sent). The title goes on the MEDIA item; the gallery item
+  inherits it (an override equal to it is dropped). While a staged file
+  uploads, its tile shows **× Cancel** (aborts the upload, drops the row);
+  a published video still encoding shows **× Cancel** too — confirmed, it
+  calls `POST /media/:id/discard`, which stops the encode, deletes the files,
+  the media row and the gallery item.
 - **Deleting the media** leaves the item with `media_id = NULL`: listed in the
   admin (`media: null`), hidden from every public read (404).
 - Settings: `gallery_settings` keyed row (`GallerySettings` in

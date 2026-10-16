@@ -173,6 +173,21 @@
 
     .video-progress { flex: 1; }
   }
+
+  // Media title of a staged file (editable until its upload completes).
+  &__title-input {
+    width: 100%;
+    min-width: 0;
+    padding: 2px 6px;
+    font: inherit;
+    font-weight: 500;
+    color: inherit;
+    background: transparent;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+
+    &:focus { outline: none; border-color: $primary-color; background: $background; }
+  }
 }
 
 // ─── Options side panel ───────────────────────────────────────────

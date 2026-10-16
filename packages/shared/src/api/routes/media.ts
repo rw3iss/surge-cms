@@ -33,6 +33,8 @@ export interface MediaWire extends Media {
  * multipart request.
  */
 export interface MediaUploadFields {
+    /** Media title (≤ 255 chars; empty = none — the file name is the fallback). */
+    title?: string;
     alt?: string;
     caption?: string;
 }
@@ -123,3 +125,15 @@ export type MediaUpdateResponse = MediaWire;
 export interface MediaDeleteResponse {
     message: string;
 }
+
+// ─── POST /media/:id/discard ──────────────────────────────────────────
+
+/** POST /media/:id/discard — cancel an upload/encode that already produced
+ *  a media row: the encode is stopped (a running ffmpeg is killed), every
+ *  stored file is deleted, then the row and any gallery item made from it.
+ *  Needs `media:write`. */
+export interface MediaDiscardResponse {
+    discarded: true;
+    galleryItemsRemoved: number;
+}
+

@@ -3,9 +3,15 @@
  * previews, remove any, then hand the set back (`onStage`). Nothing is
  * uploaded here — a caller with a draft (the Gallery page) uploads on its
  * own Publish, through the same paths as MediaUploadModal.
+ *
+ * Each file gets a TITLE input, prefilled with the file name without its
+ * extension (the server's default). Rows live in a store and are patched in
+ * place, so editing a title never remounts the row (focus stays).
  */
 import { isVideoFile, } from '@sitesurge/types';
 import { createSignal, For, onCleanup, Show, } from 'solid-js';
+import { createStore, } from 'solid-js/store';
+import { defaultTitle, } from '../../../stores/uploads';
 import ModalShell from '../common/ModalShell';
 import { formatSize, } from './mediaUtils';
 import './MediaStageModal.scss';
@@ -16,11 +22,14 @@ export interface MediaStageModalProps {
     title?: string;
     /** Footer button text (default "Add files"). */
     confirmLabel?: string;
-    onStage: (files: File[],) => void;
+    onStage: (files: StagedFile[],) => void;
     onClose: () => void;
 }
 
-interface Staged { file: File; url: string; }
+/** A picked file with the title the media item will get. */
+export interface StagedFile { file: File; title: string; }
+
+interface Staged { file: File; url: string; title: string; }
 
 /** Does `file` match an `accept` list ("image/*,video/*,.pdf")? */
 function accepts(file: File, accept?: string,): boolean {
@@ -38,7 +47,8 @@ function accepts(file: File, accept?: string,): boolean {
 }
 
 export default function MediaStageModal(props: MediaStageModalProps,) {
-    const [files, setFiles,] = createSignal<Staged[]>([],);
+    const [state, setState,] = createStore<{ files: Staged[]; }>({ files: [], },);
+    const files = () => state.files;
     const [rejected, setRejected,] = createSignal<string[]>([],);
     const [dragging, setDragging,] = createSignal(false,);
     let input: HTMLInputElement | undefined;
@@ -52,19 +62,21 @@ export default function MediaStageModal(props: MediaStageModalProps,) {
         const ok = incoming.filter((f,) => accepts(f, props.accept,),);
         setRejected(incoming.filter((f,) => !ok.includes(f,),).map((f,) => f.name,),);
         const seen = new Set(files().map((s,) => `${s.file.name}:${s.file.size}`,),);
-        const fresh = ok.filter((f,) => !seen.has(`${f.name}:${f.size}`,),).map((file,) => ({ file, url: URL.createObjectURL(file,), }));
-        setFiles((cur,) => [...cur, ...fresh,],);
+        const fresh = ok.filter((f,) => !seen.has(`${f.name}:${f.size}`,),).map((file,) => ({
+            file, url: URL.createObjectURL(file,), title: defaultTitle(file.name,),
+        }));
+        setState('files', (cur,) => [...cur, ...fresh,],);
     };
 
     const drop = (i: number,) => {
         const s = files()[i];
         if (s) URL.revokeObjectURL(s.url,);
-        setFiles((cur,) => cur.filter((_, j,) => j !== i,),);
+        setState('files', (cur,) => cur.filter((_, j,) => j !== i,),);
     };
 
     const confirm = () => {
         handedOff = true;
-        props.onStage(files().map((s,) => s.file,),);
+        props.onStage(files().map((s,) => ({ file: s.file, title: s.title.trim() || defaultTitle(s.file.name,), })),);
     };
 
     return (
@@ -117,7 +129,18 @@ export default function MediaStageModal(props: MediaStageModalProps,) {
                                             <span class="media-stage-modal__play" aria-hidden="true">&#9654;</span>
                                         </Show>
                                     </div>
-                                    <div class="media-stage-modal__name" title={s.file.name}>{s.file.name}</div>
+                                    {/* Commits on blur / Enter (never per keystroke). */}
+                                    <input
+                                        type="text"
+                                        class="media-stage-modal__title"
+                                        value={s.title}
+                                        maxLength={255}
+                                        placeholder={defaultTitle(s.file.name,) || 'Title'}
+                                        aria-label={`Title for ${s.file.name}`}
+                                        title={s.file.name}
+                                        onChange={(e,) => setState('files', i(), 'title', e.currentTarget.value,)}
+                                        onKeyDown={(e,) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                                    />
                                     <div class="media-stage-modal__meta">{formatSize(s.file.size,)}</div>
                                     <button type="button" class="media-stage-modal__remove" aria-label={`Remove ${s.file.name}`} onClick={() => drop(i(),)}>&times;</button>
                                 </div>

@@ -1,6 +1,9 @@
 import type { GalleryItem, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
-import { buildPublishBody, draftFromItems, EMPTY_OPTIONS, isDraftDirty, moveItem, patchOf, persistableDraft, rowsIn, type DraftItem, } from './galleryDraft';
+import {
+    buildPublishBody, displayTitle, draftFromItems, EMPTY_OPTIONS, inheritedOverride, isDraftDirty, moveItem, patchOf, persistableDraft, rowsIn,
+    type DraftItem,
+} from './galleryDraft';
 
 const item = (id: string, o: Partial<GalleryItem> = {},): GalleryItem => ({
     id, collectionId: null, access: { enabled: false, roles: [], tierIds: [], }, mediaId: `m-${id}`, media: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
@@ -66,5 +69,26 @@ describe('gallery draft', () => {
         // A draft stored before access existed still publishes an (empty) rule.
         const legacy = { ...EMPTY_OPTIONS, access: undefined, } as never;
         expect(patchOf(legacy,).access,).toEqual({ enabled: false, roles: [], tierIds: [], },);
+    },);
+},);
+
+describe('upload titles', () => {
+    const staged = (over: Partial<DraftItem> = {},): DraftItem => ({
+        key: 'f:9', media: null, file: new File(['x',], 'IMG_2034.jpeg',), options: { ...EMPTY_OPTIONS, }, ...over,
+    });
+
+    it('a staged row shows its upload title, else the file name without extension', () => {
+        expect(displayTitle(staged({ uploadTitle: 'Sunset', },),),).toBe('Sunset',);
+        expect(displayTitle(staged(),),).toBe('IMG 2034',);
+    },);
+
+    it('an override equal to the media title is dropped so the item inherits it', () => {
+        expect(inheritedOverride({ ...EMPTY_OPTIONS, titleOverride: ' Sunset ', }, 'Sunset',),).toBe('',);
+        expect(inheritedOverride({ ...EMPTY_OPTIONS, titleOverride: 'Other', }, 'Sunset',),).toBe('Other',);
+    },);
+
+    it('the upload title is never persisted to the stored draft', () => {
+        const p = persistableDraft([{ ...staged({ uploadTitle: 'T', }), file: undefined, mediaId: 'm', },],);
+        expect('uploadTitle' in p[0]!,).toBe(false,);
     },);
 },);

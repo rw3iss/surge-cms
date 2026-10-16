@@ -30,6 +30,9 @@ export interface DraftItem {
     mediaId?: string;
     /** A staged file, uploaded on Publish (never persisted to localStorage). */
     file?: File;
+    /** The title the staged file's MEDIA item gets (editable until its upload
+     *  completes; the latest value is sent). The gallery item inherits it. */
+    uploadTitle?: string;
     /** Local preview (object URL) of a staged file. */
     previewUrl?: string;
     /**
@@ -173,7 +176,7 @@ export function moveItem<T,>(list: T[], from: number, to: number,): T[] {
 
 /** Serialisable draft for localStorage — staged files cannot be persisted, so they are left out. */
 export function persistableDraft(draft: DraftItem[],): DraftItem[] {
-    return draft.filter((d,) => !d.file,).map(({ file: _f, previewUrl: _p, ...rest },) => rest);
+    return draft.filter((d,) => !d.file,).map(({ file: _f, previewUrl: _p, uploadTitle: _t, ...rest },) => rest);
 }
 
 /** `IMG_2034.jpeg` → `IMG 2034` (matches the server's fallback title). */
@@ -181,7 +184,17 @@ export function fileTitle(name: string | null | undefined,): string {
     return (name ?? '').replace(/\.[a-z0-9]{2,5}$/i, '',).replace(/[_-]+/g, ' ',).trim();
 }
 
+/**
+ * After a staged file uploads with media title `mediaTitle`: an override equal
+ * to it is redundant — the item INHERITS the media title instead (so a later
+ * rename of the media shows in the gallery). A different override is kept.
+ */
+export function inheritedOverride(o: DraftOptions, mediaTitle: string,): string {
+    return o.titleOverride.trim() === mediaTitle.trim() ? '' : o.titleOverride;
+}
+
 /** Display title of a row: the override, else the media's title, else a name. */
 export function displayTitle(d: DraftItem,): string {
-    return d.options.titleOverride.trim() || d.media?.title?.trim() || fileTitle(d.file?.name,) || (d.media ? 'Untitled' : 'Media missing');
+    return d.options.titleOverride.trim() || d.media?.title?.trim() || d.uploadTitle?.trim() || fileTitle(d.file?.name,)
+        || (d.media ? 'Untitled' : 'Media missing');
 }

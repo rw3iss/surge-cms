@@ -116,3 +116,10 @@ export async function markCompleted(id: string, client?: Runner,): Promise<boole
     );
     return (r.rowCount ?? 0) > 0;
 }
+
+/** Delete an OPEN session (an abort). False when it already completed —
+ *  a completed session's media row is discarded through `media.discard`. */
+export async function deleteOpen(id: string, client?: Runner,): Promise<boolean> {
+    const r = await run(client,)(`DELETE FROM media_upload_sessions WHERE id = $1 AND status = 'uploading'`, [id,],);
+    return (r.rowCount ?? 0) > 0;
+}

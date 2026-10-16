@@ -78,3 +78,9 @@ export async function resetInFlightRenditions(mediaId: string,): Promise<void> {
         [mediaId,],
     );
 }
+
+/** False once the media row is gone (deleted / discarded mid-encode). */
+export async function mediaExists(mediaId: string,): Promise<boolean> {
+    const r = await query(`SELECT 1 FROM media WHERE id = $1`, [mediaId,],);
+    return (r.rowCount ?? 0) > 0;
+}

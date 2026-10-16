@@ -46,6 +46,9 @@ export interface MultipartUploadOpts {
     expectedSessionId?: string;
     /** Parts in flight at once (default 3). */
     concurrency?: number;
+    /** The CURRENT title, read at completion — the user may rename the file
+     *  while it uploads; it wins over `options.title`. */
+    getTitle?: () => string | undefined;
 }
 
 /** The persisted record of an unfinished upload. */
@@ -201,6 +204,9 @@ export class MultipartUpload {
         this.pump();
     }
 
+    /** Cancel: aborts every in-flight part, then the session server-side
+     *  (parts discarded, session deleted). A cancel that lands while the
+     *  server is completing discards the media it produced (see `finish`). */
     async cancel(): Promise<void> {
         if (this.state === 'done' || this.state === 'cancelled') return;
         this.setState('cancelled',);
@@ -368,7 +374,13 @@ export class MultipartUpload {
     private async finish(): Promise<void> {
         if (this.state !== 'uploading') return;
         this.setState('completing',);
-        const media = await cms.media.uploads.complete(this.sessionId!,);
+        const title = this.opts.getTitle?.()?.trim();
+        const media = await cms.media.uploads.complete(this.sessionId!, title ? { title, } : undefined,);
+        if ((this.state as UploadState) === 'cancelled') {
+            // Cancelled while the server completed it: remove what it made.
+            try { await cms.media.discard(media.id,); } catch { /* the user can delete it from the library */ }
+            return;
+        }
         this.media = media;
         forgetUpload(this.sessionId!,);
         this.cleanup();

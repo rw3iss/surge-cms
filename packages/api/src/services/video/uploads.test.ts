@@ -10,6 +10,7 @@ const { repoMock, storeMock, clientQuery, registerVideoMock, } = vi.hoisted(() =
     setMediaId: vi.fn(),
     markCompleted: vi.fn(),
     listExpired: vi.fn(),
+    deleteOpen: vi.fn(),
 };
     const storeMock = {
     createMultipart: vi.fn(),
@@ -182,6 +183,70 @@ describe('complete', () => {
         expect(m.url,).toBe(`https://cdn.test/${dest}`,);
         expect(registerVideoMock,).not.toHaveBeenCalled();
         expect(storeMock.deleteObject,).toHaveBeenCalledWith('incoming/a/clip.mp4',);
+    },);
+},);
+
+describe('complete — title + cancel race', () => {
+    it('a title sent on complete wins over the create options', async () => {
+        repoMock.findById.mockResolvedValue(row({ options: { title: 'clip', }, },),);
+        storeMock.listParts.mockResolvedValue(allParts(),);
+        storeMock.head.mockResolvedValue({ size: 130 * MIB, },);
+        repoMock.markCompleted.mockResolvedValue(true,);
+        clientQuery.mockImplementation((_sql: string, p: unknown[],) => Promise.resolve({ rows: [{ id: p[0], title: p[6], size: '1', },], },),);
+        const m = await uploads.complete(USER, 'x', ctx, { title: '  Renamed while uploading ', },);
+        expect(clientQuery.mock.calls[0]![1]![6],).toBe('Renamed while uploading',);
+        expect(m.title,).toBe('Renamed while uploading',);
+    },);
+
+    it('an empty late title keeps the create one', async () => {
+        repoMock.findById.mockResolvedValue(row({ options: { title: 'clip', }, },),);
+        storeMock.listParts.mockResolvedValue(allParts(),);
+        storeMock.head.mockResolvedValue({ size: 130 * MIB, },);
+        repoMock.markCompleted.mockResolvedValue(true,);
+        clientQuery.mockImplementation((_sql: string, p: unknown[],) => Promise.resolve({ rows: [{ id: p[0], title: p[6], size: '1', },], },),);
+        await uploads.complete(USER, 'x', ctx, { title: '', },);
+        expect(clientQuery.mock.calls[0]![1]![6],).toBe('clip',);
+    },);
+
+    it('a cancel that wins the race deletes the assembled object', async () => {
+        repoMock.findById.mockResolvedValue(row(),);
+        storeMock.listParts.mockResolvedValue(allParts(),);
+        storeMock.head.mockResolvedValue({ size: 130 * MIB, },);
+        repoMock.markCompleted.mockResolvedValue(false,);
+        await expect(uploads.complete(USER, 'x', ctx,),).rejects.toThrow(/no longer open/,);
+        expect(storeMock.deleteObject,).toHaveBeenCalledWith('incoming/a/clip.mp4',);
+        expect(registerVideoMock,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('abort (cancel an upload)', () => {
+    it('aborts the multipart upload, removes any object and deletes the session row', async () => {
+        repoMock.findById.mockResolvedValue(row(),);
+        repoMock.deleteOpen.mockResolvedValue(true,);
+        await uploads.abort(USER, 'x',);
+        expect(storeMock.abortMultipart,).toHaveBeenCalledWith('incoming/a/clip.mp4', 'up1',);
+        expect(storeMock.deleteObject,).toHaveBeenCalledWith('incoming/a/clip.mp4',);
+        expect(repoMock.deleteOpen,).toHaveBeenCalledWith(row().id,);
+    },);
+
+    it('still deletes the row when the store says NoSuchUpload', async () => {
+        repoMock.findById.mockResolvedValue(row(),);
+        storeMock.abortMultipart.mockRejectedValueOnce(new Error('NoSuchUpload',),);
+        repoMock.deleteOpen.mockResolvedValue(true,);
+        await uploads.abort(USER, 'x',);
+        expect(repoMock.deleteOpen,).toHaveBeenCalled();
+    },);
+
+    it('leaves a completed session alone (its media is discarded instead)', async () => {
+        repoMock.findById.mockResolvedValue(row({ status: 'completed', media_id: 'm1', },),);
+        await uploads.abort(USER, 'x',);
+        expect(storeMock.abortMultipart,).not.toHaveBeenCalled();
+        expect(repoMock.deleteOpen,).not.toHaveBeenCalled();
+    },);
+
+    it("a foreign user's session reads as missing", async () => {
+        repoMock.findById.mockResolvedValue(row({ user_id: '22222222-2222-4222-8222-222222222222', },),);
+        await expect(uploads.abort(USER, 'x',),).rejects.toThrow(/not found/i,);
     },);
 },);
 

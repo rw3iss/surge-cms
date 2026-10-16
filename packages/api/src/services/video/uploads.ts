@@ -35,7 +35,7 @@ const GIB = 1024 * 1024 * 1024;
 const STORAGE_MSG = 'Direct uploads need S3-compatible storage (Settings → Media → Storage).';
 
 const optionsSchema = z.object({
-    title: z.string().max(1000,).optional(),
+    title: z.string().max(255,).optional(),
     alt: z.string().max(1000,).optional(),
     caption: z.string().max(1000,).optional(),
     credits: z.string().max(1000,).optional(),
@@ -209,7 +209,12 @@ function extOf(filename: string,): string {
     return /^\.[a-z0-9]{1,8}$/.test(ext,) ? ext : '';
 }
 
-export async function complete(userId: string | null, id: string, ctx: AuditContext,): Promise<Media> {
+export async function complete(
+    userId: string | null,
+    id: string,
+    ctx: AuditContext,
+    body: { title?: string; } = {},
+): Promise<Media> {
     const row = await loadOwned(userId, id,);
     assertOpen(row,);
     const s = await store();
@@ -234,7 +239,10 @@ export async function complete(userId: string | null, id: string, ctx: AuditCont
         throw new ValidationError(`Uploaded size ${head ? head.size : 0} does not match the declared ${size} bytes`,);
     }
 
-    const options = (row.options ?? {}) as UploadSessionOptions;
+    const options = { ...((row.options ?? {}) as UploadSessionOptions), };
+    // A title typed while the file uploaded wins over the one sent at create.
+    const lateTitle = typeof body.title === 'string' ? body.title.trim().slice(0, 255,) : '';
+    if (lateTitle) options.title = lateTitle;
     const uploadedBy = uuidOrNull(ctx.userId,) ?? row.user_id;
     const mediaId = crypto.randomUUID();
     const video = isVideoMime(row.mime_type,);
@@ -252,9 +260,12 @@ export async function complete(userId: string | null, id: string, ctx: AuditCont
     const storedName = path.posix.basename(fileKey,);
 
     let inserted: Record<string, unknown>;
+    let cancelled = false;
     try {
         inserted = await transaction(async (client,) => {
             if (!(await repo.markCompleted(row.id, client,))) {
+                // Aborted (cancelled) while the parts were being assembled.
+                cancelled = true;
                 throw new ValidationError('Upload session is no longer open',);
             }
             const r = await client.query(
@@ -287,6 +298,8 @@ export async function complete(userId: string | null, id: string, ctx: AuditCont
         },);
     } catch (e) {
         if (!video) await quietly(() => s.deleteObject(fileKey,));
+        // A cancelled upload leaves nothing behind: the assembled object too.
+        if (cancelled) await quietly(() => s.deleteObject(row.object_key,));
         throw e;
     }
     if (!video) await quietly(() => s.deleteObject(row.object_key,));
@@ -301,17 +314,25 @@ export async function complete(userId: string | null, id: string, ctx: AuditCont
     return media;
 }
 
+/**
+ * Cancel an open upload: abort the object-store multipart upload (its parts
+ * are discarded), remove an already-assembled object (a cancel racing
+ * `complete`), and DELETE the session row. A session that already completed
+ * is left alone — its media row is discarded with `media.discard`.
+ */
 export async function abort(userId: string | null, id: string, opts: { isAdmin?: boolean; } = {},): Promise<void> {
     const row = await loadOwned(userId, id, opts.isAdmin,);
     if (row.status !== 'uploading') return;
     try {
         const s = await store();
         await s.abortMultipart(row.object_key, row.upload_id,);
+        await quietly(() => s.deleteObject(row.object_key,));
     } catch (e) {
-        // NoSuchUpload / storage changed: the row still closes.
+        // NoSuchUpload / storage changed: the row still goes.
         logger.warn('abortMultipart failed', { sessionId: row.id, error: (e as Error).message, },);
     }
-    await repo.setStatus(row.id, 'aborted',);
+    if (!(await repo.deleteOpen(row.id,))) return;
+    await logAudit({ userId: userId ?? 'system', action: 'delete', entityType: 'media_upload', entityId: row.id, newValues: { filename: row.filename, }, },);
 }
 
 /** Abort + expire uploading sessions past `expires_at`. Returns the count. */

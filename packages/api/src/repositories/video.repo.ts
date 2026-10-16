@@ -254,9 +254,11 @@ export async function heartbeat(
     return (r.rowCount ?? 0) > 0;
 }
 
+/** True when a cancel was requested — or the job row is gone (its media was
+ *  deleted: the FK cascades), which is a cancel too. */
 export async function isCancelRequested(jobId: string,): Promise<boolean> {
     const r = await query<{ cancel_requested: boolean; }>(`SELECT cancel_requested FROM video_jobs WHERE id = $1`, [jobId,],);
-    return r.rows[0]?.cancel_requested === true;
+    return !r.rows[0] || r.rows[0].cancel_requested === true;
 }
 
 /** Terminal transition (ready / failed / cancelled). Clears the lease. */

@@ -32,12 +32,13 @@ import CollectionPanel from '../../../components/admin/gallery/CollectionPanel';
 import DeleteCollectionModal, { type DeleteCollectionChoice, } from '../../../components/admin/gallery/DeleteCollectionModal';
 import GalleryItemPanel, { type GalleryDefaults, } from '../../../components/admin/gallery/GalleryItemPanel';
 import {
-    buildPublishBody, displayTitle, draftFromItems, emptyOptions, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft, rowsIn,
+    buildPublishBody, displayTitle, draftFromItems, emptyOptions, inheritedOverride, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft, rowsIn,
     type DraftItem, type DraftOptions,
 } from '../../../components/admin/gallery/galleryDraft';
-import { uploadMediaFile, } from '../../../components/admin/gallery/uploadMedia';
+import { UploadCancelledError, uploadMediaFile, } from '../../../components/admin/gallery/uploadMedia';
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
-import MediaStageModal from '../../../components/admin/media/MediaStageModal';
+import MediaStageModal, { type StagedFile, } from '../../../components/admin/media/MediaStageModal';
+import { cancelMedia, defaultTitle, } from '../../../stores/uploads';
 import { useToast, } from '../../../components/common/toast';
 import type { MultiSelectOption, } from '../../../components/ui/MultiSelect';
 import { useAutoSave, } from '../../../hooks/useAutoSave';
@@ -65,6 +66,10 @@ const GalleryAdmin: Component = () => {
     const [publishing, setPublishing,] = createSignal(false,);
     /** Upload progress per staged row key during Publish. */
     const [progress, setProgress,] = createStore<Record<string, number>>({},);
+    /** Abort handles of staged uploads during Publish (by row key). */
+    const uploadAborts = new Map<string, AbortController>();
+    /** Row keys whose Cancel is running (discarding a processing video). */
+    const [cancelling, setCancelling,] = createStore<Record<string, boolean>>({},);
     const [revertOpen, setRevertOpen,] = createSignal(false,);
     /** Dragged row key; the hovered drop target: a row key, `c:<collectionId>` or `back`. */
     const [dragFrom, setDragFrom,] = createSignal<string | null>(null,);
@@ -228,12 +233,15 @@ const GalleryAdmin: Component = () => {
         if (added) toast.info(`${added} item${added > 1 ? 's' : ''} added to the draft. Publish to save.`,);
     };
 
-    const stageFiles = (files: File[],) => {
+    const stageFiles = (files: StagedFile[],) => {
         setStaging(false,);
         const allowVideos = settings()?.allowVideos !== false;
         const fresh: DraftItem[] = files
-            .filter((f,) => allowVideos || !f.type.startsWith('video/',),)
-            .map((file,) => ({ key: `f:${++stageSeq}`, file, previewUrl: URL.createObjectURL(file,), collectionId: openId(), media: null, options: emptyOptions(), }));
+            .filter(({ file: f, },) => allowVideos || !f.type.startsWith('video/',),)
+            .map(({ file, title, },) => ({
+                key: `f:${++stageSeq}`, file, uploadTitle: title, previewUrl: URL.createObjectURL(file,), collectionId: openId(), media: null,
+                options: emptyOptions(),
+            }));
         if (!fresh.length) return;
         setDraft('rows', (cur,) => [...cur, ...fresh,],);
         toast.info(`${fresh.length} file${fresh.length > 1 ? 's' : ''} staged. They upload when you publish.`,);
@@ -248,6 +256,41 @@ const GalleryAdmin: Component = () => {
             return;
         }
         patchRow(r.key, { removed: true, deleteMedia: false, },);
+    };
+
+    /** A staged file waiting for / in its upload during Publish. */
+    const isUploadingRow = (r: DraftItem,) => publishing() && Boolean(r.file,) && !r.removed;
+    /** The row's media is a video still being encoded. */
+    const isProcessingRow = (r: DraftItem,) => r.media?.status === 'processing' && !r.file;
+
+    /**
+     * Cancel a row's upload or encode. Uploading (Publish running): aborts the
+     * upload and drops the row from the draft. Processing: confirms, then
+     * discards the media on the server (encode stopped, files, media row and
+     * the gallery item deleted) and drops the row.
+     */
+    const cancelRow = async (r: DraftItem,) => {
+        if (isUploadingRow(r,)) {
+            uploadAborts.get(r.key,)?.abort();
+            removeRow(r,);
+            setProgress(r.key, undefined!,);
+            return;
+        }
+        const mediaId = r.media?.id ?? r.mediaId;
+        if (!mediaId) return;
+        if (!confirm(`Stop processing "${displayTitle(r,)}" and delete it? The media and its gallery item are deleted.`,)) return;
+        setCancelling(r.key, true,);
+        try {
+            await cancelMedia(mediaId,);
+            setDraft('rows', (cur,) => cur.filter((x,) => x.key !== r.key,),);
+            if (r.id) setSaved((cur,) => cur.filter((i,) => i.id !== r.id,),);
+            if (selectedKey() === r.key) setSelectedKey(null,);
+            toast.success('Cancelled and deleted.',);
+        } catch (e) {
+            toast.error((e as Error)?.message || 'Could not cancel.',);
+        } finally {
+            setCancelling(r.key, false,);
+        }
     };
 
     const endDrag = () => { setDragFrom(null,); setDragOver(null,); };
@@ -386,10 +429,31 @@ const GalleryAdmin: Component = () => {
             //    so a retry after a failure never uploads the same file twice).
             for (const r of draft.rows.filter((x,) => x.file && !x.removed,)) {
                 const key = r.key;
+                // Cancelled (removed from the draft) before its turn came.
+                if (!draft.rows.some((x,) => x.key === key && x.file && !x.removed,)) continue;
                 const file = r.file!;
-                const mediaId = await uploadMediaFile(file, (p,) => setProgress(key, p,),);
+                const rowTitle = () => {
+                    const row = draft.rows.find((x,) => x.key === key,);
+                    return row?.uploadTitle?.trim() || defaultTitle(file.name,);
+                };
+                const ac = new AbortController();
+                uploadAborts.set(key, ac,);
+                let mediaId: string;
+                try {
+                    mediaId = await uploadMediaFile(file, {
+                        title: rowTitle(), getTitle: rowTitle, signal: ac.signal, onProgress: (p,) => setProgress(key, p,),
+                    },);
+                } catch (e) {
+                    if (e instanceof UploadCancelledError) continue; // the row already left the draft
+                    throw e;
+                } finally {
+                    uploadAborts.delete(key,);
+                }
                 uploaded.set(key, mediaId,);
                 patchRow(key, { mediaId, },);
+                // The item inherits the media title; an identical override is dropped.
+                const row = draft.rows.find((x,) => x.key === key,);
+                if (row) patchOptions(key, { titleOverride: inheritedOverride(row.options, rowTitle(),), },);
             }
             // 2. Apply the whole draft.
             const body = buildPublishBody(draft.rows, uploaded,);
@@ -622,6 +686,21 @@ const GalleryAdmin: Component = () => {
                                                     <Show when={r.file}><span class="gallery-admin__badge gallery-admin__badge--pending">To upload</span></Show>
                                                     <Show when={!r.id && !r.file}><span class="gallery-admin__badge gallery-admin__badge--new">New</span></Show>
                                                 </div>
+                                                <Show when={isUploadingRow(r,) || isProcessingRow(r,)}>
+                                                    <button
+                                                        type="button"
+                                                        class="gallery-admin__cancel"
+                                                        disabled={Boolean(cancelling[r.key],)}
+                                                        title={isUploadingRow(r,) ? 'Cancel this upload' : 'Stop processing and delete'}
+                                                        aria-label={isUploadingRow(r,) ? `Cancel upload of ${displayTitle(r,)}` : `Cancel processing of ${displayTitle(r,)}`}
+                                                        onClick={(e,) => { e.stopPropagation(); void cancelRow(r,); }}
+                                                    >
+                                                        &times; Cancel
+                                                    </button>
+                                                </Show>
+                                                <Show when={isProcessingRow(r,) && !publishing()}>
+                                                    <div class="gallery-admin__progress"><span>Processing…</span></div>
+                                                </Show>
                                                 <Show when={publishing() && progress[r.key] !== undefined}>
                                                     <div class="gallery-admin__progress">
                                                         <div class="video-progress"><div class="video-progress__fill" style={{ width: `${progress[r.key]}%`, }} /></div>
@@ -630,7 +709,25 @@ const GalleryAdmin: Component = () => {
                                                 </Show>
                                             </div>
                                             <div class="media-grid__info">
-                                                <div class="media-grid__name" title={displayTitle(r,)}>{displayTitle(r,)}</div>
+                                                <Show
+                                                    when={r.file}
+                                                    fallback={<div class="media-grid__name" title={displayTitle(r,)}>{displayTitle(r,)}</div>}
+                                                >
+                                                    {/* The media title of a staged file — editable until its upload
+                                                        completes (commits on blur / Enter). */}
+                                                    <input
+                                                        type="text"
+                                                        class="gallery-admin__title-input"
+                                                        value={r.uploadTitle ?? defaultTitle(r.file!.name,)}
+                                                        maxLength={255}
+                                                        placeholder={defaultTitle(r.file!.name,)}
+                                                        aria-label={`Title for ${r.file!.name}`}
+                                                        title={r.file!.name}
+                                                        onClick={(e,) => e.stopPropagation()}
+                                                        onKeyDown={(e,) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                                                        onChange={(e,) => patchRow(r.key, { uploadTitle: e.currentTarget.value, },)}
+                                                    />
+                                                </Show>
                                                 <div class="media-grid__meta">
                                                     <Show when={r.removed} fallback={<span>{r.id ? `${r.commentCount ?? 0} comment${(r.commentCount ?? 0) === 1 ? '' : 's'}` : 'Not published yet'}</span>}>
                                                         <span>Removed on publish{r.deleteMedia ? ' + media deleted' : ''}</span>

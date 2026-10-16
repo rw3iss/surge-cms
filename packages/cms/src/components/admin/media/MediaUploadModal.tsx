@@ -2,7 +2,7 @@ import { isVideoFile, } from '@sitesurge/types';
 import type { MediaAccessLevel, UploadSessionOptions, } from '@sitesurge/types';
 import { createSignal, onCleanup, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
-import { startUpload, uploads, usesMultipart, whenComplete, } from '../../../stores/uploads';
+import { cancel, defaultTitle, setUploadTitle, startUpload, uploads, usesMultipart, whenComplete, } from '../../../stores/uploads';
 import ModalShell from '../common/ModalShell';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
@@ -86,9 +86,51 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
         return Number.isFinite(n,) && n >= 0 ? n : fallback;
     };
 
+    /** Commit a title edit (blur / Enter). A running upload gets the new
+     *  title on completion. */
+    const commitTitle = (v: string,) => {
+        setTitle(v,);
+        const id = queuedId();
+        if (id) setUploadTitle(id, v.trim() || defaultTitle(file()?.name ?? '',),);
+    };
+
+    /** Abort handle of a classic (non-multipart) upload in flight. */
+    let classicAbort: AbortController | null = null;
+    const [cancelling, setCancelling,] = createSignal(false,);
+    /** Back to an empty modal after a cancel. */
+    const reset = () => {
+        if (previewUrl()) URL.revokeObjectURL(previewUrl(),);
+        setPreviewUrl('',);
+        setFile(null,);
+        setTitle('',);
+        setQueuedId(null,);
+        setUploading(false,);
+    };
+    /** Cancel the upload — or, once uploaded, stop the video's processing and
+     *  delete it (confirmed). */
+    const cancelUpload = async () => {
+        if (classicAbort) {
+            classicAbort.abort();
+            return;
+        }
+        const id = queuedId();
+        const q = queued();
+        if (!id || !q) return;
+        if (q.state === 'done' && !confirm(`Stop processing "${q.name}" and delete it?`,)) return;
+        setCancelling(true,);
+        try {
+            await cancel(id,);
+            reset();
+        } catch (e) {
+            setError((e as Error)?.message || 'Could not cancel.',);
+        } finally {
+            setCancelling(false,);
+        }
+    };
+
     const startDirect = (f: File,) => {
         const options: UploadSessionOptions = {};
-        if (title()) options.title = title();
+        options.title = title().trim() || defaultTitle(f.name,);
         if (description()) options.alt = description();
         if (isVideo()) {
             options.accessLevel = access();
@@ -113,6 +155,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
         const selected = input.files?.[0];
         if (!selected) return;
         setFile(selected,);
+        setTitle(defaultTitle(selected.name,),);
         setError('',);
         if (usesMultipart(selected,) && isVideoFile(selected.name, selected.type,)) void loadVideoDefaults();
         // Create preview URL
@@ -130,19 +173,30 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
         setUploading(true,);
         setError('',);
 
+        classicAbort = new AbortController();
+        const sentTitle = title().trim() || defaultTitle(f.name,);
         try {
-            const fields: Record<string, string> = {};
-            if (title()) fields.title = title();
+            const fields: Record<string, string> = { title: sentTitle, };
             if (description()) fields.alt = description();
 
-            const media = await cms.media.upload(f, fields,);
+            let media = await cms.media.upload(f, fields, { signal: classicAbort.signal, },);
+            if (classicAbort.signal.aborted) {
+                await cms.media.discard(media.id,).catch(() => undefined);
+                reset();
+                return;
+            }
+            // Renamed while it uploaded: apply the latest title.
+            const late = title().trim() || defaultTitle(f.name,);
+            if (late !== sentTitle) media = await cms.media.update(media.id, { title: late, },);
             setSuccess(true,);
             setTimeout(() => {
                 props.onUploaded(media as unknown as MediaItem,);
             }, 1000,);
         } catch (err: any) {
-            setError(err?.message || 'Upload failed',);
+            if (classicAbort?.signal.aborted) reset();
+            else setError(err?.message || 'Upload failed',);
         } finally {
+            classicAbort = null;
             setUploading(false,);
         }
     };
@@ -188,12 +242,15 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                         </div>
 
                         <div class="media-upload-modal__fields">
-                            <FormField label="Title (optional)">
+                            <FormField label="Title" hint="Defaults to the file name. You can change it while the file uploads.">
+                                {/* Commits on blur / Enter. */}
                                 <input
                                     type="text"
                                     value={title()}
-                                    onInput={(e,) => setTitle(e.currentTarget.value,)}
-                                    placeholder="Media title"
+                                    maxLength={255}
+                                    onChange={(e,) => commitTitle(e.currentTarget.value,)}
+                                    onKeyDown={(e,) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                                    placeholder={file() ? defaultTitle(file()!.name,) : 'Media title'}
                                 />
                             </FormField>
                             <FormField label="Description (optional)">
@@ -276,6 +333,17 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                                         ? `Upload problem: ${q().error ?? 'failed'} (see the upload tray)`
                                         : `${Math.floor(q().percent,)}% ${formatSpeed(q().speed,)}${q().eta !== null ? ` · ${formatEta(q().eta,)} left` : ''} — you can close this window; the upload continues.`}
                                 </div>
+                                <Show when={q().state !== 'done' || q().processing}>
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--danger"
+                                        disabled={cancelling()}
+                                        title={q().state === 'done' ? 'Stop processing and delete the video' : 'Cancel the upload'}
+                                        onClick={() => void cancelUpload()}
+                                    >
+                                        Cancel upload
+                                    </button>
+                                </Show>
                                 <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose}>Close</button>
                             </>
                         )}
@@ -284,6 +352,7 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                         <div class="media-upload-modal__status">
                             <span class="spinner" /> Uploading, please wait...
                         </div>
+                        <button type="button" class="ui-button ui-button--danger" onClick={() => void cancelUpload()}>Cancel upload</button>
                     </Show>
                     <Show when={success()}>
                         <div class="media-upload-modal__status media-upload-modal__status--success">

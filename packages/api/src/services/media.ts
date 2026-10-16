@@ -120,7 +120,7 @@ async function encodeIfVideo(item: Media, file: UploadFile, storageProvider: unk
 async function uploadOne(
     file: UploadFile,
     ctx: AuditContext,
-    extra: { alt?: string; caption?: string; } = {},
+    extra: { alt?: string; caption?: string; title?: string; } = {},
 ): Promise<Media> {
     const tempFilePath = file.path;
     let tempThumbPath: string | undefined;
@@ -150,15 +150,16 @@ async function uploadOne(
         // uploaded_by is a UUID FK — synthetic actors (API keys / system)
         // become NULL rather than violating the column type.
         const uploadedBy = uuidOrNull(ctx.userId,);
-        const hasMeta = extra.alt !== undefined || extra.caption !== undefined;
+        const title = extra.title?.trim() ? extra.title.trim().slice(0, 255,) : undefined;
+        const hasMeta = extra.alt !== undefined || extra.caption !== undefined || title !== undefined;
         const result = hasMeta
             ? await query(
-                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, alt, caption, uploaded_by)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, alt, caption, title, uploaded_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                  RETURNING *`,
                 [
                     file.filename, file.originalname, file.mimetype, file.size,
-                    url, thumbnailUrl, extra.alt, extra.caption, uploadedBy,
+                    url, thumbnailUrl, extra.alt, extra.caption, title ?? null, uploadedBy,
                 ],
             )
             : await query(
@@ -193,10 +194,16 @@ async function uploadOne(
     }
 }
 
-/** Main upload (POST /). Persists alt/caption. */
-export async function upload(file: UploadFile | undefined, alt: string | undefined, caption: string | undefined, ctx: AuditContext,): Promise<Media> {
+/** Main upload (POST /). Persists alt/caption/title. */
+export async function upload(
+    file: UploadFile | undefined,
+    alt: string | undefined,
+    caption: string | undefined,
+    ctx: AuditContext,
+    title?: string,
+): Promise<Media> {
     if (!file) throw new ValidationError('No file provided',);
-    return uploadOne(file, ctx, { alt, caption, },);
+    return uploadOne(file, ctx, { alt, caption, title, },);
 }
 
 /** Content-block upload (POST /block-upload). Echoes postId/blockId back. */
@@ -429,4 +436,44 @@ export async function remove(id: string, ctx: AuditContext,): Promise<void> {
         userAgent: ctx.userAgent,
     },);
     await cache.invalidateMediaConsumersCache();
+}
+
+export interface MediaDiscardResult {
+    discarded: true;
+    /** Gallery items that pointed at the media and were removed with it. */
+    galleryItemsRemoved: number;
+}
+
+/**
+ * CANCEL an upload that already produced a media row (a video still encoding,
+ * or one that just finished): stop the encode, delete every stored object,
+ * the row, and any gallery item created from it. `remove` already does the
+ * first three (`deleteVideoAssets` flags the job — the encoder on the cluster
+ * primary polls that flag and kills ffmpeg — then purges storage); a plain
+ * delete leaves gallery items in place (they hide until an editor removes
+ * them), a discard removes them because they were created by the same upload.
+ */
+export async function discard(id: string, ctx: AuditContext,): Promise<MediaDiscardResult> {
+    let galleryItemsRemoved = 0;
+    try {
+        const r = await query<{ id: string; }>(`DELETE FROM gallery_items WHERE media_id = $1 RETURNING id`, [id,],);
+        galleryItemsRemoved = r.rows.length;
+        if (galleryItemsRemoved) {
+            await query(
+                `DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = ANY($1::uuid[])`,
+                [r.rows.map((x,) => x.id),],
+            ).catch(() => {},);
+            await cache.invalidateGalleryCache();
+            await cache.invalidateSitemapCache();
+        }
+    } catch (e) {
+        // 42P01: the gallery feature was never installed — nothing to remove.
+        if ((e as { code?: string; }).code !== '42P01') throw e;
+    }
+    await remove(id, ctx,);
+    await logAudit({
+        userId: ctx.userId, action: 'media_discard', entityType: 'media', entityId: id,
+        newValues: { galleryItemsRemoved, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
+    },);
+    return { discarded: true, galleryItemsRemoved, };
 }

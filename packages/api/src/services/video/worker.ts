@@ -29,6 +29,8 @@ import {
 } from './pipeline';
 import { runRepackageJob, } from './repackage';
 import { encoderEnabled, } from './tooling';
+import { isObjectStore, resolveStorageProvider, } from '../storage';
+import { mediaVideoRoot, } from './paths';
 
 const POLL_MS = 10_000;
 const LEASE_SECONDS = 90;
@@ -140,8 +142,16 @@ async function runJob(job: repo.ClaimedJob, ctl: JobControl,): Promise<void> {
     }
 }
 
-async function onError(job: repo.ClaimedJob, ctl: JobControl, err: unknown,): Promise<void> {
+/** Exported for tests. */
+export async function onError(job: repo.ClaimedJob, ctl: JobControl, err: unknown,): Promise<void> {
     const reason = ctl.reason ?? (err instanceof JobAbortedError ? err.reason : null);
+    // The media was deleted/discarded while this job ran (its job row went
+    // with it, so the lease reads as lost): segments uploaded after the
+    // deleter's purge would be orphans — purge again, drop the work dir.
+    if ((reason === 'lease' || reason === 'cancel') && !(await wrepo.mediaExists(job.mediaId,))) {
+        await purgeDeletedMedia(job,);
+        return;
+    }
     if (reason === 'lease') return; // someone else owns it now
     if (reason === 'shutdown') {
         await repo.releaseJob(job.id, owner,);
@@ -178,4 +188,20 @@ async function failedCleanup(mediaId: string, jobId: string,): Promise<void> {
     await removeJobDir(jobId,);
     if (!(await wrepo.hasReadyFull(mediaId,))) await wrepo.setMediaStatus(mediaId, 'failed',);
     await cache.invalidateVideoCache(mediaId,);
+}
+
+/** Storage + temp cleanup for a job whose media row no longer exists. */
+export async function purgeDeletedMedia(job: { id: string; mediaId: string; },): Promise<void> {
+    await removeJobDir(job.id,);
+    try {
+        const store = await resolveStorageProvider();
+        if (isObjectStore(store,)) {
+            await store.deletePrefix(mediaVideoRoot(job.mediaId,),);
+            await store.deletePrefix(`originals/${job.mediaId}/`,);
+        }
+    } catch (e) {
+        logger.warn('Video purge after delete failed', { jobId: job.id, mediaId: job.mediaId, error: (e as Error).message, },);
+    }
+    await cache.invalidateVideoCache(job.mediaId,);
+    logger.info('Video job stopped: its media was deleted', { jobId: job.id, mediaId: job.mediaId, },);
 }

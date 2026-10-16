@@ -51,6 +51,18 @@ const UploadRow: Component<{ item: UploadItem; }> = (p,) => {
     const running = () => p.item.state === 'uploading' || p.item.state === 'hashing';
     const settled = () => ['done', 'cancelled',].includes(p.item.state,) ||
         (p.item.state === 'error' && !isLive(p.item.id,));
+    const [cancelling, setCancelling,] = createSignal(false,);
+    /** Cancel at any stage; a finished video still encoding asks first (its file is deleted). */
+    const onCancel = async () => {
+        if (p.item.state === 'done' && !confirm(`Stop processing "${p.item.name}" and delete it?`,)) return;
+        setCancelling(true,);
+        try {
+            await cancel(p.item.id,);
+        } catch (e) {
+            setPickError((e as Error)?.message || 'Could not cancel.',);
+            setCancelling(false,);
+        }
+    };
 
     return (
         <li class={`upload-tray__row upload-tray__row--${p.item.state}`}>
@@ -67,7 +79,7 @@ const UploadRow: Component<{ item: UploadItem; }> = (p,) => {
                         when={p.item.state === 'uploading'}
                         fallback={
                             <>
-                                {STATE_LABEL[p.item.state]}
+                                {p.item.state === 'done' && p.item.processing ? 'Processing…' : STATE_LABEL[p.item.state]}
                                 <Show when={p.item.state === 'unfinished'}>
                                     {' '}— {formatBytes(p.item.loaded,)} of {formatBytes(p.item.size,)}
                                 </Show>
@@ -93,12 +105,17 @@ const UploadRow: Component<{ item: UploadItem; }> = (p,) => {
                         </button>
                         <input ref={fileInput} type="file" class="upload-tray__file" onChange={onPick} />
                     </Show>
-                    <Show when={!settled() && p.item.state !== 'completing'}>
+                    <Show when={!settled() || (p.item.state === 'done' && p.item.processing)}>
                         <button
                             type="button"
                             class="upload-tray__btn upload-tray__btn--danger"
-                            onClick={() => void cancel(p.item.id,)}
-                            title={p.item.state === 'unfinished' ? 'Discard the uploaded parts' : 'Cancel upload'}
+                            disabled={cancelling()}
+                            onClick={() => void onCancel()}
+                            title={p.item.state === 'unfinished'
+                                ? 'Discard the uploaded parts'
+                                : p.item.state === 'done'
+                                ? 'Stop processing and delete the video'
+                                : 'Cancel upload'}
                         >
                             {p.item.state === 'unfinished' ? 'Discard' : 'Cancel'}
                         </button>

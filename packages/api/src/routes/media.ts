@@ -11,6 +11,8 @@
  *   GET    /:id           — fetch one
  *   PUT    /:id           — update metadata (title/alt/caption)
  *   DELETE /:id           — delete (removes from storage)
+ *   POST   /:id/discard   — cancel an upload/encode: delete the media, its
+ *                            files and any gallery item created from it
  *
  * Business logic lives in `services/media.ts`.
  */
@@ -24,6 +26,7 @@ import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { ValidationError, } from '../core/errors';
 import * as media from '../services/media';
+import { requirePermission, } from '../services/permissions';
 import type { UploadFile, } from '../services/media';
 
 const multerDestDir = media.multerDestDir;
@@ -107,11 +110,12 @@ export const mediaRoutes = [
 
     defineRoute({
         method: 'post', path: '/', auth: 'staff',
-        summary: 'Upload a single file (multipart, field "file"; optional alt/caption).',
+        summary: 'Upload a single file (multipart, field "file"; optional title/alt/caption).',
         pre: [upload.single('file',),],
         handler: async ({ req, audit, },) => {
-            const body = req.body as { alt?: string; caption?: string; };
-            const result = await media.upload(reqFile(req,), body.alt, body.caption, audit(),);
+            const body = req.body as { alt?: string; caption?: string; title?: string; };
+            const title = typeof body.title === 'string' ? body.title : undefined;
+            const result = await media.upload(reqFile(req,), body.alt, body.caption, audit(), title,);
             return reply(result, { status: 201, },);
         },
     },),
@@ -182,6 +186,16 @@ export const mediaRoutes = [
         handler: async ({ params, audit, },) => {
             await media.remove(params.id, audit(),);
             return { message: 'Media deleted', };
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/discard', auth: 'staff',
+        summary: 'Cancel an upload or a running encode: stop the job, delete every stored file, the media row and gallery items made from it.',
+        input: { params: idParams, },
+        handler: async ({ params, user, audit, },) => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'media:write',);
+            return media.discard(params.id, audit(),);
         },
     },),
 ];

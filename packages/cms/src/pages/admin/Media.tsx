@@ -8,7 +8,7 @@ import { downloadFile, formatSize, getTypeLabel, } from '../../components/admin/
 import RenditionChips from '../../components/admin/media/RenditionChips';
 import { formatDuration, } from '../../components/admin/media/videoFormat';
 import { cms, } from '../../services/cmsClient';
-import { startUpload, uploadsVersion, usesMultipart, } from '../../stores/uploads';
+import { cancelMedia, defaultTitle, startUpload, uploadsVersion, usesMultipart, } from '../../stores/uploads';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import '../../components/admin/media/VideoMedia.scss';
@@ -30,10 +30,22 @@ const isEncodedVideo = (m: Media,) => !!m.video;
  * a grid of them would download every file), duration, access + teaser
  * badges, and while encoding an overall bar + per-quality chips.
  */
-const VideoTile: Component<{ m: Media; }> = (p,) => {
+const VideoTile: Component<{ m: Media; onCancel?: () => void; cancelling?: boolean; }> = (p,) => {
     const poster = () => p.m.video?.posterUrl ?? p.m.thumbnailUrl ?? null;
     return (
         <div class="media-video-tile">
+            <Show when={isProcessing(p.m,) && p.onCancel}>
+                <button
+                    type="button"
+                    class="media-cancel-btn"
+                    disabled={p.cancelling}
+                    title="Stop processing and delete this video"
+                    aria-label={`Cancel processing of ${(p.m as { title?: string | null; }).title || p.m.originalName}`}
+                    onClick={(e,) => { e.stopPropagation(); p.onCancel?.(); }}
+                >
+                    &times; Cancel
+                </button>
+            </Show>
             <Show when={poster()} fallback={<div class="media-video-tile__placeholder" aria-hidden="true">&#9654;</div>}>
                 <img class="media-video-tile__poster" src={poster()!} alt={p.m.alt || p.m.originalName} loading="lazy" />
             </Show>
@@ -124,8 +136,23 @@ const AdminMedia: Component = () => {
             startUpload(file,);
             return;
         }
-        await cms.media.upload(file,);
+        await cms.media.upload(file, { title: defaultTitle(file.name,), },);
         refetch();
+    };
+
+    /** Stop a video's encode and delete it (files, row, gallery items made from it). */
+    const [cancellingId, setCancellingId,] = createSignal<string | null>(null,);
+    const handleCancel = async (m: Media,) => {
+        if (!confirm(`Stop processing "${(m as { title?: string | null; }).title || m.originalName}" and delete it?`,)) return;
+        setCancellingId(m.id,);
+        try {
+            await cancelMedia(m.id,);
+            await refetchFresh();
+        } catch (e) {
+            alert((e as Error)?.message || 'Could not cancel.',);
+        } finally {
+            setCancellingId(null,);
+        }
     };
 
     const startEdit = (item: any, e: Event,) => {
@@ -147,10 +174,13 @@ const AdminMedia: Component = () => {
         refetch();
     };
 
-    const handleDelete = async (id: string, e: Event,) => {
+    const handleDelete = async (m: Media, e: Event,) => {
         e.stopPropagation();
         if (!confirm('Delete this file permanently?',)) return;
-        await cms.media.remove(id,);
+        // Still encoding: the same cancel path (stops the encode, purges its
+        // files, drops its upload row and any gallery item made from it).
+        if (isProcessing(m,)) await cancelMedia(m.id,);
+        else await cms.media.remove(m.id,);
         refetch();
     };
 
@@ -274,7 +304,7 @@ const AdminMedia: Component = () => {
                                             when={isEncodedVideo(m,)}
                                             fallback={<video src={m.url} preload="metadata" muted playsinline />}
                                         >
-                                            <VideoTile m={m} />
+                                            <VideoTile m={m} onCancel={() => void handleCancel(m,)} cancelling={cancellingId() === m.id} />
                                         </Show>
                                     </Show>
                                     <Show
@@ -317,7 +347,7 @@ const AdminMedia: Component = () => {
                                         </button>
                                         <button
                                             class="ui-button ui-button--sm ui-button--danger"
-                                            onClick={(e,) => handleDelete(m.id, e,)}
+                                            onClick={(e,) => handleDelete(m, e,)}
                                         >
                                             Delete
                                         </button>

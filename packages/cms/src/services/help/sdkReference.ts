@@ -1221,6 +1221,10 @@ await cms.gallery.admin.update(id, { visibility: 'members', comments: 'on' });
 await cms.gallery.admin.remove(id, { deleteMedia: true });
 const links = await cms.gallery.admin.mediaLinks(mediaIds); // media id → item id
 
+// cancel an upload that already made a media row (e.g. a video still encoding):
+// stops the encode, deletes its files, the media row and the gallery item (media:write)
+await cms.media.discard(mediaId);
+
 // admin (gallery.settings:manage)
 await cms.gallery.updateSettings({ baseUrl: '/photos', access: 'members', allowVideos: true });`,
                 },

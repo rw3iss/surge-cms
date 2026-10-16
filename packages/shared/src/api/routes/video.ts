@@ -48,11 +48,18 @@ export interface MediaUploadPartUrlsResponse {
     expiresIn: number;
 }
 
+/** POST /video/uploads/:id/complete (body optional). */
+export interface MediaUploadCompleteBody {
+    /** Title for the media row — wins over `options.title` from create (the
+     *  user may rename the file while it uploads). Empty = keep the create one. */
+    title?: string;
+}
 /** POST /video/uploads/:id/complete → the created media row (status
  *  `processing` for video). */
 export type MediaUploadCompleteResponse = Media;
 
-/** DELETE /video/uploads/:id */
+/** DELETE /video/uploads/:id — aborts the object-store multipart upload
+ *  (discarding the uploaded parts) and deletes the session row. */
 export interface MediaUploadAbortResponse {
     message: string;
 }

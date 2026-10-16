@@ -182,6 +182,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/media/:id',
     'PUT /api/v1/media/:id',
     'DELETE /api/v1/media/:id',
+    'POST /api/v1/media/:id/discard',
 
     // ── users ──
     'GET /api/v1/users',
