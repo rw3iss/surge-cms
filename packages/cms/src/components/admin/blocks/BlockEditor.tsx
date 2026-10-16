@@ -9,6 +9,7 @@ import { PREVIEW_CONTAINER, } from '@sitesurge/types';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import { stableSelection, } from './stableSelection';
+import { holdViewport, } from './viewportHold';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
 import FlyoutPanel, { type FlyoutMode, } from '../common/FlyoutPanel';
 import Toggle from '../common/Toggle';
@@ -138,100 +139,16 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         setStoreBlocks(reconcile(props.blocks, { key: 'id', merge: true, },),);
     },);
 
-    // Ref-count of in-flight emitBlocks height pins (see below), so overlapping
-    // edits don't release the <html> min-height pin while another still needs it.
-    // `pinnedHeight` is the shared floor for the current burst (only raised).
-    let heightPins = 0;
-    let pinnedHeight = 0;
-
     /**
      * Emit a block-list change while KEEPING THE VIEWPORT STABLE. EVERY block
      * mutation (enable/disable, add, remove, move, group-slot pick, change-type,
-     * data edit, self-heal) flows through here — otherwise the editor re-render
-     * jumps scroll to the top. A block edit must NEVER move the view.
-     *
-     * Two mechanisms work together:
-     *   1. HEIGHT PIN — force <html> min-height to the current page height across
-     *      the reflow. A type change momentarily detaches the whole list, which
-     *      would collapse the page to the viewport and clamp scrollY to 0 (the
-     *      jump); pinning the height keeps the scroll area from shrinking so no
-     *      clamp happens. Released once the layout settles.
-     *   2. ANCHOR CORRECTION — record the edited (selected) block's viewport top
-     *      before the change and, each frame until layout settles, scroll by the
-     *      delta so THAT block stays exactly where it was (covers content above
-     *      it changing height + late async previews/images). Falls back to the
-     *      absolute scrollY when there's no selected block.
+     * data edit, self-heal) flows through here. `holdViewport` pins the page
+     * height and keeps the edited (selected) block where it was on screen
+     * while the change settles — see `viewportHold.ts`.
      */
     const emitBlocks = (next: BlockData[],) => {
-        const anchorId = selectedBlockId();
-        const anchorEl = anchorId ? document.getElementById(anchorId,) : null;
-        const prevTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
-        const prevY = window.scrollY;
-
-        // Pin the document height across the reflow. On a type change the whole
-        // list momentarily DETACHES — the page collapses to the viewport height,
-        // which clamps scrollY to 0 (the jump the user sees) — then reattaches.
-        // Forcing <html> min-height keeps the scroll area from shrinking so the
-        // browser never clamps. The floor is `max(scrollHeight, prevY + viewport)`
-        // so the CURRENT scroll offset can never be clamped away even if the
-        // collapse already began, and we only ever RAISE the shared pin (never
-        // lower it) — a nested self-heal emit that reads an already-collapsed
-        // height must not shrink a floor an outer emit set from the full height.
-        const de = document.documentElement;
-        const floor = Math.max(de.scrollHeight, prevY + window.innerHeight,);
-        pinnedHeight = heightPins === 0 ? floor : Math.max(pinnedHeight, floor,);
-        heightPins++;
-        de.style.minHeight = `${pinnedHeight}px`;
-        const releasePin = () => {
-            if (--heightPins <= 0) {
-                heightPins = 0;
-                pinnedHeight = 0;
-                de.style.minHeight = '';
-            }
-        };
-
+        holdViewport(selectedBlockId(),);
         props.onBlocksChange(next,);
-
-        // Belt-and-suspenders on top of the height pin: re-pin the edited block
-        // to its prior viewport position each frame. Runs for at least MIN_SETTLE_MS
-        // (NOT just "3 stable frames") so a LATE async reflow — e.g. an entity/
-        // carousel preview that resolves over the network ~200-500ms after the
-        // edit and re-collapses the page — is caught after the sync layout has
-        // already gone quiet. Capped at MAX_SETTLE_MS.
-        const MIN_SETTLE_MS = 500;
-        const MAX_SETTLE_MS = 1500;
-        let settledFrames = 0;
-        const startedAt = performance.now();
-        const correct = () => {
-            if (anchorId && prevTop != null) {
-                const el = document.getElementById(anchorId,);
-                if (!el) return; // still detached (collapse valley) — wait it out
-                const delta = el.getBoundingClientRect().top - prevTop;
-                if (Math.abs(delta,) > 0.5) {
-                    window.scrollBy(0, delta,);
-                    settledFrames = 0;
-                } else {
-                    settledFrames++;
-                }
-            } else {
-                if (Math.abs(window.scrollY - prevY,) > 0.5) {
-                    window.scrollTo(0, prevY,);
-                    settledFrames = 0;
-                } else {
-                    settledFrames++;
-                }
-            }
-        };
-        const loop = () => {
-            correct();
-            const elapsed = performance.now() - startedAt;
-            if (elapsed < MIN_SETTLE_MS || (settledFrames < 3 && elapsed < MAX_SETTLE_MS)) {
-                requestAnimationFrame(loop,);
-            } else {
-                releasePin();
-            }
-        };
-        requestAnimationFrame(loop,);
     };
 
     // Self-heal group slots: a `group` must always have at least `columns`
@@ -575,7 +492,8 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
             }
         }
 
-        emitBlocks(updated,);    };
+        emitBlocks(updated,);
+    };
 
     const removeBlock = (id: string,) => {
         if (selectedBlockId() === id) setSelectedBlockId(null,);

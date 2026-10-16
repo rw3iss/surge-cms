@@ -1,6 +1,7 @@
 import { batch, Component, createSignal, ErrorBoundary, For, Match, onCleanup, onMount, Show, Switch, untrack, } from 'solid-js';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
 import { clearStyleDraft, setStyleDraft, } from '../../../stores/blockStyleDraft';
+import { holdViewport, } from './viewportHold';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import TemplateReference from './TemplateReference';
@@ -164,6 +165,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     const blockId = untrack(() => props.block.id,);
 
     const publishDraft = (style: BlockStyleData,) => {
+        holdViewport(blockId,);
         setCurrentStyle(style,);
         setStyleDraft(blockId, style as unknown as Record<string, unknown>,);
     };
@@ -178,15 +180,41 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     // someone else's in-progress style.
     onCleanup(() => clearStyleDraft(blockId,));
 
+    /** The style's own properties — without the template identity fields. */
+    const styleProps = (style: BlockStyleData,): Record<string, unknown> => {
+        const { id: _id, name: _name, isDefault: _d, ...rest } = style as BlockStyleData & Record<string, unknown>;
+        delete rest.createdAt;
+        delete rest.updatedAt;
+        return rest;
+    };
+
+    /** True when the edited values differ from the template they started from. */
+    const differsFromTemplate = (style: BlockStyleData,): boolean => {
+        const tmpl = blockStyles().find((s,) => s.id === style.id);
+        if (!tmpl) return false;
+        const norm = (o: Record<string, unknown>,) =>
+            JSON.stringify(Object.fromEntries(
+                Object.entries(o,).filter(([, v,],) => v !== undefined && v !== null && v !== '').sort(([a,], [b,],) => a.localeCompare(b,)),
+            ),);
+        return norm(styleProps(BlockStyleService.withDefaults(tmpl,),),) !== norm(styleProps(style,),);
+    };
+
     const handleSaveStyle = () => {
+        holdViewport(blockId,);
         const style = currentStyle();
-        if (style.id) {
+        if (style.id && !differsFromTemplate(style,)) {
             props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { templateId: style.id, }, },);
         } else {
-            const { id: _id, name: _name, isDefault: _d, ...customProps } = style;
-            delete (customProps as any).createdAt;
-            delete (customProps as any).updatedAt;
-            props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: customProps, }, },);
+            // Custom style — OR a template whose values were edited here. Save
+            // used to keep only the template link and silently DROP the edits
+            // (clearing a template's Max Height did nothing), so the block now
+            // gets its own copy of the edited values. Changing the template for
+            // every block that uses it stays the job of Save Template.
+            if (style.id) {
+                setCurrentStyle({ ...style, id: undefined, name: '', isDefault: false, },);
+                setSelectedStyleId('custom',);
+            }
+            props.onUpdate(props.block.id, { ...props.block.data, __styleRef: { custom: styleProps(style,), }, },);
         }
         stopDraft();
         setEditingStyle(false,);

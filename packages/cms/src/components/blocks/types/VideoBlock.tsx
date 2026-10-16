@@ -31,9 +31,10 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
         return {
             ...(radius ? { '--item-radius': radius, } : {}),
             ...(maxW ? { 'max-width': maxW, 'margin-inline': 'auto', } : {}),
-            // The block's own "Max height" setting caps the player the same way a
-            // block style max-height does (MediaVideo reads --block-max-height).
-            ...(maxH ? { 'max-height': maxH, '--block-max-height': maxH, } : {}),
+            // The block's own "Max height" setting caps the PLAYER (MediaVideo
+            // reads --block-max-height) — not this box, which also holds the
+            // title and the toolbar; capping the box let the player spill out.
+            ...(maxH ? { '--block-max-height': maxH, } : {}),
         };
     };
 
