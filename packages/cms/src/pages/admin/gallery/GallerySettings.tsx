@@ -2,10 +2,11 @@
  * Admin → Gallery → Settings (`gallery_settings`; save needs
  * `gallery.settings:manage`). Two tabs, kept in `?tab=`:
  *   General     title, description, public URL, who may view, videos, comment defaults
- *   Appearance  layout, click behaviour, thumbnail size, spacing, aspect, fit,
- *               radius, gutter / padding / max width (site default or custom),
- *               titles, captions, hover zoom, page size, video badge — with a
- *               small live preview of the first few items.
+ *   Appearance  layout, thumbnail size, spacing, aspect, fit, radius,
+ *               gutter / padding / max width (site default or custom), titles,
+ *               captions, date published (item page), hover zoom, page size,
+ *               video badge, Behavior (open item action: modal / go to page;
+ *               modal thumbnail carousel) — with a small live preview.
  * Everything edits a local draft; Save sends it. Text fields commit on blur.
  */
 import {
@@ -237,13 +238,6 @@ const GallerySettingsPage: Component = () => {
                                     )}
                                 </For>
                             </div>
-                            <FormField label="Clicking an item">
-                                <select value={a().open} onChange={(e,) => setA('open', e.currentTarget.value as GalleryAppearance['open'],)}>
-                                    <option value="lightbox">Opens a lightbox (full size, arrows between items)</option>
-                                    <option value="page">Opens the item's own page (with comments)</option>
-                                    <option value="none">Does nothing</option>
-                                </select>
-                            </FormField>
                             <FormField label="Items per page" hint="More items load with the Load more button.">
                                 <Slider value={a().perPage} min={4} max={200} step={4} onCommit={(v,) => setA('perPage', v,)} ariaLabel="Items per page" />
                             </FormField>
@@ -273,10 +267,18 @@ const GallerySettingsPage: Component = () => {
                             </FormField>
                             <Toggle checked={a().showTitles} onChange={(v,) => setA('showTitles', v,)} label="Show titles" />
                             <Toggle checked={a().showCaptions} onChange={(v,) => setA('showCaptions', v,)} label="Show captions" />
+                            <Toggle
+                                checked={a().showPublishedDate}
+                                onChange={(v,) => setA('showPublishedDate', v,)}
+                                label="Show date published"
+                                hint="On each item's own page, under its title and caption. Not shown on the gallery listing."
+                            />
                             <Toggle checked={a().hoverZoom} onChange={(v,) => setA('hoverZoom', v,)} label="Zoom slightly on hover" />
                             <Toggle checked={a().videoBadge} onChange={(v,) => setA('videoBadge', v,)} label="Play badge on videos" />
                         </section>
 
+                        {/* Right column: page spacing, then behaviour. */}
+                        <div class="gallery-settings__col">
                         <section class="settings-card">
                             <h3 class="settings-card__title">Page spacing</h3>
                             <FormField label="Side gutter" tooltip="Space at the left and right of the gallery page.">
@@ -313,6 +315,34 @@ const GallerySettingsPage: Component = () => {
                                 </FormField>
                             </Show>
                         </section>
+
+                        <section class="settings-card">
+                            <h3 class="settings-card__title">Behavior</h3>
+                            <FormField label="Open item action" tooltip="What clicking an item on the gallery listing does.">
+                                <select value={a().open} onChange={(e,) => setA('open', e.currentTarget.value as GalleryAppearance['open'],)}>
+                                    <option value="lightbox">Modal</option>
+                                    <option value="page">Go to page</option>
+                                    {/* Kept for galleries already set to it; not offered otherwise. */}
+                                    <Show when={a().open === 'none'}><option value="none">Do nothing</option></Show>
+                                </select>
+                            </FormField>
+                            <p class="form-help-muted">
+                                {a().open === 'page'
+                                    ? "Each item links to its own page (with comments) — it opens in a new tab with a middle-click."
+                                    : a().open === 'lightbox'
+                                    ? 'Items open full size in a modal, with arrows between items.'
+                                    : 'Clicking an item does nothing.'}
+                            </p>
+                            <Show when={a().open === 'lightbox'}>
+                                <Toggle
+                                    checked={a().thumbStrip}
+                                    onChange={(v,) => setA('thumbStrip', v,)}
+                                    label="Show thumbnail carousel"
+                                    hint="A strip of every item's thumbnail along the bottom of the modal. Click one to open it."
+                                />
+                            </Show>
+                        </section>
+                        </div>
 
                         <section class="settings-card gallery-settings__preview-card">
                             <h3 class="settings-card__title">Preview</h3>

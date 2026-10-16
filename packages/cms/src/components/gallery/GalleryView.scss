@@ -334,10 +334,102 @@
   &__count { color: rgba(255, 255, 255, .7); }
   &__link { color: #fff; text-decoration: underline; }
 
+  // ── Thumbnail strip (appearance.thumbStrip) ──
+  &--strip {
+    flex-direction: column;
+    gap: 12px;
+
+    .gallery-lightbox__figure { flex: 1 1 auto; min-height: 0; height: auto; }
+  }
+
+  &__strip {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    max-width: 1400px;
+  }
+
+  &__strip-page {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .1);
+    color: #fff;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background: rgba(255, 255, 255, .22); }
+  }
+
+  &__strip-track {
+    position: relative; // offsetParent for centring the active thumbnail
+    flex: 1 1 auto;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding: 3px 0;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  &__thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .08);
+    opacity: .55;
+    cursor: pointer;
+    scroll-snap-align: center;
+    transition: opacity .15s ease, box-shadow .15s ease;
+
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+    &:hover, &:focus-visible { opacity: .9; }
+
+    &.is-active {
+      opacity: 1;
+      box-shadow: 0 0 0 2px #fff;
+    }
+
+    &.is-video::after {
+      content: '▶';
+      position: absolute;
+      inset: auto 4px 2px auto;
+      font-size: .7rem;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .7);
+    }
+  }
+
+  &__thumb-blank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: rgba(255, 255, 255, .7);
+  }
+
   @media (max-width: 768px) {
     padding: 52px 8px 16px;
 
     &__nav { top: auto; bottom: 14px; transform: none; width: 40px; height: 40px; }
     &__meta { padding-right: 96px; }
+
+    // Touch scrolls the strip natively; no paging buttons. Item arrows sit above the strip.
+    &__strip-page { display: none; }
+    &__thumb { width: 52px; height: 52px; }
+    &--strip .gallery-lightbox__nav { bottom: 90px; }
   }
 }

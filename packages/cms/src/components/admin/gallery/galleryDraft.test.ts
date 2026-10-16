@@ -5,7 +5,7 @@ import { buildPublishBody, draftFromItems, EMPTY_OPTIONS, isDraftDirty, moveItem
 const item = (id: string, o: Partial<GalleryItem> = {},): GalleryItem => ({
     id, mediaId: `m-${id}`, media: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
     visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`,
-    commentCount: 0, createdAt: '', updatedAt: '', ...o,
+    commentCount: 0, publishedAt: '', createdAt: '', updatedAt: '', ...o,
 });
 
 describe('gallery draft', () => {

@@ -278,7 +278,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                 </Switch>
             </Show>
             <Show when={lightbox() !== null}>
-                <GalleryLightbox items={items()} index={lightbox()!} onClose={() => setLightbox(null,)} />
+                <GalleryLightbox items={items()} index={lightbox()!} thumbStrip={Boolean(props.settings.thumbStrip,)} onClose={() => setLightbox(null,)} />
             </Show>
         </div>
     );

@@ -92,6 +92,8 @@ export function mapRow(r: Row, baseUrl: string,): GalleryItem {
         anonymousComments: r.anonymous_comments,
         url: galleryItemPath(baseUrl, r.id,),
         commentCount: Number(r.comment_count ?? 0,),
+        // A row is only ever INSERTed by the admin Publish (sync) and created_at is never updated, so it IS the publish date.
+        publishedAt: new Date(r.created_at,).toISOString(),
         createdAt: new Date(r.created_at,).toISOString(),
         updatedAt: new Date(r.updated_at,).toISOString(),
     };

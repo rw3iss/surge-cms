@@ -25,9 +25,28 @@ block and the `{{gallery(...)}}` template function. In-admin guide:
 - Settings: `gallery_settings` keyed row (`GallerySettings` in
   `@sitesurge/types` `types/gallery.ts`) — title, description, `baseUrl`
   (default `/gallery`), `access` + `minTierId`, `allowVideos`, comment
-  defaults, `appearance` (layout, click mode, thumbnail size, gap, aspect, fit,
-  radius, gutter / padding / max width (site or custom), titles, captions,
-  hover zoom, per page, video badge).
+  defaults, `appearance` (layout, thumbnail size, gap, aspect, fit, radius,
+  gutter / padding / max width (site or custom), titles, captions,
+  `showPublishedDate`, hover zoom, per page, video badge, and the **Behavior**
+  pair `open` + `thumbStrip`).
+- **Behavior** (Appearance tab, right column): *Open item action* = `open`
+  `lightbox` ("Modal", default) | `page` ("Go to page" — every tile is a real
+  `<a href="<baseUrl>/<id>">`, so middle-click / new tab works; no modal).
+  The legacy `none` still works but is only offered when already set. With
+  Modal, *Show thumbnail carousel* (`thumbStrip`, default off) adds a strip of
+  every LISTED item's thumbnail (`media.thumbnailUrl`, lazy) along the bottom
+  of the modal, in listing order, the open item highlighted and centred; ‹ ›
+  page it on desktop, touch scrolls it natively (scroll-snap) on mobile;
+  clicking a thumbnail opens that item. The modal is full screen at every size.
+  The Gallery block has the same switch (`GalleryBlockSettings.thumbStrip`) and
+  `{{gallery(thumbs=true)}}`.
+- **Published date:** `GalleryItem.publishedAt` = the row's `created_at` — a
+  row is only ever INSERTed by the admin Publish and `created_at` is never
+  updated, so it is the first-publish date and republishing never moves it
+  (removing the item and adding the media again is a new item, a new date).
+  *Show date published* (`appearance.showPublishedDate`, default off) prints it
+  on the item DETAIL page only, under the title and caption ("October 14,
+  2026", muted, centred like the title) — never on the listing or in the modal.
 
 ## Access model
 
@@ -131,7 +150,7 @@ Settings = `GalleryBlockSettings`: `source` `items` (`itemIds`) | `query`
 column | carousel | stage, `columns`, `itemsPerPage`, `scrollBy`, `gap`,
 `itemWidth`, `itemHeight`, `aspect`, `fit`, `rows`; mobile falls back per
 key), `autoplay` + `autoplayInterval`, `pauseOnHover`, `loop`, arrows, dots,
-titles, captions, `open`, `radius`. The block type name reuses the retired
+titles, captions, `open`, `thumbStrip`, `radius`. The block type name reuses the retired
 legacy `gallery` enum value (its rows were deleted by migration 027).
 
 Server emitters are synchronous, so a **pre-pass** resolves each block's

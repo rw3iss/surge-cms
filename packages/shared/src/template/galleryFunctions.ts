@@ -105,6 +105,7 @@ export function galleryDisplayFrom(options: Record<string, unknown> = {},): Omit
         showTitles: bool(options.titles ?? options.showTitles,) ?? d.showTitles,
         showCaptions: bool(options.captions ?? options.showCaptions,) ?? d.showCaptions,
         open: (['lightbox', 'page', 'none',].includes(open,) ? open : d.open) as GalleryOpenMode,
+        thumbStrip: bool(options.thumbs ?? options.thumbStrip,) ?? false,
         radius: str(options.radius,) && !/[;{}<>"]/.test(str(options.radius,),) ? str(options.radius,) : undefined,
     };
 }

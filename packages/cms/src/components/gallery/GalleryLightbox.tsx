@@ -1,12 +1,18 @@
 /**
  * Public lightbox over a list of gallery items: ←/→/Esc, swipe, the media
  * full size (videos in our player via MediaVideo), title / caption / credits,
- * a counter and a link to the item's page.
+ * a counter and a link to the item's page. Full screen at every size.
+ *
+ * `thumbStrip`: a row of every item's THUMBNAIL (lazy) along the bottom, in
+ * list order, the open item highlighted and kept centred. Desktop pages it
+ * with ‹ › buttons; touch scrolls it natively (scroll-snap). Clicking a
+ * thumbnail opens that item.
  */
 import type { GalleryItem, } from '@sitesurge/types';
-import { Component, createSignal, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, on, onCleanup, onMount, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import MediaVideo from '../blocks/media/MediaVideo';
+import { tileSrc, } from './GalleryTile';
 
 export interface GalleryLightboxProps {
     items: GalleryItem[];
@@ -14,6 +20,8 @@ export interface GalleryLightboxProps {
     onClose: () => void;
     /** Show a link to the item's page (default true). */
     showPageLink?: boolean;
+    /** Thumbnail strip of every item along the bottom. */
+    thumbStrip?: boolean;
 }
 
 const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
@@ -22,7 +30,19 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
     const count = () => props.items.length;
     const go = (d: number,) => setI((n,) => (n + d + count()) % count(),);
     let closeBtn: HTMLButtonElement | undefined;
+    let track: HTMLDivElement | undefined;
     let touchX = 0;
+    const strip = () => Boolean(props.thumbStrip,) && count() > 1;
+
+    /** Centre the open item's thumbnail in the strip (horizontal only — never scrolls the page). */
+    const centreActive = (smooth: boolean,) => {
+        const el = track?.querySelector<HTMLElement>(`[data-index="${i()}"]`,);
+        if (!track || !el) return;
+        track.scrollTo({ left: el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto', },);
+    };
+    createEffect(on(i, () => { if (strip()) requestAnimationFrame(() => centreActive(true,),); }, { defer: true, },),);
+    /** Page the strip by most of its visible width. */
+    const pageStrip = (dir: 1 | -1,) => track?.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: 'smooth', },);
 
     const onKey = (e: KeyboardEvent,) => {
         if (e.key === 'Escape') { e.preventDefault(); props.onClose(); }
@@ -34,6 +54,7 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
         document.body.style.overflow = 'hidden';
         document.addEventListener('keydown', onKey,);
         closeBtn?.focus();
+        if (strip()) requestAnimationFrame(() => centreActive(false,),);
         onCleanup(() => {
             document.body.style.overflow = prev;
             document.removeEventListener('keydown', onKey,);
@@ -44,6 +65,7 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
         <Portal>
             <div
                 class="gallery-lightbox"
+                classList={{ 'gallery-lightbox--strip': strip(), }}
                 role="dialog"
                 aria-modal="true"
                 aria-label={item()?.title || 'Gallery'}
@@ -90,6 +112,33 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
                             </figcaption>
                         </figure>
                     )}
+                </Show>
+                <Show when={strip()}>
+                    {/* Touch here scrolls the strip; it must not also count as a swipe between items. */}
+                    <div class="gallery-lightbox__strip" onTouchStart={(e,) => e.stopPropagation()} onTouchEnd={(e,) => e.stopPropagation()}>
+                        <button type="button" class="gallery-lightbox__strip-page" aria-label="Previous thumbnails" onClick={() => pageStrip(-1,)}>‹</button>
+                        <div ref={track} class="gallery-lightbox__strip-track" role="list" aria-label="All items">
+                            <For each={props.items}>
+                                {(t, n,) => (
+                                    <button
+                                        type="button"
+                                        role="listitem"
+                                        data-index={n()}
+                                        class="gallery-lightbox__thumb"
+                                        classList={{ 'is-active': n() === i(), 'is-video': t.media?.type === 'video', }}
+                                        aria-label={t.title || `Item ${n() + 1}`}
+                                        aria-current={n() === i() ? 'true' : undefined}
+                                        onClick={() => setI(n(),)}
+                                    >
+                                        <Show when={tileSrc(t,)} fallback={<span class="gallery-lightbox__thumb-blank" aria-hidden="true">▶</span>}>
+                                            <img src={tileSrc(t,)} alt="" loading="lazy" decoding="async" />
+                                        </Show>
+                                    </button>
+                                )}
+                            </For>
+                        </div>
+                        <button type="button" class="gallery-lightbox__strip-page" aria-label="Next thumbnails" onClick={() => pageStrip(1,)}>›</button>
+                    </div>
                 </Show>
             </div>
         </Portal>

@@ -16,6 +16,14 @@
     }
   }
 
+  // A grid cell holding several cards stacked (the right column).
+  &__col {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
+    min-width: 0;
+  }
+
   &__layouts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

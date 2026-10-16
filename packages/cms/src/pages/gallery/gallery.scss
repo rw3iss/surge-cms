@@ -48,10 +48,12 @@
     max-width: 70ch;
     margin: 16px auto 0;
 
-    h1 { margin: 0 0 6px; font-size: 1.6rem; }
+    // Detail page only — listing tiles keep their own (left) alignment.
+    h1 { margin: 0 0 6px; font-size: 1.6rem; text-align: center; }
   }
 
   &__caption { margin: 0 0 6px; }
+  &__date { margin: 0 0 6px; font-size: .85rem; color: var(--site-text-muted, #6b7280); text-align: center; }
   &__credits { margin: 0; font-size: .85rem; font-style: italic; color: var(--site-text-muted, #6b7280); }
   &__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
 

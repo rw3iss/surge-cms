@@ -239,6 +239,13 @@ const GalleryBlockEdit: Component<{
                         <option value="none">Nothing</option>
                     </select>
                 </FormField>
+                <Show when={(s().open ?? 'lightbox') === 'lightbox'}>
+                    <Toggle
+                        checked={Boolean(s().thumbStrip,)}
+                        onChange={(v,) => set({ thumbStrip: v, },)}
+                        label="Thumbnail carousel in the lightbox"
+                    />
+                </Show>
                 <FormField label="Corner radius" tooltip="Empty = the site radius.">
                     <input type="text" value={s().radius ?? ''} placeholder="site" onChange={(e,) => set({ radius: e.currentTarget.value.trim() || undefined, },)} />
                 </FormField>

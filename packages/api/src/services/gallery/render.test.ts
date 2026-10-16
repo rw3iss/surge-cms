@@ -20,7 +20,7 @@ const item = (over: Partial<GalleryItem> & { mediaType?: 'image' | 'video'; thum
     caption: over.caption ?? 'Over the bay',
     titleOverride: null, captionOverride: null, tags: [], sortOrder: 0, visibility: 'inherit', minTierId: null,
     comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${over.id ?? 'a1'}`, commentCount: 0,
-    createdAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z',
+    publishedAt: '2026-10-11T00:00:00Z', createdAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z',
     ...over,
 } as GalleryItem);
 

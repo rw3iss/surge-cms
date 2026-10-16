@@ -59,6 +59,8 @@ function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
         hoverZoom: Boolean(n.hoverZoom,),
         perPage: int(n.perPage, 4, 200, 'Items per page',),
         videoBadge: Boolean(n.videoBadge,),
+        showPublishedDate: Boolean(n.showPublishedDate,),
+        thumbStrip: Boolean(n.thumbStrip,),
     };
 }
 

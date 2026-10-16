@@ -1,13 +1,13 @@
 /**
  * One gallery item (`/gallery/:id`, or `<base>/:id`): the media large (image,
  * or the video in our player), title, caption, credits, previous / next in
- * gallery order, and the item's comments (`gallery_item:<id>` — whether
+ * gallery order, the published date (Appearance → "Show date published"), and the item's comments (`gallery_item:<id>` — whether
  * commenting is open, and for guests, follows the item's settings).
  *
  * Missing, deleted media, or hidden from this viewer → the API 404s; when the
  * whole gallery is closed to the viewer the gallery's gate is shown instead.
  */
-import type { GalleryItem, GalleryPublicConfig, } from '@sitesurge/types';
+import { formatDate, type GalleryItem, type GalleryPublicConfig, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, type RouteSectionProps, useParams, } from '@solidjs/router';
 import { Component, createResource, Show, } from 'solid-js';
@@ -100,6 +100,11 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                 <figcaption class="gallery-item-page__meta">
                                     <Show when={item().title}><h1>{item().title}</h1></Show>
                                     <Show when={item().caption}><p class="gallery-item-page__caption">{item().caption}</p></Show>
+                                    <Show when={d().config?.appearance.showPublishedDate && item().publishedAt}>
+                                        <p class="gallery-item-page__date">
+                                            <time datetime={item().publishedAt}>{formatDate(item().publishedAt, { month: 'long', },)}</time>
+                                        </p>
+                                    </Show>
                                     <Show when={item().media?.credits}><p class="gallery-item-page__credits">{item().media!.credits}</p></Show>
                                     <Show when={item().tags.length}>
                                         <p class="gallery-item-page__tags">

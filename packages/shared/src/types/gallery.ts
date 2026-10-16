@@ -55,6 +55,10 @@ export interface GalleryAppearance {
     perPage: number;
     /** Show a play badge on video thumbnails. */
     videoBadge: boolean;
+    /** Item DETAIL page only: show the date the item was published under its title + caption. */
+    showPublishedDate: boolean;
+    /** `open = 'lightbox'` only: a strip of every listed item's thumbnail along the bottom of the item modal. */
+    thumbStrip: boolean;
 }
 
 export interface GallerySettings {
@@ -93,6 +97,8 @@ export const DEFAULT_GALLERY_APPEARANCE: GalleryAppearance = {
     hoverZoom: true,
     perPage: 24,
     videoBadge: true,
+    showPublishedDate: false,
+    thumbStrip: false,
 };
 
 export const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
@@ -147,6 +153,11 @@ export interface GalleryItem {
     /** Public page of the item: `<baseUrl>/<id>`. */
     url: string;
     commentCount: number;
+    /**
+     * When the item was first published (the admin Publish that created it).
+     * Re-publishing never changes it; removing and re-adding the media is a new item and a new date.
+     */
+    publishedAt: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -230,6 +241,8 @@ export interface GalleryBlockSettings {
     showCaptions?: boolean;
     /** Click: lightbox (default), the item's page, or nothing. */
     open?: GalleryOpenMode;
+    /** Lightbox only: a strip of every item's thumbnail along the bottom of the modal. */
+    thumbStrip?: boolean;
     radius?: string;
 }
 

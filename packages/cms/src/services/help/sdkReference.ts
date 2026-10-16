@@ -1130,9 +1130,11 @@ export const GALLERY_DOC: SdkDoc = {
                         'Access: Public · Members · Tier (with the tier). This is who may open the gallery page, and the default for items.',
                         'Videos: allow videos in the gallery (on by default). Off hides video items from the public and from the picker.',
                         'Comments: on/off and anonymous comments by default (each item can override). Approval follows Comments → Settings.',
-                        'Appearance: layout (grid, masonry, carousel, stage), what a click does (lightbox, the item page, nothing), '
+                        'Appearance: layout (grid, masonry, carousel, stage), '
                         + 'thumbnail size, spacing, aspect ratio, fit, corner radius, page gutter / padding / max width (the site\'s or your own), '
-                        + 'titles, captions, hover zoom, items per page, video badge.',
+                        + 'titles, captions, "Show date published" (on the item\'s own page only, under its title and caption), hover zoom, items per page, video badge.',
+                        'Behavior: "Open item action" — Modal (full size, arrows between items) or Go to page (each item is a link to its own page). '
+                        + 'With Modal, "Show thumbnail carousel" adds a strip of every item\'s thumbnail along the bottom of the modal; click one to open it.',
                     ],
                 },
             ],
@@ -1165,6 +1167,7 @@ export const GALLERY_DOC: SdkDoc = {
 {{gallery(layout='grid', columns=4, gap='8px', aspect='square', mobileColumns=2)}}
 {{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4, mobileItemsPerPage=1)}}
 {{gallery(limit=6, titles=true, captions=true, open='page')}}
+{{gallery(limit=24, thumbs=true)}}             lightbox with a thumbnail strip
 
 {{for gallery(tag='events', limit=6) as g}}
   <a href="{{g.url}}"><img src="{{g.media.thumbnailUrl}}" alt="{{g.title}}"></a>

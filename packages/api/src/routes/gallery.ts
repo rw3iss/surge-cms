@@ -64,6 +64,8 @@ const appearance = z.object({
     hoverZoom: z.boolean().optional(),
     perPage: z.number().int().optional(),
     videoBadge: z.boolean().optional(),
+    showPublishedDate: z.boolean().optional(),
+    thumbStrip: z.boolean().optional(),
 },);
 
 const settingsBody = z.object({
