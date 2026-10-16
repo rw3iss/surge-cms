@@ -48,9 +48,10 @@
     max-width: 70ch;
     margin: 16px auto 0;
 
-    // Detail page only — listing tiles keep their own (left) alignment.
-    h1 { margin: 0 0 6px; font-size: 1.6rem; text-align: center; }
   }
+
+  // Detail page only, above the image — listing tiles keep their own (left) alignment.
+  &__title { max-width: 70ch; margin: 0 auto 16px; font-size: 1.6rem; text-align: center; }
 
   &__caption { margin: 0 0 6px; }
   &__date { margin: 0 0 6px; font-size: .85rem; color: var(--site-text-muted, #6b7280); text-align: center; }

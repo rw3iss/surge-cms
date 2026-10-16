@@ -88,6 +88,7 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                     <Show when={neighbours()?.next}>{(n,) => <A href={n().url} rel="next">Next ›</A>}</Show>
                                 </span>
                             </nav>
+                            <Show when={item().title}><h1 class="gallery-item-page__title">{item().title}</h1></Show>
                             <figure class="gallery-item-page__figure">
                                 <Show
                                     when={item().media?.type === 'video'}
@@ -98,7 +99,6 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                     </Show>
                                 </Show>
                                 <figcaption class="gallery-item-page__meta">
-                                    <Show when={item().title}><h1>{item().title}</h1></Show>
                                     <Show when={item().caption}><p class="gallery-item-page__caption">{item().caption}</p></Show>
                                     <Show when={d().config?.appearance.showPublishedDate && item().publishedAt}>
                                         <p class="gallery-item-page__date">
