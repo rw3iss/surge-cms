@@ -7,7 +7,7 @@ import {
 
 const item = (id: string, o: Partial<GalleryItem> = {},): GalleryItem => ({
     id, collectionId: null, access: { enabled: false, roles: [], tierIds: [], }, mediaId: `m-${id}`, media: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
-    visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`,
+    visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`, hiddenInGallery: false,
     commentCount: 0, publishedAt: '', createdAt: '', updatedAt: '', ...o,
 });
 
@@ -69,6 +69,20 @@ describe('gallery draft', () => {
         // A draft stored before access existed still publishes an (empty) rule.
         const legacy = { ...EMPTY_OPTIONS, access: undefined, } as never;
         expect(patchOf(legacy,).access,).toEqual({ enabled: false, roles: [], tierIds: [], },);
+    },);
+
+    it('carries "Hide from gallery": restored from the item, dirty when flipped, sent on publish', () => {
+        const saved3 = [item('a', { hiddenInGallery: true, },),];
+        const d = draftFromItems(saved3,);
+        expect(d[0].options.hiddenInGallery,).toBe(true,);
+        expect(isDraftDirty(d, saved3,),).toBe(false,);
+        expect(buildPublishBody(d,).items[0].hiddenInGallery,).toBe(true,);
+        const flipped = [{ ...d[0], options: { ...d[0].options, hiddenInGallery: false, }, },];
+        expect(isDraftDirty(flipped, saved3,),).toBe(true,);
+        expect(buildPublishBody(flipped,).items[0].hiddenInGallery,).toBe(false,);
+        // A new row publishes it too; a draft stored before the field existed publishes "not hidden".
+        expect(buildPublishBody([{ key: 'm:z', mediaId: 'z', media: null, options: { ...EMPTY_OPTIONS, hiddenInGallery: true, }, },],).items[0].hiddenInGallery,).toBe(true,);
+        expect(patchOf({ ...EMPTY_OPTIONS, hiddenInGallery: undefined, } as never,).hiddenInGallery,).toBe(false,);
     },);
 },);
 

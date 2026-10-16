@@ -37,7 +37,7 @@ interface Row {
     id: string; media_id: string | null; title: string | null; caption: string | null; tags: string[]; sort_order: number;
     visibility: GalleryItem['visibility']; min_tier_id: string | null; comments: GalleryItem['comments'];
     anonymous_comments: GalleryItem['anonymousComments']; created_at: Date; updated_at: Date;
-    collection_id: string | null; access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
+    collection_id: string | null; hidden_in_gallery: boolean | null; access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
     m_id: string | null; m_mime: string | null; m_url: string | null; m_thumb: string | null; m_width: number | null; m_height: number | null;
     m_duration: number | null; m_title: string | null; m_caption: string | null; m_alt: string | null; m_credits: string | null;
     m_access: 'public' | 'private' | null; m_status: string | null; m_name: string | null; comment_count: number | null;
@@ -102,6 +102,7 @@ export function mapRow(r: Row, baseUrl: string,): GalleryItem {
         comments: r.comments,
         anonymousComments: r.anonymous_comments,
         url: galleryItemPath(baseUrl, r.id,),
+        hiddenInGallery: Boolean(r.hidden_in_gallery,),
         commentCount: Number(r.comment_count ?? 0,),
         // A row is only ever INSERTed by the admin Publish (sync) and created_at is never updated, so it IS the publish date.
         publishedAt: new Date(r.created_at,).toISOString(),
@@ -135,6 +136,7 @@ export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] |
         sort,
         limit: Math.min(MAX_LIMIT, Math.max(1, Math.round(Number(q.limit,) || 24,),),),
         page: Math.max(1, Math.round(Number(q.page,) || 1,),),
+        listing: q.listing === true || (q.listing as unknown) === 'true' || undefined,
     };
 }
 
@@ -172,8 +174,23 @@ export async function audienceConditions(opts: ListOptions, s: GallerySettings, 
     return where;
 }
 
+/**
+ * Gallery-page listings (`listing`) leave out items hidden from the gallery and
+ * items in a hidden collection — except on that collection's own page (the
+ * query names it), which still lists its non-hidden items. Without `listing`
+ * (blocks, templates, email, entity reads) nothing is left out.
+ */
+export function listingConditions(q: Pick<GalleryQuery, 'listing' | 'collectionId'>,): string[] {
+    if (!q.listing) return [];
+    const where = ['gi.hidden_in_gallery = false',];
+    const namesCollection = Boolean(q.collectionId && q.collectionId !== 'root',);
+    if (!namesCollection) where.push('COALESCE(gc.hidden_in_gallery, false) = false',);
+    return where;
+}
+
 async function buildWhere(q: ReturnType<typeof normalizeQuery>, opts: ListOptions, s: GallerySettings, params: unknown[],): Promise<string> {
     const where = await audienceConditions(opts, s, params,);
+    where.push(...listingConditions(q,),);
     if (q.collectionId === 'root') where.push('gi.collection_id IS NULL',);
     else if (q.collectionId) {
         params.push(q.collectionId,);
@@ -289,6 +306,7 @@ function cleanPatch(p: GalleryItemPatch,): GalleryItemPatch {
         out.collectionId = p.collectionId;
     }
     if (p.access !== undefined) out.access = cleanRule(p.access,);
+    if (p.hiddenInGallery !== undefined) out.hiddenInGallery = Boolean(p.hiddenInGallery,);
     if (out.visibility === 'tier' && out.minTierId === null) throw new ValidationError('Choose a tier for a tier-only item.',);
     return out;
 }
@@ -296,6 +314,7 @@ function cleanPatch(p: GalleryItemPatch,): GalleryItemPatch {
 const COLS: Record<Exclude<keyof GalleryItemPatch, 'access'>, string> = {
     titleOverride: 'title', captionOverride: 'caption', tags: 'tags', visibility: 'visibility', minTierId: 'min_tier_id',
     comments: 'comments', anonymousComments: 'anonymous_comments', collectionId: 'collection_id',
+    hiddenInGallery: 'hidden_in_gallery',
 };
 
 /** SET fragments for the fields PRESENT in the patch — an omitted field stays as it is. */
@@ -421,12 +440,12 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
                     const access = p.access ?? { enabled: false, roles: [], tierIds: [], };
                     await client.query(
                         `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments, created_by,
-                                                    collection_id, access_enabled, access_roles, access_tier_ids)
-                         VALUES ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13::text[], $14::uuid[])`,
+                                                    collection_id, access_enabled, access_roles, access_tier_ids, hidden_in_gallery)
+                         VALUES ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13::text[], $14::uuid[], $15)`,
                         [
                             item.mediaId, order, p.titleOverride ?? null, p.captionOverride ?? null, p.tags ?? [], p.visibility ?? 'inherit',
                             p.minTierId ?? null, p.comments ?? 'inherit', p.anonymousComments ?? 'inherit', uuidOrNull(ctx.userId,),
-                            p.collectionId ?? null, access.enabled, access.roles, access.tierIds,
+                            p.collectionId ?? null, access.enabled, access.roles, access.tierIds, p.hiddenInGallery ?? false,
                         ],
                     );
                     added += 1;

@@ -1069,8 +1069,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "collections",
-                "signature": "collections(): Promise<GalleryCollection[]>",
-                "summary": "GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see."
+                "signature": "collections(query: GalleryCollectionsQuery = {}): Promise<GalleryCollection[]>",
+                "summary": "GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see. `listing: true` (the gallery pages) leaves out collections hidden from the gallery."
             },
             {
                 "name": "config",
@@ -1095,7 +1095,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "list",
                 "signature": "list(query: GalleryQuery = {}): Promise<GalleryListResult>",
-                "summary": "GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`."
+                "summary": "GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`. `listing: true` (the gallery pages) leaves out items hidden from the gallery and items in hidden collections."
             },
             {
                 "name": "moveItems",

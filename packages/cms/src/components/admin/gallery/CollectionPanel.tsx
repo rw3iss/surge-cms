@@ -1,13 +1,14 @@
 /**
  * Gallery admin → the selected COLLECTION (side panel). Unlike item options,
- * a collection is not part of the gallery draft: its name, description and
- * access save straight to the server with **Save**. Text fields commit to the
+ * a collection is not part of the gallery draft: its name, description,
+ * "Hide from gallery" and access save straight to the server with **Save**. Text fields commit to the
  * panel's local copy on blur / Enter (project rule).
  */
 import type { GalleryAccessRule, GalleryCollection, GalleryCollectionInput, } from '@sitesurge/types';
 import { createEffect, createMemo, createSignal, on, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import type { MultiSelectOption, } from '../../ui/MultiSelect';
+import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import AccessRuleEditor from './AccessRuleEditor';
 import CommitInput from './CommitInput';
@@ -27,9 +28,11 @@ export interface CollectionPanelProps {
     onClose: () => void;
 }
 
-interface Local { name: string; description: string; access: GalleryAccessRule; }
+interface Local { name: string; description: string; access: GalleryAccessRule; hiddenInGallery: boolean; }
 
-const localOf = (c: GalleryCollection,): Local => ({ name: c.name, description: c.description ?? '', access: copyAccess(c.access,), });
+const localOf = (c: GalleryCollection,): Local => ({
+    name: c.name, description: c.description ?? '', access: copyAccess(c.access,), hiddenInGallery: Boolean(c.hiddenInGallery,),
+});
 
 export default function CollectionPanel(props: CollectionPanelProps,) {
     const [local, setLocal,] = createStore<Local>(localOf(props.collection,),);
@@ -46,7 +49,7 @@ export default function CollectionPanel(props: CollectionPanelProps,) {
         if (!dirty() || saving()) return;
         setSaving(true,);
         try {
-            await props.onSave({ name: local.name.trim() || 'Untitled', description: local.description, access: copyAccess(local.access,), },);
+            await props.onSave({ name: local.name.trim() || 'Untitled', description: local.description, access: copyAccess(local.access,), hiddenInGallery: local.hiddenInGallery, },);
         } finally {
             setSaving(false,);
         }
@@ -76,6 +79,13 @@ export default function CollectionPanel(props: CollectionPanelProps,) {
             <FormField label="Description" hint="Shown on the collection's page.">
                 <CommitInput multiline rows={4} value={local.description} onCommit={(v,) => setLocal('description', v,)} />
             </FormField>
+
+            <Toggle
+                checked={local.hiddenInGallery}
+                onChange={(v,) => setLocal('hiddenInGallery', v,)}
+                label="Hide from gallery"
+                hint="Still usable in Gallery blocks, templates and emails, and its own page still works — it is just not listed on the gallery pages. Its items are not listed either, except on its own page."
+            />
 
             <AccessRuleEditor
                 value={local.access}

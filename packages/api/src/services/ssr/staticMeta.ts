@@ -392,7 +392,7 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
     if (isIndex) {
         const description = clip(s.description,) || `${title} — ${c.siteName}.`;
         if (!publicGallery) return page(c, title, description, gated,);
-        const items = await g.list({ limit: 60, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
+        const items = await g.list({ limit: 60, listing: true, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
         const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
         return page(c, title, description, {
             image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,
@@ -416,7 +416,7 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
         const name = collection.name || 'Collection';
         const description = clip(collection.description,) || `${name} — ${title} on ${c.siteName}.`;
         if (!publicGallery) return page(c, name, description, gated,);
-        const items = await g.list({ collectionId: collection.id, limit: 60, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
+        const items = await g.list({ collectionId: collection.id, limit: 60, listing: true, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
         const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
         return page(c, name, description, {
             image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,

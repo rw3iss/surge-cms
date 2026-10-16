@@ -27,7 +27,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface CollectionRow {
     id: string; name: string; description: string; sort_order: number;
-    access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
+    access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null; hidden_in_gallery: boolean | null;
     created_at: Date; updated_at: Date; item_count: number | null; cover: string | null;
 }
 
@@ -41,6 +41,7 @@ export function mapCollection(r: CollectionRow, baseUrl: string,): GalleryCollec
         itemCount: Number(r.item_count ?? 0,),
         coverThumbnailUrl: r.cover ?? null,
         url: galleryCollectionPath(baseUrl, r.id,),
+        hiddenInGallery: Boolean(r.hidden_in_gallery,),
         createdAt: new Date(r.created_at,).toISOString(),
         updatedAt: new Date(r.updated_at,).toISOString(),
     };
@@ -52,14 +53,19 @@ type Audience = 'site' | 'admin';
  * Collections with counts + covers for an audience. `site` lists only the
  * collections the viewer may open and counts only the items they may see.
  */
-async function select(audience: Audience, viewer: LevelViewer, grants: ViewerGrants, id?: string,): Promise<GalleryCollection[]> {
+async function select(audience: Audience, viewer: LevelViewer, grants: ViewerGrants, id?: string, listing = false,): Promise<GalleryCollection[]> {
     const s = await getSettings();
     const params: unknown[] = [];
     // Item conditions inside the correlated subqueries; `gc` = the outer collection row.
     const itemWhere = await audienceConditions(audience === 'admin' ? { audience: 'admin', } : { viewer, grants, }, s, params,);
+    // Site counts / covers follow the collection page's grid, which never lists an item hidden from the gallery.
+    if (audience === 'site') itemWhere.push('gi.hidden_in_gallery = false',);
     const itemCond = ['gi.collection_id = gc.id', ...itemWhere,].join(' AND ',);
     const where: string[] = [];
     if (audience === 'site') where.push(collectionGateSql(grants, params,),);
+    // Gallery-page listing: hidden collections are not listed (their item counts / covers need no change — a
+    // collection page lists its own non-hidden items, and those are what itemCount counts).
+    if (listing) where.push('gc.hidden_in_gallery = false',);
     if (id) {
         params.push(id,);
         where.push(`gc.id = $${params.length}`,);
@@ -79,16 +85,21 @@ async function select(audience: Audience, viewer: LevelViewer, grants: ViewerGra
     return r.rows.map((x,) => mapCollection(x, s.baseUrl,),);
 }
 
-/** Collections visible to a site viewer (anonymous result cached 60 s). */
-export async function listCollections(viewer: LevelViewer, grants?: ViewerGrants,): Promise<GalleryCollection[]> {
+/**
+ * Collections visible to a site viewer (anonymous result cached 60 s).
+ * `listing` (the gallery pages) leaves out collections hidden from the gallery.
+ */
+export async function listCollections(viewer: LevelViewer, grants?: ViewerGrants, opts: { listing?: boolean; } = {},): Promise<GalleryCollection[]> {
     const anonymous = !viewer?.id;
+    const listing = Boolean(opts.listing,);
+    const key = listing ? CACHE_KEYS.galleryCollectionsListing : CACHE_KEYS.galleryCollections;
     if (anonymous) {
-        const hit = await cache.get<GalleryCollection[]>(CACHE_KEYS.galleryCollections,);
+        const hit = await cache.get<GalleryCollection[]>(key,);
         if (hit) return hit;
     }
     const g = grants ?? (anonymous ? ANONYMOUS_GRANTS : await viewerGrants(viewer,));
-    const out = await select('site', viewer, g,);
-    if (anonymous) await cache.set(CACHE_KEYS.galleryCollections, out, 60,);
+    const out = await select('site', viewer, g, undefined, listing,);
+    if (anonymous) await cache.set(key, out, 60,);
     return out;
 }
 
@@ -119,7 +130,7 @@ async function adminCollection(id: string,): Promise<GalleryCollection> {
 }
 
 function cleanInput(input: GalleryCollectionInput,) {
-    const out: { name?: string; description?: string; sortOrder?: number; access?: ReturnType<typeof cleanRule>; } = {};
+    const out: { name?: string; description?: string; sortOrder?: number; access?: ReturnType<typeof cleanRule>; hiddenInGallery?: boolean; } = {};
     if (input.name !== undefined) out.name = String(input.name ?? '',).trim().slice(0, 200,) || 'Untitled';
     if (input.description !== undefined) out.description = String(input.description ?? '',).slice(0, 4000,);
     if (input.sortOrder !== undefined) {
@@ -128,6 +139,7 @@ function cleanInput(input: GalleryCollectionInput,) {
         out.sortOrder = n;
     }
     if (input.access !== undefined) out.access = cleanRule(input.access,);
+    if (input.hiddenInGallery !== undefined) out.hiddenInGallery = Boolean(input.hiddenInGallery,);
     return out;
 }
 
@@ -141,10 +153,10 @@ export async function createCollection(input: GalleryCollectionInput, ctx: Audit
     const c = cleanInput(input,);
     const access = c.access ?? { enabled: false, roles: [], tierIds: [], };
     const r = await query<{ id: string; }>(
-        `INSERT INTO gallery_collections (name, description, sort_order, access_enabled, access_roles, access_tier_ids, created_by)
-         VALUES ($1, $2, COALESCE($3::int, (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM gallery_collections)), $4, $5::text[], $6::uuid[], $7)
+        `INSERT INTO gallery_collections (name, description, sort_order, access_enabled, access_roles, access_tier_ids, created_by, hidden_in_gallery)
+         VALUES ($1, $2, COALESCE($3::int, (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM gallery_collections)), $4, $5::text[], $6::uuid[], $7, $8)
          RETURNING id`,
-        [c.name ?? 'Untitled', c.description ?? '', c.sortOrder ?? null, access.enabled, access.roles, access.tierIds, uuidOrNull(ctx.userId,),],
+        [c.name ?? 'Untitled', c.description ?? '', c.sortOrder ?? null, access.enabled, access.roles, access.tierIds, uuidOrNull(ctx.userId,), c.hiddenInGallery ?? false,],
     );
     const id = r.rows[0].id;
     await changed();
@@ -163,6 +175,7 @@ export async function updateCollection(id: string, input: GalleryCollectionInput
     if (c.name !== undefined) set('name', c.name,);
     if (c.description !== undefined) set('description', c.description,);
     if (c.sortOrder !== undefined) set('sort_order', c.sortOrder,);
+    if (c.hiddenInGallery !== undefined) set('hidden_in_gallery', c.hiddenInGallery,);
     if (c.access) {
         set('access_enabled', c.access.enabled,);
         set('access_roles', c.access.roles, '::text[]',);

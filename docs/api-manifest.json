@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:09:47.135Z",
+  "generatedAt": "2026-10-16T20:26:36.031Z",
   "totalModules": 55,
   "totalRoutes": 569,
   "modules": [
@@ -1259,7 +1259,7 @@
           "path": "/",
           "absolutePath": "/api/v1/gallery",
           "auth": "optional",
-          "summary": "Query gallery items visible to the viewer (type, tag, search, ids, sort, limit, page)."
+          "summary": "Query gallery items visible to the viewer (type, tag, search, ids, sort, limit, page). `listing=true` (gallery pages) leaves out items hidden from the gallery and items in hidden collections."
         },
         {
           "method": "GET",
@@ -1273,7 +1273,7 @@
           "path": "/collections",
           "absolutePath": "/api/v1/gallery/collections",
           "auth": "optional",
-          "summary": "Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover."
+          "summary": "Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover. `listing=true` (gallery pages) leaves out collections hidden from the gallery."
         },
         {
           "method": "GET",
@@ -1301,7 +1301,7 @@
           "path": "/admin/collections/:id",
           "absolutePath": "/api/v1/gallery/admin/collections/:id",
           "auth": "staff",
-          "summary": "Update a gallery collection (name, description, sort order, access rule)."
+          "summary": "Update a gallery collection (name, description, sort order, access rule, hidden from the gallery)."
         },
         {
           "method": "DELETE",
@@ -1336,7 +1336,7 @@
           "path": "/admin/items/:id",
           "absolutePath": "/api/v1/gallery/admin/items/:id",
           "auth": "staff",
-          "summary": "Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule)."
+          "summary": "Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule, hidden from the gallery)."
         },
         {
           "method": "DELETE",

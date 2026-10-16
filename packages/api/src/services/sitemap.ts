@@ -81,12 +81,13 @@ async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url:
         if (!cfg.canView) return null;
         const items: Array<{ url: string; updatedAt: string; }> = [];
         for (let page = 1; page <= 25; page += 1) {
-            const r = await g.list({ limit: 200, page, }, { viewer: null, },);
+            // `listing`: items hidden from the gallery (or in a hidden collection) are not meant to be browsed.
+            const r = await g.list({ limit: 200, page, listing: true, }, { viewer: null, },);
             items.push(...r.items.map((i,) => ({ url: i.url, updatedAt: i.updatedAt, })),);
             if (r.items.length < 200) break;
         }
         // Anonymous view: collections behind an access rule are not listed.
-        const collections = (await g.listCollections(null,)).map((c,) => ({ url: c.url, updatedAt: c.updatedAt, }));
+        const collections = (await g.listCollections(null, undefined, { listing: true, },)).map((c,) => ({ url: c.url, updatedAt: c.updatedAt, }));
         return { base: cfg.baseUrl, items, collections, };
     } catch {
         return null;

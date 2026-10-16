@@ -118,6 +118,38 @@ describe('list WHERE by audience', () => {
     },);
 },);
 
+describe('listing (gallery pages) vs default', () => {
+    const listSql = () => calls.find((c,) => c.sql.includes('LIMIT',),)!.sql;
+
+    it('default (blocks, templates, email): hidden items + hidden collections are included', async () => {
+        await items.list({}, {},);
+        expect(listSql(),).not.toContain('hidden_in_gallery',);
+        calls.length = 0;
+        await items.list({}, { audience: 'email', },);
+        expect(listSql(),).not.toContain('hidden_in_gallery',);
+    },);
+
+    it('listing: leaves out hidden items and items in hidden collections, in SQL (count too)', async () => {
+        await items.list({ listing: true, }, {},);
+        expect(listSql(),).toContain('gi.hidden_in_gallery = false',);
+        expect(listSql(),).toContain('COALESCE(gc.hidden_in_gallery, false) = false',);
+        const count = calls.find((c,) => c.sql.includes('COUNT(*)',),)!.sql;
+        expect(count,).toContain('gi.hidden_in_gallery = false',);
+        expect(count,).toContain('LEFT JOIN gallery_collections gc',);
+    },);
+
+    it("listing a collection's own page keeps its non-hidden items even when the collection is hidden", async () => {
+        await items.list({ listing: true, collectionId: C1, }, {},);
+        expect(listSql(),).toContain('gi.hidden_in_gallery = false',);
+        expect(listSql(),).not.toContain('gc.hidden_in_gallery',);
+    },);
+
+    it("accepts the query string's 'true'", () => {
+        expect(items.normalizeQuery({ listing: 'true' as never, },).listing,).toBe(true,);
+        expect(items.normalizeQuery({},).listing,).toBeUndefined();
+    },);
+},);
+
 describe('sync validation', () => {
     it('refuses unknown media and duplicates', async () => {
         await expect(items.sync({ items: [{ mediaId: M1, }, { mediaId: M1, },], }, CTX,),).rejects.toThrow(/listed twice/,);
@@ -159,6 +191,21 @@ describe('sync preserves collection + access', () => {
         const ins = calls.find((c,) => c.sql.includes('INSERT INTO gallery_items',),)!;
         expect(ins.sql,).toContain('collection_id',);
         expect(ins.params,).toContain(C1,);
+    },);
+
+    it('hiddenInGallery: omitted = unchanged, given = set (update + insert)', async () => {
+        await items.sync({ items: [{ id: I1, titleOverride: 'x', },], }, CTX,);
+        expect(updateOf().sql,).not.toContain('hidden_in_gallery',);
+        calls.length = 0;
+        await items.sync({ items: [{ id: I1, hiddenInGallery: true, },], }, CTX,);
+        expect(updateOf().sql,).toContain('hidden_in_gallery = $',);
+        expect(updateOf().params,).toContain(true,);
+        calls.length = 0;
+        mediaRows = [{ id: M1, mime_type: 'image/png', },];
+        await items.sync({ items: [{ mediaId: M1, hiddenInGallery: true, },], }, CTX,);
+        const ins = calls.find((c,) => c.sql.includes('INSERT INTO gallery_items',),)!;
+        expect(ins.sql,).toContain('hidden_in_gallery',);
+        expect(ins.params.at(-1,),).toBe(true,);
     },);
 
     it('refuses an unknown collection', async () => {

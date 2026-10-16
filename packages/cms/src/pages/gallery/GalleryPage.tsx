@@ -36,7 +36,7 @@ const GalleryPage: Component = () => {
     // Collections first: whether any exist decides which items the listing shows.
     const [collections, { refetch: refetchCollections, },] = createResource(
         () => (config()?.canView ? viewerKey() : null),
-        () => cms.gallery.collections().catch(() => [] as GalleryCollection[]),
+        () => cms.gallery.collections({ listing: true, },).catch(() => [] as GalleryCollection[]),
     );
     const shownCollections = () => visibleCollections(collections(),);
 

@@ -1,5 +1,5 @@
 import type {
-    GalleryCollection, GalleryCollectionDeleteBody, GalleryCollectionDeleteResponse, GalleryCollectionInput, GalleryMoveItemsBody,
+    GalleryCollection, GalleryCollectionDeleteBody, GalleryCollectionsQuery, GalleryCollectionDeleteResponse, GalleryCollectionInput, GalleryMoveItemsBody,
     GalleryMoveItemsResponse,
     GalleryAdminItemsResponse, GalleryItem, GalleryItemUpdateBody, GalleryListResult, GalleryPublicConfig, GalleryQuery,
     GalleryRemoveResponse, GallerySettings, GallerySettingsBody, GallerySyncBody, GallerySyncResponse,
@@ -22,7 +22,10 @@ export class GalleryModule extends ModuleBase {
         return this.get('/gallery/config', { options: { cache: false, }, },);
     }
 
-    /** GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`. */
+    /**
+     * GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`.
+     * `listing: true` (the gallery pages) leaves out items hidden from the gallery and items in hidden collections.
+     */
     list(query: GalleryQuery = {},): Promise<GalleryListResult> {
         const { ids, ...rest } = query;
         return this.get('/gallery', { query: { ...rest, ids: ids?.length ? ids.join(',',) : undefined, }, options: { cache: false, }, },);
@@ -33,9 +36,12 @@ export class GalleryModule extends ModuleBase {
         return this.get('/gallery/items/:id', { params: { id, }, options: { cache: false, }, },);
     }
 
-    /** GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see. */
-    collections(): Promise<GalleryCollection[]> {
-        return this.get('/gallery/collections', { options: { cache: false, }, },);
+    /**
+     * GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see.
+     * `listing: true` (the gallery pages) leaves out collections hidden from the gallery.
+     */
+    collections(query: GalleryCollectionsQuery = {},): Promise<GalleryCollection[]> {
+        return this.get('/gallery/collections', { query: query.listing ? { listing: true, } : undefined, options: { cache: false, }, },);
     }
 
     /** GET /gallery/collections/:id — one collection (404 when missing or the viewer fails its access rule). */

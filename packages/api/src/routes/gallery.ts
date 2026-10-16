@@ -10,8 +10,8 @@
  */
 import { z, } from 'zod';
 import type {
-    GalleryAdminCollectionsResponse, GalleryCollectionCreateBody, GalleryCollectionDeleteBody, GalleryCollectionDeleteResponse,
-    GalleryCollectionResponse, GalleryCollectionsResponse, GalleryCollectionUpdateBody, GalleryMoveItemsBody, GalleryMoveItemsResponse,
+    AssertCompatible, GalleryAdminCollectionsResponse, GalleryCollectionCreateBody, GalleryCollectionDeleteBody, GalleryCollectionDeleteResponse,
+    GalleryCollectionResponse, GalleryCollectionsQuery, GalleryCollectionsResponse, GalleryCollectionUpdateBody, GalleryMoveItemsBody, GalleryMoveItemsResponse,
     GalleryAdminItemsResponse, GalleryConfigResponse, GalleryItemResponse, GalleryItemUpdateBody, GalleryListResponse,
     GalleryRemoveResponse, GallerySettingsBody, GallerySettingsResponse, GallerySyncBody, GallerySyncResponse,
 } from '@sitesurge/types';
@@ -38,6 +38,7 @@ const patch = z.object({
     anonymousComments: inherit.optional(),
     collectionId: z.string().uuid().nullable().optional(),
     access: accessRule.optional(),
+    hiddenInGallery: z.boolean().optional(),
 },) satisfies z.ZodType<GalleryItemUpdateBody>;
 
 const collectionBody = z.object({
@@ -45,6 +46,7 @@ const collectionBody = z.object({
     description: z.string().max(4000,).optional(),
     sortOrder: z.number().int().optional(),
     access: accessRule.optional(),
+    hiddenInGallery: z.boolean().optional(),
 },) satisfies z.ZodType<GalleryCollectionCreateBody & GalleryCollectionUpdateBody>;
 
 const collectionDeleteBody = z.object({
@@ -63,6 +65,10 @@ const syncBody = z.object({
     remove: z.array(z.object({ id: z.string().uuid(), deleteMedia: z.boolean().optional(), },),).max(5000,).optional(),
 },) satisfies z.ZodType<GallerySyncBody>;
 
+/** `?listing=true` (gallery pages only) — query strings carry booleans as text. */
+const queryBool = z.union([z.boolean(), z.enum(['true', 'false', '1', '0',],),],).optional()
+    .transform((v,) => (v === undefined ? undefined : v === true || v === 'true' || v === '1'),);
+
 const listQuery = z.object({
     ids: z.string().max(10_000,).optional(),
     collectionId: z.union([z.literal('root',), z.string().uuid(),],).optional(),
@@ -72,7 +78,11 @@ const listQuery = z.object({
     sort: z.enum(['order', 'newest', 'oldest', 'title', 'random',],).optional(),
     limit: z.coerce.number().int().min(1,).max(200,).optional(),
     page: z.coerce.number().int().min(1,).optional(),
+    listing: queryBool,
 },);
+
+const collectionsQuery = z.object({ listing: queryBool, },);
+type _AssertCollectionsQuery = AssertCompatible<z.infer<typeof collectionsQuery>, GalleryCollectionsQuery>;
 
 const appearance = z.object({
     layout: z.enum(['grid', 'masonry', 'carousel', 'stage',],).optional(),
@@ -135,7 +145,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'get', path: '/', auth: 'optional',
-        summary: 'Query gallery items visible to the viewer (type, tag, search, ids, sort, limit, page).',
+        summary: 'Query gallery items visible to the viewer (type, tag, search, ids, sort, limit, page). `listing=true` (gallery pages) leaves out items hidden from the gallery and items in hidden collections.',
         input: { query: listQuery, },
         handler: async ({ query, user, },): Promise<GalleryListResponse> => {
             if (!(await canView(user,))) return { items: [], total: 0, page: 1, limit: query.limit ?? 24, };
@@ -156,10 +166,11 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'get', path: '/collections', auth: 'optional',
-        summary: 'Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover.',
-        handler: async ({ user, },): Promise<GalleryCollectionsResponse> => {
+        summary: 'Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover. `listing=true` (gallery pages) leaves out collections hidden from the gallery.',
+        input: { query: collectionsQuery, },
+        handler: async ({ query, user, },): Promise<GalleryCollectionsResponse> => {
             if (!(await canView(user,))) return [];
-            return gallery.listCollections(viewerOf(user,),);
+            return gallery.listCollections(viewerOf(user,), undefined, { listing: query.listing, },);
         },
     },),
     defineRoute({
@@ -195,7 +206,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'patch', path: '/admin/collections/:id', auth: 'staff',
-        summary: 'Update a gallery collection (name, description, sort order, access rule).',
+        summary: 'Update a gallery collection (name, description, sort order, access rule, hidden from the gallery).',
         input: { params: idParams, body: collectionBody, },
         handler: async ({ params, body, user, audit, },): Promise<GalleryCollectionResponse> => {
             await need(user, 'gallery:manage',);
@@ -241,7 +252,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'patch', path: '/admin/items/:id', auth: 'staff',
-        summary: 'Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule).',
+        summary: 'Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule, hidden from the gallery).',
         input: { params: idParams, body: patch, },
         handler: async ({ params, body, user, audit, },): Promise<GalleryItemResponse> => {
             await need(user, 'gallery:manage',);

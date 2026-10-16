@@ -21,6 +21,7 @@ function answer(sql: string, params: unknown[],) {
     }
     if (sql.startsWith('DELETE FROM gallery_items WHERE collection_id',)) return { rows: deletedItems, rowCount: deletedItems.length, };
     if (sql.startsWith('UPDATE gallery_items',)) return { rows: [], rowCount: 2, };
+    if (sql.startsWith('UPDATE gallery_collections',)) return { rows: [], rowCount: 1, };
     if (sql.includes('INSERT INTO gallery_collections',)) return { rows: [{ id: C1, },], };
     if (sql.startsWith('SELECT gc.*',)) {
         return { rows: [{ id: C1, name: 'Untitled', description: '', sort_order: -1, access_enabled: false, access_roles: [], access_tier_ids: [], created_at: new Date(), updated_at: new Date(), item_count: 0, cover: null, },], };
@@ -43,7 +44,7 @@ vi.mock('../../db', () => ({
 vi.mock('../settings', () => ({ get: async () => ({}), set: async () => undefined, }),);
 vi.mock('../cache', () => ({
     cache: { get: async () => null, set: async () => undefined, invalidateGalleryCache: async () => undefined, invalidateSitemapCache: async () => undefined, },
-    CACHE_KEYS: { galleryList: (h: string,) => `gallery:list:${h}`, galleryCollections: 'gallery:collections', },
+    CACHE_KEYS: { galleryList: (h: string,) => `gallery:list:${h}`, galleryCollections: 'gallery:collections', galleryCollectionsListing: 'gallery:collections:listing', },
 }),);
 vi.mock('../audit', () => ({ logAudit: async () => undefined, }),);
 vi.mock('../media.js', () => ({ remove: async (id: string,) => { mediaRemoved.push(id,); }, }),);
@@ -149,6 +150,30 @@ describe('listCollections (site)', () => {
         expect(sel.sql,).toContain('gi.collection_id = gc.id',);
         expect(sel.sql,).toContain('CASE WHEN (gi.access_enabled',);
         expect(sel.params,).toContainEqual(['member', 'ambassador',],);
+    },);
+
+    it('listing (gallery pages) leaves out hidden collections; the default list and one collection keep them', async () => {
+        const sel = () => calls.find((c,) => c.sql.startsWith('SELECT gc.*',),)!.sql;
+        await col.listCollections(null, undefined, { listing: true, },);
+        expect(sel(),).toContain('gc.hidden_in_gallery = false',);
+        calls.length = 0;
+        await col.listCollections(null,);
+        expect(sel(),).not.toContain('gc.hidden_in_gallery',);
+        calls.length = 0;
+        await col.getCollection(C1, null,);
+        expect(sel(),).not.toContain('gc.hidden_in_gallery',);
+        // Counts / covers follow the collection page's grid (no hidden items).
+        expect(sel(),).toContain('gi.hidden_in_gallery = false',);
+    },);
+
+    it('update sets hiddenInGallery only when given', async () => {
+        await col.updateCollection(C1, { hiddenInGallery: true, }, CTX,);
+        const up = calls.find((c,) => c.sql.startsWith('UPDATE gallery_collections',),)!;
+        expect(up.sql,).toContain('hidden_in_gallery = $2',);
+        expect(up.params,).toEqual([C1, true,],);
+        calls.length = 0;
+        await col.updateCollection(C1, { name: 'x', }, CTX,);
+        expect(calls.find((c,) => c.sql.startsWith('UPDATE gallery_collections',),)!.sql,).not.toContain('hidden_in_gallery',);
     },);
 
     it('admin: no gates', async () => {

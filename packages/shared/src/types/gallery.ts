@@ -172,6 +172,11 @@ export interface GalleryCollection {
     coverThumbnailUrl: string | null;
     /** `<baseUrl>/collection/<id>`. */
     url: string;
+    /**
+     * Left out of the gallery LISTINGS (collections section, sidebar, sitemap) — with its items.
+     * Its own page still works when opened directly.
+     */
+    hiddenInGallery: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -181,6 +186,7 @@ export interface GalleryCollectionInput {
     description?: string;
     sortOrder?: number;
     access?: GalleryAccessRule;
+    hiddenInGallery?: boolean;
 }
 
 /** What happens to a deleted collection's items. */
@@ -210,6 +216,11 @@ export interface GalleryItem {
     anonymousComments: GalleryInheritSwitch;
     /** Public page of the item: `<baseUrl>/<id>`. */
     url: string;
+    /**
+     * Left out of the gallery LISTINGS (grids, lightbox strip, prev/next, sitemap). Still returned to
+     * Gallery blocks, `{{gallery()}}`, email, the entity type and the admin; its own page still works.
+     */
+    hiddenInGallery: boolean;
     commentCount: number;
     /**
      * When the item was first published (the admin Publish that created it).
@@ -236,6 +247,11 @@ export interface GalleryQuery {
     sort?: GallerySort;
     limit?: number;
     page?: number;
+    /**
+     * Gallery-page listing: leave out items hidden from the gallery and items in hidden collections
+     * (except when `collectionId` names that collection). Absent = include them (blocks, templates, email).
+     */
+    listing?: boolean;
 }
 
 export interface GalleryListResult {

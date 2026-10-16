@@ -19,6 +19,8 @@ export interface DraftOptions {
     anonymousComments: NonNullable<GalleryItemPatch['anonymousComments']>;
     /** The item's own role / tier gate. */
     access: GalleryAccessRule;
+    /** Left out of the public gallery listings (still usable in blocks, templates, emails; its own page works). */
+    hiddenInGallery: boolean;
 }
 
 export interface DraftItem {
@@ -55,7 +57,7 @@ export interface DraftItem {
 
 export const EMPTY_OPTIONS: DraftOptions = {
     titleOverride: '', captionOverride: '', tags: [], visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit',
-    access: EMPTY_GALLERY_ACCESS_RULE,
+    access: EMPTY_GALLERY_ACCESS_RULE, hiddenInGallery: false,
 };
 
 /** A fresh copy of a rule (arrays never shared with the store). */
@@ -78,6 +80,7 @@ export function optionsOf(i: GalleryItem,): DraftOptions {
         comments: i.comments,
         anonymousComments: i.anonymousComments,
         access: copyAccess(i.access,),
+        hiddenInGallery: Boolean(i.hiddenInGallery,),
     };
 }
 
@@ -125,6 +128,8 @@ export function patchOf(o: DraftOptions,): GalleryItemPatch {
         anonymousComments: o.anonymousComments,
         // A draft stored before access existed has none: send the empty (inheriting) rule.
         access: copyAccess(o.access,),
+        // Likewise for a draft stored before "Hide from gallery" existed: not hidden.
+        hiddenInGallery: Boolean(o.hiddenInGallery,),
     };
 }
 

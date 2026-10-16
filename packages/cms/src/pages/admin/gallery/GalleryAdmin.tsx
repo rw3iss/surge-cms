@@ -591,6 +591,7 @@ const GalleryAdmin: Component = () => {
                                                         <div class="gallery-admin__badges">
                                                             <span class="gallery-admin__badge gallery-admin__badge--folder">Collection</span>
                                                             <Show when={isGalleryAccessRuleActive(c.access,)}><span class="gallery-admin__badge gallery-admin__badge--vis">Restricted</span></Show>
+                                                            <Show when={c.hiddenInGallery}><span class="gallery-admin__badge gallery-admin__badge--hidden" title="Not listed on the gallery pages">Hidden</span></Show>
                                                         </div>
                                                     </div>
                                                     <div class="media-grid__info">
@@ -683,6 +684,7 @@ const GalleryAdmin: Component = () => {
                                                     <Show when={isVideoRow(r,)}><span class="gallery-admin__badge">Video</span></Show>
                                                     <Show when={visibilityBadge(r,)}>{(v,) => <span class="gallery-admin__badge gallery-admin__badge--vis">{v()}</span>}</Show>
                                                     <Show when={isGalleryAccessRuleActive(r.options.access,)}><span class="gallery-admin__badge gallery-admin__badge--vis">Restricted</span></Show>
+                                                    <Show when={r.options.hiddenInGallery}><span class="gallery-admin__badge gallery-admin__badge--hidden" title="Not listed on the gallery pages">Hidden</span></Show>
                                                     <Show when={r.file}><span class="gallery-admin__badge gallery-admin__badge--pending">To upload</span></Show>
                                                     <Show when={!r.id && !r.file}><span class="gallery-admin__badge gallery-admin__badge--new">New</span></Show>
                                                 </div>

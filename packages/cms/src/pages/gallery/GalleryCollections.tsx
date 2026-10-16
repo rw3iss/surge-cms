@@ -15,7 +15,7 @@ import { type Component, For, type JSX, Show, } from 'solid-js';
 
 /** Collections worth showing to the public: those with visible items. */
 export const visibleCollections = (list: GalleryCollection[] | null | undefined,): GalleryCollection[] =>
-    (list ?? []).filter((c,) => c.itemCount > 0,);
+    (list ?? []).filter((c,) => c.itemCount > 0 && !c.hiddenInGallery,);
 
 const countLabel = (n: number,): string => `${n} ${n === 1 ? 'item' : 'items'}`;
 

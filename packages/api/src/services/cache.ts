@@ -77,6 +77,7 @@ export const CACHE_KEYS = {
     galleryPrefix: 'gallery:',
     galleryList: (hash: string,) => `gallery:list:${hash}`,
     galleryCollections: 'gallery:collections',
+    galleryCollectionsListing: 'gallery:collections:listing',
 
     // ── Feed / sitemap ──
     feedRss: 'feed:rss',

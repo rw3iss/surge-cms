@@ -69,7 +69,7 @@ const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) =>
     // The sidebar's list — only fetched when the setting is on.
     const [collections,] = createResource(
         () => (data()?.collection && appearance()?.showCollectionsSidebar ? key() : null),
-        () => cms.gallery.collections().catch(() => [] as GalleryCollection[]),
+        () => cms.gallery.collections({ listing: true, },).catch(() => [] as GalleryCollection[]),
     );
 
     const list = useGalleryItems(

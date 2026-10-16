@@ -145,6 +145,13 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
                 <TagsInput value={o().tags} onChange={(tags,) => props.onChange({ tags, },)} />
             </FormField>
 
+            <Toggle
+                checked={Boolean(o().hiddenInGallery,)}
+                onChange={(hiddenInGallery,) => props.onChange({ hiddenInGallery, },)}
+                label="Hide from gallery"
+                hint="Still usable in Gallery blocks, templates and emails, and its own page still works — it is just not listed on the gallery pages."
+            />
+
             <FormField label="Visibility" tooltip="Who may see this item on the site. Email and other public uses show the media whenever the MEDIA itself is public.">
                 <select value={o().visibility} onChange={(e,) => props.onChange({ visibility: e.currentTarget.value as DraftOptions['visibility'], },)}>
                     <option value="inherit">Inherit ({props.defaults.accessLabel})</option>

@@ -157,6 +157,7 @@
     &--pending { background: $warning-color; }
     &--new { background: $success-color; }
     &--folder { background: $secondary-color; }
+    &--hidden { background: $text-color; }
   }
 
   &__progress {

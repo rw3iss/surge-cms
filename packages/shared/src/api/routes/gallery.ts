@@ -27,6 +27,8 @@ export interface GalleryItemPatch {
     collectionId?: string | null;
     /** The item's own role / tier gate. Omitted = unchanged. */
     access?: GalleryAccessRule;
+    /** Leave out of the gallery listings. Omitted = unchanged (publish too). */
+    hiddenInGallery?: boolean;
 }
 export type GalleryItemUpdateBody = GalleryItemPatch;
 
@@ -69,6 +71,10 @@ export interface GalleryRemoveResponse {
 // ─── Collections ──────────────────────────────────────────────────────────
 
 /** GET /gallery/collections — collections visible to the viewer (counts = visible items). */
+export interface GalleryCollectionsQuery {
+    /** Gallery-page listing: leave out collections hidden from the gallery. */
+    listing?: boolean;
+}
 export type GalleryCollectionsResponse = GalleryCollection[];
 /** GET /gallery/collections/:id — 404 when missing or the viewer fails its rule. */
 export type GalleryCollectionResponse = GalleryCollection;

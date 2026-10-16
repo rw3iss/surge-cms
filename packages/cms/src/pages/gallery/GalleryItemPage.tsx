@@ -63,11 +63,12 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
     },);
 
     // Neighbours within the item's listing — its collection, else the gallery
-    // root (= every item when no collections exist). One list read; fine for typical galleries.
+    // root (= every item when no collections exist), as the gallery pages list it (`listing`: an item
+    // hidden from the gallery has no neighbours). One list read; fine for typical galleries.
     const [neighbours,] = createResource(
         () => (data()?.item ? key() : null),
         async () => {
-            const r = await cms.gallery.list({ collectionId: data()?.item?.collectionId ?? 'root', limit: 200, },).catch(() => null);
+            const r = await cms.gallery.list({ collectionId: data()?.item?.collectionId ?? 'root', listing: true, limit: 200, },).catch(() => null);
             const list = r?.items ?? [];
             const i = list.findIndex((x,) => x.id === id(),);
             return i < 0 ? { prev: null, next: null, } : { prev: list[i - 1] ?? null, next: list[i + 1] ?? null, };
@@ -76,7 +77,8 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
 
     const back = () => data()?.config?.baseUrl || '/gallery';
 
-    // Collections: the back link's name and the sidebar. Only read for an item in a collection.
+    // Collections: the back link's name (incl. a collection hidden from the gallery) and the sidebar
+    // (`visibleCollections` drops hidden ones). Only read for an item in a collection.
     const [collections,] = createResource(
         () => (data()?.item?.collectionId ? key() : null),
         () => cms.gallery.collections().catch(() => [] as GalleryCollection[]),

@@ -19,10 +19,11 @@ block and the `{{gallery(...)}}` template function. In-admin guide:
 | `comments`, `anonymous_comments` | `inherit` \| `on` \| `off` (inherit → gallery settings). |
 | `collection_id` | The collection the item is in; NULL = the gallery root (migration 153). `ON DELETE SET NULL`. |
 | `access_enabled`, `access_roles`, `access_tier_ids` | The item's own role / subscription-level rule (see Access model). |
+| `hidden_in_gallery` | **Hide from gallery** (migration 154): left out of the gallery listings only (see below). |
 
 `gallery_collections` (migration `153_gallery_collections.sql`): `name`
 (default "Untitled"), `description`, `sort_order`, the same three `access_*`
-columns, `created_by`. **One level only — collections never nest.** A
+columns, `hidden_in_gallery` (migration 154), `created_by`. **One level only — collections never nest.** A
 collection is a folder of items; its public page is
 `<baseUrl>/collection/<id>` (`galleryCollectionPath`). A new collection is
 placed FIRST (sort order = current minimum − 1) unless `sortOrder` is given.
@@ -31,8 +32,34 @@ decides what happens to its items: `delete` removes them from the gallery
 (+ their comment threads; their media only with `deleteMedia` + `media:write`,
 after the commit), `root` moves them to the gallery root, `move` moves them
 into `targetId` (must exist, must differ). Publish (`PUT /admin/items`)
-**preserves** `collection_id` / `access_*` for items whose input omits them;
-a new item may carry `collectionId` + `access`.
+**preserves** `collection_id` / `access_*` / `hidden_in_gallery` for items whose input omits them;
+a new item may carry `collectionId` + `access` + `hiddenInGallery`.
+
+### Hide from gallery (`hiddenInGallery`, items + collections)
+
+A switch in the admin item panel (draft → Publish) and the collection panel
+(Save); admin tiles / folders show a **Hidden** badge. A hidden item or
+collection still EXISTS for everything else — it is only left out of the
+public gallery **listings**:
+
+| Read | Hidden item | Item in a hidden collection | Hidden collection |
+|---|---|---|---|
+| `/gallery` grid, load-more totals, lightbox strip (`listing=true`) | left out | left out | not in the collections section |
+| Collection page grid (`listing=true` + that `collectionId`) | left out | **listed** (it is its own page) | — |
+| Collections sidebar / cards (`GET /collections?listing=true`) | — | — | left out |
+| Item page prev / next (`listing=true`) | none (not in the list) | within the collection | — |
+| Its own page (`<baseUrl>/<id>`, `<baseUrl>/collection/<id>`) | works | works | works |
+| Gallery block, `{{gallery()}}`, email, `gallery_item` entity, admin | returned | returned | returned (`GET /collections` without `listing`) |
+| Sitemap + SSR index / collection bodies | left out | left out | left out |
+
+`GalleryQuery.listing` is applied in SQL (`listingConditions` in
+`services/gallery/items.ts`) with the access gate, so totals and pagination
+agree; absent = include everything, so blocks / templates / email / entity
+reads are unchanged. Anonymous cache keys include it (the list key hashes the
+query; collections use `gallery:collections:listing`). A collection's site
+`itemCount` + cover never count hidden items (they follow its page's grid).
+The sitemap leaves hidden items / collections out — they are not meant to be
+browsed.
 
 - **Deleting an item never deletes the media** — unless the caller asks
   (`deleteMedia`, needs `media:write`). Deleting the media of a video that is
@@ -140,16 +167,16 @@ and deletes). Gallery writes also drop the sitemap cache.
 | Route | Auth | |
 |---|---|---|
 | `GET /config` | optional | Title, route, appearance, `canView` + `reason` for THIS viewer |
-| `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page` |
-| `GET /collections` | optional | Collections visible to the viewer (sort order, name), `itemCount` = items the viewer can see, cover |
+| `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page`, `listing` (gallery pages: leave out hidden items) |
+| `GET /collections` | optional | Collections visible to the viewer (sort order, name), `itemCount` = items the viewer can see, cover; `listing=true` leaves out hidden collections |
 | `GET /collections/:id` | optional | One collection; 404 when missing, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when the viewer fails its rule (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /items/:id` | optional | One item; 404 when missing / media gone, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when gated (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /admin/items` | staff, `gallery:manage` | Every item in order |
 | `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit |
-| `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`) |
+| `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`, `hiddenInGallery`) |
 | `POST /admin/items/move` | staff, `gallery:manage` | `{ ids, collectionId }` (null = root) |
 | `GET /admin/collections` | staff, `gallery:manage` | Every collection, counts of ALL items |
-| `POST /admin/collections` · `PATCH /admin/collections/:id` | staff, `gallery:manage` | Create (name default "Untitled") / update (name, description, sortOrder, access) |
+| `POST /admin/collections` · `PATCH /admin/collections/:id` | staff, `gallery:manage` | Create (name default "Untitled") / update (name, description, sortOrder, access, hiddenInGallery) |
 | `DELETE /admin/collections/:id` | staff, `gallery:manage` (+ `media:write` for `deleteMedia`) | Body `{ items: 'delete'\|'root'\|'move', targetId?, deleteMedia? }` |
 | `DELETE /admin/items/:id?deleteMedia=true` | staff | Remove one item |
 | `GET /admin/media-links?ids=` | staff | media id → item id |
@@ -266,7 +293,8 @@ for an anonymous crawler) answers `noindex` with no body — the SPA shows the
 sign-in / subscribe prompt (the forum's rule). A collection follows the same
 rule: unknown → 404, behind a rule an anonymous crawler fails → `noindex`.
 The sitemap lists the index, the anonymously visible collections and items
-only when the gallery is publicly readable, from the anonymous lists.
+only when the gallery is publicly readable, from the anonymous `listing`
+lists — so items / collections hidden from the gallery are not in it.
 
 ## Configurable route
 
