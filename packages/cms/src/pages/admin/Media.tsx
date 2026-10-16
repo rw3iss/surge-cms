@@ -1,4 +1,4 @@
-import { A, } from '@solidjs/router';
+import { A, useSearchParams, } from '@solidjs/router';
 import type { Media, } from '@sitesurge/types';
 import { Component, createEffect, createResource, createSignal, For, on, onCleanup, Show, } from 'solid-js';
 import MediaEditModal from '../../components/admin/media/MediaEditModal';
@@ -12,6 +12,7 @@ import { cancelMedia, defaultTitle, startUpload, uploadsVersion, usesMultipart, 
 import { confirmMediaDelete, isMediaInUseError, } from '../../stores/mediaDeleteConfirm';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import Pagination from '../../components/admin/common/Pagination';
 import '../../components/admin/media/VideoMedia.scss';
 
 
@@ -82,7 +83,30 @@ const VideoTile: Component<{ m: Media; onCancel?: () => void; cancelling?: boole
 
 
 
+/** Page sizes offered (server max 200); the choice is remembered per browser. */
+const PAGE_SIZES = [25, 50, 100, 200,];
+const PAGE_SIZE_KEY = 'sitesurge.admin.media.pageSize';
+function storedPageSize(): number {
+    try {
+        const n = Number(localStorage.getItem(PAGE_SIZE_KEY,),);
+        return PAGE_SIZES.includes(n,) ? n : 50;
+    } catch {
+        return 50;
+    }
+}
+
 const AdminMedia: Component = () => {
+    // Current page lives in the URL (?page=), so reload / back / a shared link
+    // restore it; the page size lives in localStorage.
+    const [params, setParams,] = useSearchParams<{ page?: string; }>();
+    const page = () => Math.max(1, Number(params.page,) || 1,);
+    const setPage = (n: number,) => setParams({ page: n > 1 ? String(n,) : undefined, },);
+    const [pageSize, setPageSizeRaw,] = createSignal(storedPageSize(),);
+    const setPageSize = (n: number,) => {
+        setPageSizeRaw(n,);
+        try { localStorage.setItem(PAGE_SIZE_KEY, String(n,),); } catch { /* private mode */ }
+    };
+    const [meta, setMeta,] = createSignal<{ total: number; totalPages: number; } | null>(null,);
     // Type filter: any combination of types; none selected = All.
     const [types, setTypes,] = createSignal<MediaKind[]>([],);
     const [searchInput, setSearchInput,] = createSignal('',);
@@ -96,16 +120,28 @@ const AdminMedia: Component = () => {
         if (types().length) q.types = types().join(',',);
         if (searchQuery()) q.search = searchQuery();
         if (sortBy()) q.sort = sortBy();
+        q.page = String(page(),);
+        q.limit = String(pageSize(),);
         return q;
     };
 
     const [media, { refetch, },] = createResource(mediaQuery, async (q,) => {
         try {
             const res = await cms.media.list(q as any,);
+            const m = res.meta as { total?: number; totalPages?: number; } | undefined;
+            setMeta({ total: m?.total ?? res.data.length, totalPages: Math.max(1, m?.totalPages ?? 1,), },);
             return res.data as Media[];
         } catch {
             return [] as Media[];
         }
+    },);
+
+    // A new filter, search, sort or page size starts again at page 1.
+    createEffect(on([types, searchQuery, sortBy, pageSize,], () => setPage(1,), { defer: true, },),);
+    // Past the last page (items deleted, smaller page size): go to the last one.
+    createEffect(() => {
+        const m = meta();
+        if (m && page() > m.totalPages) setPage(m.totalPages,);
     },);
 
     /** Refetch bypassing the client SWR cache (a cached list would hide progress). */
@@ -375,6 +411,23 @@ const AdminMedia: Component = () => {
                     </For>
                 </div>
             </Show>
+
+            <div class="media-pagination">
+                <Pagination
+                    page={page()}
+                    totalPages={meta()?.totalPages ?? 1}
+                    total={meta()?.total}
+                    limit={pageSize()}
+                    onPageChange={(n,) => { setPage(n,); window.scrollTo({ top: 0, },); }}
+                    alwaysShow
+                />
+                <label class="media-pagination__size">
+                    <span>Per page</span>
+                    <select value={pageSize()} onChange={(e,) => setPageSize(Number(e.currentTarget.value,),)}>
+                        <For each={PAGE_SIZES}>{(n,) => <option value={n} selected={n === pageSize()}>{n}</option>}</For>
+                    </select>
+                </label>
+            </div>
 
             {/* Media Edit Modal */}
             <Show when={editingMedia()}>

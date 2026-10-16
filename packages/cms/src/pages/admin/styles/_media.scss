@@ -459,3 +459,23 @@
 .media-viewable {
   cursor: zoom-in;
 }
+
+// Media library pagination: page buttons + "Per page" size select.
+.media-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  margin-top: $spacing-lg;
+
+  &__size {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted);
+
+    select { width: auto; }
+  }
+}
