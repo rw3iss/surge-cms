@@ -107,6 +107,21 @@
 .role-manager {
   margin-bottom: $spacing-lg;
 
+  // `.form-help-muted` sets `display: block; margin-bottom: …`, meant for
+  // text under a form field. Applied directly to this column's <td>, the
+  // `display: block` turns it into a plain block box — the browser's table
+  // "fixup" then wraps it in an anonymous table-cell to keep the row's
+  // layout valid, but the VISIBLE border/padding (painted on the <td>
+  // itself, by tag selector) sit on that shrunk-to-content block, not the
+  // full row height — so this column's border lands above the other
+  // (genuine table-cell) columns' shared row bottom. Restore the normal
+  // table-cell box and drop the margin so every column in a row shares the
+  // same height and the same border line; only the muted color/size apply.
+  .admin-table td.form-help-muted {
+    display: table-cell;
+    margin-bottom: 0;
+  }
+
   &__form {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr auto;

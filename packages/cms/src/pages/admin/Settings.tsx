@@ -1379,7 +1379,7 @@ function AdminAppearancePanel() {
     };
 
     return (
-        <div class="appearance-panel">
+        <div class="appearance-panel admin-appearance-panel">
             <div class="appearance-panel__action-bar">
                 <button class="ui-button ui-button--primary" onClick={handleSave} disabled={!isDirty() || saving()}>
                     {saving() ? 'Saving...' : 'Save Admin Appearance'}
@@ -1770,8 +1770,8 @@ const AdminSettings: Component = () => {
                                     />
                                 </FormField>
                                 <FormField label="Site Description">
-                                    <input
-                                        type="text"
+                                    <textarea
+                                        rows={3}
                                         value={siteDescription()}
                                         onInput={(e,) => setSiteDescription(e.currentTarget.value,)}
                                     />

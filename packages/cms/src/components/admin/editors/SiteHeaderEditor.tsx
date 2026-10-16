@@ -87,7 +87,7 @@ const DEFAULT_ITEM: Partial<SiteHeaderItem> = {
     type: 'text_link',
     text: 'New Link',
     url: '/',
-    // No default font size — items inherit the header's 'Text Size'
+    // No default font size — items inherit the header's 'Font Size'
     // (defaultFontSize) unless the operator explicitly picks a size.
     textColor: '#000000',
     alignment: 'center',
@@ -186,6 +186,11 @@ const SiteHeaderEditor: Component = () => {
 
     // Edit panel local state
     const [editItem, setEditItem,] = createSignal<SiteHeaderItem | null>(null,);
+    // Tracks changes to the selected item since it was selected (or last
+    // saved), so "Save Item" can disable itself instead of always being
+    // clickable regardless of whether anything actually changed.
+    const [itemDirty, setItemDirty,] = createSignal(false,);
+    const [itemSaving, setItemSaving,] = createSignal(false,);
 
     const [showSettings, setShowSettings,] = createSignal(false,);
 
@@ -321,6 +326,8 @@ const SiteHeaderEditor: Component = () => {
             setCustomWidth(isCustomValue(item.width, WIDTH_OPTIONS,),);
             setCustomPadding(isCustomValue(item.padding, PADDING_OPTIONS,),);
             setCustomMargin(isCustomValue(item.margin, MARGIN_OPTIONS,),);
+            // Freshly selected — nothing to save yet.
+            setItemDirty(false,);
         }
     };
 
@@ -333,19 +340,32 @@ const SiteHeaderEditor: Component = () => {
             markDirty();
             return updated;
         });
+        setItemDirty(true,);
     };
 
-    const handleSaveItem = () => {
+    const handleSaveItem = async () => {
         const edit = editItem();
         if (!edit) return;
-        setItems(prev => prev.map(i => i.id === edit.id ? { ...edit, } : i));
-        markDirty();
-        toast.success('Item updated.',);
+        setItemSaving(true,);
+        try {
+            setItems(prev => prev.map(i => i.id === edit.id ? { ...edit, } : i));
+            markDirty();
+            // The write above is a synchronous local-state sync (no network
+            // call), but the button still needs a visible "Saving..." beat —
+            // without it, "disabled, then immediately re-enabled" reads the
+            // same as nothing happening when clicked.
+            await new Promise(resolve => setTimeout(resolve, 250,));
+            setItemDirty(false,);
+            toast.success('Item updated.',);
+        } finally {
+            setItemSaving(false,);
+        }
     };
 
     const handleCancelEdit = () => {
         setSelectedItemId(null,);
         setEditItem(null,);
+        setItemDirty(false,);
     };
 
     const handleResetItem = () => {
@@ -354,6 +374,7 @@ const SiteHeaderEditor: Component = () => {
         const original = items().find(i => i.id === id);
         if (original) {
             setEditItem({ ...original, },);
+            setItemDirty(false,);
         }
     };
 
@@ -629,106 +650,7 @@ const SiteHeaderEditor: Component = () => {
             </Show>
 
             <Show when={!loading()}>
-                {/* ─── Preview bar ─── */}
-                <p class="form-help" style={{ 'margin-bottom': '8px', }}>
-                    Click an item to edit it. Drag items to reorder.
-                </p>
-                <div
-                    class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
-                    style={previewStyle()}
-                >
-                    <Show
-                        when={items().length > 0}
-                        fallback={
-                            <div class="site-header-preview__empty">
-                                No header items yet. Click "Add Header Item" above.
-                            </div>
-                        }
-                    >
-                        <For each={items()}>
-                            {(item,) => {
-                                const typeClass = item.type === 'gap' ?
-                                    'site-header-preview__item--gap' :
-                                    item.type === 'flex_spacer' ?
-                                    'site-header-preview__item--spacer' :
-                                    '';
-                                const inlineStyle: Record<string, string | undefined> = {};
-                                if (item.type === 'gap' && item.width) {
-                                    inlineStyle.width = item.width;
-                                    inlineStyle['min-width'] = item.width;
-                                } else if (item.type === 'flex_spacer' && item.width) {
-                                    inlineStyle['max-width'] = item.width;
-                                } else if (item.width) {
-                                    inlineStyle.width = item.width;
-                                }
-                                // For image types with width, use block so img fills; image_link
-                                // uses flex internally via its own rendered wrapper
-                                if (item.type === 'image' && item.width) {
-                                    inlineStyle.display = 'block';
-                                }
-                                // Per-item typography, matching what
-                                // `layout/Header.tsx` puts on the real item.
-                                // `fontWeight` and `fontFamily` were missing,
-                                // so setting either showed nothing here until
-                                // the page was saved and reloaded.
-                                if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
-                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
-                                const itemFont = fontStack(item.fontFamily,);
-                                if (itemFont) inlineStyle['font-family'] = itemFont;
-                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
-                                {
-                                    const tc = colorCssValue(item.textColor, '',);
-                                    if (tc) inlineStyle.color = tc;
-                                }
-                                if (item.padding) inlineStyle.padding = item.padding;
-                                if (item.margin) inlineStyle.margin = item.margin;
-                                if (item.alignment) inlineStyle['text-align'] = item.alignment;
-
-                                return (
-                                    <div
-                                        class={`site-header-preview__item ${typeClass} ${
-                                            selectedItemId() === item.id ? 'site-header-preview__item--selected' : ''
-                                        } ${draggingId() === item.id ? 'site-header-preview__item--dragging' : ''}`}
-                                        style={inlineStyle}
-                                        onClick={() => selectItem(item.id,)}
-                                        onPointerDown={(e,) => handleDragStart(e, item.id,)}
-                                    >
-                                        {renderItemPreview(item,)}
-                                        <button
-                                            class="site-header-preview__delete"
-                                            onClick={(e,) => {
-                                                e.stopPropagation();
-                                                removeItem(item.id,);
-                                            }}
-                                            title="Remove item"
-                                        >
-                                            &times;
-                                        </button>
-                                    </div>
-                                );
-                            }}
-                        </For>
-                    </Show>
-                </div>
-
-                {/* Drag ghost */}
-                <Show when={ghostStyle()}>
-                    {(style,) => (
-                        <div
-                            class="site-header-preview__ghost"
-                            style={{
-                                position: 'fixed',
-                                top: `${style().top}px`,
-                                left: `${style().left}px`,
-                                width: `${style().width}px`,
-                                height: `${style().height}px`,
-                            }}
-                        >
-                            Moving...
-                        </div>
-                    )}
-                </Show>
-
+                {/* ─── Toolbar (above the preview; expanding Settings below renders between the toolbar and the preview) ─── */}
                 <div class="site-header-editor__toolbar">
                     <button
                         class="ui-button ui-button--primary ui-button--sm"
@@ -842,7 +764,7 @@ const SiteHeaderEditor: Component = () => {
                             </div>
                         </div>
                         <div class="site-header-editor__field">
-                            <label class="site-header-editor__label">Text Size</label>
+                            <label class="site-header-editor__label">Font Size</label>
                             <input
                                 type="text"
                                 class="site-header-editor__input--sm"
@@ -854,8 +776,8 @@ const SiteHeaderEditor: Component = () => {
                                 placeholder="Default (e.g. 16px, 1.1rem)"
                             />
                             <Tooltip
-                                content="Default text size for all header items — any valid CSS font-size (px, rem, em, %, clamp(), calc()). Individual items override this with their own Font Size. Leave empty to inherit the site font size."
-                                header="Text Size"
+                                content="Default font size for all header items — any valid CSS font-size (px, rem, em, %, clamp(), calc()). Individual items override this with their own Font Size. Leave empty to inherit the site font size."
+                                header="Font Size"
                             />
                         </div>
                         <div class="site-header-editor__field">
@@ -1092,6 +1014,106 @@ const SiteHeaderEditor: Component = () => {
                     </div>
                 </Show>
 
+                {/* ─── Preview bar ─── */}
+                <p class="form-help" style={{ 'margin-bottom': '8px', }}>
+                    Click an item to edit it. Drag items to reorder.
+                </p>
+                <div
+                    class={`site-header-preview ${draggingId() ? 'site-header-preview--dragging' : ''}`}
+                    style={previewStyle()}
+                >
+                    <Show
+                        when={items().length > 0}
+                        fallback={
+                            <div class="site-header-preview__empty">
+                                No header items yet. Click "Add Header Item" above.
+                            </div>
+                        }
+                    >
+                        <For each={items()}>
+                            {(item,) => {
+                                const typeClass = item.type === 'gap' ?
+                                    'site-header-preview__item--gap' :
+                                    item.type === 'flex_spacer' ?
+                                    'site-header-preview__item--spacer' :
+                                    '';
+                                const inlineStyle: Record<string, string | undefined> = {};
+                                if (item.type === 'gap' && item.width) {
+                                    inlineStyle.width = item.width;
+                                    inlineStyle['min-width'] = item.width;
+                                } else if (item.type === 'flex_spacer' && item.width) {
+                                    inlineStyle['max-width'] = item.width;
+                                } else if (item.width) {
+                                    inlineStyle.width = item.width;
+                                }
+                                // For image types with width, use block so img fills; image_link
+                                // uses flex internally via its own rendered wrapper
+                                if (item.type === 'image' && item.width) {
+                                    inlineStyle.display = 'block';
+                                }
+                                // Per-item typography, matching what
+                                // `layout/Header.tsx` puts on the real item.
+                                // `fontWeight` and `fontFamily` were missing,
+                                // so setting either showed nothing here until
+                                // the page was saved and reloaded.
+                                if (item.fontSize) inlineStyle['font-size'] = item.fontSize;
+                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
+                                const itemFont = fontStack(item.fontFamily,);
+                                if (itemFont) inlineStyle['font-family'] = itemFont;
+                                if (item.fontWeight) inlineStyle['font-weight'] = item.fontWeight;
+                                {
+                                    const tc = colorCssValue(item.textColor, '',);
+                                    if (tc) inlineStyle.color = tc;
+                                }
+                                if (item.padding) inlineStyle.padding = item.padding;
+                                if (item.margin) inlineStyle.margin = item.margin;
+                                if (item.alignment) inlineStyle['text-align'] = item.alignment;
+
+                                return (
+                                    <div
+                                        class={`site-header-preview__item ${typeClass} ${
+                                            selectedItemId() === item.id ? 'site-header-preview__item--selected' : ''
+                                        } ${draggingId() === item.id ? 'site-header-preview__item--dragging' : ''}`}
+                                        style={inlineStyle}
+                                        onClick={() => selectItem(item.id,)}
+                                        onPointerDown={(e,) => handleDragStart(e, item.id,)}
+                                    >
+                                        {renderItemPreview(item,)}
+                                        <button
+                                            class="site-header-preview__delete"
+                                            onClick={(e,) => {
+                                                e.stopPropagation();
+                                                removeItem(item.id,);
+                                            }}
+                                            title="Remove item"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                );
+                            }}
+                        </For>
+                    </Show>
+                </div>
+
+                {/* Drag ghost */}
+                <Show when={ghostStyle()}>
+                    {(style,) => (
+                        <div
+                            class="site-header-preview__ghost"
+                            style={{
+                                position: 'fixed',
+                                top: `${style().top}px`,
+                                left: `${style().left}px`,
+                                width: `${style().width}px`,
+                                height: `${style().height}px`,
+                            }}
+                        >
+                            Moving...
+                        </div>
+                    )}
+                </Show>
+
                 {/* ─── Edit panel ─── */}
                 <Show when={editItem()}>
                     {(item,) => {
@@ -1100,8 +1122,12 @@ const SiteHeaderEditor: Component = () => {
                             <div class="site-header-edit-panel">
                                 {/* Button bar */}
                                 <div class="site-header-edit-panel__actions">
-                                    <button class="ui-button ui-button--primary ui-button--sm" onClick={handleSaveItem}>
-                                        Save Item
+                                    <button
+                                        class="ui-button ui-button--primary ui-button--sm"
+                                        disabled={!itemDirty() || itemSaving()}
+                                        onClick={handleSaveItem}
+                                    >
+                                        {itemSaving() ? 'Saving...' : 'Save Item'}
                                     </button>
                                     <button class="ui-button ui-button--secondary ui-button--sm" onClick={handleCancelEdit}>
                                         Cancel

@@ -30,6 +30,15 @@
   }
 }
 
+// AdminAppearancePanel (Settings → Admin → "Admin Appearance") reuses
+// .appearance-panel for the action-bar styling only — it has no swatch
+// editor at its bottom, so the swatch-editor tail padding above just
+// left a large empty gap under the section. Zero it here instead of
+// forking the whole class.
+.admin-appearance-panel {
+  padding-bottom: 0;
+}
+
 
 
 // Two-column row (Colors | Color Swatches) at the top of the Appearance
