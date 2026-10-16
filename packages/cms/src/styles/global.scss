@@ -575,6 +575,24 @@ html:not([data-active-outlines='show']) {
   > .block--group { height: 100%; }
 }
 
+// Media that IS a block's own content (an <img>/<video>/<iframe> directly in
+// the block, or one level down — e.g. a Custom HTML block's markup) fits the
+// block's box: never wider than the block, never taller than its height /
+// max-height (published as --block-height / --block-max-height by blockCss),
+// scaled — not stretched — and centred. A block with no height constraint
+// leaves the variables unset, so `none` applies and nothing changes. Nested
+// child blocks sit deeper than this and keep their own rules.
+.block__inner > :is(img, video, iframe),
+.block__inner > * > :is(img, video, iframe) {
+  max-width: 100%;
+  max-height: var(--block-max-height, none);
+}
+
+.block__inner > :is(img, video),
+.block__inner > * > :is(img, video) {
+  object-fit: contain;
+}
+
 // ─── Shared page layout ───
 
 .page-wrapper {

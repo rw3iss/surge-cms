@@ -103,6 +103,10 @@ export function cellStyleFromBlock(
     // the cell for other block types.)
     if (s.width) out.width = String(s.width,);
     if (s.height) out.height = String(s.height,);
+    // Min/max height mirror the web block box. Most clients ignore max-height
+    // on a cell, so media renderers ALSO cap their own element (`mediaBox`).
+    if (s.minHeight) out['min-height'] = String(s.minHeight,);
+    if (s.maxHeight) out['max-height'] = String(s.maxHeight,);
     if (s.maxWidth && node.blockType !== 'image') {
         out['max-width'] = String(s.maxWidth,);
     }
@@ -170,3 +174,79 @@ export function mediaRadiusCss(
     const r = mediaRadius(node, fallback,);
     return r ? `;border-radius:${r}` : '';
 }
+
+/**
+ * A length as whole pixels, or null when it cannot be expressed in pixels.
+ *
+ * A bare number means px — the Video block's own Max Width / Max Height
+ * settings are stored that way ('300' or 300). `%`, `vh`, `em`, `auto` and
+ * friends return null: email has no box to resolve them against.
+ */
+export function pxValue(value: unknown,): number | null {
+    if (typeof value === 'number') return Number.isFinite(value,) && value > 0 ? Math.round(value,) : null;
+    if (typeof value !== 'string') return null;
+    const m = /^\s*(\d+(?:\.\d+)?)\s*(px)?\s*$/i.exec(value,);
+    if (!m) return null;
+    const n = Math.round(Number(m[1],),);
+    return n > 0 ? n : null;
+}
+
+/** The email body column width every renderer sizes against. */
+export const EMAIL_CONTENT_WIDTH = 600;
+
+/**
+ * The pixel box a block's MEDIA must fit inside, for email.
+ *
+ * Gathers every cap that applies — the block's own settings (`maxWidth` /
+ * `maxHeight`, e.g. the Video block's properties) and its style (`maxWidth`,
+ * `width`, `maxHeight`, `height`; a saved style TEMPLATE is already inlined
+ * into `node.style` by `populateBlockStyles`) — and keeps the tightest of each.
+ * Every one of them is a ceiling, so the smallest wins regardless of where it
+ * was set.
+ *
+ * The web gets this from the cascade (`--block-max-height`, letterboxing); an
+ * email has none, so a renderer must put the numbers on the element itself —
+ * and as attributes, because Outlook ignores `max-height` entirely.
+ */
+export function mediaBox(node: EmailBlockNode,): { maxWidth: number; maxHeight: number | null; } {
+    const s = (node.style ?? {}) as Record<string, unknown>;
+    const set = (node.settings ?? {}) as Record<string, unknown>;
+    const min = (vals: unknown[],): number | null => {
+        const px = vals.map(pxValue,).filter((v,): v is number => v !== null);
+        return px.length ? Math.min(...px,) : null;
+    };
+    return {
+        maxWidth: Math.min(EMAIL_CONTENT_WIDTH, min([set.maxWidth, s.maxWidth, s.width,],) ?? EMAIL_CONTENT_WIDTH,),
+        maxHeight: min([set.maxHeight, s.maxHeight, s.height,],),
+    };
+}
+
+/**
+ * Size a media element (poster, still) to fit `box`, keeping its aspect ratio.
+ *
+ * With a known aspect ratio both dimensions are exact, so the width/height
+ * attributes constrain Outlook too. Without one, only the height is known:
+ * the width is left to the client (`width:auto`) so the picture is scaled,
+ * never stretched.
+ */
+export function fitMedia(
+    box: { maxWidth: number; maxHeight: number | null; },
+    aspect: number | null,
+): { width: number | null; height: number | null; } {
+    if (aspect && aspect > 0) {
+        let w = box.maxWidth;
+        if (box.maxHeight !== null) w = Math.min(w, Math.floor(box.maxHeight * aspect,),);
+        w = Math.max(1, w,);
+        return { width: w, height: Math.max(1, Math.round(w / aspect,),), };
+    }
+    return { width: box.maxHeight === null ? box.maxWidth : null, height: box.maxHeight, };
+}
+
+/**
+ * Settings key the mail pre-pass (`attachVideoMediaSize`, run by
+ * `expandDynamicBlocks`) fills with a library video's pixel size,
+ * `{ width, height }`. The renderer is synchronous and cannot look the media up
+ * itself; the aspect ratio is what lets a capped poster carry an exact width
+ * AND height for Outlook.
+ */
+export const VIDEO_MEDIA_SIZE_KEY = '__mediaSize';

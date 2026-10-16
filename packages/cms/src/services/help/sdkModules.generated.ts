@@ -1058,9 +1058,34 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": ""
             },
             {
+                "name": "adminCollections",
+                "signature": "adminCollections(): Promise<GalleryCollection[]>",
+                "summary": "GET /gallery/admin/collections (staff) — every collection, counts of ALL items."
+            },
+            {
+                "name": "collection",
+                "signature": "collection(id: string): Promise<GalleryCollection>",
+                "summary": "GET /gallery/collections/:id — one collection (404 when missing or the viewer fails its access rule)."
+            },
+            {
+                "name": "collections",
+                "signature": "collections(): Promise<GalleryCollection[]>",
+                "summary": "GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see."
+            },
+            {
                 "name": "config",
                 "signature": "config(): Promise<GalleryPublicConfig>",
                 "summary": "GET /gallery/config — title, route, appearance, and whether THIS viewer may open the gallery."
+            },
+            {
+                "name": "createCollection",
+                "signature": "createCollection(body: GalleryCollectionInput = {}): Promise<GalleryCollection>",
+                "summary": "POST /gallery/admin/collections (staff) — `name` defaults to \"Untitled\"; placed first unless `sortOrder` is given."
+            },
+            {
+                "name": "deleteCollection",
+                "signature": "deleteCollection(id: string, body: GalleryCollectionDeleteBody): Promise<GalleryCollectionDeleteResponse>",
+                "summary": "DELETE /gallery/admin/collections/:id (staff) — `items`: `delete` (media too with `deleteMedia`, needs `media:write`), `root` (move to the gallery root) or `move` (into `targetId`)."
             },
             {
                 "name": "item",
@@ -1070,12 +1095,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "list",
                 "signature": "list(query: GalleryQuery = {}): Promise<GalleryListResult>",
-                "summary": "GET /gallery — items visible to the viewer. `ids` keeps the given order."
+                "summary": "GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`."
+            },
+            {
+                "name": "moveItems",
+                "signature": "moveItems(body: GalleryMoveItemsBody): Promise<GalleryMoveItemsResponse>",
+                "summary": "POST /gallery/admin/items/move (staff) — into a collection; `collectionId: null` = the gallery root."
             },
             {
                 "name": "settings",
                 "signature": "settings(): Promise<GallerySettings>",
                 "summary": "GET /gallery/settings (staff)."
+            },
+            {
+                "name": "updateCollection",
+                "signature": "updateCollection(id: string, body: GalleryCollectionInput): Promise<GalleryCollection>",
+                "summary": "PATCH /gallery/admin/collections/:id (staff)."
             },
             {
                 "name": "updateSettings",
@@ -1738,6 +1773,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "changeMembership",
                 "signature": "changeMembership(tierId: string, priceId?: string | null): Promise<MembershipChangeResponse>",
                 "summary": "POST /payments/membership/change — `payment_required` → confirm the card with `clientSecret`, then `confirmMembership`."
+            },
+            {
+                "name": "claimMembershipApplication",
+                "signature": "claimMembershipApplication(body: { applicationId: string; token?: string | null; }): Promise<MembershipApplyResponse>",
+                "summary": "POST /payments/membership/apply/claim — attach an application sent before sign-up, without a card (\"hide price\" levels)."
             },
             {
                 "name": "confirmMembership",
@@ -3148,4 +3188,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 554;
+export const SDK_METHOD_COUNT = 562;

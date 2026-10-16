@@ -204,10 +204,15 @@
     margin-bottom: $spacing-lg;
   }
 
+  // Embedded player (YouTube / Vimeo): 16:9, as wide as the block allows —
+  // narrower when the block's height / max-height (or the video block's own
+  // Max height) would otherwise be exceeded, centred. Was a padding-bottom
+  // box, which always took the full width and ignored any height cap.
   &__wrapper {
     position: relative;
-    padding-bottom: 56.25%;
-    height: 0;
+    width: min(100%, calc(var(--block-max-height, var(--block-height, 100000px)) * 16 / 9));
+    aspect-ratio: 16 / 9;
+    margin-inline: auto;
     overflow: hidden;
     border-radius: $border-radius-lg;
   }

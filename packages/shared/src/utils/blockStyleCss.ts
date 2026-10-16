@@ -57,6 +57,21 @@ export function normalizeCssWidth(width: unknown,): string | undefined {
 }
 
 /**
+ * A block SETTING length as CSS: a bare number means px (`300` / `'300'` →
+ * `'300px'`), anything with a unit passes through (`'50vh'`, `'20rem'`).
+ *
+ * Settings like the Video block's Max Width / Max Height are stored as plain
+ * numbers; appending `px` blindly turned `'300px'` into the invalid `300pxpx`,
+ * which the browser dropped — so the cap silently did nothing. Empty → undefined.
+ */
+export function cssLength(value: unknown,): string | undefined {
+    if (typeof value === 'number') return Number.isFinite(value,) && value > 0 ? `${value}px` : undefined;
+    const v = String(value ?? '',).trim();
+    if (!v) return undefined;
+    return /^\d+(?:\.\d+)?$/.test(v,) ? `${v}px` : v;
+}
+
+/**
  * Build the layout + typography CSS for a resolved block style. Returns only
  * the properties the style actually sets (everything else omitted), so the
  * result can be spread into a larger style object without clobbering.

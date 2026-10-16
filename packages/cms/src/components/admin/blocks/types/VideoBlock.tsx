@@ -1,5 +1,5 @@
 import { openMediaViewer, } from '@/stores/mediaViewer';
-import type { Media, } from '@sitesurge/types';
+import { cssLength, type Media, } from '@sitesurge/types';
 import { Component, createSignal, Match, Show, Switch, type JSX, } from 'solid-js';
 import MediaVideo from '../../../blocks/media/MediaVideo';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
@@ -144,8 +144,15 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                             }
                         >
                             {preview({
-                                ...(props.data.maxWidth ? { 'max-width': `${props.data.maxWidth}px`, } : {}),
-                                ...(props.data.maxHeight ? { 'max-height': `${props.data.maxHeight}px`, } : {}),
+                                // Same caps as the public VideoBlock: bare number = px,
+                                // and the max height reaches MediaVideo via the variable.
+                                ...(cssLength(props.data.maxWidth,) ? { 'max-width': cssLength(props.data.maxWidth,)!, } : {}),
+                                ...(cssLength(props.data.maxHeight,) ?
+                                    {
+                                        'max-height': cssLength(props.data.maxHeight,)!,
+                                        '--block-max-height': cssLength(props.data.maxHeight,)!,
+                                    } :
+                                    {}),
                             },)}
                         </Show>
                     </div>

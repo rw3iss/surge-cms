@@ -1,4 +1,4 @@
-import { escapeHtml, mediaRadiusCss, } from './_util';
+import { escapeHtml, mediaBox, mediaRadiusCss, } from './_util';
 import { BlockEmailRenderer, } from './index';
 
 interface ImageEntry {
@@ -41,14 +41,23 @@ export const renderImage: BlockEmailRenderer = (node,) => {
     // round, and email ignores `overflow`, so a radius on the cell is invisible
     // behind a square picture.
     const radiusCss = mediaRadiusCss(node,);
-    const imgStyle = maxW ?
+    // A block height / max-height (style, style template, or the item max
+    // height) caps the picture too. The aspect ratio is unknown here, so the
+    // width is left to scale (`width:auto`) — forcing 100% would stretch it —
+    // and Outlook, which ignores max-height, gets a height attribute instead.
+    const itemMaxH = typeof node.settings?.itemMaxHeight === 'string' ? node.settings.itemMaxHeight : undefined;
+    const maxH = mediaBox({ ...node, settings: { maxHeight: itemMaxH, }, },).maxHeight;
+    const imgStyle = maxH !== null ?
+        `display:block;width:auto;max-width:${maxW || '100%'};height:auto;max-height:${maxH}px;border:0;margin:0 auto${radiusCss}` :
+        maxW ?
         `display:block;width:100%;max-width:${maxW};height:auto;border:0${marginCss}${radiusCss}` :
         `display:block;max-width:100%;height:auto;border:0${radiusCss}`;
+    const sizeAttrs = maxH !== null ? ` height="${maxH}"` : ` width="${widthAttr}"`;
 
     const renderOne = (img: ImageEntry,): string => {
         const url = escapeHtml(img.url!,);
         const alt = escapeHtml(img.alt ?? '',);
-        const tag = `<img src="${url}" alt="${alt}" width="${widthAttr}" style="${imgStyle}" />`;
+        const tag = `<img src="${url}" alt="${alt}"${sizeAttrs} style="${imgStyle}" />`;
         const wrapped = img.link ?
             `<a href="${escapeHtml(img.link,)}" style="text-decoration:none">${tag}</a>` :
             tag;

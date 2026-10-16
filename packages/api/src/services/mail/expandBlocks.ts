@@ -23,6 +23,7 @@ import * as entitiesService from '../entities';
 import { logger, } from '../../utils/logger';
 import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
+import { attachVideoMediaSize, } from './videoMediaSize';
 
 /** The flat block shape the mail renderer's tree builder consumes. */
 export interface FlatMailBlock {
@@ -245,6 +246,17 @@ export async function expandDynamicBlocks(
      */
     done: Set<string> = new Set(),
 ): Promise<FlatMailBlock[]> {
+    // The outermost call also sizes library videos (after expansion, so a
+    // video inside a component or entity template is sized too).
+    if (depth === 0) return attachVideoMediaSize(await expandPass(blocks, 0, done,),);
+    return expandPass(blocks, depth, done,);
+}
+
+async function expandPass(
+    blocks: FlatMailBlock[],
+    depth: number,
+    done: Set<string>,
+): Promise<FlatMailBlock[]> {
     if (depth >= MAX_DEPTH) {
         logger.warn('Mail: dynamic block nesting too deep — stopping expansion',);
         return blocks;
@@ -317,5 +329,5 @@ export async function expandDynamicBlocks(
 
     // A component can contain an entity block (and vice versa) — expand the
     // newly-added ones too, bounded by MAX_DEPTH.
-    return expandDynamicBlocks(out, depth + 1, done,);
+    return expandPass(out, depth + 1, done,);
 }

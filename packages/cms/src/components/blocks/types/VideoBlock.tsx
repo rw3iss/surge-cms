@@ -10,7 +10,7 @@
  * The URL is `settings.url` (what the admin editor writes), else the legacy
  * `content` column.
  */
-import type { Block, } from '@sitesurge/types';
+import { type Block, cssLength, } from '@sitesurge/types';
 import { Component, Match, Switch, } from 'solid-js';
 import { resolveVideoSource, } from '../../../utils/resolveVideoSource';
 import MediaVideo from '../media/MediaVideo';
@@ -21,12 +21,17 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
     const url = () => (s().url as string | undefined) || props.block.content || '';
     const mediaId = () => (s().mediaId as string | undefined) || '';
     const resolved = () => resolveVideoSource({ url: url(), },);
-    const sizeStyle = (): Record<string, string> => ({
-        ...(s().maxWidth ? { 'max-width': `${s().maxWidth}px`, } : {}),
-        // The block's own "Max height" setting caps the player the same way a
-        // block style max-height does (MediaVideo reads --block-max-height).
-        ...(s().maxHeight ? { 'max-height': `${s().maxHeight}px`, '--block-max-height': `${s().maxHeight}px`, } : {}),
-    });
+    const sizeStyle = (): Record<string, string> => {
+        // A bare number is px; a value with a unit passes through (`cssLength`).
+        const maxW = cssLength(s().maxWidth,);
+        const maxH = cssLength(s().maxHeight,);
+        return {
+            ...(maxW ? { 'max-width': maxW, 'margin-inline': 'auto', } : {}),
+            // The block's own "Max height" setting caps the player the same way a
+            // block style max-height does (MediaVideo reads --block-max-height).
+            ...(maxH ? { 'max-height': maxH, '--block-max-height': maxH, } : {}),
+        };
+    };
 
     return (
         <div class="video-block" style={sizeStyle()}>
