@@ -469,6 +469,9 @@
   gap: $spacing-md;
   margin-top: $spacing-lg;
 
+  // The copy above the grid (under the filter bar): space below, not above.
+  &--top { margin: 0 0 $spacing-md; }
+
   &__size {
     display: inline-flex;
     align-items: center;

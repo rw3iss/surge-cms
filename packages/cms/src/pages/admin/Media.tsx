@@ -263,6 +263,26 @@ const AdminMedia: Component = () => {
         setSearchQuery('',);
     };
 
+    /** The page buttons + "Per page" row — rendered above AND below the grid. */
+    const pager = (where: 'top' | 'bottom',) => (
+        <div class={`media-pagination media-pagination--${where}`}>
+            <Pagination
+                page={page()}
+                totalPages={meta()?.totalPages ?? 1}
+                total={meta()?.total}
+                limit={pageSize()}
+                onPageChange={(n,) => { setPage(n,); window.scrollTo({ top: 0, },); }}
+                alwaysShow
+            />
+            <label class="media-pagination__size">
+                <span>Per page</span>
+                <select value={pageSize()} onChange={(e,) => setPageSize(Number(e.currentTarget.value,),)}>
+                    <For each={PAGE_SIZES}>{(n,) => <option value={n} selected={n === pageSize()}>{n}</option>}</For>
+                </select>
+            </label>
+        </div>
+    );
+
     return (
         <div>
             <AdminTitle>Media</AdminTitle>
@@ -336,6 +356,7 @@ const AdminMedia: Component = () => {
                 </div>
             </div>
 
+            {pager('top',)}
             <Show
                 when={media.latest?.length}
                 fallback={
@@ -412,22 +433,7 @@ const AdminMedia: Component = () => {
                 </div>
             </Show>
 
-            <div class="media-pagination">
-                <Pagination
-                    page={page()}
-                    totalPages={meta()?.totalPages ?? 1}
-                    total={meta()?.total}
-                    limit={pageSize()}
-                    onPageChange={(n,) => { setPage(n,); window.scrollTo({ top: 0, },); }}
-                    alwaysShow
-                />
-                <label class="media-pagination__size">
-                    <span>Per page</span>
-                    <select value={pageSize()} onChange={(e,) => setPageSize(Number(e.currentTarget.value,),)}>
-                        <For each={PAGE_SIZES}>{(n,) => <option value={n} selected={n === pageSize()}>{n}</option>}</For>
-                    </select>
-                </label>
-            </div>
+            {pager('bottom',)}
 
             {/* Media Edit Modal */}
             <Show when={editingMedia()}>
