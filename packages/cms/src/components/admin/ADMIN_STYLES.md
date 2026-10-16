@@ -83,6 +83,37 @@ import { FormField, FormSection } from '../../components/admin/forms';
 - **Do NOT hand-roll a form field with an unstyled `<label>`.** If you catch a
   page doing so (raw labels look large/unstyled), convert it to `FormField`.
 
+## Multi-select dropdowns
+
+**Picking several values from a known, static list of options uses
+`MultiSelect`** (`components/ui/MultiSelect`) — never a hand-rolled list of
+`Checkbox` rows or a native multi-`<select>`. Closed, it shows the selection
+as removable chips (× on each) or a placeholder; open, it's a popover of
+`ui/Checkbox` rows (so still no native checkbox) plus Select all / Clear, with
+full keyboard support (`Up`/`Down`, `Space`/`Enter`, `Backspace` to drop the
+last chip, `Escape`/outside-click/`Tab` to close).
+
+```tsx
+import { MultiSelect } from '../../components/ui';
+
+<MultiSelect
+  options={[{ value: 'editor', label: 'Editor' }, { value: 'admin', label: 'Admin' }]}
+  value={roles()}
+  onChange={setRoles}
+/>
+```
+
+- Reach for `EntitySearchSelect` instead when the list isn't known up front —
+  it's fetched async and the use case is picking ONE record by searching
+  (campaigns, forms, posts), not toggling several values from a fixed set.
+- Reach for `Select` for a single value from a short static list.
+- The selection array is always returned in **options order**, not the order
+  things were clicked in — don't re-sort it again downstream.
+- Positioning follows the same recipe as `AddBlockMenu` / `AnchoredDropdown`:
+  Portal-rendered, placed below the control and flipped above when cramped,
+  at `$z-index-popover` so it wins over a modal — this is why it works
+  unmodified inside modals and side panels.
+
 ## Sections and field rows — MANDATORY spacing
 
 Every admin settings / edit page uses the SAME structure, and gets its vertical

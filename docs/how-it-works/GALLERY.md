@@ -17,6 +17,22 @@ block and the `{{gallery(...)}}` template function. In-admin guide:
 | `sort_order` | Gallery order (rewritten on every Publish). |
 | `visibility` | `inherit` \| `public` \| `members` \| `tier` (+ `min_tier_id`). |
 | `comments`, `anonymous_comments` | `inherit` \| `on` \| `off` (inherit → gallery settings). |
+| `collection_id` | The collection the item is in; NULL = the gallery root (migration 153). `ON DELETE SET NULL`. |
+| `access_enabled`, `access_roles`, `access_tier_ids` | The item's own role / subscription-level rule (see Access model). |
+
+`gallery_collections` (migration `153_gallery_collections.sql`): `name`
+(default "Untitled"), `description`, `sort_order`, the same three `access_*`
+columns, `created_by`. **One level only — collections never nest.** A
+collection is a folder of items; its public page is
+`<baseUrl>/collection/<id>` (`galleryCollectionPath`). A new collection is
+placed FIRST (sort order = current minimum − 1) unless `sortOrder` is given.
+Deleting a collection (`DELETE /admin/collections/:id`, one transaction)
+decides what happens to its items: `delete` removes them from the gallery
+(+ their comment threads; their media only with `deleteMedia` + `media:write`,
+after the commit), `root` moves them to the gallery root, `move` moves them
+into `targetId` (must exist, must differ). Publish (`PUT /admin/items`)
+**preserves** `collection_id` / `access_*` for items whose input omits them;
+a new item may carry `collectionId` + `access`.
 
 - **Deleting an item never deletes the media** — unless the caller asks
   (`deleteMedia`, needs `media:write`).
@@ -66,6 +82,32 @@ visible when    level >= floor
 - Subscription-required mode: a member without a paid tier is level -1.
 - `gallery:view` (everyone by default) is checked first by the public routes.
 
+### Role / subscription-level rules (collections + items)
+
+`GalleryAccessRule = { enabled, roles[], tierIds[] }` on collections and
+items (`services/gallery/access.ts`). A rule is **active** when `enabled` AND
+at least one role or tier is chosen — enabled with nothing chosen inherits.
+
+| Item rule | Collection rule | Effective gate |
+|---|---|---|
+| active | any | the item's rule |
+| inactive | active | the collection's rule |
+| inactive | inactive / no collection | the level floor above (item visibility / gallery access) |
+
+An active rule **replaces** the floor: the viewer passes when staff, OR holds
+any listed role (main `users.role` or `users.extra_roles`), OR has an entitled
+subscription (`ENTITLED_STATUSES`) to a listed tier. A signed-in member with
+no paid subscription holds the Free tier (not in subscription-required mode).
+Anonymous never passes an active rule. What the viewer holds is built once per
+request (`services/access/grants.ts` `viewerGrants`) and bound into the SQL
+predicate (`itemGateSql`), so counts and pagination stay right.
+
+A **collection** is listed / openable only when its rule is inactive or the
+viewer passes it (`collectionGateSql`); its `itemCount` + cover use the same
+item gate, so the count matches the collection page. An item with its OWN
+active rule follows that rule even inside a collection the viewer cannot open
+(first match wins). The `email` audience ignores all in-site rules, as above.
+
 ### Audiences (`services/gallery/items.ts` `list(query, { audience })`)
 
 | Audience | Who | Rule |
@@ -88,16 +130,25 @@ and deletes). Gallery writes also drop the sitemap cache.
 | Route | Auth | |
 |---|---|---|
 | `GET /config` | optional | Title, route, appearance, `canView` + `reason` for THIS viewer |
-| `GET /` | optional | Query: `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page` |
+| `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page` |
+| `GET /collections` | optional | Collections visible to the viewer (sort order, name), `itemCount` = items the viewer can see, cover |
+| `GET /collections/:id` | optional | One collection; 404 when missing or the viewer fails its rule |
 | `GET /items/:id` | optional | One item, 404 when gated / missing / media gone |
 | `GET /admin/items` | staff, `gallery:manage` | Every item in order |
 | `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit |
-| `PATCH /admin/items/:id` | staff | Edit one item |
+| `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`) |
+| `POST /admin/items/move` | staff, `gallery:manage` | `{ ids, collectionId }` (null = root) |
+| `GET /admin/collections` | staff, `gallery:manage` | Every collection, counts of ALL items |
+| `POST /admin/collections` · `PATCH /admin/collections/:id` | staff, `gallery:manage` | Create (name default "Untitled") / update (name, description, sortOrder, access) |
+| `DELETE /admin/collections/:id` | staff, `gallery:manage` (+ `media:write` for `deleteMedia`) | Body `{ items: 'delete'\|'root'\|'move', targetId?, deleteMedia? }` |
 | `DELETE /admin/items/:id?deleteMedia=true` | staff | Remove one item |
 | `GET /admin/media-links?ids=` | staff | media id → item id |
 | `GET /settings` · `PUT /settings` | staff · admin + `gallery.settings:manage` | Settings |
 
-SDK: `cms.gallery.config / list / item / admin.{items,publish,update,remove,mediaLinks} / settings / updateSettings`.
+SDK: `cms.gallery.config / list / item / collections / collection / adminCollections / createCollection / updateCollection / deleteCollection / moveItems / admin.{items,publish,update,remove,mediaLinks} / settings / updateSettings`.
+
+Settings: `appearance.showCollectionsSidebar` (default off) — a collections
+sidebar on collection pages and on item pages of collected items.
 
 ## Comments
 
@@ -117,7 +168,8 @@ The item's effective switches reach the public `CommentsSection` through
 provider `services/gallery/entity.ts`), so the shared
 `EntitySearchSelectModal` picks items / builds queries for the Gallery block,
 and entity blocks / carousel entity items can render items through a
-template (`{{gallery_item.media.url}}`). Virtual filters: `type`, `tag`, `sort`.
+template (`{{gallery_item.media.url}}`). Virtual filters: `type`, `tag`, `sort`, `collection` (id or `root`).
+`{{gallery(collection='<id>')}}` (or `'root'`) maps to `GalleryQuery.collectionId`.
 
 ## `{{gallery(...)}}`
 
@@ -164,14 +216,16 @@ items and stashes them on `settings.__galleryItems`
 
 ## SSR pages + sitemap
 
-`services/ssr/staticMeta.ts` resolves `<baseUrl>` and `<baseUrl>/<id>`
+`services/ssr/staticMeta.ts` resolves `<baseUrl>`, `<baseUrl>/<id>` and `<baseUrl>/collection/<id>`
 authoritatively while the feature is on: a public gallery gets meta, a
 `CollectionPage` schema and a figure body; an item gets its title, caption and
 `og:image` (the media URL when the media is public). An unknown item or one
 whose media is gone is a real 404. A gated gallery or item (exists, but not
 for an anonymous crawler) answers `noindex` with no body — the SPA shows the
-sign-in / subscribe prompt (the forum's rule). The sitemap lists the index and
-items only when the gallery is publicly readable, from the anonymous list.
+sign-in / subscribe prompt (the forum's rule). A collection follows the same
+rule: unknown → 404, behind a rule an anonymous crawler fails → `noindex`.
+The sitemap lists the index, the anonymously visible collections and items
+only when the gallery is publicly readable, from the anonymous lists.
 
 ## Configurable route
 

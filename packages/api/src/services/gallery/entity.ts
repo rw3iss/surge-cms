@@ -6,7 +6,7 @@
  * tab. Records are GalleryItem objects (anonymous view on public reads).
  *
  * Query knobs are virtual filters resolved here: `type` (image | video),
- * `tag`, `sort` (order | newest | oldest | title | random).
+ * `tag`, `collection` (a collection id, or `root` = items in no collection), `sort` (order | newest | oldest | title | random).
  */
 import type { EntityFieldOption, EntityQuery, EntityRecord, GalleryQuery, } from '@sitesurge/types';
 import { ForbiddenError, } from '../../core/errors';
@@ -29,6 +29,7 @@ export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {
     return {
         type: (filterValue(q.filter, 'type',) as GalleryQuery['type']) ?? 'all',
         tag: filterValue(q.filter, 'tag',),
+        collectionId: filterValue(q.filter, 'collection',),
         sort: (filterValue(q.filter, 'sort',) as GalleryQuery['sort']) ?? sortBy ?? 'order',
         search: q.search,
         page: q.page,
@@ -77,5 +78,14 @@ registerVirtualFilter('gallery_item', {
 registerVirtualFilter('gallery_item', {
     key: 'sort', label: 'Sort', description: 'order = gallery order · newest · oldest · title · random.',
     options: async () => opts([['order', 'Gallery order',], ['newest', 'Newest',], ['oldest', 'Oldest',], ['title', 'Title',], ['random', 'Random',],],),
+    resolve: handledByProvider,
+},);
+registerVirtualFilter('gallery_item', {
+    key: 'collection', label: 'Collection', description: 'Items in this collection (root = items in no collection).',
+    options: async () => {
+        const r = await dbQuery<{ id: string; name: string; }>(`SELECT id, name FROM gallery_collections ORDER BY sort_order, lower(name) LIMIT 200`,)
+            .catch(() => ({ rows: [], }));
+        return [{ value: 'root', label: 'Gallery root (no collection)', }, ...r.rows.map((x,) => ({ value: x.id, label: x.name, })),];
+    },
     resolve: handledByProvider,
 },);

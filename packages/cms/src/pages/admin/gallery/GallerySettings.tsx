@@ -341,6 +341,12 @@ const GallerySettingsPage: Component = () => {
                                     hint="A strip of every item's thumbnail along the bottom of the modal. Click one to open it."
                                 />
                             </Show>
+                            <Toggle
+                                checked={a().showCollectionsSidebar}
+                                onChange={(v,) => setA('showCollectionsSidebar', v,)}
+                                label="Show collections sidebar on pages"
+                                hint="On collection pages and on the pages of items in a collection: a sidebar listing every collection. Mobile shows a dropdown instead."
+                            />
                         </section>
                         </div>
 

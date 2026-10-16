@@ -359,7 +359,7 @@ async function forumThread(c: StaticMetaCtx, category: string, slug: string,): P
 // ─── Gallery ────────────────────────────────────────────────────────
 
 /**
- * `<baseUrl>` and `<baseUrl>/<item id>` (default /gallery), resolved
+ * `<baseUrl>`, `<baseUrl>/<item id>` and `<baseUrl>/collection/<id>` (default /gallery), resolved
  * authoritatively while the Gallery feature is on: a missing item, or one
  * whose media was deleted, is a real 404 (null → nothing matches → notFound).
  * A gated gallery / item (not visible to an anonymous crawler) is a real page
@@ -381,7 +381,8 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
     const isIndex = path === base.toLowerCase();
     // baseUrl is validated to one `[a-z0-9-]` segment, so it is regex-safe as is.
     const m = new RegExp(`^${base.toLowerCase()}/([0-9a-f-]{36})$`,).exec(path,);
-    if (!isIndex && !m) return undefined; // not a gallery route
+    const cm = new RegExp(`^${base.toLowerCase()}/collection/([0-9a-f-]{36})$`,).exec(path,);
+    if (!isIndex && !m && !cm) return undefined; // not a gallery route
 
     const cfg = await g.publicConfig(null,).catch(() => null);
     const publicGallery = Boolean(cfg?.canView,);
@@ -401,6 +402,32 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
             ],
             body: `<main class="ssr-gallery-page"><h1>${esc(title,)}</h1>`
                 + (s.description ? `<div>${renderMarkdown(s.description,)}</div>` : '')
+                + galleryFiguresHtml(items, c.siteUrl,) + '</main>',
+        },);
+    }
+
+    if (cm) {
+        const { collection, gated: exists, } = await g.getCollectionForViewer(cm[1], null,)
+            .catch(() => ({ collection: null, gated: false, }),);
+        if (!collection) {
+            if (!exists) return null; // unknown collection → 404
+            return page(c, title, `${title} — ${c.siteName}.`, gated,);
+        }
+        const name = collection.name || 'Collection';
+        const description = clip(collection.description,) || `${name} — ${title} on ${c.siteName}.`;
+        if (!publicGallery) return page(c, name, description, gated,);
+        const items = await g.list({ collectionId: collection.id, limit: 60, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
+        const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
+        return page(c, name, description, {
+            image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,
+            jsonLd: [
+                buildCollectionPageSchema({ name, description, url: c.url, itemCount: collection.itemCount, },),
+                buildBreadcrumbSchema([
+                    { name: 'Home', url: c.siteUrl, }, { name: title, url: `${c.siteUrl}${base}`, }, { name, url: c.url, },
+                ],),
+            ],
+            body: `<main class="ssr-gallery-page"><h1>${esc(name,)}</h1>`
+                + (collection.description ? `<div>${renderMarkdown(collection.description,)}</div>` : '')
                 + galleryFiguresHtml(items, c.siteUrl,) + '</main>',
         },);
     }

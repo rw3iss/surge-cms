@@ -1,4 +1,6 @@
 import type {
+    GalleryCollection, GalleryCollectionDeleteBody, GalleryCollectionDeleteResponse, GalleryCollectionInput, GalleryMoveItemsBody,
+    GalleryMoveItemsResponse,
     GalleryAdminItemsResponse, GalleryItem, GalleryItemUpdateBody, GalleryListResult, GalleryPublicConfig, GalleryQuery,
     GalleryRemoveResponse, GallerySettings, GallerySettingsBody, GallerySyncBody, GallerySyncResponse,
 } from '@sitesurge/types';
@@ -20,7 +22,7 @@ export class GalleryModule extends ModuleBase {
         return this.get('/gallery/config', { options: { cache: false, }, },);
     }
 
-    /** GET /gallery — items visible to the viewer. `ids` keeps the given order. */
+    /** GET /gallery — items visible to the viewer. `ids` keeps the given order; `collectionId` = a collection or `root`. */
     list(query: GalleryQuery = {},): Promise<GalleryListResult> {
         const { ids, ...rest } = query;
         return this.get('/gallery', { query: { ...rest, ids: ids?.length ? ids.join(',',) : undefined, }, options: { cache: false, }, },);
@@ -29,6 +31,44 @@ export class GalleryModule extends ModuleBase {
     /** GET /gallery/items/:id — one item (404 when hidden from the viewer or its media is gone). */
     item(id: string,): Promise<GalleryItem> {
         return this.get('/gallery/items/:id', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** GET /gallery/collections — collections visible to the viewer; `itemCount` = items THIS viewer can see. */
+    collections(): Promise<GalleryCollection[]> {
+        return this.get('/gallery/collections', { options: { cache: false, }, },);
+    }
+
+    /** GET /gallery/collections/:id — one collection (404 when missing or the viewer fails its access rule). */
+    collection(id: string,): Promise<GalleryCollection> {
+        return this.get('/gallery/collections/:id', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** GET /gallery/admin/collections (staff) — every collection, counts of ALL items. */
+    adminCollections(): Promise<GalleryCollection[]> {
+        return this.get('/gallery/admin/collections', { options: { cache: false, }, },);
+    }
+
+    /** POST /gallery/admin/collections (staff) — `name` defaults to "Untitled"; placed first unless `sortOrder` is given. */
+    createCollection(body: GalleryCollectionInput = {},): Promise<GalleryCollection> {
+        return this.mutate('POST', '/gallery/admin/collections', { body, invalidates: ['gallery',], },);
+    }
+
+    /** PATCH /gallery/admin/collections/:id (staff). */
+    updateCollection(id: string, body: GalleryCollectionInput,): Promise<GalleryCollection> {
+        return this.mutate('PATCH', '/gallery/admin/collections/:id', { params: { id, }, body, invalidates: ['gallery',], },);
+    }
+
+    /**
+     * DELETE /gallery/admin/collections/:id (staff) — `items`: `delete` (media too with `deleteMedia`, needs `media:write`),
+     * `root` (move to the gallery root) or `move` (into `targetId`).
+     */
+    deleteCollection(id: string, body: GalleryCollectionDeleteBody,): Promise<GalleryCollectionDeleteResponse> {
+        return this.mutate('DELETE', '/gallery/admin/collections/:id', { params: { id, }, body, invalidates: ['gallery',], },);
+    }
+
+    /** POST /gallery/admin/items/move (staff) — into a collection; `collectionId: null` = the gallery root. */
+    moveItems(body: GalleryMoveItemsBody,): Promise<GalleryMoveItemsResponse> {
+        return this.mutate('POST', '/gallery/admin/items/move', { body, invalidates: ['gallery',], },);
     }
 
     /** Staff (`gallery:manage`). */

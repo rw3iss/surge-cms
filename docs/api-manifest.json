@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-14T18:26:31.229Z",
+  "generatedAt": "2026-10-16T18:54:58.807Z",
   "totalModules": 55,
-  "totalRoutes": 561,
+  "totalRoutes": 568,
   "modules": [
     {
       "module": "admin-channel",
@@ -1270,6 +1270,55 @@
         },
         {
           "method": "GET",
+          "path": "/collections",
+          "absolutePath": "/api/v1/gallery/collections",
+          "auth": "optional",
+          "summary": "Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover."
+        },
+        {
+          "method": "GET",
+          "path": "/collections/:id",
+          "absolutePath": "/api/v1/gallery/collections/:id",
+          "auth": "optional",
+          "summary": "One collection (404 when missing or the viewer fails its access rule)."
+        },
+        {
+          "method": "GET",
+          "path": "/admin/collections",
+          "absolutePath": "/api/v1/gallery/admin/collections",
+          "auth": "staff",
+          "summary": "Every gallery collection with counts of ALL its items."
+        },
+        {
+          "method": "POST",
+          "path": "/admin/collections",
+          "absolutePath": "/api/v1/gallery/admin/collections",
+          "auth": "staff",
+          "summary": "Create a gallery collection (name defaults to \"Untitled\"; placed first unless sortOrder is given)."
+        },
+        {
+          "method": "PATCH",
+          "path": "/admin/collections/:id",
+          "absolutePath": "/api/v1/gallery/admin/collections/:id",
+          "auth": "staff",
+          "summary": "Update a gallery collection (name, description, sort order, access rule)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/collections/:id",
+          "absolutePath": "/api/v1/gallery/admin/collections/:id",
+          "auth": "staff",
+          "summary": "Delete a collection: its items are deleted (media too with deleteMedia), moved to the root, or moved to another collection."
+        },
+        {
+          "method": "POST",
+          "path": "/admin/items/move",
+          "absolutePath": "/api/v1/gallery/admin/items/move",
+          "auth": "staff",
+          "summary": "Move gallery items into a collection (collectionId null = the gallery root)."
+        },
+        {
+          "method": "GET",
           "path": "/admin/items",
           "absolutePath": "/api/v1/gallery/admin/items",
           "auth": "staff",
@@ -1287,7 +1336,7 @@
           "path": "/admin/items/:id",
           "absolutePath": "/api/v1/gallery/admin/items/:id",
           "auth": "staff",
-          "summary": "Edit one gallery item (title/caption overrides, tags, visibility, comments)."
+          "summary": "Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule)."
         },
         {
           "method": "DELETE",

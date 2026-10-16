@@ -5,8 +5,8 @@
  * Pure functions only (no Solid, no DOM beyond the File type) so the publish
  * body and the dirty check are unit-testable.
  */
-import type { GalleryItem, GalleryItemPatch, GalleryMedia, GallerySyncBody, } from '@sitesurge/types';
-import { galleryMediaType, } from '@sitesurge/types';
+import type { GalleryAccessRule, GalleryItem, GalleryItemPatch, GalleryMedia, GallerySyncBody, } from '@sitesurge/types';
+import { EMPTY_GALLERY_ACCESS_RULE, galleryMediaType, } from '@sitesurge/types';
 
 /** The editable options of an item (all fields always present in the draft). */
 export interface DraftOptions {
@@ -17,6 +17,8 @@ export interface DraftOptions {
     minTierId: string | null;
     comments: NonNullable<GalleryItemPatch['comments']>;
     anonymousComments: NonNullable<GalleryItemPatch['anonymousComments']>;
+    /** The item's own role / tier gate. */
+    access: GalleryAccessRule;
 }
 
 export interface DraftItem {
@@ -30,6 +32,12 @@ export interface DraftItem {
     file?: File;
     /** Local preview (object URL) of a staged file. */
     previewUrl?: string;
+    /**
+     * The collection the row is in (null/absent = the gallery root). A NEW row's
+     * collection is sent on Publish; a saved item is moved on the server at once
+     * (`moveItems`), so for saved rows this mirrors the server and is never sent.
+     */
+    collectionId?: string | null;
     /** Media shown in the grid (null = deleted from the library). */
     media: GalleryMedia | null;
     options: DraftOptions;
@@ -44,7 +52,18 @@ export interface DraftItem {
 
 export const EMPTY_OPTIONS: DraftOptions = {
     titleOverride: '', captionOverride: '', tags: [], visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit',
+    access: EMPTY_GALLERY_ACCESS_RULE,
 };
+
+/** A fresh copy of a rule (arrays never shared with the store). */
+export function copyAccess(r: GalleryAccessRule | null | undefined,): GalleryAccessRule {
+    return { enabled: Boolean(r?.enabled,), roles: [...(r?.roles ?? []),], tierIds: [...(r?.tierIds ?? []),], };
+}
+
+/** Fresh empty options for a new row. */
+export function emptyOptions(): DraftOptions {
+    return { ...EMPTY_OPTIONS, tags: [], access: copyAccess(null,), };
+}
 
 export function optionsOf(i: GalleryItem,): DraftOptions {
     return {
@@ -55,13 +74,14 @@ export function optionsOf(i: GalleryItem,): DraftOptions {
         minTierId: i.minTierId,
         comments: i.comments,
         anonymousComments: i.anonymousComments,
+        access: copyAccess(i.access,),
     };
 }
 
 /** Saved items → draft rows. */
 export function draftFromItems(items: GalleryItem[],): DraftItem[] {
     return items.map((i,) => ({
-        key: i.id, id: i.id, media: i.media, options: optionsOf(i,), url: i.url, commentCount: i.commentCount,
+        key: i.id, id: i.id, collectionId: i.collectionId ?? null, media: i.media, options: optionsOf(i,), url: i.url, commentCount: i.commentCount,
     }));
 }
 
@@ -100,6 +120,8 @@ export function patchOf(o: DraftOptions,): GalleryItemPatch {
         minTierId: o.visibility === 'tier' ? o.minTierId : null,
         comments: o.comments,
         anonymousComments: o.anonymousComments,
+        // A draft stored before access existed has none: send the empty (inheriting) rule.
+        access: copyAccess(o.access,),
     };
 }
 
@@ -118,7 +140,7 @@ export function buildPublishBody(draft: DraftItem[], uploaded: Map<string, strin
         }
         const mediaId = d.mediaId ?? uploaded.get(d.key,);
         if (!mediaId) throw new Error(`"${d.file?.name ?? d.key}" has not been uploaded.`,);
-        items.push({ mediaId, ...patchOf(d.options,), },);
+        items.push({ mediaId, ...patchOf(d.options,), collectionId: d.collectionId ?? null, },);
     }
     const remove = draft.filter((d,) => d.removed && d.id,).map((d,) => ({ id: d.id!, deleteMedia: Boolean(d.deleteMedia,), }));
     return remove.length ? { items, remove, } : { items, };
@@ -133,6 +155,11 @@ export function isDraftDirty(draft: DraftItem[], saved: GalleryItem[],): boolean
     if (live.some((d,) => !d.id,)) return true;
     if (live.length !== saved.length) return true;
     return live.some((d, i,) => d.id !== saved[i].id || !sameOptions(d.options, optionsOf(saved[i],),),);
+}
+
+/** Rows shown in a view: one collection's, or the root's (`null`). */
+export function rowsIn<T extends { collectionId?: string | null; },>(draft: T[], collectionId: string | null,): T[] {
+    return draft.filter((d,) => (d.collectionId ?? null) === collectionId,);
 }
 
 /** Move the row at `from` to `to` (drag-and-drop), returning a new array. */

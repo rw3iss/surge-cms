@@ -127,6 +127,9 @@ const GalleryPage = lazy(() => import('./pages/gallery/GalleryPage'));
 const GalleryItemPage = lazy(() => import('./pages/gallery/GalleryItemPage'));
 // `/<custom gallery base>/:id` — renders the 404 page for any other first segment.
 const GalleryCustomItemRoute = lazy(() => import('./pages/gallery/GalleryItemPage').then((m) => ({ default: m.GalleryCustomItemRoute, })));
+const GalleryCollectionPage = lazy(() => import('./pages/gallery/GalleryCollectionPage'));
+// `/<custom gallery base>/collection/:id` — the 404 page for any other first segment.
+const GalleryCustomCollectionRoute = lazy(() => import('./pages/gallery/GalleryCollectionPage').then((m) => ({ default: m.GalleryCustomCollectionRoute, })));
 const AdminGallery = lazy(() => import('./pages/admin/gallery/GalleryAdmin'));
 const AdminGallerySettings = lazy(() => import('./pages/admin/gallery/GallerySettings'));
 const AdminHelpGallery = lazy(() =>
@@ -193,6 +196,7 @@ const App: Component = () => {
 										<Route path="/forum/:category" component={ForumCategoryPage} />
 										<Route path="/forum/:category/:thread" component={ForumThreadPage} />
 										<Route path="/gallery" component={GalleryPage} />
+										<Route path="/gallery/collection/:id" component={GalleryCollectionPage} />
 										<Route path="/gallery/:id" component={GalleryItemPage} />
 										{/* Video direct links land here when the viewer can't get the plain file. */}
 										<Route path="/watch/:id" component={WatchPage} />
@@ -201,6 +205,7 @@ const App: Component = () => {
 										<Route path="/mail/:jobId" component={MailViewPage} />
 										<Route path="/:slug" component={DynamicPage} />
 										<Route path="/:slug/:id" component={GalleryCustomItemRoute} />
+										<Route path="/:slug/collection/:id" component={GalleryCustomCollectionRoute} />
 										{/* Catch-all 404 lives INSIDE Layout so the
 											public Header/Footer + theme tokens
 											(--site-primary, etc.) apply. Multi-

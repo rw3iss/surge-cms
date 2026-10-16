@@ -8,6 +8,7 @@
  *   {{gallery(8)}}  {{gallery('video', 4)}}        the first N items (of a type)
  *   {{gallery(type='image', tag='featured', sort='newest', limit=12,
  *             layout='grid', columns=4, gap='8px', aspect='square')}}
+ *   {{gallery(collection='<collection id>')}}       a collection's items (`'root'` = items in no collection)
  *   {{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4)}}
  *   {{for gallery(tag='events', limit=6) as g}} <img src="{{g.media.thumbnailUrl}}"> {{endfor}}
  *
@@ -53,6 +54,8 @@ export function galleryCallFor(name: string, args: unknown[], named: Record<stri
     const t = str(named.type,);
     if (t === 'image' || t === 'video' || t === 'all') q.type = t;
     if (str(named.tag,)) q.tag = str(named.tag,);
+    const coll = str(named.collection ?? named.collectionId,);
+    if (coll === 'root' || UUID.test(coll,)) q.collectionId = coll;
     if (str(named.search,)) q.search = str(named.search,);
     const sort = str(named.sort,);
     if (['order', 'newest', 'oldest', 'title', 'random',].includes(sort,)) q.sort = sort as GalleryQuery['sort'];

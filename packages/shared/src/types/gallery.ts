@@ -59,6 +59,8 @@ export interface GalleryAppearance {
     showPublishedDate: boolean;
     /** `open = 'lightbox'` only: a strip of every listed item's thumbnail along the bottom of the item modal. */
     thumbStrip: boolean;
+    /** Collection pages + item pages of collected items: a sidebar listing the collections. */
+    showCollectionsSidebar: boolean;
 }
 
 export interface GallerySettings {
@@ -99,6 +101,7 @@ export const DEFAULT_GALLERY_APPEARANCE: GalleryAppearance = {
     videoBadge: true,
     showPublishedDate: false,
     thumbStrip: false,
+    showCollectionsSidebar: false,
 };
 
 export const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
@@ -132,8 +135,61 @@ export interface GalleryMedia {
     status: string;
 }
 
+/**
+ * A role / subscription-level gate on a collection or an item. ACTIVE when
+ * `enabled` and at least one role or tier is chosen (enabled with nothing
+ * chosen inherits). An active rule REPLACES the visibility floor: the viewer
+ * passes when staff, OR holds any listed role (main or additional), OR has an
+ * entitled subscription to any listed tier. Anonymous never passes.
+ * Effective gate of an item: its own active rule → its collection's active
+ * rule → the item visibility / gallery floor.
+ */
+export interface GalleryAccessRule {
+    enabled: boolean;
+    roles: string[];
+    tierIds: string[];
+}
+
+export const EMPTY_GALLERY_ACCESS_RULE: GalleryAccessRule = { enabled: false, roles: [], tierIds: [], };
+
+/** Is a rule in force (enabled AND something chosen)? */
+export function isGalleryAccessRuleActive(r: GalleryAccessRule | null | undefined,): boolean {
+    return Boolean(r?.enabled && ((r.roles?.length ?? 0) > 0 || (r.tierIds?.length ?? 0) > 0),);
+}
+
+/** A folder of gallery items (one level; collections never nest). */
+export interface GalleryCollection {
+    id: string;
+    name: string;
+    description: string;
+    sortOrder: number;
+    access: GalleryAccessRule;
+    /** Items THIS viewer can see (admin: all items). */
+    itemCount: number;
+    /** The first visible item's thumbnail. */
+    coverThumbnailUrl: string | null;
+    /** `<baseUrl>/collection/<id>`. */
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface GalleryCollectionInput {
+    name?: string;
+    description?: string;
+    sortOrder?: number;
+    access?: GalleryAccessRule;
+}
+
+/** What happens to a deleted collection's items. */
+export type GalleryCollectionDeleteMode = 'delete' | 'root' | 'move';
+
 export interface GalleryItem {
     id: string;
+    /** The collection the item is in; null = the gallery root. */
+    collectionId: string | null;
+    /** The item's own role / tier gate. */
+    access: GalleryAccessRule;
     mediaId: string | null;
     /** null = the media was deleted: hidden from the public. */
     media: GalleryMedia | null;
@@ -168,6 +224,8 @@ export type GallerySort = 'order' | 'newest' | 'oldest' | 'title' | 'random';
 export interface GalleryQuery {
     /** Specific items, in this order (overrides sort). */
     ids?: string[];
+    /** A collection's items, or `root` = items in no collection. Absent = all items. */
+    collectionId?: string | 'root';
     type?: GalleryMediaType | 'all';
     /** Items carrying this tag (any of, comma list). */
     tag?: string;
@@ -265,6 +323,11 @@ export const DEFAULT_GALLERY_BLOCK_SETTINGS: GalleryBlockSettings = {
 /** Gallery item media type from a MIME type. */
 export function galleryMediaType(mime: string | null | undefined,): GalleryMediaType {
     return String(mime ?? '',).toLowerCase().startsWith('video/',) ? 'video' : 'image';
+}
+
+/** `/gallery` + collection id → collection page path. */
+export function galleryCollectionPath(baseUrl: string, id: string,): string {
+    return `${(baseUrl || '/gallery').replace(/\/+$/, '',)}/collection/${id}`;
 }
 
 /** `/gallery` + id → item page path. */

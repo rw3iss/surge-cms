@@ -3,7 +3,7 @@
  * `types/gallery.ts`; these only name the request/response bodies.
  */
 import type {
-    GalleryInheritSwitch, GalleryItem, GalleryItemVisibility, GalleryListResult, GalleryPublicConfig, GalleryQuery, GallerySettings,
+    GalleryAccessRule, GalleryCollection, GalleryCollectionDeleteMode, GalleryCollectionInput, GalleryInheritSwitch, GalleryItem, GalleryItemVisibility, GalleryListResult, GalleryPublicConfig, GalleryQuery, GallerySettings,
 } from '../../types/gallery';
 
 /** GET /gallery — viewer-gated list. Query = GalleryQuery with `ids`/`tag` as comma lists. */
@@ -23,6 +23,10 @@ export interface GalleryItemPatch {
     minTierId?: string | null;
     comments?: GalleryInheritSwitch;
     anonymousComments?: GalleryInheritSwitch;
+    /** Move into a collection (null = the gallery root). Omitted = unchanged (publish too). */
+    collectionId?: string | null;
+    /** The item's own role / tier gate. Omitted = unchanged. */
+    access?: GalleryAccessRule;
 }
 export type GalleryItemUpdateBody = GalleryItemPatch;
 
@@ -60,4 +64,44 @@ export type GallerySettingsBody = Partial<GallerySettings>;
 export interface GalleryRemoveResponse {
     removed: true;
     mediaDeleted: boolean;
+}
+
+// ─── Collections ──────────────────────────────────────────────────────────
+
+/** GET /gallery/collections — collections visible to the viewer (counts = visible items). */
+export type GalleryCollectionsResponse = GalleryCollection[];
+/** GET /gallery/collections/:id — 404 when missing or the viewer fails its rule. */
+export type GalleryCollectionResponse = GalleryCollection;
+/** GET /gallery/admin/collections — every collection, counts of ALL items. */
+export type GalleryAdminCollectionsResponse = GalleryCollection[];
+/** POST /gallery/admin/collections (name defaults to "Untitled"). */
+export type GalleryCollectionCreateBody = GalleryCollectionInput;
+/** PATCH /gallery/admin/collections/:id */
+export type GalleryCollectionUpdateBody = GalleryCollectionInput;
+
+/**
+ * DELETE /gallery/admin/collections/:id — what happens to its items:
+ * `delete` removes them from the gallery (their media too only with
+ * `deleteMedia`, which needs `media:write`), `root` moves them to the gallery
+ * root, `move` moves them into `targetId` (must exist, ≠ the deleted one).
+ */
+export interface GalleryCollectionDeleteBody {
+    items: GalleryCollectionDeleteMode;
+    targetId?: string;
+    deleteMedia?: boolean;
+}
+export interface GalleryCollectionDeleteResponse {
+    deleted: true;
+    /** Items removed (`delete`) or moved (`root` / `move`). */
+    items: number;
+    mediaDeleted: number;
+}
+
+/** POST /gallery/admin/items/move — into a collection, or null = the root. */
+export interface GalleryMoveItemsBody {
+    ids: string[];
+    collectionId: string | null;
+}
+export interface GalleryMoveItemsResponse {
+    moved: number;
 }

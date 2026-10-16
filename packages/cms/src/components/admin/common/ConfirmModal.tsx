@@ -17,6 +17,8 @@ interface ConfirmModalProps {
     busyLabel?: string;
     /** Disables both buttons + shows `busyLabel` — for async confirms in flight. */
     loading?: boolean;
+    /** Disables only the confirm button (e.g. a required choice not made yet). */
+    confirmDisabled?: boolean;
     onConfirm: () => void;
     onCancel: () => void;
     danger?: boolean;
@@ -43,7 +45,7 @@ export default function ConfirmModal(props: ConfirmModalProps,) {
                     <Button
                         variant={props.danger ? 'danger' : 'primary'}
                         onClick={props.onConfirm}
-                        disabled={props.loading}
+                        disabled={props.loading || props.confirmDisabled}
                     >
                         {props.loading ? (props.busyLabel || 'Working…') : (props.confirmLabel || 'Confirm')}
                     </Button>

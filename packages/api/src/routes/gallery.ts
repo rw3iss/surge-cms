@@ -1,14 +1,17 @@
 /**
  * /api/v1/gallery (feature `gallery`).
  *
- * Public (viewer-gated; `gallery:view` + the gallery/item access rules):
- *   GET /config, GET / (query), GET /items/:id
+ * Public (viewer-gated; `gallery:view` + the gallery/collection/item access rules):
+ *   GET /config, GET / (query), GET /items/:id, GET /collections, GET /collections/:id
  * Staff (`gallery:manage`): GET/PUT /admin/items (PUT = publish the draft),
- *   PATCH/DELETE /admin/items/:id, GET /admin/media-links (media → item)
+ *   PATCH/DELETE /admin/items/:id, POST /admin/items/move, GET /admin/media-links (media → item),
+ *   GET/POST /admin/collections, PATCH/DELETE /admin/collections/:id
  * Admin (`gallery.settings:manage`): GET/PUT /settings
  */
 import { z, } from 'zod';
 import type {
+    GalleryAdminCollectionsResponse, GalleryCollectionCreateBody, GalleryCollectionDeleteBody, GalleryCollectionDeleteResponse,
+    GalleryCollectionResponse, GalleryCollectionsResponse, GalleryCollectionUpdateBody, GalleryMoveItemsBody, GalleryMoveItemsResponse,
     GalleryAdminItemsResponse, GalleryConfigResponse, GalleryItemResponse, GalleryItemUpdateBody, GalleryListResponse,
     GalleryRemoveResponse, GallerySettingsBody, GallerySettingsResponse, GallerySyncBody, GallerySyncResponse,
 } from '@sitesurge/types';
@@ -20,6 +23,11 @@ import * as permissions from '../services/permissions';
 
 const idParams = z.object({ id: z.string().uuid(), },);
 const inherit = z.enum(['inherit', 'on', 'off',],);
+const accessRule = z.object({
+    enabled: z.boolean(),
+    roles: z.array(z.string().max(64,),).max(50,),
+    tierIds: z.array(z.string().uuid(),).max(50,),
+},);
 const patch = z.object({
     titleOverride: z.string().max(300,).nullable().optional(),
     captionOverride: z.string().max(4000,).nullable().optional(),
@@ -28,7 +36,27 @@ const patch = z.object({
     minTierId: z.string().uuid().nullable().optional(),
     comments: inherit.optional(),
     anonymousComments: inherit.optional(),
+    collectionId: z.string().uuid().nullable().optional(),
+    access: accessRule.optional(),
 },) satisfies z.ZodType<GalleryItemUpdateBody>;
+
+const collectionBody = z.object({
+    name: z.string().max(200,).optional(),
+    description: z.string().max(4000,).optional(),
+    sortOrder: z.number().int().optional(),
+    access: accessRule.optional(),
+},) satisfies z.ZodType<GalleryCollectionCreateBody & GalleryCollectionUpdateBody>;
+
+const collectionDeleteBody = z.object({
+    items: z.enum(['delete', 'root', 'move',],),
+    targetId: z.string().uuid().optional(),
+    deleteMedia: z.boolean().optional(),
+},) satisfies z.ZodType<GalleryCollectionDeleteBody>;
+
+const moveBody = z.object({
+    ids: z.array(z.string().uuid(),).max(5000,),
+    collectionId: z.string().uuid().nullable(),
+},) satisfies z.ZodType<GalleryMoveItemsBody>;
 
 const syncBody = z.object({
     items: z.array(patch.extend({ id: z.string().uuid().optional(), mediaId: z.string().uuid().optional(), },),).max(5000,),
@@ -37,6 +65,7 @@ const syncBody = z.object({
 
 const listQuery = z.object({
     ids: z.string().max(10_000,).optional(),
+    collectionId: z.union([z.literal('root',), z.string().uuid(),],).optional(),
     type: z.enum(['image', 'video', 'all',],).optional(),
     tag: z.string().max(400,).optional(),
     search: z.string().max(100,).optional(),
@@ -66,6 +95,7 @@ const appearance = z.object({
     videoBadge: z.boolean().optional(),
     showPublishedDate: z.boolean().optional(),
     thumbStrip: z.boolean().optional(),
+    showCollectionsSidebar: z.boolean().optional(),
 },);
 
 const settingsBody = z.object({
@@ -113,8 +143,71 @@ export const galleryRoutes = [
             return item;
         },
     },),
+    defineRoute({
+        method: 'get', path: '/collections', auth: 'optional',
+        summary: 'Collections visible to the viewer (sort order, name), each with the count of items the viewer can see and a cover.',
+        handler: async ({ user, },): Promise<GalleryCollectionsResponse> => {
+            if (!(await canView(user,))) return [];
+            return gallery.listCollections(viewerOf(user,),);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/collections/:id', auth: 'optional',
+        summary: 'One collection (404 when missing or the viewer fails its access rule).',
+        input: { params: idParams, },
+        handler: async ({ params, user, },): Promise<GalleryCollectionResponse> => {
+            const c = (await canView(user,)) ? await gallery.getCollection(params.id, viewerOf(user,),) : null;
+            if (!c) throw new NotFoundError('Gallery collection',);
+            return c;
+        },
+    },),
 
     // ─── Admin ───
+    defineRoute({
+        method: 'get', path: '/admin/collections', auth: 'staff',
+        summary: 'Every gallery collection with counts of ALL its items.',
+        handler: async ({ user, },): Promise<GalleryAdminCollectionsResponse> => {
+            await need(user, 'gallery:manage',);
+            return gallery.adminCollections();
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/admin/collections', auth: 'staff',
+        summary: 'Create a gallery collection (name defaults to "Untitled"; placed first unless sortOrder is given).',
+        input: { body: collectionBody, },
+        handler: async ({ body, user, audit, },): Promise<GalleryCollectionResponse> => {
+            await need(user, 'gallery:manage',);
+            return gallery.createCollection(body, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'patch', path: '/admin/collections/:id', auth: 'staff',
+        summary: 'Update a gallery collection (name, description, sort order, access rule).',
+        input: { params: idParams, body: collectionBody, },
+        handler: async ({ params, body, user, audit, },): Promise<GalleryCollectionResponse> => {
+            await need(user, 'gallery:manage',);
+            return gallery.updateCollection(params.id, body, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'delete', path: '/admin/collections/:id', auth: 'staff',
+        summary: 'Delete a collection: its items are deleted (media too with deleteMedia), moved to the root, or moved to another collection.',
+        input: { params: idParams, body: collectionDeleteBody, },
+        handler: async ({ params, body, user, audit, },): Promise<GalleryCollectionDeleteResponse> => {
+            await need(user, 'gallery:manage',);
+            if (body.items === 'delete' && body.deleteMedia) await need(user, 'media:write',);
+            return gallery.deleteCollection(params.id, body, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/admin/items/move', auth: 'staff',
+        summary: 'Move gallery items into a collection (collectionId null = the gallery root).',
+        input: { body: moveBody, },
+        handler: async ({ body, user, audit, },): Promise<GalleryMoveItemsResponse> => {
+            await need(user, 'gallery:manage',);
+            return gallery.moveItems(body, audit(),);
+        },
+    },),
     defineRoute({
         method: 'get', path: '/admin/items', auth: 'staff',
         summary: 'Every gallery item in order, including ones whose media was deleted.',
@@ -135,7 +228,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'patch', path: '/admin/items/:id', auth: 'staff',
-        summary: 'Edit one gallery item (title/caption overrides, tags, visibility, comments).',
+        summary: 'Edit one gallery item (title/caption overrides, tags, visibility, comments, collection, access rule).',
         input: { params: idParams, body: patch, },
         handler: async ({ params, body, user, audit, },): Promise<GalleryItemResponse> => {
             await need(user, 'gallery:manage',);

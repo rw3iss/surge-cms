@@ -20,3 +20,4 @@ export { Badge, statusToVariant, type BadgeProps, type BadgeVariant, type BadgeS
 export { Spinner, type SpinnerProps, } from './Spinner';
 export { Tabs, type TabsProps, type TabItem, } from './Tabs';
 export { Slider, type SliderProps, } from './Slider';
+export { MultiSelect, type MultiSelectProps, type MultiSelectOption, } from './MultiSelect';

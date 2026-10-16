@@ -20,10 +20,12 @@ import { NotFoundError, ValidationError, } from '../../core/errors';
 import { query, transaction, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { uuidOrNull, } from '../../utils/uuid';
+import { ANONYMOUS_GRANTS, viewerGrants, type ViewerGrants, } from '../access/grants';
 import { viewerLevel, type LevelViewer, } from '../access/level';
 import { logAudit, } from '../audit';
 import { cache, CACHE_KEYS, } from '../cache';
 import type { AuditContext, } from '../types';
+import { cleanRule, itemGateSql, ruleFromRow, } from './access';
 import { galleryFloor, getSettings, } from './settings';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,6 +37,7 @@ interface Row {
     id: string; media_id: string | null; title: string | null; caption: string | null; tags: string[]; sort_order: number;
     visibility: GalleryItem['visibility']; min_tier_id: string | null; comments: GalleryItem['comments'];
     anonymous_comments: GalleryItem['anonymousComments']; created_at: Date; updated_at: Date;
+    collection_id: string | null; access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
     m_id: string | null; m_mime: string | null; m_url: string | null; m_thumb: string | null; m_width: number | null; m_height: number | null;
     m_duration: number | null; m_title: string | null; m_caption: string | null; m_alt: string | null; m_credits: string | null;
     m_access: 'public' | 'private' | null; m_status: string | null; m_name: string | null; comment_count: number | null;
@@ -48,7 +51,13 @@ const SELECT = `
       FROM gallery_items gi
       LEFT JOIN media m ON m.id = gi.media_id
       LEFT JOIN subscription_plans sp ON sp.id = gi.min_tier_id
+      LEFT JOIN gallery_collections gc ON gc.id = gi.collection_id
       LEFT JOIN comment_threads ct ON ct.target_type = 'gallery_item' AND ct.target_id = gi.id`;
+
+/** FROM + joins every gated read needs (counts, collection counts). */
+export const ITEM_FROM = `FROM gallery_items gi LEFT JOIN media m ON m.id = gi.media_id
+      LEFT JOIN subscription_plans sp ON sp.id = gi.min_tier_id
+      LEFT JOIN gallery_collections gc ON gc.id = gi.collection_id`;
 
 /** The item's floor in SQL ($floor = the gallery floor). */
 const FLOOR_SQL = (galleryFloorParam: string,) =>
@@ -78,6 +87,8 @@ export function mapRow(r: Row, baseUrl: string,): GalleryItem {
         : null;
     return {
         id: r.id,
+        collectionId: r.collection_id ?? null,
+        access: ruleFromRow(r,),
         mediaId: r.media_id,
         media,
         title: r.title?.trim() || r.m_title?.trim() || nameOf(r.m_name,),
@@ -105,14 +116,18 @@ export interface ListOptions {
     /** `site` (default): gated by the viewer's level. `email`: public media only, no gate. `admin`: everything. */
     audience?: 'site' | 'email' | 'admin';
     viewer?: LevelViewer;
+    /** The viewer's roles + tiers, when the caller already built them (else built here). */
+    grants?: ViewerGrants;
 }
 
 /** Normalise a query (ids/tags may arrive as comma strings). */
 export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] | string; } = {},): Required<Pick<GalleryQuery, 'sort' | 'limit' | 'page'>> & GalleryQuery {
     const ids = (Array.isArray(q.ids,) ? q.ids : String(q.ids ?? '',).split(',',)).map((x,) => x.trim()).filter((x,) => UUID.test(x,));
     const sort = (['order', 'newest', 'oldest', 'title', 'random',] as const).includes(q.sort as never,) ? q.sort! : 'order';
+    const coll = String(q.collectionId ?? '',).trim();
     return {
         ...q,
+        collectionId: coll === 'root' || UUID.test(coll,) ? coll : undefined,
         ids: ids.length ? ids.slice(0, MAX_LIMIT,) : undefined,
         type: q.type === 'image' || q.type === 'video' ? q.type : 'all',
         tag: q.tag?.trim() || undefined,
@@ -123,7 +138,13 @@ export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] |
     };
 }
 
-async function buildWhere(q: ReturnType<typeof normalizeQuery>, opts: ListOptions, s: GallerySettings, params: unknown[],): Promise<string> {
+/**
+ * The audience part of the item WHERE: public reads need ready media (and no
+ * videos while they are off); `email` = public media only; `site` = the
+ * viewer gate (item rule → collection rule → level floor). Shared with the
+ * collection counts so a count and its listing always agree.
+ */
+export async function audienceConditions(opts: ListOptions, s: GallerySettings, params: unknown[],): Promise<string[]> {
     const where: string[] = [];
     const audience = opts.audience ?? 'site';
     if (audience !== 'admin') {
@@ -132,11 +153,24 @@ async function buildWhere(q: ReturnType<typeof normalizeQuery>, opts: ListOption
     }
     if (audience === 'email') where.push(`m.access_level = 'public'`,);
     if (audience === 'site') {
-        const level = await viewerLevel(opts.viewer,);
+        const [level, grants,] = await Promise.all([
+            viewerLevel(opts.viewer,),
+            opts.grants ?? (opts.viewer?.id ? viewerGrants(opts.viewer,) : ANONYMOUS_GRANTS),
+        ],);
         params.push(await galleryFloor(s,),);
         const floorParam = `$${params.length}`;
         params.push(level === Infinity ? STAFF_LEVEL : level,);
-        where.push(`${FLOOR_SQL(floorParam,)} <= $${params.length}`,);
+        where.push(itemGateSql(grants, `${FLOOR_SQL(floorParam,)} <= $${params.length}`, params,),);
+    }
+    return where;
+}
+
+async function buildWhere(q: ReturnType<typeof normalizeQuery>, opts: ListOptions, s: GallerySettings, params: unknown[],): Promise<string> {
+    const where = await audienceConditions(opts, s, params,);
+    if (q.collectionId === 'root') where.push('gi.collection_id IS NULL',);
+    else if (q.collectionId) {
+        params.push(q.collectionId,);
+        where.push(`gi.collection_id = $${params.length}`,);
     }
     if (q.ids) {
         params.push(q.ids,);
@@ -190,8 +224,7 @@ export async function list(raw: Omit<GalleryQuery, 'ids'> & { ids?: string[] | s
     const [rows, count,] = await Promise.all([
         query<Row>(`${SELECT} ${where} ${order} LIMIT $${params.length - 1} OFFSET $${params.length}`, params,),
         query<{ n: number; }>(
-            `SELECT COUNT(*)::int AS n FROM gallery_items gi LEFT JOIN media m ON m.id = gi.media_id
-               LEFT JOIN subscription_plans sp ON sp.id = gi.min_tier_id ${where}`,
+            `SELECT COUNT(*)::int AS n ${ITEM_FROM} ${where}`,
             countParams,
         ),
     ],);
@@ -244,27 +277,47 @@ function cleanPatch(p: GalleryItemPatch,): GalleryItemPatch {
             out[k] = p[k];
         }
     }
+    if (p.collectionId !== undefined) {
+        if (p.collectionId !== null && !UUID.test(p.collectionId,)) throw new ValidationError('Unknown collection.',);
+        out.collectionId = p.collectionId;
+    }
+    if (p.access !== undefined) out.access = cleanRule(p.access,);
     if (out.visibility === 'tier' && out.minTierId === null) throw new ValidationError('Choose a tier for a tier-only item.',);
     return out;
 }
 
-const COLS: Record<keyof GalleryItemPatch, string> = {
+const COLS: Record<Exclude<keyof GalleryItemPatch, 'access'>, string> = {
     titleOverride: 'title', captionOverride: 'caption', tags: 'tags', visibility: 'visibility', minTierId: 'min_tier_id',
-    comments: 'comments', anonymousComments: 'anonymous_comments',
+    comments: 'comments', anonymousComments: 'anonymous_comments', collectionId: 'collection_id',
 };
 
-function setClause(p: GalleryItemPatch, params: unknown[],): string[] {
+/** SET fragments for the fields PRESENT in the patch — an omitted field stays as it is. */
+export function setClause(p: GalleryItemPatch, params: unknown[],): string[] {
     const sets: string[] = [];
-    for (const [k, col,] of Object.entries(COLS,) as [keyof GalleryItemPatch, string][]) {
+    for (const [k, col,] of Object.entries(COLS,) as [Exclude<keyof GalleryItemPatch, 'access'>, string][]) {
         if (p[k] === undefined) continue;
         params.push(p[k],);
         sets.push(`${col} = $${params.length}${col === 'tags' ? '::text[]' : ''}`,);
     }
+    if (p.access) {
+        params.push(p.access.enabled, p.access.roles, p.access.tierIds,);
+        const n = params.length;
+        sets.push(`access_enabled = $${n - 2}`, `access_roles = $${n - 1}::text[]`, `access_tier_ids = $${n}::uuid[]`,);
+    }
     return sets;
+}
+
+/** Refuse collection ids that do not exist (the FK would otherwise 500). */
+export async function assertCollectionsExist(ids: (string | null | undefined)[], run: typeof query = query,): Promise<void> {
+    const wanted = [...new Set(ids.filter((x,): x is string => Boolean(x,),),),];
+    if (!wanted.length) return;
+    const r = await run<{ id: string; }>(`SELECT id FROM gallery_collections WHERE id = ANY($1::uuid[])`, [wanted,],);
+    if (r.rows.length !== wanted.length) throw new ValidationError('That collection no longer exists.',);
 }
 
 export async function update(id: string, patch: GalleryItemPatch, ctx: AuditContext,): Promise<GalleryItem> {
     const p = cleanPatch(patch,);
+    await assertCollectionsExist([p.collectionId,],);
     const params: unknown[] = [id,];
     const sets = setClause(p, params,);
     if (sets.length) {
@@ -292,7 +345,7 @@ export async function remove(id: string, deleteMedia: boolean, ctx: AuditContext
     return { removed: true, mediaDeleted, };
 }
 
-async function deleteMediaQuietly(mediaId: string, ctx: AuditContext,): Promise<boolean> {
+export async function deleteMediaQuietly(mediaId: string, ctx: AuditContext,): Promise<boolean> {
     try {
         const media = await import('../media.js');
         await media.remove(mediaId, ctx,);
@@ -318,6 +371,7 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
     const newMediaIds = keep.filter((i,) => !i.id,).map((i,) => i.mediaId ?? '',);
     if (newMediaIds.some((m,) => !UUID.test(m,),)) throw new ValidationError('Every new gallery item needs a media id.',);
     if (new Set(newMediaIds,).size !== newMediaIds.length) throw new ValidationError('The same media is listed twice.',);
+    await assertCollectionsExist(keep.map((i,) => i.collectionId,),);
     if (newMediaIds.length) {
         const m = await query<{ id: string; mime_type: string; }>(`SELECT id, mime_type FROM media WHERE id = ANY($1::uuid[])`, [newMediaIds,],);
         if (m.rows.length !== newMediaIds.length) throw new ValidationError('Some media no longer exists in the library.',);
@@ -357,12 +411,15 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
                     await client.query(`UPDATE gallery_items SET sort_order = $2, updated_at = NOW() WHERE id = $1`, [existing.rows[0].id, order,],);
                     updated += 1;
                 } else {
+                    const access = p.access ?? { enabled: false, roles: [], tierIds: [], };
                     await client.query(
-                        `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments, created_by)
-                         VALUES ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10)`,
+                        `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments, created_by,
+                                                    collection_id, access_enabled, access_roles, access_tier_ids)
+                         VALUES ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13::text[], $14::uuid[])`,
                         [
                             item.mediaId, order, p.titleOverride ?? null, p.captionOverride ?? null, p.tags ?? [], p.visibility ?? 'inherit',
                             p.minTierId ?? null, p.comments ?? 'inherit', p.anonymousComments ?? 'inherit', uuidOrNull(ctx.userId,),
+                            p.collectionId ?? null, access.enabled, access.roles, access.tierIds,
                         ],
                     );
                     added += 1;

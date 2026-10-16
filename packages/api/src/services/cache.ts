@@ -76,6 +76,7 @@ export const CACHE_KEYS = {
     // ── Gallery (anonymous reads only; per-viewer reads are never cached) ──
     galleryPrefix: 'gallery:',
     galleryList: (hash: string,) => `gallery:list:${hash}`,
+    galleryCollections: 'gallery:collections',
 
     // ── Feed / sitemap ──
     feedRss: 'feed:rss',

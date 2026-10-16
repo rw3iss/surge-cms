@@ -35,7 +35,57 @@
     }
   }
 
+  &__main { min-width: 0; }
+
   &__grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+  // Breadcrumb title inside a collection: "Gallery / <name>".
+  &__crumbs {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+    min-width: 0;
+  }
+
+  &__crumb {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--site-primary, #{$primary-color});
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  &__crumb-sep { color: var(--admin-text-muted, #{$text-light}); }
+
+  // Collection (folder) tiles + the "Back to gallery" tile.
+  &__folder {
+    cursor: pointer;
+
+    &.is-drop-target { --card-ring: #{$warning-color}; transform: scale(1.02); }
+    .media-grid__name { font-weight: 600; }
+  }
+
+  &__folder-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--admin-bg-subtle, #{$background-dark});
+  }
+
+  &__folder-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__back {
+    border-style: dashed;
+
+    .media-grid__name { color: var(--admin-text-muted, #{$text-light}); }
+  }
 
   &__empty { padding: $spacing-xl; text-align: center; }
 
@@ -106,6 +156,7 @@
     &--vis { background: var(--site-primary, #{$primary-color}); }
     &--pending { background: $warning-color; }
     &--new { background: $success-color; }
+    &--folder { background: $secondary-color; }
   }
 
   &__progress {
@@ -189,6 +240,24 @@
   &__missing { margin: 0; font-size: $font-size-sm; color: $error-color; }
   &__comments { margin: 0; font-size: $font-size-xs; color: var(--admin-text-muted, #{$text-light}); }
 
+  &__kind { font-size: 1.1rem; line-height: 1; }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__moves {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-sm;
+  }
+
+  &__move { width: auto; max-width: 100%; }
+
   &__foot {
     margin-top: $spacing-sm;
     padding-top: $spacing-sm;
@@ -236,3 +305,22 @@
     background: transparent;
   }
 }
+
+// "Restrict access" (AccessRuleEditor) — collection + item panels.
+.gallery-access-rule {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  &__state { margin: 0; }
+}
+
+// Delete-collection confirm: item handling choices.
+.gallery-delete-collection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+}
+
+.gallery-panel__foot.gallery-panel__actions { justify-content: space-between; }

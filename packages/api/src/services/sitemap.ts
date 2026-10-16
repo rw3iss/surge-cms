@@ -67,11 +67,11 @@ async function forumSitemapRows(): Promise<Array<{ slug: string; c_slug: string;
 }
 
 /**
- * Public gallery URLs (index + items), or null when the gallery is off or not
+ * Public gallery URLs (index + collections + items), or null when the gallery is off or not
  * publicly readable. Items come from the ANONYMOUS list, so gated items and
  * items whose media is gone are never listed.
  */
-async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url: string; updatedAt: string; }>; } | null> {
+async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url: string; updatedAt: string; }>; collections: Array<{ url: string; updatedAt: string; }>; } | null> {
     try {
         const on = await query<{ value: unknown; }>(`SELECT value FROM site_settings WHERE key = 'gallery_enabled'`,);
         const v = on.rows[0]?.value;
@@ -85,7 +85,9 @@ async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url:
             items.push(...r.items.map((i,) => ({ url: i.url, updatedAt: i.updatedAt, })),);
             if (r.items.length < 200) break;
         }
-        return { base: cfg.baseUrl, items, };
+        // Anonymous view: collections behind an access rule are not listed.
+        const collections = (await g.listCollections(null,)).map((c,) => ({ url: c.url, updatedAt: c.updatedAt, }));
+        return { base: cfg.baseUrl, items, collections, };
     } catch {
         return null;
     }
@@ -168,6 +170,7 @@ export async function buildSitemap(): Promise<string> {
     const gallery = await gallerySitemapRows();
     if (gallery) {
         addUrl(`${SITE_URL}${gallery.base}`, undefined, 'weekly', 0.5,);
+        for (const c of gallery.collections) addUrl(`${SITE_URL}${c.url}`, c.updatedAt, 'weekly', 0.4,);
         for (const i of gallery.items) addUrl(`${SITE_URL}${i.url}`, i.updatedAt, 'monthly', 0.4,);
     }
 

@@ -1,0 +1,209 @@
+@use '../../styles/variables' as *;
+
+// ─── MultiSelect ─────────────────────────────────────────────────────
+// Generic multi-select dropdown. See ADMIN_STYLES.md → "Dropdowns &
+// multi-selects" for when to reach for this vs. `Select` / `EntitySearchSelect`.
+
+.ui-multiselect {
+    position: relative;
+    width: 100%;
+
+    &__control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-xs;
+        min-height: 40px;
+        box-sizing: border-box;
+        padding: 6px $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        background-color: #fff;
+        cursor: pointer;
+        transition: border-color $transition-fast, box-shadow $transition-fast;
+
+        &:focus,
+        &:focus-visible {
+            outline: none;
+            border-color: var(--site-primary, #{$primary-color});
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+        }
+
+        &.is-open {
+            border-color: var(--site-primary, #{$primary-color});
+        }
+    }
+
+    &.is-disabled &__control {
+        background-color: $background-dark;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    &__placeholder {
+        color: $text-light;
+        font-size: $font-size-sm;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-xs;
+        min-width: 0;
+    }
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        max-width: 100%;
+        padding: 2px 4px 2px $spacing-sm;
+        border-radius: $border-radius-sm;
+        background: $background-dark;
+        font-size: $font-size-xs;
+        color: var(--admin-text, #{$text-color});
+    }
+
+    &__chip-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__chip-remove {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border: none;
+        border-radius: $border-radius-sm;
+        background: none;
+        color: $text-light;
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover {
+            background: $border-color;
+            color: $error-color;
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+    }
+
+    &__chip-more {
+        flex: 0 0 auto;
+        padding: 2px 4px;
+        font-size: $font-size-xs;
+        color: $text-light;
+    }
+}
+
+// Popover — Portal-rendered; `position: fixed` + top/left/bottom/width are
+// set inline (per-instance geometry from `computeMenuPlacement`), so only
+// appearance lives here. z-index is `$z-index-popover` — the tier reserved
+// for a popover that must win over a modal, since this control is used
+// inside modals and side panels.
+.ui-multiselect__popover {
+    z-index: $z-index-popover;
+    display: flex;
+    flex-direction: column;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    overflow: hidden;
+}
+
+.ui-multiselect__search {
+    // This IS search-as-you-type (filters on every keystroke, never
+    // committed) — see the comment in MultiSelect.tsx for why that's
+    // exempt from the admin "commit on blur" rule.
+    @include admin-input;
+    flex: 0 0 auto;
+    width: calc(100% - #{$spacing-sm * 2});
+    margin: $spacing-sm;
+}
+
+.ui-multiselect__actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid $border-color;
+}
+
+.ui-multiselect__action {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--site-primary, #{$primary-color});
+    font-size: $font-size-xs;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.ui-multiselect__list {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: $spacing-xs 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.ui-multiselect__option {
+    // The Checkbox label fills the whole row so the entire row is the click
+    // target — there's deliberately no separate onClick on the <li>, which
+    // would double-toggle alongside Checkbox's own onChange.
+    .ui-checkbox {
+        display: flex;
+        width: 100%;
+        padding: $spacing-xs $spacing-md;
+    }
+
+    &.is-active .ui-checkbox {
+        background: $background-dark;
+    }
+
+    &[aria-disabled='true'] .ui-checkbox {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+}
+
+.ui-multiselect__option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.ui-multiselect__option-label {
+    overflow: hidden;
+    font-size: $font-size-sm;
+    color: var(--admin-text, #{$text-color});
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ui-multiselect__option-hint {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+}
+
+.ui-multiselect__empty {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-align: center;
+}

@@ -61,6 +61,7 @@ function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
         videoBadge: Boolean(n.videoBadge,),
         showPublishedDate: Boolean(n.showPublishedDate,),
         thumbStrip: Boolean(n.thumbStrip,),
+        showCollectionsSidebar: Boolean(n.showCollectionsSidebar,),
     };
 }
 

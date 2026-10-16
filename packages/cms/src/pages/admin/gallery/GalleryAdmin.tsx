@@ -10,22 +10,36 @@
  * The draft (minus staged files, which a browser cannot keep) is saved to
  * localStorage while dirty and restored on the next visit; leaving is only
  * challenged while files are staged.
+ *
+ * COLLECTIONS (one level of folders) are NOT part of the draft: creating,
+ * editing and deleting one saves at once, and so does moving a PUBLISHED item
+ * between collections (`moveItems`) — the saved items and the draft rows are
+ * both updated, so the move never reads as an unpublished change. A NEW row
+ * moves inside the draft (its `collectionId` is sent on Publish). The open
+ * collection lives in the URL (`?collection=<id>`); the root view shows the
+ * folder tiles, then the items in no collection.
  */
-import type { GalleryItem, GallerySettings, SubscriptionTierOption, } from '@sitesurge/types';
-import { A, } from '@solidjs/router';
+import type {
+    GalleryCollection, GalleryCollectionInput, GalleryItem, GallerySettings, RoleDef, SubscriptionTier, SubscriptionTierOption,
+} from '@sitesurge/types';
+import { isGalleryAccessRuleActive, } from '@sitesurge/types';
+import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
-import { createStore, produce, reconcile, unwrap, } from 'solid-js/store';
+import { createStore, produce, reconcile, } from 'solid-js/store';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import ConfirmModal from '../../../components/admin/common/ConfirmModal';
+import CollectionPanel from '../../../components/admin/gallery/CollectionPanel';
+import DeleteCollectionModal, { type DeleteCollectionChoice, } from '../../../components/admin/gallery/DeleteCollectionModal';
 import GalleryItemPanel, { type GalleryDefaults, } from '../../../components/admin/gallery/GalleryItemPanel';
 import {
-    buildPublishBody, displayTitle, draftFromItems, EMPTY_OPTIONS, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft,
+    buildPublishBody, displayTitle, draftFromItems, emptyOptions, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft, rowsIn,
     type DraftItem, type DraftOptions,
 } from '../../../components/admin/gallery/galleryDraft';
 import { uploadMediaFile, } from '../../../components/admin/gallery/uploadMedia';
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
 import MediaStageModal from '../../../components/admin/media/MediaStageModal';
 import { useToast, } from '../../../components/common/toast';
+import type { MultiSelectOption, } from '../../../components/ui/MultiSelect';
 import { useAutoSave, } from '../../../hooks/useAutoSave';
 import { useNavigationGuard, } from '../../../hooks/useNavigationGuard';
 import { cms, } from '../../../services/cmsClient';
@@ -52,15 +66,44 @@ const GalleryAdmin: Component = () => {
     /** Upload progress per staged row key during Publish. */
     const [progress, setProgress,] = createStore<Record<string, number>>({},);
     const [revertOpen, setRevertOpen,] = createSignal(false,);
-    const [dragFrom, setDragFrom,] = createSignal<number | null>(null,);
-    const [dragOver, setDragOver,] = createSignal<number | null>(null,);
+    /** Dragged row key; the hovered drop target: a row key, `c:<collectionId>` or `back`. */
+    const [dragFrom, setDragFrom,] = createSignal<string | null>(null,);
+    const [dragOver, setDragOver,] = createSignal<string | null>(null,);
+    const [collections, setCollections,] = createSignal<GalleryCollection[]>([],);
+    const [roleOptions, setRoleOptions,] = createSignal<MultiSelectOption[]>([],);
+    const [tierOptions, setTierOptions,] = createSignal<MultiSelectOption[]>([],);
+    const [selectedCollectionId, setSelectedCollectionId,] = createSignal<string | null>(null,);
+    const [creatingCollection, setCreatingCollection,] = createSignal(false,);
+    const [deleteTarget, setDeleteTarget,] = createSignal<GalleryCollection | null>(null,);
+    const [deletingCollection, setDeletingCollection,] = createSignal(false,);
+    const [searchParams, setSearchParams,] = useSearchParams<{ collection?: string; }>();
 
     const commentsOn = () => isFeatureEnabled('comments',);
-    const rows = () => draft.rows;
     const dirty = createMemo(() => ready() && isDraftDirty(draft.rows, saved(),));
     const stagedCount = () => draft.rows.filter((r,) => r.file && !r.removed,).length;
     const selected = () => draft.rows.find((r,) => r.key === selectedKey(),) ?? null;
-    const liveCount = () => draft.rows.filter((r,) => !r.removed,).length;
+
+    // ─── Collections / current view ───
+    /** The open collection (null = the gallery root); an unknown id falls back to the root. */
+    const openCollection = () => collections().find((c,) => c.id === searchParams.collection,) ?? null;
+    const openId = () => openCollection()?.id ?? null;
+    const viewRows = createMemo(() => rowsIn(draft.rows, openId(),),);
+    const liveCount = () => viewRows().filter((r,) => !r.removed,).length;
+    const selectedCollection = () => collections().find((c,) => c.id === selectedCollectionId(),) ?? null;
+    const collectionCount = (id: string,) => draft.rows.filter((r,) => !r.removed && r.collectionId === id,).length;
+    const collectionCover = (c: GalleryCollection,) => {
+        const first = draft.rows.find((r,) => !r.removed && r.collectionId === c.id && thumbOf(r,) && !(r.file && isVideoRow(r,)),);
+        return (first && thumbOf(first,)) || c.coverThumbnailUrl;
+    };
+    const selectItem = (key: string | null,) => { setSelectedKey(key,); if (key) setSelectedCollectionId(null,); };
+    const selectCollection = (id: string | null,) => { setSelectedCollectionId(id,); if (id) setSelectedKey(null,); };
+    const goTo = (id: string | null,) => {
+        setSearchParams({ collection: id ?? undefined, },);
+        // An item selected in the view being left would leave the panel showing a hidden item.
+        const r = selected();
+        if (r && (r.collectionId ?? null) !== id) setSelectedKey(null,);
+    };
+    const fullIndex = (key: string,) => draft.rows.findIndex((r,) => r.key === key,);
 
     const tierName = (id: string | null,) => tiers().find((t,) => t.id === id,)?.name ?? 'Members';
     const galleryDefaults = (): GalleryDefaults => {
@@ -110,7 +153,12 @@ const GalleryAdmin: Component = () => {
         // Drop rows for items deleted elsewhere since; refresh saved rows' media/url/counts.
         const restored = stored.data
             .filter((r,) => !r.id || byId.has(r.id,),)
-            .map((r,) => (r.id ? { ...r, media: byId.get(r.id,)!.media, url: byId.get(r.id,)!.url, commentCount: byId.get(r.id,)!.commentCount, } : r));
+            .map((r,) => {
+                if (!r.id) return r;
+                const s = byId.get(r.id,)!;
+                // A saved item's collection is the SERVER's (moves save at once), never the stored draft's.
+                return { ...r, collectionId: s.collectionId ?? null, media: s.media, url: s.url, commentCount: s.commentCount, };
+            },);
         const seen = new Set(restored.map((r,) => r.id,).filter(Boolean,),);
         const added = draftFromItems(items.filter((i,) => !seen.has(i.id,),),);
         setDraft('rows', [...restored, ...added,],);
@@ -122,13 +170,20 @@ const GalleryAdmin: Component = () => {
         setLoading(true,);
         setLoadError('',);
         try {
-            const [s, items, t,] = await Promise.all([
+            const [s, items, t, cols, roleList, tierList,] = await Promise.all([
                 cms.gallery.settings(),
                 cms.gallery.admin.items(),
                 cms.subscriptionTiers.options().catch(() => [] as SubscriptionTierOption[]),
+                cms.gallery.adminCollections().catch(() => [] as GalleryCollection[]),
+                cms.roles.list().catch(() => [] as RoleDef[]),
+                cms.subscriptionTiers.list().catch(() => [] as SubscriptionTier[]),
             ],);
             setSettings(s,);
             setTiers(t.filter((x,) => !x.isFree,),);
+            setCollections(cols,);
+            // Anonymous can never pass a restriction, so it is not offered.
+            setRoleOptions(roleList.filter((r,) => r.key !== 'anonymous',).map((r,) => ({ value: r.key, label: r.label || r.key, hint: r.key, })),);
+            setTierOptions(tierList.map((x,) => ({ value: x.id, label: x.name, hint: x.isActive ? (x.isFree ? 'Free' : undefined) : 'Inactive', })),);
             setSaved(items,);
             if (!restoreDraft(items,)) setDraft('rows', reconcile(draftFromItems(items,),),);
             setReady(true,);
@@ -166,7 +221,7 @@ const GalleryAdmin: Component = () => {
                     continue;
                 }
                 if (all.some((r,) => (r.media?.id ?? r.mediaId) === m.id,)) continue;
-                all.push({ key: `m:${m.id}`, mediaId: m.id, media: mediaFromLibrary(m as never,), options: { ...EMPTY_OPTIONS, tags: [], }, },);
+                all.push({ key: `m:${m.id}`, mediaId: m.id, collectionId: openId(), media: mediaFromLibrary(m as never,), options: emptyOptions(), },);
                 added += 1;
             }
         },),);
@@ -178,7 +233,7 @@ const GalleryAdmin: Component = () => {
         const allowVideos = settings()?.allowVideos !== false;
         const fresh: DraftItem[] = files
             .filter((f,) => allowVideos || !f.type.startsWith('video/',),)
-            .map((file,) => ({ key: `f:${++stageSeq}`, file, previewUrl: URL.createObjectURL(file,), media: null, options: { ...EMPTY_OPTIONS, tags: [], }, }));
+            .map((file,) => ({ key: `f:${++stageSeq}`, file, previewUrl: URL.createObjectURL(file,), collectionId: openId(), media: null, options: emptyOptions(), }));
         if (!fresh.length) return;
         setDraft('rows', (cur,) => [...cur, ...fresh,],);
         toast.info(`${fresh.length} file${fresh.length > 1 ? 's' : ''} staged. They upload when you publish.`,);
@@ -195,12 +250,118 @@ const GalleryAdmin: Component = () => {
         patchRow(r.key, { removed: true, deleteMedia: false, },);
     };
 
-    const onDrop = (to: number,) => {
-        const from = dragFrom();
-        setDragFrom(null,);
-        setDragOver(null,);
-        if (from === null || from === to) return;
+    const endDrag = () => { setDragFrom(null,); setDragOver(null,); };
+
+    /** Reorder: the dragged row takes the dropped-on row's place (indices in the FULL list). */
+    const onDrop = (toKey: string,) => {
+        const fromKey = dragFrom();
+        endDrag();
+        if (!fromKey || fromKey === toKey) return;
+        const from = fullIndex(fromKey,);
+        const to = fullIndex(toKey,);
+        if (from < 0 || to < 0) return;
         setDraft('rows', moveItem([...draft.rows,], from, to,),);
+    };
+
+    /** Alt+←/→ swaps with the neighbour IN THE VIEW (rows of other collections sit between them in the full list). */
+    const nudge = (key: string, dir: -1 | 1,) => {
+        const view = viewRows();
+        const vi = view.findIndex((r,) => r.key === key,);
+        const neighbour = view[vi + dir];
+        if (vi < 0 || !neighbour) return;
+        setDraft('rows', moveItem([...draft.rows,], fullIndex(key,), fullIndex(neighbour.key,),),);
+    };
+
+    /** Move a row into a collection (null = the root): published items at once, new ones in the draft. */
+    const moveRow = async (key: string, collectionId: string | null,) => {
+        const r = draft.rows.find((x,) => x.key === key,);
+        if (!r || (r.collectionId ?? null) === collectionId) return;
+        const where = collectionId ? `"${collections().find((c,) => c.id === collectionId,)?.name ?? 'collection'}"` : 'the gallery root';
+        if (r.id) {
+            const id = r.id;
+            try {
+                await cms.gallery.moveItems({ ids: [id,], collectionId, },);
+            } catch (e) {
+                toast.error((e as Error)?.message || 'Could not move the item.',);
+                return;
+            }
+            setSaved((cur,) => cur.map((i,) => (i.id === id ? { ...i, collectionId, } : i)),);
+            patchRow(key, { collectionId, },);
+            toast.success(`Moved to ${where}.`,);
+        } else {
+            patchRow(key, { collectionId, },);
+            toast.info(`Moved to ${where} — saved when you publish.`,);
+        }
+        if (selectedKey() === key && collectionId !== openId()) setSelectedKey(null,);
+    };
+
+    const dropOnFolder = (collectionId: string | null,) => {
+        const key = dragFrom();
+        endDrag();
+        if (key) void moveRow(key, collectionId,);
+    };
+
+    // ─── Collections (saved at once, not drafted) ───
+    const newCollection = async () => {
+        if (creatingCollection()) return;
+        setCreatingCollection(true,);
+        try {
+            const c = await cms.gallery.createCollection({},);
+            // The server places a new collection FIRST.
+            setCollections((cur,) => [c, ...cur.filter((x,) => x.id !== c.id,),],);
+            selectCollection(c.id,);
+        } catch (e) {
+            toast.error((e as Error)?.message || 'Could not create the collection.',);
+        } finally {
+            setCreatingCollection(false,);
+        }
+    };
+
+    const saveCollection = async (id: string, input: GalleryCollectionInput,) => {
+        try {
+            const c = await cms.gallery.updateCollection(id, input,);
+            setCollections((cur,) => cur.map((x,) => (x.id === id ? c : x)),);
+            toast.success('Collection saved.',);
+        } catch (e) {
+            toast.error((e as Error)?.message || 'Could not save the collection.',);
+        }
+    };
+
+    const deleteCollection = async (choice: DeleteCollectionChoice,) => {
+        const c = deleteTarget();
+        if (!c || deletingCollection()) return;
+        setDeletingCollection(true,);
+        try {
+            await cms.gallery.deleteCollection(c.id, choice,);
+            const items = await cms.gallery.admin.items();
+            const byId = new Map(items.map((i,) => [i.id, i,],),);
+            const dest = choice.items === 'move' ? choice.targetId ?? null : null;
+            // Saved rows follow the server; NEW rows in the collection get the same treatment locally.
+            const dropped: DraftItem[] = [];
+            setDraft('rows', produce((all,) => {
+                for (let i = all.length - 1; i >= 0; i--) {
+                    const r = all[i];
+                    if (r.id) {
+                        const s = byId.get(r.id,);
+                        if (!s) { dropped.push(r,); all.splice(i, 1,); } else r.collectionId = s.collectionId ?? null;
+                    } else if (r.collectionId === c.id) {
+                        if (choice.items === 'delete') { dropped.push(r,); all.splice(i, 1,); } else r.collectionId = dest;
+                    }
+                }
+            },),);
+            revokePreviews(dropped,);
+            setSaved(items,);
+            setCollections((cur,) => cur.filter((x,) => x.id !== c.id,),);
+            if (selectedKey() && !draft.rows.some((r,) => r.key === selectedKey(),)) setSelectedKey(null,);
+            if (selectedCollectionId() === c.id) setSelectedCollectionId(null,);
+            if (searchParams.collection === c.id) goTo(null,);
+            setDeleteTarget(null,);
+            toast.success(`Deleted "${c.name}".`,);
+        } catch (e) {
+            toast.error((e as Error)?.message || 'Could not delete the collection.',);
+        } finally {
+            setDeletingCollection(false,);
+        }
     };
 
     const discard = () => {
@@ -274,7 +435,15 @@ const GalleryAdmin: Component = () => {
             <AdminTitle>Gallery</AdminTitle>
 
             <div class="admin-header">
-                <h1>Gallery</h1>
+                <Show when={openCollection()} fallback={<h1>Gallery</h1>}>
+                    {(c,) => (
+                        <h1 class="gallery-admin__crumbs">
+                            <button type="button" class="gallery-admin__crumb" onClick={() => goTo(null,)}>Gallery</button>
+                            <span class="gallery-admin__crumb-sep" aria-hidden="true">/</span>
+                            <span>{c().name}</span>
+                        </h1>
+                    )}
+                </Show>
                 <div class="admin-header__actions">
                     <Show when={dirty()}>
                         <span class="admin-header__dirty" title="Changes are kept as a draft in this browser until you publish.">
@@ -303,49 +472,132 @@ const GalleryAdmin: Component = () => {
                         <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={publishing()} onClick={() => setStaging(true,)}>
                             ⬆ Upload new
                         </button>
+                        <Show when={!openCollection()}>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--secondary ui-button--sm"
+                                disabled={publishing() || creatingCollection()}
+                                onClick={() => void newCollection()}
+                            >
+                                {creatingCollection() ? 'Creating…' : '+ New Collection'}
+                            </button>
+                        </Show>
                         <span class="gallery-admin__count">
                             {liveCount()} item{liveCount() === 1 ? '' : 's'}
                             <Show when={settings()?.allowVideos === false}> · videos are off (Settings)</Show>
                         </span>
-                        <span class="gallery-admin__hint">Drag to reorder · click an item for its options</span>
+                        <span class="gallery-admin__hint">
+                            Drag to reorder{collections().length ? ' · drop on a folder to move' : ''} · click for options
+                        </span>
                     </div>
 
-                    <div class="gallery-admin__layout" classList={{ 'has-panel': Boolean(selected(),), }}>
-                        <Show
-                            when={rows().length}
-                            fallback={
-                                <div class="empty-state gallery-admin__empty">
-                                    <p>The gallery is empty.</p>
-                                    <p class="form-help-muted">Add media from the library or upload new files, then publish.</p>
-                                </div>
-                            }
-                        >
+                    <div class="gallery-admin__layout" classList={{ 'has-panel': Boolean(selected() || selectedCollection(),), }}>
+                        <div class="gallery-admin__main">
                             <div class="media-grid gallery-admin__grid">
-                                <For each={rows()}>
-                                    {(r, i,) => (
+                                <Show
+                                    when={openCollection()}
+                                    fallback={
+                                        <For each={collections()}>
+                                            {(c,) => (
+                                                <div
+                                                    class="media-grid__item gallery-admin__card gallery-admin__folder"
+                                                    classList={{
+                                                        'is-selected': selectedCollectionId() === c.id,
+                                                        'is-drop-target': dragOver() === `c:${c.id}`,
+                                                        'is-restricted': isGalleryAccessRuleActive(c.access,),
+                                                    }}
+                                                    onClick={() => selectCollection(selectedCollectionId() === c.id ? null : c.id,)}
+                                                    onDblClick={() => { selectCollection(c.id,); goTo(c.id,); }}
+                                                    onDragOver={(e,) => { if (dragFrom()) { e.preventDefault(); setDragOver(`c:${c.id}`,); } }}
+                                                    onDragLeave={() => { if (dragOver() === `c:${c.id}`) setDragOver(null,); }}
+                                                    onDrop={(e,) => { e.preventDefault(); dropOnFolder(c.id,); }}
+                                                    role="button"
+                                                    tabindex="0"
+                                                    aria-pressed={selectedCollectionId() === c.id}
+                                                    aria-label={`Collection ${c.name}, ${collectionCount(c.id,)} items. Double-click to open.`}
+                                                    onKeyDown={(e,) => {
+                                                        if (e.target !== e.currentTarget) return;
+                                                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCollection(c.id,); }
+                                                    }}
+                                                >
+                                                    <div class="media-grid__preview gallery-admin__preview gallery-admin__folder-preview">
+                                                        <Show when={collectionCover(c,)} fallback={<span class="gallery-admin__folder-icon" aria-hidden="true">📁</span>}>
+                                                            {(src,) => <img src={src()} alt="" loading="lazy" />}
+                                                        </Show>
+                                                        <div class="gallery-admin__badges">
+                                                            <span class="gallery-admin__badge gallery-admin__badge--folder">Collection</span>
+                                                            <Show when={isGalleryAccessRuleActive(c.access,)}><span class="gallery-admin__badge gallery-admin__badge--vis">Restricted</span></Show>
+                                                        </div>
+                                                    </div>
+                                                    <div class="media-grid__info">
+                                                        <div class="media-grid__name" title={c.name}>📁 {c.name}</div>
+                                                        <div class="media-grid__meta">
+                                                            <span>{collectionCount(c.id,)} item{collectionCount(c.id,) === 1 ? '' : 's'}</span>
+                                                        </div>
+                                                        <div class="media-grid__actions">
+                                                            <button
+                                                                type="button"
+                                                                class="ui-button ui-button--sm ui-button--ghost"
+                                                                onClick={(e,) => { e.stopPropagation(); selectCollection(c.id,); goTo(c.id,); }}
+                                                            >
+                                                                Open
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </For>
+                                    }
+                                >
+                                    <div
+                                        class="media-grid__item gallery-admin__card gallery-admin__folder gallery-admin__back"
+                                        classList={{ 'is-drop-target': dragOver() === 'back', }}
+                                        onClick={() => goTo(null,)}
+                                        onDragOver={(e,) => { if (dragFrom()) { e.preventDefault(); setDragOver('back',); } }}
+                                        onDragLeave={() => { if (dragOver() === 'back') setDragOver(null,); }}
+                                        onDrop={(e,) => { e.preventDefault(); dropOnFolder(null,); }}
+                                        role="button"
+                                        tabindex="0"
+                                        aria-label="Back to the gallery (drop an item here to move it out of the collection)"
+                                        onKeyDown={(e,) => {
+                                            if (e.target !== e.currentTarget) return;
+                                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(null,); }
+                                        }}
+                                    >
+                                        <div class="media-grid__preview gallery-admin__preview gallery-admin__folder-preview">
+                                            <span class="gallery-admin__folder-icon" aria-hidden="true">↑</span>
+                                        </div>
+                                        <div class="media-grid__info">
+                                            <div class="media-grid__name">↑ Back to gallery</div>
+                                            <div class="media-grid__meta"><span>Drop here to move out</span></div>
+                                        </div>
+                                    </div>
+                                </Show>
+                                <For each={viewRows()}>
+                                    {(r,) => (
                                         <div
                                             class="media-grid__item gallery-admin__card"
                                             classList={{
                                                 'is-selected': selectedKey() === r.key,
                                                 'is-removed': Boolean(r.removed,),
                                                 'is-new': !r.id,
-                                                'is-drag-over': dragOver() === i() && dragFrom() !== i(),
+                                                'is-drag-over': dragOver() === r.key && dragFrom() !== r.key,
                                                 'is-missing': Boolean(r.id && !r.media,),
                                             }}
                                             draggable={!publishing()}
-                                            onDragStart={(e,) => { setDragFrom(i(),); e.dataTransfer?.setData('text/plain', r.key,); }}
-                                            onDragOver={(e,) => { e.preventDefault(); setDragOver(i(),); }}
-                                            onDragEnd={() => { setDragFrom(null,); setDragOver(null,); }}
-                                            onDrop={(e,) => { e.preventDefault(); onDrop(i(),); }}
-                                            onClick={() => setSelectedKey(selectedKey() === r.key ? null : r.key,)}
+                                            onDragStart={(e,) => { setDragFrom(r.key,); e.dataTransfer?.setData('text/plain', r.key,); }}
+                                            onDragOver={(e,) => { e.preventDefault(); setDragOver(r.key,); }}
+                                            onDragEnd={endDrag}
+                                            onDrop={(e,) => { e.preventDefault(); onDrop(r.key,); }}
+                                            onClick={() => selectItem(selectedKey() === r.key ? null : r.key,)}
                                             role="button"
                                             tabindex="0"
                                             aria-pressed={selectedKey() === r.key}
                                             onKeyDown={(e,) => {
                                                 if (e.target !== e.currentTarget) return;
-                                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedKey(r.key,); }
-                                                if (e.altKey && e.key === 'ArrowLeft' && i() > 0) { e.preventDefault(); setDraft('rows', moveItem([...draft.rows,], i(), i() - 1,),); }
-                                                if (e.altKey && e.key === 'ArrowRight' && i() < draft.rows.length - 1) { e.preventDefault(); setDraft('rows', moveItem([...draft.rows,], i(), i() + 1,),); }
+                                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectItem(r.key,); }
+                                                if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); nudge(r.key, -1,); }
+                                                if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); nudge(r.key, 1,); }
                                             }}
                                         >
                                             <div class="media-grid__preview gallery-admin__preview">
@@ -366,6 +618,7 @@ const GalleryAdmin: Component = () => {
                                                 <div class="gallery-admin__badges">
                                                     <Show when={isVideoRow(r,)}><span class="gallery-admin__badge">Video</span></Show>
                                                     <Show when={visibilityBadge(r,)}>{(v,) => <span class="gallery-admin__badge gallery-admin__badge--vis">{v()}</span>}</Show>
+                                                    <Show when={isGalleryAccessRuleActive(r.options.access,)}><span class="gallery-admin__badge gallery-admin__badge--vis">Restricted</span></Show>
                                                     <Show when={r.file}><span class="gallery-admin__badge gallery-admin__badge--pending">To upload</span></Show>
                                                     <Show when={!r.id && !r.file}><span class="gallery-admin__badge gallery-admin__badge--new">New</span></Show>
                                                 </div>
@@ -412,8 +665,39 @@ const GalleryAdmin: Component = () => {
                                     )}
                                 </For>
                             </div>
-                        </Show>
+                            <Show when={!viewRows().length}>
+                                <div class="empty-state gallery-admin__empty">
+                                    <Show
+                                        when={openCollection()}
+                                        fallback={
+                                            <>
+                                                <p>{collections().length ? 'No items outside the collections.' : 'The gallery is empty.'}</p>
+                                                <p class="form-help-muted">Add media from the library or upload new files, then publish.</p>
+                                            </>
+                                        }
+                                    >
+                                        <p>This collection is empty.</p>
+                                        <p class="form-help-muted">Add or upload media here, or drag items onto its folder from the gallery.</p>
+                                    </Show>
+                                </div>
+                            </Show>
+                        </div>
 
+                        <Show when={selectedCollection()}>
+                            {(c,) => (
+                                <CollectionPanel
+                                    collection={c()}
+                                    itemCount={collectionCount(c().id,)}
+                                    roles={roleOptions()}
+                                    tiers={tierOptions()}
+                                    isOpen={openId() === c().id}
+                                    onSave={(input,) => saveCollection(c().id, input,)}
+                                    onOpen={() => goTo(c().id,)}
+                                    onDelete={() => setDeleteTarget(c(),)}
+                                    onClose={() => setSelectedCollectionId(null,)}
+                                />
+                            )}
+                        </Show>
                         <Show when={selected()}>
                             {(r,) => (
                                 <GalleryItemPanel
@@ -421,6 +705,10 @@ const GalleryAdmin: Component = () => {
                                     defaults={galleryDefaults()}
                                     tiers={tiers()}
                                     commentsOn={commentsOn()}
+                                    roleOptions={roleOptions()}
+                                    tierOptions={tierOptions()}
+                                    collections={collections()}
+                                    onMove={(id,) => void moveRow(r().key, id,)}
                                     onChange={(patch,) => patchOptions(r().key, patch,)}
                                     onRemove={() => removeRow(r(),)}
                                     onRestore={() => patchRow(r().key, { removed: false, deleteMedia: false, },)}
@@ -456,6 +744,14 @@ const GalleryAdmin: Component = () => {
                 />
             </Show>
 
+            <DeleteCollectionModal
+                collection={deleteTarget()}
+                itemCount={deleteTarget() ? collectionCount(deleteTarget()!.id,) : 0}
+                collections={collections()}
+                busy={deletingCollection()}
+                onConfirm={(choice,) => void deleteCollection(choice,)}
+                onCancel={() => setDeleteTarget(null,)}
+            />
             <ConfirmModal
                 open={revertOpen()}
                 title="Discard unpublished changes?"

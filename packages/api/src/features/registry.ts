@@ -132,8 +132,8 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         label: 'Gallery',
         description: 'Publish media from the library to a public gallery page, with comments, a Gallery content block and {{gallery()}}.',
         defaultEnabled: false,
-        migrations: ['140_gallery.sql',],
-        tables: ['gallery_items',],
+        migrations: ['140_gallery.sql', '153_gallery_collections.sql',],
+        tables: ['gallery_items', 'gallery_collections',],
         settingsKeys: ['gallery_settings',],
         onUninstall: async (client,) => {
             await client.query(`DELETE FROM comments WHERE target_type = 'gallery_item'`,).catch(() => {},);

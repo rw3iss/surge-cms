@@ -2,13 +2,18 @@
  * Gallery admin → the selected item's options (a side panel). Every change
  * goes into the page's DRAFT via `onChange`; nothing saves until Publish.
  * Text fields commit on blur / Enter (project rule).
+ *
+ * Moving between collections is the exception: a PUBLISHED item moves on the
+ * server at once (the page handles it via `onMove`); a new one moves in the draft.
  */
-import type { SubscriptionTierOption, } from '@sitesurge/types';
+import type { GalleryCollection, SubscriptionTierOption, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { createSignal, For, Show, } from 'solid-js';
 import { openMediaViewer, } from '../../../stores/mediaViewer';
+import type { MultiSelectOption, } from '../../ui/MultiSelect';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
+import AccessRuleEditor from './AccessRuleEditor';
 import CommitInput from './CommitInput';
 import { formatSize, } from '../media/mediaUtils';
 import { displayTitle, type DraftItem, type DraftOptions, } from './galleryDraft';
@@ -26,7 +31,14 @@ export interface GalleryItemPanelProps {
     tiers: SubscriptionTierOption[];
     /** The Comments feature is on (comment options are shown only then). */
     commentsOn: boolean;
+    /** Role + subscription level options for "Restrict access". */
+    roleOptions: MultiSelectOption[];
+    tierOptions: MultiSelectOption[];
+    /** Every collection (for "Move to collection"). */
+    collections: GalleryCollection[];
     onChange: (patch: Partial<DraftOptions>,) => void;
+    /** Move into a collection; null = the gallery root. */
+    onMove: (collectionId: string | null,) => void;
     onRemove: () => void;
     onRestore: () => void;
     onDeleteMediaChange: (v: boolean,) => void;
@@ -76,6 +88,9 @@ const onOff = (b: boolean,) => (b ? 'on' : 'off');
 export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
     const o = () => props.item.options;
     const media = () => props.item.media;
+    const collectionId = () => props.item.collectionId ?? null;
+    const collectionName = () => props.collections.find((c,) => c.id === collectionId(),)?.name ?? '';
+    const otherCollections = () => props.collections.filter((c,) => c.id !== collectionId(),);
     const dims = () => (media()?.width && media()?.height ? `${media()!.width} × ${media()!.height}` : '');
 
     return (
@@ -147,6 +162,14 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
                 </FormField>
             </Show>
 
+            <AccessRuleEditor
+                value={o().access ?? { enabled: false, roles: [], tierIds: [], }}
+                onChange={(access,) => props.onChange({ access, },)}
+                roles={props.roleOptions}
+                tiers={props.tierOptions}
+                inheritsFrom={collectionId() ? "the collection's access" : "the gallery's access"}
+            />
+
             <Show
                 when={props.commentsOn}
                 fallback={<p class="form-help-muted">Commenting needs the Comments feature (<A href="/admin/settings?tab=general#features">Settings → Features</A>).</p>}
@@ -174,7 +197,32 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
             </Show>
 
             <Show when={!props.item.removed}>
-                <div class="gallery-panel__foot">
+                <div class="gallery-panel__foot gallery-panel__moves">
+                    <Show when={collectionId()}>
+                        <p class="gallery-panel__comments">In collection <strong>{collectionName()}</strong></p>
+                    </Show>
+                    <div class="gallery-panel__actions">
+                        <Show when={collectionId()}>
+                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => props.onMove(null,)}>
+                                Remove from collection
+                            </button>
+                        </Show>
+                        <Show when={otherCollections().length}>
+                            <select
+                                class="gallery-panel__move"
+                                aria-label="Move to collection"
+                                value=""
+                                onChange={(e,) => {
+                                    const id = e.currentTarget.value;
+                                    e.currentTarget.value = '';
+                                    if (id) props.onMove(id,);
+                                }}
+                            >
+                                <option value="">Move to collection ▾</option>
+                                <For each={otherCollections()}>{(c,) => <option value={c.id}>{c.name}</option>}</For>
+                            </select>
+                        </Show>
+                    </div>
                     <button type="button" class="ui-button ui-button--danger ui-button--sm" onClick={props.onRemove}>Remove from gallery</button>
                 </div>
             </Show>

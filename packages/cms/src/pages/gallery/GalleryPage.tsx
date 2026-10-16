@@ -4,10 +4,14 @@
  * an in-page log-in, a member without the tier a subscribe prompt. Items load
  * a page at a time (appearance.perPage) with "Load more", laid out per the
  * Appearance settings through the shared GalleryView.
+ *
+ * When the viewer can see at least one collection, a "Collections" section
+ * sits on top and the listing shows only the ROOT items (in no collection);
+ * with none, every item is listed, exactly as before collections existed.
  */
-import type { GalleryItem, GalleryPublicConfig, } from '@sitesurge/types';
+import type { GalleryCollection, GalleryPublicConfig, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
-import { Component, createResource, createSignal, Show, } from 'solid-js';
+import { Component, createResource, Show, } from 'solid-js';
 import Markdown from '../../components/common/Markdown';
 import SeoHead from '../../components/common/seo/SeoHead';
 import UpgradeTout from '../../components/content/UpgradeTout';
@@ -17,7 +21,9 @@ import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import NotFoundPage from '../NotFound';
+import { GalleryCollectionCards, visibleCollections, } from './GalleryCollections';
 import './gallery.scss';
+import { useGalleryItems, } from './useGalleryItems';
 
 const GalleryPage: Component = () => {
     const auth = useAuth();
@@ -25,38 +31,25 @@ const GalleryPage: Component = () => {
     const [config, { refetch: refetchConfig, },] = createResource(viewerKey, () =>
         isFeatureEnabled('gallery',) ? cms.gallery.config().catch(() => null as GalleryPublicConfig | null) : Promise.resolve(null,),);
 
-    const [items, setItems,] = createSignal<GalleryItem[]>([],);
-    const [total, setTotal,] = createSignal(0,);
-    const [page, setPage,] = createSignal(1,);
-    const [loadingMore, setLoadingMore,] = createSignal(false,);
     const perPage = () => config()?.appearance.perPage ?? 24;
 
-    const [firstPage, { refetch: refetchItems, },] = createResource(
-        () => (config()?.canView ? `${viewerKey()}:${perPage()}` : null),
-        async () => {
-            const r = await cms.gallery.list({ limit: perPage(), page: 1, },).catch(() => null);
-            setItems(r?.items ?? [],);
-            setTotal(r?.total ?? 0,);
-            setPage(1,);
-            return true;
-        },
+    // Collections first: whether any exist decides which items the listing shows.
+    const [collections, { refetch: refetchCollections, },] = createResource(
+        () => (config()?.canView ? viewerKey() : null),
+        () => cms.gallery.collections().catch(() => [] as GalleryCollection[]),
     );
+    const shownCollections = () => visibleCollections(collections(),);
 
-    const loadMore = async () => {
-        setLoadingMore(true,);
-        try {
-            const r = await cms.gallery.list({ limit: perPage(), page: page() + 1, },);
-            setItems((cur,) => [...cur, ...r.items,],);
-            setTotal(r.total,);
-            setPage((p,) => p + 1,);
-        } finally {
-            setLoadingMore(false,);
-        }
-    };
+    const list = useGalleryItems(
+        () => (config()?.canView && collections() !== undefined ? `${viewerKey()}:${perPage()}:${shownCollections().length > 0}` : null),
+        () => (shownCollections().length > 0 ? { collectionId: 'root', } : {}),
+        perPage,
+    );
 
     const onLoggedIn = () => {
         void refetchConfig();
-        void refetchItems();
+        void refetchCollections();
+        void list.refetch();
     };
 
     return (
@@ -88,19 +81,22 @@ const GalleryPage: Component = () => {
                                 />
                             }
                         >
-                            <Show when={firstPage() !== undefined} fallback={<p class="gallery-page__loading">Loading…</p>}>
+                            <Show when={list.loaded()} fallback={<p class="gallery-page__loading">Loading…</p>}>
+                                <Show when={shownCollections().length > 0}>
+                                    <GalleryCollectionCards collections={shownCollections()} />
+                                </Show>
                                 <GalleryView
-                                    items={items()}
+                                    items={list.items()}
                                     settings={appearanceToView(cfg().appearance,)}
                                     thumbSize={cfg().appearance.thumbSize}
                                     hoverZoom={cfg().appearance.hoverZoom}
                                     videoBadge={cfg().appearance.videoBadge}
-                                    empty="Nothing here yet."
+                                    empty={shownCollections().length > 0 ? undefined : 'Nothing here yet.'}
                                 />
-                                <Show when={items().length < total()}>
+                                <Show when={list.hasMore()}>
                                     <div class="gallery-page__more">
-                                        <button type="button" class="btn" disabled={loadingMore()} onClick={() => void loadMore()}>
-                                            {loadingMore() ? 'Loading…' : 'Load more'}
+                                        <button type="button" class="btn" disabled={list.loadingMore()} onClick={() => void list.loadMore()}>
+                                            {list.loadingMore() ? 'Loading…' : 'Load more'}
                                         </button>
                                     </div>
                                 </Show>
