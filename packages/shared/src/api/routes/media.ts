@@ -118,12 +118,82 @@ export interface MediaUpdateBody {
 /** PUT /media/:id — the updated media row. */
 export type MediaUpdateResponse = MediaWire;
 
+// ─── GET /media/usage ─────────────────────────────────────────────────
+
+/** What kind of thing uses a media item. */
+export type MediaUsageKind =
+    | 'page'
+    | 'post'
+    | 'campaign'
+    | 'event'
+    | 'product'
+    | 'gallery_item'
+    | 'mail_template'
+    | 'component'
+    | 'block_template'
+    | 'site_settings'
+    | 'header'
+    | 'footer'
+    | 'social_post'
+    | 'user'
+    | 'entity';
+
+/** One place a media item is used — matched by media id (block settings,
+ *  gallery/product links, video URLs) or by its file URL (any host, or a
+ *  `/uploads/…` path) inside content. */
+export interface MediaUsage {
+    kind: MediaUsageKind;
+    /** The using record's id (a settings KEY for `site_settings`/`header`/`footer`). */
+    id: string;
+    label: string;
+    /** Admin page that edits the using record. */
+    adminUrl: string | null;
+    /** Where on that record, e.g. `Featured image`, `Content block (image)`. */
+    field: string;
+}
+
+/** Query for GET /media/usage — comma-separated media ids (≤ 100). */
+export interface MediaUsageQuery {
+    ids: string;
+}
+
+/** GET /media/usage — `{ [mediaId]: MediaUsage[] }`, ≤ 20 usages per media
+ *  (an id with no usage maps to `[]`). */
+export type MediaUsageResponse = Record<string, MediaUsage[]>;
+
+/** `details` of a 409 `MEDIA_IN_USE` (delete / bulk delete / discard without
+ *  `force`): only the media ids that are in use. */
+export interface MediaInUseDetails {
+    usage: MediaUsageResponse;
+}
+
 // ─── DELETE /media/:id ────────────────────────────────────────────────
+
+/** Query for DELETE /media/:id. Without `force=true`, a media item that is
+ *  still used somewhere is refused with 409 `MEDIA_IN_USE`. */
+export interface MediaDeleteQuery {
+    force?: 'true' | 'false';
+}
 
 /** DELETE /media/:id — confirmation message. Files are removed from
  *  storage. */
 export interface MediaDeleteResponse {
     message: string;
+}
+
+// ─── POST /media/bulk-delete ──────────────────────────────────────────
+
+/** Body for POST /media/bulk-delete. Without `force`, the whole request is
+ *  refused (409 `MEDIA_IN_USE`, nothing deleted) when any item is in use. */
+export interface MediaBulkDeleteBody {
+    ids: string[];
+    force?: boolean;
+}
+
+/** POST /media/bulk-delete — ids deleted, and ids that failed (not found / storage error). */
+export interface MediaBulkDeleteResponse {
+    deleted: string[];
+    failed: string[];
 }
 
 // ─── POST /media/:id/discard ──────────────────────────────────────────
@@ -132,6 +202,11 @@ export interface MediaDeleteResponse {
  *  a media row: the encode is stopped (a running ffmpeg is killed), every
  *  stored file is deleted, then the row and any gallery item made from it.
  *  Needs `media:write`. */
+export interface MediaDiscardBody {
+    /** Delete even when the media is used outside the gallery (else 409 `MEDIA_IN_USE`). */
+    force?: boolean;
+}
+
 export interface MediaDiscardResponse {
     discarded: true;
     galleryItemsRemoved: number;

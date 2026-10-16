@@ -47,6 +47,9 @@ export interface GallerySyncItem extends GalleryItemPatch {
 export interface GallerySyncBody {
     items: GallerySyncItem[];
     remove?: { id: string; deleteMedia?: boolean; }[];
+    /** With `deleteMedia`: also delete media that is still used elsewhere
+     *  (else it is kept and counted in `mediaKept`). */
+    forceMedia?: boolean;
 }
 export interface GallerySyncResponse {
     items: GalleryItem[];
@@ -54,6 +57,8 @@ export interface GallerySyncResponse {
     updated: number;
     removed: number;
     mediaDeleted: number;
+    /** `deleteMedia` media kept because it is still used elsewhere (no `forceMedia`). */
+    mediaKept: number;
 }
 
 /** GET /gallery/admin/items — every item incl. ones whose media is gone. */
@@ -62,10 +67,12 @@ export type GalleryAdminItemsResponse = GalleryItem[];
 export type GallerySettingsResponse = GallerySettings;
 export type GallerySettingsBody = Partial<GallerySettings>;
 
-/** DELETE /gallery/admin/items/:id?deleteMedia=true */
+/** DELETE /gallery/admin/items/:id?deleteMedia=true[&forceMedia=true] — media
+ *  still used elsewhere is kept (`mediaKept`) unless `forceMedia=true`. */
 export interface GalleryRemoveResponse {
     removed: true;
     mediaDeleted: boolean;
+    mediaKept: boolean;
 }
 
 // ─── Collections ──────────────────────────────────────────────────────────
@@ -95,12 +102,16 @@ export interface GalleryCollectionDeleteBody {
     items: GalleryCollectionDeleteMode;
     targetId?: string;
     deleteMedia?: boolean;
+    /** With `deleteMedia`: also delete media still used elsewhere (else kept). */
+    forceMedia?: boolean;
 }
 export interface GalleryCollectionDeleteResponse {
     deleted: true;
     /** Items removed (`delete`) or moved (`root` / `move`). */
     items: number;
     mediaDeleted: number;
+    /** Media kept because it is still used elsewhere (no `forceMedia`). */
+    mediaKept: number;
 }
 
 /** POST /gallery/admin/items/move — into a collection, or null = the root. */

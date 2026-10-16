@@ -172,13 +172,13 @@ and deletes). Gallery writes also drop the sitemap cache.
 | `GET /collections/:id` | optional | One collection; 404 when missing, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when the viewer fails its rule (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /items/:id` | optional | One item; 404 when missing / media gone, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when gated (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /admin/items` | staff, `gallery:manage` | Every item in order |
-| `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit |
+| `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit — media still used elsewhere is KEPT (`mediaKept`) unless `forceMedia: true` |
 | `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`, `hiddenInGallery`) |
 | `POST /admin/items/move` | staff, `gallery:manage` | `{ ids, collectionId }` (null = root) |
 | `GET /admin/collections` | staff, `gallery:manage` | Every collection, counts of ALL items |
 | `POST /admin/collections` · `PATCH /admin/collections/:id` | staff, `gallery:manage` | Create (name default "Untitled") / update (name, description, sortOrder, access, hiddenInGallery) |
-| `DELETE /admin/collections/:id` | staff, `gallery:manage` (+ `media:write` for `deleteMedia`) | Body `{ items: 'delete'\|'root'\|'move', targetId?, deleteMedia? }` |
-| `DELETE /admin/items/:id?deleteMedia=true` | staff | Remove one item |
+| `DELETE /admin/collections/:id` | staff, `gallery:manage` (+ `media:write` for `deleteMedia`) | Body `{ items: 'delete'\|'root'\|'move', targetId?, deleteMedia?, forceMedia? }` — in-use media kept unless `forceMedia` |
+| `DELETE /admin/items/:id?deleteMedia=true[&forceMedia=true]` | staff | Remove one item (in-use media kept unless `forceMedia`) |
 | `GET /admin/media-links?ids=` | staff | media id → item id |
 | `GET /settings` · `PUT /settings` | staff · admin + `gallery.settings:manage` | Settings |
 

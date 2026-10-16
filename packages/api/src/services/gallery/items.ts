@@ -359,26 +359,44 @@ export async function update(id: string, patch: GalleryItemPatch, ctx: AuditCont
 }
 
 /** Remove one item; optionally delete its media from the library too. */
-export async function remove(id: string, deleteMedia: boolean, ctx: AuditContext,): Promise<{ removed: true; mediaDeleted: boolean; }> {
+export async function remove(
+    id: string, deleteMedia: boolean, ctx: AuditContext, forceMedia = false,
+): Promise<{ removed: true; mediaDeleted: boolean; mediaKept: boolean; }> {
     const r = await query<{ media_id: string | null; }>(`DELETE FROM gallery_items WHERE id = $1 RETURNING media_id`, [id,],);
     if (!r.rows[0]) throw new NotFoundError('Gallery item',);
     await query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = $1`, [id,],).catch(() => {},);
-    let mediaDeleted = false;
-    if (deleteMedia && r.rows[0].media_id) mediaDeleted = await deleteMediaQuietly(r.rows[0].media_id, ctx,);
+    let outcome: MediaDeleteOutcome | null = null;
+    if (deleteMedia && r.rows[0].media_id) outcome = await deleteMediaQuietly(r.rows[0].media_id, ctx, forceMedia,);
     await cache.invalidateGalleryCache();
     await cache.invalidateSitemapCache();
     await logAudit({ userId: ctx.userId, action: 'gallery_item_remove', entityType: 'gallery_item', entityId: id, newValues: { deleteMedia, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
-    return { removed: true, mediaDeleted, };
+    return { removed: true, mediaDeleted: outcome === 'deleted', mediaKept: outcome === 'kept', };
 }
 
-export async function deleteMediaQuietly(mediaId: string, ctx: AuditContext,): Promise<boolean> {
+export type MediaDeleteOutcome = 'deleted' | 'kept' | 'failed';
+
+/**
+ * Delete a removed item's media. Runs AFTER the gallery row is gone, so the
+ * usage check sees only OTHER uses: media still used elsewhere (a post's
+ * featured image, a page block, …) is KEPT unless `force` — the caller
+ * confirmed deleting it anyway.
+ */
+export async function deleteMediaQuietly(mediaId: string, ctx: AuditContext, force = false,): Promise<MediaDeleteOutcome> {
     try {
+        if (!force) {
+            const { findMediaUsage, } = await import('../mediaUsage.js');
+            const usage = (await findMediaUsage([mediaId,],))[mediaId] ?? [];
+            if (usage.length) {
+                logger.info('gallery: media kept — still in use', { mediaId, uses: usage.length, },);
+                return 'kept';
+            }
+        }
         const media = await import('../media.js');
         await media.remove(mediaId, ctx,);
-        return true;
+        return 'deleted';
     } catch (err) {
         logger.warn('gallery: media delete failed', { mediaId, error: (err as Error).message, },);
-        return false;
+        return 'failed';
     }
 }
 
@@ -456,14 +474,19 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
     },);
 
     let mediaDeleted = 0;
-    for (const id of mediaToDelete) if (await deleteMediaQuietly(id, ctx,)) mediaDeleted += 1;
+    let mediaKept = 0;
+    for (const id of mediaToDelete) {
+        const outcome = await deleteMediaQuietly(id, ctx, Boolean(body.forceMedia,),);
+        if (outcome === 'deleted') mediaDeleted += 1;
+        else if (outcome === 'kept') mediaKept += 1;
+    }
     await cache.invalidateGalleryCache();
     await cache.invalidateSitemapCache();
     await logAudit({
         userId: ctx.userId, action: 'gallery_publish', entityType: 'gallery', entityId: undefined,
-        newValues: { added, updated, removed: removedCount, mediaDeleted, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
+        newValues: { added, updated, removed: removedCount, mediaDeleted, mediaKept, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
     },);
-    return { items: await adminList(), added, updated, removed: removedCount, mediaDeleted, };
+    return { items: await adminList(), added, updated, removed: removedCount, mediaDeleted, mediaKept, };
 }
 
 /** Item ids for media (the Media library shows which media is published). */

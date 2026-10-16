@@ -179,6 +179,8 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/members/:handle',
     'GET /api/v1/members/:handle/comments',
     'GET /api/v1/media/by-url',
+    'GET /api/v1/media/usage',
+    'POST /api/v1/media/bulk-delete',
     'GET /api/v1/media/:id',
     'PUT /api/v1/media/:id',
     'DELETE /api/v1/media/:id',

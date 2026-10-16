@@ -7,6 +7,7 @@ import type {
     MediaVideoInfoResponse, MediaVideoJobsQuery, MediaVideoJobsResponse, MediaVideoUpdateBody,
     MediaVideoActionResponse, MediaVideoReencodeBody, MediaPlaybackResponse, MediaVideoStatusResponse,
     SettingsVideoResponse, SettingsVideoBody, MediaVideoKeysResponse, MediaVideoKeyRotateResponse, MediaVideoShareResponse,
+    MediaUsageResponse, MediaBulkDeleteResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -67,16 +68,36 @@ export class MediaModule extends ModuleBase {
         return this.mutate<MediaUpdateResponse>('PUT', '/media/:id', { params: { id, }, body, invalidates: ['media',], },);
     }
 
-    remove(id: string,): Promise<MediaDeleteResponse> {
-        return this.mutate<MediaDeleteResponse>('DELETE', '/media/:id', { params: { id, }, invalidates: ['media',], },);
+    /** GET /media/usage — where each media item is used (pages, posts, blocks,
+     *  templates, settings, gallery, products, …): `{ [mediaId]: MediaUsage[] }`,
+     *  ≤ 20 per item, `[]` when unused. Always read fresh. */
+    usage(ids: string[],): Promise<MediaUsageResponse> {
+        return this.get<MediaUsageResponse>('/media/usage', { query: { ids: ids.join(',',), }, options: { cache: false, }, },);
+    }
+
+    /** DELETE /media/:id. A media item still in use is refused with a
+     *  `ConflictError` (code `MEDIA_IN_USE`, `details.usage`) unless `force`. */
+    remove(id: string, opts: { force?: boolean; } = {},): Promise<MediaDeleteResponse> {
+        return this.mutate<MediaDeleteResponse>('DELETE', '/media/:id', {
+            params: { id, }, query: opts.force ? { force: 'true', } : undefined, invalidates: ['media',],
+        },);
+    }
+
+    /** POST /media/bulk-delete — delete several. Without `force`, NOTHING is
+     *  deleted when any is in use (`ConflictError`, `MEDIA_IN_USE`). */
+    bulkRemove(ids: string[], opts: { force?: boolean; } = {},): Promise<MediaBulkDeleteResponse> {
+        return this.mutate<MediaBulkDeleteResponse>('POST', '/media/bulk-delete', { body: { ids, force: opts.force, }, invalidates: ['media',], },);
     }
 
     /** POST /media/:id/discard — CANCEL an upload that already made a media
      *  row (e.g. a video still encoding): stops the encode (a running ffmpeg
      *  is killed), deletes every stored file, the row and any gallery item
-     *  made from it. Needs `media:write`. */
-    discard(id: string,): Promise<MediaDiscardResponse> {
-        return this.mutate<MediaDiscardResponse>('POST', '/media/:id/discard', { params: { id, }, invalidates: ['media', 'gallery',], },);
+     *  made from it. Needs `media:write`. Refused (`MEDIA_IN_USE`) when the
+     *  media is already used outside the gallery, unless `force`. */
+    discard(id: string, opts: { force?: boolean; } = {},): Promise<MediaDiscardResponse> {
+        return this.mutate<MediaDiscardResponse>('POST', '/media/:id/discard', {
+            params: { id, }, body: opts.force ? { force: true, } : {}, invalidates: ['media', 'gallery',],
+        },);
     }
 
     /**

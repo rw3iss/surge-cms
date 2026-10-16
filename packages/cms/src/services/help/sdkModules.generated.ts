@@ -1049,8 +1049,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "admin.remove",
-                "signature": "admin.remove(id: string, opts: { deleteMedia?: boolean; } = {}): Promise<GalleryRemoveResponse>",
-                "summary": "Remove an item; `deleteMedia: true` also deletes its media from the library."
+                "signature": "admin.remove(id: string, opts: { deleteMedia?: boolean; forceMedia?: boolean; } = {}): Promise<GalleryRemoveResponse>",
+                "summary": "Remove an item; `deleteMedia: true` also deletes its media from the library — kept (`mediaKept`) when still used elsewhere, unless `forceMedia: true`."
             },
             {
                 "name": "admin.update",
@@ -1395,6 +1395,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "summary": "POST /media/block-upload — single upload echoing postId/blockId back (field \"file\")."
             },
             {
+                "name": "bulkRemove",
+                "signature": "bulkRemove(ids: string[], opts: { force?: boolean; } = {}): Promise<MediaBulkDeleteResponse>",
+                "summary": "POST /media/bulk-delete — delete several. Without `force`, NOTHING is deleted when any is in use (`ConflictError`, `MEDIA_IN_USE`)."
+            },
+            {
                 "name": "bulkUpload",
                 "signature": "bulkUpload(files: Blob[]): Promise<MediaBulkUploadResponse>",
                 "summary": "POST /media/bulk — multiple files (field \"files\", max 10)."
@@ -1406,8 +1411,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "discard",
-                "signature": "discard(id: string): Promise<MediaDiscardResponse>",
-                "summary": "POST /media/:id/discard — CANCEL an upload that already made a media row (e.g. a video still encoding): stops the encode (a running ffmpeg is killed), deletes every stored file, the row and any gallery item made from it. Needs `media:write`."
+                "signature": "discard(id: string, opts: { force?: boolean; } = {}): Promise<MediaDiscardResponse>",
+                "summary": "POST /media/:id/discard — CANCEL an upload that already made a media row (e.g. a video still encoding): stops the encode (a running ffmpeg is killed), deletes every stored file, the row and any gallery item made from it. Needs `media:write`. Refused (`MEDIA_IN_USE`) when the media is already used outside the gallery, unless `force`."
             },
             {
                 "name": "getById",
@@ -1426,8 +1431,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "remove",
-                "signature": "remove(id: string): Promise<MediaDeleteResponse>",
-                "summary": ""
+                "signature": "remove(id: string, opts: { force?: boolean; } = {}): Promise<MediaDeleteResponse>",
+                "summary": "DELETE /media/:id. A media item still in use is refused with a `ConflictError` (code `MEDIA_IN_USE`, `details.usage`) unless `force`."
             },
             {
                 "name": "teaserUrl",
@@ -1473,6 +1478,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "name": "uploads.partUrls",
                 "signature": "uploads.partUrls(id: string, partNumbers: number[]): Promise<MediaUploadPartUrlsResponse>",
                 "summary": "POST /video/uploads/:id/part-urls — presigned PUT URLs (≤ 50 parts per call)."
+            },
+            {
+                "name": "usage",
+                "signature": "usage(ids: string[]): Promise<MediaUsageResponse>",
+                "summary": "GET /media/usage — where each media item is used (pages, posts, blocks, templates, settings, gallery, products, …): `{ [mediaId]: MediaUsage[] }`, ≤ 20 per item, `[]` when unused. Always read fresh."
             },
             {
                 "name": "video.cancel",
@@ -3193,4 +3203,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 563;
+export const SDK_METHOD_COUNT = 565;

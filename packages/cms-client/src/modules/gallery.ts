@@ -86,10 +86,13 @@ export class GalleryModule extends ModuleBase {
             this.mutate('PUT', '/gallery/admin/items', { body, invalidates: ['gallery',], },),
         update: (id: string, body: GalleryItemUpdateBody,): Promise<GalleryItem> =>
             this.mutate('PATCH', '/gallery/admin/items/:id', { params: { id, }, body, invalidates: ['gallery',], },),
-        /** Remove an item; `deleteMedia: true` also deletes its media from the library. */
-        remove: (id: string, opts: { deleteMedia?: boolean; } = {},): Promise<GalleryRemoveResponse> =>
+        /** Remove an item; `deleteMedia: true` also deletes its media from the library —
+         *  kept (`mediaKept`) when still used elsewhere, unless `forceMedia: true`. */
+        remove: (id: string, opts: { deleteMedia?: boolean; forceMedia?: boolean; } = {},): Promise<GalleryRemoveResponse> =>
             this.mutate('DELETE', '/gallery/admin/items/:id', {
-                params: { id, }, query: opts.deleteMedia ? { deleteMedia: 'true', } : undefined, invalidates: ['gallery',],
+                params: { id, },
+                query: opts.deleteMedia ? { deleteMedia: 'true', ...(opts.forceMedia ? { forceMedia: 'true', } : {}), } : undefined,
+                invalidates: ['gallery', 'media',],
             },),
         /** Which of these media are already in the gallery: media id → item id. */
         mediaLinks: (mediaIds: string[],): Promise<Record<string, string>> =>

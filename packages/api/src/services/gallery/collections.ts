@@ -225,13 +225,18 @@ export async function deleteCollection(id: string, body: GalleryCollectionDelete
         await client.query(`DELETE FROM gallery_collections WHERE id = $1`, [id,],);
     },);
     let mediaDeleted = 0;
-    for (const m of mediaToDelete) if (await deleteMediaQuietly(m, ctx,)) mediaDeleted += 1;
+    let mediaKept = 0;
+    for (const m of mediaToDelete) {
+        const outcome = await deleteMediaQuietly(m, ctx, Boolean(body.forceMedia,),);
+        if (outcome === 'deleted') mediaDeleted += 1;
+        else if (outcome === 'kept') mediaKept += 1;
+    }
     await changed();
     await logAudit({
         userId: ctx.userId, action: 'gallery_collection_delete', entityType: 'gallery_collection', entityId: id,
-        newValues: { items: body.items, targetId: body.targetId, count, mediaDeleted, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
+        newValues: { items: body.items, targetId: body.targetId, count, mediaDeleted, mediaKept, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
     },);
-    return { deleted: true, items: count, mediaDeleted, };
+    return { deleted: true, items: count, mediaDeleted, mediaKept, };
 }
 
 /** Move items into a collection (null = the gallery root). */

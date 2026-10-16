@@ -131,6 +131,12 @@
     }
   }
 
+  &__usage {
+    margin-bottom: $spacing-lg;
+
+    > p { margin: 0; }
+  }
+
   &__fields {
     .admin-form-field:not(:last-child) {
       margin-bottom: $spacing-md;

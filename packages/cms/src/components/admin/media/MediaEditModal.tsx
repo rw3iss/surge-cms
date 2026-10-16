@@ -1,10 +1,12 @@
-import type { MediaVideoSummary, } from '@sitesurge/types';
+import type { MediaUsage, MediaVideoSummary, } from '@sitesurge/types';
 import { createSignal, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import MediaVideo from '../../blocks/media/MediaVideo';
 import ModalShell from '../common/ModalShell';
 import { FormField, } from '../forms';
+import { confirmMediaDelete, fetchMediaUsage, isMediaInUseError, } from '../../../stores/mediaDeleteConfirm';
+import MediaUsageList from './MediaUsageList';
 import VideoStatusPanel from './VideoStatusPanel';
 import './MediaEditModal.scss';
 import './VideoMedia.scss';
@@ -70,6 +72,12 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
     /** Encoded-video summary — from the grid row, refreshed from the server. */
     const [videoSummary, setVideoSummary,] = createSignal<MediaVideoSummary | null>(props.media.video ?? null,);
 
+    /** Where this media is used (null while loading). */
+    const [usages, setUsages,] = createSignal<MediaUsage[] | null>(null,);
+    onMount(() => {
+        void fetchMediaUsage([props.media.id,],).then(setUsages,);
+    },);
+
     // Start from the server's current record, not the grid's cached row.
     onMount(async () => {
         try {
@@ -119,14 +127,16 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
     };
 
     const handleDelete = async () => {
-        if (!confirm('Delete this file permanently?',)) return;
+        const ok = await confirmMediaDelete({ ids: [props.media.id,], },);
+        if (!ok.confirmed) return;
         setDeleting(true,);
         setError('',);
         try {
-            await cms.media.remove(props.media.id,);
+            await cms.media.remove(props.media.id, { force: ok.force, },);
             props.onDeleted(props.media.id,);
         } catch (err: any) {
-            setError(err?.message || 'Delete failed',);
+            if (isMediaInUseError(err,)) void fetchMediaUsage([props.media.id,],).then(setUsages,);
+            setError(isMediaInUseError(err,) ? 'This file was just put to use somewhere — it was not deleted.' : (err?.message || 'Delete failed'),);
             setDeleting(false,);
         }
     };
@@ -203,6 +213,16 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
                 <Show when={isEncoded()}>
                     <VideoStatusPanel mediaId={props.media.id} />
                 </Show>
+
+                <div class="media-edit-modal__usage">
+                    <Show when={usages()} fallback={<p class="form-help-muted">Checking where this file is used…</p>}>
+                        {(list,) => (
+                            <Show when={list().length} fallback={<p class="form-help-muted">Not used in any content.</p>}>
+                                <MediaUsageList usages={list()} max={6} />
+                            </Show>
+                        )}
+                    </Show>
+                </div>
 
                 <div class="media-edit-modal__fields">
                     <FormField label="Title">

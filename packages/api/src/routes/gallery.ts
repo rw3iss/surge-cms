@@ -53,6 +53,7 @@ const collectionDeleteBody = z.object({
     items: z.enum(['delete', 'root', 'move',],),
     targetId: z.string().uuid().optional(),
     deleteMedia: z.boolean().optional(),
+    forceMedia: z.boolean().optional(),
 },) satisfies z.ZodType<GalleryCollectionDeleteBody>;
 
 const moveBody = z.object({
@@ -63,6 +64,7 @@ const moveBody = z.object({
 const syncBody = z.object({
     items: z.array(patch.extend({ id: z.string().uuid().optional(), mediaId: z.string().uuid().optional(), },),).max(5000,),
     remove: z.array(z.object({ id: z.string().uuid(), deleteMedia: z.boolean().optional(), },),).max(5000,).optional(),
+    forceMedia: z.boolean().optional(),
 },) satisfies z.ZodType<GallerySyncBody>;
 
 /** `?listing=true` (gallery pages only) — query strings carry booleans as text. */
@@ -215,7 +217,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'delete', path: '/admin/collections/:id', auth: 'staff',
-        summary: 'Delete a collection: its items are deleted (media too with deleteMedia), moved to the root, or moved to another collection.',
+        summary: 'Delete a collection: its items are deleted (media too with deleteMedia — media still used elsewhere is kept unless forceMedia), moved to the root, or moved to another collection.',
         input: { params: idParams, body: collectionDeleteBody, },
         handler: async ({ params, body, user, audit, },): Promise<GalleryCollectionDeleteResponse> => {
             await need(user, 'gallery:manage',);
@@ -242,7 +244,7 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'put', path: '/admin/items', auth: 'staff',
-        summary: 'Publish the gallery draft: ordered items to keep (existing by id, new by mediaId) + removals (optionally deleting media).',
+        summary: 'Publish the gallery draft: ordered items to keep (existing by id, new by mediaId) + removals (optionally deleting media; media still used elsewhere is kept unless forceMedia).',
         input: { body: syncBody, },
         handler: async ({ body, user, audit, },): Promise<GallerySyncResponse> => {
             await need(user, 'gallery:manage',);
@@ -261,12 +263,12 @@ export const galleryRoutes = [
     },),
     defineRoute({
         method: 'delete', path: '/admin/items/:id', auth: 'staff',
-        summary: 'Remove a gallery item; `?deleteMedia=true` also deletes its media from the library.',
-        input: { params: idParams, query: z.object({ deleteMedia: z.enum(['true', 'false',],).optional(), },), },
+        summary: 'Remove a gallery item; `?deleteMedia=true` also deletes its media from the library (kept when still used elsewhere, unless `forceMedia=true`).',
+        input: { params: idParams, query: z.object({ deleteMedia: z.enum(['true', 'false',],).optional(), forceMedia: z.enum(['true', 'false',],).optional(), },), },
         handler: async ({ params, query, user, audit, },): Promise<GalleryRemoveResponse> => {
             await need(user, 'gallery:manage',);
             if (query.deleteMedia === 'true') await need(user, 'media:write',);
-            return gallery.remove(params.id, query.deleteMedia === 'true', audit(),);
+            return gallery.remove(params.id, query.deleteMedia === 'true', audit(), query.forceMedia === 'true',);
         },
     },),
     defineRoute({

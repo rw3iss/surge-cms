@@ -211,8 +211,8 @@ export async function cancel(id: string,): Promise<void> {
  * Cancel the upload/encode behind a media item (library or gallery tile):
  * discards it on the server and drops its upload row, if any.
  */
-export async function cancelMedia(mediaId: string,): Promise<void> {
-    await cms.media.discard(mediaId,);
+export async function cancelMedia(mediaId: string, opts: { force?: boolean; } = {},): Promise<void> {
+    await cms.media.discard(mediaId, opts,);
     for (const i of state.items.filter((x,) => x.mediaId === mediaId,)) removeRow(i.id,);
     setVersion((v,) => v + 1,);
 }

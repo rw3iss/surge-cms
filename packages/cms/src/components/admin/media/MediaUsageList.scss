@@ -1,0 +1,36 @@
+@use '../../../styles/variables' as *;
+
+.media-usage {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-sm;
+    line-height: 1.45;
+
+    &__heading {
+        margin: 0 0 $spacing-xs;
+        font-weight: 600;
+        color: var(--admin-text, #{$text-color});
+    }
+
+    &__group + &__group { margin-top: $spacing-xs; }
+
+    &__kind {
+        display: block;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__list {
+        margin: 2px 0 0;
+        padding-left: $spacing-lg;
+    }
+
+    &__field,
+    &__more {
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__more { margin: $spacing-xs 0 0; }
+}

@@ -48,6 +48,12 @@ vi.mock('../cache', () => ({
 }),);
 vi.mock('../audit', () => ({ logAudit: async () => undefined, }),);
 vi.mock('../media.js', () => ({ remove: async (id: string,) => { mediaRemoved.push(id,); }, }),);
+let mediaInUse: string[] = [];
+vi.mock('../mediaUsage.js', () => ({
+    findMediaUsage: async (ids: string[],) => Object.fromEntries(ids.map((id,) => [
+        id, mediaInUse.includes(id,) ? [{ kind: 'post', id: 'p1', label: 'Post', adminUrl: null, field: 'Featured image', },] : [],
+    ],),),
+}),);
 vi.mock('../../utils/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn(), }, }),);
 vi.mock('../postGate', () => ({ viewerRank: async () => null, tiersById: async () => new Map(), }),);
 vi.mock('../subscriptionAccess', () => ({ getPolicy: async () => ({ required: false, }), }),);
@@ -61,6 +67,7 @@ beforeEach(() => {
     existing = [C1, C2,];
     deletedItems = [];
     mediaRemoved.length = 0;
+    mediaInUse = [];
 },);
 
 const txSql = () => calls.filter((c,) => c.tx,).map((c,) => c.sql,);
@@ -73,7 +80,19 @@ describe('deleteCollection', () => {
         expect(tx.some((s,) => s.startsWith('DELETE FROM gallery_items WHERE collection_id',),),).toBe(true,);
         expect(tx.some((s,) => s.includes('DELETE FROM comment_threads',),),).toBe(true,);
         expect(tx[tx.length - 1],).toContain('DELETE FROM gallery_collections',);
-        expect(r,).toEqual({ deleted: true, items: 2, mediaDeleted: 1, },);
+        expect(r,).toEqual({ deleted: true, items: 2, mediaDeleted: 1, mediaKept: 0, },);
+        expect(mediaRemoved,).toEqual([M1,],);
+    },);
+
+    it('delete + deleteMedia keeps media still used elsewhere, unless forceMedia', async () => {
+        deletedItems = [{ id: I1, media_id: M1, },];
+        mediaInUse = [M1,];
+        const kept = await col.deleteCollection(C1, { items: 'delete', deleteMedia: true, }, CTX,);
+        expect(kept,).toMatchObject({ mediaDeleted: 0, mediaKept: 1, },);
+        expect(mediaRemoved,).toEqual([],);
+        existing = [C1, C2,];
+        const forced = await col.deleteCollection(C1, { items: 'delete', deleteMedia: true, forceMedia: true, }, CTX,);
+        expect(forced,).toMatchObject({ mediaDeleted: 1, mediaKept: 0, },);
         expect(mediaRemoved,).toEqual([M1,],);
     },);
 

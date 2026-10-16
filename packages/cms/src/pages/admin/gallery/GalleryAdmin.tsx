@@ -39,6 +39,7 @@ import { UploadCancelledError, uploadMediaFile, } from '../../../components/admi
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
 import MediaStageModal, { type StagedFile, } from '../../../components/admin/media/MediaStageModal';
 import { cancelMedia, defaultTitle, } from '../../../stores/uploads';
+import { confirmMediaDelete, } from '../../../stores/mediaDeleteConfirm';
 import { useToast, } from '../../../components/common/toast';
 import type { MultiSelectOption, } from '../../../components/ui/MultiSelect';
 import { useAutoSave, } from '../../../hooks/useAutoSave';
@@ -278,10 +279,15 @@ const GalleryAdmin: Component = () => {
         }
         const mediaId = r.media?.id ?? r.mediaId;
         if (!mediaId) return;
-        if (!confirm(`Stop processing "${displayTitle(r,)}" and delete it? The media and its gallery item are deleted.`,)) return;
+        const ok = await confirmMediaDelete({
+            ids: [mediaId,], title: 'Stop processing?', confirmLabel: 'Stop and delete',
+            message: `Stop processing "${displayTitle(r,)}" and delete it? The media and its gallery item are deleted.`,
+            ignoreKinds: ['gallery_item',],
+        },);
+        if (!ok.confirmed) return;
         setCancelling(r.key, true,);
         try {
-            await cancelMedia(mediaId,);
+            await cancelMedia(mediaId, { force: ok.force, },);
             setDraft('rows', (cur,) => cur.filter((x,) => x.key !== r.key,),);
             if (r.id) setSaved((cur,) => cur.filter((i,) => i.id !== r.id,),);
             if (selectedKey() === r.key) setSelectedKey(null,);
@@ -373,9 +379,24 @@ const GalleryAdmin: Component = () => {
     const deleteCollection = async (choice: DeleteCollectionChoice,) => {
         const c = deleteTarget();
         if (!c || deletingCollection()) return;
+        let forceMedia = false;
+        if (choice.items === 'delete' && choice.deleteMedia) {
+            // The collection's items go with it, so only OTHER uses count.
+            const ids = saved().filter((i,) => i.collectionId === c.id,).map((i,) => i.media?.id ?? i.mediaId ?? '',).filter(Boolean,);
+            if (ids.length) {
+                const ok = await confirmMediaDelete({
+                    ids, title: 'Delete the collection\'s media?', confirmLabel: 'Delete',
+                    message: `${ids.length} media file${ids.length > 1 ? 's' : ''} will be deleted from the library.`,
+                    ignoreKinds: ['gallery_item',],
+                },);
+                if (!ok.confirmed) return;
+                forceMedia = ok.force;
+            }
+        }
         setDeletingCollection(true,);
         try {
-            await cms.gallery.deleteCollection(c.id, choice,);
+            const res = await cms.gallery.deleteCollection(c.id, { ...choice, forceMedia, },);
+            if (res.mediaKept) toast.info(`${res.mediaKept} media file${res.mediaKept > 1 ? 's were' : ' was'} kept — still used elsewhere.`,);
             const items = await cms.gallery.admin.items();
             const byId = new Map(items.map((i,) => [i.id, i,],),);
             const dest = choice.items === 'move' ? choice.targetId ?? null : null;
@@ -419,6 +440,22 @@ const GalleryAdmin: Component = () => {
     // ─── Publish ───
     const publish = async () => {
         if (publishing()) return;
+        // Removals that also delete their media: say where that media is still used.
+        const mediaToDelete = draft.rows
+            .filter((r,) => r.removed && r.id && r.deleteMedia,)
+            .map((r,) => r.media?.id ?? r.mediaId ?? '',)
+            .filter(Boolean,);
+        let forceMedia = false;
+        if (mediaToDelete.length) {
+            const ok = await confirmMediaDelete({
+                ids: mediaToDelete, title: 'Publish and delete media?', confirmLabel: 'Publish',
+                message: `${mediaToDelete.length} media file${mediaToDelete.length > 1 ? 's' : ''} will be deleted from the library with the removed item${mediaToDelete.length > 1 ? 's' : ''}.`,
+                // The removed items go in the same publish.
+                ignoreKinds: ['gallery_item',],
+            },);
+            if (!ok.confirmed) return;
+            forceMedia = ok.force;
+        }
         (document.activeElement as HTMLElement | null)?.blur?.();
         await new Promise((r,) => requestAnimationFrame(() => r(null,),),);
         autoSave.cancel();
@@ -457,6 +494,7 @@ const GalleryAdmin: Component = () => {
             }
             // 2. Apply the whole draft.
             const body = buildPublishBody(draft.rows, uploaded,);
+            if (forceMedia) body.forceMedia = true;
             const res = await cms.gallery.admin.publish(body,);
             revokePreviews(draft.rows,);
             setSaved(res.items,);
@@ -466,6 +504,7 @@ const GalleryAdmin: Component = () => {
             if (selectedKey() && !res.items.some((i,) => i.id === selectedKey(),)) setSelectedKey(null,);
             const parts = [
                 res.added && `${res.added} added`, res.removed && `${res.removed} removed`, res.mediaDeleted && `${res.mediaDeleted} media deleted`,
+                res.mediaKept && `${res.mediaKept} media kept — still used elsewhere`,
             ].filter(Boolean,);
             toast.success(`Gallery published${parts.length ? ` (${parts.join(', ',)})` : ''}.`,);
         } catch (e) {

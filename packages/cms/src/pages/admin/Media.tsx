@@ -9,6 +9,7 @@ import RenditionChips from '../../components/admin/media/RenditionChips';
 import { formatDuration, } from '../../components/admin/media/videoFormat';
 import { cms, } from '../../services/cmsClient';
 import { cancelMedia, defaultTitle, startUpload, uploadsVersion, usesMultipart, } from '../../stores/uploads';
+import { confirmMediaDelete, isMediaInUseError, } from '../../stores/mediaDeleteConfirm';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import '../../components/admin/media/VideoMedia.scss';
@@ -143,10 +144,16 @@ const AdminMedia: Component = () => {
     /** Stop a video's encode and delete it (files, row, gallery items made from it). */
     const [cancellingId, setCancellingId,] = createSignal<string | null>(null,);
     const handleCancel = async (m: Media,) => {
-        if (!confirm(`Stop processing "${(m as { title?: string | null; }).title || m.originalName}" and delete it?`,)) return;
+        const ok = await confirmMediaDelete({
+            ids: [m.id,], title: 'Stop processing?', confirmLabel: 'Stop and delete',
+            message: `Stop processing "${(m as { title?: string | null; }).title || m.originalName}" and delete it?`,
+            // A discard removes the gallery item made from the upload too.
+            ignoreKinds: ['gallery_item',],
+        },);
+        if (!ok.confirmed) return;
         setCancellingId(m.id,);
         try {
-            await cancelMedia(m.id,);
+            await cancelMedia(m.id, { force: ok.force, },);
             await refetchFresh();
         } catch (e) {
             alert((e as Error)?.message || 'Could not cancel.',);
@@ -176,11 +183,21 @@ const AdminMedia: Component = () => {
 
     const handleDelete = async (m: Media, e: Event,) => {
         e.stopPropagation();
-        if (!confirm('Delete this file permanently?',)) return;
-        // Still encoding: the same cancel path (stops the encode, purges its
-        // files, drops its upload row and any gallery item made from it).
-        if (isProcessing(m,)) await cancelMedia(m.id,);
-        else await cms.media.remove(m.id,);
+        const processing = isProcessing(m,);
+        const ok = await confirmMediaDelete({
+            ids: [m.id,], ignoreKinds: processing ? ['gallery_item',] : [],
+        },);
+        if (!ok.confirmed) return;
+        try {
+            // Still encoding: the same cancel path (stops the encode, purges its
+            // files, drops its upload row and any gallery item made from it).
+            if (processing) await cancelMedia(m.id, { force: ok.force, },);
+            else await cms.media.remove(m.id, { force: ok.force, },);
+        } catch (err) {
+            alert(isMediaInUseError(err,)
+                ? 'This file was just put to use somewhere — it was not deleted. Try again to see where.'
+                : (err as Error)?.message || 'Delete failed.',);
+        }
         refetch();
     };
 

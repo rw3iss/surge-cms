@@ -10,7 +10,10 @@
  *   GET    /              — paginated list (type/types/search/sort)
  *   GET    /:id           — fetch one
  *   PUT    /:id           — update metadata (title/alt/caption)
- *   DELETE /:id           — delete (removes from storage)
+ *   GET    /usage         — where each media id is used (pages, posts, …)
+ *   DELETE /:id           — delete (removes from storage); 409 MEDIA_IN_USE
+ *                            while used somewhere, unless ?force=true
+ *   POST   /bulk-delete   — delete several (same in-use rule, `force`)
  *   POST   /:id/discard   — cancel an upload/encode: delete the media, its
  *                            files and any gallery item created from it
  *
@@ -21,11 +24,15 @@ import multer from 'multer';
 import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { z, } from 'zod';
-import type { AssertCompatible, MediaByUrlQuery, MediaListQuery, MediaUpdateBody, } from '@sitesurge/types';
+import type {
+    AssertCompatible, MediaBulkDeleteBody, MediaBulkDeleteResponse, MediaByUrlQuery, MediaDeleteQuery, MediaDiscardBody, MediaListQuery,
+    MediaUpdateBody, MediaUsageQuery, MediaUsageResponse,
+} from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { ValidationError, } from '../core/errors';
 import * as media from '../services/media';
+import { assertNotInUse, findMediaUsage, } from '../services/mediaUsage';
 import { requirePermission, } from '../services/permissions';
 import type { UploadFile, } from '../services/media';
 
@@ -70,6 +77,17 @@ const upload = multer({
 },);
 
 const idParams = z.object({ id: z.string(), },);
+
+/** Comma-separated media ids → a de-duplicated list (≤ 100). */
+const usageQuery = z.object({ ids: z.string().min(1,).max(4000,), },) satisfies z.ZodType<MediaUsageQuery>;
+const splitIds = (raw: string,): string[] => [...new Set(raw.split(',',).map((s,) => s.trim(),).filter(Boolean,),),].slice(0, 100,);
+
+const deleteQuery = z.object({ force: z.enum(['true', 'false',],).optional(), },) satisfies z.ZodType<MediaDeleteQuery>;
+const bulkDeleteBody = z.object({
+    ids: z.array(z.string().uuid(),).min(1,).max(200,),
+    force: z.boolean().optional(),
+},) satisfies z.ZodType<MediaBulkDeleteBody>;
+const discardBody = z.object({ force: z.boolean().optional(), },) satisfies z.ZodType<MediaDiscardBody>;
 
 const listQuery = z.object({
     type: z.string().optional(),
@@ -166,6 +184,38 @@ export const mediaRoutes = [
     },),
 
     defineRoute({
+        method: 'get', path: '/usage', auth: 'staff',
+        summary: 'Where media is used — pages, posts, blocks, templates, settings, gallery, products, … (`ids` comma-separated, ≤ 100; ≤ 20 usages each).',
+        input: { query: usageQuery, },
+        handler: async ({ query, user, },): Promise<MediaUsageResponse> => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'media:read',);
+            return findMediaUsage(splitIds(query.ids,),);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/bulk-delete', auth: 'staff',
+        summary: 'Delete several media items. Without `force`, nothing is deleted when any is still in use (409 MEDIA_IN_USE, details.usage).',
+        input: { body: bulkDeleteBody, },
+        handler: async ({ body, user, audit, },): Promise<MediaBulkDeleteResponse> => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'media:write',);
+            const ids = [...new Set(body.ids,),];
+            if (!body.force) await assertNotInUse(ids,);
+            const deleted: string[] = [];
+            const failed: string[] = [];
+            for (const id of ids) {
+                try {
+                    await media.remove(id, audit(),);
+                    deleted.push(id,);
+                } catch {
+                    failed.push(id,);
+                }
+            }
+            return { deleted, failed, };
+        },
+    },),
+
+    defineRoute({
         method: 'get', path: '/:id', auth: 'staff',
         summary: 'Fetch a media item by id.',
         input: { params: idParams, },
@@ -181,9 +231,10 @@ export const mediaRoutes = [
 
     defineRoute({
         method: 'delete', path: '/:id', auth: 'staff',
-        summary: 'Delete a media item (removes files from storage).',
-        input: { params: idParams, },
-        handler: async ({ params, audit, },) => {
+        summary: 'Delete a media item (removes files from storage). Refused with 409 MEDIA_IN_USE (details.usage) while it is used somewhere, unless `?force=true`.',
+        input: { params: idParams, query: deleteQuery, },
+        handler: async ({ params, query, audit, },) => {
+            if (query.force !== 'true') await assertNotInUse([params.id,],);
             await media.remove(params.id, audit(),);
             return { message: 'Media deleted', };
         },
@@ -191,10 +242,12 @@ export const mediaRoutes = [
 
     defineRoute({
         method: 'post', path: '/:id/discard', auth: 'staff',
-        summary: 'Cancel an upload or a running encode: stop the job, delete every stored file, the media row and gallery items made from it.',
-        input: { params: idParams, },
-        handler: async ({ params, user, audit, },) => {
+        summary: 'Cancel an upload or a running encode: stop the job, delete every stored file, the media row and gallery items made from it. 409 MEDIA_IN_USE when used outside the gallery, unless `force`.',
+        input: { params: idParams, body: discardBody, },
+        handler: async ({ params, body, user, audit, },) => {
             await requirePermission({ id: user?.id, role: user?.role, }, 'media:write',);
+            // Gallery items made from the upload are removed by the discard itself.
+            if (!body.force) await assertNotInUse([params.id,], { excludeKinds: ['gallery_item',], },);
             return media.discard(params.id, audit(),);
         },
     },),
