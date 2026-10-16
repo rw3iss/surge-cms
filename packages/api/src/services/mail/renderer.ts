@@ -46,6 +46,8 @@ export interface RenderInput {
     breakpoints?: SiteBreakpoint[];
     /** Rich-text rhythm from Settings → Appearance; defaults applied when unset. */
     typography?: Partial<TypographyDefaults>;
+    /** Settings → Appearance → Border Radius (default item / video corners). */
+    siteRadius?: string;
 }
 
 export interface RenderResult {
@@ -88,6 +90,7 @@ export function renderMailHtml(input: RenderInput,): RenderResult {
         // Falls back to the shared defaults when the site has not set them, so
         // an email always has a definite rhythm rather than the mail client's.
         typography: resolveTypography(input.typography,),
+        siteRadius: input.siteRadius,
     };
 
     // Only ENABLED blocks render — a block flagged `settings.disabled` is kept

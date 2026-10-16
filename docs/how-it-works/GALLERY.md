@@ -199,7 +199,7 @@ One mapping for every runtime: `galleryCallFor` + `galleryDisplayFrom` in
 |---|---|---|
 | Site (`packages/cms/src/services/template/runtime.ts`) | the signed-in viewer | the shared gallery view component |
 | SSR (`services/ssr/templateRuntime.ts`) | anonymous `site` | `<figure>` list (`services/gallery/render.ts` `galleryFiguresHtml`) |
-| Email (`services/mail/templateRuntime.ts`) | `email` (public media) | table grid (`galleryEmailHtml`, 3 across unless `columns=`) |
+| Email (`services/mail/templateRuntime.ts`) | `email` (public media) | table grid (`galleryEmailHtml`, same layout rules as the block below; 3 across unless `columns=`; one item = full width) |
 
 The audience is passed to the shared backend runtime as
 `buildBackendRuntime({ galleryAudience })`; resolution is in
@@ -212,7 +212,7 @@ Settings = `GalleryBlockSettings`: `source` `items` (`itemIds`) | `query`
 column | carousel | stage, `columns`, `itemsPerPage`, `scrollBy`, `gap`,
 `itemWidth`, `itemHeight`, `aspect`, `fit`, `rows`; mobile falls back per
 key), `autoplay` + `autoplayInterval`, `pauseOnHover`, `loop`, arrows, dots,
-titles, captions, `open`, `thumbStrip`, `radius`. The block type name reuses the retired
+titles, captions, `open`, `thumbStrip`, `itemRadius` (the legacy `radius` key is still read). The block type name reuses the retired
 legacy `gallery` enum value (its rows were deleted by migration 027).
 
 Server emitters are synchronous, so a **pre-pass** resolves each block's
@@ -221,8 +221,39 @@ items and stashes them on `settings.__galleryItems`
 
 - SSR: `ssr/routes.ts` (page, home and post block loaders) → `ssr/blocks/gallery.ts` emits figures.
 - Email: `mail/expandBlocks.ts` (`email` audience) → `mail/blocks/gallery.ts`
-  emits a table grid: `grid` uses its columns, `row` / `carousel` their items
-  per page, `column` / `stage` one per row (capped at 4).
+  emits tables (`galleryEmailPlan` + `galleryEmailHtml` in
+  `services/gallery/render.ts`; only the DESKTOP options apply):
+
+  | Layout | Email |
+  |---|---|
+  | `grid` | grid of `columns` (≤6; a px `itemWidth` fits as many as the width allows; default 3), last row padded, left-aligned |
+  | `column` | one item per row, full width |
+  | `row` / `carousel` / `stage` | wrapped grid: thumbnails flow left-to-right, each row centred; columns = `itemsPerPage` (row) / `columns` else `itemsPerPage` (carousel, stage), or a px `itemWidth` vs the body width |
+
+  Width = the 600px body minus the block's px padding. Each item is a fixed
+  box — `itemHeight` (px), else the `aspect` (`original` = the picture at its
+  natural height) — drawn as a background-image cell of exactly that size
+  (`background-size` = the Fit setting; a VML rect for Outlook), so the crop
+  matches the site. Every item **always links to its gallery item page**
+  (the block's On-click option is ignored — an inbox has no lightbox); a video
+  keeps the "▶ Watch" bar (`mail/blocks/watchOverlay.ts`). Gap → half the gap
+  as padding around each item.
+
+### Item border radius
+
+`itemRadius` (admin: **Item border radius**; any CSS length, a bare number =
+px). The Video block has the same setting.
+
+| Value | Site + admin preview | Email |
+|---|---|---|
+| empty | the site's Appearance → Border Radius (`--site-radius`), else 8px (video 6px) | the same site value (read into the mail render context), else 8px (video: the block's Border Radius first, then 6px) |
+| `0` | square | square |
+| `12px` / `12` | 12px | 12px |
+
+On the web it sets `--item-radius` on the gallery view (tiles, the stage
+picture and video; not the lightbox) or the video block (`.vp`,
+`.media-video__stage`, the embed wrapper). In email it is inline
+`border-radius` on each item cell / image and the Watch bar's bottom corners.
 
 ## SSR pages + sitemap
 

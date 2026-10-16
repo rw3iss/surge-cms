@@ -1,4 +1,4 @@
-import { watchPath, } from '@sitesurge/types';
+import { itemRadiusCss, watchPath, } from '@sitesurge/types';
 import {
     absUrl,
     DEFAULT_VIDEO_RADIUS,
@@ -44,6 +44,19 @@ export function videoTitle(node: EmailBlockNode,): string {
 }
 
 /**
+ * The poster's corner radius: the block's "Item border radius" (`0` = square)
+ * → the block's own Border Radius (email cannot clip a cell, so the block's
+ * rounding has to sit on the picture — see `mediaRadius`) → the site's
+ * Appearance → Border Radius → `DEFAULT_VIDEO_RADIUS` (the web's fallback).
+ */
+export function videoRadius(node: EmailBlockNode, ctx: EmailRenderCtx,): string {
+    return itemRadiusCss(node.settings.itemRadius,)
+        ?? mediaRadius(node,)
+        ?? itemRadiusCss(ctx.siteRadius,)
+        ?? DEFAULT_VIDEO_RADIUS;
+}
+
+/**
  * Video → a poster linked to the video's page. Email clients can't play
  * <video>, so the poster carries a "▶ Watch" bar ON its bottom edge.
  *
@@ -56,15 +69,14 @@ export function videoTitle(node: EmailBlockNode,): string {
  *
  * The poster fits the block's box: the block's own Max Width / Max Height
  * settings and its style (incl. an assigned style template) cap it, keeping the
- * video's aspect ratio, centred. Corners take the block's radius, else the
- * radius the admin preview shows (`DEFAULT_VIDEO_RADIUS`).
+ * video's aspect ratio, centred. Corners: `videoRadius`.
  */
 export const renderVideo: BlockEmailRenderer = (node, ctx,) => {
     const poster = String(node.settings.posterUrl ?? node.settings.thumbnailUrl ?? '',);
     const href = escapeHtml(videoWatchUrl(node, ctx,),);
     const title = videoTitle(node,);
     const alt = escapeHtml(title || 'Watch the video',);
-    const radius = mediaRadius(node, DEFAULT_VIDEO_RADIUS,)!;
+    const radius = videoRadius(node, ctx,);
 
     const box = mediaBox(node,);
     const capped = box.maxHeight !== null || box.maxWidth < EMAIL_CONTENT_WIDTH;

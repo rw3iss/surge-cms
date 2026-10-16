@@ -118,7 +118,7 @@ export function appearanceToView(a: GalleryAppearance,): GalleryViewSettings {
         showCaptions: a.showCaptions,
         open: a.open,
         thumbStrip: a.open === 'lightbox' && a.thumbStrip,
-        radius: a.radius || undefined,
+        itemRadius: a.radius || undefined,
         showArrows: true,
         showDots: true,
         loop: true,

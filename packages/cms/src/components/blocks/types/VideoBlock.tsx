@@ -8,9 +8,9 @@
  *   3. Any other URL → `VideoPlayer` with the MIME derived from the extension
  *      (`.m3u8` plays as HLS).
  * The URL is `settings.url` (what the admin editor writes), else the legacy
- * `content` column. `settings.showTitle` prints the title above it, centred (`useVideoTitle`: media title, else `settings.title` — same order as the email).
+ * `content` column. `settings.itemRadius` rounds the video (`--item-radius`; empty = the site radius). `settings.showTitle` prints the title above it, centred (`useVideoTitle`: media title, else `settings.title` — same order as the email).
  */
-import { type Block, cssLength, } from '@sitesurge/types';
+import { type Block, cssLength, itemRadiusCss, } from '@sitesurge/types';
 import { Component, Match, Show, Switch, } from 'solid-js';
 import { useVideoTitle, } from '../../../hooks/useVideoTitle';
 import { resolveVideoSource, } from '../../../utils/resolveVideoSource';
@@ -26,7 +26,10 @@ export const VideoBlock: Component<{ block: Block; }> = (props,) => {
         // A bare number is px; a value with a unit passes through (`cssLength`).
         const maxW = cssLength(s().maxWidth,);
         const maxH = cssLength(s().maxHeight,);
+        // Item border radius: empty = the site radius (the SCSS fallback); `0` = square.
+        const radius = itemRadiusCss(s().itemRadius,);
         return {
+            ...(radius ? { '--item-radius': radius, } : {}),
             ...(maxW ? { 'max-width': maxW, 'margin-inline': 'auto', } : {}),
             // The block's own "Max height" setting caps the player the same way a
             // block style max-height does (MediaVideo reads --block-max-height).

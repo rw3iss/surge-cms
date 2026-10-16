@@ -13,7 +13,7 @@
  *   stage     the selected item large, a thumbnail strip below
  * Click: lightbox (default), the item's page, or nothing.
  */
-import type { GalleryItem, } from '@sitesurge/types';
+import { type GalleryItem, galleryItemRadius, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import MediaVideo from '../blocks/media/MediaVideo';
 import { activePage, aspectRatio, type GalleryViewSettings, nextStart, pageStarts, prevStart, resolveLayout, } from './galleryLayout';
@@ -116,7 +116,10 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
 
     const rootStyle = () => {
         const s: Record<string, string> = { '--gv-gap': L().gap, };
-        if (props.settings.radius) s['--gv-radius'] = props.settings.radius;
+        // Item radius (empty = the site radius; `0` = square) → `--item-radius`,
+        // read by the tiles (`--gv-radius`) and the stage's picture / video.
+        const r = galleryItemRadius(props.settings,);
+        if (r) s['--item-radius'] = r;
         return s;
     };
 
@@ -181,7 +184,10 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                     <Match when={L().layout === 'stage'}>
                         <Show when={items()[selected()]}>
                             {(cur,) => (
-                                <div class="gallery-view__stage">
+                                <div
+                                    class="gallery-view__stage"
+                                    style={L().itemHeight ? { '--gv-stage-height': L().itemHeight!, '--block-max-height': L().itemHeight!, } : undefined}
+                                >
                                     <Show
                                         when={cur().media?.type === 'video'}
                                         fallback={

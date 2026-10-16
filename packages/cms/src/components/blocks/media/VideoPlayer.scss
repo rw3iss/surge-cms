@@ -5,7 +5,8 @@
 
 .vp {
     --vp-accent: var(--site-primary, #e63946);
-    --vp-radius: var(--site-radius, 8px);
+    // Item border radius (Video / Gallery block) → the site radius → 8px.
+    --vp-radius: var(--item-radius, var(--site-radius, 8px));
     --vp-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
     --vp-panel-bg: rgba(18, 18, 20, 0.9);
 

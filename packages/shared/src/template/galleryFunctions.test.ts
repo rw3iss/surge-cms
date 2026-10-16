@@ -1,4 +1,6 @@
 import { describe, expect, it, } from 'vitest';
+import { galleryItemRadius, } from '../types/gallery';
+import { itemRadiusCss, } from '../utils/blockStyleCss';
 import { galleryCallFor, galleryDisplayFrom, } from './galleryFunctions';
 
 const ID = '0f0e0d0c-0b0a-4908-8706-050403020100';
@@ -30,5 +32,23 @@ describe('galleryDisplayFrom', () => {
     },);
     it('refuses CSS that could escape a declaration', () => {
         expect(galleryDisplayFrom({ gap: '1px;}body{x', radius: '4px"', },).desktop?.gap,).toBe('12px',);
+    },);
+    it('item radius: itemRadius (or the legacy radius), 0 kept, bare number = px, unset = site', () => {
+        expect(galleryDisplayFrom({ itemRadius: '0', },).itemRadius,).toBe('0px',);
+        expect(galleryDisplayFrom({ itemRadius: 12, },).itemRadius,).toBe('12px',);
+        expect(galleryDisplayFrom({ radius: '1rem', },).itemRadius,).toBe('1rem',);
+        expect(galleryDisplayFrom({},).itemRadius,).toBeUndefined();
+        expect(galleryDisplayFrom({ itemRadius: '4px"', },).itemRadius,).toBeUndefined();
+    },);
+},);
+
+describe('galleryItemRadius / itemRadiusCss', () => {
+    it('prefers itemRadius, falls back to the legacy radius, keeps 0', () => {
+        expect(galleryItemRadius({ itemRadius: '0', radius: '9px', },),).toBe('0px',);
+        expect(galleryItemRadius({ radius: '9px', },),).toBe('9px',);
+        expect(galleryItemRadius({ itemRadius: '', },),).toBeUndefined();
+        expect(itemRadiusCss(0,),).toBe('0px',);
+        expect(itemRadiusCss('8px 0',),).toBe('8px 0',);
+        expect(itemRadiusCss('1px;}x{',),).toBeUndefined();
     },);
 },);

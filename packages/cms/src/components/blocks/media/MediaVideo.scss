@@ -37,7 +37,8 @@
         position: relative;
         width: 100%;
         background: #000;
-        border-radius: var(--site-radius, 6px);
+        // Item border radius (Video / Gallery block) → the site radius → 6px (email uses the same chain).
+        border-radius: var(--item-radius, var(--site-radius, 6px));
         overflow: hidden;
 
         &--empty {

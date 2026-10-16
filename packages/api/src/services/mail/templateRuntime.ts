@@ -28,6 +28,7 @@ import {
     entityRef,
     galleryDisplayFrom,
     hasTemplateSyntax,
+    itemRadiusCss,
     renderTemplateToString,
     type TemplateRuntime,
 } from '@sitesurge/types';
@@ -36,8 +37,15 @@ import { escapeHtml, } from './blocks/_util';
 import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryEmailHtml, } from '../gallery/render';
+import { get as settingsGet, } from '../settings';
 
 /** Site origin for absolute links in email (`https://site`), no trailing slash. */
+/** Settings → Appearance → Border Radius as CSS (undefined when unset / unreadable). */
+async function siteBorderRadius(): Promise<string | undefined> {
+    const a = await settingsGet<{ borderRadius?: string; }>('site_appearance',).catch(() => null,);
+    return itemRadiusCss(a?.borderRadius,);
+}
+
 const siteBase = (): string => String(config.frontendUrl ?? '',).replace(/\/+$/, '',);
 import {
     type AsyncMemo,
@@ -59,7 +67,7 @@ const MAIL_SINGLE_KINDS: ReadonlySet<string> = new Set([
 /** Flatten a whole-entity ref (`{{campaign('id')}}` with no property) to a
  *  small inline HTML fragment. Emails aren't interactive, so a title +
  *  short blurb is all we can meaningfully render. */
-function entityToMailHtml(kind: string, data: Rec | null, options?: Record<string, unknown>,): string {
+function entityToMailHtml(kind: string, data: Rec | null, options?: Record<string, unknown>, siteRadius?: string,): string {
     if (!data) return '';
     const g = (k: string,): string => escapeHtml(String(data[k] ?? '',),);
     switch (kind) {
@@ -90,11 +98,11 @@ function entityToMailHtml(kind: string, data: Rec | null, options?: Record<strin
         case GALLERY_ITEM_KIND: {
             const items = kind === GALLERY_ITEM_KIND ? [data as unknown as GalleryItem,] : (data as unknown as GalleryItem[]);
             const d = galleryDisplayFrom(options ?? {},);
-            return galleryEmailHtml(items, siteBase(), {
-                // Email default is 3 across (the block default of 4 is cramped in a 600px inbox).
-                columns: kind === GALLERY_ITEM_KIND ? 1 : (options?.columns != null ? (d.desktop?.columns ?? 3) : 3),
-                showTitles: d.showTitles, showCaptions: d.showCaptions, radius: d.radius,
-            },);
+            const desktop = { ...d.desktop, };
+            // One item stands alone; a list defaults to 3 across (the block default of 4 is cramped in a 600px inbox).
+            if (kind === GALLERY_ITEM_KIND) desktop.layout = 'column';
+            else if (options?.columns == null) desktop.columns = 3;
+            return galleryEmailHtml(items, siteBase(), { ...d, desktop, }, { siteRadius, },);
         }
         default: {
             const title = g('title',) || g('name',);
@@ -130,7 +138,9 @@ export async function resolveMailTemplate(
     if (!src || !hasTemplateSyntax(src,)) return src ?? '';
     try {
         const rt = buildMailRuntime(context,);
-        return await renderTemplateToString(src, rt, (kind, data, options,) => entityToMailHtml(kind, data as Rec | null, options,),);
+        // `{{gallery()}}` items default to the site's border radius — read only when one is used.
+        const siteRadius = /\bgallery\s*\(/.test(src,) ? await siteBorderRadius() : undefined;
+        return await renderTemplateToString(src, rt, (kind, data, options,) => entityToMailHtml(kind, data as Rec | null, options, siteRadius,),);
     } catch (e) {
         logger.warn('Mail template resolution failed', { error: (e as Error).message, },);
         return src;

@@ -3,8 +3,8 @@
  */
 import type { GalleryItem, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
-import { emailColumns, } from '../mail/blocks/gallery';
-import { absUrl, galleryEmailHtml, galleryFiguresHtml, previewUrl, } from './render';
+import { horizontalPadding, } from '../mail/blocks/gallery';
+import { absUrl, galleryEmailHtml, galleryEmailPlan, galleryFiguresHtml, previewUrl, } from './render';
 
 const item = (over: Partial<GalleryItem> & { mediaType?: 'image' | 'video'; thumb?: string | null; } = {},): GalleryItem => ({
     id: over.id ?? 'a1',
@@ -58,35 +58,115 @@ describe('galleryFiguresHtml (SSR)', () => {
     },);
 },);
 
+const four = () => [item({ id: 'a', },), item({ id: 'b', },), item({ id: 'c', },), item({ id: 'd', },),];
+/** Inner row tables (one per visual row). */
+const rowTables = (html: string,) => html.match(/<table role="presentation" align="center" width="\d+" cellpadding="0" cellspacing="0" border="0" style="width:\d+px;max-width:100%;margin:0 auto;border-collapse:collapse;">/g,) ?? [];
+
+describe('galleryEmailPlan', () => {
+    it('grid uses its columns (up to 6), column is one per row', () => {
+        expect(galleryEmailPlan({ desktop: { layout: 'grid', columns: 6, }, },),).toMatchObject({ mode: 'grid', columns: 6, },);
+        expect(galleryEmailPlan({ desktop: { layout: 'grid', columns: 9, }, },).columns,).toBe(6,);
+        expect(galleryEmailPlan({ desktop: { layout: 'column', columns: 4, }, },),).toMatchObject({ mode: 'grid', columns: 1, },);
+        expect(galleryEmailPlan({},),).toMatchObject({ mode: 'grid', columns: 3, },);
+    },);
+    it('row / carousel / stage become a centred wrapped grid', () => {
+        expect(galleryEmailPlan({ desktop: { layout: 'row', itemsPerPage: 2, }, },),).toMatchObject({ mode: 'wrap', columns: 2, },);
+        expect(galleryEmailPlan({ desktop: { layout: 'carousel', itemsPerPage: 4, }, },),).toMatchObject({ mode: 'wrap', columns: 4, },);
+        expect(galleryEmailPlan({ desktop: { layout: 'stage', }, },),).toMatchObject({ mode: 'wrap', columns: 3, },);
+    },);
+    it('a px item width fits as many columns as the body allows', () => {
+        // (600 + 12) / (180 + 12) = 3.18 → 3
+        const p = galleryEmailPlan({ desktop: { layout: 'row', itemWidth: '180px', itemsPerPage: 5, }, },);
+        expect(p,).toMatchObject({ columns: 3, itemWidth: 180, },);
+        expect(galleryEmailPlan({ desktop: { layout: 'row', itemWidth: '180px', }, }, { width: 400, },).columns,).toBe(2,);
+    },);
+    it('item height wins over the aspect; aspect sizes otherwise; original = natural', () => {
+        expect(galleryEmailPlan({ desktop: { columns: 3, itemHeight: '240px', aspect: 'square', }, },).itemHeight,).toBe(240,);
+        const sq = galleryEmailPlan({ desktop: { columns: 3, aspect: 'square', gap: '12px', }, },);
+        expect(sq.itemWidth,).toBe(188,); // 200 slot − 2 × 6 padding
+        expect(sq.itemHeight,).toBe(188,);
+        expect(galleryEmailPlan({ desktop: { columns: 2, aspect: '16:9', gap: '0', }, },).itemHeight,).toBe(169,);
+        expect(galleryEmailPlan({ desktop: { aspect: 'original', }, },).itemHeight,).toBeNull();
+    },);
+    it('radius: item radius → site radius → 8px; 0 overrides', () => {
+        expect(galleryEmailPlan({},).radius,).toBe('8px',);
+        expect(galleryEmailPlan({}, { siteRadius: '3px', },).radius,).toBe('3px',);
+        expect(galleryEmailPlan({ itemRadius: '0', }, { siteRadius: '3px', },).radius,).toBe('0px',);
+        expect(galleryEmailPlan({ itemRadius: '12', }, { siteRadius: '3px', },).radius,).toBe('12px',);
+        expect(galleryEmailPlan({ radius: '5px', }, { siteRadius: '3px', },).radius,).toBe('5px',); // legacy key
+    },);
+},);
+
 describe('galleryEmailHtml', () => {
-    it('lays items out in table rows, padding the last row', () => {
-        const html = galleryEmailHtml([item({ id: 'a', },), item({ id: 'b', },), item({ id: 'c', },), item({ id: 'd', },),], 'https://site', { columns: 3, },);
-        expect(html.match(/<tr>/g,)?.length,).toBe(2,);
-        expect(html.match(/<td /g,)?.length,).toBe(6,);
-        expect(html,).toContain('width="33%"',);
+    it('grid: rows of N cells, the last row padded and left-aligned', () => {
+        const html = galleryEmailHtml(four(), 'https://site', { desktop: { layout: 'grid', columns: 3, }, },);
+        expect(rowTables(html,).length,).toBe(2,);
+        expect(html.match(/<td width="200"/g,)?.length,).toBe(6,);
         expect(html,).toContain('https://site/uploads/a.jpg',);
     },);
-    it('a video is its poster linked to the item page, with a Watch line', () => {
-        const html = galleryEmailHtml([item({ mediaType: 'video', },),], 'https://site', { columns: 1, },);
+    it('row / carousel / stage: wrapped rows sized to their items, centred', () => {
+        for (const layout of ['row', 'carousel', 'stage',] as const) {
+            const html = galleryEmailHtml(four(), 'https://site', { desktop: { layout, itemsPerPage: 3, columns: 3, }, },);
+            const rows = rowTables(html,);
+            expect(rows.length,).toBe(2,);
+            expect(rows[0],).toContain('width="600"',);
+            expect(rows[1],).toContain('width="200"',); // the lone last item, centred
+            expect(html.match(/<td width="200"/g,)?.length,).toBe(4,); // no padding cells
+            expect(html,).toContain('gallery-grid--wrap',);
+        }
+    },);
+    it('column: one item per row at full width', () => {
+        const html = galleryEmailHtml(four(), 'https://site', { desktop: { layout: 'column', }, },);
+        expect(rowTables(html,).length,).toBe(4,);
+        expect(html,).toContain('width="600"',);
+    },);
+    it('a fixed box is a background cell of that exact size (Outlook attributes + VML), cropped per Fit', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { columns: 2, itemHeight: '150px', fit: 'contain', gap: '0', }, },);
+        expect(html,).toContain('width="300" height="150"',);
+        expect(html,).toContain('width:300px;height:150px',);
+        expect(html,).toContain('background-size:contain',);
+        expect(html,).toContain('aspect="atmost"',);
+        expect(html,).toContain(`background-image:url('https://site/uploads/a.jpg')`,);
+    },);
+    it('original aspect with no height shows the picture at its natural height', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { columns: 3, aspect: 'original', }, },);
+        expect(html,).toMatch(/<img [^>]*width="188"[^>]*height:auto/,);
+        expect(html,).not.toContain('background-image',);
+    },);
+    it('every item links to its gallery page, whatever the on-click option', () => {
+        for (const open of ['lightbox', 'page', 'none',] as const) {
+            const html = galleryEmailHtml([item(),], 'https://site', { open, },);
+            expect(html,).toContain('href="https://site/gallery/a1"',);
+        }
+    },);
+    it('a video is its poster linked to the item page, with the Watch bar ON it', () => {
+        const html = galleryEmailHtml([item({ mediaType: 'video', },),], 'https://site', { desktop: { layout: 'column', }, },);
         expect(html,).toContain('<a href="https://site/gallery/a1"',);
         expect(html,).toContain('class="email-watch-bar"',);
         expect(html,).toMatch(/>Watch<\/span>/,);
+        expect(html,).toContain('border-radius:0 0 8px 8px',);
         expect(html,).not.toContain('/api/v1/video/m1/file',);
+    },);
+    it('item radius on every item: empty → site radius, 0 → square, 12px', () => {
+        const rad = (s: Record<string, unknown>, site?: string,) => galleryEmailHtml([item(),], 'https://site', { desktop: { aspect: 'original', }, ...s, }, { siteRadius: site, },);
+        expect(rad({}, '5px',),).toContain('border-radius:5px;',);
+        expect(rad({ itemRadius: '0', }, '5px',),).toContain('border-radius:0px;',);
+        expect(rad({ itemRadius: '12px', }, '5px',),).toContain('border-radius:12px;',);
     },);
     it('titles and captions only when asked', () => {
         expect(galleryEmailHtml([item(),], 'https://site',),).not.toContain('Over the bay',);
         expect(galleryEmailHtml([item(),], 'https://site', { showCaptions: true, },),).toContain('Over the bay',);
     },);
     it('refuses CSS that could escape a declaration', () => {
-        expect(galleryEmailHtml([item(),], 'https://site', { radius: '4px;}x{', },),).not.toContain('}x{',);
+        expect(galleryEmailHtml([item(),], 'https://site', { itemRadius: '4px;}x{', },),).not.toContain('}x{',);
     },);
 },);
 
-describe('emailColumns (Gallery block in email)', () => {
-    it('maps layouts onto a grid, capped at 4', () => {
-        expect(emailColumns({ desktop: { layout: 'grid', columns: 6, }, },),).toBe(4,);
-        expect(emailColumns({ desktop: { layout: 'row', itemsPerPage: 2, }, },),).toBe(2,);
-        expect(emailColumns({ desktop: { layout: 'stage', }, },),).toBe(1,);
-        expect(emailColumns({},),).toBe(3,);
+describe('horizontalPadding (Gallery block width in email)', () => {
+    it('reads left + right of a padding shorthand', () => {
+        expect(horizontalPadding('16px',),).toBe(32,);
+        expect(horizontalPadding('0 20px',),).toBe(40,);
+        expect(horizontalPadding('1px 2px 3px 4px',),).toBe(6,);
+        expect(horizontalPadding(undefined,),).toBe(0,);
     },);
 },);

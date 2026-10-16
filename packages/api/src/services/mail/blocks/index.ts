@@ -55,6 +55,12 @@ export interface EmailRenderCtx {
      * only place that sees the tags.
      */
     typography: TypographyDefaults;
+    /**
+     * The site's Appearance → Border Radius (`--site-radius` on the web), when
+     * set. The default corner of a video poster / gallery item whose block
+     * sets no item radius — so the email matches the site.
+     */
+    siteRadius?: string;
 }
 
 export interface BlockEmailRenderResult {

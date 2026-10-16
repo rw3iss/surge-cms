@@ -1,7 +1,7 @@
 // Gallery views (page, Gallery block, {{gallery()}}) + tile + lightbox.
 .gallery-view {
   --gv-gap: 12px;
-  --gv-radius: var(--site-radius, 8px);
+  --gv-radius: var(--item-radius, var(--site-radius, 8px));
   position: relative;
   width: 100%;
 
@@ -118,10 +118,15 @@
     img {
       display: block;
       width: 100%;
-      max-height: 70vh;
+      // Item height (when set) fixes the stage picture's box; Fit crops / letterboxes inside it.
+      height: var(--gv-stage-height, auto);
+      max-height: var(--gv-stage-height, 70vh);
       border-radius: var(--gv-radius);
       background: #000;
     }
+
+    // A video on the stage takes the item radius too.
+    .media-video__stage { border-radius: var(--gv-radius); }
   }
 
   &__stage-hit {

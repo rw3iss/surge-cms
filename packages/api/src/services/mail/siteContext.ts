@@ -5,7 +5,7 @@
  * same shape, so it lives once.
  */
 import type { SiteBreakpoint, TypographyDefaults, } from '@sitesurge/types';
-import { resolveTypography, } from '@sitesurge/types';
+import { itemRadiusCss, resolveTypography, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { config, } from '../../config';
 
@@ -22,6 +22,8 @@ export interface MailRenderContext {
     breakpoints: SiteBreakpoint[];
     /** Rich-text heading/paragraph rhythm (Settings → Appearance → Typography). */
     typography: TypographyDefaults;
+    /** Settings → Appearance → Border Radius (`--site-radius`); undefined when unset. */
+    siteRadius?: string;
     /**
      * Branding fields for the `{{site.*}}` bag (logo / favicon / tagline / …).
      *
@@ -50,7 +52,7 @@ export async function loadMailRenderContext(): Promise<MailRenderContext> {
     }
 
     const appearance = settings.site_appearance as
-        ({ breakpoints?: SiteBreakpoint[]; } & Partial<TypographyDefaults>) | undefined;
+        ({ breakpoints?: SiteBreakpoint[]; borderRadius?: string; } & Partial<TypographyDefaults>) | undefined;
     const breakpoints = Array.isArray(appearance?.breakpoints,) && appearance!.breakpoints!.length
         ? appearance!.breakpoints!
         : DEFAULT_BREAKPOINTS;
@@ -90,5 +92,6 @@ export async function loadMailRenderContext(): Promise<MailRenderContext> {
         // PREVIEW path cannot end up with different values — the two disagreeing
         // is exactly the bug this was added for.
         typography: resolveTypography(appearance,),
+        siteRadius: itemRadiusCss(appearance?.borderRadius,),
     };
 }

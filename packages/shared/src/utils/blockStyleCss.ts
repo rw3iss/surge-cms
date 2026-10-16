@@ -72,6 +72,20 @@ export function cssLength(value: unknown,): string | undefined {
 }
 
 /**
+ * An ITEM corner radius setting (Gallery / Video block "Item border radius")
+ * as CSS. Unset or '' → undefined, meaning "use the site's Appearance →
+ * Border Radius" (`--site-radius`). An explicit value — INCLUDING `0` — wins.
+ * A bare number is px (`12` / `'12'` → `'12px'`); a value that could escape a
+ * style declaration is refused (→ undefined).
+ */
+export function itemRadiusCss(value: unknown,): string | undefined {
+    if (typeof value === 'number') return Number.isFinite(value,) && value >= 0 ? `${value}px` : undefined;
+    const v = String(value ?? '',).trim();
+    if (!v || /[;{}<>"\\]/.test(v,)) return undefined;
+    return /^\d+(?:\.\d+)?$/.test(v,) ? `${v}px` : v;
+}
+
+/**
  * Build the layout + typography CSS for a resolved block style. Returns only
  * the properties the style actually sets (everything else omitted), so the
  * result can be spread into a larger style object without clobbering.

@@ -13,6 +13,8 @@
  * media's own CDN URL whenever the MEDIA is public, whatever the item's gate.
  */
 
+import { itemRadiusCss, } from '../utils/blockStyleCss';
+
 export type GalleryMediaType = 'image' | 'video';
 
 /** Who may view: everyone, signed-in members, or subscribers from a tier up. */
@@ -301,6 +303,14 @@ export interface GalleryBlockSettings {
     open?: GalleryOpenMode;
     /** Lightbox only: a strip of every item's thumbnail along the bottom of the modal. */
     thumbStrip?: boolean;
+    /**
+     * Corner radius of every item (tile, stage picture / video, email
+     * thumbnail). Any CSS length, a bare number = px. Empty = the site's
+     * Appearance → Border Radius; an explicit value, `0` included, overrides.
+     * Resolve with `galleryItemRadius()`.
+     */
+    itemRadius?: string;
+    /** Legacy name of `itemRadius` (read when `itemRadius` is unset). */
     radius?: string;
 }
 
@@ -333,4 +343,12 @@ export function galleryCollectionPath(baseUrl: string, id: string,): string {
 /** `/gallery` + id → item page path. */
 export function galleryItemPath(baseUrl: string, id: string,): string {
     return `${(baseUrl || '/gallery').replace(/\/+$/, '',)}/${id}`;
+}
+
+/**
+ * A Gallery block's item radius as CSS (`itemRadius`, else the legacy
+ * `radius`); undefined = use the site radius.
+ */
+export function galleryItemRadius(s: { itemRadius?: unknown; radius?: unknown; } | null | undefined,): string | undefined {
+    return itemRadiusCss(s?.itemRadius,) ?? itemRadiusCss(s?.radius,);
 }

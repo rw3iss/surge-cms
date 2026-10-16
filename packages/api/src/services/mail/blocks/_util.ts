@@ -256,8 +256,9 @@ export const VIDEO_MEDIA_SIZE_KEY = '__mediaSize';
 export const VIDEO_MEDIA_TITLE_KEY = '__mediaTitle';
 
 /**
- * Corner radius a video poster gets when its block sets none — the value the
- * admin block preview shows (`.media-video__stage`: `var(--site-radius, 6px)`).
+ * Corner radius a video poster gets when neither the block (item radius /
+ * border radius) nor the site (Appearance → Border Radius) sets one — the web
+ * fallback (`.media-video__stage`: `var(--item-radius, var(--site-radius, 6px))`).
  */
 export const DEFAULT_VIDEO_RADIUS = '6px';
 

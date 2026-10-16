@@ -116,6 +116,8 @@ export interface BlockSettings {
     /** Payload for an `entity` block (template + data binding). Present only
      *  on blocks of type `entity`; see `@sitesurge/types` EntityBlockSettings. */
     entity?: import('../entities/entityBlock').EntityBlockSettings;
+    /** Video / Gallery block: corner radius of the video / each item. Empty = the site radius (Appearance → Border Radius); `0` = square. Resolve with `itemRadiusCss`. */
+    itemRadius?: string;
     [key: string]: unknown;
 }
 

@@ -10,6 +10,7 @@
  *             layout='grid', columns=4, gap='8px', aspect='square')}}
  *   {{gallery(collection='<collection id>')}}       a collection's items (`'root'` = items in no collection)
  *   {{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4)}}
+ *   {{gallery(itemRadius='0')}}                    item corners (default: the site radius)
  *   {{for gallery(tag='events', limit=6) as g}} <img src="{{g.media.thumbnailUrl}}"> {{endfor}}
  *
  * Each runtime runs the query its own way (SDK on the site, the service on
@@ -20,6 +21,7 @@
  */
 import type { GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryOpenMode, GalleryQuery, } from '../types/gallery';
 import { DEFAULT_GALLERY_BLOCK_SETTINGS, } from '../types/gallery';
+import { itemRadiusCss, } from '../utils/blockStyleCss';
 
 export const GALLERY_LIST_KIND = 'galleryList';
 export const GALLERY_ITEM_KIND = 'galleryItem';
@@ -109,6 +111,6 @@ export function galleryDisplayFrom(options: Record<string, unknown> = {},): Omit
         showCaptions: bool(options.captions ?? options.showCaptions,) ?? d.showCaptions,
         open: (['lightbox', 'page', 'none',].includes(open,) ? open : d.open) as GalleryOpenMode,
         thumbStrip: bool(options.thumbs ?? options.thumbStrip,) ?? false,
-        radius: str(options.radius,) && !/[;{}<>"]/.test(str(options.radius,),) ? str(options.radius,) : undefined,
+        itemRadius: itemRadiusCss(options.itemRadius ?? options.radius,),
     };
 }

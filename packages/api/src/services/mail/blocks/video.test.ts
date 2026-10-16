@@ -212,3 +212,22 @@ describe('image block max height', () => {
         expect(tag,).toContain('width:auto',);
     });
 });
+
+describe('Item border radius (video poster)', () => {
+    const radiusOf = (settings: Record<string, unknown>, style: Record<string, unknown> = {}, siteRadius?: string,) =>
+        renderNode(video({ ...landscape, ...settings, }, style,), { ...CTX, siteRadius, },);
+    it('empty → the site radius', () => {
+        expect(radiusOf({}, {}, '10px',),).toContain('border-radius:10px',);
+    });
+    it('no site radius either → the 6px fallback', () => {
+        expect(radiusOf({},),).toContain(`border-radius:${DEFAULT_VIDEO_RADIUS}`,);
+    });
+    it('an explicit value wins, 0 included, and a bare number is px', () => {
+        expect(radiusOf({ itemRadius: '0', }, { borderRadius: '20px', }, '10px',),).toContain('border-radius:0px',);
+        expect(radiusOf({ itemRadius: '12', }, {}, '10px',),).toContain('border-radius:12px',);
+        expect(radiusOf({ itemRadius: '12', }, {}, '10px',),).toContain('border-radius:0 0 12px 12px',); // the Watch bar
+    });
+    it('the block border radius still reaches the poster when no item radius is set', () => {
+        expect(radiusOf({}, { borderRadius: '20px', }, '10px',),).toContain('border-radius:20px',);
+    });
+});

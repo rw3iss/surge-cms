@@ -1,5 +1,5 @@
 import { openMediaViewer, } from '@/stores/mediaViewer';
-import { cssLength, type Media, } from '@sitesurge/types';
+import { cssLength, itemRadiusCss, type Media, } from '@sitesurge/types';
 import { Component, createSignal, Match, Show, Switch, type JSX, } from 'solid-js';
 import MediaVideo from '../../../blocks/media/MediaVideo';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
@@ -118,7 +118,13 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     </div>
                 </Match>
                 <Match when={props.data.url && resolved().kind === 'embed'}>
-                    <iframe src={resolved().src} frameborder="0" allowfullscreen class="video-block__iframe" style={style} />
+                    <iframe
+                        src={resolved().src}
+                        frameborder="0"
+                        allowfullscreen
+                        class="video-block__iframe"
+                        style={{ 'border-radius': 'var(--item-radius, var(--site-radius, 6px))', ...style, }}
+                    />
                 </Match>
                 <Match when={props.data.url}>
                     <VideoPlayer
@@ -137,7 +143,11 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
     };
 
     return (
-        <div class="block-video">
+        <div
+            class="block-video"
+            // Item border radius → `--item-radius` (read by the player / embed); empty = the site radius.
+            style={itemRadiusCss(props.data.itemRadius,) ? { '--item-radius': itemRadiusCss(props.data.itemRadius,)!, } : undefined}
+        >
             <Show
                 when={props.mode === 'edit'}
                 fallback={
@@ -171,7 +181,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                 <div class="form-group">
                     <label>Video</label>
                     <Show when={props.data.url || props.data.mediaId}>
-                        {preview({ 'max-width': '320px', 'margin-bottom': '0.5rem', 'border-radius': '4px', },)}
+                        {preview({ 'max-width': '320px', 'margin-bottom': '0.5rem', },)}
                         <Show when={props.data.mediaId}>
                             <button
                                 type="button"
@@ -248,6 +258,21 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                         />
                     </FormField>
                 </div>
+                <FormField
+                    label="Item border radius"
+                    tooltip="Corners of the video, on the site and in email. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square."
+                >
+                    <input
+                        type="text"
+                        value={props.data.itemRadius ?? ''}
+                        placeholder="site default"
+                        // Commits on change (blur / Enter), never per keystroke.
+                        onChange={(e,) => {
+                            const itemRadius = e.currentTarget.value.trim() || undefined;
+                            if (itemRadius !== (props.data.itemRadius || undefined)) props.onUpdate({ ...props.data, itemRadius, },);
+                        }}
+                    />
+                </FormField>
                 <div class="form-group">
                     <Toggle
                         checked={props.data.showTitle === true}
