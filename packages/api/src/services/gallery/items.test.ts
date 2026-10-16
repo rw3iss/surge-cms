@@ -53,6 +53,23 @@ describe('normalizeQuery', () => {
     },);
 },);
 
+describe('every bound parameter is referenced (Postgres rejects unused ones)', () => {
+    const check = () => {
+        for (const c of calls.filter((x,) => x.sql.includes('FROM gallery_items gi',),)) {
+            for (let i = 1; i <= c.params.length; i++) expect(c.sql,).toMatch(new RegExp(`\\$${i}(?!\\d)`,),);
+        }
+    };
+    it('staff viewer (regression: /gallery was empty for signed-in staff)', async () => {
+        await items.list({ collectionId: 'root', }, { viewer: { id: 'u1', role: 'admin', }, grants: { signedIn: true, staff: true, roles: ['admin',], tierIds: [], }, },);
+        check();
+    },);
+    it('anonymous and member viewers', async () => {
+        await items.list({ collectionId: 'root', }, { viewer: null, },);
+        await items.list({}, { viewer: { id: 'u2', role: 'member', }, grants: { signedIn: true, staff: false, roles: ['member',], tierIds: [], }, },);
+        check();
+    },);
+},);
+
 describe('list WHERE by audience', () => {
     const listSql = () => calls.find((c,) => c.sql.includes('FROM gallery_items gi',) && !c.sql.includes('COUNT',),)!.sql;
 

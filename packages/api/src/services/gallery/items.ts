@@ -157,10 +157,17 @@ export async function audienceConditions(opts: ListOptions, s: GallerySettings, 
             viewerLevel(opts.viewer,),
             opts.grants ?? (opts.viewer?.id ? viewerGrants(opts.viewer,) : ANONYMOUS_GRANTS),
         ],);
-        params.push(await galleryFloor(s,),);
-        const floorParam = `$${params.length}`;
-        params.push(level === Infinity ? STAFF_LEVEL : level,);
-        where.push(itemGateSql(grants, `${FLOOR_SQL(floorParam,)} <= $${params.length}`, params,),);
+        // Staff pass every gate: bind NOTHING for them — a bound parameter the
+        // SQL never references makes Postgres fail ("could not determine data
+        // type of parameter $1"), which emptied /gallery for signed-in staff.
+        if (grants.staff) {
+            where.push('TRUE',);
+        } else {
+            params.push(await galleryFloor(s,),);
+            const floorParam = `$${params.length}`;
+            params.push(level === Infinity ? STAFF_LEVEL : level,);
+            where.push(itemGateSql(grants, `${FLOOR_SQL(floorParam,)} <= $${params.length}`, params,),);
+        }
     }
     return where;
 }

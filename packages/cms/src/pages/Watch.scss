@@ -2,9 +2,18 @@
     max-width: var(--site-max-width, 1100px);
     margin: 0 auto;
     padding: 2rem var(--site-gutter, 1rem) 3rem;
+    /*
+     * The video never grows past the window: the visible viewport (dvh, so
+     * mobile browser bars count) less the site header's live bottom edge,
+     * the page's top padding, the title and a little air below. MediaVideo
+     * caps itself to --block-max-height (letterboxing, so it stays "full").
+     * Floor of 240px so a tiny landscape phone still gets a usable player.
+     */
+    --block-max-height: max(240px, calc(100dvh - var(--site-header-offset, 0px) - 2rem - var(--watch-title-space, 4.5rem) - 1rem));
 
     &__title {
         margin: 0 0 1rem;
+        text-align: center;
         color: var(--site-heading, inherit);
     }
 

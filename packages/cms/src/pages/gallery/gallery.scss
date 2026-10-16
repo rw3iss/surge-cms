@@ -34,11 +34,16 @@
 
   &__figure {
     margin: 0;
+    // Media never taller than the window: viewport less the live header edge,
+    // the back/prev-next nav row, the title above and some air. Images use it
+    // directly; a video's MediaVideo reads it as --block-max-height (letterboxed).
+    --gallery-media-max: max(240px, calc(100dvh - var(--site-header-offset, 0px) - 9rem));
+    --block-max-height: var(--gallery-media-max);
 
     > img {
       display: block;
       max-width: 100%;
-      max-height: 80vh;
+      max-height: var(--gallery-media-max);
       margin: 0 auto;
       border-radius: var(--site-radius, 8px);
     }
