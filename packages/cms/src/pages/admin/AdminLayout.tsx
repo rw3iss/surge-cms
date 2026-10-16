@@ -79,12 +79,12 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     // Events sits with the other content-authoring areas, after Forms.
     { path: '/admin/events', label: 'Events', icon: 'campaigns', feature: 'events', },
-    // Discussions: the comment moderation queue + the forum's own section.
-    { path: '/admin/comments', label: 'Comments', icon: 'messages', feature: 'comments', },
+    // The forum's own section (Comments sits under Messages, below).
     { path: '/admin/forum', label: 'Forum', icon: 'messages', feature: 'forum', },
-    // Published media (feature `gallery`).
-    { path: '/admin/gallery', label: 'Gallery', icon: 'media', feature: 'gallery', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
+    // Published media (feature `gallery`), with the Media library right under it.
+    { path: '/admin/gallery', label: 'Gallery', icon: 'media', feature: 'gallery', },
+    { path: '/admin/media', label: 'Media', icon: 'media', },
     // Wiki sits directly above Users, per the module's design.
     { path: '/admin/wiki', label: 'Wiki', icon: 'pages', feature: 'wiki', },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
@@ -92,9 +92,10 @@ const NAV_ITEMS: NavItem[] = [
     // Users, only when the `contacts` feature is enabled.
     { path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
-    // Media + Entities are tools rather than content areas, so they sit below
-    // the day-to-day authoring items.
-    { path: '/admin/media', label: 'Media', icon: 'media', },
+    // The comment moderation queue, with the other inbound items.
+    { path: '/admin/comments', label: 'Comments', icon: 'messages', feature: 'comments', },
+    // Entities + Components are tools rather than content areas, so they sit
+    // below the day-to-day authoring items.
     { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     // Reusable block templates, referenced by `template` blocks. Sits beside
     // Entities because it is the same storage without the entity binding.
