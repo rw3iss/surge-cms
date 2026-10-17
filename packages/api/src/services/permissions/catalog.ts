@@ -290,6 +290,15 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         { key: 'shop:write', feature: 'shop', label: 'Manage products and collections', action: 'write', defaultRoles: STAFF, },
         { key: 'shop.orders:read', feature: 'shop', label: 'View orders', action: 'read', defaultRoles: STAFF, },
         {
+            key: 'shop.orders:write',
+            feature: 'shop',
+            label: 'Edit orders',
+            description: 'Change an order\'s status, notes and tracking (carrier, number, link).',
+            action: 'write',
+            // The order update route is admin-tier today; keep it that way by default.
+            defaultRoles: ADMIN,
+        },
+        {
             key: 'shop.orders:refund',
             feature: 'shop',
             label: 'Refund orders',

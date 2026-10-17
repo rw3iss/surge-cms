@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T21:48:05.882Z",
+  "generatedAt": "2026-10-17T22:09:51.917Z",
   "totalModules": 55,
   "totalRoutes": 571,
   "modules": [
@@ -3545,7 +3545,7 @@
           "path": "/orders/:id",
           "absolutePath": "/api/v1/shop/orders/:id",
           "auth": "admin",
-          "summary": "Update an order (admin): status/fulfillment/tracking/notes. Transition to refunded issues a Stripe refund."
+          "summary": "Update an order (admin, shop.orders:write): status/fulfillment/notes and the manual carrier/tracking number/tracking URL (marks tracking manual so a supplier sync keeps it). Transition to refunded issues a Stripe refund."
         },
         {
           "method": "POST",

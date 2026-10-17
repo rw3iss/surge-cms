@@ -217,11 +217,36 @@ export function computeRollUp(rows: RollUpRow[], currentOrderStatus: string, has
     return { fulfillmentStatus, orderStatus, tracking, };
 }
 
+export interface OrderTrackingState {
+    number: string | null;
+    url: string | null;
+    carrier: string | null;
+    /** The admin typed these (`shop_orders.tracking_manual`). */
+    manual: boolean;
+}
+
+/**
+ * The order-level tracking columns after a supplier roll-up. Manual columns
+ * (an admin typed them) are never touched; otherwise each column takes the
+ * supplier's first-parcel value when it has one, and keeps its own when not.
+ */
+export function mergeOrderTracking(
+    current: OrderTrackingState,
+    supplier: RollUp['tracking'],
+): { number: string | null; url: string | null; carrier: string | null; } {
+    if (current.manual) return { number: current.number, url: current.url, carrier: current.carrier, };
+    return {
+        number: supplier.number ?? current.number,
+        url: supplier.url ?? current.url,
+        carrier: supplier.carrier ?? current.carrier,
+    };
+}
+
 /**
  * Roll the per-provider records up to the order: `fulfillment_status`, a
- * forward-only `status`, and the order-level tracking columns (the FIRST parcel,
- * filled only when empty — an admin-typed number is never overwritten), which
- * existing views and emails read.
+ * forward-only `status`, and the order-level tracking columns (the FIRST parcel —
+ * left alone when an admin typed them, `tracking_manual`), which existing views
+ * and emails read.
  *
  * `partial` only exists because an order can have more than one supplier — one
  * parcel shipped and another still printing (or one supplier part-shipped).
@@ -229,8 +254,11 @@ export function computeRollUp(rows: RollUpRow[], currentOrderStatus: string, has
 export async function refreshOrderFulfillmentStatus(
     orderId: string,
 ): Promise<{ before: string; after: string; } | null> {
-    const o = await query<{ status: string; has_native: boolean; }>(
-        `SELECT o.status,
+    const o = await query<{
+        status: string; has_native: boolean; tracking_number: string | null; tracking_url: string | null;
+        carrier: string | null; tracking_manual: boolean | null;
+    }>(
+        `SELECT o.status, o.tracking_number, o.tracking_url, o.carrier, o.tracking_manual,
                 EXISTS (SELECT 1 FROM shop_order_items oi
                          WHERE oi.order_id = o.id AND oi.fulfillment_group = 'native') AS has_native
          FROM shop_orders o WHERE o.id = $1`,
@@ -257,19 +285,26 @@ export async function refreshOrderFulfillmentStatus(
         order.status,
         order.has_native,
     );
+    const next = mergeOrderTracking(
+        {
+            number: order.tracking_number, url: order.tracking_url, carrier: order.carrier,
+            manual: Boolean(order.tracking_manual,),
+        },
+        roll.tracking,
+    );
     await query(
         `UPDATE shop_orders
          SET fulfillment_status = $2,
              status = COALESCE($3, status),
-             tracking_number = COALESCE(tracking_number, $4),
-             tracking_url = COALESCE(tracking_url, $5),
-             carrier = COALESCE(carrier, $6)
+             tracking_number = $4,
+             tracking_url = $5,
+             carrier = $6
          WHERE id = $1
            AND (fulfillment_status IS DISTINCT FROM $2 OR $3::text IS NOT NULL
-                OR (tracking_number IS NULL AND $4::text IS NOT NULL)
-                OR (tracking_url IS NULL AND $5::text IS NOT NULL)
-                OR (carrier IS NULL AND $6::text IS NOT NULL))`,
-        [orderId, roll.fulfillmentStatus, roll.orderStatus, roll.tracking.number, roll.tracking.url, roll.tracking.carrier,],
+                OR tracking_number IS DISTINCT FROM $4
+                OR tracking_url IS DISTINCT FROM $5
+                OR carrier IS DISTINCT FROM $6)`,
+        [orderId, roll.fulfillmentStatus, roll.orderStatus, next.number, next.url, next.carrier,],
     );
     return { before: order.status, after: roll.orderStatus ?? order.status, };
 }

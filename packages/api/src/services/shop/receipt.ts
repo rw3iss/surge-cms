@@ -12,6 +12,7 @@
  */
 import PDFDocument from 'pdfkit';
 import type { ShopAddress, ShopOrderDetail, ShopSettings, } from '@sitesurge/types';
+import { resolveOrderShipments, shipmentText, } from '@sitesurge/types';
 
 /** Page geometry, in PDF points (72 per inch). */
 const MARGIN = 50;
@@ -191,15 +192,23 @@ export function renderOrderReceipt(
 
     // ── Footer ──
     y += 16;
-    if (order.trackingNumber) {
-        doc.font('Helvetica',).fontSize(9,).fillColor(MUTED,).text(
-            `Tracking: ${order.carrier ? `${order.carrier} · ` : ''}${order.trackingNumber}`,
+    // Every parcel, linked to its tracking page (PDF viewers open the link).
+    const shipments = order.shipments ?? resolveOrderShipments(order, [], settings?.tracking ?? null,);
+    for (const [i, s,] of shipments.entries()) {
+        const dates = [
+            s.shippedAt ? `shipped ${new Date(s.shippedAt,).toLocaleDateString('en-US',)}` : '',
+            s.deliveredAt ? `delivered ${new Date(s.deliveredAt,).toLocaleDateString('en-US',)}` : '',
+        ].filter(Boolean,).join(', ',);
+        const label = `${i === 0 ? 'Tracking: ' : '          '}${shipmentText(s,)}${dates ? ` (${dates})` : ''}`;
+        doc.font('Helvetica',).fontSize(9,).fillColor(s.url ? '#1d4ed8' : MUTED,).text(
+            label,
             MARGIN,
             y,
-            { width: CONTENT_WIDTH, },
+            { width: CONTENT_WIDTH, ...(s.url ? { link: s.url, underline: true, } : {}), },
         );
-        y = doc.y + 6;
+        y = doc.y + 4;
     }
+    if (shipments.length) y += 2;
     doc.font('Helvetica',).fontSize(9,).fillColor(MUTED,).text(
         'Thank you for your order.',
         MARGIN,

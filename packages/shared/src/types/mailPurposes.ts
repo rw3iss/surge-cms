@@ -257,6 +257,7 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
             { name: 'order.trackingNumber', description: 'Carrier tracking number, when known.', },
             { name: 'order.trackingUrl', description: 'Carrier tracking link, when known.', },
             { name: 'order.carrier', description: 'Carrier name, when known.', },
+            { name: 'order.trackingHtml', description: 'Every parcel as a linked line ("OnTrac · 1LSC…"), with shipped/delivered dates.', },
             { name: 'customer.name', description: "The buyer's name.", },
         ],
     },

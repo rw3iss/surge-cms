@@ -14,6 +14,7 @@ import { formatCents, formatDate, } from './shopUtils';
 import { createResource, } from 'solid-js';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import OrderTracking, { orderShipmentsOf, } from '../../../components/shop/OrderTracking';
 
 const ShopOrdersInner: Component = () => {
     const { searchParams, setSearchParams, } = useSearchFilter();
@@ -67,6 +68,7 @@ const ShopOrdersInner: Component = () => {
                                     <th>Total</th>
                                     <th>Status</th>
                                     <th>Fulfillment</th>
+                                    <th>Tracking</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -85,6 +87,11 @@ const ShopOrdersInner: Component = () => {
                                                 <span class={`badge ${getStatusBadgeClass(o.status,)}`}>{o.status}</span>
                                             </td>
                                             <td class="form-help-muted">{o.fulfillmentStatus}</td>
+                                            <td>
+                                                <Show when={orderShipmentsOf(o,).length} fallback={<span class="form-help-muted">—</span>}>
+                                                    <OrderTracking order={o} compact />
+                                                </Show>
+                                            </td>
                                         </tr>
                                     )}
                                 </For>

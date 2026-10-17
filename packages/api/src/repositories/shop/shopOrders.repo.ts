@@ -203,6 +203,9 @@ export interface OrderUpdateInput {
     status?: string;
     fulfillmentStatus?: string;
     trackingNumber?: string | null;
+    carrier?: string | null;
+    trackingUrl?: string | null;
+    trackingManual?: boolean;
     notes?: string | null;
     stripeChargeId?: string | null;
 }
@@ -223,6 +226,18 @@ export async function updateOrder(id: string, patch: OrderUpdateInput,): Promise
     if (patch.trackingNumber !== undefined) {
         values.push(patch.trackingNumber,);
         updates.push(`tracking_number = $${values.length}`,);
+    }
+    if (patch.carrier !== undefined) {
+        values.push(patch.carrier,);
+        updates.push(`carrier = $${values.length}`,);
+    }
+    if (patch.trackingUrl !== undefined) {
+        values.push(patch.trackingUrl,);
+        updates.push(`tracking_url = $${values.length}`,);
+    }
+    if (patch.trackingManual !== undefined) {
+        values.push(patch.trackingManual,);
+        updates.push(`tracking_manual = $${values.length}`,);
     }
     if (patch.notes !== undefined) {
         values.push(patch.notes,);

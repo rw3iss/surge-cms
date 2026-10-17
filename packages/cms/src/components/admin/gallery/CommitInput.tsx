@@ -13,6 +13,8 @@ export interface CommitInputProps {
     rows?: number;
     type?: 'text' | 'number' | 'url';
     id?: string;
+    /** Id of a `<datalist>` of suggestions (single-line only). */
+    list?: string;
 }
 
 export default function CommitInput(p: CommitInputProps,) {
@@ -40,6 +42,7 @@ export default function CommitInput(p: CommitInputProps,) {
                 id={p.id}
                 ref={(x,) => (el = x)}
                 type={p.type ?? 'text'}
+                list={p.list}
                 value={local()}
                 placeholder={p.placeholder}
                 onInput={(e,) => setLocal(e.currentTarget.value,)}

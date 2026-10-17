@@ -185,12 +185,14 @@ export async function defaultPurposeHtml(
         case 'shop_order_shipped': {
             const tn = pick(ctx, 'order.trackingNumber',);
             const tu = pick(ctx, 'order.trackingUrl',);
+            // order.trackingHtml is built by orderEmails from escaped values.
+            const th = pick(ctx, 'order.trackingHtml',);
             body = H('Your order has shipped',)
                 + greeting(name,)
                 + P(`Order <strong>${escapeHtml(pick(ctx, 'order.number',),)}</strong> is on its way.`,)
-                + (tn ? P(`Tracking: <strong>${escapeHtml(tn,)}</strong>`
+                + (th ? th : tn ? P(`Tracking: <strong>${escapeHtml(tn,)}</strong>`
                     + (pick(ctx, 'order.carrier',) ? ` (${escapeHtml(pick(ctx, 'order.carrier',),)})` : ''),) : '')
-                + (tu ? button(tu, 'Track your parcel',) : '');
+                + (!th && tu ? button(tu, 'Track your parcel',) : '');
             break;
         }
 

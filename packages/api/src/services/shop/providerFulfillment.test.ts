@@ -27,20 +27,30 @@ const query = vi.fn(async (sql: string, params: unknown[] = [],) => {
         };
         return { rows: [], };
     }
-    if (/SELECT o.status,\s+EXISTS/.test(sql,)) return { rows: [{ status: db.order.status, has_native: false, },], };
+    if (/SELECT o.status,[\s\S]*EXISTS/.test(sql,)) {
+        return {
+            rows: [{
+                status: db.order.status, has_native: false, tracking_number: db.order.tracking_number ?? null,
+                tracking_url: db.order.tracking_url ?? null, carrier: db.order.carrier ?? null,
+                tracking_manual: db.order.tracking_manual ?? false,
+            },],
+        };
+    }
     if (/SELECT status, shipments, tracking_numbers/.test(sql,)) return { rows: db.fulfil ? [db.fulfil,] : [], };
     if (/^UPDATE shop_orders/.test(sql.trim(),)) {
-        const [, fs, st, num,] = params;
+        const [, fs, st, num, url, carrier,] = params;
         db.order.fulfillment_status = fs;
         if (st) db.order.status = st;
-        if (!db.order.tracking_number && num) db.order.tracking_number = num;
+        db.order.tracking_number = num;
+        db.order.tracking_url = url;
+        db.order.carrier = carrier;
         return { rows: [], };
     }
     return { rows: [], };
 },);
 vi.mock('../../db', () => ({ query, }),);
 
-const { applyFulfilmentState, computeRollUp, } = await import('./providerFulfillment');
+const { applyFulfilmentState, computeRollUp, mergeOrderTracking, } = await import('./providerFulfillment');
 
 const shipment = (number: string, deliveredAt: string | null = null,) => ({
     carrier: 'ONTRAC', number, url: `https://t/${number}`, shippedAt: '2026-10-16T09:00:16.000Z', deliveredAt,
@@ -107,6 +117,24 @@ describe('applyFulfilmentState', () => {
         expect(db.writes,).toBe(1,);
     },);
 
+    it('never overwrites tracking an admin typed (tracking_manual)', async () => {
+        db.order.tracking_number = 'MINE';
+        db.order.tracking_url = 'https://mine.example/MINE';
+        db.order.carrier = 'UPS';
+        db.order.tracking_manual = true;
+        await applyFulfilmentState('o1', 'printify', 'pf1', state,);
+        expect(db.order,).toMatchObject({
+            status: 'shipped', tracking_number: 'MINE', tracking_url: 'https://mine.example/MINE', carrier: 'UPS',
+        },);
+    },);
+
+    it('replaces sync-written tracking with the supplier\'s latest first parcel', async () => {
+        db.order.tracking_number = 'OLD';
+        db.order.tracking_manual = false;
+        await applyFulfilmentState('o1', 'printify', 'pf1', state,);
+        expect(db.order,).toMatchObject({ tracking_number: 'A', tracking_url: 'https://t/A', carrier: 'ONTRAC', },);
+    },);
+
     it('links an order that has no supplier row yet', async () => {
         db.fulfil = null;
         const r = await applyFulfilmentState('o1', 'printify', 'pf9', state,);
@@ -118,5 +146,18 @@ describe('applyFulfilmentState', () => {
         const r = await applyFulfilmentState('o1', 'printify', 'pfOTHER', state,);
         expect(r.conflict,).toBe('pf1',);
         expect(db.writes,).toBe(0,);
+    },);
+},);
+
+describe('mergeOrderTracking', () => {
+    const supplier = { number: 'S1', url: 'https://s/S1', carrier: 'USPS', };
+    it('keeps manual columns', () => {
+        expect(mergeOrderTracking({ number: 'M', url: null, carrier: null, manual: true, }, supplier,),)
+            .toEqual({ number: 'M', url: null, carrier: null, },);
+    },);
+    it('fills empty columns and takes newer supplier values when not manual', () => {
+        expect(mergeOrderTracking({ number: null, url: null, carrier: null, manual: false, }, supplier,),).toEqual(supplier,);
+        expect(mergeOrderTracking({ number: 'X', url: 'https://x', carrier: 'UPS', manual: false, }, { number: null, url: null, carrier: null, },),)
+            .toEqual({ number: 'X', url: 'https://x', carrier: 'UPS', },);
     },);
 },);

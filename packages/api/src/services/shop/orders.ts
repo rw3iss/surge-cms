@@ -15,6 +15,7 @@ import { logAudit, } from '../audit';
 import { logger, } from '../../utils/logger';
 import * as repo from '../../repositories/shop/shopOrders.repo';
 import { sendBuyerReceipt, sendOrderStatusEmail, } from './orderEmails';
+import { attachShipments, attachShipmentsMany, } from './orderTracking';
 import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
 import type { AuditContext, ListResult, PaginationOpts, } from '../types';
@@ -55,7 +56,7 @@ export async function list(
 
     const result = await repo.findOrders(filters, { page, limit, },);
     return {
-        data: result.data,
+        data: await attachShipmentsMany(result.data,),
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
     };
 }
@@ -71,16 +72,18 @@ function assertOwnership(order: repo.OrderDetail, caller: OrderCaller,): void {
 export async function get(id: string, caller: OrderCaller,): Promise<repo.OrderDetail> {
     const order = await repo.findOrderById(id,);
     assertOwnership(order, caller,);
-    return order;
+    return attachShipments(order,);
 }
 
 /** Public confirmation view by order number. Anonymous callers get a
  *  limited projection (no addresses / stripe ids); admins get everything. */
 export async function getByNumber(orderNumber: string, isAdmin: boolean,): Promise<repo.OrderDetail | null> {
-    const order = await repo.findOrderByNumber(orderNumber,);
-    if (!order) return null;
+    const found = await repo.findOrderByNumber(orderNumber,);
+    if (!found) return null;
+    const order = await attachShipments(found,);
     if (isAdmin) return order;
-    // Limited public projection for the confirmation page.
+    // Limited public projection for the confirmation page (tracking stays —
+    // the buyer needs it, and it reveals no address).
     return {
         ...order,
         userId: null,
@@ -98,6 +101,10 @@ export interface OrderUpdatePatch {
     status?: string;
     fulfillmentStatus?: string;
     trackingNumber?: string | null;
+    carrier?: string | null;
+    trackingUrl?: string | null;
+    /** Defaults to true when any of carrier / trackingNumber / trackingUrl is sent. */
+    trackingManual?: boolean;
     notes?: string | null;
     /** When true AND the status actually changes, email the buyer about it. */
     notifyCustomer?: boolean;
@@ -116,6 +123,31 @@ async function refundOrder(order: repo.OrderDetail,): Promise<void> {
     await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, },);
 }
 
+const blankToNull = (v: string | null | undefined,): string | null | undefined =>
+    v === undefined ? undefined : (v?.trim() || null);
+
+/**
+ * The tracking part of an admin update. Typing any of carrier / number / URL
+ * marks the order-level tracking as manual (a supplier sync then leaves it
+ * alone) unless the caller says otherwise; `trackingManual: false` alone hands
+ * the columns back to the sync.
+ */
+export function trackingPatch(patch: OrderUpdatePatch,): Pick<
+    repo.OrderUpdateInput,
+    'trackingNumber' | 'carrier' | 'trackingUrl' | 'trackingManual'
+> {
+    const trackingNumber = blankToNull(patch.trackingNumber,);
+    const carrier = blankToNull(patch.carrier,);
+    const trackingUrl = blankToNull(patch.trackingUrl,);
+    const touched = trackingNumber !== undefined || carrier !== undefined || trackingUrl !== undefined;
+    return {
+        trackingNumber,
+        carrier,
+        trackingUrl,
+        trackingManual: patch.trackingManual ?? (touched ? true : undefined),
+    };
+}
+
 /**
  * Admin order update. Applies status/fulfillment/tracking/notes; a
  * transition to `refunded` also issues a Stripe refund (the DB status is
@@ -131,7 +163,7 @@ export async function update(id: string, patch: OrderUpdatePatch, ctx: AuditCont
     await repo.updateOrder(id, {
         status: patch.status,
         fulfillmentStatus: patch.fulfillmentStatus,
-        trackingNumber: patch.trackingNumber,
+        ...trackingPatch(patch,),
         notes: patch.notes,
     },);
 
@@ -145,7 +177,7 @@ export async function update(id: string, patch: OrderUpdatePatch, ctx: AuditCont
         userAgent: ctx.userAgent,
     },);
 
-    const updated = await repo.findOrderById(id,);
+    const updated = await attachShipments(await repo.findOrderById(id,),);
 
     // Opt-in buyer status-update email: only when requested AND the status
     // actually changed. Never throws (send helper swallows failures).
@@ -158,7 +190,7 @@ export async function update(id: string, patch: OrderUpdatePatch, ctx: AuditCont
 
 /** Re-send the receipt email for an order (admin). */
 export async function resendReceipt(id: string, ctx: AuditContext,): Promise<{ message: string; }> {
-    const order = await repo.findOrderById(id,);
+    const order = await attachShipments(await repo.findOrderById(id,),);
     await sendBuyerReceipt(order,);
     await logAudit({
         userId: ctx.userId,

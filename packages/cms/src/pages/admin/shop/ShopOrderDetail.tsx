@@ -14,6 +14,9 @@ import ShopGuard from './ShopGuard';
 import { formatCents, formatDate, } from './shopUtils';
 import { shipBreakdown, } from '../../shop/shopFormat';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import CommitInput from '../../../components/admin/gallery/CommitInput';
+import OrderTracking from '../../../components/shop/OrderTracking';
+import { carrierLabel, DEFAULT_CARRIER_TRACKING_TEMPLATES, } from '@sitesurge/types';
 
 const ORDER_STATUSES: ShopOrderStatus[] = [
     'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',
@@ -59,6 +62,8 @@ const ShopOrderDetailInner: Component = () => {
     const [status, setStatus,] = createSignal<ShopOrderStatus>('pending',);
     const [fulfillment, setFulfillment,] = createSignal<ShopFulfillmentStatus>('unfulfilled',);
     const [tracking, setTracking,] = createSignal('',);
+    const [carrier, setCarrier,] = createSignal('',);
+    const [trackingUrl, setTrackingUrl,] = createSignal('',);
     const [notes, setNotes,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
 
@@ -67,6 +72,8 @@ const ShopOrderDetailInner: Component = () => {
         setStatus(o.status,);
         setFulfillment(o.fulfillmentStatus,);
         setTracking(o.trackingNumber || '',);
+        setCarrier(o.carrier || '',);
+        setTrackingUrl(o.trackingUrl || '',);
         setNotes(o.notes || '',);
     };
     createEffect(() => {
@@ -74,7 +81,19 @@ const ShopOrderDetailInner: Component = () => {
         if (o) sync(o,);
     },);
 
-    const applyUpdate = async (extra?: Partial<{ status: ShopOrderStatus; notifyCustomer: boolean; }>,) => {
+    // Tracking is sent ONLY when an admin changed it: sending it marks the
+    // order's tracking as manual, so a supplier sync stops updating it.
+    const trackingChanges = (o: OrderDetail,) => {
+        const out: { trackingNumber?: string | null; carrier?: string | null; trackingUrl?: string | null; } = {};
+        if (tracking().trim() !== (o.trackingNumber ?? '')) out.trackingNumber = tracking().trim() || null;
+        if (carrier().trim() !== (o.carrier ?? '')) out.carrier = carrier().trim() || null;
+        if (trackingUrl().trim() !== (o.trackingUrl ?? '')) out.trackingUrl = trackingUrl().trim() || null;
+        return out;
+    };
+
+    const applyUpdate = async (
+        extra?: Partial<{ status: ShopOrderStatus; notifyCustomer: boolean; trackingManual: boolean; }>,
+    ) => {
         const o = order();
         if (!o) return;
         setBusy(true,);
@@ -82,7 +101,8 @@ const ShopOrderDetailInner: Component = () => {
             const updated = await cms.shop.orders.update(o.id, {
                 status: extra?.status ?? status(),
                 fulfillmentStatus: fulfillment(),
-                trackingNumber: tracking() || null,
+                ...trackingChanges(o,),
+                ...(extra?.trackingManual !== undefined ? { trackingManual: extra.trackingManual, } : {}),
                 notes: notes() || null,
                 notifyCustomer: extra?.notifyCustomer,
             },);
@@ -230,12 +250,57 @@ const ShopOrderDetailInner: Component = () => {
                                                 <For each={FULFILLMENT_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
                                             </select>
                                         </FormField>
-                                        <FormField label="Tracking number" class="form-field--block">
-                                            <input type="text" value={tracking()} onInput={(e,) => setTracking(e.currentTarget.value,)} />
-                                        </FormField>
                                         <FormField label="Notes" class="form-field--block">
                                             <textarea rows={3} value={notes()} onInput={(e,) => setNotes(e.currentTarget.value,)} />
                                         </FormField>
+                                    </div>
+
+                                    <div class="shop-order__panel shop-order__tracking-panel">
+                                        <h3>Tracking</h3>
+                                        <Show
+                                            when={(o().shipments ?? []).length}
+                                            fallback={<p class="form-help-muted">No tracking yet.</p>}
+                                        >
+                                            <OrderTracking order={o()} showSource />
+                                        </Show>
+                                        <FormField
+                                            label="Carrier"
+                                            class="form-field--block"
+                                            hint={carrier().trim() && carrierLabel(carrier(),) !== carrier().trim()
+                                                ? `Shown as “${carrierLabel(carrier(),)}”`
+                                                : undefined}
+                                        >
+                                            <CommitInput value={carrier()} onCommit={setCarrier} list="shop-order-carriers" placeholder="e.g. USPS" />
+                                        </FormField>
+                                        <datalist id="shop-order-carriers">
+                                            <For each={DEFAULT_CARRIER_TRACKING_TEMPLATES}>
+                                                {(t,) => <option value={t.carrier}>{carrierLabel(t.carrier,)}</option>}
+                                            </For>
+                                        </datalist>
+                                        <FormField label="Tracking number" class="form-field--block">
+                                            <CommitInput value={tracking()} onCommit={setTracking} />
+                                        </FormField>
+                                        <FormField
+                                            label="Tracking URL"
+                                            class="form-field--block"
+                                            hint="Empty = the supplier's link, else the carrier template from Shop Settings → Order tracking."
+                                        >
+                                            <CommitInput value={trackingUrl()} onCommit={setTrackingUrl} type="url" placeholder="https://…" />
+                                        </FormField>
+                                        <Show
+                                            when={o().trackingManual}
+                                            fallback={<p class="form-help-muted">Editing these marks them as manual, so a supplier sync won't change them.</p>}
+                                        >
+                                            <p class="form-help-muted">Entered by hand — a supplier sync won't change these.</p>
+                                            <button
+                                                type="button"
+                                                class="ui-button ui-button--secondary ui-button--sm"
+                                                disabled={busy()}
+                                                onClick={() => void applyUpdate({ trackingManual: false, },)}
+                                            >
+                                                Let the supplier sync update tracking
+                                            </button>
+                                        </Show>
                                     </div>
 
                                     <div class="shop-order__panel">

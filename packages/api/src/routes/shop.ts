@@ -32,6 +32,7 @@ import * as catalog from '../services/shop/catalog';
 import * as checkout from '../services/shop/checkout';
 import * as merchAnnounce from '../services/shop/merchandiseAnnounce';
 import * as orders from '../services/shop/orders';
+import { requirePermission, } from '../services/permissions';
 import * as products from '../services/shop/products';
 import * as providerWebhooks from '../services/shop/providers/webhooks';
 import * as reviews from '../services/shop/reviews';
@@ -230,7 +231,10 @@ const downloadParams = z.object({ orderNumber: z.string(), token: z.string(), },
 const orderUpdateSchema = z.object({
     status: z.enum(['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',],).optional(),
     fulfillmentStatus: z.enum(['unfulfilled', 'partial', 'fulfilled',],).optional(),
-    trackingNumber: z.string().nullish(),
+    trackingNumber: z.string().max(128,).nullish(),
+    carrier: z.string().max(64,).nullish(),
+    trackingUrl: z.string().trim().max(1000,).refine((v,) => v === '' || /^https?:\/\//i.test(v,), 'Tracking URL must start with http:// or https://',).nullish(),
+    trackingManual: z.boolean().optional(),
     notes: z.string().nullish(),
     notifyCustomer: z.boolean().optional(),
 },) satisfies z.ZodType<ShopOrderUpdateBody>;
@@ -261,6 +265,13 @@ const shopSettingsPatch = z.object({
     storefrontMode: z.enum(['builtin', 'page',],).optional(),
     orderEmailDisplay: z.enum(['combined', 'grouped',],).optional(),
     adminNotificationDisplay: z.enum(['combined', 'grouped',],).optional(),
+    tracking: z.object({
+        useSupplierLinks: z.boolean().optional(),
+        carriers: z.array(z.object({
+            carrier: z.string().trim().min(1,).max(64,),
+            urlTemplate: z.string().trim().max(500,).regex(/^https?:\/\//i, 'Tracking URL templates must start with http:// or https://',),
+        },),).max(50,).optional(),
+    },).optional(),
 },);
 
 const shopAppearancePatch = z.object({
@@ -864,9 +875,13 @@ export const shopRoutes = [
         path: '/orders/:id',
         auth: 'admin',
         summary:
-            'Update an order (admin): status/fulfillment/tracking/notes. Transition to refunded issues a Stripe refund.',
+            'Update an order (admin, shop.orders:write): status/fulfillment/notes and the manual carrier/tracking number/tracking URL (marks tracking manual so a supplier sync keeps it). Transition to refunded issues a Stripe refund.',
         input: { params: idParams, body: orderUpdateSchema, },
-        handler: ({ params, body, audit, },) => orders.update(params.id, body, audit(),),
+        handler: async ({ params, body, user, audit, },) => {
+            // API keys are scoped by the key itself; a signed-in admin needs the permission.
+            if (user) await requirePermission({ id: user.id, role: user.role, }, 'shop.orders:write',);
+            return orders.update(params.id, body, audit(),);
+        },
     },),
 
     // Resend the receipt email (admin).

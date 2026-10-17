@@ -7,6 +7,10 @@ vi.mock('./orderEmails', () => ({
     sendBuyerReceipt: (...a: unknown[]) => sendBuyerReceiptMock(...a),
     sendOrderStatusEmail: (...a: unknown[]) => sendOrderStatusEmailMock(...a),
 }),);
+vi.mock('./orderTracking', () => ({
+    attachShipments: async (o: unknown,) => o,
+    attachShipmentsMany: async (o: unknown,) => o,
+}),);
 vi.mock('../../config', () => ({ config: { stripe: { secretKey: undefined, }, frontendUrl: '', }, }),);
 
 const findOrdersMock = vi.fn().mockResolvedValue({ data: [], total: 0, });
@@ -116,5 +120,22 @@ describe('shop orders service — status-update email on admin update', () => {
         await orders.update('o1', { trackingNumber: 'T1', notifyCustomer: true, }, auditCtx,);
 
         expect(sendOrderStatusEmailMock,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('trackingPatch — manual tracking', () => {
+    it('marks tracking manual when any tracking field is sent, blank → null', () => {
+        expect(orders.trackingPatch({ trackingNumber: ' 1Z9 ', carrier: '', },),).toEqual({
+            trackingNumber: '1Z9', carrier: null, trackingUrl: undefined, trackingManual: true,
+        },);
+    },);
+    it('leaves tracking alone when none is sent', () => {
+        expect(orders.trackingPatch({ notes: 'x', },),).toEqual({
+            trackingNumber: undefined, carrier: undefined, trackingUrl: undefined, trackingManual: undefined,
+        },);
+    },);
+    it('honours an explicit trackingManual: false (hand back to the sync)', () => {
+        expect(orders.trackingPatch({ trackingManual: false, },).trackingManual,).toBe(false,);
+        expect(orders.trackingPatch({ trackingUrl: 'https://t.example/1', trackingManual: false, },).trackingManual,).toBe(false,);
     },);
 },);

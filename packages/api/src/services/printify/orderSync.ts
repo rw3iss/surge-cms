@@ -393,7 +393,8 @@ async function handleBuyerEmail(
     }
     const { findOrderById, } = await import('../../repositories/shop/shopOrders.repo.js');
     const { sendOrderStatusEmail, } = await import('../shop/orderEmails.js');
-    await sendOrderStatusEmail(await findOrderById(ref.orderId,),);
+    const { attachShipments, } = await import('../shop/orderTracking.js');
+    await sendOrderStatusEmail(await attachShipments(await findOrderById(ref.orderId,),),);
     result.customerEmailsSent++;
 }
 

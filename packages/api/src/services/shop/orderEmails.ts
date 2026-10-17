@@ -21,7 +21,15 @@ import { getShopSettings, } from './settings';
 import { getPublicSettings, } from '../settings';
 import { buildNotification, getNotificationSettings, notify, notifyUser, personLabel, } from '../notifications';
 import { logger, } from '../../utils/logger';
-import { formatCurrency, type ShopAddress, } from '@sitesurge/types';
+import {
+    formatCurrency,
+    resolveOrderShipments,
+    shipmentText,
+    type ShopAddress,
+    type ShopOrderShipment,
+    type ShopTrackingSettings,
+} from '@sitesurge/types';
+import { escapeHtml, } from '../../utils/html';
 import { wrapEmailShell, } from '../mail/shell';
 import { formatAddressLines, } from './address';
 import type { OrderDetail, } from '../../repositories/shop/shopOrders.repo';
@@ -38,6 +46,38 @@ export interface OrderEmailContext {
     businessName: string;
     frontendUrl: string;
     currency: string;
+    /** Shop → Order tracking settings, for orders read without `shipments`. */
+    tracking?: ShopTrackingSettings | null;
+}
+
+/** The order's parcels: the server-resolved list when attached, else built
+ *  from the order-level columns alone. */
+export function orderShipments(order: OrderDetail, ctx?: Pick<OrderEmailContext, 'tracking'>,): ShopOrderShipment[] {
+    return order.shipments ?? resolveOrderShipments(order, [], ctx?.tracking ?? null,);
+}
+
+const shortDate = (iso: string | null,): string =>
+    iso ? new Date(iso,).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', },) : '';
+
+/** One line per parcel: "OnTrac · 1LSC…" linked to its tracking page, plus
+ *  shipped / delivered dates when known. Empty when there is no tracking. */
+export function renderShipmentsHtml(shipments: ShopOrderShipment[],): string {
+    if (!shipments.length) return '';
+    const rows = shipments.map((s,) => {
+        const text = escapeHtml(shipmentText(s,),);
+        const link = s.url
+            ? `<a href="${escapeHtml(s.url,)}" target="_blank" rel="noopener" style="color:#e63946;">${text}</a>`
+            : `<strong>${text}</strong>`;
+        const dates = [
+            s.shippedAt ? `shipped ${escapeHtml(shortDate(s.shippedAt,),)}` : '',
+            s.deliveredAt ? `delivered ${escapeHtml(shortDate(s.deliveredAt,),)}` : '',
+        ].filter(Boolean,).join(', ',);
+        return `<div style="margin:4px 0;">${link}${dates ? ` <span style="${MUTED}">(${dates})</span>` : ''}</div>`;
+    },).join('',);
+    const title = shipments.length > 1 ? 'Tracking (one link per parcel)' : 'Tracking';
+    return `<div style="margin:12px 0;padding:12px;background:#f3f4f6;border-radius:6px;">
+               <div style="margin-bottom:4px;"><strong>${title}</strong></div>${rows}
+           </div>`;
 }
 
 // ─── Formatting utilities ──────────────────────────────────────────
@@ -240,6 +280,7 @@ export function buildBuyerConfirmation(order: OrderDetail, ctx: OrderEmailContex
         <p>Thank you for your order! Here's a summary of what you purchased.</p>
         ${renderItemsTable(order, { grouped: ctx.groupItems === true, },)}
         ${renderTotals(order,)}
+        ${renderShipmentsHtml(orderShipments(order, ctx,),)}
         ${renderAddresses(order,)}
         ${renderReceiptButton(order, ctx.frontendUrl,)}
     `;
@@ -296,11 +337,9 @@ export function buildStatusUpdate(
 ): BuiltEmail {
     const phrase = statusPhrase(order.status,);
 
-    const tracking = order.status === 'shipped' && order.trackingNumber
-        ? `<p style="margin:12px 0;padding:12px;background:#f3f4f6;border-radius:6px;">
-               <strong>Tracking number:</strong> ${order.trackingNumber}
-           </p>`
-        : '';
+    const tracking = order.status === 'cancelled' || order.status === 'refunded'
+        ? ''
+        : renderShipmentsHtml(orderShipments(order, ctx,),);
 
     const body = `
         <p>Your order <strong>${order.orderNumber}</strong> is now <strong>${phrase}</strong>.</p>
@@ -328,18 +367,20 @@ async function buildContext(order: OrderDetail,): Promise<OrderEmailContext> {
     // the receipt that the checkout never showed is worse than not showing it.
     let groupItems = false;
     let groupItemsForAdmin = true;
+    let tracking: ShopTrackingSettings | null = null;
     try {
         const shop = await getShopSettings();
         businessName = shop.businessName || '';
         currency = order.currency || shop.currency || 'usd';
         groupItems = shop.cartDisplay === 'grouped' && shop.orderEmailDisplay === 'grouped';
+        tracking = shop.tracking ?? null;
         groupItemsForAdmin = shop.adminNotificationDisplay !== 'combined';
     } catch (err) {
         logger.warn('Could not load shop settings for order email', { error: err, },);
     }
     return {
         businessName, frontendUrl: config.frontendUrl ?? '', currency,
-        groupItems, groupItemsForAdmin,
+        groupItems, groupItemsForAdmin, tracking,
     };
 }
 
@@ -361,15 +402,21 @@ async function getSellerEmail(): Promise<string | null> {
  * than raw data: a custom template almost always wants the table as-is, and
  * rebuilding it out of loops in the block editor would be miserable.
  */
-function purposeContext(order: OrderDetail, itemsHtml: string,): Record<string, unknown> {
+function purposeContext(order: OrderDetail, itemsHtml: string, ctx?: OrderEmailContext,): Record<string, unknown> {
+    const shipments = orderShipments(order, ctx,);
+    const first = shipments[0];
     return {
         order: {
             number: order.orderNumber,
             total: formatMoney(order.totalCents, order.currency,),
             status: order.status ?? '',
-            trackingNumber: order.trackingNumber ?? '',
-            trackingUrl: order.trackingUrl ?? '',
-            carrier: order.carrier ?? '',
+            // The first parcel, resolved (friendly carrier name + the link to use).
+            trackingNumber: first?.number ?? order.trackingNumber ?? '',
+            trackingUrl: first?.url ?? '',
+            carrier: first?.carrierLabel ?? order.carrier ?? '',
+            /** Every parcel as linked lines (empty when no tracking yet). */
+            trackingHtml: renderShipmentsHtml(shipments,),
+            shipments,
             itemsHtml,
         },
         customer: { name: order.customerName ?? '', email: order.customerEmail, },
@@ -385,7 +432,7 @@ export async function sendBuyerReceipt(order: OrderDetail,): Promise<void> {
             to: order.customerEmail,
             defaultSubject: mail.subject,
             defaultHtml: mail.html,
-            context: purposeContext(order, mail.html,),
+            context: purposeContext(order, mail.html, ctx,),
         },);
     } catch (err) {
         logger.error('Failed to send buyer order confirmation', { orderNumber: order.orderNumber, error: err, },);
@@ -407,7 +454,7 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
             to: order.customerEmail,
             defaultSubject: mail.subject,
             defaultHtml: mail.html,
-            context: purposeContext(order, mail.html,),
+            context: purposeContext(order, mail.html, ctx,),
         },);
     } catch (err) {
         logger.error('Failed to send buyer order confirmation', { orderNumber: order.orderNumber, error: err, },);
@@ -425,7 +472,7 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
         },);
         void notify('shop_order', {
             purpose: 'shop_order_admin',
-            context: purposeContext(order, mail.html,),
+            context: purposeContext(order, mail.html, ctx,),
             subject: mail.subject,
             html: mail.html,
             text: mail.text,
@@ -445,7 +492,7 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
                     to: seller,
                     defaultSubject: mail.subject,
                     defaultHtml: mail.html,
-                    context: purposeContext(order, mail.html,),
+                    context: purposeContext(order, mail.html, ctx,),
                 },);
             }
         }
@@ -503,7 +550,7 @@ export async function sendOrderStatusEmail(order: OrderDetail, prevStatus?: stri
             to: order.customerEmail,
             defaultSubject: mail.subject,
             defaultHtml: mail.html,
-            context: purposeContext(order, mail.html,),
+            context: purposeContext(order, mail.html, ctx,),
         },);
     } catch (err) {
         logger.error('Failed to send order status update', { orderNumber: order.orderNumber, error: err, },);

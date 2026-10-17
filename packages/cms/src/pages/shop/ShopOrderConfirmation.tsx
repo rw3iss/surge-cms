@@ -6,6 +6,7 @@ import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import ShopStoreGuard from './ShopStoreGuard';
 import { money, shipBreakdown, } from './shopFormat';
+import OrderTracking from '../../components/shop/OrderTracking';
 import './shop.scss';
 
 /**
@@ -99,16 +100,7 @@ const ShopOrderConfirmationInner: Component = () => {
                                         Download receipt
                                     </a>
                                 </div>
-                                <Show when={o().trackingNumber}>
-                                    <p class="shop-order__tracking">
-                                        Tracking: {o().carrier ? `${o().carrier} · ` : ''}
-                                        <Show when={o().trackingUrl} fallback={<strong>{o().trackingNumber}</strong>}>
-                                            <a href={o().trackingUrl!} target="_blank" rel="noopener noreferrer">
-                                                {o().trackingNumber}
-                                            </a>
-                                        </Show>
-                                    </p>
-                                </Show>
+                                <OrderTracking order={o()} label="Tracking" class="shop-order__tracking" />
                             </header>
 
                             <div class="shop-order__items">

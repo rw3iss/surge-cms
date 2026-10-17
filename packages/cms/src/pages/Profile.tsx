@@ -14,6 +14,7 @@ import Toggle from '../components/ui/Toggle';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { isFeatureEnabled, siteSettings, } from '../stores/siteSettings';
+import OrderTracking from '../components/shop/OrderTracking';
 import './Profile.scss';
 
 const BIO_MAX = 250;
@@ -727,6 +728,7 @@ const Profile: Component = () => {
                                     <ul class="profile__orders">
                                         <For each={orders()}>
                                             {(o,) => (
+                                                <li class="profile__order-row">
                                                 <A href={`/shop/orders/${o.orderNumber}`} class="profile__order">
                                                     <div class="profile__order-main">
                                                         <span class="profile__order-number">{o.orderNumber}</span>
@@ -737,6 +739,8 @@ const Profile: Component = () => {
                                                         <span class="profile__order-total">{formatCurrency(o.totalCents, o.currency,)}</span>
                                                     </div>
                                                 </A>
+                                                <OrderTracking order={o} compact class="profile__order-tracking" />
+                                                </li>
                                             )}
                                         </For>
                                     </ul>

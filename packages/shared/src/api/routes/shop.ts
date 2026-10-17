@@ -525,6 +525,16 @@ export interface ShopOrderUpdateBody {
     status?: ShopOrderStatus;
     fulfillmentStatus?: ShopFulfillmentStatus;
     trackingNumber?: string | null;
+    /** Carrier code / name (e.g. `USPS`, `ONTRAC`). */
+    carrier?: string | null;
+    /** A tracking link that overrides the supplier's and the carrier template. */
+    trackingUrl?: string | null;
+    /**
+     * Mark the order-level carrier / number / URL as typed by an admin, so a
+     * supplier sync leaves them alone. Sending any of the three sets it to true
+     * unless given; send `false` to hand them back to the supplier sync.
+     */
+    trackingManual?: boolean;
     notes?: string | null;
     /** When true AND the status changes, email the buyer about the update. */
     notifyCustomer?: boolean;

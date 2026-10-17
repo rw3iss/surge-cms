@@ -210,12 +210,39 @@ export interface ShopOrder {
     /** Tracking URL + carrier — synced back from Printify shipments. */
     trackingUrl?: string | null;
     carrier?: string | null;
+    /** True once an admin typed the order-level carrier / number / URL — a
+     *  supplier sync then leaves those three columns alone. */
+    trackingManual?: boolean;
+    /**
+     * Every parcel, resolved for display (carrier label + the link to use) —
+     * attached by the server on order reads, so every surface shows the same
+     * thing. Empty when the order has no tracking yet.
+     */
+    shipments?: ShopOrderShipment[];
     /** Printify order id + status when the order was fulfilled by Printify. */
     printifyOrderId?: string | null;
     printifyStatus?: string | null;
     notes?: string | null;
     createdAt: string;
     updatedAt: string;
+}
+
+/** One parcel of an order, resolved for display (see `resolveOrderShipments`). */
+export interface ShopOrderShipment {
+    /** The raw carrier code as the supplier / admin gave it (e.g. `DHL_eCommerce_Expedited`). */
+    carrier: string | null;
+    /** Friendly carrier name (`DHL eCommerce Expedited`). Null when unknown. */
+    carrierLabel: string | null;
+    number: string | null;
+    /** The tracking link to show, after the precedence rules. Null = none. */
+    url: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    /** `manual` = typed by an admin, `supplier` = a supplier parcel,
+     *  `order` = the order-level columns of an older order. */
+    source: 'manual' | 'supplier' | 'order';
+    /** The supplier that shipped it (`printify`, …) when known. */
+    provider?: string | null;
 }
 
 export interface ShopOrderItem {
@@ -281,6 +308,24 @@ export interface ShopShippingRate {
     priceCents: number;
 }
 
+/** One carrier → tracking-page URL template (`{number}` is replaced). */
+export interface ShopCarrierTrackingTemplate {
+    /** Carrier code as suppliers send it (`USPS`, `ONTRAC`, `DHL_ECOMMERCE`). Matched
+     *  case- and punctuation-insensitively; a longer code wins over a prefix. */
+    carrier: string;
+    urlTemplate: string;
+}
+
+/** Shop settings → Order tracking. */
+export interface ShopTrackingSettings {
+    /** Use the supplier's own tracking link when it has one (default true);
+     *  false = always build the link from `carriers`. */
+    useSupplierLinks?: boolean;
+    /** Carrier link templates. Unset = the built-in defaults
+     *  (`DEFAULT_CARRIER_TRACKING_TEMPLATES`); an empty list = none. */
+    carriers?: ShopCarrierTrackingTemplate[];
+}
+
 export interface ShopSettings {
     currency: string;
     /**
@@ -339,6 +384,8 @@ export interface ShopSettings {
     /** The seller notification. Defaults to `grouped`: the operator needs the
      *  fulfilment breakdown even when the buyer is shown one list. */
     adminNotificationDisplay?: 'combined' | 'grouped';
+    /** Order tracking links (carrier templates + supplier-link preference). */
+    tracking?: ShopTrackingSettings;
 }
 
 export interface ShopAppearance {

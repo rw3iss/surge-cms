@@ -17,6 +17,7 @@ import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import StripeKeysEditor from '../../../components/admin/StripeKeysEditor';
 import { centsToDollars, dollarsToCents, } from './shopUtils';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import OrderTrackingSettings from './OrderTrackingSettings';
 
 type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'emails' | 'providers';
 const TABS: { key: Tab; label: string; }[] = [
@@ -116,6 +117,23 @@ const ShopSettingsInner: Component = () => {
                     merchandiseSignupAddContact: settings.merchandiseSignupAddContact,
                     stripeTaxEnabled: settings.stripeTaxEnabled,
                     shipping,
+                    // These four live on the Appearance / General tabs and were
+                    // missing from the save, so changing them never stuck.
+                    storefrontMode: settings.storefrontMode,
+                    cartDisplay: settings.cartDisplay,
+                    orderEmailDisplay: settings.orderEmailDisplay,
+                    adminNotificationDisplay: settings.adminNotificationDisplay,
+                    ...(settings.tracking
+                        ? {
+                            tracking: {
+                                useSupplierLinks: settings.tracking.useSupplierLinks,
+                                // Unset = built-in defaults; half-typed rows are dropped.
+                                carriers: settings.tracking.carriers
+                                    ?.filter((c,) => c.carrier.trim() && /^https?:\/\/./i.test(c.urlTemplate.trim(),))
+                                    .map((c,) => ({ carrier: c.carrier.trim(), urlTemplate: c.urlTemplate.trim(), })),
+                            },
+                        }
+                        : {}),
                 },
                 appearance: { ...appearance, },
             },);
@@ -230,6 +248,8 @@ const ShopSettingsInner: Component = () => {
                             <FormField label="Free shipping threshold" hint="Orders at/above this subtotal ship free.">
                                 <input type="text" inputmode="decimal" placeholder="0.00" value={freeThreshold()} onInput={(e,) => setFreeThreshold(e.currentTarget.value,)} />
                             </FormField>
+
+                            <OrderTrackingSettings settings={settings} setSettings={setSettings} />
                         </Show>
 
                         <Show when={tab() === 'appearance'}>

@@ -147,6 +147,22 @@ describe('orderEmails — formatting utilities', () => {
         expect(mail.html,).toContain('shipped',);
         expect(mail.html,).toContain('TRK-9',);
     },);
+
+    it('buildStatusUpdate lists every parcel with its carrier name and link', () => {
+        const o = order({
+            status: 'shipped',
+            shipments: [
+                { carrier: 'ONTRAC', carrierLabel: 'OnTrac', number: 'D1', url: 'https://www.ontrac.com/tracking/?number=D1',
+                    shippedAt: '2026-10-15T12:00:00.000Z', deliveredAt: null, source: 'supplier', },
+                { carrier: 'USPS', carrierLabel: 'USPS', number: '94<x>', url: null, shippedAt: null, deliveredAt: null, source: 'supplier', },
+            ],
+        },);
+        const mail = buildStatusUpdate(o, { businessName: 'Acme', frontendUrl: '', currency: 'usd', },);
+        expect(mail.html,).toContain('href="https://www.ontrac.com/tracking/?number=D1"',);
+        expect(mail.html,).toContain('OnTrac · D1',);
+        expect(mail.html,).toContain('USPS · 94&lt;x&gt;',);
+        expect(mail.html,).toContain('shipped Oct 15, 2026',);
+    },);
 },);
 
 describe('orderEmails — send helpers', () => {

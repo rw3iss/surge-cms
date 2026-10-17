@@ -1201,3 +1201,50 @@
     font-weight: 700;
     color: $primary-color;
 }
+
+// Shop Settings → Shipping → Order tracking (OrderTrackingSettings.tsx).
+.shop-tracking-settings {
+    margin-top: $spacing-xl;
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: minmax(8rem, 12rem) 1fr auto;
+        gap: $spacing-sm;
+        align-items: start;
+    }
+
+    &__carrier,
+    &__template {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+
+        input {
+            width: 100%;
+        }
+
+        .form-help-muted {
+            font-size: 0.75rem;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: $spacing-sm;
+        margin-top: $spacing-sm;
+    }
+}
+
+.shop-order__tracking-panel {
+    .order-tracking {
+        margin-bottom: $spacing-sm;
+    }
+}

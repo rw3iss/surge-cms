@@ -27,3 +27,4 @@ export * from './htmlSample';
 export * from './postTypes';
 export * from './videoFile';
 export * from './accessDenied';
+export * from './shipmentTracking';

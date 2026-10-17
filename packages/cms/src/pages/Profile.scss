@@ -215,6 +215,17 @@
         gap: 0.5rem;
     }
 
+    &__order-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    &__order-tracking {
+        padding: 0 1rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
     &__order {
         display: flex;
         justify-content: space-between;
