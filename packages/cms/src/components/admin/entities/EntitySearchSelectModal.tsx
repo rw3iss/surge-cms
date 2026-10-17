@@ -208,6 +208,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         }),);
 
     let searchTimer: ReturnType<typeof setTimeout>;
+    /** id → position under the CURRENT sort/filter/search (reset when those change). */
+    const serverRank = new Map<string, number>();
+    let rankKeyCur = '';
 
     /**
      * Commit a clause's value. Called on BLUR (and Enter), not per keystroke —
@@ -415,6 +418,12 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             const res = await cms.entities.list(props.entityType, query, { cache: false, },);
             if (seq !== fetchSeq) return;
             setItems(res.data ?? [],);
+            // Remember each record's position in THIS sort (server order), so a
+            // save keeps exactly the order the list showed — a client-side
+            // re-sort can disagree (equal values, server-only sort keys).
+            const rankKey = JSON.stringify([query.sortBy ?? '', query.sortOrder ?? '', query.search ?? '', query.filter ?? null,],);
+            if (rankKey !== rankKeyCur) { rankKeyCur = rankKey; serverRank.clear(); }
+            (res.data ?? []).forEach((rec, i,) => serverRank.set(String(rec.id,), (page() - 1) * PAGE_LIMIT + i,),);
             setKnown((k,) => {
                 const next = { ...k, };
                 for (const r of res.data ?? []) next[String(r.id,)] = r;
@@ -517,7 +526,17 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         const field = sortBy() || 'createdAt';
         const dir = sortOrder() === 'asc' ? 1 : -1;
         const val = (ref: string,) => (known()[ref] as Record<string, unknown> | undefined)?.[field];
+        const rankOf = (ref: string,) => {
+            const id = (known()[ref] as { id?: unknown; } | undefined)?.id;
+            return serverRank.get(String(id ?? ref,),);
+        };
         return [...refs,].sort((a, b,) => {
+            // First: the position the list SHOWED (the server's sort).
+            const ra = rankOf(a,), rb = rankOf(b,);
+            if (ra !== undefined && rb !== undefined) return ra - rb;
+            if (ra !== undefined) return -1;
+            if (rb !== undefined) return 1;
+            // Not on any page loaded under this sort: compare the field here.
             const va = val(a,), vb = val(b,);
             if (va == null && vb == null) return 0;
             if (va == null) return 1;
