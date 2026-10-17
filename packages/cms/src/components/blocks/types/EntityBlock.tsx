@@ -4,13 +4,14 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import type { Block, EntityRecord, TemplateSlotContext, } from '@sitesurge/types';
+import type { Block, EntityRecord, TemplateSlot, TemplateSlotContext, } from '@sitesurge/types';
 import { Component, For, Show, createResource, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { buildBlockTree, } from '@sitesurge/types';
 import { type TplCtx, } from './shared';
 import { mapTemplateBlocks, resolveRecords, } from '../../../services/entityBinding';
 import { renderEntityTemplateSlide, } from './TemplateBlock';
+import { slotContextOf, } from '../slotContext';
 
 export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const settings = () => (props.block.settings?.entity ?? null) as
@@ -26,13 +27,21 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
         async (input) => {
             const { s, ctx, } = input;
             const tpl = await cms.contentBlockTemplates.getOne(s.entityType, s.templateId,).catch(() => null);
-            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, slots: undefined, };
+            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, tplSlots: [] as TemplateSlot[], };
             const recs = await resolveRecords(s.entityType, s.binding, tpl.maxRecords, ctx,);
             const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
-            // The template's slots, filled by THIS block's `settings.entity.slots`.
-            const slots: TemplateSlotContext = { slots: tpl.slots ?? [], bindings: s.slots ?? {}, };
-            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, slots, };
+            // The template's slot DEFINITIONS come with the template; the
+            // bindings are read LIVE below, so setting a slot's data in the
+            // panel re-renders without refetching the template.
+            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, tplSlots: tpl.slots ?? [], };
         },
+    );
+
+    // This block's `settings.entity.slots`, read through accessors so a changed
+    // binding reaches the slot-reading blocks inside (they re-resolve on it).
+    const slotCtx: TemplateSlotContext = slotContextOf(
+        () => resolved.latest?.tplSlots,
+        () => settings()?.slots,
     );
 
     const layout = () => settings()?.layout ?? 'stack';
@@ -46,7 +55,7 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
                         entityType: r().entityType,
                         record: rec as EntityRecord,
                         ctx: props.ctx,
-                        slots: r().slots,
+                        slots: slotCtx,
                     },);
                 return (
                     <Show
